@@ -18,7 +18,7 @@ class VerifiedObjectContextMenuNativeAccessTest {
     void resolvesPaletteAndWorkspaceSelectionsAndAppendsNativeItems() {
         final VerifiedMemberResolver resolver = resolver();
         final VerifiedObjectContextMenuNativeAccess access =
-                new VerifiedObjectContextMenuNativeAccess(resolver, 9, "document-a");
+                new VerifiedObjectContextMenuNativeAccess(resolver, 9, () -> "document-a");
 
         assertEquals(
                 List.of(

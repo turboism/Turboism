@@ -48,7 +48,7 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
         if (!settings.init(context.config()).toCompletableFuture().join()) {
             throw new IllegalStateException("Atlas Dalsoo configuration schema registration failed.");
         }
-        // context.logger().info("Atlas Dalsoo polygon packing initialized");
+        context.logger().info("Atlas Dalsoo polygon packing initialized");
     }
 
     @Override
@@ -62,7 +62,7 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
         composeServices();
         System.getProperties().putIfAbsent(NATIVE_AUTO_LAYOUT_CALLBACK_KEY, nativeAutoLayoutCallback);
         publishDialogState();
-        // context.logger().info("Atlas Dalsoo polygon packing enabled");
+        context.logger().info("Atlas Dalsoo polygon packing enabled");
     }
 
     private void registerAlgorithm() {

@@ -23,6 +23,10 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
     private final WarpAltMirrorNativeMethodTransformer transformer;
     private final String pointMoveClassName;
     private final String dragTickClassName;
+    private final String weightWriteClassName;
+    private final String greenTickClassName;
+    private final String actionDispatchClassName;
+    private final String inputIngressClassName;
     private final Consumer<String> diagnostic;
     private final Object lifecycleLock = new Object();
     private boolean installed;
@@ -64,6 +68,10 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
                 this::report);
         this.pointMoveClassName = profile.pointMoveOwner().replace('/', '.');
         this.dragTickClassName = profile.dragTickOwner().replace('/', '.');
+        this.weightWriteClassName = profile.weightWriteOwner().replace('/', '.');
+        this.greenTickClassName = profile.greenTickOwner().replace('/', '.');
+        this.actionDispatchClassName = profile.actionDispatchOwner().replace('/', '.');
+        this.inputIngressClassName = profile.inputIngressOwner().replace('/', '.');
     }
 
     /** Installs the transformer during premain; it intentionally stays unbound. */
@@ -114,7 +122,10 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
                 if (loader == null) {
                     throw new IllegalStateException("warp alt mirror host loader is not admitted");
                 }
-                for (final String name : List.of(pointMoveClassName, dragTickClassName)) {
+                for (final String name : List.of(
+                        pointMoveClassName, dragTickClassName,
+                        weightWriteClassName, greenTickClassName,
+                        actionDispatchClassName, inputIngressClassName)) {
                     currentName = name;
                     final Class<?> defined = Class.forName(name, false, loader);
                     if (defined.getClassLoader() != loader) {
@@ -130,7 +141,13 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
             }
             if (!transformer
                     .transformedOwners()
-                    .containsAll(List.of(pointMoveClassName.replace('.', '/'), dragTickClassName.replace('.', '/')))) {
+                    .containsAll(List.of(
+                            pointMoveClassName.replace('.', '/'),
+                            dragTickClassName.replace('.', '/'),
+                            weightWriteClassName.replace('.', '/'),
+                            greenTickClassName.replace('.', '/'),
+                            actionDispatchClassName.replace('.', '/'),
+                            inputIngressClassName.replace('.', '/')))) {
                 throw new IllegalStateException(
                         "warp alt mirror required targets were not transformed: outcome=" + transformer.outcome());
             }
@@ -248,7 +265,13 @@ final class VerifiedWarpAltMirrorHookInstaller implements AutoCloseable {
 
     /** Premain guarantee: the exact targets must not already be defined when we register. */
     private void rejectLoadedTargets() {
-        for (final String name : List.of(pointMoveClassName, dragTickClassName)) {
+        for (final String name : List.of(
+                pointMoveClassName,
+                dragTickClassName,
+                weightWriteClassName,
+                greenTickClassName,
+                actionDispatchClassName,
+                inputIngressClassName)) {
             for (final Class<?> type : instrumentation.getAllLoadedClasses()) {
                 if (name.equals(type.getName())) {
                     throw new IllegalStateException("warp alt mirror target is already loaded: " + name);

@@ -8,10 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.plugin.Registration;
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -85,15 +83,15 @@ class NativeBoundingBoxOverlayButtonBridgeTest {
         assertTrue(NativeBoundingBoxOverlayButtonBridge.shouldReport(
                 Long.MIN_VALUE + 30_000_000_010L, Long.MAX_VALUE - 10L));
 
-        // End-to-end through the installed failure consumer with captured stderr.
+        // End-to-end through the installed failure consumer with a recording diagnostics sink.
         final Registration installed =
                 NativeBoundingBoxOverlayButtonBridge.install((overlay, sceneGraph) -> new Object[0]);
         final Consumer<Object> failure =
                 (Consumer<Object>) System.getProperties().get(NativeBoundingBoxOverlayButtonBridge.FAILURE_PROPERTY);
-        final PrintStream originalErr = System.err;
-        final ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        final java.util.List<String> reported = new java.util.concurrent.CopyOnWriteArrayList<>();
         try {
-            System.setErr(new PrintStream(captured, true, StandardCharsets.UTF_8));
+            RuntimeDiagnostics.clear();
+            RuntimeDiagnostics.install((level, component, message, attached) -> reported.add(message));
             final java.lang.reflect.Field sentinel =
                     NativeBoundingBoxOverlayButtonBridge.class.getDeclaredField("LAST_FAILURE_REPORT");
             sentinel.setAccessible(true);
@@ -103,18 +101,19 @@ class NativeBoundingBoxOverlayButtonBridgeTest {
             // First failure: reported.
             last.set(Long.MIN_VALUE);
             failure.accept(new IllegalStateException("first failure"));
-            assertEquals(1, countOccurrences(captured));
+            assertEquals(1, reported.size());
+            assertTrue(reported.get(0).contains("Bounding-box overlay augmentation failed safely"));
 
             // Immediate burst: suppressed by the rate limit.
             failure.accept(new IllegalStateException("burst failure"));
-            assertEquals(1, countOccurrences(captured));
+            assertEquals(1, reported.size());
 
             // Later interval (simulated by resetting the sentinel): reported again.
             last.set(Long.MIN_VALUE);
             failure.accept(new IllegalStateException("later failure"));
-            assertEquals(2, countOccurrences(captured));
+            assertEquals(2, reported.size());
         } finally {
-            System.setErr(originalErr);
+            RuntimeDiagnostics.clear();
             installed.close();
         }
     }
@@ -158,18 +157,6 @@ class NativeBoundingBoxOverlayButtonBridgeTest {
         try (Registration ignored = NativeBoundingBoxOverlayButtonBridge.install((overlay, scene) -> new Object[0])) {
             assertTrue(NativeBoundingBoxOverlayButtonBridge.activeGeneration() != 0L);
         }
-    }
-
-    private static int countOccurrences(final ByteArrayOutputStream captured) {
-        final String text = captured.toString(StandardCharsets.UTF_8);
-        int count = 0;
-        int index = 0;
-        final String marker = "Turboism bounding-box overlay augmentation failed safely";
-        while ((index = text.indexOf(marker, index)) >= 0) {
-            count++;
-            index += marker.length();
-        }
-        return count;
     }
 
     private static final class ThrowOnFailurePropertyPut extends Properties {

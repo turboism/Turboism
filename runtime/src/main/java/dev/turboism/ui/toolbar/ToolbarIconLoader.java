@@ -20,18 +20,26 @@ final class ToolbarIconLoader {
     private ToolbarIconLoader() {}
 
     static Icon load(final EditorUiPluginResourceRegistry resources, final String pluginId, final String resourcePath) {
+        return load(resources, pluginId, 0L, resourcePath);
+    }
+
+    static Icon load(
+            final EditorUiPluginResourceRegistry resources,
+            final String pluginId,
+            final long pluginGeneration,
+            final String resourcePath) {
         Objects.requireNonNull(resources, "resources");
         Objects.requireNonNull(pluginId, "pluginId");
         Objects.requireNonNull(resourcePath, "resourcePath");
 
         final URL base = resources
-                .resource(pluginId, resourcePath)
+                .resource(pluginId, pluginGeneration, resourcePath)
                 .orElseThrow(() -> new IllegalStateException("toolbar icon resource is unavailable"));
         final List<Image> variants = new ArrayList<>();
         variants.add(read(base, resourcePath));
         for (final String suffix : SCALE_SUFFIXES) {
             resources
-                    .resource(pluginId, scaleVariantPath(resourcePath, suffix))
+                    .resource(pluginId, pluginGeneration, scaleVariantPath(resourcePath, suffix))
                     .map(url -> read(url, resourcePath))
                     .ifPresent(variants::add);
         }

@@ -71,6 +71,11 @@ public final class SelectionQueryServiceImpl implements SelectionQueryService {
     }
 
     @Override
+    public boolean isAvailable() {
+        return facade.isModelAccessAvailable();
+    }
+
+    @Override
     public List<ModelObjectId> selectedIds(final HierarchyNode.Kind kind) throws CubismServiceException {
         Objects.requireNonNull(kind, "kind");
         requireModelRead(SELECTED_IDS_OPERATION);

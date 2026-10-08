@@ -85,7 +85,7 @@ public final class McpPlugin implements TurboismPlugin {
 
             @Override
             public String label() {
-                return text("menu.connection", "MCP Connection");
+                return context.localization().text("menu.connection", "MCP Connection");
             }
 
             @Override
@@ -99,7 +99,7 @@ public final class McpPlugin implements TurboismPlugin {
         return new MenuRegistry.MenuContribution() {
             @Override
             public String menuPath() {
-                return "Turboism/" + text("menu.connection", "MCP Connection");
+                return "Turboism/" + context.localization().text("menu.connection", "MCP Connection");
             }
 
             @Override
@@ -139,15 +139,6 @@ public final class McpPlugin implements TurboismPlugin {
             return new McpConnectionWindow.McpConnectionSnapshot(null, java.util.List.of());
         }
         return new McpConnectionWindow.McpConnectionSnapshot(current.endpoint(), current.connectionHistory());
-    }
-
-    private String text(final String key, final String fallback) {
-        try {
-            final String value = context.localization().text(key);
-            return value == null || value.isBlank() || key.equals(value) ? fallback : value;
-        } catch (RuntimeException unavailable) {
-            return fallback;
-        }
     }
 
     private void stop() {

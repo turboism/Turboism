@@ -95,6 +95,14 @@ def write_tree(root: Path, versions: tuple[str, ...] = VERSIONS) -> None:
             (CHECK.PROFILES_DIR / f"cubism-{version}.json").as_posix(),
             json.dumps({"profileId": f"cubism-{version}", "cubismVersion": version}),
         )
+    sha = "a" * 64
+    put(
+        (CHECK.CLASS_PINS_DIR / "test-hook.json").as_posix(),
+        json.dumps({
+            versions[0]: {"com/example/A": sha, "com/example/B": sha},
+            versions[2]: {"com/example/A": sha},
+        }),
+    )
 
 
 def violations(root: Path) -> list[str]:
@@ -214,6 +222,45 @@ class VersionSetCompletenessTest(unittest.TestCase):
             (root / CHECK.AVAILABILITY_POLICY).unlink()
             with self.assertRaises(CHECK.CompletenessError):
                 violations(root)
+
+    def test_unadmitted_class_pin_version_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_tree(root)
+            path = root / CHECK.CLASS_PINS_DIR / "test-hook.json"
+            document = json.loads(path.read_text())
+            document["5.4.01"] = {"com/example/A": "b" * 64}
+            path.write_text(json.dumps(document))
+            self.assertTrue(any("class-pins" in v for v in violations(root)))
+
+    def test_partial_class_pin_version_set_passes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_tree(root)
+            path = root / CHECK.CLASS_PINS_DIR / "test-hook.json"
+            document = json.loads(path.read_text())
+            del document[VERSIONS[2]]
+            path.write_text(json.dumps(document))
+            self.assertEqual([], violations(root))
+
+    def test_class_pin_bad_sha256_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_tree(root)
+            path = root / CHECK.CLASS_PINS_DIR / "test-hook.json"
+            document = json.loads(path.read_text())
+            document[VERSIONS[0]]["com/example/A"] = "not-hex"
+            path.write_text(json.dumps(document))
+            self.assertTrue(any("SHA-256" in v for v in violations(root)))
+
+    def test_missing_class_pins_dir_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_tree(root)
+            for pin in (root / CHECK.CLASS_PINS_DIR).glob("*.json"):
+                pin.unlink()
+            (root / CHECK.CLASS_PINS_DIR).rmdir()
+            self.assertTrue(any("class-pins" in v for v in violations(root)))
 
 
 if __name__ == "__main__":

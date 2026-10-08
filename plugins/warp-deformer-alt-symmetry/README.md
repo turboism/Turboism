@@ -34,6 +34,10 @@ control points, with a canvas-strip mirror-axis button and a drawing-area hint.
 
 - Mirrors Warp Deformer control points across the grid axes while you drag with
   `Alt` (vertical axis) or `Alt+Shift` (horizontal axis), joining native Undo/Redo.
+- While an axis is armed, mirrors selection-weight writes (Brush Selection Tool
+  strokes and every other weighted-selection flow) onto the axis counterpart
+  point inside the same selection/undo envelope, so weight painting stays
+  symmetric in real time.
 - Contributes a three-state mirror-axis button (off / vertical / horizontal) to
   the canvas-top control strip.
 - Shows the active mirror mode in the host's native drawing-area hint while armed.
@@ -59,7 +63,9 @@ mirror-axis workflow.
 1. Arm the mirror axis by clicking the strip button: off → vertical → horizontal.
 2. Drag a control point with `Alt` (vertical) or `Alt+Shift` (horizontal); the
    mirrored counterpart follows with the negated displacement.
-3. Click the button again until it returns to the off state to disarm; the hint
+3. While armed, paint selection weights with the Brush Selection Tool; the same
+   weight lands on the axis counterpart point of the same Warp Deformer.
+4. Click the button again until it returns to the off state to disarm; the hint
    clears on its own.
 
 ## Capabilities

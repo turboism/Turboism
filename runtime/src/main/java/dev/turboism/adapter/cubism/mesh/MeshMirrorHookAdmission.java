@@ -1,7 +1,7 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.core.lifecycle.PluginAdmissionView;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
-import dev.turboism.preview.LocalPluginRuntime;
 import dev.turboism.sdk.permission.PermissionIds;
 import java.util.List;
 
@@ -22,7 +22,7 @@ public final class MeshMirrorHookAdmission {
      * @param plugins the currently loaded plugin summaries to search
      * @return {@code true} only when a summary satisfies every one of those conditions
      */
-    public static boolean admitted(final List<LocalPluginRuntime.LoadedPluginSummary> plugins) {
+    public static boolean admitted(final List<? extends PluginAdmissionView> plugins) {
         return plugins.stream()
                 .anyMatch(plugin -> plugin.id().equals(PLUGIN_ID)
                         && plugin.state() == PluginLifecycleState.ENABLED

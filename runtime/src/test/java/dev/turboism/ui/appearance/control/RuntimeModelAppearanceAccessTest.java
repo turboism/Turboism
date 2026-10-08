@@ -13,6 +13,7 @@ import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.DocumentKind;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
+import dev.turboism.sdk.cubism.ParameterSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.model.Part;
@@ -28,7 +29,9 @@ import dev.turboism.sdk.ui.appearance.PaletteEntryState;
 import dev.turboism.sdk.ui.appearance.PresetColor;
 import dev.turboism.sdk.ui.appearance.UiColor;
 import dev.turboism.sdk.ui.appearance.model.DrawableAppearance;
+import dev.turboism.sdk.ui.appearance.model.ParameterAppearance;
 import dev.turboism.sdk.ui.appearance.model.PartAppearance;
+import dev.turboism.ui.host.HostReadEpoch;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -215,6 +218,74 @@ class RuntimeModelAppearanceAccessTest {
     }
 
     @Test
+    void parameterFacadeProjectsPaletteVisibilityAndEditabilityFromTheObservation() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        fixture.parameters = List.of(
+                new ParameterSnapshot("ParamA", "Angle X", 0.5, 0.0, -30.0, 30.0, false, true),
+                new ParameterSnapshot("ParamB", "Opacity", 1.0, 1.0, 0.0, 1.0, true, false));
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, new PaletteAppearanceCoordinator());
+
+        final ParameterAppearance angleX = access.parameter("model-a", "ParamA", 3L);
+        assertEquals(Optional.of(false), angleX.visible());
+        assertEquals(Optional.of(true), angleX.editable());
+        final ParameterAppearance opacity = access.parameter("model-a", "ParamB", 3L);
+        assertEquals(Optional.of(true), opacity.visible());
+        assertEquals(Optional.of(false), opacity.editable());
+        assertEquals(Optional.empty(), access.parameter("model-a", "ParamC", 3L).visible());
+        assertEquals(Optional.empty(), access.parameter("model-a", "ParamC", 3L).editable());
+    }
+
+    @Test
+    void parameterPaletteStateReadsUseTheSdkShapedObservationVerbatim() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        fixture.sdkSource = true;
+        fixture.parameters = List.of(new ParameterSnapshot("ParamA", "Angle X", 0.5, 0.0, -30.0, 30.0, true, false));
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, new PaletteAppearanceCoordinator());
+
+        final ParameterAppearance appearance = access.parameter("model-a", "ParamA", 3L);
+
+        assertEquals(Optional.of(true), appearance.visible());
+        assertEquals(Optional.of(false), appearance.editable());
+    }
+
+    @Test
+    void parameterPaletteStateIsEmptyAndUnavailableFacadeReportsNothing() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, coordinator);
+
+        assertEquals(Optional.empty(), access.parameter("model-a", "ParamA", 3L).visible());
+        assertEquals(Optional.empty(), access.parameter("model-a", "ParamA", 3L).editable());
+
+        fixture.empty();
+        final ParameterAppearance unavailable = access.parameter("model-b", "ParamA", 3L);
+        assertEquals(Optional.empty(), unavailable.visible());
+        assertEquals(Optional.empty(), unavailable.editable());
+        assertEquals(Optional.empty(), unavailable.parameterPaletteEntry());
+    }
+
+    @Test
+    void parameterPaletteStateReadsCheckTheModelReadPermission() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        fixture.parameters = List.of(new ParameterSnapshot("ParamA", "Angle X", 0.5, 0.0, -30.0, 30.0, true, true));
+        final java.util.List<String> checked = new java.util.ArrayList<>();
+        final RuntimeModelAppearanceAccess denied = fixture.access(
+                "plugin-denied",
+                1L,
+                new PaletteAppearanceCoordinator(),
+                NativeLabelColorAuthoring.unavailable(),
+                (permission, operation) -> {
+                    checked.add(permission);
+                    throw new CubismPermissionException("denied " + permission);
+                });
+        final ParameterAppearance appearance = denied.parameter("model-a", "ParamA", 3L);
+        assertThrows(CubismPermissionException.class, appearance::visible);
+        assertThrows(CubismPermissionException.class, appearance::editable);
+        assertEquals(
+                List.of(PermissionIds.TURBOISM_CUBISM_MODEL_READ, PermissionIds.TURBOISM_CUBISM_MODEL_READ), checked);
+    }
+
+    @Test
     void pluginCleanupRemovesOnlyOwnedOverridesAndScopeCloseFailsClosed() throws Exception {
         final Fixture fixture = new Fixture("content-a", "model-a", 1L);
         final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
@@ -326,6 +397,159 @@ class RuntimeModelAppearanceAccessTest {
         assertEquals(1, writes.get());
     }
 
+    @Test
+    void oneReadEpochObservesTheHostOnceAcrossEveryFacadeRead() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        fixture.parameters = List.of(
+                new ParameterSnapshot("ParamA", "Angle X", 0.5, 0.0, -30.0, 30.0, false, true),
+                new ParameterSnapshot("ParamB", "Opacity", 1.0, 1.0, 0.0, 1.0, true, false));
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, new PaletteAppearanceCoordinator());
+
+        HostReadEpoch.enter();
+        try {
+            final ParameterAppearance angleX = access.parameter("model-a", "ParamA", 3L);
+            assertEquals(Optional.of(false), angleX.visible());
+            assertEquals(Optional.of(true), angleX.editable());
+            final ParameterAppearance opacity = access.parameter("model-a", "ParamB", 3L);
+            assertEquals(Optional.of(true), opacity.visible());
+            assertEquals(Optional.of(false), opacity.editable());
+            access.part(part("PartA"), 3L).partPaletteEntry().orElseThrow();
+        } finally {
+            HostReadEpoch.exit();
+        }
+
+        assertEquals(1L, fixture.observeCalls.get(), "one read epoch must pay exactly one host observation");
+    }
+
+    @Test
+    void oneReadEpochReadsThePairedDocumentOnceAcrossParameterReads() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        fixture.sdkSource = true;
+        fixture.parameters = List.of(
+                new ParameterSnapshot("ParamA", "Angle X", 0.5, 0.0, -30.0, 30.0, false, true),
+                new ParameterSnapshot("ParamB", "Opacity", 1.0, 1.0, 0.0, 1.0, true, false));
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, new PaletteAppearanceCoordinator());
+
+        HostReadEpoch.enter();
+        try {
+            final ParameterAppearance angleX = access.parameter("model-a", "ParamA", 3L);
+            assertEquals(Optional.of(false), angleX.visible());
+            assertEquals(Optional.of(true), angleX.editable());
+            final ParameterAppearance opacity = access.parameter("model-a", "ParamB", 3L);
+            assertEquals(Optional.of(true), opacity.visible());
+            assertEquals(Optional.of(false), opacity.editable());
+        } finally {
+            HostReadEpoch.exit();
+        }
+
+        assertEquals(1L, fixture.pairReads.get(), "one read epoch must pay exactly one paired document read");
+    }
+
+    @Test
+    void aNewReadEpochObservesTheHostFreshly() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        fixture.parameters = List.of(new ParameterSnapshot("ParamA", "Angle X", 0.5, 0.0, -30.0, 30.0, true, true));
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, new PaletteAppearanceCoordinator());
+
+        HostReadEpoch.enter();
+        try {
+            assertEquals(
+                    Optional.of(true), access.parameter("model-a", "ParamA", 3L).visible());
+        } finally {
+            HostReadEpoch.exit();
+        }
+        HostReadEpoch.enter();
+        try {
+            assertEquals(
+                    Optional.of(true), access.parameter("model-a", "ParamA", 3L).visible());
+        } finally {
+            HostReadEpoch.exit();
+        }
+
+        assertEquals(2L, fixture.observeCalls.get(), "a new epoch must observe the host again");
+    }
+
+    @Test
+    void aNestedDispatchedBodyInvalidatesTheOuterEpochObservation() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        fixture.parameters = List.of(new ParameterSnapshot("ParamA", "Angle X", 0.5, 0.0, -30.0, 30.0, true, true));
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, new PaletteAppearanceCoordinator());
+
+        HostReadEpoch.enter();
+        try {
+            final ParameterAppearance appearance = access.parameter("model-a", "ParamA", 3L);
+            assertEquals(Optional.of(true), appearance.visible());
+            assertEquals(1L, fixture.observeCalls.get());
+            HostReadEpoch.enter();
+            try {
+                // A nested dispatched body may mutate the host.
+            } finally {
+                HostReadEpoch.exit();
+            }
+            assertEquals(Optional.of(true), appearance.visible());
+            assertEquals(
+                    2L, fixture.observeCalls.get(), "a nested body must invalidate the outer memoized observation");
+        } finally {
+            HostReadEpoch.exit();
+        }
+    }
+
+    @Test
+    void aGenerationChangeInsideAnEpochStalesFacadesAndReobserves() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        fixture.parameters = List.of(new ParameterSnapshot("ParamA", "Angle X", 0.5, 0.0, -30.0, 30.0, true, true));
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, new PaletteAppearanceCoordinator());
+
+        HostReadEpoch.enter();
+        try {
+            final ParameterAppearance appearance = access.parameter("model-a", "ParamA", 3L);
+            assertEquals(Optional.of(true), appearance.visible());
+            fixture.hostGeneration.incrementAndGet();
+            assertThrows(IllegalStateException.class, appearance::visible);
+            assertEquals(
+                    2L,
+                    fixture.observeCalls.get(),
+                    "a generation change must force a fresh observation before the stale verdict");
+        } finally {
+            HostReadEpoch.exit();
+        }
+    }
+
+    @Test
+    void anEpochObservationStillStalesWhenTheDocumentMoves() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, new PaletteAppearanceCoordinator());
+
+        HostReadEpoch.enter();
+        try {
+            final PaletteEntry entry =
+                    access.part(part("PartA"), 3L).partPaletteEntry().orElseThrow();
+            fixture.replace("content-b", "model-b", 8L);
+            assertThrows(
+                    IllegalStateException.class,
+                    entry::resolved,
+                    "a token-moving document change must still stale the facade inside an epoch");
+        } finally {
+            HostReadEpoch.exit();
+        }
+    }
+
+    @Test
+    void readsOutsideAnEpochKeepObservingFreshly() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        fixture.parameters = List.of(new ParameterSnapshot("ParamA", "Angle X", 0.5, 0.0, -30.0, 30.0, true, true));
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, new PaletteAppearanceCoordinator());
+
+        assertEquals(
+                Optional.of(true), access.parameter("model-a", "ParamA", 3L).visible());
+        assertEquals(
+                Optional.of(true), access.parameter("model-a", "ParamA", 3L).visible());
+        assertEquals(0L, HostReadEpoch.current(), "the test thread must not sit inside an epoch");
+        assertTrue(
+                fixture.observeCalls.get() >= 2L,
+                "outside a read epoch every scope capture must observe the host fresh");
+    }
+
     private static Part part(final String id) {
         return new Part() {
             @Override
@@ -363,7 +587,7 @@ class RuntimeModelAppearanceAccessTest {
         private String modelId;
         private boolean hostPresent = true;
         private boolean sdkSource;
-        private HostSnapshotSource.HostModel model;
+        private List<ParameterSnapshot> parameters = List.of();
 
         private Fixture(final String contentId, final String modelId, final long token) {
             this.token = new AtomicLong(token);
@@ -375,7 +599,27 @@ class RuntimeModelAppearanceAccessTest {
             this.contentId = contentId;
             this.modelId = modelId;
             this.token.set(token);
-            this.model = new HostSnapshotSource.HostModel(modelId, modelId, List.of(), List.of(), List.of());
+        }
+
+        private HostSnapshotSource.HostModel model() {
+            return new HostSnapshotSource.HostModel(
+                    modelId,
+                    modelId,
+                    parameters.stream().map(Fixture::hostParameter).toList(),
+                    List.of(),
+                    List.of());
+        }
+
+        private static HostSnapshotSource.HostParameter hostParameter(final ParameterSnapshot value) {
+            return new HostSnapshotSource.HostParameter(
+                    value.id(),
+                    value.name(),
+                    value.value(),
+                    value.defaultValue(),
+                    value.minValue(),
+                    value.maxValue(),
+                    value.visible(),
+                    value.editable());
         }
 
         private void empty() {
@@ -437,7 +681,7 @@ class RuntimeModelAppearanceAccessTest {
 
                 @Override
                 public Optional<HostModel> activeModel() {
-                    return hostPresent ? Optional.of(model) : Optional.empty();
+                    return hostPresent ? Optional.of(model()) : Optional.empty();
                 }
 
                 @Override
@@ -472,7 +716,7 @@ class RuntimeModelAppearanceAccessTest {
                     "models/" + contentId + ".cmo3",
                     Optional.of(Path.of(contentId + ".cmo3")),
                     Optional.of(contentId),
-                    Optional.of(model),
+                    Optional.of(model()),
                     Optional.empty());
         }
 
@@ -520,7 +764,7 @@ class RuntimeModelAppearanceAccessTest {
                     "Document",
                     "models/" + contentId + ".cmo3",
                     Optional.empty(),
-                    Optional.of(new ModelSnapshot(modelId, modelId, List.of(), List.of(), List.of(), List.of())),
+                    Optional.of(new ModelSnapshot(modelId, modelId, List.of(), parameters, List.of(), List.of())),
                     DocumentKind.MODEL,
                     Optional.of(contentId),
                     Optional.empty()));

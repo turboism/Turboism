@@ -1,5 +1,6 @@
 package dev.turboism.sdk.script;
 
+import dev.turboism.sdk.Incubating;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -13,6 +14,7 @@ import java.util.concurrent.CompletableFuture;
  * Java plugin when code needs lifecycle hooks, UI registrations, the complete SDK, reviewed
  * host/native adaptation, or latency-sensitive/per-frame work.</p>
  */
+@Incubating
 public interface ScriptService {
 
     /** Returns every discovered script. */
@@ -31,7 +33,8 @@ public interface ScriptService {
     /**
      * Reports whether a live runtime surface backs this instance.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;

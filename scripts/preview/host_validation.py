@@ -16,6 +16,7 @@ from pathlib import Path
 import re
 import shlex
 import signal
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -32,6 +33,9 @@ SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 SAFE_REMOTE_ROOT = re.compile(r"^/[A-Za-z0-9._/-]+$")
 BUSY_EXIT = 75
 HEARTBEAT_SECONDS = 30
+WAIT_JOB_READ_RETRY_LIMIT = 3
+WAIT_JOB_READ_BACKOFF_SECONDS = 0.05
+WAIT_JOB_READ_BACKOFF_MAX_SECONDS = 0.2
 
 
 class SchedulerError(RuntimeError):
@@ -160,7 +164,6 @@ def load_manifest(path: Path, environment: dict[str, str] | None = None) -> Mani
         raise SchedulerError(f"manifest format must be {FORMAT}")
     if data.get("schemaVersion") != SCHEMA_VERSION:
         raise SchedulerError(f"manifest schemaVersion must be {SCHEMA_VERSION}")
-    placement = os.environ if environment is None else environment
     scheduler_root = str(queue.account_root())
 
     resource_values = require_dict(data.get("resources"), "resources")
@@ -334,17 +337,59 @@ def emit(value: Any) -> None:
     print(json.dumps(value, ensure_ascii=False, sort_keys=True), flush=True)
 
 
-def wait_job(store: queue.Store, job_id: str, timeout: int | None = None) -> int:
+def _wait_read_failure(reason: str, failure: sqlite3.Error, attempts: int) -> SchedulerError:
+    code = getattr(failure, "sqlite_errorcode", None)
+    code_detail = f" code={code}" if isinstance(code, int) else ""
+    detail = str(failure).strip() or failure.__class__.__name__
+    return SchedulerError(
+        f"infrastructure wait failure: read-only job query {reason}; "
+        f"attempts={attempts}; {failure.__class__.__name__}{code_detail}: {detail}"
+    )
+
+
+def wait_job(store: queue.Store | Path, job_id: str, timeout: int | None = None) -> int:
     deadline = None if timeout is None else time.monotonic() + timeout
+    database = getattr(store, "database", store)
+    lock_failures = 0
+    backoff = WAIT_JOB_READ_BACKOFF_SECONDS
     while True:
-        job = store.jobs(job_id)[0]
-        if job["state"] in queue.TERMINAL or job["state"] == "quarantined":
+        try:
+            job = queue.read_only_job(Path(database), job_id)
+        except sqlite3.Error as failure:
+            if not queue.is_retryable_read_error(failure):
+                raise SchedulerError(f"queue wait failure: {failure}") from failure
+            lock_failures += 1
+            if lock_failures > WAIT_JOB_READ_RETRY_LIMIT:
+                raise _wait_read_failure("retry limit exhausted", failure, lock_failures) from failure
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise _wait_read_failure("wait deadline exceeded", failure, lock_failures) from failure
+                delay = min(backoff, remaining)
+            else:
+                delay = backoff
+            time.sleep(delay)
+            if deadline is not None and time.monotonic() >= deadline:
+                raise _wait_read_failure("wait deadline exceeded", failure, lock_failures) from failure
+            backoff = min(WAIT_JOB_READ_BACKOFF_MAX_SECONDS, backoff * 2)
+            continue
+        backoff = WAIT_JOB_READ_BACKOFF_SECONDS
+        if job["state"] in queue.TERMINAL | queue.ADMINISTRATIVE or job["state"] == "quarantined":
             emit({"schemaVersion": 1, "job": job})
             return 0 if job["state"] == "succeeded" else 75 if job["state"] == "quarantined" else 1
         if deadline is not None and time.monotonic() >= deadline:
             emit({"schemaVersion": 1, "job": job, "waitTimedOut": True})
             return 3
-        time.sleep(0.2)  # Only a client waiter; never controls scheduling or cancellation.
+        delay = 0.2
+        if deadline is not None:
+            delay = min(delay, max(0.0, deadline - time.monotonic()))
+        if delay <= 0:
+            emit({"schemaVersion": 1, "job": job, "waitTimedOut": True})
+            return 3
+        time.sleep(delay)  # Only a client waiter; never controls scheduling or cancellation.
+        if deadline is not None and time.monotonic() >= deadline:
+            emit({"schemaVersion": 1, "job": job, "waitTimedOut": True})
+            return 3
 
 
 def build_parser(default_manifest: Path) -> argparse.ArgumentParser:
@@ -381,6 +426,20 @@ def build_parser(default_manifest: Path) -> argparse.ArgumentParser:
     mode.add_argument("--inspect", dest="job")
     mode.add_argument("--confirm", dest="confirm")
     recover.add_argument("--reason")
+    abandon = commands.add_parser(
+        "abandon",
+        help="inspect or register the administrative disposition of one cross-boot orphan attempt",
+        description="Administrative registration of a verified cross-boot orphan only. "
+                    "Inspection is strictly read-only. Confirmation needs separate operator "
+                    "authorization, an already-idle host and a stopped worker; it never starts "
+                    "or stops processes, never updates the host row and is not a verification "
+                    "result. Approval of this tool is not approval to run it on a live queue.")
+    mode = abandon.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--inspect", dest="inspect_job", metavar="JOB_ID")
+    mode.add_argument("--confirm", dest="confirm_job", metavar="JOB_ID")
+    abandon.add_argument("--approval", metavar="DIGEST")
+    abandon.add_argument("--reason")
+    abandon.add_argument("--json", action="store_true")
     commands.add_parser("_admit", help=argparse.SUPPRESS)
     enqueue = commands.add_parser("_enqueue-runner", help=argparse.SUPPRESS)
     enqueue.add_argument("--request", required=True)
@@ -402,6 +461,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "_admit":
             emit(queue.validate_admission())
             return 0
+        if args.command == "abandon":
+            # Dispatched before Store() so inspection never initializes the queue.
+            import host_validation_disposition as disposition
+            return disposition.cli(args)
         root = Path(__file__).resolve().parents[2]
         if args.command in {"list", "plan", "prepare", "run"}:
             environment = dict(parse_local_env(Path(os.environ.get("TURBOISM_ENV_FILE", root / ".env"))))
@@ -433,6 +496,10 @@ def main(argv: list[str] | None = None) -> int:
             queue.wake(store)
             results = [wait_job(store, job["job_id"]) for job in jobs]
             return max(results, default=0)
+        if args.command == "wait":
+            if args.timeout_seconds is not None and args.timeout_seconds < 1:
+                raise SchedulerError("wait timeout must be positive")
+            return wait_job(queue.account_root() / "queue.sqlite3", args.job, args.timeout_seconds)
         store = queue.Store()
         if args.command == "_enqueue-runner":
             request = json.loads(Path(args.request).read_text())
@@ -452,10 +519,6 @@ def main(argv: list[str] | None = None) -> int:
             emit({"schemaVersion": 1, "host": store.host(), "jobs": store.jobs(args.job),
                   "workerOnline": queue.worker_online(store)})
             return 0
-        if args.command == "wait":
-            if args.timeout_seconds is not None and args.timeout_seconds < 1:
-                raise SchedulerError("wait timeout must be positive")
-            return wait_job(store, args.job, args.timeout_seconds)
         if args.command == "cancel":
             emit({"schemaVersion": 1, "job": store.cancel(args.job)})
             queue.wake(store)

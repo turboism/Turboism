@@ -16,6 +16,30 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 class MainToolbarContributionProviderTest {
+    @Test
+    void unavailableOrdinaryToolsLeaveExistingActionButtonsInstalledAndReversible() {
+        RecordingHost host = new RecordingHost();
+        MainToolbarContributionProvider provider =
+                new MainToolbarContributionProvider(admission(3), host, (plugin, action) -> {});
+        final var ordinary = new ModelingToolbarContributionDescriptor(
+                "plugin",
+                7,
+                "brush",
+                "Brush",
+                java.util.Collections.nCopies(6, "icons/brush.png"),
+                MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_BRUSH_SELECTION_TOOL),
+                100);
+        Registration registration = provider.apply(
+                3,
+                List.of(
+                        contribution("plugin", "home", 0, MainToolbarRegistry.Placement.first()),
+                        ordinary.contribution()));
+        assertEquals(List.of("home"), host.installedIds);
+        host.rebuild.run();
+        assertEquals(List.of("home", "home"), host.installedIds);
+        registration.close();
+        assertEquals(List.of("home", "home"), host.closedIds);
+    }
 
     @Test
     void installsInOrderRoutesActionsAndCleansInReverseOrder() {

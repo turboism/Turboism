@@ -22,6 +22,26 @@ import org.junit.jupiter.api.Test;
 class WorkspaceLayoutCoordinatorTest {
 
     @Test
+    void availabilityFollowsProviderPresenceAndServiceClose() {
+        final WorkspaceLayoutCoordinator coordinator = new WorkspaceLayoutCoordinator();
+        final RuntimeWorkspaceLayoutService service = service(coordinator);
+        assertFalse(coordinator.isAvailable(), "no provider installed yet");
+        assertFalse(service.isAvailable());
+
+        final RecordingProvider provider = new RecordingProvider();
+        coordinator.connect(provider);
+        assertTrue(coordinator.isAvailable());
+        assertTrue(service.isAvailable());
+
+        coordinator.disconnect(provider);
+        assertFalse(service.isAvailable(), "a detached provider must flip the probe back");
+
+        coordinator.connect(provider);
+        service.close();
+        assertFalse(service.isAvailable(), "a closed service must report unavailable");
+    }
+
+    @Test
     void readsOnlyOnEdtThroughTheService() throws Exception {
         RecordingProvider provider = new RecordingProvider();
         WorkspaceLayoutCoordinator coordinator = new WorkspaceLayoutCoordinator();

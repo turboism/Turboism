@@ -6,7 +6,7 @@ import dev.turboism.adapter.cubism.optimization.serialization.FloatArrayParseBri
 final class FloatArrayParseCacheHookContributor extends NativeOptimizationHookContributor {
 
     FloatArrayParseCacheHookContributor() {
-        super("TURBOISM_FLOAT_ARRAY_PARSE_CACHE");
+        super("TURBOISM_FLOAT_ARRAY_PARSE_CACHE", VerifiedFloatArrayParseCacheInstaller.HOOK_ID);
     }
 
     @Override

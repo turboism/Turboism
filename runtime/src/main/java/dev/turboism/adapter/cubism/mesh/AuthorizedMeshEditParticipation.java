@@ -36,4 +36,9 @@ public final class AuthorizedMeshEditParticipation implements MeshEditParticipat
             throw failure;
         }
     }
+
+    @Override
+    public boolean isAvailable() {
+        return delegate.isAvailable();
+    }
 }

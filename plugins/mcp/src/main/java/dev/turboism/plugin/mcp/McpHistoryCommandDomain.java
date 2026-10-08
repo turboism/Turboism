@@ -14,6 +14,7 @@ import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.model.Color;
+import dev.turboism.sdk.json.Json;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -158,7 +159,7 @@ final class McpHistoryCommandDomain {
                     return List.of(immutableMap(
                             entry("uri", result.uri()),
                             entry("mimeType", result.mimeType()),
-                            entry("text", Json.stringify(result.content()))));
+                            entry("text", McpJsonSupport.stringify(result.content()))));
                 }));
     }
 
@@ -607,14 +608,11 @@ final class McpHistoryCommandDomain {
     }
 
     private static Map<String, Object> toolEnvelope(final ToolCallResult result) {
-        final boolean semanticError = result.isError()
-                || Boolean.FALSE.equals(result.structuredContent().get("ok"));
+        final Map<String, Object> safe = McpJsonSupport.encodable(result.structuredContent());
+        final boolean semanticError = result.isError() || Boolean.FALSE.equals(safe.get("ok"));
         return immutableMap(
-                entry(
-                        "content",
-                        List.of(immutableMap(
-                                entry("type", "text"), entry("text", Json.stringify(result.structuredContent()))))),
-                entry("structuredContent", result.structuredContent()),
+                entry("content", List.of(immutableMap(entry("type", "text"), entry("text", Json.stringify(safe))))),
+                entry("structuredContent", safe),
                 entry("isError", semanticError));
     }
 

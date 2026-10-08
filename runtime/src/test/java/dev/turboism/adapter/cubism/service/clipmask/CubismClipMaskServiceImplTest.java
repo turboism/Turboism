@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.service.clipmask;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -176,6 +177,17 @@ class CubismClipMaskServiceImplTest {
         final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(read, modelAccess());
 
         assertEquals(List.of(), service.collectClipMaskRecords());
+    }
+
+    @Test
+    void availabilityFollowsReadServiceAndModelAccess() {
+        assertTrue(
+                new CubismClipMaskServiceImpl(new FakeCubismRead(List.of(), List.of()), modelAccess()).isAvailable());
+        assertFalse(
+                new CubismClipMaskServiceImpl(new FakeCubismRead(List.of(), List.of()), CubismModelAccess.unavailable())
+                        .isAvailable());
+        assertFalse(
+                new CubismClipMaskServiceImpl(CubismReadCapabilityService.unavailable(), modelAccess()).isAvailable());
     }
 
     @Test
@@ -416,11 +428,6 @@ class CubismClipMaskServiceImplTest {
         @Override
         public boolean isHostPresent() {
             return false;
-        }
-
-        @Override
-        public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-            throw new UnsupportedOperationException();
         }
     }
 

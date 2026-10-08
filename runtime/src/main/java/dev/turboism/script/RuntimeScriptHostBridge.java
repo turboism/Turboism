@@ -13,15 +13,18 @@ import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.script.ScriptDescriptor;
+import dev.turboism.ui.host.EdtDispatch;
+import dev.turboism.ui.host.EdtDispatchException;
+import java.time.Duration;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
-import javax.swing.SwingUtilities;
 
 /** Permission-checked JSON bridge from one script execution to the existing Turboism SDK. */
 final class RuntimeScriptHostBridge implements GraalHostManager.HostCallHandler {
@@ -121,40 +124,21 @@ final class RuntimeScriptHostBridge implements GraalHostManager.HostCallHandler 
      * Uses a runtime-owned bounded EDT handoff for the lightweight status call.
      * Going through the calling plugin's RuntimeScheduler can exhaust its short
      * startup budget before the Cubism UI becomes idle; bypassing the EDT itself
-     * would instead race live editor objects. The cancellation bit prevents a
-     * timed-out queued callback from touching Cubism later.
+     * would instead race live editor objects. {@link EdtDispatch} abandons a task
+     * that is still queued when the caller times out or is interrupted, so a
+     * timed-out queued callback can never touch Cubism later.
      */
     private String onEdtDirect(final Callable<String> operation) throws Exception {
-        if (SwingUtilities.isEventDispatchThread()) {
-            return operation.call();
-        }
-        final CompletableFuture<String> completion = new CompletableFuture<>();
-        final AtomicBoolean cancelled = new AtomicBoolean(false);
-        SwingUtilities.invokeLater(() -> {
-            if (cancelled.get()) {
-                completion.completeExceptionally(hostCallCancelled());
-                return;
-            }
-            try {
-                completion.complete(operation.call());
-            } catch (Throwable failure) {
-                FatalErrors.rethrowIfFatal(failure);
-                completion.completeExceptionally(failure);
-            }
-        });
         try {
-            return completion.get(uiTimeout, uiTimeoutUnit);
-        } catch (ExecutionException failure) {
-            final Throwable cause = failure.getCause();
-            if (cause instanceof GraalHostManager.HostCallException hostFailure) {
-                throw hostFailure;
+            return EdtDispatch.callExact(
+                    "script host EDT call", Duration.ofNanos(uiTimeoutUnit.toNanos(uiTimeout)), operation);
+        } catch (EdtDispatchException dispatch) {
+            if (dispatch.reason() == EdtDispatchException.Reason.INTERRUPTED) {
+                throw new InterruptedException(dispatch.getMessage());
             }
-            if (cause instanceof Exception exception) {
-                throw exception;
-            }
-            throw new IllegalStateException("Script host call failed on the UI thread.", cause);
-        } finally {
-            cancelled.set(true);
+            final TimeoutException timeout = new TimeoutException(dispatch.getMessage());
+            timeout.initCause(dispatch);
+            throw timeout;
         }
     }
 

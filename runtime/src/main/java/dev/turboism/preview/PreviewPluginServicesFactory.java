@@ -172,7 +172,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         // selection observer: a single invalidation-token domain lets the shared
         // observation baseline order query results against sampler results.
         this.sessionSnapshotSource = dev.turboism.adapter.host.HostSessionSnapshotSource.forSession(
-                hostAccess.adapters().projectWorkspace());
+                hostAccess.adapters().projectWorkspace(), hostAccess::currentHostSelection);
         // Session-scoped selection observation on the bounded host-read lane.
         this.selectionObserver = new dev.turboism.adapter.cubism.SelectionObservationPublisher(
                 sessionSnapshotSource,
@@ -464,6 +464,24 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
                 scope,
                 evidence,
                 failureCollector);
+    }
+
+    /**
+     * The embedded host has no interactive chooser, so grants stay unavailable unless a
+     * task-scoped run pins one fixed target through {@code turboism.preview.userFileFixedGrant}.
+     * The property is set only by host-validation wrappers; a blank or malformed value keeps
+     * the source unavailable rather than granting anything.
+     */
+    static UserFileGrantSource userFileGrantSource() {
+        final String fixed = System.getProperty("turboism.preview.userFileFixedGrant", "");
+        if (fixed.isBlank()) {
+            return UserFileGrantSource.unavailable();
+        }
+        try {
+            return UserFileGrantSource.fixedSelection(Path.of(fixed));
+        } catch (RuntimeException invalid) {
+            return UserFileGrantSource.unavailable();
+        }
     }
 
     private RuntimeAsyncHostReadService hostReads(

@@ -122,7 +122,8 @@ public final class NativeBoundingBoxOverlayButtonBridge {
                 ? "unknown"
                 : throwable.getClass().getName()
                         + (throwable instanceof Throwable t && t.getMessage() != null ? ": " + t.getMessage() : "");
-        System.err.println("Turboism bounding-box overlay augmentation failed safely: " + detail);
+        dev.turboism.runtime.log.RuntimeDiagnostics.warn(
+                "overlay-button", "Bounding-box overlay augmentation failed safely: " + detail);
     }
 
     /**

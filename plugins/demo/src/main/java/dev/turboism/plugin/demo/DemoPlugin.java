@@ -40,7 +40,8 @@ public class DemoPlugin implements TurboismPlugin {
         Registration actionReg = context.actions()
                 .register(
                         "demo.hello",
-                        ActionRegistry.Action.of("demo.hello", localization.text("demo.hello.label"), ctx -> {}));
+                        ActionRegistry.Action.of(
+                                "demo.hello", localization.text("demo.hello.label"), "Ctrl+Alt+D", ctx -> {}));
         context.disposableScope().register(actionReg);
 
         Registration menuReg = context.menus()

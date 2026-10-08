@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.live2d.cubism.view.context.action.U$b;
+import com.live2d.cubism.view.context.action.h$a;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,7 +40,7 @@ final class NativeWarpAltMirrorPointMoveTest {
         final var registration = participate();
 
         // target (0.9, 0.3) from old (0.0, 0.0): dx=0.9, dy=0.3, w=1
-        NativeWarpAltMirrorBridge.mirrorPointMove(moved, new StubVector(0.9f, 0.3f), 1.0f);
+        U$b.writePoint(moved, new StubVector(0.9f, 0.3f), 1.0f);
 
         // 垂直镜像: partner of (r0,c0) in a 6-tall grid is (r5,c0) at (0.0, 5.0):
         // x follows (+0.9) -> 0.9, y negated (-0.3) -> 4.7
@@ -56,7 +58,7 @@ final class NativeWarpAltMirrorPointMoveTest {
         final var registration = participate();
 
         // dragged (1,2) old (0.2,1.0) -> target (2.4,1.5): dx=2.2, dy=0.5, w=1
-        NativeWarpAltMirrorBridge.mirrorPointMove(moved, new StubVector(2.4f, 1.5f), 1.0f);
+        U$b.writePoint(moved, new StubVector(2.4f, 1.5f), 1.0f);
 
         // 水平镜像: partner of (r1,c2) in a 6-wide grid is (r1,c3) idx=9 old (0.3,1.0):
         // x negated: 0.3 - 2.2 = -1.9 ; y follows: 1.0 + 0.5 = 1.5
@@ -73,7 +75,7 @@ final class NativeWarpAltMirrorPointMoveTest {
         final var registration = participate();
 
         // w=0.5: 垂直镜像 -> x follows (+0.45) -> 0.45 ; y negated (-0.15) -> 4.85
-        NativeWarpAltMirrorBridge.mirrorPointMove(moved, new StubVector(0.9f, 0.3f), 0.5f);
+        U$b.writePoint(moved, new StubVector(0.9f, 0.3f), 0.5f);
 
         assertEquals(0.45f, counterpart.positions[60], 1.0e-4f);
         assertEquals(4.85f, counterpart.positions[61], 1.0e-4f);
@@ -87,7 +89,7 @@ final class NativeWarpAltMirrorPointMoveTest {
         NativeWarpAltMirrorBridge.setArmedAxis(1);
         final var registration = participate();
 
-        NativeWarpAltMirrorBridge.mirrorPointMove(moved, new StubVector(9.0f, 9.0f), 1.0f);
+        U$b.writePoint(moved, new StubVector(9.0f, 9.0f), 1.0f);
 
         // dx=8.8, dy=7.0 -> counterpart x follows: 0.2 + 8.8 = 9.0 ; y negated: 3.0 - 7.0 = -4.0
         assertEquals(9.0f, moved.positions[40], 1.0e-4f);
@@ -110,7 +112,7 @@ final class NativeWarpAltMirrorPointMoveTest {
         NativeWarpAltMirrorBridge.setArmedAxis(1);
         final var registration = participate();
 
-        NativeWarpAltMirrorBridge.mirrorPointMove(moved, new StubVector(0.9f, 0.3f), 1.0f);
+        U$b.writePoint(moved, new StubVector(0.9f, 0.3f), 1.0f);
         assertEquals(4.7f, counterpart.positions[61], 1.0e-4f);
         registration.close();
     }
@@ -122,20 +124,38 @@ final class NativeWarpAltMirrorPointMoveTest {
         final float[] before = counterpart.positions.clone();
 
         // no participant
-        NativeWarpAltMirrorBridge.mirrorPointMove(moved, new StubVector(0.9f, 0.3f), 1.0f);
+        U$b.writePoint(moved, new StubVector(0.9f, 0.3f), 1.0f);
         assertEquals(before[60], counterpart.positions[60], 1.0e-6f);
 
         NativeWarpAltMirrorBridge.setArmedAxis(1);
         final var registration = participate();
         // disarmed
         NativeWarpAltMirrorBridge.setArmedAxis(0);
-        NativeWarpAltMirrorBridge.mirrorPointMove(moved, new StubVector(0.9f, 0.3f), 1.0f);
+        U$b.writePoint(moved, new StubVector(0.9f, 0.3f), 1.0f);
         assertEquals(before[60], counterpart.positions[60], 1.0e-6f);
 
         NativeWarpAltMirrorBridge.setArmedAxis(1);
-        NativeWarpAltMirrorBridge.mirrorPointMove(moved, new StubVector(0.9f, 0.3f), 1.0f);
+        U$b.writePoint(moved, new StubVector(0.9f, 0.3f), 1.0f);
         assertEquals(0.9f, counterpart.positions[60], 1.0e-4f);
         assertEquals(4.7f, counterpart.positions[61], 1.0e-4f);
+        registration.close();
+    }
+
+    @Test
+    void bulkActionWritesDoNotMirror() {
+        // Bounding-box transform h$a iterates moveToOnLocal over many refs per
+        // tick; mirroring inside that loop corrupted the whole-grid move
+        // (green Bezier points drifted while grey points stayed). Only writes
+        // driven by the single-point drag action U$b may mirror.
+        final StubPointRef moved = StubPointRef.grid6x6().ref(0, 0);
+        final StubPointRef counterpart = moved.sibling(5, 0);
+        NativeWarpAltMirrorBridge.setArmedAxis(1);
+        final var registration = participate();
+
+        h$a.writePoint(moved, new StubVector(0.9f, 0.3f), 1.0f);
+
+        assertEquals(0.0f, counterpart.positions[60], 1.0e-6f);
+        assertEquals(5.0f, counterpart.positions[61], 1.0e-6f);
         registration.close();
     }
 
@@ -145,7 +165,7 @@ final class NativeWarpAltMirrorPointMoveTest {
         final StubPointRef counterpart = moved.sibling(5, 0);
         final var registration = participate();
 
-        NativeWarpAltMirrorBridge.mirrorPointMove(moved, new StubVector(5.0e-4f, 5.0e-4f), 1.0f);
+        U$b.writePoint(moved, new StubVector(5.0e-4f, 5.0e-4f), 1.0f);
 
         // Sub-epsilon jitter leaves both the dragged point and its counterpart
         // untouched (the stub's old positions are 0.0/5.0 for (r5,c0)).

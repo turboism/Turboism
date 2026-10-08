@@ -360,11 +360,22 @@ final class VerifiedMeshMirrorHookInstallerTest {
             // The observed class comes from a test directory, which the real identity
             // resolver must reject before creating any Runtime or loading plugins.
             final AgentOptions options =
-                    AgentOptions.parse("hostClass=" + getClass().getName() + ",timeoutSeconds=1", temporaryHome);
+                    AgentOptions.parse("hostClass=" + getClass().getName() + ";timeoutSeconds=1", temporaryHome);
             final var start = TurboismAgent.class.getDeclaredMethod(
-                    "start", AgentOptions.class, Instrumentation.class, List.class, List.class);
+                    "start",
+                    AgentOptions.class,
+                    Instrumentation.class,
+                    dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.AttachmentMode.class,
+                    List.class,
+                    List.class);
             start.setAccessible(true);
-            start.invoke(null, options, instrumentation(new ArrayList<>(), getClass()), List.of(), List.of());
+            start.invoke(
+                    null,
+                    options,
+                    instrumentation(new ArrayList<>(), getClass()),
+                    dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.AttachmentMode.PREMAIN,
+                    List.of(),
+                    List.of());
 
             assertNull(MeshMirrorHookContributor.CURRENT.get());
             assertNull(WarpAltMirrorHookContributor.CURRENT.get());

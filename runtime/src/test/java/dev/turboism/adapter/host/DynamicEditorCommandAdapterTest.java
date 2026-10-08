@@ -1,6 +1,8 @@
 package dev.turboism.adapter.host;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.command.EditorCommandAdapter;
 import dev.turboism.adapter.cubism.command.ResolvedEditorFileCommand;
@@ -12,6 +14,18 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class DynamicEditorCommandAdapterTest {
+    @Test
+    void availabilityFollowsConnectAndDeactivate() {
+        final DynamicEditorCommandAdapter dynamic = new DynamicEditorCommandAdapter();
+        assertFalse(dynamic.isAvailable(), "the adapter reports unavailable before any session connects");
+
+        dynamic.connect(adapter(EditorCommand.NEXT_FRAME));
+        assertTrue(dynamic.isAvailable());
+
+        dynamic.deactivate();
+        assertFalse(dynamic.isAvailable(), "deactivate must restore the unavailable answer");
+    }
+
     @Test
     void retainedViewFollowsReplacementAndFailsClosedAfterDeactivation() {
         DynamicEditorCommandAdapter dynamic = new DynamicEditorCommandAdapter();

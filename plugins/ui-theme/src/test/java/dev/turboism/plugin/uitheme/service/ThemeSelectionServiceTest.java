@@ -3,10 +3,10 @@ package dev.turboism.plugin.uitheme.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.plugin.uitheme.b1.domain.ThemeBase;
-import dev.turboism.plugin.uitheme.b1.domain.ThemeIcons;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageData;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageMetadata;
+import dev.turboism.plugin.uitheme.domain.ThemeBase;
+import dev.turboism.plugin.uitheme.domain.ThemeIcons;
+import dev.turboism.plugin.uitheme.domain.ThemePackageData;
+import dev.turboism.plugin.uitheme.domain.ThemePackageMetadata;
 import dev.turboism.sdk.appearance.AppearanceApplyResult;
 import dev.turboism.sdk.appearance.AppearanceBase;
 import dev.turboism.sdk.appearance.AppearanceRequest;

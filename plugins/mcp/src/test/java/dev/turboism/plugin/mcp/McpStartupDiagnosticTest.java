@@ -11,7 +11,6 @@ import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
@@ -182,7 +181,6 @@ final class McpStartupDiagnosticTest {
         return new McpHttpServer.Dependencies(
                 logger,
                 ModelObjectService.unavailable(),
-                reads.parameters,
                 reads.hierarchy,
                 reads.selection,
                 reads.read,
@@ -390,11 +388,6 @@ final class McpStartupDiagnosticTest {
         }
 
         @Override
-        public ParameterQueryService parameterQuery() {
-            return null;
-        }
-
-        @Override
         public SelectionQueryService selectionQuery() {
             return null;
         }
@@ -404,7 +397,6 @@ final class McpStartupDiagnosticTest {
             return null;
         }
 
-        @Override
         public CubismClipMaskService cubismClipMasks() {
             return null;
         }
@@ -413,6 +405,13 @@ final class McpStartupDiagnosticTest {
         public CubismReadCapabilityService cubismRead() {
             captured = new IllegalStateException("deterministic read failure");
             throw captured;
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
     }
 }

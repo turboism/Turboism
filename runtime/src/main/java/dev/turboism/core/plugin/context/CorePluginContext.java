@@ -14,7 +14,6 @@ import dev.turboism.core.action.RuntimeActionRegistry;
 import dev.turboism.core.diagnostics.StartupReport;
 import dev.turboism.core.event.PluginEventBus;
 import dev.turboism.core.event.RuntimeEventBroker;
-import dev.turboism.core.menu.RuntimeMenuRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.failure.RuntimeFailureSink;
@@ -23,6 +22,7 @@ import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.recentfile.RuntimeRecentFileService;
 import dev.turboism.recentpreview.RuntimeRecentPreviewContributionService;
 import dev.turboism.screenshot.RuntimeScreenshotCaptureService;
+import dev.turboism.sdk.action.ActionCatalogService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
@@ -30,11 +30,11 @@ import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
+import dev.turboism.sdk.cubism.mesh.MeshToolRegistry;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
@@ -50,6 +50,7 @@ import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.PluginService;
+import dev.turboism.sdk.plugin.PluginServiceDirectory;
 import dev.turboism.sdk.script.ScriptService;
 import dev.turboism.sdk.storage.PluginStorage;
 import dev.turboism.sdk.task.PluginTaskScheduler;
@@ -64,18 +65,17 @@ import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.ui.RuntimeUiHostCapabilityService;
 import dev.turboism.ui.UiHostStateSource;
+import dev.turboism.ui.action.RuntimeActionCatalogService;
 import dev.turboism.ui.appearance.RuntimeAppearanceService;
 import dev.turboism.ui.context.RuntimeContextMenuRegistry;
 import dev.turboism.ui.dialog.RuntimeHostDialogAutomationService;
 import dev.turboism.ui.filter.RuntimePaletteFilterRegistry;
+import dev.turboism.ui.menu.RuntimeMenuRegistry;
 import dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry;
 import dev.turboism.ui.toolbar.RuntimePaletteToolbarRegistry;
 import java.time.Clock;
-import java.util.Collections;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.Consumer;
 
 /**
@@ -124,6 +124,7 @@ public final class CorePluginContext implements PluginContext {
 
     private final SceneTableService sceneTableService;
     private final dev.turboism.sdk.runtime.CubismLogService cubismLogService;
+    private final ActionCatalogService actionCatalogService;
     private final RecentFileService recentFileService;
     private final ScreenshotCaptureService screenshotCaptureService;
     private final RecentPreviewContributionService recentPreviewContributionService;
@@ -131,6 +132,11 @@ public final class CorePluginContext implements PluginContext {
 
     private volatile dev.turboism.sdk.performance.PerformanceProbeService performanceStatsService;
     private dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory;
+    private volatile MeshToolRegistry meshTools;
+    private boolean meshToolsInstalled;
+    private volatile dev.turboism.sdk.cubism.modeling.ModelingToolRegistry modelingTools;
+    private boolean modelingToolsInstalled;
+    private final RuntimePluginServiceDirectory serviceDirectory = new RuntimePluginServiceDirectory();
 
     public CorePluginContext(final Dependencies dependencies) {
         this(dependencies, PluginContextEnvironment.safeMode().build());
@@ -589,6 +595,17 @@ public final class CorePluginContext implements PluginContext {
                             .editorUiActionRouter()
                             .register(this.dependencies.descriptor().id(), this.dependencies.actions()));
         }
+        this.actionCatalogService = hostAccess == null
+                ? ActionCatalogService.unavailable()
+                : new RuntimeActionCatalogService(
+                        this.dependencies.descriptor().id(),
+                        hostAccess.editorUiActionRouter(),
+                        new CubismPermissionGate(
+                                this.dependencies.descriptor().id(),
+                                this.dependencies.permissions(),
+                                this.dependencies.cubismAuditSink(),
+                                this.dependencies.clock()),
+                        this.dependencies.logger());
         this.runtimeSettings = env.runtimeSettings();
         this.fileChooserHistory = env.fileChooserHistory() == null
                 ? null
@@ -604,6 +621,115 @@ public final class CorePluginContext implements PluginContext {
         if (env.mcpConnectionService() != null) {
             this.mcpConnectionService = env.mcpConnectionService();
         }
+        installServiceDirectory();
+    }
+
+    /**
+     * Registers every {@link PluginService} slot this context can resolve into the runtime
+     * service directory. Suppliers read the installation fields lazily, so late installs
+     * ({@link #installScriptService}, {@link #installMcpConnectionService}) and
+     * scope-sealed unloads (mesh/modeling tools) stay visible without re-registration.
+     * Probing mirrors the retired {@code availableServices()}: sentinel-backed slots are
+     * installed only when they do not resolve to an {@code unavailable()} instance, and
+     * {@code PERFORMANCE_STATS} reports installed without forcing its lazy construction.
+     */
+    private void installServiceDirectory() {
+        serviceDirectory.installWhenPresent(
+                PluginService.MODELING_TOOLS, () -> disposableScope().isSealed() ? null : modelingTools);
+        serviceDirectory.installWhenPresent(
+                PluginService.MESH_TOOLS, () -> disposableScope().isSealed() ? null : meshTools);
+        serviceDirectory.install(PluginService.LOCALIZATION, () -> localization, PluginLocalization::unavailable);
+        serviceDirectory.install(PluginService.TASKS, () -> taskScheduler, PluginTaskScheduler::unavailable);
+        serviceDirectory.install(
+                PluginService.HOST_READS, () -> asyncHostReadService, AsyncHostReadService::unavailable);
+        serviceDirectory.install(PluginService.STORAGE, () -> pluginStorage, PluginStorage::unavailable);
+        serviceDirectory.install(PluginService.SCRIPTS, () -> scriptService, ScriptService::unavailable);
+        serviceDirectory.install(
+                PluginService.USER_FILES, () -> userFileAccessService, UserFileAccessService::unavailable);
+        serviceDirectory.installWhenPresent(PluginService.SELECTION_QUERY, cubismServices::selectionQueryService);
+        serviceDirectory.installWhenPresent(
+                PluginService.MODEL_HIERARCHY_QUERY, cubismServices::modelHierarchyQueryService);
+        serviceDirectory.installWhenPresent(PluginService.CUBISM_READ, cubismServices::cubismReadCapabilityService);
+        serviceDirectory.install(
+                PluginService.MODEL_OBJECTS,
+                cubismServices::modelObjectService,
+                dev.turboism.sdk.cubism.model.ModelObjectService::unavailable);
+        serviceDirectory.installWhenPresent(PluginService.CUBISM_CLIP_MASKS, cubismServices::cubismClipMaskService);
+        serviceDirectory.install(PluginService.RECENT_FILES, () -> recentFileService, RecentFileService::unavailable);
+        serviceDirectory.install(
+                PluginService.SCREENSHOTS, () -> screenshotCaptureService, ScreenshotCaptureService::unavailable);
+        serviceDirectory.install(
+                PluginService.RECENT_PREVIEWS,
+                () -> recentPreviewContributionService,
+                RecentPreviewContributionService::unavailable);
+        serviceDirectory.install(
+                PluginService.PHYSICS_EDITOR,
+                cubismServices::physicsEditorService,
+                dev.turboism.sdk.cubism.physics.PhysicsEditorService::unavailable);
+        serviceDirectory.install(
+                PluginService.FILE_CHOOSER_HISTORY,
+                () -> fileChooserHistory,
+                dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService::unavailable);
+        serviceDirectory.install(
+                PluginService.EXPORT_SETTINGS,
+                () -> exportSettingsContributionService,
+                ExportSettingsContributionService::unavailable);
+        serviceDirectory.installWhenPresent(PluginService.MESH_MIRROR_AXIS, () -> meshMirrorAxisService);
+        serviceDirectory.installWhenPresent(PluginService.MESH_EDIT, () -> meshEditService);
+        serviceDirectory.installWhenPresent(PluginService.MESH_EDIT_PARTICIPATION, () -> meshEditParticipationService);
+        serviceDirectory.installWhenPresent(
+                PluginService.MESH_MIRROR_COUNTERPARTS, () -> meshMirrorCounterpartsService);
+        serviceDirectory.installWhenPresent(
+                PluginService.MESH_MIRROR_TOOL_ELIGIBILITY, () -> meshMirrorToolEligibilityService);
+        serviceDirectory.installWhenPresent(
+                PluginService.MESH_MIRROR_MOVE_PARTICIPATION, () -> meshMirrorMoveParticipationService);
+        serviceDirectory.installWhenPresent(
+                PluginService.WARP_ALT_MIRROR_PARTICIPATION, () -> warpAltMirrorParticipationService);
+        serviceDirectory.installWhenPresent(PluginService.VIEW_CONTEXT_MENU, () -> viewContextMenuRegistry);
+        serviceDirectory.installWhenPresent(PluginService.MESH_EDIT_UI, () -> meshEditUiService);
+        serviceDirectory.install(
+                PluginService.EDITOR_COMMANDS,
+                cubismServices::editorCommandService,
+                dev.turboism.sdk.cubism.command.EditorCommandService::unavailable);
+        serviceDirectory.install(
+                PluginService.ACTION_CATALOG, () -> actionCatalogService, ActionCatalogService::unavailable);
+        serviceDirectory.install(
+                PluginService.BACKUP,
+                cubismServices::backupService,
+                dev.turboism.sdk.cubism.backup.EditorAutoBackupService::unavailable);
+        serviceDirectory.install(
+                PluginService.MAIN_TOOLBAR, () -> mainToolbarRegistry, MainToolbarRegistry::unavailable);
+        serviceDirectory.install(
+                PluginService.PALETTE_TOOLBAR, () -> paletteToolbarRegistry, PaletteToolbarRegistry::unavailable);
+        serviceDirectory.install(
+                PluginService.PALETTE_FILTER, () -> paletteFilterRegistry, PaletteFilterRegistry::unavailable);
+        serviceDirectory.install(PluginService.SCENE_TABLE, () -> sceneTableService, SceneTableService::unavailable);
+        serviceDirectory.installWhenPresent(PluginService.UI_HOST, () -> uiHostCapabilityService);
+        serviceDirectory.install(PluginService.UI_RESOURCES, () -> uiResourceService, UiResourceService::unavailable);
+        serviceDirectory.installWhenPresent(PluginService.HOST_DIALOGS, () -> hostDialogAutomationService);
+        serviceDirectory.install(PluginService.APPEARANCE, () -> appearanceService, AppearanceService::unavailable);
+        serviceDirectory.install(
+                PluginService.WORKSPACE,
+                () -> workspaceService,
+                dev.turboism.sdk.ui.workspace.WorkspaceService::unavailable);
+        serviceDirectory.install(
+                PluginService.WORKSPACE_LAYOUT,
+                () -> workspaceLayoutService,
+                dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService::unavailable);
+        serviceDirectory.install(
+                PluginService.CONTEXT_MENU, () -> contextMenuRegistry, ContextMenuRegistry::unavailable);
+        serviceDirectory.install(PluginService.CONFIG, () -> pluginConfigRegistry, PluginConfigRegistry::unavailable);
+        serviceDirectory.install(
+                PluginService.CUBISM_LOG,
+                () -> cubismLogService,
+                dev.turboism.sdk.runtime.CubismLogService::unavailable);
+        serviceDirectory.install(
+                PluginService.RUNTIME_SETTINGS,
+                () -> runtimeSettings,
+                dev.turboism.sdk.runtime.RuntimeSettingsService::unavailable);
+        serviceDirectory.install(
+                PluginService.MCP_CONNECTIONS, () -> mcpConnectionService, McpConnectionService::unavailable);
+        serviceDirectory.installAlways(PluginService.PERFORMANCE_STATS, this::performanceProbeService);
     }
 
     private static void bindContributionLocalization(
@@ -679,14 +805,42 @@ public final class CorePluginContext implements PluginContext {
         this.scriptService = Objects.requireNonNull(service, "service");
     }
 
-    /** Runtime composition seam; plugins cannot replace their permission-scoped MCP view. */
-    public void installMcpConnectionService(final McpConnectionService service) {
-        this.mcpConnectionService = Objects.requireNonNull(service, "service");
+    /** Installs and owns this generation's directory-only mesh-tool service exactly once. */
+    public synchronized void installMeshTools(final MeshToolRegistry service) {
+        Objects.requireNonNull(service, "service");
+        if (meshToolsInstalled) throw new IllegalStateException("mesh tools already installed");
+        disposableScope().register(() -> {
+            synchronized (CorePluginContext.this) {
+                meshTools = null;
+            }
+            service.close();
+        });
+        meshTools = service;
+        meshToolsInstalled = true;
+    }
+
+    /** Installs the independently verified, directory-only ordinary tool service once. */
+    public synchronized void installModelingTools(final dev.turboism.sdk.cubism.modeling.ModelingToolRegistry service) {
+        Objects.requireNonNull(service, "service");
+        if (modelingToolsInstalled) throw new IllegalStateException("modeling tools already installed");
+        disposableScope().register(() -> {
+            synchronized (CorePluginContext.this) {
+                modelingTools = null;
+            }
+            service.close();
+        });
+        modelingTools = service;
+        modelingToolsInstalled = true;
     }
 
     @Override
-    public McpConnectionService mcpConnections() {
-        return mcpConnectionService;
+    public PluginServiceDirectory services() {
+        return serviceDirectory;
+    }
+
+    /** Runtime composition seam; plugins cannot replace their permission-scoped MCP view. */
+    public void installMcpConnectionService(final McpConnectionService service) {
+        this.mcpConnectionService = Objects.requireNonNull(service, "service");
     }
 
     @Override
@@ -695,18 +849,8 @@ public final class CorePluginContext implements PluginContext {
     }
 
     @Override
-    public ExportSettingsContributionService exportSettings() {
-        return exportSettingsContributionService;
-    }
-
-    @Override
     public CubismFacade cubism() {
         return cubismServices.cubismFacade();
-    }
-
-    @Override
-    public ParameterQueryService parameterQuery() {
-        return cubismServices.parameterQueryService();
     }
 
     @Override
@@ -725,73 +869,8 @@ public final class CorePluginContext implements PluginContext {
     }
 
     @Override
-    public dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService cubismClipMasks() {
-        return cubismServices.cubismClipMaskService();
-    }
-
-    @Override
     public dev.turboism.sdk.cubism.model.ModelObjectService modelObjects() {
         return cubismServices.modelObjectService();
-    }
-
-    @Override
-    public dev.turboism.sdk.cubism.physics.PhysicsEditorService physicsEditor() {
-        return cubismServices.physicsEditorService();
-    }
-
-    @Override
-    public MeshMirrorAxisService meshMirrorAxis() {
-        return meshMirrorAxisService;
-    }
-
-    @Override
-    public MeshEditUiService meshEditUi() {
-        return meshEditUiService;
-    }
-
-    @Override
-    public dev.turboism.sdk.cubism.mesh.MeshEditService meshEdit() {
-        return meshEditService;
-    }
-
-    @Override
-    public dev.turboism.sdk.cubism.mesh.MeshEditParticipation meshEditParticipation() {
-        return meshEditParticipationService;
-    }
-
-    @Override
-    public dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts meshMirrorCounterparts() {
-        return meshMirrorCounterpartsService;
-    }
-
-    @Override
-    public dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility meshMirrorToolEligibility() {
-        return meshMirrorToolEligibilityService;
-    }
-
-    @Override
-    public dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation meshMirrorMoveParticipation() {
-        return meshMirrorMoveParticipationService;
-    }
-
-    @Override
-    public dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation warpAltMirrorParticipation() {
-        return warpAltMirrorParticipationService;
-    }
-
-    @Override
-    public dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry viewContextMenu() {
-        return viewContextMenuRegistry;
-    }
-
-    @Override
-    public dev.turboism.sdk.cubism.command.EditorCommandService editorCommands() {
-        return cubismServices.editorCommandService();
-    }
-
-    @Override
-    public dev.turboism.sdk.cubism.backup.EditorAutoBackupService backup() {
-        return cubismServices.backupService();
     }
 
     /** Stops plugin-owned backup work before plugin lifecycle shutdown clears plugin state. */
@@ -804,155 +883,6 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public List<PluginPermission> permissions() {
         return dependencies.permissions();
-    }
-
-    /**
-     * Reports which optional services this context installed, derived from the installation
-     * fields rather than by calling the getters: {@code performanceStats()} lazily constructs
-     * its service, and several slots hold {@code unavailable()} sentinels behind the
-     * version-gating proxy. Every field that can carry an {@code unavailable()} sentinel is
-     * probed through {@link #installed}; only members whose accessors unconditionally expose a
-     * real runtime object (the {@code Authorized*} delegates, {@code uiHost}, {@code hostDialogs}
-     * and {@code performanceStats}) are reported without a probe. Recomputed per call so late
-     * {@code installScriptService} / {@code installMcpConnectionService} installs are visible.
-     */
-    @Deprecated
-    @Override
-    public Set<PluginService> availableServices() {
-        final EnumSet<PluginService> available = EnumSet.noneOf(PluginService.class);
-        if (installed(localization, PluginLocalization.unavailable())) {
-            available.add(PluginService.LOCALIZATION);
-        }
-        if (installed(taskScheduler, PluginTaskScheduler.unavailable())) {
-            available.add(PluginService.TASKS);
-        }
-        if (installed(asyncHostReadService, AsyncHostReadService.unavailable())) {
-            available.add(PluginService.HOST_READS);
-        }
-        if (installed(pluginStorage, PluginStorage.unavailable())) {
-            available.add(PluginService.STORAGE);
-        }
-        if (installed(scriptService, ScriptService.unavailable())) {
-            available.add(PluginService.SCRIPTS);
-        }
-        if (installed(userFileAccessService, UserFileAccessService.unavailable())) {
-            available.add(PluginService.USER_FILES);
-        }
-        if (installed(cubismServices.parameterQueryService(), null)) {
-            available.add(PluginService.PARAMETER_QUERY);
-        }
-        if (installed(cubismServices.selectionQueryService(), null)) {
-            available.add(PluginService.SELECTION_QUERY);
-        }
-        if (installed(cubismServices.modelHierarchyQueryService(), null)) {
-            available.add(PluginService.MODEL_HIERARCHY_QUERY);
-        }
-        if (installed(cubismServices.cubismReadCapabilityService(), null)) {
-            available.add(PluginService.CUBISM_READ);
-        }
-        if (installed(
-                cubismServices.modelObjectService(), dev.turboism.sdk.cubism.model.ModelObjectService.unavailable())) {
-            available.add(PluginService.MODEL_OBJECTS);
-        }
-        if (installed(cubismServices.cubismClipMaskService(), null)) {
-            available.add(PluginService.CUBISM_CLIP_MASKS);
-        }
-        if (installed(recentFileService, RecentFileService.unavailable())) {
-            available.add(PluginService.RECENT_FILES);
-        }
-        if (installed(screenshotCaptureService, ScreenshotCaptureService.unavailable())) {
-            available.add(PluginService.SCREENSHOTS);
-        }
-        if (installed(recentPreviewContributionService, RecentPreviewContributionService.unavailable())) {
-            available.add(PluginService.RECENT_PREVIEWS);
-        }
-        if (installed(
-                cubismServices.physicsEditorService(),
-                dev.turboism.sdk.cubism.physics.PhysicsEditorService.unavailable())) {
-            available.add(PluginService.PHYSICS_EDITOR);
-        }
-        if (installed(
-                fileChooserHistory, dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService.unavailable())) {
-            available.add(PluginService.FILE_CHOOSER_HISTORY);
-        }
-        available.add(PluginService.MESH_MIRROR_AXIS);
-        available.add(PluginService.MESH_EDIT);
-        available.add(PluginService.MESH_EDIT_PARTICIPATION);
-        available.add(PluginService.MESH_MIRROR_COUNTERPARTS);
-        available.add(PluginService.MESH_MIRROR_TOOL_ELIGIBILITY);
-        available.add(PluginService.MESH_MIRROR_MOVE_PARTICIPATION);
-        available.add(PluginService.WARP_ALT_MIRROR_PARTICIPATION);
-        available.add(PluginService.VIEW_CONTEXT_MENU);
-        available.add(PluginService.MESH_EDIT_UI);
-        if (installed(
-                cubismServices.editorCommandService(),
-                dev.turboism.sdk.cubism.command.EditorCommandService.unavailable())) {
-            available.add(PluginService.EDITOR_COMMANDS);
-        }
-        if (installed(
-                cubismServices.backupService(), dev.turboism.sdk.cubism.backup.EditorAutoBackupService.unavailable())) {
-            available.add(PluginService.BACKUP);
-        }
-        if (installed(mainToolbarRegistry, MainToolbarRegistry.unavailable())) {
-            available.add(PluginService.MAIN_TOOLBAR);
-        }
-        if (installed(paletteToolbarRegistry, PaletteToolbarRegistry.unavailable())) {
-            available.add(PluginService.PALETTE_TOOLBAR);
-        }
-        if (installed(paletteFilterRegistry, PaletteFilterRegistry.unavailable())) {
-            available.add(PluginService.PALETTE_FILTER);
-        }
-        if (installed(sceneTableService, SceneTableService.unavailable())) {
-            available.add(PluginService.SCENE_TABLE);
-        }
-        available.add(PluginService.UI_HOST);
-        if (installed(uiResourceService, UiResourceService.unavailable())) {
-            available.add(PluginService.UI_RESOURCES);
-        }
-        available.add(PluginService.HOST_DIALOGS);
-        if (installed(appearanceService, AppearanceService.unavailable())) {
-            available.add(PluginService.APPEARANCE);
-        }
-        if (installed(workspaceService, dev.turboism.sdk.ui.workspace.WorkspaceService.unavailable())) {
-            available.add(PluginService.WORKSPACE);
-        }
-        if (installed(
-                workspaceLayoutService, dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService.unavailable())) {
-            available.add(PluginService.WORKSPACE_LAYOUT);
-        }
-        if (installed(contextMenuRegistry, ContextMenuRegistry.unavailable())) {
-            available.add(PluginService.CONTEXT_MENU);
-        }
-        if (installed(pluginConfigRegistry, PluginConfigRegistry.unavailable())) {
-            available.add(PluginService.CONFIG);
-        }
-        if (installed(cubismLogService, dev.turboism.sdk.runtime.CubismLogService.unavailable())) {
-            available.add(PluginService.CUBISM_LOG);
-        }
-        if (installed(runtimeSettings, dev.turboism.sdk.runtime.RuntimeSettingsService.unavailable())) {
-            available.add(PluginService.RUNTIME_SETTINGS);
-        }
-        if (installed(mcpConnectionService, McpConnectionService.unavailable())) {
-            available.add(PluginService.MCP_CONNECTIONS);
-        }
-        if (installed(exportSettingsContributionService, ExportSettingsContributionService.unavailable())) {
-            available.add(PluginService.EXPORT_SETTINGS);
-        }
-        available.add(PluginService.PERFORMANCE_STATS);
-        return Collections.unmodifiableSet(available);
-    }
-
-    /**
-     * Whether a service slot resolves to a usable instance: non-null and not an instance of the
-     * {@code unavailable()} sentinel's implementation class, looking through the version-gating
-     * proxy. Sentinel implementations are compared by class because several
-     * {@code unavailable()} factories return a fresh anonymous instance per call rather than a
-     * singleton.
-     */
-    private static boolean installed(final Object service, final Object unavailableSentinel) {
-        final Object resolved = CubismEditorApiAvailabilityInterceptor.unwrap(service);
-        return resolved != null
-                && (unavailableSentinel == null || resolved.getClass() != unavailableSentinel.getClass());
     }
 
     @Override
@@ -971,93 +901,8 @@ public final class CorePluginContext implements PluginContext {
     }
 
     @Override
-    public MainToolbarRegistry mainToolbar() {
-        return mainToolbarRegistry;
-    }
-
-    @Override
-    public PaletteToolbarRegistry paletteToolbar() {
-        return paletteToolbarRegistry;
-    }
-
-    @Override
-    public PaletteFilterRegistry paletteFilter() {
-        return paletteFilterRegistry;
-    }
-
-    @Override
-    public RecentFileService recentFiles() {
-        return recentFileService;
-    }
-
-    @Override
-    public ScreenshotCaptureService screenshots() {
-        return screenshotCaptureService;
-    }
-
-    @Override
-    public RecentPreviewContributionService recentPreviews() {
-        return recentPreviewContributionService;
-    }
-
-    @Override
-    public SceneTableService sceneTable() {
-        return sceneTableService;
-    }
-
-    @Override
-    public UiHostCapabilityService uiHost() {
-        return uiHostCapabilityService;
-    }
-
-    @Override
-    public UiResourceService uiResources() {
-        return uiResourceService;
-    }
-
-    @Override
-    public dev.turboism.sdk.ui.dialog.HostDialogAutomationService hostDialogs() {
-        return hostDialogAutomationService;
-    }
-
-    @Override
-    public AppearanceService appearance() {
-        return appearanceService;
-    }
-
-    @Override
-    public dev.turboism.sdk.ui.workspace.WorkspaceService workspace() {
-        return workspaceService;
-    }
-
-    @Override
-    public dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService workspaceLayout() {
-        return workspaceLayoutService;
-    }
-
-    @Override
-    public ContextMenuRegistry contextMenu() {
-        return contextMenuRegistry;
-    }
-
-    @Override
     public PluginConfigRegistry config() {
         return pluginConfigRegistry;
-    }
-
-    @Override
-    public dev.turboism.sdk.runtime.CubismLogService cubismLog() {
-        return cubismLogService;
-    }
-
-    @Override
-    public dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings() {
-        return runtimeSettings == null ? PluginContext.super.runtimeSettings() : runtimeSettings;
-    }
-
-    @Override
-    public dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory() {
-        return fileChooserHistory == null ? PluginContext.super.fileChooserHistory() : fileChooserHistory;
     }
 
     @Override
@@ -1065,8 +910,11 @@ public final class CorePluginContext implements PluginContext {
         return dependencies.uiScheduler();
     }
 
-    @Override
-    public dev.turboism.sdk.performance.PerformanceProbeService performanceStats() {
+    /**
+     * Lazily binds the shared per-plugin performance probe. Kept private: plugins resolve it
+     * through {@link #services()} ({@link PluginService#PERFORMANCE_STATS}).
+     */
+    private dev.turboism.sdk.performance.PerformanceProbeService performanceProbeService() {
         synchronized (this) {
             if (performanceStatsService == null) {
                 final dev.turboism.sdk.performance.PerformanceProbeService shared = dependencies

@@ -17,6 +17,8 @@ final class HookManifestTest {
         assertEquals(
                 List.of(
                         MeshMirrorHookContributor.class,
+                        MeshToolSessionHookContributor.class,
+                        ModelingToolHookContributor.class,
                         WarpAltMirrorHookContributor.class,
                         MeshTriangulationHashHookContributor.class,
                         TriangulationEdgeIndexHookContributor.class,

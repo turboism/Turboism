@@ -1,5 +1,9 @@
 package dev.turboism.adapter.cubism;
 
+import dev.turboism.core.runtime.psd.PsdExportHost;
+import dev.turboism.core.runtime.psd.PsdReplaceHost;
+import dev.turboism.core.runtime.psd.RuntimePsdExportService;
+import dev.turboism.core.runtime.psd.RuntimePsdReplaceService;
 import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;
@@ -113,6 +117,60 @@ final class PermissionCheckedModel implements CubismModel {
             public List<dev.turboism.sdk.cubism.model.AtlasTexture> textureAtlases() {
                 facade.requireModelRead("model.textures.textureAtlases");
                 return textures.textureAtlases();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.TextureRelationsSnapshot relations() {
+                facade.requireModelRead("model.textures.relations");
+                return textures.relations();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.TextureSourcesSnapshot sources(
+                    final dev.turboism.sdk.cubism.model.TextureSourceQuery query) {
+                facade.requireModelRead("model.textures.sources");
+                return textures.sources(java.util.Objects.requireNonNull(query, "query"));
+            }
+
+            @Override
+            public java.util.concurrent.CompletionStage<dev.turboism.sdk.cubism.psd.PsdExportResult> exportRawImagePsd(
+                    final dev.turboism.sdk.cubism.id.RawImageId source) {
+                facade.requireModelRead("model.textures.exportRawImagePsd");
+                facade.permissionGate.require(
+                        dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_WRITE,
+                        "model.textures.exportRawImagePsd");
+                final dev.turboism.sdk.cubism.id.RawImageId rawImage =
+                        java.util.Objects.requireNonNull(source, "source");
+                final RuntimePsdExportService exportService = facade.psdExportService();
+                if (exportService != null && textures instanceof PsdExportHost exportHost) {
+                    return exportService.exportRawImagePsd(exportHost, rawImage);
+                }
+                return textures.exportRawImagePsd(rawImage);
+            }
+
+            @Override
+            public java.util.concurrent.CompletionStage<dev.turboism.sdk.cubism.psd.PsdReplaceResult>
+                    replaceRawImagePsd(
+                            final dev.turboism.sdk.cubism.id.RawImageId target,
+                            final dev.turboism.sdk.cubism.psd.PsdEditFile file,
+                            final dev.turboism.sdk.cubism.psd.PsdFileRevision revision) {
+                facade.requireModelWrite("model.textures.replaceRawImagePsd");
+                facade.permissionGate.require(
+                        dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_READ,
+                        "model.textures.replaceRawImagePsd");
+                facade.permissionGate.require(
+                        dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_WRITE,
+                        "model.textures.replaceRawImagePsd");
+                final dev.turboism.sdk.cubism.id.RawImageId rawImage =
+                        java.util.Objects.requireNonNull(target, "target");
+                final dev.turboism.sdk.cubism.psd.PsdEditFile editFile = java.util.Objects.requireNonNull(file, "file");
+                final dev.turboism.sdk.cubism.psd.PsdFileRevision token =
+                        java.util.Objects.requireNonNull(revision, "revision");
+                final RuntimePsdReplaceService replaceService = facade.psdReplaceService();
+                if (replaceService != null && textures instanceof PsdReplaceHost replaceHost) {
+                    return replaceService.replaceRawImagePsd(replaceHost, rawImage, editFile, token);
+                }
+                return textures.replaceRawImagePsd(rawImage, editFile, token);
             }
 
             @Override

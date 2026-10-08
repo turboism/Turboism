@@ -348,6 +348,8 @@ client_script=''
 client_script_remote_name=''
 client_python=''
 focus_editor_window=0
+editor_window_niri=''
+editor_window_python=''
 jvm_options=()
 windows_environment=()
 linux_environment=()
@@ -405,6 +407,8 @@ while [ "$#" -gt 0 ]; do
     --client-script) require_value "$@"; client_script="$2"; shift 2 ;;
     --client-python) require_value "$@"; client_python="$2"; shift 2 ;;
     --focus-editor-window) focus_editor_window=1; shift ;;
+    --editor-window-niri) require_value "$@"; editor_window_niri="$2"; shift 2 ;;
+    --editor-window-python) require_value "$@"; editor_window_python="$2"; shift 2 ;;
     --jvm-option) require_value "$@"; jvm_options+=("$2"); shift 2 ;;
     --windows-env) require_value "$@"; windows_environment+=("$2"); shift 2 ;;
     --linux-env) require_value "$@"; linux_environment+=("$2"); shift 2 ;;
@@ -861,7 +865,14 @@ fi
 [ -n "$trigger_path" ] && normalized_argv+=(--trigger "$trigger_path")
 [ -n "$client_script" ] && normalized_argv+=(--client-script "$client_script:$client_script_remote_name")
 [ -n "$client_python" ] && normalized_argv+=(--client-python "$client_python")
-[ "$focus_editor_window" = 1 ] && normalized_argv+=(--focus-editor-window)
+if [ "$focus_editor_window" = 1 ]; then
+  [ -n "$editor_window_niri" ] || editor_window_niri="$(command -v niri || true)"
+  [ -n "$editor_window_python" ] || editor_window_python="$(command -v python3 || true)"
+  [ -x "$editor_window_niri" ] && [ -x "$editor_window_python" ] || fail 'window focus requires niri and Python'
+  normalized_argv+=(--focus-editor-window --editor-window-niri "$editor_window_niri" --editor-window-python "$editor_window_python")
+elif [ -n "$editor_window_niri$editor_window_python" ]; then
+  fail 'window helper dependencies require --focus-editor-window'
+fi
 for option in "${jvm_options[@]}"; do normalized_argv+=(--jvm-option "$option"); done
 for assignment in "${windows_environment[@]}"; do normalized_argv+=(--windows-env "$assignment"); done
 for assignment in "${linux_environment[@]}"; do normalized_argv+=(--linux-env "$assignment"); done
@@ -2326,6 +2337,9 @@ for managed_name in mesa_glthread GALLIUM_HUD GALLIUM_HUD_PERIOD; do
   done
   [ "$managed_declared" = 1 ] || linux_environment_unsets+="unset ${managed_name}"$'\n'
 done
+if [ "$focus_editor_window" = 1 ]; then
+  local_copy_to "$repo_root/scripts/preview/focus-cubism-validation-window.py" "$task_dir/focus-cubism-validation-window.py"
+fi
 cat > "$local_tmp/launch.sh" <<SH
 #!/bin/sh
 set -u
@@ -2347,35 +2361,12 @@ cleanup_focus() {
 }
 trap cleanup_focus EXIT
 # Focus tracking is opt-in for Robot workflows, never for ordinary HTTP validation.
-# Under the niri scrolling compositor the launcher's own cmd.exe console becomes a
-# column beside the editor. Columns tile across the viewport, so the editor's AWT
-# coordinates (origin 0,0) only line up with real screen pixels when the editor is the
-# leftmost visible column — otherwise every Robot press lands on the console window.
-# Keep only this task's editor focused and reap our helper when the launcher exits.
+# The task-owned helper reports stable compositor bounds before Robot input, and
+# captures only this run's editor when the brush probe requests a trail image.
 if [ "$focus_editor_window" = 1 ]; then
-(
-  for _ in \$(seq 1 600); do
-    niri msg -j windows 2>/dev/null | python3 -c '
-import json, subprocess, sys
-task = sys.argv[1]
-try:
-    windows = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-for w in windows:
-    title = w.get("title") or ""
-    if task + ".cmo3" in title:
-        if not w.get("is_focused"):
-            subprocess.run(
-                ["niri", "msg", "action", "focus-window", "--id", str(w["id"])],
-                capture_output=True)
-        subprocess.run(
-            ["niri", "msg", "action", "move-column-to-first"],
-            capture_output=True)
-' "$task_id"
-    sleep 2
-  done
-) &
+  "$editor_window_python" -I "$task_dir/focus-cubism-validation-window.py" \
+    --task-dir "$task_dir" --run-id "$task_id" --niri "$editor_window_niri" \
+    > "$evidence_dir/editor-window-helper.log" 2>&1 &
 focus_pid=\$!
 fi
 "$proton_wrapper" -p "$prefix_dir" --runner "$proton_runner" "$cmd_unix" /c "$win_launch" > "$evidence_dir/launcher.out" 2>&1
@@ -2471,8 +2462,9 @@ fi
 
 log "waiting for terminal validation result"
 deadline=$((SECONDS + result_timeout))
-result_passed=0
-while [ "$SECONDS" -lt "$deadline" ]; do
+# Re-read the terminal evidence after observing process death: publication may race
+# the first result read. Exit/identity/cleanup checks below still apply after PASS.
+terminal_result_observed() {
   log_file="${log_file:-$(latest_runtime_log)}"
   if [ -n "$log_file" ]; then
     for marker in "${failure_markers[@]}"; do
@@ -2480,20 +2472,28 @@ while [ "$SECONDS" -lt "$deadline" ]; do
     done
   fi
   if [ -n "$result_marker" ]; then
-    if [ -n "$log_file" ] && runtime_log_contains "$log_file" "$result_marker"; then
-      result_passed=1
-      break
-    fi
+    [ -n "$log_file" ] && runtime_log_contains "$log_file" "$result_marker"
   else
     if result_file_contains "$result_file" "$result_fail_line"; then
       fail "result file reported failure: $result_file"
     fi
-    if result_file_contains "$result_file" "$result_pass_line"; then
-      result_passed=1
-      break
-    fi
+    result_file_contains "$result_file" "$result_pass_line"
   fi
-  remote_process_alive || fail "host exited before terminal result"
+}
+
+terminal_result_or_process_exit() {
+  terminal_result_observed && return 0
+  if remote_process_alive; then return 1; fi
+  terminal_result_observed && return 0
+  fail "host exited before terminal result"
+}
+
+result_passed=0
+while [ "$SECONDS" -lt "$deadline" ]; do
+  if terminal_result_or_process_exit; then
+    result_passed=1
+    break
+  fi
   sleep "$poll_seconds"
 done
 [ "$result_passed" = 1 ] || fail "result timeout after ${result_timeout}s"

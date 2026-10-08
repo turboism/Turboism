@@ -36,4 +36,9 @@ public final class AuthorizedMeshMirrorToolEligibility implements MeshMirrorTool
             throw failure;
         }
     }
+
+    @Override
+    public boolean isAvailable() {
+        return delegate.isAvailable();
+    }
 }

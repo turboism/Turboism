@@ -20,6 +20,11 @@ final class AtlasTileBboxHookContributor implements HookContributor {
     }
 
     @Override
+    public String policyId() {
+        return HOOK_POLICY_ID;
+    }
+
+    @Override
     public Phase phase() {
         return Phase.PREMAIN;
     }
@@ -43,17 +48,11 @@ final class AtlasTileBboxHookContributor implements HookContributor {
     public AutoCloseable install(final HookEnvironment environment) throws Exception {
         try {
             final VerifiedAtlasTileBboxInstaller.Installation installation = VerifiedAtlasTileBboxInstaller.install(
-                    environment.instrumentation(),
-                    // Premain runs before the diagnostics sink exists; the console is the
-                    // only place the admission verdict survives on a real host.
-                    code -> {
-                        // System.err.println("[turboism] atlas-tile-bbox " + code);
-                    });
-            // RuntimeDiagnostics.debug(
-            //     "bootstrap",
-            //     "Atlas tile-bbox status=" + installation.status()
-            //         + ", transformOutcome=" + installation.transformOutcome()
-            // );
+                    environment.instrumentation(), code -> RuntimeDiagnostics.debug("atlas-tile-bbox", code));
+            RuntimeDiagnostics.debug(
+                    "bootstrap",
+                    "Atlas tile-bbox status=" + installation.status() + ", transformOutcome="
+                            + installation.transformOutcome());
             return installation;
         } catch (final Throwable failure) {
             RuntimeDiagnostics.error("atlas-tile-bbox", "Atlas tile-bbox optimization disabled safely", failure);

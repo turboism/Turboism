@@ -1,0 +1,20 @@
+{
+  "5.2.03": {
+    "com/live2d/graphics3d/shader/GShader": "172952b8b422f3b6b0610bc614672cad7259e33e5186e5128401dd40dadef7da",
+    "com/live2d/cubism/view/gl/SGFramework/g": "061f5ffc2b99495dc5996514838773c5d9b2eaf9cb5bc8d5fe8c934529f1c34f",
+    "com/live2d/graphics3d/a": "894406054708ff0f17592fa17e83e69231d5b3f946fb30aed1f01a6cef5a01cb",
+    "com/live2d/graphics3d/shader/y": "fe103c4a7eaec57261eaefcbdf3c02d489a97d25422db69409e68ce6c22154fc"
+  },
+  "5.3.02": {
+    "com/live2d/graphics3d/shader/GShader": "efed635454ed364f26f7aa1673c602cba35b00b4396ba03dee631dfc6450b6e0",
+    "com/live2d/cubism/view/gl/SGFramework/g": "d95e1daf66299fde63580f0588a6b256bcd67ddd1dfd412acbd7ee71a78b3ba9",
+    "com/live2d/graphics3d/a": "e63f6206dd9246d8a2656bb33a5d15c3bde95223f375194466b1f1a0ce95856e",
+    "com/live2d/graphics3d/shader/A": "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a"
+  },
+  "5.3.03": {
+    "com/live2d/graphics3d/shader/GShader": "efed635454ed364f26f7aa1673c602cba35b00b4396ba03dee631dfc6450b6e0",
+    "com/live2d/cubism/view/gl/SGFramework/g": "d50f44d3ad15d2c4d1c7b42df3c7e5098819c9c54ddbfb6b543a1c256bd49443",
+    "com/live2d/graphics3d/a": "e63f6206dd9246d8a2656bb33a5d15c3bde95223f375194466b1f1a0ce95856e",
+    "com/live2d/graphics3d/shader/A": "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a"
+  }
+}
