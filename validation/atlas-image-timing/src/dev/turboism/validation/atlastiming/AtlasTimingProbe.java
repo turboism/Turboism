@@ -53,6 +53,15 @@ public final class AtlasTimingProbe {
     /** Woven at the top of each instrumented method. Stack-neutral: pushes onto a thread stack. */
     public static void enter(final int metricId) {
         try {
+            if (metricId == AtlasTimingTargets.UPDATE_TEXTURE
+                    || metricId == AtlasTimingTargets.SETUP_CACHE_IMAGE) {
+                StackSamples.maybeSample(metricId);
+            }
+        } catch (Throwable ignored) {
+            // Stack sampling is an independent failure domain; it must never disturb
+            // the pairing push below or the host.
+        }
+        try {
             final ArrayDeque<long[]> stack = STACK.get();
             if (stack.size() < 512) {
                 stack.push(new long[]{metricId, System.nanoTime(), System.currentTimeMillis()});

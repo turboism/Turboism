@@ -76,6 +76,10 @@ public record MainToolbarContributionDescriptor(
                 MainToolbarRegistry.Placement.before(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY);
             case "after:host-home-entry" ->
                 MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY);
+            case "before:host-brush-selection-tool" ->
+                MainToolbarRegistry.Placement.before(MainToolbarRegistry.Anchor.HOST_BRUSH_SELECTION_TOOL);
+            case "after:host-brush-selection-tool" ->
+                MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_BRUSH_SELECTION_TOOL);
             default -> throw new IllegalArgumentException("Unsupported compatible main toolbar anchor: " + anchor);
         };
     }

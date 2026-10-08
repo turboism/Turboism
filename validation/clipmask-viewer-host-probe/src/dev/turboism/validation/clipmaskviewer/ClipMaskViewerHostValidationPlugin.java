@@ -5,6 +5,7 @@ import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRecord;
+import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -14,6 +15,7 @@ import dev.turboism.sdk.ui.CollapsibleSectionContribution;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 
 import javax.swing.SwingUtilities;
 import java.nio.file.Files;
@@ -33,7 +35,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * <p>This probe never touches production code: it re-executes the same public
  * SDK read path the clipmask-viewer plugin uses
- * ({@code context.cubismClipMasks().collectClipMaskRecords()},
+ * ({@code context.services().require(CubismClipMaskService.class).collectClipMaskRecords()},
  * {@code context.cubismRead().meshes()/selection()}) and the same runtime-side
  * registration lifecycle (action / menu / collapsible-section / status
  * notification), recording structured expected/actual/status evidence. All
@@ -293,9 +295,9 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
 
     private void runDataMatrix() throws Exception {
         final List<ClipMaskRecord> first = onHostThread(
-            () -> context.cubismClipMasks().collectClipMaskRecords());
+            () -> context.services().find(CubismClipMaskService.class).orElse(CubismClipMaskService.unavailable()).collectClipMaskRecords());
         final List<ClipMaskRecord> second = onHostThread(
-            () -> context.cubismClipMasks().collectClipMaskRecords());
+            () -> context.services().find(CubismClipMaskService.class).orElse(CubismClipMaskService.unavailable()).collectClipMaskRecords());
         recordCount = first.size();
         lastRecords = first;
 
@@ -552,7 +554,7 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
                     return SECTION_ORDER;
                 }
             });
-        final Registration sectionRegistration = context.uiHost().contributeCollapsibleSection(
+        final Registration sectionRegistration = context.services().find(UiHostCapabilityService.class).orElse(UiHostCapabilityService.unavailable()).contributeCollapsibleSection(
             new CollapsibleSectionContribution(
                 EmbeddedPanelId.of(PANEL_ID),
                 SECTION_ID,
@@ -575,7 +577,7 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
 
     private void runNotifyStatus() {
         try {
-            context.uiHost().notifyStatus(new StatusNotification(
+            context.services().find(UiHostCapabilityService.class).orElse(UiHostCapabilityService.unavailable()).notifyStatus(new StatusNotification(
                 STATUS_ID, "INFO", "Clip mask viewer host validation probe completed."));
             recordAssertion("status.notify", "best-effort delivery", "delivered", "PASS");
         } catch (UnsupportedOperationException unsupported) {

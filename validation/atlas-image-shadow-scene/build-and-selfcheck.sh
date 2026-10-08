@@ -29,6 +29,7 @@ t039_runtime_source_binding=target-pd
 t039_trusted_source_path='C:\Program Files\Live2D Cubism 5.3.03\app\lib\Live2D_Cubism.jar'
 
 publish=0
+tlprod_opt_in=''
 host_profile=5303
 production_agent="${TURBOISM_ATLAS_IMAGE_SHADOW_PRODUCTION_AGENT:-}"
 t039_agent="${TURBOISM_ATLAS_IMAGE_SHADOW_T039_AGENT:-}"
@@ -45,10 +46,14 @@ fail() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --publish) publish=1; shift ;;
+    --tlprod-opt-in)
+      [[ $# -ge 2 && -z "$tlprod_opt_in" ]] || fail 'production opt-in may be supplied once'
+      [[ "$2" == TLPROD_EXPLICIT_OPT_IN ]] || fail 'production opt-in token is invalid'
+      tlprod_opt_in="$2"; shift 2 ;;
     --host-profile)
       [[ $# -ge 2 ]] || fail 'missing --host-profile value'
       case "$2" in
-        5303|5203) host_profile="$2" ;;
+        5303|5302|5203) host_profile="$2" ;;
         *) fail "unknown host profile: $2" ;;
       esac
       shift 2 ;;
@@ -81,18 +86,25 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# The 5203 profile has exactly one reviewed fixture (the opacity52 pair the mcp 5203 wrapper
-# pins) and no heavy profile; its canonical bundle name is fixed regardless of the local name.
+# Ordinary 5203 scenes keep the opacity52 pair. Only explicit production builds may
+# publish the fixed heavy pair; the wrapper forwards the same token to DriverConfig.
+if [[ -n "$tlprod_opt_in" ]]; then
+  [[ "$fixture_profile" == heavy ]] || fail 'production opt-in requires the fixed heavy fixture profile'
+fi
 opacity52_fixture_name=part-opacity-fixture-52-final.cmo3
 opacity52_fixture_sha256=331bbb4cbdb1287f5bd063a0661d94c2860534baa7d0f76bb055ed070a21b028
+official_jar_sha256_5302=988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21
 official_jar_sha256_5203=bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd
 if [[ "$host_profile" == 5203 ]]; then
-  [[ "$fixture_profile" == circle100 ]] \
+  [[ "$fixture_profile" == circle100 || "$tlprod_opt_in" == TLPROD_EXPLICIT_OPT_IN ]] \
     || fail 'the 5203 profile has a single reviewed fixture; --fixture-profile does not apply'
   official_jar_sha256="$official_jar_sha256_5203"
+elif [[ "$host_profile" == 5302 ]]; then
+  official_jar_sha256="$official_jar_sha256_5302"
 fi
 case "$fixture_profile" in
   heavy)
+    heavy_fixture_env_key="TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_$host_profile"
     fixture_env_key="$heavy_fixture_env_key"
     fixture="${!heavy_fixture_env_key:-}"
     fixture_name="$heavy_fixture_name"
@@ -105,6 +117,12 @@ case "$fixture_profile" in
       fixture="${fixture_src:-}"
       fixture_name="$opacity52_fixture_name"
       fixture_sha256="$opacity52_fixture_sha256"
+    elif [[ "$host_profile" == 5302 ]]; then
+      fixture_env_key=TURBOISM_HOST_VALIDATION_FIXTURE_5302
+      turboism_select_fixture 5302 || exit 2
+      fixture="${fixture_src:-}"
+      fixture_name="$circle100_fixture_name"
+      fixture_sha256="$circle100_fixture_sha256"
     else
       fixture_env_key="$circle100_fixture_env_key"
       turboism_select_fixture 5303 || exit 2
@@ -116,7 +134,7 @@ case "$fixture_profile" in
 esac
 [[ -n "$fixture" ]] || fail "$fixture_profile fixture requires $fixture_env_key in ignored .env/environment"
 [[ "$fixture" = /* ]] || fail "fixture path must be absolute: $fixture"
-if [[ "$host_profile" == 5303 ]]; then
+if [[ "$host_profile" == 5303 || "$host_profile" == 5302 ]]; then
   [[ "$(basename -- "$fixture")" == "$fixture_name" ]] \
     || fail "fixture source basename mismatch: $fixture"
 fi
@@ -208,7 +226,7 @@ if [[ "$publish" == 1 ]]; then
   else
     [[ -z "$t039_agent" && -z "$t039_code_source" && -z "$t039_loader_class"
       && -z "$t039_helper_sha256" && -z "$t039_t038_helper_sha256" ]] \
-      || fail 'the 5203 profile forbids every --t039-* input'
+      || fail 'the non-5303 profile forbids every --t039-* input'
   fi
   for artifact in "$production_agent" ${t039_agent:+"$t039_agent"}; do
     [[ -f "$artifact" && ! -L "$artifact" ]] || fail "publish artifact is not a regular non-symlink file: $artifact"
@@ -228,7 +246,7 @@ if [[ "$publish" == 1 ]]; then
     manifest="$delivery_root/bundle.manifest"
   else
     bundle_root="$delivery_root/bundle.$driver_sha256.$production_sha256"
-    manifest="$delivery_root/bundle-5203.manifest"
+    manifest="$delivery_root/bundle-$host_profile.manifest"
   fi
   [[ ! -e "$manifest" ]] || fail "refusing to overwrite published manifest: $manifest"
   [[ ! -e "$bundle_root" ]] || fail "refusing to overwrite published bundle: $bundle_root"

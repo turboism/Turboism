@@ -1,0 +1,129 @@
+{
+  "task": "T054",
+  "decision": "do_not_integrate_array_copy_scan",
+  "lane": "A owned-only feasibility",
+  "jdk": "OpenJDK 17.0.20+8",
+  "source_and_raw_log": [
+    {
+      "path": "validation/triangulation-tlindex/diagnostic/IdentityAbsenceScanSelfCheck.java",
+      "sha256": "82b628a07066a0cd26251bd3794bcb6b5eac988f8a0d5ab308586210c1d5d16c"
+    },
+    {
+      "path": "validation/triangulation-tlindex/identity-settle-scan-feasibility-20261003-r2.txt",
+      "sha256": "03d2fce39f23fca4ce55ec05d3b598c330c7c422c93ed87652a9c8dbdef4c69f"
+    }
+  ],
+  "first_run_median_change_percent": [
+    -17.172,
+    -3.82,
+    3.342,
+    -7.441,
+    25.614,
+    7.521,
+    21.22,
+    8.052,
+    19.693,
+    -5.334,
+    2.922,
+    10.026
+  ],
+  "first_run_raw_log": "Tool output only; only repeat r2 full raw log is archived",
+  "repeat_r2": [
+    {
+      "size": 128,
+      "pending": 1,
+      "iterator_ns": 17547784,
+      "array_ns": 13280136,
+      "change_percent": -24.32
+    },
+    {
+      "size": 128,
+      "pending": 2,
+      "iterator_ns": 21065548,
+      "array_ns": 14575334,
+      "change_percent": -30.81
+    },
+    {
+      "size": 128,
+      "pending": 8,
+      "iterator_ns": 40207073,
+      "array_ns": 39758222,
+      "change_percent": -1.116
+    },
+    {
+      "size": 512,
+      "pending": 1,
+      "iterator_ns": 20805546,
+      "array_ns": 22793623,
+      "change_percent": 9.556
+    },
+    {
+      "size": 512,
+      "pending": 2,
+      "iterator_ns": 21185507,
+      "array_ns": 24474481,
+      "change_percent": 15.525
+    },
+    {
+      "size": 512,
+      "pending": 8,
+      "iterator_ns": 38069171,
+      "array_ns": 45102134,
+      "change_percent": 18.474
+    },
+    {
+      "size": 2048,
+      "pending": 1,
+      "iterator_ns": 22572981,
+      "array_ns": 24297325,
+      "change_percent": 7.639
+    },
+    {
+      "size": 2048,
+      "pending": 2,
+      "iterator_ns": 22232180,
+      "array_ns": 24555710,
+      "change_percent": 10.451
+    },
+    {
+      "size": 2048,
+      "pending": 8,
+      "iterator_ns": 40252771,
+      "array_ns": 48689842,
+      "change_percent": 20.96
+    },
+    {
+      "size": 4096,
+      "pending": 1,
+      "iterator_ns": 24759837,
+      "array_ns": 26878407,
+      "change_percent": 8.556
+    },
+    {
+      "size": 4096,
+      "pending": 2,
+      "iterator_ns": 25974927,
+      "array_ns": 27510709,
+      "change_percent": 5.913
+    },
+    {
+      "size": 4096,
+      "pending": 8,
+      "iterator_ns": 40342560,
+      "array_ns": 51164417,
+      "change_percent": 26.825
+    }
+  ],
+  "checks_per_run": 529940,
+  "allocation": "Measured iterator 32 bytes/proof; array 0 bytes/proof after scratch creation",
+  "limitations": [
+    "Timing only physical absence proof, not full settle or real host",
+    "Explicit scratch omits production ThreadLocal acquisition",
+    "Warmup iterator then array; measured pairs alternate order",
+    "No continuous timing or statistically stable production prediction",
+    "Scratch 4096 references plus holder, preallocated outside timed section",
+    "Exception/drift cleanup present in prototype, not fault-injected"
+  ],
+  "production_changed": false,
+  "host_launched": false
+}

@@ -197,10 +197,14 @@ public final class PluginScopedCubismModelAccess {
                 changeKey(null);
                 return java.util.Optional.of(new Current(document(document, contentId), java.util.Optional.empty()));
             }
+            final dev.turboism.sdk.cubism.ModelSnapshot observedModel =
+                    document.model().orElseThrow();
             final HostModel hostModel = new HostModel(
                     modelId,
-                    document.model().orElseThrow().name(),
-                    java.util.List.of(),
+                    observedModel.name(),
+                    observedModel.parameters().stream()
+                            .map(AppearanceSource::hostParameter)
+                            .toList(),
                     java.util.List.of(),
                     java.util.List.of());
             changeKey(contentId + "\\u0000" + modelId);
@@ -214,6 +218,18 @@ public final class PluginScopedCubismModelAccess {
             return result.isAvailable()
                     ? result.value().orElse(java.util.Optional.empty())
                     : java.util.Optional.empty();
+        }
+
+        private static HostParameter hostParameter(final dev.turboism.sdk.cubism.ParameterSnapshot value) {
+            return new HostParameter(
+                    value.id(),
+                    value.name(),
+                    value.value(),
+                    value.defaultValue(),
+                    value.minValue(),
+                    value.maxValue(),
+                    value.visible(),
+                    value.editable());
         }
 
         private static HostDocument document(final DocumentSnapshot source, final String contentId) {

@@ -172,7 +172,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         // selection observer: a single invalidation-token domain lets the shared
         // observation baseline order query results against sampler results.
         this.sessionSnapshotSource = dev.turboism.adapter.host.HostSessionSnapshotSource.forSession(
-                hostAccess.adapters().projectWorkspace());
+                hostAccess.adapters().projectWorkspace(), hostAccess::currentHostSelection);
         // Session-scoped selection observation on the bounded host-read lane.
         this.selectionObserver = new dev.turboism.adapter.cubism.SelectionObservationPublisher(
                 sessionSnapshotSource,

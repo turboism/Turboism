@@ -10,6 +10,10 @@ import java.util.Optional;
  * <p>The runtime supplies a permission-scoped view to each plugin. A server plugin publishes one
  * connection for the lifetime of its returned registration; an automation plugin reads a detached
  * immutable snapshot.</p>
+ *
+ * <p>The published endpoint is a loopback address guarded by Origin validation plus a bearer token
+ * for mutating operations; the token itself lives owner-only in the plugin state directory and is
+ * never part of the published connection material.</p>
  */
 @Incubating
 public interface McpConnectionService {
@@ -28,6 +32,21 @@ public interface McpConnectionService {
      * @return idempotent revocation handle
      */
     Registration publish(McpHttpConnection connection);
+
+    /**
+     * Subscribes to connection changes under the same read permission as {@link #current()}.
+     * The listener first receives the current snapshot (possibly empty) before this method
+     * returns, then every subsequent publish and revoke. Listeners are invoked synchronously on
+     * the publisher's thread and must return quickly without calling back into this service.
+     *
+     * @param listener receives the detached connection snapshots; empty signals revocation
+     * @return idempotent unsubscription handle
+     */
+    default Registration subscribe(final java.util.function.Consumer<Optional<McpHttpConnection>> listener) {
+        java.util.Objects.requireNonNull(listener, "listener");
+        listener.accept(current());
+        return () -> {};
+    }
 
     /**
      * Reports whether a live runtime surface backs this instance.
@@ -60,6 +79,12 @@ public interface McpConnectionService {
         @Override
         public Registration publish(final McpHttpConnection connection) {
             throw new UnsupportedOperationException("MCP connection service is not available");
+        }
+
+        @Override
+        public Registration subscribe(final java.util.function.Consumer<Optional<McpHttpConnection>> listener) {
+            java.util.Objects.requireNonNull(listener, "listener").accept(Optional.empty());
+            return () -> {};
         }
     }
 }

@@ -23,6 +23,7 @@ public interface ParameterGroups {
      * The write is undoable and generation-bound.</p>
      *
      * @throws IllegalArgumentException when the name is blank
+     * @throws UnsupportedOperationException when the backend does not support parameter-group editing
      */
     default ParameterGroup addGroup(final String name) {
         java.util.Objects.requireNonNull(name, "name");
@@ -33,6 +34,7 @@ public interface ParameterGroups {
      * Deletes one parameter folder and all of its descendant folders and parameters.
      *
      * @throws NoSuchElementException when the folder is absent
+     * @throws UnsupportedOperationException when the backend does not support parameter-group editing
      */
     default void removeGroup(final dev.turboism.sdk.cubism.id.ParameterGroupId id) {
         java.util.Objects.requireNonNull(id, "id");
@@ -43,6 +45,7 @@ public interface ParameterGroups {
      * Moves one parameter into the requested folder through the Editor undo path.
      *
      * @throws NoSuchElementException when the parameter or the folder is absent
+     * @throws UnsupportedOperationException when the backend does not support parameter-group editing
      */
     default void moveParameter(
             final dev.turboism.sdk.cubism.id.ParameterId parameterId,

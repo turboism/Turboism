@@ -6,6 +6,67 @@ and exits the Editor. Never install it in a user's everyday plugin directory.
 The shared exact-host queue, official launcher, isolated prefix/home and immutable
 fixture checks described in the host-validation runbook remain mandatory.
 
+## Triangulation edge-index mode (T029-TLPROD)
+
+Pass `-Dturboism.validation.settingsEdgeIndex=true` through the unified queue/Runner.
+It is mutually exclusive with `settingsPerformance`; without either property the
+original mesh-hash scenario is unchanged. This mode uses the actual Performance tab,
+identifies `triangulation-edge-index` by contribution ID, verifies its exact shipped
+i18n label and visible checkbox, then checks missing-key default-on or the exact
+persisted Boolean. Apply, an unsaved opposite change followed by Cancel, reopening,
+OK restoration and reopening again must preserve the corresponding values.
+
+The probe copies—not edits—the config files produced by those actual UI saves into
+`state/dev.turboism.validation.settingspage/edge-index-ui-{off,on}.json`, and reports
+each SHA-256 in `settings-result.txt`. Only snapshots from a standard-gate PASS and
+`status=PASS` result are admissible as UI evidence. The production capture wrapper's
+`--tri-tlindex-home-config` accepts the leg-matching explicit Boolean and freezes its
+SHA during prepare; that option alone does not establish that a file came from UI.
+Subsequent off/on host starts must use these verified snapshots and observe pristine/
+production-patched TriangleList bytes. A same-process save is not hot unweaving and
+cannot substitute for restart-dependent activation/deactivation evidence.
+
+2026-09-30 continuation: the extended probe compiles and the contribution/persistence
+regressions pass offline. Global queue seq2004 is orphaned after a disk-I/O failure,
+worker is offline and recovery is `safe=false`; the user chose offline convergence.
+No new real settings run or restart acceptance is claimed; no queue row was forced,
+no supervisor verdict was fabricated and no official host/model was modified.
+
+2026-09-30 real-host follow-up: seq2013 ran after queue recovery and failed before
+opening settings (`model and native renderer did not become ready`); its bound
+supervisor recorded safe cleanup. The readiness call reads the active model, but
+the probe descriptor had no `turboism.cubism.model.read` permission. The descriptor
+now declares that read-only application permission, and readiness timeout reports
+the last exception instead of hiding it. Production agent `4c326728…` is unchanged.
+Replacement probe `5d79212f…` was built and 185 prepared input file hashes verified;
+retry seq2025/job `355fecc7-a031-4562-93f2-64cdc375c500`, prepared `3433984a…`, is queued.
+It has not executed: preceding unrelated seq2021 is quarantined after supervisor
+error `invalid canonical task identity`. No UI PASS or restart evidence is claimed.
+
+Subsequent recovery resolved that blocker. Seq2025 completed with `status=PASS`,
+identity/fixture checks, normal exit and supervisor cleanup all passing. It observed
+an active model and 13 completed native frames, default-on and the exact Chinese
+label, Apply-to-off, unsaved-change Cancel, reopening off, OK restoration and
+reopening on. The two actual UI configuration SHA-256 values are
+`8945ee224b724641a5b468cf087be0287cb3908bca908c7abdc0c582bec9b846` (off) and
+`190ea2fcf912c290a4db40ccd512becf4d3f032098f9cbeca339c2f0903cce02` (on).
+The final production A/B inputs bind those exact bytes; restart and resource
+acceptance are recorded separately from this settings UI result.
+
+## Read-only task config preparation
+
+For a full edge-index UI restart with a read-only queue snapshot, opt in with
+`settingsPrepareTaskConfig=true`, `settingsTaskConfigExpectedRun={TASK_ID}` and
+`settingsTaskConfigExpectedSha=<verified UI config SHA>` (all prefixed by
+`turboism.validation.`). The probe checks the exact queue directory, isolated
+`turboism-home`, regular non-symlink config and its digest before enabling only
+that task config's owner write permission. It records unchanged before/after
+digests and then exercises the real Apply/Cancel/OK saves. This is forbidden in
+performance or read-only startup mode. It never edits source/prepared snapshots.
+Defaults are unchanged; build a separate validation jar with `build.sh <output>`
+to preserve frozen probes. `bash validation/settings-page-probe/selfcheck.sh`
+verifies file boundaries without a host.
+
 ## Performance settings mode
 
 Pass `-Dturboism.validation.settingsPerformance=true` through the common Runner.
@@ -70,3 +131,20 @@ or widen exact-version admission. Existing user opt-outs are preserved.
 None of these records establish complete real-host settings acceptance. Remaining
 checks include real focus, Apply/reopen, restart/managed-launch preferences and
 older-version/Windows UI execution. The test plugin is not a release artifact.
+
+## Read-only startup mode for the single-Agent triangulation scene
+
+`settingsStartupReadOnly=true` requires edge-index mode and an explicit Boolean
+`settingsStartupExpectedEdgeIndex`. It checks the real menu, SDK active model,
+completed native frames, persisted startup preference and unchanged config bytes.
+The report includes `mode=startup-read-only`, config SHA and PASS/FAIL; a result-write
+failure cannot log PASS. It does not open settings, save or exit the Editor. The
+existing T040 scene driver owns operations and exit.
+
+This uses the shared Runner's supported plugin route for explicit 5203/5302
+single-Agent TLPROD validation. It does not replace the real toggle/persistence
+scenario or establish three-version restart acceptance. The legacy
+`reviewedHostVersion=5.3.03` field describes the original settings scenario;
+`hostVersion` and the Runner's exact-JAR identity describe the actual run.
+5302 job 2395 passed these checks and safe normal exit; details are in
+[triangulation host evidence](../triangulation-tlindex/host-evidence-20261002.md).

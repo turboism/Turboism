@@ -286,6 +286,20 @@ class RuntimeTextureAtlasLayoutServiceTest {
                 service.apply(stale.target(), plan(1, 7)).failureCode());
     }
 
+    @Test
+    void isAvailableReflectsTheBackendState() {
+        final TextureAtlasLayoutCoordinator coordinator = new TextureAtlasLayoutCoordinator();
+        final RuntimeTextureAtlasLayoutService service = service(coordinator, permissions(), new ArrayList<>());
+
+        assertFalse(service.isAvailable(), "no provider and no native invocation means unavailable");
+
+        coordinator.connect(new RecordingProvider(state(7)));
+        assertTrue(service.isAvailable(), "a connected provider makes the service available");
+
+        coordinator.deactivate();
+        assertFalse(service.isAvailable(), "a detached provider reports unavailable again");
+    }
+
     private static RuntimeTextureAtlasLayoutService service(
             final TextureAtlasLayoutCoordinator coordinator,
             final List<PluginPermission> permissions,

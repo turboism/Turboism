@@ -1,6 +1,7 @@
 package dev.turboism.adapter.host;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -611,6 +612,20 @@ class DynamicCubismModelAccessTest {
         assertEquals(0, target.copyKeyframesFrom(sameGeneration, false));
         assertEquals(List.of("attr.copyKeyframesFrom"), calls);
         assertEquals(List.of(), foreignCalls);
+    }
+
+    @Test
+    void reportsAvailabilityOfTheCurrentDelegate() {
+        final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
+
+        assertFalse(access.isAvailable(), "a detached access reports unavailable");
+        assertFalse(UnavailableCubismModelAccess.INSTANCE.isAvailable(), "the fail-closed backing reports unavailable");
+
+        access.connect(modelAccess("model-a", 1.0F));
+        assertTrue(access.isAvailable(), "a connected access forwards the live delegate");
+
+        access.deactivate();
+        assertFalse(access.isAvailable(), "a deactivated access reports unavailable again");
     }
 
     private static CubismModel animationGraphModel(final List<String> calls) {

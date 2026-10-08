@@ -89,6 +89,17 @@ final class DynamicCubismModelAccess
      */
     dev.turboism.adapter.cubism.HostSnapshotSource.HostSelection currentHostSelection() {
         return withActiveLeaseOrFallback(dev.turboism.adapter.cubism.HostSnapshotSource.HostSelection::empty, lease -> {
+            if ("selection-brush".equals(System.getProperty("turboism.meshEditValidation.mode"))) {
+                dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                        "SelectionRead",
+                        "generation=" + lease.generation() + " delegate="
+                                + lease.modelAccess().getClass().getName()
+                                + " readerAuthorized="
+                                + (lease.modelAccess()
+                                                instanceof
+                                                dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess editor
+                                        && editor.selectionReadAuthorized()));
+            }
             if (lease.modelAccess()
                             instanceof dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess editorBacked
                     && editorBacked.selectionReadAuthorized()) {
@@ -194,6 +205,13 @@ final class DynamicCubismModelAccess
                         return provider.warpMirrorService(owner).apply(checked);
                     });
         };
+    }
+
+    @Override
+    public boolean isAvailable() {
+        synchronized (callGate) {
+            return current.isAvailable();
+        }
     }
 
     @Override

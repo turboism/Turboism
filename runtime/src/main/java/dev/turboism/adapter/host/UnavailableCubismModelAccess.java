@@ -11,6 +11,11 @@ final class UnavailableCubismModelAccess implements CubismModelAccess {
     private UnavailableCubismModelAccess() {}
 
     @Override
+    public boolean isAvailable() {
+        return false;
+    }
+
+    @Override
     public CubismModel active() {
         throw new IllegalStateException("No verified active Cubism Core model is available.");
     }

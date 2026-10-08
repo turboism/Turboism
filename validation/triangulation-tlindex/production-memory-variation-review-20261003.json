@@ -1,0 +1,168 @@
+{
+  "status": "PASS_FROZEN_SAMPLE_REPLAY_CAUSE_UNPROVEN",
+  "legs": {
+    "baseline1": {
+      "largestRssRise": {
+        "startEpochMillis": 1791007871759,
+        "endEpochMillis": 1791007872776,
+        "rssChangeBytes": 32628736,
+        "pssChangeBytes": 33931264,
+        "nativeCommandOverlapCycles": [
+          1
+        ],
+        "crossedMarkers": [
+          "command-observation-end",
+          "mesh-retained-start"
+        ]
+      },
+      "largestRssFall": {
+        "startEpochMillis": 1791007912766,
+        "endEpochMillis": 1791007913764,
+        "rssChangeBytes": -4775936,
+        "pssChangeBytes": -4784128,
+        "nativeCommandOverlapCycles": [
+          2
+        ],
+        "crossedMarkers": []
+      },
+      "retainedEndHeapUsedBytes": [
+        1482180816,
+        1808285648,
+        1312126896
+      ],
+      "retainedEndHeap3Minus1Bytes": -170053920,
+      "retainedMedianRss3Minus1Bytes": 1253376.0,
+      "sampleTransitionCount": 162
+    },
+    "candidate1": {
+      "largestRssRise": {
+        "startEpochMillis": 1791008176038,
+        "endEpochMillis": 1791008177041,
+        "rssChangeBytes": 135135232,
+        "pssChangeBytes": 135018496,
+        "nativeCommandOverlapCycles": [
+          2
+        ],
+        "crossedMarkers": [
+          "command-dispatch-start"
+        ]
+      },
+      "largestRssFall": {
+        "startEpochMillis": 1791008141060,
+        "endEpochMillis": 1791008142035,
+        "rssChangeBytes": -1429504,
+        "pssChangeBytes": -3719168,
+        "nativeCommandOverlapCycles": [
+          1
+        ],
+        "crossedMarkers": []
+      },
+      "retainedEndHeapUsedBytes": [
+        1320395664,
+        1312351552,
+        1221753152
+      ],
+      "retainedEndHeap3Minus1Bytes": -98642512,
+      "retainedMedianRss3Minus1Bytes": 142684160.0,
+      "sampleTransitionCount": 161
+    },
+    "candidate2": {
+      "largestRssRise": {
+        "startEpochMillis": 1791008420315,
+        "endEpochMillis": 1791008421293,
+        "rssChangeBytes": 6950912,
+        "pssChangeBytes": 6939648,
+        "nativeCommandOverlapCycles": [],
+        "crossedMarkers": []
+      },
+      "largestRssFall": {
+        "startEpochMillis": 1791008464295,
+        "endEpochMillis": 1791008465294,
+        "rssChangeBytes": -6483968,
+        "pssChangeBytes": -6787072,
+        "nativeCommandOverlapCycles": [],
+        "crossedMarkers": []
+      },
+      "retainedEndHeapUsedBytes": [
+        1210529784,
+        1356973440,
+        1552237664
+      ],
+      "retainedEndHeap3Minus1Bytes": 341707880,
+      "retainedMedianRss3Minus1Bytes": 638976.0,
+      "sampleTransitionCount": 161
+    },
+    "baseline2": {
+      "largestRssRise": {
+        "startEpochMillis": 1791008715838,
+        "endEpochMillis": 1791008716833,
+        "rssChangeBytes": 18001920,
+        "pssChangeBytes": 17916928,
+        "nativeCommandOverlapCycles": [],
+        "crossedMarkers": []
+      },
+      "largestRssFall": {
+        "startEpochMillis": 1791008748858,
+        "endEpochMillis": 1791008749834,
+        "rssChangeBytes": -3014656,
+        "pssChangeBytes": -3383296,
+        "nativeCommandOverlapCycles": [
+          2
+        ],
+        "crossedMarkers": []
+      },
+      "retainedEndHeapUsedBytes": [
+        1806535016,
+        1272230656,
+        1661267648
+      ],
+      "retainedEndHeap3Minus1Bytes": -145267368,
+      "retainedMedianRss3Minus1Bytes": 1085440.0,
+      "sampleTransitionCount": 163
+    }
+  },
+  "originalGateStatus": "FAIL_FIXED_BALANCED_GATES",
+  "productionAcceptance": "NOT_GRANTED",
+  "limitations": [
+    "One-second RSS samples cannot identify allocation owners or exact peak times.",
+    "Heap-used boundary readings are not post-GC live size or committed heap.",
+    "A jump interval outside native timing excludes direct synchronous command timing only; concurrent host work remains possible.",
+    "No GC, heap commitment, allocation stacks or native map categories were captured.",
+    "This replay neither amends gates nor retries a native job."
+  ],
+  "inputPins": {
+    "validation/triangulation-tlindex/observer-free-production-balanced-protocol-20261003.json": "67eeed2095aa33118960664efd6d7b8d39c7c033e1297327c0420ad41815d849",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/baseline1/run.json": "249a93b6868b45f76956a03474819544240f72be71a2e98a94322ed99d97b51d",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/baseline1/native-review.json": "e24bbb9d8a42f22f55d75522ee633b6b1b3cab49edbb1b700ae9ed608a06a177",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/baseline1/direct-cpu-review.json": "4f17bb0bc775796937dfe42c9829795bededa49c058b75bf49d579e193785e1b",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/baseline1/resource-review.json": "442dbbad3d613fa0287ded7ca207d44288e40747efbcfcb5b55fbb84eac513dc",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/baseline1/native-evidence/observer-free-results.tsv": "3e999324e883cb6c310d7dd018c947e7cae856035398f9d410325f0c312b96f1",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/baseline1/native-evidence/resources.jsonl": "9c20dccb2b9f0bcae064c94685c28c61582b3de047b13606553e974099992ec1",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/baseline1/native-evidence/observer-free-command-cpu.tsv": "4dfc6c9589a316d9e6c789261b41d14352ec53cc5eebc674f398d972a9f687ea",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/candidate1/run.json": "adbc702688c73d3f0e338396779588a27999139c69c86038007a3cff68c9a752",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/candidate1/native-review.json": "aff357b92b5b6e50326473e0eb515c371d13c811a1c17e5cc34140cdfc208878",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/candidate1/direct-cpu-review.json": "8298fdb97edc790a42ba176a97360859c792d97c1c9460b99df2f04d160b0f13",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/candidate1/resource-review.json": "9922d64a0ab5530f4f381635edf887fdb4249e56307b3b4f53e6f5c9d6b0e822",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/candidate1/native-evidence/observer-free-results.tsv": "3e999324e883cb6c310d7dd018c947e7cae856035398f9d410325f0c312b96f1",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/candidate1/native-evidence/resources.jsonl": "50838fc6500db3651158eca4488eac967a77aa73ff17f9732dde86c0c154d939",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/candidate1/native-evidence/observer-free-command-cpu.tsv": "e3753290023861a87289bac2a68c37e256f1b6c75c3ad83cccce4ed31ffc0253",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/candidate2/run.json": "ddd009752ee6130b898ba6de0e675ab5553fe236715a70d3b5b12e819922f35f",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/candidate2/native-review.json": "5b012e3eb30258ec6e24f80eb3d283fdbdfdef79f931627b76b9682ddeaf2c2f",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/candidate2/direct-cpu-review.json": "8a76407fa8c877ecccf2e375f4d9bb8a47d827650de59a9235121a6dc32c06ae",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/candidate2/resource-review.json": "61f1749ac6307cba3883347c4f96de973fab0bcf2497655d8108635dd2cfc2b4",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/candidate2/native-evidence/observer-free-results.tsv": "3e999324e883cb6c310d7dd018c947e7cae856035398f9d410325f0c312b96f1",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/candidate2/native-evidence/resources.jsonl": "504d22fe36a02408591e98ee6ca4f42441560d2a345f224177e77c2fd2524821",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/candidate2/native-evidence/observer-free-command-cpu.tsv": "7f833558554553d53f555e4e46aa1f7034b9bac1c5de73d640670320ce3b83a8",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/baseline2/run.json": "fa924645708a3a6faf286ebfb645d041dd636cc1176268f58452643a4ed2c657",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/baseline2/native-review.json": "a14e81fc79b2d2c228d6039c1d70c4d21825013cbd77893b07a0d4f149cfbb84",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/baseline2/direct-cpu-review.json": "0e65663224ab853d25d08bbaa0176c5cb0e1805599d441d813774057bf3370b1",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/baseline2/resource-review.json": "b950b9a4f132a9827eb76b3c49e0c53db8f155c60d1b2d234c978054e70993e5",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/baseline2/native-evidence/observer-free-results.tsv": "3e999324e883cb6c310d7dd018c947e7cae856035398f9d410325f0c312b96f1",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/baseline2/native-evidence/resources.jsonl": "7575f034e1050429e85d934c2307361c5a68c30a4cbdd1a952dcaea7cb9a6ba5",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/baseline2/native-evidence/observer-free-command-cpu.tsv": "07a6434bfac6f1838ad6a99b0015fe5dc5630b10bae02dba8e57c8b23e0c5284",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1/balanced-review.json": "0ad6b7b1a890d069dc9ded3ebb88f7a3f232123e11bda96cd39a48a13f65cba5"
+  },
+  "replayIdenticalRepeat": true,
+  "replaySha256": "2929304aa3f217c3131f16e7508843d4f48a14bd795bfdb4c466b5546e0c5635",
+  "analysisSourceSha256": "0124427ca93e203b8f3d18fc38ee3d6edf072302c720db761836defc30c799d9"
+}

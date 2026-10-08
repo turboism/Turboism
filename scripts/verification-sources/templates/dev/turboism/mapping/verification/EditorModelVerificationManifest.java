@@ -315,7 +315,10 @@ public final class EditorModelVerificationManifest {
 
     public static final String ADAPTER_SLICE_ID = "${record:cubism-5.2.03-editor-model.json:adapterSliceId}";
     public static final Set<String> CAPABILITY_IDS = Set.of(
+        dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract.CAPABILITY_ID,
+        dev.turboism.adapter.cubism.mesh.MeshToolSessionSelectorContract.CAPABILITY_ID,
         "cubism.editor-model.read",
+        EditorSelectionReadSelectorContract.CAPABILITY_ID,
         "cubism.editor-model.write",
         "cubism.editor-model.warp-mirror",
         EditorParameterDefinitionWriteSelectorContract.CAPABILITY_ID,
@@ -543,7 +546,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.inherits.PropertyUndo.extends.ACUndoable"
     );
 
-    public static final Set<String> REQUIRED_ALIASES = union(EditorTextureRelationsSelectorContract.REQUIRED_ALIASES, union(TYPE_RELATION_ALIASES, union(union(Set.of(
+    public static final Set<String> REQUIRED_ALIASES = union(EditorTextureRelationsSelectorContract.REQUIRED_ALIASES, union(union(union(TYPE_RELATION_ALIASES, dev.turboism.adapter.cubism.mesh.MeshToolSessionSelectorContract.REQUIRED_ALIASES), dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract.REQUIRED_ALIASES), union(union(Set.of(
         "cubism.editor-model.app-controller.class",
         "cubism.editor-model.app-controller.instance",
         "cubism.editor-model.app-controller.current-document",
@@ -17278,6 +17281,7 @@ public final class EditorModelVerificationManifest {
     public static Set<String> cubism5302Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
         values.removeAll(CUBISM_5303_ONLY_ALIASES);
+        values.addAll(dev.turboism.adapter.cubism.mesh.MeshToolSessionSelectorContract.REQUIRED_ALIASES);
         values.addAll(EditorTextureRelationsSelectorContract.REQUIRED_ALIASES);
         values.addAll(EditorRawImagePsdSelectorContract.REQUIRED_ALIASES);
         values.addAll(EditorRawImagePsdReplaceSelectorContract.REQUIRED_ALIASES);
@@ -18071,6 +18075,7 @@ public final class EditorModelVerificationManifest {
         );
         values.removeAll(EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES);
         values.removeAll(CUBISM_5303_ONLY_ALIASES);
+        values.addAll(dev.turboism.adapter.cubism.mesh.MeshToolSessionSelectorContract.REQUIRED_ALIASES);
         values.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorContract.STATISTICS_ALIASES);
         values.removeAll(PART_OPACITY_ADDITIVE_ALIASES);
         values.removeAll(EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES);
@@ -18093,6 +18098,7 @@ public final class EditorModelVerificationManifest {
         values.addAll(EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.REQUIRED_ALIASES);
         values.removeAll(GET_OBJECT_5302_ONLY_ALIASES);
         values.removeAll(CUBISM_5303_ONLY_ALIASES);
+        values.addAll(dev.turboism.adapter.cubism.mesh.MeshToolSessionSelectorContract.REQUIRED_ALIASES);
         return Set.copyOf(values);
     }
 

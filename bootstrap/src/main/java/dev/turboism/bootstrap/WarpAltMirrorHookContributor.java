@@ -58,6 +58,11 @@ final class WarpAltMirrorHookContributor implements HookContributor {
     }
 
     @Override
+    public String policyId() {
+        return HOOK_ID;
+    }
+
+    @Override
     public Phase phase() {
         return Phase.PREMAIN;
     }

@@ -7,6 +7,7 @@ import dev.turboism.sdk.cubism.command.EditorFileCommandRequest;
 import dev.turboism.sdk.cubism.command.EditorOverwritePolicy;
 import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot;
 import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot.PsdLayerSnapshot;
+import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.ArtMeshTextureInputs;
@@ -1736,11 +1737,11 @@ public final class OfficialPsdFixturePreparation {
                 }
 
                 @Override public EditorCommandResult copy() {
-                    return context.editorCommands().execute(EditorCommand.COPY);
+                    return context.services().find(EditorCommandService.class).orElse(EditorCommandService.unavailable()).execute(EditorCommand.COPY);
                 }
 
                 @Override public EditorCommandResult paste() {
-                    return context.editorCommands().execute(EditorCommand.PASTE);
+                    return context.services().find(EditorCommandService.class).orElse(EditorCommandService.unavailable()).execute(EditorCommand.PASTE);
                 }
 
                 @Override public boolean unknownVisibleDialog() {
@@ -1990,7 +1991,7 @@ public final class OfficialPsdFixturePreparation {
             () -> checkStoppedAndTask(input), () -> {
                 final int afterSequence = events.captureBeforeExecute();
                 checkStoppedAndTask(input);
-                final EditorCommandResult result = context.editorCommands().execute(
+                final EditorCommandResult result = context.services().find(EditorCommandService.class).orElse(EditorCommandService.unavailable()).execute(
                     new EditorFileCommandRequest(EditorFileCommand.SAVE_AS, handle,
                         EditorOverwritePolicy.REPLACE_EXISTING));
                 return new SaveExecution(result, afterSequence, currentModel);

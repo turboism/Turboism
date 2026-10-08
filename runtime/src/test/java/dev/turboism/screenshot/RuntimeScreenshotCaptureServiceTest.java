@@ -1,7 +1,9 @@
 package dev.turboism.screenshot;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.ScreenshotCaptureAdapter;
 import dev.turboism.permissions.PermissionChecker;
@@ -60,6 +62,43 @@ final class RuntimeScreenshotCaptureServiceTest {
                 () -> service.capture(new ScreenshotCaptureRequest(new RecentFileId("one"), 150, 150))
                         .toCompletableFuture()
                         .join());
+    }
+
+    @Test
+    void reportsUnavailableForSafeModeAdapter() {
+        assertFalse(
+                new RuntimeScreenshotCaptureService(ScreenshotCaptureAdapter.safeMode(), PermissionChecker.allowAll())
+                        .isAvailable());
+    }
+
+    @Test
+    void reportsAvailableForConnectedAdapter() {
+        final RuntimeScreenshotCaptureService service = new RuntimeScreenshotCaptureService(
+                ScreenshotCaptureAdapter.connected(ignored -> CompletableFuture.failedStage(
+                        new UnsupportedOperationException("capture refused in this test"))),
+                PermissionChecker.allowAll());
+        assertTrue(service.isAvailable());
+    }
+
+    @Test
+    void aThrowingAvailabilityProbeReportsUnavailableInsteadOfThrowing() {
+        final RuntimeScreenshotCaptureService service = new RuntimeScreenshotCaptureService(
+                new ScreenshotCaptureAdapter() {
+                    @Override
+                    public java.util.concurrent.CompletionStage<ScreenshotCaptureResult> capture(
+                            final ScreenshotCaptureRequest request) {
+                        return CompletableFuture.failedStage(new UnsupportedOperationException("no host"));
+                    }
+
+                    @Override
+                    public boolean available() {
+                        // Mirrors DynamicRuntimeHostAdapters.call: an outermost
+                        // adapter call may run session teardown on this thread.
+                        throw new IllegalStateException("host session teardown on the calling thread");
+                    }
+                },
+                PermissionChecker.allowAll());
+        assertFalse(service.isAvailable(), "a throwing probe is an unavailable host, never an escaping failure");
     }
 
     @Test

@@ -201,6 +201,73 @@ if [[ -f "$blocked_dir/timing-calls.txt" ]]; then
 fi
 echo "ATLAS_TIMING_OPTIN_GATE PASS no instrumentation without token"
 
+# --- T029-STACK: independent bounded entry-side stack sampling ----------------
+# Both tokens: marker fixtures put their owner.method frames on sampled stacks.
+stack_dir="$work/agent-evidence-stack"
+rm -rf "$stack_dir"
+java -Xverify:all \
+  "-javaagent:$agent_jar" \
+  "-Dturboism.validation.atlasTiming.optIn=ATLAS_TIMING_EXPLICIT_OPT_IN" \
+  "-Dturboism.validation.atlasTiming.stackOptIn=ATLAS_STACK_SAMPLE_EXPLICIT_OPT_IN" \
+  "-Dturboism.validation.atlasTiming.output=$stack_dir" \
+  -cp "$harness_cp" dev.turboism.validation.atlastiming.AtlasTimingAgentHarness \
+  "$stack_dir" stacks > "$work/agent-stack.log" 2>&1 \
+  || { cat "$work/agent-stack.log" >&2; fail 'stack-enabled agent leg failed'; }
+cat "$work/agent-stack.log"
+grep -q '^ATLAS_TIMING_AGENT_HARNESS PASS' "$work/agent-stack.log" \
+  || fail 'stack-enabled leg did not report PASS'
+
+# Base opt-in alone: timing runs normally, stack sampling leaves no trace at all.
+nostack_dir="$work/agent-evidence-nostack"
+rm -rf "$nostack_dir"
+java -Xverify:all \
+  "-javaagent:$agent_jar" \
+  "-Dturboism.validation.atlasTiming.optIn=ATLAS_TIMING_EXPLICIT_OPT_IN" \
+  "-Dturboism.validation.atlasTiming.output=$nostack_dir" \
+  -cp "$harness_cp" dev.turboism.validation.atlastiming.AtlasTimingAgentHarness \
+  "$nostack_dir" > "$work/agent-nostack.log" 2>&1 \
+  || { cat "$work/agent-nostack.log" >&2; fail 'stack-disabled agent leg failed'; }
+cat "$work/agent-nostack.log"
+grep -q '^ATLAS_TIMING_AGENT_HARNESS PASS' "$work/agent-nostack.log" \
+  || fail 'stack-disabled leg did not report PASS'
+if [[ -e "$nostack_dir/timing-stacks.txt" || -e "$nostack_dir/timing-stacks.status" ]]; then
+  fail 'stack sampling must leave no files without its token'
+fi
+echo "ATLAS_TIMING_STACK_DISABLED PASS no stack files without token"
+
+# A wrong stack token behaves exactly like an absent one.
+wrongstack_dir="$work/agent-evidence-wrongstack"
+rm -rf "$wrongstack_dir"
+java -Xverify:all \
+  "-javaagent:$agent_jar" \
+  "-Dturboism.validation.atlasTiming.optIn=ATLAS_TIMING_EXPLICIT_OPT_IN" \
+  "-Dturboism.validation.atlasTiming.stackOptIn=WRONG" \
+  "-Dturboism.validation.atlasTiming.output=$wrongstack_dir" \
+  -cp "$harness_cp" dev.turboism.validation.atlastiming.AtlasTimingAgentHarness \
+  "$wrongstack_dir" > "$work/agent-wrongstack.log" 2>&1 \
+  || { cat "$work/agent-wrongstack.log" >&2; fail 'wrong-stack-token agent leg failed'; }
+grep -q '^ATLAS_TIMING_AGENT_HARNESS PASS' "$work/agent-wrongstack.log" \
+  || fail 'wrong-stack-token leg did not report PASS'
+if [[ -e "$wrongstack_dir/timing-stacks.txt" || -e "$wrongstack_dir/timing-stacks.status" ]]; then
+  fail 'stack sampling must stay off for a wrong token'
+fi
+echo "ATLAS_TIMING_STACK_WRONG_TOKEN PASS no stack files for wrong token"
+
+# The stack token alone can never enable anything: no base opt-in means blocked.
+onlystack_dir="$work/agent-evidence-onlystack"
+rm -rf "$onlystack_dir"
+java -Xverify:all \
+  "-javaagent:$agent_jar" \
+  "-Dturboism.validation.atlasTiming.stackOptIn=ATLAS_STACK_SAMPLE_EXPLICIT_OPT_IN" \
+  "-Dturboism.validation.atlasTiming.output=$onlystack_dir" \
+  -cp "$harness_cp" dev.turboism.validation.atlastiming.AtlasTimingAgentHarness \
+  "$onlystack_dir" > "$work/agent-onlystack.log" 2>&1 || true
+if [[ -e "$onlystack_dir/timing-calls.txt" || -e "$onlystack_dir/timing-stacks.txt" ]]; then
+  cat "$work/agent-onlystack.log" >&2
+  fail 'stack token alone must not enable anything'
+fi
+echo "ATLAS_TIMING_STACK_ALONE PASS stack token cannot enable without base opt-in"
+
 printf 'asmDependency=org.ow2.asm:asm:9.7.1\n'
 printf 'asmSha256=%s\n' "$asm_sha256"
 printf 'ATLAS_TIMING_BUILD PASS evidence=%s hostExecuted=false officialClassLoaded=false\n' "$work"

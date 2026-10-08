@@ -64,17 +64,21 @@ Section "-插件载荷" SecPluginPayload
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0013.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
+      File "/oname=selection-brush.jar" "${STAGING_DIR}/plugins/selection-brush.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0014.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
+      File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0015.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
+      File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0016.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0017.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
       File "/oname=webdav-backup.jar" "${STAGING_DIR}/plugins/webdav-backup.jar"
     ${EndIf}
@@ -195,6 +199,14 @@ LangString PLUGIN_NAME_dev_turboism_plugin_scene_palette_enhancer ${LANG_JAPANES
 LangString PLUGIN_DESC_dev_turboism_plugin_scene_palette_enhancer ${LANG_JAPANESE} "Turboism のシーンパレット拡張。"
 LangString PLUGIN_NAME_dev_turboism_plugin_scene_palette_enhancer ${LANG_KOREAN} "장면 팔레트 향상기 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_scene_palette_enhancer ${LANG_KOREAN} "Turboism 장면 팔레트 향상기 플러그인입니다."
+LangString PLUGIN_NAME_dev_turboism_plugin_selection_brush ${LANG_ENGLISH} "Selection Brush 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_selection_brush ${LANG_ENGLISH} "Select ArtMesh vertices and Warp Deformer control points with an adjustable-radius brush."
+LangString PLUGIN_NAME_dev_turboism_plugin_selection_brush ${LANG_SIMPCHINESE} "选区笔刷 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_selection_brush ${LANG_SIMPCHINESE} "使用可调半径的笔刷选择 ArtMesh 顶点和曲面变形器控制点。"
+LangString PLUGIN_NAME_dev_turboism_plugin_selection_brush ${LANG_JAPANESE} "選択ブラシ 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_selection_brush ${LANG_JAPANESE} "半径を調整できるブラシで ArtMesh の頂点とワープデフォーマの制御点を選択します。"
+LangString PLUGIN_NAME_dev_turboism_plugin_selection_brush ${LANG_KOREAN} "선택 브러시 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_selection_brush ${LANG_KOREAN} "반경을 조절할 수 있는 브러시로 ArtMesh 정점과 워프 디포머의 제어점을 선택합니다."
 LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas ${LANG_ENGLISH} "MaxRects-BSSF Layout Algorithm 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas ${LANG_ENGLISH} "Registers the MaxRects-BSSF texture-atlas packing algorithm with parallel search."
 LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas ${LANG_SIMPCHINESE} "MaxRects-BSSF 布局算法 0.1.0"
@@ -266,6 +278,9 @@ SectionEnd
 Section "$(PLUGIN_NAME_dev_turboism_plugin_scene_palette_enhancer)" SEC_dev_turboism_plugin_scene_palette_enhancer
 SectionEnd
 
+Section "$(PLUGIN_NAME_dev_turboism_plugin_selection_brush)" SEC_dev_turboism_plugin_selection_brush
+SectionEnd
+
 Section "$(PLUGIN_NAME_dev_turboism_plugin_texture_atlas)" SEC_dev_turboism_plugin_texture_atlas
 SectionEnd
 
@@ -293,6 +308,7 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_psd_clip_mask_import} "$(PLUGIN_DESC_dev_turboism_plugin_psd_clip_mask_import)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_recent_preview} "$(PLUGIN_DESC_dev_turboism_plugin_recent_preview)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_scene_palette_enhancer} "$(PLUGIN_DESC_dev_turboism_plugin_scene_palette_enhancer)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_selection_brush} "$(PLUGIN_DESC_dev_turboism_plugin_selection_brush)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_texture_atlas} "$(PLUGIN_DESC_dev_turboism_plugin_texture_atlas)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_texture_atlas_stats} "$(PLUGIN_DESC_dev_turboism_plugin_texture_atlas_stats)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_uitheme} "$(PLUGIN_DESC_dev_turboism_plugin_uitheme)"
@@ -379,6 +395,12 @@ Function SetPluginSectionsSelected
     IntOp $1 $1 | ${SF_SELECTED}
   ${EndIf}
   SectionSetFlags ${SEC_dev_turboism_plugin_scene_palette_enhancer} $1
+  SectionGetFlags ${SEC_dev_turboism_plugin_selection_brush} $1
+  IntOp $1 $1 & ${SECTION_OFF}
+  ${If} $0 == 1
+    IntOp $1 $1 | ${SF_SELECTED}
+  ${EndIf}
+  SectionSetFlags ${SEC_dev_turboism_plugin_selection_brush} $1
   SectionGetFlags ${SEC_dev_turboism_plugin_texture_atlas} $1
   IntOp $1 $1 & ${SECTION_OFF}
   ${If} $0 == 1
@@ -407,7 +429,7 @@ FunctionEnd
 
 ; 导出完整捆绑插件 id 清单，供前置配置提交保留无关禁用项。
 Function SetBundledPluginIds
-  StrCpy $bundledPluginIds "dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.protected-export;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.uitheme;dev.turboism.plugin.webdav"
+  StrCpy $bundledPluginIds "dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.protected-export;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.selection-brush;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.uitheme;dev.turboism.plugin.webdav"
 FunctionEnd
 
 ; 收集未勾选插件 id 到 $uncheckedPluginIds（';' 分隔）
@@ -527,6 +549,15 @@ Function CollectUncheckedPluginIds
       StrCpy $uncheckedPluginIds "dev.turboism.plugin.scene-palette-enhancer"
     ${Else}
       StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.scene-palette-enhancer"
+    ${EndIf}
+  ${EndIf}
+  SectionGetFlags ${SEC_dev_turboism_plugin_selection_brush} $1
+  IntOp $2 $1 & ${SF_SELECTED}
+  ${If} $2 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.selection-brush"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.selection-brush"
     ${EndIf}
   ${EndIf}
   SectionGetFlags ${SEC_dev_turboism_plugin_texture_atlas} $1

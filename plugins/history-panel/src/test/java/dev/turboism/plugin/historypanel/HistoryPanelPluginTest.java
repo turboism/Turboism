@@ -103,7 +103,6 @@ class HistoryPanelPluginTest {
         private HistorySnapshot historySnapshot = HistorySnapshot.unavailable();
         private final List<Integer> movePositions = new ArrayList<>();
 
-        @Override
         public RecordingUiHost uiHost() {
             return uiHost;
         }
@@ -134,11 +133,6 @@ class HistoryPanelPluginTest {
                 @Override
                 public boolean isHostPresent() {
                     return false;
-                }
-
-                @Override
-                public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-                    return null;
                 }
 
                 @Override
@@ -263,6 +257,14 @@ class HistoryPanelPluginTest {
                 @Override
                 public void error(final String message, final Throwable throwable) {}
             };
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .supply(dev.turboism.sdk.ui.UiHostCapabilityService.class, () -> this.uiHost())
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
     }
 
