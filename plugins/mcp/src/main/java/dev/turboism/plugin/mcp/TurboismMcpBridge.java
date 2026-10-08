@@ -15,8 +15,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Stdio-to-loopback relay for the Turboism MCP server. The class intentionally uses only
@@ -32,11 +30,6 @@ public final class TurboismMcpBridge {
 
     private static final Path EMBEDDED_STATE_DIR = Path.of("__TURBOISM_STATE_DIR__");
     private static final Duration ENDPOINT_WAIT = Duration.ofSeconds(30);
-    private static final Pattern ENDPOINT_PATTERN =
-            Pattern.compile("\"endpoint\"\\s*:\\s*\"(http://127\\.0\\.0\\.1:\\d+/mcp)\"");
-    private static final Pattern METHOD_PATTERN = Pattern.compile("\"method\"\\s*:\\s*\"([^\"\\\\]+)\"");
-    private static final Pattern ID_PATTERN = Pattern.compile("\"id\"\\s*:\\s*(\"(?:[^\"\\\\]|\\\\.)*\"|-?\\d+)");
-    private static final Pattern PROTOCOL_PATTERN = Pattern.compile("\"protocolVersion\"\\s*:\\s*\"([^\"\\\\]+)\"");
 
     private final Path stateDir;
     private String endpoint;
@@ -89,7 +82,7 @@ public final class TurboismMcpBridge {
 
     private String relay(final String line) {
         final boolean batch = line.strip().startsWith("[");
-        final String id = batch ? null : extract(ID_PATTERN, line);
+        final String id = batch ? null : jsonMember(line, "id");
         for (int attempt = 0; attempt < 2; attempt++) {
             HttpURLConnection connection = null;
             try {
@@ -107,7 +100,10 @@ public final class TurboismMcpBridge {
             } catch (ConnectException | SocketTimeoutException unreachable) {
                 refreshEndpoint();
             } catch (IOException | IllegalArgumentException failure) {
-                return id == null ? null : error(id, "bridge relay failure: " + failure);
+                // The wire error is fixed text; the exception detail (paths, class
+                // names, endpoint internals) stays on stderr of the bridge process.
+                System.err.println("turboism-mcp-bridge: relay failure: " + failure);
+                return id == null ? null : error(id, "bridge relay failure");
             } finally {
                 if (connection != null) connection.disconnect();
             }
@@ -148,11 +144,12 @@ public final class TurboismMcpBridge {
 
     private void captureSession(
             final HttpURLConnection connection, final String request, final int status, final String body) {
-        if (!"initialize".equals(extract(METHOD_PATTERN, request))) return;
+        if (!"initialize".equals(jsonString(request, "method"))) return;
         if (status != 200) return;
         final String header = connection.getHeaderField("MCP-Session-Id");
         if (header != null && !header.isBlank()) sessionId = header;
-        final String negotiated = extract(PROTOCOL_PATTERN, body);
+        final String result = jsonMember(body, "result");
+        final String negotiated = result == null ? null : jsonString(result, "protocolVersion");
         if (negotiated != null) protocolVersion = negotiated;
     }
 
@@ -200,17 +197,256 @@ public final class TurboismMcpBridge {
 
     private String readEndpoint() {
         try {
-            return extract(
-                    ENDPOINT_PATTERN,
-                    Files.readString(stateDir.resolve("mcp-connection.json"), StandardCharsets.UTF_8));
+            final String endpoint = jsonString(
+                    Files.readString(stateDir.resolve("mcp-connection.json"), StandardCharsets.UTF_8), "endpoint");
+            // Only a published loopback endpoint is ever followed.
+            if (endpoint != null && endpoint.matches("http://127\\.0\\.0\\.1:\\d+/mcp")) {
+                return endpoint;
+            }
+            return null;
         } catch (IOException absent) {
             return null;
         }
     }
 
-    private static String extract(final Pattern pattern, final String text) {
-        final Matcher matcher = pattern.matcher(text);
-        return matcher.find() ? matcher.group(1) : null;
+    /**
+     * Returns the verbatim source token of the top-level member {@code name} in a
+     * JSON object document, or {@code null} when the document is not an object or
+     * the member is absent. The scan walks the document structurally — strings
+     * honour backslash escapes and nested containers are skipped by depth — so a
+     * same-named key inside a nested value cannot shadow the top-level member.
+     */
+    private static String jsonMember(final String json, final String name) {
+        int index = skipWhitespace(json, 0);
+        if (index >= json.length() || json.charAt(index) != '{') {
+            return null;
+        }
+        index = skipWhitespace(json, index + 1);
+        if (index < json.length() && json.charAt(index) == '}') {
+            return null;
+        }
+        while (index < json.length()) {
+            if (json.charAt(index) != '"') {
+                return null;
+            }
+            final int keyStart = index;
+            index = skipString(json, index);
+            if (index < 0) {
+                return null;
+            }
+            final String key = decodeString(json, keyStart, index);
+            if (key == null) {
+                return null;
+            }
+            index = skipWhitespace(json, index);
+            if (index >= json.length() || json.charAt(index) != ':') {
+                return null;
+            }
+            index = skipWhitespace(json, index + 1);
+            final int valueStart = index;
+            index = skipValue(json, index);
+            if (index < 0) {
+                return null;
+            }
+            if (key.equals(name)) {
+                return json.substring(valueStart, index);
+            }
+            index = skipWhitespace(json, index);
+            if (index >= json.length()) {
+                return null;
+            }
+            final char separator = json.charAt(index++);
+            if (separator == '}') {
+                return null;
+            }
+            if (separator != ',') {
+                return null;
+            }
+            index = skipWhitespace(json, index);
+        }
+        return null;
+    }
+
+    /** Returns the decoded string of the top-level member {@code name}, or {@code null}. */
+    private static String jsonString(final String json, final String name) {
+        final String token = jsonMember(json, name);
+        if (token == null || !token.startsWith("\"") || token.length() < 2) {
+            return null;
+        }
+        return decodeString(token, 0, token.length());
+    }
+
+    private static int skipWhitespace(final String json, final int start) {
+        int index = start;
+        while (index < json.length()) {
+            final char c = json.charAt(index);
+            if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+                break;
+            }
+            index++;
+        }
+        return index;
+    }
+
+    /** Returns the index after a complete string token, or -1 when unterminated. */
+    private static int skipString(final String json, final int start) {
+        for (int index = start + 1; index < json.length(); index++) {
+            final char c = json.charAt(index);
+            if (c == '\\') {
+                index++;
+            } else if (c == '"') {
+                return index + 1;
+            }
+        }
+        return -1;
+    }
+
+    /** Returns the index after a complete JSON value, or -1 when malformed. */
+    private static int skipValue(final String json, final int start) {
+        if (start >= json.length()) {
+            return -1;
+        }
+        final char first = json.charAt(start);
+        switch (first) {
+            case '"':
+                return skipString(json, start);
+            case '{':
+            case '[': {
+                int depth = 0;
+                for (int index = start; index < json.length(); index++) {
+                    final char c = json.charAt(index);
+                    if (c == '"') {
+                        index = skipString(json, index) - 1;
+                        if (index < -1) {
+                            return -1;
+                        }
+                    } else if (c == '{' || c == '[') {
+                        depth++;
+                    } else if (c == '}' || c == ']') {
+                        depth--;
+                        if (depth == 0) {
+                            return index + 1;
+                        }
+                    }
+                }
+                return -1;
+            }
+            default: {
+                if (json.startsWith("true", start)) return start + 4;
+                if (json.startsWith("false", start)) return start + 5;
+                if (json.startsWith("null", start)) return start + 4;
+                return skipNumber(json, start);
+            }
+        }
+    }
+
+    private static int skipNumber(final String json, final int start) {
+        int index = start;
+        if (index < json.length() && json.charAt(index) == '-') {
+            index++;
+        }
+        index = skipDigits(json, index);
+        if (index < 0) {
+            return -1;
+        }
+        if (index < json.length() && json.charAt(index) == '.') {
+            index = skipDigits(json, index + 1);
+            if (index < 0) {
+                return -1;
+            }
+        }
+        if (index < json.length() && (json.charAt(index) == 'e' || json.charAt(index) == 'E')) {
+            index++;
+            if (index < json.length() && (json.charAt(index) == '+' || json.charAt(index) == '-')) {
+                index++;
+            }
+            index = skipDigits(json, index);
+            if (index < 0) {
+                return -1;
+            }
+        }
+        return index;
+    }
+
+    private static int skipDigits(final String json, final int start) {
+        int index = start;
+        while (index < json.length() && Character.isDigit(json.charAt(index))) {
+            index++;
+        }
+        return index > start ? index : -1;
+    }
+
+    /**
+     * Decodes the quoted JSON string token spanning {@code [start, end)}, honouring
+     * every escape including surrogate pairs, or returns {@code null} when the
+     * token is malformed.
+     */
+    private static String decodeString(final String json, final int start, final int end) {
+        final StringBuilder out = new StringBuilder(end - start);
+        int index = start + 1;
+        final int last = end - 1;
+        while (index < last) {
+            final char c = json.charAt(index++);
+            if (c != '\\') {
+                out.append(c);
+                continue;
+            }
+            if (index >= last) {
+                return null;
+            }
+            final char escape = json.charAt(index++);
+            switch (escape) {
+                case '"':
+                    out.append('"');
+                    break;
+                case '\\':
+                    out.append('\\');
+                    break;
+                case '/':
+                    out.append('/');
+                    break;
+                case 'b':
+                    out.append('\b');
+                    break;
+                case 'f':
+                    out.append('\f');
+                    break;
+                case 'n':
+                    out.append('\n');
+                    break;
+                case 'r':
+                    out.append('\r');
+                    break;
+                case 't':
+                    out.append('\t');
+                    break;
+                case 'u': {
+                    try {
+                        final int code = Integer.parseInt(json.substring(index, index + 4), 16);
+                        index += 4;
+                        if (Character.isHighSurrogate((char) code)) {
+                            if (index + 6 > last || json.charAt(index) != '\\' || json.charAt(index + 1) != 'u') {
+                                return null;
+                            }
+                            final int low = Integer.parseInt(json.substring(index + 2, index + 6), 16);
+                            index += 6;
+                            if (!Character.isLowSurrogate((char) low)) {
+                                return null;
+                            }
+                            out.append((char) code).append((char) low);
+                        } else {
+                            out.append((char) code);
+                        }
+                    } catch (NumberFormatException | IndexOutOfBoundsException malformed) {
+                        return null;
+                    }
+                    break;
+                }
+                default:
+                    return null;
+            }
+        }
+        return out.toString();
     }
 
     private static String error(final String id, final String message) {
@@ -230,6 +466,12 @@ public final class TurboismMcpBridge {
                 case '\\':
                     out.append("\\\\");
                     break;
+                case '\b':
+                    out.append("\\b");
+                    break;
+                case '\f':
+                    out.append("\\f");
+                    break;
                 case '\n':
                     out.append("\\n");
                     break;
@@ -240,7 +482,11 @@ public final class TurboismMcpBridge {
                     out.append("\\t");
                     break;
                 default:
-                    out.append(c);
+                    if (c < 0x20) {
+                        out.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        out.append(c);
+                    }
             }
         }
         return out.toString();

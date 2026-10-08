@@ -2,6 +2,7 @@ package dev.turboism.script;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.script.ScriptDescriptor;
 import dev.turboism.sdk.script.ScriptId;
 import dev.turboism.sdk.script.ScriptLanguage;
@@ -41,46 +42,51 @@ class ScriptRegistry {
     private static final int MAX_SOURCE_BYTES = 384 * 1024;
     private static final Set<String> MANIFEST_FIELDS =
             Set.of("schemaVersion", "id", "name", "version", "language", "entry", "sourceSha256", "permissions");
-    private static final Set<String> KNOWN_PERMISSIONS = Set.of(
-            "turboism.ui.menu",
-            "turboism.ui.toolbar",
-            "turboism.ui.palette",
-            "turboism.cubism.project.read",
-            "turboism.cubism.model.read",
-            "turboism.cubism.model.write",
-            "turboism.cubism.model.observe",
-            "turboism.cubism.model.intercept",
-            "turboism.cubism.parameter.read",
-            "turboism.cubism.mesh.read",
-            "turboism.cubism.recent-file.read",
-            "turboism.file.read",
-            "turboism.file.write",
-            "turboism.network.fetch",
-            "turboism.process.run",
-            "turboism.action.register",
-            "turboism.action.invoke",
-            "turboism.ui.menu.contribute",
-            "turboism.ui.toolbar.main.contribute",
-            "turboism.ui.toolbar.palette.contribute",
-            "turboism.ui.context-menu.contribute",
-            "turboism.ui.context-source.read",
-            "turboism.ui.overlay.contribute",
-            "turboism.ui.viewport.read",
-            "turboism.ui.recent-preview.contribute",
-            "turboism.ui.dialog.contribute",
-            "turboism.ui.dialog.automate",
-            "turboism.ui.panel.contribute",
-            "turboism.ui.file-chooser.request",
-            "turboism.ui.status.notify",
-            "turboism.ui.canvas.hint",
-            "turboism.ui.appearance.modify",
-            "turboism.ui.toolbar.contribute",
-            "turboism.config.plugin.read",
-            "turboism.config.plugin.write",
-            "turboism.event.subscribe",
-            "turboism.event.publish",
-            "turboism.performance.stats.read",
-            "turboism.host.unsafe");
+    // Intentionally narrower than PermissionIds.KNOWN_IDS: scripts may only
+    // request the ids a script sandbox can grant, so cubism.edit, mcp.*,
+    // toolbar-mesh/settings contribution and every *.observe channel stay
+    // plugin-only. Keep the set a strict subset of PermissionIds.KNOWN_IDS —
+    // ScriptRegistryPermissionContractTest enforces that invariant.
+    static final Set<String> KNOWN_PERMISSIONS = Set.of(
+            PermissionIds.TURBOISM_UI_MENU,
+            PermissionIds.TURBOISM_UI_TOOLBAR,
+            PermissionIds.TURBOISM_UI_PALETTE,
+            PermissionIds.TURBOISM_CUBISM_PROJECT_READ,
+            PermissionIds.TURBOISM_CUBISM_MODEL_READ,
+            PermissionIds.TURBOISM_CUBISM_MODEL_WRITE,
+            PermissionIds.TURBOISM_CUBISM_MODEL_OBSERVE,
+            PermissionIds.TURBOISM_CUBISM_MODEL_INTERCEPT,
+            PermissionIds.TURBOISM_CUBISM_PARAMETER_READ,
+            PermissionIds.TURBOISM_CUBISM_MESH_READ,
+            PermissionIds.TURBOISM_CUBISM_RECENT_FILE_READ,
+            PermissionIds.TURBOISM_FILE_READ,
+            PermissionIds.TURBOISM_FILE_WRITE,
+            PermissionIds.TURBOISM_NETWORK,
+            PermissionIds.TURBOISM_PROCESS,
+            PermissionIds.TURBOISM_ACTION_REGISTER,
+            PermissionIds.TURBOISM_ACTION_INVOKE,
+            PermissionIds.TURBOISM_UI_MENU_CONTRIBUTE,
+            PermissionIds.TURBOISM_UI_TOOLBAR_MAIN_CONTRIBUTE,
+            PermissionIds.TURBOISM_UI_TOOLBAR_PALETTE_CONTRIBUTE,
+            PermissionIds.TURBOISM_UI_CONTEXT_MENU_CONTRIBUTE,
+            PermissionIds.TURBOISM_UI_CONTEXT_SOURCE_READ,
+            PermissionIds.TURBOISM_UI_OVERLAY_CONTRIBUTE,
+            PermissionIds.TURBOISM_UI_VIEWPORT_READ,
+            PermissionIds.TURBOISM_UI_RECENT_PREVIEW_CONTRIBUTE,
+            PermissionIds.TURBOISM_UI_DIALOG_CONTRIBUTE,
+            PermissionIds.TURBOISM_UI_DIALOG_AUTOMATE,
+            PermissionIds.TURBOISM_UI_PANEL_CONTRIBUTE,
+            PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST,
+            PermissionIds.TURBOISM_UI_STATUS_NOTIFY,
+            PermissionIds.TURBOISM_UI_CANVAS_HINT,
+            PermissionIds.TURBOISM_UI_APPEARANCE_MODIFY,
+            PermissionIds.TURBOISM_UI_TOOLBAR_CONTRIBUTE,
+            PermissionIds.TURBOISM_CONFIG_PLUGIN_READ,
+            PermissionIds.TURBOISM_CONFIG_PLUGIN_WRITE,
+            PermissionIds.TURBOISM_EVENT_SUBSCRIBE,
+            PermissionIds.TURBOISM_EVENT_PUBLISH,
+            PermissionIds.TURBOISM_PERFORMANCE_STATS_READ,
+            PermissionIds.TURBOISM_HOST_UNSAFE);
 
     private final ObjectMapper mapper = new ObjectMapper();
     private final Path confinementRoot;
