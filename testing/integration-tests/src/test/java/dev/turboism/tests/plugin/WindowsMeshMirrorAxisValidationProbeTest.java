@@ -17,15 +17,13 @@ final class WindowsMeshMirrorAxisValidationProbeTest {
 
     @Test
     void roundtripReportCarriesTheVerdictLine() {
-        final String report =
-                WindowsMeshMirrorAxisValidationProbe.roundtripReport(0.0f, 45.0f, 0.0f);
+        final String report = WindowsMeshMirrorAxisValidationProbe.roundtripReport(0.0f, 45.0f, 0.0f);
         assertTrue(report.contains("initialAngleDegrees=0.0"));
         assertTrue(report.contains("afterSet45Degrees=45.0"));
         assertTrue(report.contains("afterRestore0Degrees=0.0"));
         assertTrue(report.contains("roundtripPassed=true"));
 
-        final String failed =
-                WindowsMeshMirrorAxisValidationProbe.roundtripReport(0.0f, 45.0f, 12.0f);
+        final String failed = WindowsMeshMirrorAxisValidationProbe.roundtripReport(0.0f, 45.0f, 12.0f);
         assertTrue(failed.contains("roundtripPassed=false"));
     }
 }
