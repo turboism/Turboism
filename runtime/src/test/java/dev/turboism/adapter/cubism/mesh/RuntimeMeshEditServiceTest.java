@@ -9,9 +9,14 @@ import dev.turboism.sdk.cubism.mesh.MeshEdgeRef;
 import dev.turboism.sdk.cubism.mesh.MeshEditResult;
 import dev.turboism.sdk.cubism.mesh.MeshPointPosition;
 import dev.turboism.sdk.cubism.mesh.MeshPointRef;
+import dev.turboism.ui.host.EdtDispatchException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -148,6 +153,50 @@ final class RuntimeMeshEditServiceTest {
 
         assertFalse(editMode.cancelled);
         assertEquals(1, editMode.undoManager.revertCalls);
+    }
+
+    @Test
+    void interruptedDispatchAbandonsTheQueuedEditBeforeItCanRun() throws Exception {
+        final Fixture fixture = new Fixture(new Mesh());
+        final RuntimeMeshEditService service = fixture.service();
+        final CountDownLatch edtBlocked = new CountDownLatch(1);
+        final CountDownLatch releaseEdt = new CountDownLatch(1);
+        SwingUtilities.invokeLater(() -> {
+            edtBlocked.countDown();
+            try {
+                releaseEdt.await(5L, TimeUnit.SECONDS);
+            } catch (InterruptedException failure) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        assertTrue(edtBlocked.await(5L, TimeUnit.SECONDS));
+        try {
+            final AtomicReference<Throwable> failure = new AtomicReference<>();
+            final Thread caller = new Thread(
+                    () -> {
+                        try {
+                            service.snapshot();
+                        } catch (Throwable thrown) {
+                            failure.set(thrown);
+                        }
+                    },
+                    "mesh-edit-dispatch-test");
+            caller.setDaemon(true);
+            caller.start();
+            caller.interrupt();
+            caller.join(5_000L);
+            releaseEdt.countDown();
+            SwingUtilities.invokeAndWait(() -> {});
+
+            assertFalse(caller.isAlive());
+            assertTrue(failure.get() instanceof EdtDispatchException);
+            assertEquals(
+                    0,
+                    fixture.editMode.editDataListCalls,
+                    "an interrupted dispatch must never run its queued host mutation");
+        } finally {
+            releaseEdt.countDown();
+        }
     }
 
     @Test
@@ -351,6 +400,7 @@ final class RuntimeMeshEditServiceTest {
 
     public static final class EditMode {
         private final List<Entry> entries;
+        int editDataListCalls;
 
         EditMode(final Mesh... meshes) {
             entries = new ArrayList<>();
@@ -358,6 +408,7 @@ final class RuntimeMeshEditServiceTest {
         }
 
         public List<Entry> getEditDataList() {
+            editDataListCalls++;
             return entries;
         }
 

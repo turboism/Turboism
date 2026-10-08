@@ -89,11 +89,8 @@ public final class VerifiedMethodCallSite implements AutoCloseable {
         try {
             return resolved.invoke(target, arguments == null ? new Object[0] : arguments);
         } catch (InvocationTargetException exception) {
-            throw new VerifiedAccessException(
-                    alias,
-                    VerifiedAccessException.FailureKind.INVOCATION,
-                    "Verified host method execution failed safely.",
-                    null);
+            throw VerifiedAccessException.invocationFailure(
+                    alias, "Verified host method execution failed safely.", exception.getCause());
         } catch (IllegalAccessException | IllegalArgumentException | LinkageError | SecurityException exception) {
             throw resolutionFailure("Verified call-site invocation could not be resolved safely.");
         }

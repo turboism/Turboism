@@ -40,7 +40,10 @@ public final class MeshEditMirrorAxisEnhancePlugin implements TurboismPlugin {
     public void enable() {
         try {
             registerAction(
-                    MeshInspectorService.INSPECT_ACTION_ID, "Inspect Meshes", ignored -> inspectorService.inspect());
+                    MeshInspectorService.INSPECT_ACTION_ID,
+                    "Inspect Meshes",
+                    "Ctrl+Alt+M",
+                    ignored -> inspectorService.inspect());
             registerMirrorLinkedDeletion();
             context.disposableScope()
                     .register(context.services()
@@ -105,23 +108,12 @@ public final class MeshEditMirrorAxisEnhancePlugin implements TurboismPlugin {
     }
 
     private void registerAction(
-            final String id, final String label, final Consumer<ActionRegistry.ActionContext> handler) {
-        final Registration registration = context.actions().register(id, new ActionRegistry.Action() {
-            @Override
-            public String id() {
-                return id;
-            }
-
-            @Override
-            public String label() {
-                return label;
-            }
-
-            @Override
-            public Consumer<ActionRegistry.ActionContext> handler() {
-                return handler;
-            }
-        });
+            final String id,
+            final String label,
+            final String defaultShortcut,
+            final Consumer<ActionRegistry.ActionContext> handler) {
+        final Registration registration =
+                context.actions().register(id, ActionRegistry.Action.of(id, label, defaultShortcut, handler));
         context.disposableScope().register(registration);
     }
 

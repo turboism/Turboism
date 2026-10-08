@@ -288,11 +288,8 @@ public final class VerifiedMemberResolver {
         } catch (VerifiedAccessException exception) {
             throw exception;
         } catch (InvocationTargetException exception) {
-            throw new VerifiedAccessException(
-                    alias,
-                    VerifiedAccessException.FailureKind.INVOCATION,
-                    "Verified host constructor execution failed safely.",
-                    null);
+            throw VerifiedAccessException.invocationFailure(
+                    alias, "Verified host constructor execution failed safely.", exception.getCause());
         } catch (InstantiationException
                 | IllegalAccessException
                 | IllegalArgumentException
@@ -447,8 +444,43 @@ public final class VerifiedMemberResolver {
 
     private Object createFunctionalProxy(
             final String alias, final Class<?> type, final Function<Object, Object> callback) {
-        if (type.getClassLoader() != hostClassLoader) {
+        return createCallbackProxy(
+                alias,
+                type,
+                1,
+                arguments -> callback.apply(arguments == null || arguments.length == 0 ? null : arguments[0]));
+    }
+
+    /** Derives a two-argument notification interface from an exactly verified typed list getter. */
+    public Object createBiFunctionalListElementProxy(
+            final String alias, final java.util.function.BiFunction<Object, Object, Object> callback) {
+        Objects.requireNonNull(callback, "callback");
+        final StaticSelector selector = methodSelector(alias);
+        final MethodType descriptor = MethodType.fromMethodDescriptorString(selector.descriptor(), hostClassLoader);
+        final Method getter = resolveInvocationMethod(selector);
+        if (!matchesAccess(getter, selector)
+                || descriptor.parameterCount() != 0
+                || !java.util.List.class.isAssignableFrom(getter.getReturnType())
+                || !(getter.getGenericReturnType() instanceof java.lang.reflect.ParameterizedType listType)
+                || listType.getActualTypeArguments().length != 1
+                || !(listType.getActualTypeArguments()[0] instanceof java.lang.reflect.ParameterizedType callbackType)
+                || !(callbackType.getRawType() instanceof Class<?> type)) {
+            throw resolutionFailure(alias, "Verified notification getter has no exact typed callback list.");
+        }
+        return createCallbackProxy(alias, type, 2, arguments -> callback.apply(arguments[0], arguments[1]));
+    }
+
+    private Object createCallbackProxy(
+            final String alias, final Class<?> type, final int arity, final Function<Object[], Object> callback) {
+        if (arity == 1 && type.getClassLoader() != hostClassLoader) {
             throw resolutionFailure(alias, "Verified host classloader attestation no longer matches.");
+        }
+        try {
+            if (Class.forName(type.getName(), false, hostClassLoader) != type) {
+                throw resolutionFailure(alias, "Verified host classloader attestation no longer matches.");
+            }
+        } catch (ClassNotFoundException failure) {
+            throw resolutionFailure(alias, "Verified host callback class is unavailable.");
         }
         if (!type.isInterface()) {
             throw resolutionFailure(alias, "Verified host callback type is not an interface.");
@@ -461,7 +493,7 @@ public final class VerifiedMemberResolver {
             throw resolutionFailure(alias, "Verified host callback type is not a single-abstract-method interface.");
         }
         final Method functionalMethod = abstractMethods[0];
-        if (functionalMethod.getParameterCount() > 1) {
+        if (functionalMethod.getParameterCount() > arity || (arity == 2 && functionalMethod.getParameterCount() != 2)) {
             throw resolutionFailure(alias, "Verified host callback method accepts too many arguments.");
         }
         return Proxy.newProxyInstance(hostClassLoader, new Class<?>[] {type}, (proxy, method, arguments) -> {
@@ -477,8 +509,7 @@ public final class VerifiedMemberResolver {
             if (!method.equals(functionalMethod)) {
                 throw resolutionFailure(alias, "Verified host callback invoked an unexpected method.");
             }
-            final Object argument = arguments == null || arguments.length == 0 ? null : arguments[0];
-            final Object result = callback.apply(argument);
+            final Object result = callback.apply(arguments);
             return method.getReturnType() == void.class ? null : result;
         });
     }
@@ -568,7 +599,7 @@ public final class VerifiedMemberResolver {
                 throw resolutionFailure(selector.alias(), "Verified host classloader attestation no longer matches.");
             }
             final MethodType type = MethodType.fromMethodDescriptorString(selector.descriptor(), hostClassLoader);
-            final Method method = owner.getDeclaredMethod(selector.memberName(), type.parameterArray());
+            final Method method = declaredMethodFor(owner, selector, type);
             if (!method.getDeclaringClass().equals(owner)
                     || !method.getReturnType().equals(type.returnType())
                     || !matchesAccess(method, selector)) {
@@ -592,7 +623,7 @@ public final class VerifiedMemberResolver {
             final Class<?> owner =
                     Class.forName(selector.ownerInternalName().replace('/', '.'), false, hostClassLoader);
             final MethodType type = MethodType.fromMethodDescriptorString(selector.descriptor(), hostClassLoader);
-            final Method method = owner.getDeclaredMethod(selector.memberName(), type.parameterArray());
+            final Method method = declaredMethodFor(owner, selector, type);
             if (!method.getDeclaringClass().equals(owner)
                     || !method.getReturnType().equals(type.returnType())
                     || !matchesAccess(method, selector)) {
@@ -607,6 +638,19 @@ public final class VerifiedMemberResolver {
                 | SecurityException failure) {
             throw resolutionFailure(selector.alias(), "Verified host selector resolution failed safely.");
         }
+    }
+
+    /** Resolves full JVM identity, including covariant returns and compiler bridges. */
+    private static Method declaredMethodFor(final Class<?> owner, final StaticSelector selector, final MethodType type)
+            throws NoSuchMethodException {
+        for (final Method method : owner.getDeclaredMethods()) {
+            if (method.getName().equals(selector.memberName())
+                    && Arrays.equals(method.getParameterTypes(), type.parameterArray())
+                    && method.getReturnType().equals(type.returnType())) {
+                return method;
+            }
+        }
+        throw new NoSuchMethodException("no declared member matches the verified descriptor");
     }
 
     private Field resolveField(final StaticSelector selector) {
@@ -700,11 +744,8 @@ public final class VerifiedMemberResolver {
         } catch (VerifiedAccessException exception) {
             throw exception;
         } catch (InvocationTargetException exception) {
-            throw new VerifiedAccessException(
-                    selector.alias(),
-                    VerifiedAccessException.FailureKind.INVOCATION,
-                    "Verified host method execution failed safely.",
-                    null);
+            throw VerifiedAccessException.invocationFailure(
+                    selector.alias(), "Verified host method execution failed safely.", exception.getCause());
         } catch (IllegalAccessException | IllegalArgumentException | LinkageError exception) {
             throw new VerifiedAccessException(
                     selector.alias(),

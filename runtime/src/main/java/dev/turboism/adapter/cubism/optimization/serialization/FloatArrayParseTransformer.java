@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.serialization;
 
+import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -285,9 +286,6 @@ public final class FloatArrayParseTransformer implements ClassFileTransformer {
         return REVIEWED_CLASS_SHA256;
     }
 
-    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 = Map.of(
-            "5.3.02",
-            Map.ofEntries(Map.entry(
-                    "com/live2d/serialize/impl/G",
-                    "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")));
+    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
+            ClassPinTable.load("float-array-parse");
 }

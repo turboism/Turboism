@@ -7,6 +7,7 @@ import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 /** Permission-scoped plugin view over the process MCP connection registry. */
 public final class RuntimeMcpConnectionService implements McpConnectionService {
@@ -32,6 +33,12 @@ public final class RuntimeMcpConnectionService implements McpConnectionService {
     public Registration publish(final McpHttpConnection connection) {
         permissions.check(PermissionIds.TURBOISM_MCP_CONNECTION_PUBLISH, "mcp.connection.publish");
         return registry.publish(pluginId, Objects.requireNonNull(connection, "connection"));
+    }
+
+    @Override
+    public Registration subscribe(final Consumer<Optional<McpHttpConnection>> listener) {
+        permissions.check(PermissionIds.TURBOISM_MCP_CONNECTION_READ, "mcp.connection.read");
+        return registry.subscribe(Objects.requireNonNull(listener, "listener"));
     }
 
     private static String requireText(final String value, final String name) {

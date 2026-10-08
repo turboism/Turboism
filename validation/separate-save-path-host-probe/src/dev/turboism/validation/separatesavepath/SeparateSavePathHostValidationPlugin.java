@@ -134,7 +134,7 @@ public final class SeparateSavePathHostValidationPlugin implements TurboismPlugi
     private void runAssertions(final List<String> failures) {
         // 1. Service wiring: unavailable instances throw on write, so a
         //    successful set proves a real service is exposed.
-        final FileChooserHistoryService service = context.fileChooserHistory();
+        final FileChooserHistoryService service = context.services().find(FileChooserHistoryService.class).orElse(FileChooserHistoryService.unavailable());
         if (service == null) {
             failures.add("fileChooserHistory() returned null");
             return;

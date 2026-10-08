@@ -46,7 +46,8 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
     @Override
     public void enable() {
         try {
-            context.disposableScope().register(registerAction(TOGGLE_ACTION_ID, "History", ignored -> toggle()));
+            context.disposableScope()
+                    .register(registerAction(TOGGLE_ACTION_ID, "History", "Ctrl+Alt+H", ignored -> toggle()));
             context.disposableScope()
                     .register(context.services()
                             .require(UiHostCapabilityService.class)
@@ -220,21 +221,14 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
 
     private Registration registerAction(
             final String id, final String label, final Consumer<ActionRegistry.ActionContext> handler) {
-        return context.actions().register(id, new ActionRegistry.Action() {
-            @Override
-            public String id() {
-                return id;
-            }
+        return registerAction(id, label, null, handler);
+    }
 
-            @Override
-            public String label() {
-                return label;
-            }
-
-            @Override
-            public Consumer<ActionRegistry.ActionContext> handler() {
-                return handler;
-            }
-        });
+    private Registration registerAction(
+            final String id,
+            final String label,
+            final String defaultShortcut,
+            final Consumer<ActionRegistry.ActionContext> handler) {
+        return context.actions().register(id, ActionRegistry.Action.of(id, label, defaultShortcut, handler));
     }
 }

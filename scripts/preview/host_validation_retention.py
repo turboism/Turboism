@@ -141,6 +141,7 @@ class Snapshot:
                 raise queue.QueueError("unsupported queue schema")
             self.job_rows = [dict(row) for row in self.db.execute("SELECT * FROM jobs ORDER BY sequence")]
             self.host_row = dict(self.db.execute("SELECT * FROM host WHERE singleton=1").fetchone())
+            self.event_rows = [dict(row) for row in self.db.execute("SELECT * FROM events ORDER BY event_id")]
             tables = {row[0] for row in self.db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             self.objects = {(row["kind"], row["object_id"]): dict(row) for row in
                             self.db.execute("SELECT * FROM retention_objects")} if "retention_objects" in tables else {}
@@ -151,6 +152,9 @@ class Snapshot:
 
     def jobs(self, job_id=None):
         return [row for row in self.job_rows if job_id is None or row["job_id"] == job_id]
+
+    def events(self, job_id=None):
+        return [row for row in self.event_rows if job_id is None or row["job_id"] == job_id]
 
 
 def describe(snapshot: Snapshot, prepared_id: str) -> dict[str, Any]:
@@ -176,6 +180,8 @@ def describe(snapshot: Snapshot, prepared_id: str) -> dict[str, Any]:
 def safe_outcome(snapshot: Snapshot, job: dict[str, Any]) -> dict[str, Any]:
     if not re.fullmatch(r"[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}", job["job_id"]):
         raise queue.QueueError("invalid job identity")
+    if job["state"] in queue.ADMINISTRATIVE:
+        raise queue.QueueError("unverified administrative disposition is not a safe outcome")
     if job["state"] not in queue.TERMINAL:
         raise queue.QueueError("job is not terminal")
     if job["state"] == "cancelled" and job["attempt_id"] is None and job["run_id"] is None:
@@ -288,6 +294,49 @@ def task_layout(snapshot: Snapshot, job: dict[str, Any], descriptor: dict[str, A
     return paths
 
 
+def durable_task_path(snapshot: Snapshot, job: dict[str, Any]) -> Path:
+    """Recover only a bound task path when a terminal input was recycled."""
+    outcome = safe_outcome(snapshot, job)
+    details = outcome.get("details")
+    task_dir = details.get("taskDir") if isinstance(details, dict) else None
+    if type(task_dir) is not str or not task_dir:
+        raise queue.QueueError("durable outcome has no task directory")
+
+    record = snapshot.objects.get(("job", job["job_id"]))
+    if record is None:
+        raise queue.QueueError("durable task directory is not retention-bound")
+    binding = json.loads(record.get("metadata", "{}"))
+    identity = binding.get("taskIdentity") if isinstance(binding, dict) else None
+    if not isinstance(binding, dict) or binding.get("taskDir") != task_dir or (
+            type(identity) is not list or len(identity) != 2 or
+            any(type(value) is not int or value < 0 for value in identity)):
+        raise queue.QueueError("durable task directory binding conflicts")
+
+    task = checked_path(Path(task_dir))
+    if task.exists() or task.is_symlink():
+        if task.is_symlink() or not task.is_dir():
+            raise queue.QueueError("durable task directory is not a directory")
+        info = task.stat()
+        if [info.st_dev, info.st_ino] != identity:
+            raise queue.QueueError("durable task directory was replaced")
+        if info.st_uid != os.getuid():
+            raise queue.QueueError("durable task directory owner mismatch")
+    return task
+
+
+def task_path_for_overlap(snapshot: Snapshot, root: Path, job: dict[str, Any]) -> Path:
+    """Resolve a distinct run's path without treating unknown input as safe."""
+    try:
+        descriptor = describe(snapshot, job["prepared_id"])
+    except queue.QueueError as failure:
+        if str(failure) != f"prepared descriptor missing: {job['prepared_id']}":
+            raise
+        if job["state"] not in queue.TERMINAL:
+            raise queue.QueueError("missing prepared descriptor for non-terminal job")
+        return durable_task_path(snapshot, job)
+    return layout(descriptor, root / "prepared" / job["prepared_id"], job)["task"]
+
+
 def plan(root: Path | None = None, *, now: float | None = None) -> dict[str, Any]:
     root = queue.account_root() if root is None else root
     now = time.time() if now is None else now
@@ -312,6 +361,8 @@ def plan(root: Path | None = None, *, now: float | None = None) -> dict[str, Any
         jid = job["job_id"]
         record = snapshot.objects.get(("job", jid))
         try:
+            if job["state"] in queue.ADMINISTRATIVE:
+                raise queue.QueueError("unverified administrative disposition; evidence is permanently protected")
             if record is None:
                 raise queue.QueueError("historical job is not adopted")
             if record["pin"]:
@@ -332,10 +383,16 @@ def plan(root: Path | None = None, *, now: float | None = None) -> dict[str, Any
                 raise queue.QueueError("task overlaps protected input/worktree/state")
             # Distinct tasks must not share or nest their runtime environments.
             for other in snapshot.job_rows:
-                if other["job_id"] == jid or not other["run_id"]:
+                if other["job_id"] == jid:
                     continue
-                other_descriptor = describe(snapshot, other["prepared_id"])
-                other_task = layout(other_descriptor, root / "prepared" / other["prepared_id"], other)["task"]
+                if not other["run_id"]:
+                    # A non-terminal/administrative row without a run identity
+                    # has no safe overlap path to infer; a missing descriptor
+                    # must therefore retain the current candidate.
+                    if other["state"] not in queue.TERMINAL:
+                        describe(snapshot, other["prepared_id"])
+                    continue
+                other_task = task_path_for_overlap(snapshot, root, other)
                 if overlap(paths["task"], other_task):
                     raise queue.QueueError("task overlaps another run")
             context = {"job": jid, "prepared": job["prepared_id"], "verdict": queue.digest_json(outcome),

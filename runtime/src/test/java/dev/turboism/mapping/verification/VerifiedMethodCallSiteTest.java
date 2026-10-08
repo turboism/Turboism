@@ -46,10 +46,11 @@ class VerifiedMethodCallSiteTest {
                 VerifiedAccessException.FailureKind.RESOLUTION,
                 assertThrows(VerifiedAccessException.class, () -> valueSite.invoke("wrong"))
                         .failureKind());
-        assertEquals(
-                VerifiedAccessException.FailureKind.INVOCATION,
-                assertThrows(VerifiedAccessException.class, () -> failureSite.invoke(new FixtureHost("ready")))
-                        .failureKind());
+        final var failure =
+                assertThrows(VerifiedAccessException.class, () -> failureSite.invoke(new FixtureHost("ready")));
+        assertEquals(VerifiedAccessException.FailureKind.INVOCATION, failure.failureKind());
+        assertEquals(VerifiedAccessException.HostFailureCategory.ILLEGAL_STATE, failure.hostFailureCategory());
+        assertEquals(null, failure.getCause());
     }
 
     private static VerifiedMemberResolver resolver() {

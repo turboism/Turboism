@@ -2,7 +2,6 @@
 """Fail-closed fixtures for DRAFT pack metadata synchronization."""
 from __future__ import annotations
 
-import copy
 import hashlib
 import importlib.util
 import json

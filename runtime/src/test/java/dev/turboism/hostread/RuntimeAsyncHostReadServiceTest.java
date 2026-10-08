@@ -57,6 +57,14 @@ class RuntimeAsyncHostReadServiceTest {
     }
 
     @Test
+    void availabilityReportsOpenLaneUntilClose() {
+        final RuntimeAsyncHostReadService service = service("plugin-available", granted(), new FakeSource());
+        assertTrue(service.isAvailable());
+        service.close();
+        assertFalse(service.isAvailable(), "a closed service must report unavailable");
+    }
+
+    @Test
     void returnsCombinedProjectWorkspaceSnapshotThroughSharedHostLane() throws Exception {
         final FakeSource source = new FakeSource();
         final RuntimeAsyncHostReadService service = service("plugin-a", granted(), source);

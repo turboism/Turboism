@@ -27,4 +27,9 @@ public final class AuthorizedMeshEditUiService implements MeshEditUiService {
         scope.register(registration);
         return registration;
     }
+
+    @Override
+    public boolean isAvailable() {
+        return delegate.isAvailable();
+    }
 }

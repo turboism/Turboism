@@ -1,0 +1,10 @@
+{
+  "5.3.02": {
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension": "399a05605ebb2e837434e5b8be7fa84c4cb5d24adc09f7e5546214471380e39f",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm": "174959b444c2a5c13bbd05962b98824a67a7cb1a363f583e5d6e129bea12c117",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
+    "com/live2d/graphics3d/type/f": "637f0fe0bd219c97230573415541d09110892fdfccc63c2f6e6728b9aa1b2d9e",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource": "b4f6c06285ec42dc90fb17ca03fb37994ccc11b3749da5624e63160c48b1566f"
+  }
+}

@@ -31,6 +31,10 @@ ADDITIVE_ALIASES = frozenset({
 })
 ALIAS_PREFIX = "cubism.editor-model"
 ALIAS_LITERAL = re.compile(r'"(' + re.escape(ALIAS_PREFIX) + r'[^\"]*)"')
+ALIAS_CONSTANT_DEFINITION = re.compile(
+    r'public\s+static\s+final\s+String\s+([A-Z][A-Z0-9_]*_ALIAS)\s*=\s*"'
+    + re.escape(ALIAS_PREFIX) + r'([^"]*)"')
+ALIAS_CONSTANT_REFERENCE = re.compile(r'\.\s*([A-Z][A-Z0-9_]*_ALIAS)\b')
 VERIFICATION_PATH = "/mapping/verification/"
 PRESET_ALIAS_PREFIX = "cubism.editor-model.label-color-type."
 PRESET_COLORS = ("red", "orange", "yellow", "green", "blue", "purple", "gray")
@@ -40,19 +44,30 @@ UNUSED_ALIAS_MAXIMUM = 0
 def implementation_aliases(root: Path) -> set[str]:
     """Return production aliases, excluding contracts/manifests that merely declare evidence."""
     aliases: set[str] = set()
+    constants: dict[str, str] = {}
+    production_sources: list[tuple[Path, str]] = []
     base = root / IMPLEMENTATION_ROOT
     if not base.exists():
         return aliases
     for source in sorted(base.rglob("*.java")):
-        if VERIFICATION_PATH in source.as_posix():
-            continue
         text = source.read_text(encoding="utf-8")
+        if VERIFICATION_PATH in source.as_posix():
+            for name, suffix in ALIAS_CONSTANT_DEFINITION.findall(text):
+                constants[name] = ALIAS_PREFIX + suffix
+            continue
+        production_sources.append((source, text))
+    for _source, text in production_sources:
         for alias in ALIAS_LITERAL.findall(text):
             if alias.endswith(".") or alias.endswith(".class"):
                 continue
             aliases.add(alias)
         if "presetAlias(" in text and PRESET_ALIAS_PREFIX in text:
             aliases.update(PRESET_ALIAS_PREFIX + color for color in PRESET_COLORS)
+        for name in ALIAS_CONSTANT_REFERENCE.findall(text):
+            value = constants.get(name)
+            if value is None or value.endswith(".") or value.endswith(".class"):
+                continue
+            aliases.add(value)
     return aliases
 
 

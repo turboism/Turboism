@@ -36,7 +36,7 @@ public final class AtlasTileBboxPatcher {
     static final String METHOD_DESC =
             "(Ljava/awt/image/BufferedImage;Ljava/awt/Graphics2D;Ljava/awt/image/BufferedImage;II)V";
     /** Internal name of the delegate shipped in the agent jar. */
-    static final String DELEGATE = "dev/turboism/bootstrap/tilebbox/AtlasTileBboxDelegate";
+    static final String DELEGATE = "dev/turboism/adapter/cubism/textureatlas/image/AtlasTileBboxDelegate";
 
     static final String DELEGATE_METHOD = "draw";
     /**

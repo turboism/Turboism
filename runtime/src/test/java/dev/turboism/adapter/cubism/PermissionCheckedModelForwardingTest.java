@@ -139,6 +139,8 @@ class PermissionCheckedModelForwardingTest {
             new ParameterId("ParamNew"), "Param New", 0.0F, 0.5F, 1.0F, ParameterType.NORMAL, false);
 
     private static final ParameterId PARAMETER_ID = new ParameterId("ParamA");
+    private static final dev.turboism.sdk.cubism.model.TextureRelationsSnapshot RELATIONS =
+            dev.turboism.sdk.cubism.model.TextureRelationsSnapshot.unavailable();
     private static final dev.turboism.sdk.cubism.model.ModelTextures TEXTURES =
             new dev.turboism.sdk.cubism.model.ModelTextures() {
                 @Override
@@ -154,6 +156,11 @@ class PermissionCheckedModelForwardingTest {
                 @Override
                 public List<dev.turboism.sdk.cubism.model.AtlasTexture> textureAtlases() {
                     return List.of();
+                }
+
+                @Override
+                public dev.turboism.sdk.cubism.model.TextureRelationsSnapshot relations() {
+                    return RELATIONS;
                 }
 
                 @Override
@@ -193,7 +200,9 @@ class PermissionCheckedModelForwardingTest {
         assertEquals("anim-1", animations.get(0).animationName());
         assertEquals(1, animations.get(0).sceneCount());
         assertEquals(List.of("scene-1"), animations.get(0).sceneNames());
-        assertEquals(List.of(), model.textures().rawImages());
+        final var textures = model.textures();
+        assertEquals(List.of(), textures.rawImages());
+        assertSame(RELATIONS, textures.relations());
         assertEquals(List.of("profile", "physicsSettings", "autoYure", "animationDocuments", "textures"), calls);
     }
 
@@ -204,6 +213,8 @@ class PermissionCheckedModelForwardingTest {
         final CubismModel model = facade(List.of(readPermission(readGranted), writePermission(true)), calls)
                 .model()
                 .active();
+        final var textures = model.textures();
+        calls.clear();
         readGranted[0] = false;
 
         assertThrows(CubismPermissionException.class, model::profile);
@@ -211,6 +222,7 @@ class PermissionCheckedModelForwardingTest {
         assertThrows(CubismPermissionException.class, model::autoYure);
         assertThrows(CubismPermissionException.class, model::animationDocuments);
         assertThrows(CubismPermissionException.class, model::textures);
+        assertThrows(CubismPermissionException.class, textures::relations);
         assertTrue(calls.isEmpty(), "delegate must not be invoked when read permission is denied");
     }
 

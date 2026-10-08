@@ -13,6 +13,7 @@ import dev.turboism.sdk.cubism.model.ModelImageEntry;
 import dev.turboism.sdk.cubism.model.ModelImageGroup;
 import dev.turboism.sdk.cubism.model.ModelTextures;
 import dev.turboism.sdk.cubism.model.RawTexture;
+import dev.turboism.sdk.json.Json;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -501,9 +502,10 @@ final class McpTextureDomain {
     // ---- envelopes ----------------------------------------------------------
 
     private static Map<String, Object> envelope(final Map<String, Object> output, final boolean isError) {
+        final Map<String, Object> safe = McpJsonSupport.encodable(output);
         return Map.of(
-                "content", List.of(Map.of("type", "text", "text", Json.stringify(output))),
-                "structuredContent", output,
+                "content", List.of(Map.of("type", "text", "text", Json.stringify(safe))),
+                "structuredContent", safe,
                 "isError", isError);
     }
 

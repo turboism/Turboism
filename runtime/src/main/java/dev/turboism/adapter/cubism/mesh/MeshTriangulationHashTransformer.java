@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -22,7 +24,8 @@ public final class MeshTriangulationHashTransformer implements ClassFileTransfor
     /** Descriptor of the corner point type referenced by the target's three fields. */
     static final String POINT_DESCRIPTOR = "Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;";
     /** SHA-256 of the reviewed 5.3.03 class bytes. */
-    static final String REVIEWED_CLASS_SHA256 = "6f06427c59d3907fe0d4ec80c72a318410d2e5169e18a8263ddfaa526813bd90";
+    static final String REVIEWED_CLASS_SHA256 = ClassPinTable.singleSha256(
+            "mesh-triangulation-hash", ReviewedHostArtifacts.CUBISM_5_3_03_VERSION, TARGET_INTERNAL_NAME);
 
     /** What the transformer concluded, for diagnostics and tests. */
     public enum Outcome {

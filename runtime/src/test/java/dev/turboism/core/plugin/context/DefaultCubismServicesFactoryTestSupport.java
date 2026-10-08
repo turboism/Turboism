@@ -79,6 +79,8 @@ final class DefaultCubismServicesFactoryTestSupport {
         return java.util.Set.of(
                 "cubism.editor-model.read",
                 "cubism.editor-model.write",
+                "cubism.editor-model.texture.read",
+                "cubism.editor-model.texture.write",
                 "cubism.editor-model.physics.read",
                 "cubism.editor-model.edit.session.edit-begin",
                 "cubism.editor-model.warp-mirror",

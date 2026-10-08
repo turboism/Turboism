@@ -2,14 +2,12 @@
 """Retention safety regressions: synthetic files and private queues; never Cubism."""
 from pathlib import Path
 import contextlib
-import copy
 import io
 import json
 import multiprocessing
 import os
 import shutil
 import sqlite3
-import stat
 import sys
 import tarfile
 import tempfile
@@ -18,6 +16,7 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "preview"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import host_validation_queue as q
 import host_validation_retention as gc
 import host_validation as cli
@@ -117,6 +116,22 @@ class RetentionTest(unittest.TestCase):
         report = report or self.plan()
         return gc.apply(report, report["planDigest"], self.root, now=self.now, busy=lambda: [])
 
+    def retarget_durable_task(self, job, directory, task):
+        final = gc.read_json(directory / "outcome.json")
+        final["details"]["taskDir"] = str(task)
+        q.atomic_json(directory / "outcome.json", final)
+        q.atomic_json(directory / "evidence/lifecycle-result.json", final)
+        info = task.stat()
+        with self.store.transaction() as db:
+            record = db.execute("SELECT metadata FROM retention_objects WHERE kind='job' AND object_id=?",
+                                (job["job_id"],)).fetchone()
+            metadata = json.loads(record["metadata"])
+            metadata.update(taskDir=str(task), taskIdentity=[info.st_dev, info.st_ino])
+            db.execute("UPDATE retention_objects SET metadata=? WHERE kind='job' AND object_id=?",
+                       (q.canonical_json(metadata), job["job_id"]))
+            db.execute("UPDATE jobs SET evidence_json=? WHERE job_id=?",
+                       (q.canonical_json(final), job["job_id"]))
+
     def test_default_report_does_not_delete_or_change_queue(self):
         job, task, _ = self.finish()
         before = q.tree_inventory(self.root)
@@ -198,10 +213,80 @@ class RetentionTest(unittest.TestCase):
         self.assertEqual([], [c for c in report["candidates"] if c["id"] == job["job_id"]])
         # Non-terminal references keep failing closed.
         kept = self.make_prepared(marker=True)
-        submitted = self.store.submit(kept, kept, "queued-missing-prepared")
+        self.store.submit(kept, kept, "queued-missing-prepared")
         shutil.rmtree(self.root / "prepared" / kept)
         report = self.plan()
         self.assertTrue(any("cannot establish all protected input paths" in reason for reason in report["blocked"]))
+
+    def test_missing_terminal_prepared_does_not_block_unrelated_candidate(self):
+        candidate, _, _ = self.finish()
+        missing_prepared = self.make_prepared(marker=True)
+        missing, _, _ = self.finish(prepared=missing_prepared)
+        shutil.rmtree(self.root / "prepared" / missing_prepared)
+
+        report = self.plan()
+
+        self.assertEqual([], report["blocked"])
+        self.assertIn(candidate["job_id"], {item["id"] for item in report["candidates"]})
+        retained = {item["id"]: item.get("reason", "") for item in report["retained"] if item["kind"] == "job"}
+        self.assertIn(missing["job_id"], retained)
+        self.assertIn("prepared descriptor missing", retained[missing["job_id"]])
+
+    def test_missing_descriptor_task_path_still_rejects_same_or_nested_overlap(self):
+        for options, nested in (({"marker": True}, False), ({"result_file": "logs/result.log"}, True)):
+            with self.subTest(nested=nested):
+                candidate, candidate_task, _ = self.finish()
+                missing_prepared = self.make_prepared(**options)
+                missing, _, directory = self.finish(prepared=missing_prepared)
+                shutil.rmtree(self.root / "prepared" / missing_prepared)
+                target = candidate_task
+                if nested:
+                    target = candidate_task / "nested-task"
+                    target.mkdir()
+                self.retarget_durable_task(missing, directory, target)
+
+                report = self.plan()
+
+                self.assertNotIn(candidate["job_id"], {item["id"] for item in report["candidates"]})
+                retained = {item["id"]: item.get("reason", "") for item in report["retained"] if item["kind"] == "job"}
+                self.assertIn(candidate["job_id"], retained)
+                self.assertIn("task overlaps another run", retained[candidate["job_id"]])
+
+    def test_missing_descriptor_with_conflicting_durable_task_binding_is_retained(self):
+        candidate, _, _ = self.finish()
+        missing_prepared = self.make_prepared(marker=True)
+        missing, _, directory = self.finish(prepared=missing_prepared)
+        shutil.rmtree(self.root / "prepared" / missing_prepared)
+        final = gc.read_json(directory / "outcome.json")
+        final["details"]["taskDir"] = str(self.base / "unbound-task")
+        q.atomic_json(directory / "outcome.json", final)
+        q.atomic_json(directory / "evidence/lifecycle-result.json", final)
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET evidence_json=? WHERE job_id=?",
+                       (q.canonical_json(final), missing["job_id"]))
+
+        report = self.plan()
+
+        self.assertNotIn(candidate["job_id"], {item["id"] for item in report["candidates"]})
+        retained = {item["id"]: item.get("reason", "") for item in report["retained"] if item["kind"] == "job"}
+        self.assertIn(missing["job_id"], retained)
+        self.assertIn("durable task directory binding conflicts", retained[candidate["job_id"]])
+
+    def test_missing_descriptor_for_nonterminal_or_abandoned_job_stays_protected(self):
+        for state in ("running", "mystery", "abandoned"):
+            with self.subTest(state=state):
+                candidate, _, _ = self.finish()
+                missing_prepared = self.make_prepared(result_file=f"logs/{state}.log")
+                missing, _, _ = self.finish(prepared=missing_prepared)
+                with self.store.transaction() as db:
+                    db.execute("UPDATE jobs SET state=?,run_id=NULL WHERE job_id=?", (state, missing["job_id"]))
+                shutil.rmtree(self.root / "prepared" / missing_prepared)
+
+                report = self.plan()
+
+                candidates = {item["id"] for item in report["candidates"]}
+                self.assertNotIn(candidate["job_id"], candidates)
+                self.assertNotIn(missing["job_id"], candidates)
 
     def test_legacy_requires_individual_adoption(self):
         job, task, _ = self.finish()
@@ -296,7 +381,6 @@ class RetentionTest(unittest.TestCase):
 
     def test_interrupted_prepared_retirement_remains_recoverable_and_unsubmittable(self):
         report = self.plan()  # orphan prepared, over seven days
-        original = gc.remove_manifest
         def interrupted(path, manifest):
             (path / "fixture.cmo3").unlink()
             raise OSError("injected crash")
@@ -514,6 +598,54 @@ class RetentionTest(unittest.TestCase):
             self.assertIn("saved-model.cmo3", tar.getnames())
         manifest = gc.read_json(directory / "retention-archive/manifest.json")
         self.assertIn(fixture.name, manifest["omitted"])
+
+    def abandoned(self, age=400):
+        """A job already registered abandoned by the operator; evidence is left intact."""
+        job, task, directory = self.finish(age=age)
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET state='abandoned',reason=? WHERE job_id=?",
+                       ("administrative disposition; not a verification result", job["job_id"]))
+            db.execute("INSERT INTO events(job_id,created_at,kind,payload) VALUES(?,?,?,?)",
+                       (job["job_id"], self.now, "operator-abandoned",
+                        q.canonical_json({"toState": "abandoned", "fromState": job["state"],
+                            "verificationAccepted": False})))
+        return self.store.jobs(job["job_id"])[0], task, directory
+
+    def test_abandoned_job_task_and_inputs_are_permanently_protected(self):
+        job, task, directory = self.abandoned()
+        report = self.plan()
+        self.assertEqual([], [c for c in report["candidates"] if c["id"] in {job["job_id"], job["prepared_id"]}])
+        reasons = {r["id"]: r["reason"] for r in report["retained"]}
+        self.assertIn("administrative", reasons[job["job_id"]])
+        self.assertIn("unverified", reasons[job["prepared_id"]])
+        receipt = self.apply(report)
+        self.assertEqual([], receipt["removed"])
+        for path in (task / "prefix/pfx/data", task / "evidence/assertions.json",
+                     directory / "outcome.json", directory / "runner.log",
+                     self.root / "prepared" / job["prepared_id"] / "prepared.json"):
+            self.assertTrue(path.exists(), path)
+        self.assertEqual("abandoned", self.store.jobs(job["job_id"])[0]["state"])
+
+    def test_abandoned_protection_survives_unpin_adopt_and_age(self):
+        job, task, directory = self.abandoned(age=10_000)
+        gc.mutate_hold(self.root, "pin", job["job_id"], "operator hold")
+        gc.mutate_hold(self.root, "unpin", job["job_id"], "release hold")
+        with self.assertRaises(q.QueueError):
+            gc.mutate_hold(self.root, "adopt", job["job_id"], "reviewed")
+        report = self.plan()
+        self.assertEqual([], [c for c in report["candidates"] if c["id"] in {job["job_id"], job["prepared_id"]}])
+        self.assertTrue((task / "prefix/pfx/data").exists())
+        snapshot = gc.Snapshot(self.root)
+        with self.assertRaises(q.QueueError):
+            gc.safe_outcome(snapshot, job)
+
+    def test_abandoned_never_enters_successful_samples(self):
+        job, _, _ = self.abandoned()
+        report = self.plan()
+        self.assertNotIn(job["job_id"], [c["id"] for c in report["candidates"]])
+        self.assertEqual("abandoned", self.store.jobs(job["job_id"])[0]["state"])
+        self.assertNotIn("abandoned", q.TERMINAL)
+        self.assertIn("abandoned", q.ADMINISTRATIVE)
 
 
 if __name__ == "__main__":

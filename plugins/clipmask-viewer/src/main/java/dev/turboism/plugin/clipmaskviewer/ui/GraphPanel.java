@@ -1,7 +1,7 @@
 package dev.turboism.plugin.clipmaskviewer.ui;
 
-import dev.turboism.plugin.clipmaskviewer.b1.domain.ClipMaskRecordAdapter;
-import dev.turboism.plugin.clipmaskviewer.b1.domain.ClipMaskViewerState;
+import dev.turboism.plugin.clipmaskviewer.domain.ClipMaskRecordAdapter;
+import dev.turboism.plugin.clipmaskviewer.domain.ClipMaskViewerState;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRecord;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import java.awt.BasicStroke;

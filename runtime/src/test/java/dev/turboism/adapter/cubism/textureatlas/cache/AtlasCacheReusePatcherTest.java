@@ -79,8 +79,14 @@ final class AtlasCacheReusePatcherTest {
                             }
                         },
                         ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
-        assertEquals(1, calls.getOrDefault("dev/turboism/bootstrap/atlascache/AtlasCacheReuseDelegate.tryReuse", 0));
-        assertEquals(1, calls.getOrDefault("dev/turboism/bootstrap/atlascache/AtlasCacheReuseDelegate.rebuilt", 0));
+        assertEquals(
+                1,
+                calls.getOrDefault(
+                        "dev/turboism/adapter/cubism/textureatlas/cache/AtlasCacheReuseDelegate.tryReuse", 0));
+        assertEquals(
+                1,
+                calls.getOrDefault(
+                        "dev/turboism/adapter/cubism/textureatlas/cache/AtlasCacheReuseDelegate.rebuilt", 0));
         assertEquals(
                 1,
                 calls.getOrDefault(

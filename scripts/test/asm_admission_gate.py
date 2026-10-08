@@ -8,7 +8,6 @@ import os
 from pathlib import Path
 import re
 import struct
-import sys
 import xml.etree.ElementTree as ET
 
 COORDINATE = "org.ow2.asm:asm:9.7.1"
@@ -181,7 +180,8 @@ def evidence_check(root: Path, gradle_home: Path) -> None:
         fail("cached JAR/POM content checksum does not match the TSV (cache location does not prove origin)")
 
     ns = {"m": "http://maven.apache.org/POM/4.0.0"}; pom = ET.parse(poms[0]).getroot()
-    value = lambda name: pom.findtext(f"m:{name}", namespaces=ns)
+    def value(name):
+        return pom.findtext(f"m:{name}", namespaces=ns)
     if (value("groupId"), value("artifactId"), value("version")) != ("org.ow2.asm", "asm", "9.7.1"):
         fail("cached POM coordinate does not match the admitted coordinate")
     licenses = [(n.findtext("m:name", namespaces=ns), n.findtext("m:url", namespaces=ns))

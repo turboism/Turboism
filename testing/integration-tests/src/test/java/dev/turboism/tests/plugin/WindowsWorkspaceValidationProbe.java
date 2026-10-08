@@ -21,6 +21,7 @@ import dev.turboism.sdk.ui.workspace.WorkspaceInfo;
 import dev.turboism.sdk.ui.workspace.WorkspaceOperationResult;
 import dev.turboism.sdk.ui.workspace.WorkspaceService;
 import dev.turboism.sdk.ui.workspace.WorkspaceStatus;
+import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -209,7 +210,7 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
                 final long next = processPending(
                         context.paths().stateDir(),
                         lastProcessed,
-                        context.workspace(),
+                        context.services().find(WorkspaceService.class).orElse(WorkspaceService.unavailable()),
                         context.cubism(),
                         declaredPermissions);
                 if (next >= 0) {
@@ -274,7 +275,8 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
 
     private void runWorkspaceMatrix(final List<String> report) throws Exception {
         final Path stateDir = validationStateDir();
-        final WorkspaceService workspace = context.workspace();
+        final WorkspaceService workspace =
+                context.services().find(WorkspaceService.class).orElse(WorkspaceService.unavailable());
         final CubismFacade cubism = context.cubism();
         final CubismReadCapabilityService cubismRead = context.cubismRead();
         String originalId = null;
@@ -584,7 +586,9 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
     }
 
     private dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutSnapshot currentLayout() throws Exception {
-        final var layout = context.workspaceLayout()
+        final var layout = context.services()
+                .find(WorkspaceLayoutService.class)
+                .orElse(WorkspaceLayoutService.unavailable())
                 .current()
                 .toCompletableFuture()
                 .get(SDK_CALL_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);

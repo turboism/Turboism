@@ -75,8 +75,10 @@ class EditorHostThreadTest {
         releaseEventThread.countDown();
 
         assertFalse(caller.isAlive());
-        assertTrue(failure.get() instanceof IllegalStateException);
-        assertTrue(failure.get().getMessage().contains("interrupted"));
+        assertTrue(failure.get() instanceof dev.turboism.ui.host.EdtDispatchException);
+        assertEquals(
+                dev.turboism.ui.host.EdtDispatchException.Reason.INTERRUPTED,
+                ((dev.turboism.ui.host.EdtDispatchException) failure.get()).reason());
         assertEquals(Boolean.TRUE, interrupted.get());
     }
 }

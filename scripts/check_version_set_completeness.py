@@ -14,6 +14,8 @@ restates the admitted exact versions must carry the identical set:
   and cubismVersion fields
 - ``compatibility/cubism/index.md`` exact-version prose
 - ``scripts/preview/host_validation.py`` supported-version whitelist
+- ``class-pins/*.json`` version keys (subset rule: a hook may pin only the
+  versions it supports, but may never name an unadmitted version)
 
 Usage: check_version_set_completeness.py [repo-root]
 """
@@ -42,6 +44,9 @@ HOST_VALIDATION_TASKS = Path("scripts/preview/host-validation-tasks.json")
 HOST_VALIDATION_PY = Path("scripts/preview/host_validation.py")
 PROFILES_DIR = Path("compatibility/cubism/profiles/draft")
 INDEX_MD = Path("compatibility/cubism/index.md")
+CLASS_PINS_DIR = Path(
+    "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins"
+)
 
 DOTTED = re.compile(r"^5\.\d{1,2}\.\d{2}$")
 COMPACT = re.compile(r"^5\d{3}$")
@@ -196,12 +201,50 @@ def index_md(root: Path) -> set[str]:
     return set(INDEX_VERSION.findall(_read(root, INDEX_MD)))
 
 
+SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
+
+
+def class_pin_tables(root: Path) -> tuple[set[str], list[str]]:
+    """Union of version keys across class-pins/*.json plus per-file problems."""
+    base = root / CLASS_PINS_DIR
+    versions: set[str] = set()
+    problems: list[str] = []
+    if not base.is_dir():
+        problems.append(f"{CLASS_PINS_DIR}: directory missing")
+        return versions, problems
+    for pin in sorted(base.glob("*.json")):
+        try:
+            document = json.loads(pin.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            problems.append(f"{CLASS_PINS_DIR}/{pin.name}: invalid JSON: {exc}")
+            continue
+        if not isinstance(document, dict):
+            problems.append(f"{CLASS_PINS_DIR}/{pin.name}: top-level object expected")
+            continue
+        for version, block in document.items():
+            versions.add(str(version))
+            if not isinstance(block, dict):
+                problems.append(
+                    f"{CLASS_PINS_DIR}/{pin.name}: version '{version}' is not an object"
+                )
+                continue
+            for class_name, sha in block.items():
+                if not isinstance(sha, str) or not SHA256_HEX.fullmatch(sha):
+                    problems.append(
+                        f"{CLASS_PINS_DIR}/{pin.name}: '{class_name}' under "
+                        f"'{version}' is not a 64-char lowercase hex SHA-256"
+                    )
+    return versions, problems
+
+
 def collect(root: Path) -> tuple[dict[str, set[str]], list[str]]:
     canonical, problems = reviewed_host_artifacts(root)
     tasks, task_problems = host_validation_tasks(root)
     profiles, profile_problems = draft_profiles(root)
+    pins, pin_problems = class_pin_tables(root)
     problems.extend(task_problems)
     problems.extend(profile_problems)
+    problems.extend(pin_problems)
     sites = {
         CANONICAL: canonical,
         "compatibility-catalog.json record versions": compatibility_catalog(root),
@@ -211,6 +254,7 @@ def collect(root: Path) -> tuple[dict[str, set[str]], list[str]]:
         "profiles/draft/cubism-*.json": profiles,
         "compatibility/cubism/index.md": index_md(root),
         "host_validation.py supported versions": host_validation_py(root),
+        "class-pins/*.json version keys (subset)": pins,
     }
     return sites, problems
 
@@ -221,6 +265,14 @@ def check(root: Path) -> list[str]:
     violations = list(problems)
     for name, versions in sites.items():
         if name == CANONICAL:
+            continue
+        if name.endswith("(subset)"):
+            if not versions <= canonical:
+                violations.append(
+                    f"{name} names unadmitted versions "
+                    f"{sorted(versions - canonical)}; "
+                    f"admitted set is {sorted(canonical)}"
+                )
             continue
         if versions != canonical:
             missing = sorted(canonical - versions)

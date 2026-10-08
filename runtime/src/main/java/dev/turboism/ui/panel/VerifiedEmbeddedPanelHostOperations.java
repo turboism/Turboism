@@ -1131,11 +1131,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
 
     static void runOnEdtLater(final Runnable operation) {
         Objects.requireNonNull(operation, "operation");
-        if (SwingUtilities.isEventDispatchThread()) {
-            operation.run();
-            return;
-        }
-        SwingUtilities.invokeLater(operation);
+        EdtDispatch.post("embedded-panel EDT post", operation);
     }
 
     /**

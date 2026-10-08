@@ -178,9 +178,9 @@ def calibrate(log_path, cw):
     line = None
     try:
         with open(log_path, errors="replace") as fh:
-            for l in fh:
-                if "WARP_MIRROR_UI_MAINWIN" in l:
-                    line = l
+            for raw in fh:
+                if "WARP_MIRROR_UI_MAINWIN" in raw:
+                    line = raw
     except OSError:
         return
     if not line:

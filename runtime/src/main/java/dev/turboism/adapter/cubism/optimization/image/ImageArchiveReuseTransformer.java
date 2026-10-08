@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.image;
 
+import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -294,13 +295,6 @@ public final class ImageArchiveReuseTransformer implements ClassFileTransformer 
         return REVIEWED_CLASS_SHA256;
     }
 
-    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 = Map.of(
-            "5.3.02",
-            Map.ofEntries(
-                    Map.entry(
-                            "com/live2d/graphics/CImageResource",
-                            "0b7e56b4b3a1baa314daa6266b2f36f29fb7cab679f51afbe19490ce77a69c14"),
-                    Map.entry(
-                            "com/live2d/graphics/CWritableImage",
-                            "1ab08de5a3746e3f1fe2885ad9202c15fcc4144345cf1d5f1910f12179ce8f09")));
+    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
+            ClassPinTable.load("image-archive-reuse");
 }

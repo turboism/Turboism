@@ -68,7 +68,6 @@ class TabFilterPluginTest {
             return paletteFilter.contributions;
         }
 
-        @Override
         public PaletteFilterRegistry paletteFilter() {
             return paletteFilter;
         }
@@ -128,7 +127,6 @@ class TabFilterPluginTest {
             return null;
         }
 
-        @Override
         public UiHostCapabilityService uiHost() {
             return null;
         }
@@ -148,7 +146,6 @@ class TabFilterPluginTest {
             return null;
         }
 
-        @Override
         public AppearanceService appearance() {
             return AppearanceService.unavailable();
         }
@@ -164,6 +161,14 @@ class TabFilterPluginTest {
                     closedRegistrations++;
                 };
             }
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .supply(dev.turboism.sdk.ui.filter.PaletteFilterRegistry.class, () -> this.paletteFilter())
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
     }
 }

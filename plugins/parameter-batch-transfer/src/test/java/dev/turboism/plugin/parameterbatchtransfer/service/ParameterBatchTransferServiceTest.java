@@ -4,10 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.plugin.parameterbatchtransfer.b1.domain.BatchTransferOutcome;
-import dev.turboism.plugin.parameterbatchtransfer.b1.domain.BatchTransferRow;
-import dev.turboism.plugin.parameterbatchtransfer.b1.domain.BatchTransferStatus;
-import dev.turboism.plugin.parameterbatchtransfer.b1.domain.BoundParameterSnapshot;
+import dev.turboism.plugin.parameterbatchtransfer.domain.BatchTransferOutcome;
+import dev.turboism.plugin.parameterbatchtransfer.domain.BatchTransferRow;
+import dev.turboism.plugin.parameterbatchtransfer.domain.BatchTransferStatus;
+import dev.turboism.plugin.parameterbatchtransfer.domain.BoundParameterSnapshot;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ModelId;

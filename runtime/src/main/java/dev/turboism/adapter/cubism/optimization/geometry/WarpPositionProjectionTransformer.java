@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.geometry;
 
+import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
@@ -236,25 +237,6 @@ public final class WarpPositionProjectionTransformer implements ClassFileTransfo
         return REVIEWED_CLASS_SHA256;
     }
 
-    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 = Map.of(
-            "5.3.02",
-            Map.ofEntries(
-                    Map.entry(
-                            "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
-                            "399a05605ebb2e837434e5b8be7fa84c4cb5d24adc09f7e5546214471380e39f"),
-                    Map.entry(
-                            "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
-                            "174959b444c2a5c13bbd05962b98824a67a7cb1a363f583e5d6e129bea12c117"),
-                    Map.entry(
-                            "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
-                            "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d"),
-                    Map.entry(
-                            "com/live2d/graphics3d/type/GVector2",
-                            "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31"),
-                    Map.entry(
-                            "com/live2d/graphics3d/type/f",
-                            "637f0fe0bd219c97230573415541d09110892fdfccc63c2f6e6728b9aa1b2d9e"),
-                    Map.entry(
-                            "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
-                            "b4f6c06285ec42dc90fb17ca03fb37994ccc11b3749da5624e63160c48b1566f")));
+    private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
+            ClassPinTable.load("warp-position-projection");
 }

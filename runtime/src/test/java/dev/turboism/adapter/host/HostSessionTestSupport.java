@@ -31,6 +31,21 @@ public final class HostSessionTestSupport {
                         editorModelResolvers.apply(descriptor)));
     }
 
+    /** Test-only composition variant with a real Editor model-access fixture. */
+    public static HostSession connectedSession(
+            final HostInstanceSource source,
+            final java.util.function.Function<HostInstanceDescriptor, RuntimeHostAdapters> adapters,
+            final java.util.function.Function<HostInstanceDescriptor, dev.turboism.sdk.cubism.model.CubismModelAccess>
+                    modelAccess,
+            final java.util.function.Function<HostInstanceDescriptor, VerifiedMemberResolver> editorModelResolvers) {
+        return new HostSession(
+                source,
+                descriptor -> HostAdapterConnection.of(
+                        adapters.apply(descriptor),
+                        modelAccess.apply(descriptor),
+                        editorModelResolvers.apply(descriptor)));
+    }
+
     public static HostInstanceDescriptor descriptor(final String sessionId) {
         return new HostInstanceDescriptor(
                 sessionId,

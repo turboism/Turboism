@@ -63,10 +63,15 @@ performance is a separate environment comparison, not a Turboism algorithm gain
 or native-Windows result. Keep normal logging, geometry, draw and pixel checks.
 
 Unknown custom hook dependencies are rejected, not executed speculatively.
-Admitted inventories are the FPS resize driver and the exact `native-resource:5302`
+Admitted inventories are the FPS resize driver, the host locale environment hook, the
+external PSD task-local file association, and the exact `native-resource:5302`
 readonly memory observer closure documented in [native resource workload](README-native-resource-workload.md).
-The latter requires three fixed helper destinations, a pinned Python interpreter and
-managed background execution; it is not general hook admission. The history
+The memory observer requires three fixed helper destinations, a pinned Python interpreter and
+managed background execution; it is not general hook admission. The standard-library-only
+`validation/external-psd-edit-host-probe/rss.py` is admitted only as a synchronous
+post-launch observer for the 5.3.02 F1 ten-cycle performance pipeline, with no GUI
+trigger or extra hook arguments. Its source is snapshotted like every other input;
+it reads the bound cgroup/proc identity and writes only its task RSS report. The history
 baseline wrapper's `collect-history-validation-evidence.sh` cleanup hook, FX hooks,
 generated plugin-chooser hooks remain blocked at snapshot admission until their complete
 dependencies are explicitly reviewed; do not bypass the queue. The MCP task admits only
@@ -97,6 +102,17 @@ Replace the example IDs with returned values. Reusing a request key with the sam
 inputs/timeout returns the same job; conflicting reuse is rejected. Submission
 succeeds durably even while the worker is offline. A successful submit is **not**
 a verification PASS. Interrupting a client/waiter does not cancel its job.
+
+The `wait` client uses a dedicated read-only query against the existing queue database:
+the connection URI is `mode=ro`, `PRAGMA query_only=ON` is set, and no `Store`
+initialization or synchronous/journal setup runs on this path. Only explicit SQLite
+`BUSY`, `LOCKED`, or `PROTOCOL` outcomes are retried, at most three reconnects with
+bounded backoff, and never past the caller's wait deadline. Unknown jobs, unsupported
+schemas, corrupt databases, permission errors, and other failures stop immediately.
+Retry exhaustion reports an infrastructure wait failure; it never invents a terminal
+result, submits or cancels a job, or advances an A→B validation gate. The shared
+`Store` connection remains in use for submit, status, events, cancel, worker, and
+supervisor paths; this read-only change does not alter their retry behavior.
 
 `run TASK...` is a convenience prepare+submit+wait client. Direct updated wrappers
 use the same queue, not another lock. The worker consumes the prepared Runner
@@ -181,6 +197,48 @@ use `release-stale --force`, or terminate unrelated processes to unblock a queue
 Events are durable JSONL records with cursors. Consumers may reconnect and replay;
 notification failure cannot block the next job. This is an event interface, not
 an automatic Paseo callback or arbitrary webhook/shell executor.
+
+### Administrative disposition of cross-boot orphans
+
+A started attempt from an earlier boot with no final supervisor verdict may be
+eligible for administrative disposition. After manual review, an operator may
+register it `abandoned` so conservative preflight no longer treats it as active.
+This does not prove historical cleanup or grant admission to another run:
+
+```bash
+python3 scripts/preview/host_validation.py abandon --inspect JOB_ID --json
+python3 scripts/preview/host_validation.py abandon --confirm JOB_ID \
+  --approval DIGEST_FROM_INSPECTION --reason 'Reviewed cross-boot orphan' --json
+```
+
+- `--inspect` is strictly read-only: it never constructs the writable store,
+  never creates queue state and only reads a private copy of the database. It
+  reports stable blockers and emits `approvalDigest` only when every condition
+  holds (cross-boot identity, no final verdict, host already idle and unowned,
+  worker stopped, no queued/current/unknown/external activity).
+- `--confirm` rechecks everything under the existing
+  worker → storage → admission lock order and commits one row update plus one
+  `operator-abandoned` audit event atomically. An identical retry replays the
+  original receipt read-only, including while new work owns the host. A
+  conflicting request is refused.
+- Exit codes: `0` means an executable administrative candidate (`--inspect`) or
+  a completed/replayed administrative registration (`--confirm`); `75` means
+  refusal, conflict or contention; `2` means invalid arguments or unsupported
+  input. None of these codes is a host-validation PASS.
+- Before the first real confirmation, coordinate the adopted revision of every
+  queue writer, worker, status/wait consumer and retention tool. A new state and
+  audit contract require this coordination even without a schema migration; do
+  not mix old and new tools. Drain only in a separately approved window, let
+  running work finish normally, and review each fresh digest/reason before
+  confirmation. Do not switch a running checkout or release host ownership.
+- `abandoned` is an administrative marker, not a verification result:
+  `verificationAccepted` stays `false`, the host row is never touched, evidence
+  is preserved byte-for-byte, and retention protects the job, task, prefix,
+  logs and referenced prepared inputs permanently (`adopt`/`unpin`/expiry
+  cannot release them). `recover`, `complete` and `durable_outcome` still
+  reject it as an unverified disposition.
+- Real-queue use, service drain and any exact-host calibration remain separate
+  operator gates; nothing here starts or stops workers or services.
 
 ## Agent rollout
 

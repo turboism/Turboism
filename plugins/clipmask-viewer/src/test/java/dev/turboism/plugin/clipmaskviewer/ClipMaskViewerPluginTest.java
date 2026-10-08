@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.plugin.clipmaskviewer.b1.domain.ClipMaskViewerState;
+import dev.turboism.plugin.clipmaskviewer.domain.ClipMaskViewerState;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -215,10 +215,14 @@ class ClipMaskViewerPluginTest {
                     case "disposableScope" -> scope;
                     case "actions" -> actions;
                     case "menus" -> menus;
-                    case "uiHost" -> uiHost;
                     case "tasks" -> tasks;
-                    case "cubismClipMasks" -> clipMasks;
-                    case "services" -> dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy);
+                    case "services" ->
+                        dev.turboism.sdk.plugin.PluginServices.builder()
+                                .install(dev.turboism.sdk.ui.UiHostCapabilityService.class, uiHost)
+                                .install(
+                                        dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.class, clipMasks)
+                                .fallback(dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy))
+                                .build();
                     case "permissions" -> List.<PluginPermission>of();
                     case "toString" -> "FakePluginContext";
                     default -> throw new UnsupportedOperationException(method.getName());

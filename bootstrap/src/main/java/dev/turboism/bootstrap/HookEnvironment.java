@@ -23,6 +23,7 @@ import java.util.Optional;
 final class HookEnvironment {
 
     private final Instrumentation instrumentation;
+    private final StartupSuppressionInstaller.AttachmentMode attachmentMode;
     private final AgentOptions options;
     private final HostClassLocator.LocatedHost host;
     private final PreviewRuntime runtime;
@@ -37,6 +38,7 @@ final class HookEnvironment {
 
     private HookEnvironment(final Builder builder) {
         this.instrumentation = builder.instrumentation;
+        this.attachmentMode = builder.attachmentMode;
         this.options = builder.options;
         this.host = builder.host;
         this.runtime = builder.runtime;
@@ -52,6 +54,10 @@ final class HookEnvironment {
 
     Instrumentation instrumentation() {
         return instrumentation;
+    }
+
+    StartupSuppressionInstaller.AttachmentMode attachmentMode() {
+        return attachmentMode;
     }
 
     /**
@@ -303,6 +309,8 @@ final class HookEnvironment {
 
     static final class Builder {
         private Instrumentation instrumentation;
+        private StartupSuppressionInstaller.AttachmentMode attachmentMode =
+                StartupSuppressionInstaller.AttachmentMode.AGENTMAIN;
         private AgentOptions options;
         private HostClassLocator.LocatedHost host;
         private PreviewRuntime runtime;
@@ -317,6 +325,11 @@ final class HookEnvironment {
 
         Builder instrumentation(final Instrumentation value) {
             this.instrumentation = value;
+            return this;
+        }
+
+        Builder attachmentMode(final StartupSuppressionInstaller.AttachmentMode value) {
+            this.attachmentMode = Objects.requireNonNull(value, "attachmentMode");
             return this;
         }
 

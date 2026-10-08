@@ -6,7 +6,7 @@ import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.Incremen
 final class IncrementalUpdateHookContributor extends NativeOptimizationHookContributor {
 
     IncrementalUpdateHookContributor() {
-        super("TURBOISM_INCREMENTAL_UPDATE");
+        super("TURBOISM_INCREMENTAL_UPDATE", VerifiedIncrementalUpdateInstaller.HOOK_ID);
     }
 
     @Override

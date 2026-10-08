@@ -12,12 +12,13 @@ import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.adapter.cubism.service.clipmask.CubismClipMaskServiceImpl;
 import dev.turboism.adapter.cubism.service.query.ModelHierarchyQueryServiceImpl;
-import dev.turboism.adapter.cubism.service.query.ParameterQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
 import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceImpl;
 import dev.turboism.adapter.cubism.service.read.CubismReadPermissionGate;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
 import dev.turboism.adapter.host.PluginScopedCubismModelAccess;
+import dev.turboism.core.runtime.psd.RuntimePsdExportService;
+import dev.turboism.core.runtime.psd.RuntimePsdReplaceService;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.core.CoreRuntimeInfo;
@@ -28,30 +29,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 final class DefaultCubismServicesFactory implements CubismServicesFactory {
 
-    private static final CubismModelAccess UNAVAILABLE_MODEL_ACCESS = () -> {
-        throw new IllegalStateException("No verified active Cubism Core model is available.");
-    };
+    private static final CubismModelAccess UNAVAILABLE_MODEL_ACCESS = CubismModelAccess.unavailable();
 
-    private static final CoreRuntimeInfo UNAVAILABLE_CORE_RUNTIME = new CoreRuntimeInfo() {
-        private UnsupportedOperationException unavailable() {
-            return new UnsupportedOperationException("Core runtime metadata is unavailable.");
-        }
-
-        @Override
-        public dev.turboism.sdk.cubism.core.CoreVersion version() {
-            throw unavailable();
-        }
-
-        @Override
-        public dev.turboism.sdk.cubism.core.CoreCapabilities capabilities() {
-            throw unavailable();
-        }
-
-        @Override
-        public dev.turboism.sdk.cubism.core.MocInspector mocInspector() {
-            throw unavailable();
-        }
-    };
+    private static final CoreRuntimeInfo UNAVAILABLE_CORE_RUNTIME = CoreRuntimeInfo.unavailable();
 
     private final RuntimeHostAdapters hostAdapters;
     private final java.util.function.Supplier<java.util.Optional<String>> cubismEditorVersion;
@@ -255,6 +235,23 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
                 modelAccess instanceof NativeLabelColorAuthoring authoring
                         ? authoring
                         : NativeLabelColorAuthoring.unavailable());
+        final RuntimePsdExportService psdExportService;
+        if (pluginTasks == null) {
+            psdExportService = null;
+        } else {
+            psdExportService = new RuntimePsdExportService(
+                    dependencies.descriptor().id(), permissionChecker, activeScope::get, pluginTasks);
+            dependencies.disposableScope().register(psdExportService);
+        }
+        final RuntimePsdReplaceService psdReplaceService;
+        if (psdExportService == null || pluginTasks == null) {
+            psdReplaceService = null;
+        } else {
+            // Shares the export service's registry so only handles issued here can be replaced.
+            psdReplaceService = new RuntimePsdReplaceService(
+                    dependencies.descriptor().id(), permissionChecker, activeScope::get, pluginTasks, psdExportService);
+            dependencies.disposableScope().register(psdReplaceService);
+        }
         final CubismFacadeImpl facade = new CubismFacadeImpl(
                 dependencies.hostSnapshotSource(),
                 permissionGate,
@@ -271,6 +268,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
                 textureAtlasAlgorithms,
                 history,
                 authoringTransactions,
+                psdExportService,
+                psdReplaceService,
                 dependencies.disposableScope(),
                 dependencies.disposableScope()::isSealed,
                 editSessions,
@@ -291,11 +290,11 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
                 dependencies.clock(),
                 AutoBackupCoordinator.DEFAULT_POLL_TIMEOUT_MILLIS,
                 reason -> dependencies.logger().warn("auto-backup " + reason),
-                pluginTasks);
+                pluginTasks,
+                permissionChecker);
         dependencies.disposableScope().register(backupCoordinator::close);
         final CubismContextServices services = new CubismContextServices(
                 facade,
-                new ParameterQueryServiceImpl(facade, permissionGate),
                 new SelectionQueryServiceImpl(
                         facade,
                         permissionGate,

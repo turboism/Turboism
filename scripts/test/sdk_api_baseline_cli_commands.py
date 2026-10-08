@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 
 from sdk_api_baseline import BaselineError, GENERATOR_VERSION, SCHEMA_VERSION, canonical_dump, sha256_bytes
 from sdk_api_baseline_cli_io import COMMIT_RE, FORMAT, load_baseline, write_output
@@ -52,7 +51,7 @@ def _verify_reference_binding(args, baseline):
     # binding is therefore the canonical API surface, not raw archive bytes.
     canonical = baseline["canonicalDump"]
     if sha256_bytes(dump) != canonical["sha256"] or len(dump.decode("utf-8").splitlines()) != canonical["lineCount"]:
-        raise BaselineError(_artifact_binding_mismatch(artifact, artifact_sha, artifact_size))
+        raise BaselineError(_artifact_binding_mismatch(baseline["artifact"], artifact_sha, artifact_size))
     return dump
 
 

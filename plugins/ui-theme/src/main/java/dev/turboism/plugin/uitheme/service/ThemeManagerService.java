@@ -1,9 +1,9 @@
 package dev.turboism.plugin.uitheme.service;
 
-import dev.turboism.plugin.uitheme.b1.domain.BuiltinThemeCatalog;
-import dev.turboism.plugin.uitheme.b1.domain.ThemeBase;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageData;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageMetadata;
+import dev.turboism.plugin.uitheme.domain.BuiltinThemeCatalog;
+import dev.turboism.plugin.uitheme.domain.ThemeBase;
+import dev.turboism.plugin.uitheme.domain.ThemePackageData;
+import dev.turboism.plugin.uitheme.domain.ThemePackageMetadata;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.ui.ChoiceDialogDetailRow;

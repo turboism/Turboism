@@ -1,6 +1,6 @@
 package dev.turboism.plugin.clipmaskviewer;
 
-import dev.turboism.plugin.clipmaskviewer.b1.domain.ClipMaskViewerState;
+import dev.turboism.plugin.clipmaskviewer.domain.ClipMaskViewerState;
 import dev.turboism.plugin.clipmaskviewer.ui.ClipMaskViewerWindow;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.event.SelectionChangedEvent;

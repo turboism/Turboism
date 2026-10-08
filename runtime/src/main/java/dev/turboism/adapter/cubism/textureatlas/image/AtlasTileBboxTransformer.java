@@ -1,6 +1,5 @@
 package dev.turboism.adapter.cubism.textureatlas.image;
 
-import dev.turboism.bootstrap.tilebbox.AtlasTileBboxDelegate;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.MessageDigest;

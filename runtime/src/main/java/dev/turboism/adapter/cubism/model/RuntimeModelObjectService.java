@@ -50,6 +50,11 @@ public final class RuntimeModelObjectService implements ModelObjectService {
     }
 
     @Override
+    public boolean isAvailable() {
+        return modelAccess.isAvailable();
+    }
+
+    @Override
     public List<ModelObjectDescriptor> list() {
         requireRead("modelObjects.list");
         return translate("List model objects", () -> list(activeModel()));

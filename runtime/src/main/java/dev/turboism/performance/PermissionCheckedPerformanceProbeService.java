@@ -70,6 +70,11 @@ public final class PermissionCheckedPerformanceProbeService implements Performan
     }
 
     @Override
+    public boolean isAvailable() {
+        return delegate.isAvailable();
+    }
+
+    @Override
     public PerformanceSnapshot snapshot() {
         checkPermission();
         requireOpen();

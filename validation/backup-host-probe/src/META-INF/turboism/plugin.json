@@ -29,12 +29,22 @@
     {
       "id": "turboism.cubism.model.write",
       "scope": "application",
-      "reason": "Dirtys the copied fixture through ModelTransaction + WriteParameterCommand to drive a native backup."
+      "reason": "Dirtys the copied fixture through Parameter.setValue to drive a native backup."
     },
     {
       "id": "turboism.event.publish",
       "scope": "application",
       "reason": "The per-plugin auto-backup coordinator publishes BackupCompletedEvent on this plugin's event bus."
+    },
+    {
+      "id": "turboism.cubism.backup.observe",
+      "scope": "application",
+      "reason": "Reads command-owned backup artifact bytes through BackupArtifactHandle.openStream so the WebDAV sync target can upload them."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Executes the semantic EditorCommand.SAVE so the production webdav-backup plugin's save-triggered backup/upload path runs end to end."
     }
   ],
   "capabilities": [],

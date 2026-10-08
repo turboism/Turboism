@@ -1,0 +1,14 @@
+{
+  "5.2.03": {
+    "com/live2d/cubism/CECubismEditorApp": "864dd2f505e43eb04f77748f36879373fd23ad32e7b70246869928129e2c3408",
+    "com/live2d/cubism/CEAppCtrl": "6762f7d5bb593648f54cc8cf834e71d788fa8b0c7c5621ee1827a30ac18980f7"
+  },
+  "5.3.02": {
+    "com/live2d/cubism/CECubismEditorApp": "87cf7868689efdf6bd438fc434dd6b7d2cc2b789d2538b80f71b56b08e5b134f",
+    "com/live2d/cubism/CEAppCtrl": "ed2ed37d5d3f34375aa8918c12305c61be6e6e78bfc7e28c382c72b2e04215fc"
+  },
+  "5.3.03": {
+    "com/live2d/cubism/CECubismEditorApp": "ef1fd0a837de1f3c3140b4b7a5a36b7fd499ae7fca2a9c7f2170849564009a15",
+    "com/live2d/cubism/CEAppCtrl": "a4613396fdf86de9b9ba6ca9950b2bf7748dd7ae5f8d85ea142968331bca2b2e"
+  }
+}
