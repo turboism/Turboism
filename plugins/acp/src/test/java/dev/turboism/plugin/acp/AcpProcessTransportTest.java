@@ -51,6 +51,75 @@ final class AcpProcessTransportTest {
     }
 
     @Test
+    void validationBridgeRequiresTheSystemPropertyAndAJavaExecutable() {
+        final AgentLaunchSpec javaExe = new AgentLaunchSpec(
+                java.util.List.of("C:\\Program Files\\Live2D Cubism 5.3\\app\\jre\\bin\\java.exe"), temporaryDirectory);
+        final AgentLaunchSpec plainExecutable = new AgentLaunchSpec(
+                java.util.List.of(temporaryDirectory.resolve("agent.cmd").toString()), temporaryDirectory);
+        try {
+            System.clearProperty("turboism.acp.validation.bridge");
+            assertFalse(AcpProcessTransport.validationJavaBridge(javaExe));
+            System.setProperty("turboism.acp.validation.bridge", "true");
+            assertTrue(AcpProcessTransport.validationJavaBridge(javaExe));
+            assertFalse(AcpProcessTransport.validationJavaBridge(plainExecutable));
+        } finally {
+            System.clearProperty("turboism.acp.validation.bridge");
+        }
+    }
+
+    @Test
+    void validationBridgeRewritesCommandToTheBridgeLaunch() {
+        try {
+            System.setProperty("turboism.acp.validation.bridge", "true");
+            System.setProperty("turboism.acp.validation.bridgeClassPath", "Z:\\home\\acp-fake-agent.jar");
+            System.setProperty("turboism.acp.validation.bridgeConfig", "Z:\\home\\agent.properties");
+            assertEquals(
+                    java.util.List.of(
+                            "C:\\jre\\java.exe",
+                            "-Dturboism.acp.validation.bridgeConfig=Z:\\home\\agent.properties",
+                            "-cp",
+                            "Z:\\home\\acp-fake-agent.jar",
+                            "acp",
+                            "serve"),
+                    AcpProcessTransport.command(
+                            new AgentLaunchSpec(java.util.List.of("C:\\jre\\java.exe", "serve"), temporaryDirectory)));
+        } finally {
+            System.clearProperty("turboism.acp.validation.bridge");
+            System.clearProperty("turboism.acp.validation.bridgeClassPath");
+            System.clearProperty("turboism.acp.validation.bridgeConfig");
+        }
+    }
+
+    @Test
+    void validationBridgeFailsClosedWhenPropertiesAreMissing() {
+        try {
+            System.setProperty("turboism.acp.validation.bridge", "true");
+            System.clearProperty("turboism.acp.validation.bridgeClassPath");
+            System.clearProperty("turboism.acp.validation.bridgeConfig");
+            final AgentLaunchSpec launch =
+                    new AgentLaunchSpec(java.util.List.of("C:\\jre\\java.exe"), temporaryDirectory);
+            assertThrows(IllegalStateException.class, () -> AcpProcessTransport.command(launch));
+            System.setProperty("turboism.acp.validation.bridgeClassPath", "Z:\\home\\acp-fake-agent.jar");
+            assertThrows(IllegalStateException.class, () -> AcpProcessTransport.command(launch));
+        } finally {
+            System.clearProperty("turboism.acp.validation.bridge");
+            System.clearProperty("turboism.acp.validation.bridgeClassPath");
+            System.clearProperty("turboism.acp.validation.bridgeConfig");
+        }
+    }
+
+    @Test
+    void validationBridgeStripsInheritedJavaOptionVariables() {
+        final java.util.Map<String, String> environment = new java.util.LinkedHashMap<>();
+        environment.put("JAVA_TOOL_OPTIONS", "-javaagent:x");
+        environment.put("_JAVA_OPTIONS", "-Xmx1g");
+        environment.put("jdk_java_options", "-Dy=1");
+        environment.put("PATH", "/bin");
+        AcpProcessTransport.stripJavaOptionVariables(environment);
+        assertEquals(java.util.Map.of("PATH", "/bin"), environment);
+    }
+
+    @Test
     void bestEffortCleanupUsesRetainedChildHandleAfterParentExit() throws Exception {
         Assumptions.assumeTrue(Files.isExecutable(Path.of("/bin/sh")));
         final Path childPid = temporaryDirectory.resolve("late-child.pid");
