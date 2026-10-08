@@ -18,8 +18,8 @@ final class WindowsEditorObjectPeerValidationProbeTest {
     void peerHandshakeModeCoversOnlyCloseHandshakeModes() {
         assertTrue(WindowsEditorObjectPeerValidationProbe.peerHandshakeMode("plugin-scope-close"));
         assertTrue(WindowsEditorObjectPeerValidationProbe.peerHandshakeMode("document-close"));
-        assertTrue(WindowsEditorObjectPeerValidationProbe.peerHandshakeMode(
-                "native-control-background-document-close"));
+        assertTrue(
+                WindowsEditorObjectPeerValidationProbe.peerHandshakeMode("native-control-background-document-close"));
         assertFalse(WindowsEditorObjectPeerValidationProbe.peerHandshakeMode("perf-observe"));
         assertFalse(WindowsEditorObjectPeerValidationProbe.peerHandshakeMode(""));
     }

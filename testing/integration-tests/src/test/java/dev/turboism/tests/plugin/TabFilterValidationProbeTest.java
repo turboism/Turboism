@@ -15,14 +15,13 @@ import org.junit.jupiter.api.Test;
 final class TabFilterValidationProbeTest {
 
     private static PaletteProbe probe(final String kind, final boolean filterBoxFound) {
-        return new PaletteProbe(
-                kind, filterBoxFound, "", 0, 0, new JTextField(), null, null, new JPanel());
+        return new PaletteProbe(kind, filterBoxFound, "", 0, 0, new JTextField(), null, null, new JPanel());
     }
 
     @Test
     void filtersReadyRequiresEveryRequiredFilterBox() {
-        final List<PaletteProbe> palettes = List.of(
-                probe("parameter", true), probe("deformer", true), probe("scene", false));
+        final List<PaletteProbe> palettes =
+                List.of(probe("parameter", true), probe("deformer", true), probe("scene", false));
 
         assertTrue(TabFilterValidationProbe.filtersReady(palettes, List.of("parameter", "deformer")));
         assertTrue(TabFilterValidationProbe.filtersReady(palettes, List.of(" parameter ")));
