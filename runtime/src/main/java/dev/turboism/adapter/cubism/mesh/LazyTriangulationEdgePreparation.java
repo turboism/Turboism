@@ -77,7 +77,6 @@ final class LazyTriangulationEdgePreparation {
                 "unreviewed composed baseline");
         byte[] output;
         Map<String, String> expected = fingerprints(family52);
-        Map<String, String> meshDependencies = new LinkedHashMap<>();
         try (ZipFile host = new ZipFile(hostPath.toFile());
                 ZipFile kotlin = new ZipFile(kotlinPath.toFile())) {
             Map<String, byte[]> metadata = new HashMap<>();
@@ -93,16 +92,6 @@ final class LazyTriangulationEdgePreparation {
             byte[] math = definition(host, kotlin, MATH.replace('.', '/'));
             require(math != null, "angle threshold dependency missing");
             expected.put(MATH, TriangulationDefinitionFingerprint.runtimeOf(math));
-            try {
-                require(
-                        Class.forName(NativeMeshEdgeLookup.class.getName(), false, loader)
-                                == NativeMeshEdgeLookup.class,
-                        "native helper identity rejected");
-                NativeMeshEdgePreparation.extend(meshDependencies, host, kotlin);
-            } catch (Throwable unavailable) {
-                FatalErrors.rethrowIfFatal(unavailable);
-                meshDependencies.clear();
-            }
         }
         // Managed host inventories are immutable; also refuse a changed input during preparation.
         require(
@@ -111,15 +100,8 @@ final class LazyTriangulationEdgePreparation {
                 "input changed during preparation");
         expected.put(H, TriangulationDefinitionFingerprint.runtimeOf(output));
         Plan plan = new Plan(
-                lifecycle,
-                Map.copyOf(expected),
-                Map.copyOf(meshDependencies),
-                hostOrigin,
-                kotlinPath.toUri().normalize(),
-                receipt);
-        require(
-                LazyTriangulationEdgeBridge.registerShared(loader, plan::captureShared),
-                "loader already has a lazy plan");
+                lifecycle, Map.copyOf(expected), hostOrigin, kotlinPath.toUri().normalize(), receipt);
+        require(LazyTriangulationEdgeBridge.register(loader, plan::capture), "loader already has a lazy plan");
         return output;
     }
 
@@ -158,39 +140,15 @@ final class LazyTriangulationEdgePreparation {
     private record Plan(
             TriangulationDefinitionLifecycle lifecycle,
             Map<String, String> expected,
-            Map<String, String> meshDependencies,
             URI hostOrigin,
             URI kotlinOrigin,
             Consumer<String> receipt) {
-        LazyTriangulationEdgeBridge.Admission captureShared(Class<?> owner) {
-            if (!meshDependencies.isEmpty()) {
-                try {
-                    ClassLoader loader = owner.getClassLoader();
-                    Class<?> mesh = Class.forName(NativeMeshEdgePreparation.MESH, false, loader);
-                    if (mesh.getClassLoader() == loader
-                            && LazyTriangulationEdgeBridge.meshPreparedMatches(
-                                    loader, meshDependencies.get(NativeMeshEdgePreparation.MESH))) {
-                        Map<String, String> extended = new LinkedHashMap<>(expected);
-                        extended.putAll(meshDependencies);
-                        var gate = capture(owner, extended, true);
-                        if (gate != null && gate.reason().equals("OWNED_FINAL_DEFINITION_MATCH"))
-                            return new LazyTriangulationEdgeBridge.Admission(gate, true);
-                    }
-                } catch (Throwable unavailable) {
-                    FatalErrors.rethrowIfFatal(unavailable);
-                }
-                report(receipt, "TRIANGULATION_NATIVE_MESH_ADMISSION reason=EXTENDED_DECLINED");
-            }
-            return new LazyTriangulationEdgeBridge.Admission(capture(owner, expected, false), false);
-        }
-
-        TriangulationDefinitionLifecycle.Gate capture(
-                Class<?> owner, Map<String, String> dependencies, boolean meshIncluded) {
+        TriangulationDefinitionLifecycle.Gate capture(Class<?> owner) {
             try {
                 require(owner.getName().equals(H) && !owner.getModule().isNamed(), "host identity/module rejected");
                 ClassLoader loader = owner.getClassLoader();
                 Map<String, Class<?>> actual = new LinkedHashMap<>();
-                for (String name : dependencies.keySet()) {
+                for (String name : expected.keySet()) {
                     Class<?> type = name.equals(H) ? owner : Class.forName(name, false, loader);
                     URI wantedOrigin = name.startsWith("kotlin.") ? kotlinOrigin : hostOrigin;
                     require(wantedOrigin.equals(origin(type.getProtectionDomain())), "live origin rejected: " + name);
@@ -203,13 +161,11 @@ final class LazyTriangulationEdgePreparation {
                     actual.put(name, type);
                 }
                 links(actual);
-                if (meshIncluded) nativeLinks(actual);
                 TriangulationDefinitionLifecycle.Gate gate = lifecycle.capture(
                         actual.values().toArray(Class<?>[]::new),
-                        dependencies,
+                        expected,
                         LazyTriangulationEdgePreparation::dependencyFingerprint);
                 report(receipt, "TRIANGULATION_LAZY_EDGE_ADMISSION reason=" + gate.reason());
-                if (meshIncluded) report(receipt, "TRIANGULATION_NATIVE_MESH_ADMISSION reason=" + gate.reason());
                 return gate;
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
@@ -220,35 +176,6 @@ final class LazyTriangulationEdgePreparation {
                 return null;
             }
         }
-    }
-
-    private static void nativeLinks(Map<String, Class<?>> types) throws Exception {
-        Class<?> mesh = types.get(NativeMeshEdgePreparation.MESH), list = types.get(NativeMeshEdgePreparation.LIST);
-        Class<?> edge = types.get(NativeMeshEdgePreparation.EDGE), rank = types.get(NativeMeshEdgePreparation.TYPE);
-        require(
-                Modifier.isFinal(mesh.getModifiers()) && list.getSuperclass() == java.util.ArrayList.class,
-                "native mesh/list hierarchy");
-        require(
-                mesh.getDeclaredField("_edges").getType() == list
-                        && Modifier.isFinal(mesh.getDeclaredField("_edges").getModifiers())
-                        && mesh.getDeclaredField("cached_indices").getType() == int[].class,
-                "native field links");
-        require(
-                edge.getSuperclass() == Object.class && rank.isEnum() && rank.getSuperclass() == Enum.class,
-                "native edge/type hierarchy");
-        edge.getDeclaredConstructor(int.class, int.class, rank);
-        require(
-                edge.getDeclaredMethod("getIndex1").getReturnType() == int.class
-                        && edge.getDeclaredMethod("getIndex2").getReturnType() == int.class
-                        && edge.getDeclaredMethod("getType").getReturnType() == rank
-                        && rank.getDeclaredMethod("a").getReturnType() == byte.class,
-                "native endpoint/type links");
-        require(
-                types.get(NativeMeshEdgePreparation.PROGRESSION)
-                                .getDeclaredMethod("getProgressionLastElement", int.class, int.class, int.class)
-                                .getReturnType()
-                        == int.class,
-                "native progression link");
     }
 
     private static void links(Map<String, Class<?>> types) throws Exception {
