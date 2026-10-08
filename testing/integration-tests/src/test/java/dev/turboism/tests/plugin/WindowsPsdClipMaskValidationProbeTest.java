@@ -29,8 +29,7 @@ final class WindowsPsdClipMaskValidationProbeTest {
         before.put(b, state("y"));
         before.put(c, state("z"));
 
-        final Map<ArtMeshId, MaskState> expected =
-                WindowsPsdClipMaskValidationProbe.syntheticExpected(before);
+        final Map<ArtMeshId, MaskState> expected = WindowsPsdClipMaskValidationProbe.syntheticExpected(before);
         assertEquals(List.of(b), expected.get(a).masks());
         assertEquals(List.of(a), expected.get(b).masks());
         assertEquals(before.get(c), expected.get(c));
@@ -52,8 +51,8 @@ final class WindowsPsdClipMaskValidationProbeTest {
 
     @Test
     void wrongExpectedBatchFlipsInversionWhenAllExpectationsEmpty() {
-        final ClipMaskReplacement replacement = new ClipMaskReplacement(
-                new ArtMeshId("target"), List.of(), false, List.of(new ArtMeshId("r1")), false);
+        final ClipMaskReplacement replacement =
+                new ClipMaskReplacement(new ArtMeshId("target"), List.of(), false, List.of(new ArtMeshId("r1")), false);
         final List<ClipMaskReplacement> wrong =
                 WindowsPsdClipMaskValidationProbe.wrongExpectedBatch(List.of(replacement));
         assertTrue(wrong.get(0).expectedInverted());
