@@ -5070,9 +5070,19 @@
    "variant": "assisted",
    "jobId": "2c2bbb07-d633-4b51-b515-f8bf44d3ce14",
    "preparedDigest": "5f6d35b114ae96a26bc309ebf0966ba075785a86253ef6059fba924a5f28447a",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5000; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-dfd678441d84431d9afa47749ccfbe15",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5000",
@@ -5081,9 +5091,19 @@
    "variant": "matrix-assisted",
    "jobId": "3891c4ed-f89e-4804-acf6-8ad08ee21ede",
    "preparedDigest": "20023af71b588e00b36070016be855627ac7250ecb38758fbb87662a09fc4ac3",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: psd-clip-mask on 5000; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-6987c9ea74ea40f098fe0b5e412620cc",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "normalExit": true,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5001",
@@ -5092,9 +5112,19 @@
    "variant": "assisted",
    "jobId": "5f697ea1-5987-4371-a005-a273acbe9781",
    "preparedDigest": "92aac96e1d1a85c1dc8b7a9726a5b37d16d1037200d678ef9c08efb84ee0a248",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5001; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-6e8291a13926470e817a775870018969",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5001",
@@ -5103,9 +5133,19 @@
    "variant": "matrix-assisted",
    "jobId": "f292f735-15ee-4987-b3e8-f37d2cc95294",
    "preparedDigest": "1b5349be02d0c93e3ffa46936b9d231e2fcc8a330d9801664aa6aedf752a5f8c",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: psd-clip-mask on 5001; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-199ea414d293487cb9ca9afa5f9db563",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "normalExit": true,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5002",
@@ -5114,9 +5154,19 @@
    "variant": "assisted",
    "jobId": "bfe2e4db-152a-41fe-8c2e-6109358d3a08",
    "preparedDigest": "3ad72c9a97737403d44452b4686849c30ac55fb150357a8e5cbd6f9e2d0f7544",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5002; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-73b905e9e7e1465c85e772892c136048",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5002",
@@ -5125,9 +5175,19 @@
    "variant": "matrix-assisted",
    "jobId": "9bba187b-fa53-4b69-8203-9686e4ca0d13",
    "preparedDigest": "2eff9e60b1bf5c13ca352008050071522abc564f15ff885928c60c093a5604c2",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: psd-clip-mask on 5002; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-fbaceb9b82b74a41aa05ca3ede937461",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "normalExit": true,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5003",
@@ -5136,9 +5196,19 @@
    "variant": "assisted",
    "jobId": "d3bb7184-f747-4917-ada1-765b396555cd",
    "preparedDigest": "f62ea2dffde4ef54428dd3641f3df4d0eaee409b5b411f82f767f91ed8e775cd",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5003; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-256e8e0987264f8496f0000c92f66880",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5003",
@@ -5147,9 +5217,19 @@
    "variant": "matrix-assisted",
    "jobId": "034f9367-1a16-4fb3-8708-3cddc52d899f",
    "preparedDigest": "005766c707871ceec10c5dd17059c7bb060d6069fe6b021fbc2a1de8d7c7970b",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: psd-clip-mask on 5003; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-2a92c67665444dc7b03fdddd9f26c1a2",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "normalExit": true,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5004",
@@ -5158,9 +5238,19 @@
    "variant": "assisted",
    "jobId": "ddc01f96-a78e-4b62-88af-0a6df655c943",
    "preparedDigest": "8404de67602942d23785212ea86ece2be1ecd9d2a3f75fd74d89489d174148d7",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5004; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-7a96806d29da4ae1b68553753b657afc",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5004",
@@ -5169,9 +5259,19 @@
    "variant": "matrix-assisted",
    "jobId": "c17ba109-af61-4b9d-a188-cd02c3077a02",
    "preparedDigest": "18337529e88cde1383d825a5792935d151f9c96e3437036e6462ad1fcf985bae",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: psd-clip-mask on 5004; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-fa65ed5da1b74044b6fae7f40744e6fc",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "normalExit": true,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5005",
@@ -5180,9 +5280,19 @@
    "variant": "assisted",
    "jobId": "46af6339-adf3-4fe9-95c3-f23b063cb919",
    "preparedDigest": "07d0b6af507365736fc4ec9a21ab1d39fe16005bf3122a54ff6d34268d7f803b",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5005; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-8ac9d5c79bda4f589a73ce161ccbb0cf",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5005",
@@ -5191,9 +5301,19 @@
    "variant": "matrix-assisted",
    "jobId": "5e77a54a-bcb7-475f-ad9a-09af34e1f3e7",
    "preparedDigest": "2b257bf8affc2cebb8355b503d598838705cea1931cbb6f66f873b004c7b11a6",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: psd-clip-mask on 5005; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-2742f92a5e1846e7a745aefdf441d23b",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "normalExit": true,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5006",
@@ -5202,9 +5322,19 @@
    "variant": "assisted",
    "jobId": "88e82094-4894-497f-b3d9-422b3f032216",
    "preparedDigest": "09f12300839cb4f44e3ca3444fcaea53d9173f20adc45a1f278fda804dd37fde",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5006; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-07a2e253cdf34c91b7a6a8d93f318f50",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5006",
@@ -5213,9 +5343,19 @@
    "variant": "matrix-assisted",
    "jobId": "d1fe8569-4316-4ee4-a0e0-a0e9ad370806",
    "preparedDigest": "123923be74c3615ef61bc3e2515f0b902e8beb12f2054438767109514f2bd96d",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: psd-clip-mask on 5006; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-a4fb100b7b0c40098e5f2bc2a2f564de",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "normalExit": true,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5100",
@@ -5224,9 +5364,19 @@
    "variant": "assisted",
    "jobId": "095fd974-8f91-4711-be61-a768bd42dee5",
    "preparedDigest": "4bf8743414ff2afe961f52388b70b279f18eca0462eef8bab6144ac26654774c",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5100; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-d0669cf7362d4de582b13e2323b890a4",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5100",
@@ -5235,9 +5385,19 @@
    "variant": "matrix-assisted",
    "jobId": "a9ea930b-c648-48b2-babd-dbd5b406275d",
    "preparedDigest": "5b78bb88a61f761f2416a7297f21306594ddcaebe49fc5b098cd42fd2a3a1157",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: psd-clip-mask on 5100; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-f22a96f20f334b2aa6a63b8b6b942a92",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "normalExit": true,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5101",
@@ -5246,9 +5406,19 @@
    "variant": "assisted",
    "jobId": "9ad5ca9f-50d8-47e2-8570-05ebb7e3b3a3",
    "preparedDigest": "c592ec19fa312426d846d6cb5c4c7618b876f8ef7c25e3e95447f9a129493ce4",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5101; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-52e4d4896b7744bf9b1ff8b7046f10a6",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5101",
@@ -5257,9 +5427,19 @@
    "variant": "matrix-assisted",
    "jobId": "52dfbea5-67dd-4296-996e-23e33a254168",
    "preparedDigest": "975f9a526962b3373da6de403eb73d1043c292f8bc8a9748be1926195a4c1f91",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: psd-clip-mask on 5101; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-a6b3db4659d44aedbfc4b12593037df7",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5102",
@@ -5268,9 +5448,19 @@
    "variant": "assisted",
    "jobId": "647004c0-dd2e-4e44-873e-859d10588312",
    "preparedDigest": "ad870b23d36ab481009fa711729f69e398f690820140f7bf8a3036c9f6f384d8",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5102; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-c025260a34e24b22aa34a00f35fff270",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5102",
@@ -5279,9 +5469,19 @@
    "variant": "matrix-assisted",
    "jobId": "8d900700-6c11-4b07-8219-0d6dc1ffac36",
    "preparedDigest": "10c600379e3ddda2708a01a6614f9ef3aa4c291fe5eb4f39d72c6b8f46a24182",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: psd-clip-mask on 5102; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-3e800874a38b422bacee48fa6e6c3de4",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "normalExit": true,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5103",
@@ -5290,9 +5490,19 @@
    "variant": "assisted",
    "jobId": "a6ea3f0d-3f3d-4e96-b30f-e9eea97e715b",
    "preparedDigest": "29b50f8c8f913dae370f5d3e4594cb18e32c902cc067246fd96908a563565b2d",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5103; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-adb61c28e76e4ebfb0fe83b798dd7a92",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5103",
@@ -5301,9 +5511,19 @@
    "variant": "matrix-assisted",
    "jobId": "d2a3d8ed-5ff3-4558-87a9-00b053dd51c3",
    "preparedDigest": "3c50c00e31be5d9d28d854b0e676549c07cbcce52e75a1af946bf67e3ae1aab5",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: psd-clip-mask on 5103; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-f92acb9a76da4cc6ae6951d0f37d0c7e",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "normalExit": true,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5200",
@@ -5312,9 +5532,19 @@
    "variant": "assisted",
    "jobId": "9e3c859c-61d9-405e-8282-9a0189b0e2c9",
    "preparedDigest": "54aff0ed54cb6f89ba1632a29380bacda96a8c1df39041c29b02785420a030f6",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5200; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-3f040d555eb64ca1a8ca51b31e408690",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5200",
@@ -5323,9 +5553,19 @@
    "variant": "matrix-assisted",
    "jobId": "67e47ef1-10ba-4dfd-a0df-39237285386a",
    "preparedDigest": "fcba526fda32bda199861acd6013e5ccecbe6aa277775157283078756ce87b7d",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: psd-clip-mask on 5200; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-7970f11badf14c1f8c6e7176712a69ce",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5201",
@@ -5334,9 +5574,19 @@
    "variant": "assisted",
    "jobId": "a8940958-0800-434f-a9ad-e59f8e36b2ab",
    "preparedDigest": "46065d00ef36e9a577aa5740be7a192588739af9b1839ae9010058303c4451c1",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5201; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-79b8151ebde94e68b67d44ebb1002d71",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5201",
@@ -5345,9 +5595,19 @@
    "variant": "matrix-assisted",
    "jobId": "406fb753-df18-4071-b86a-c8ac6eaf4d4e",
    "preparedDigest": "003b54664846f4f2232825f1cab95012f89d1f58a85d493f38e6139ee11b9b87",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: psd-clip-mask on 5201; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-a2d41afe54f640f4a702e923d8f4492c",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5202",
@@ -5356,9 +5616,19 @@
    "variant": "assisted",
    "jobId": "3bbac015-1f96-4781-bb2e-a9b8afb5ae85",
    "preparedDigest": "d976eb27ccc80450e0bf3cc553f4ffc46484b53d2fe0ce890afdd9742964b5e6",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5202; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-1f5ca39e34f3409c8e55a99e94ce8848",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   }
   },
   {
    "version": "5202",
@@ -5367,9 +5637,847 @@
    "variant": "matrix-assisted",
    "jobId": "76bbe871-1ca9-485f-88ee-51407c65393c",
    "preparedDigest": "00bf0a08c21b83e174b63f5652caf491aa251cbf4fdad70da61034b369f52842",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: psd-clip-mask on 5202; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "result": {
+    "runId": "queue-a7294540f5994889859df5dceeec4892",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   }
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5000",
+   "variant": null,
+   "jobId": "e234ba02-8e27-4e47-81af-1af5e148ba48",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-fb8160a5df5148d38365a97cf25572dc",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5001",
+   "variant": null,
+   "jobId": "c56bbec4-83b0-49d5-811b-67fcc2766407",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-290e38f5bad44198a1388513b35bf89b",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5002",
+   "variant": null,
+   "jobId": "4d42d54e-ddd9-4c50-a832-83fdb3036842",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-e661d70131d24ce38d00a71194abc7f2",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5003",
+   "variant": null,
+   "jobId": "36d569fc-a4e8-490c-91f4-e858e26e48e2",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-db2888d89f7b4f30973615896861a3c8",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5004",
+   "variant": null,
+   "jobId": "ba6f0287-6f3b-4593-8a00-4f8337cc686a",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-7d8cdf8a88e749f0bf682c202c3f256d",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5005",
+   "variant": null,
+   "jobId": "554b3c1b-41d8-4558-8727-67522088108a",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-23bea3c81f5b4d66a85d94d176f43ea6",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5006",
+   "variant": null,
+   "jobId": "32431a1e-d5e7-41a1-b3c8-e51ed8f077df",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-ba53a5a597774033b730623cb63ef203",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5100",
+   "variant": null,
+   "jobId": "e029ca6d-aa8e-4d64-865c-266bfca92239",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-06527f58249b453f847dddd765b9b120",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5101",
+   "variant": null,
+   "jobId": "19e19cd8-a84b-4bd2-8819-e91b0ff6134a",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-660c9123f91845388730d84d2afec030",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5102",
+   "variant": null,
+   "jobId": "e3f21098-6f2e-47ee-a8cb-2d663e2485ad",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-408df46d16c140c2b9881097eecc3361",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5103",
+   "variant": null,
+   "jobId": "2880105c-fde0-44b4-8e2b-44fa069089bd",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-3a6d76b27522400bb29dca010ab0cb1a",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5200",
+   "variant": null,
+   "jobId": "c5311303-680d-43aa-a244-424df61f2716",
+   "status": "CANCELLED",
+   "result": {
+    "runId": "queue-c8a39df427304b69941a5441725e9ab8",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "cancelled",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5201",
+   "variant": null,
+   "jobId": "a1f44fe4-8037-41ef-9ad3-d4703b25ac12",
+   "status": "CANCELLED",
+   "result": {
+    "runId": null,
+    "finalizedBy": "queue",
+    "terminalState": "cancelled",
+    "validationStatus": "CANCELLED",
+    "identityVerified": null,
+    "fixtureUnchanged": null,
+    "normalExit": null,
+    "cleanup": null
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5202",
+   "variant": null,
+   "jobId": "c42bb7e8-38a4-4951-a2af-cb81aebbadfd",
+   "status": "CANCELLED",
+   "result": {
+    "runId": null,
+    "finalizedBy": "queue",
+    "terminalState": "cancelled",
+    "validationStatus": "CANCELLED",
+    "identityVerified": null,
+    "fixtureUnchanged": null,
+    "normalExit": null,
+    "cleanup": null
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "edit",
+   "version": "5203",
+   "variant": null,
+   "jobId": "c91f79b9-09c9-4cf9-a0a2-1ffbbfedd713",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-b0f0a19f1571471e96d1eb1dac4941ab",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "normalExit": true,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5203",
+   "variant": null,
+   "jobId": "1fc5facb-3289-43a5-b107-281e8ae4a260",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-363a4884a5fd4dc28870fcf725433e20",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "edit",
+   "version": "5300",
+   "variant": null,
+   "jobId": "fab014ed-60ab-4188-8b86-0a8f79ac01ef",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-a30a9abd86c34f99a85b839d0fea4d73",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5300",
+   "variant": null,
+   "jobId": "fdb7d0ec-0873-4376-807e-af570ed5afe5",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-6ba75dc7594b4c47a25209ec057f9512",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "edit",
+   "version": "5301",
+   "variant": null,
+   "jobId": "0f6c55de-923c-4923-be24-013a6c8089df",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-53cb4ff3d9c94e4ab9e99cb63a724ae3",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5301",
+   "variant": null,
+   "jobId": "0ad530cf-d9e0-485c-abf5-92d88d9fa493",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-de23639e737b48d4bef1aa5f39d44b91",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "edit",
+   "version": "5302",
+   "variant": null,
+   "jobId": "f039e05e-b5a4-4776-a8b0-d49b17509cad",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-dcfed45dfe71400fb7bbc720dad8bcb2",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "normalExit": true,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5302",
+   "variant": null,
+   "jobId": "a20299da-10ff-42c8-bb58-98ce7fbaf587",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-7ebfa1d93bec43e8b5ae2f9a8e74c890",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "edit",
+   "version": "5303",
+   "variant": null,
+   "jobId": "32530974-9647-4d32-8541-8ea819c950ad",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-64ba4c88579a4bb5b43e6b503fc70a2d",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "normalExit": true,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5303",
+   "variant": null,
+   "jobId": "2a04892a-10be-4933-896c-ff0291b0859f",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-988d83e4a1e149a28e5cc704bae56c98",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "edit",
+   "version": "5304",
+   "variant": null,
+   "jobId": "4a14bdbb-056a-44d3-9d7b-0608e65b2af0",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-d87859b55fc84a6892e3d1439ccd54d6",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "clipmask-viewer",
+   "version": "5304",
+   "variant": null,
+   "jobId": "118ae41f-af3c-4cbe-8927-35d81a933d32",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-68687670b6a34fceb34fd1224e80d2de",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5000",
+   "variant": null,
+   "jobId": "5a4cad2b-0131-457c-95bf-2dc6b5c960a9",
+   "status": "CANCELLED",
+   "result": {
+    "runId": null,
+    "finalizedBy": "queue",
+    "terminalState": "cancelled",
+    "validationStatus": "CANCELLED",
+    "identityVerified": null,
+    "fixtureUnchanged": null,
+    "normalExit": null,
+    "cleanup": null
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5001",
+   "variant": null,
+   "jobId": "289675d0-5800-49cd-8365-99dab5c3a8df",
+   "status": "CANCELLED",
+   "result": {
+    "runId": null,
+    "finalizedBy": "queue",
+    "terminalState": "cancelled",
+    "validationStatus": "CANCELLED",
+    "identityVerified": null,
+    "fixtureUnchanged": null,
+    "normalExit": null,
+    "cleanup": null
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5002",
+   "variant": null,
+   "jobId": "17380480-b96f-4410-a223-4843ff4264b7",
+   "status": "CANCELLED",
+   "result": {
+    "runId": null,
+    "finalizedBy": "queue",
+    "terminalState": "cancelled",
+    "validationStatus": "CANCELLED",
+    "identityVerified": null,
+    "fixtureUnchanged": null,
+    "normalExit": null,
+    "cleanup": null
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5003",
+   "variant": null,
+   "jobId": "dd00aad2-d431-42fc-8393-1bf90c74c7e3",
+   "status": "CANCELLED",
+   "result": {
+    "runId": null,
+    "finalizedBy": "queue",
+    "terminalState": "cancelled",
+    "validationStatus": "CANCELLED",
+    "identityVerified": null,
+    "fixtureUnchanged": null,
+    "normalExit": null,
+    "cleanup": null
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5004",
+   "variant": null,
+   "jobId": "d8d32bb1-6ede-4afd-95bc-7ff3920d4079",
+   "status": "CANCELLED",
+   "result": {
+    "runId": null,
+    "finalizedBy": "queue",
+    "terminalState": "cancelled",
+    "validationStatus": "CANCELLED",
+    "identityVerified": null,
+    "fixtureUnchanged": null,
+    "normalExit": null,
+    "cleanup": null
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5005",
+   "variant": null,
+   "jobId": "05b24e14-7047-49bd-83a7-6f48273a47da",
+   "status": "CANCELLED",
+   "result": {
+    "runId": null,
+    "finalizedBy": "queue",
+    "terminalState": "cancelled",
+    "validationStatus": "CANCELLED",
+    "identityVerified": null,
+    "fixtureUnchanged": null,
+    "normalExit": null,
+    "cleanup": null
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5006",
+   "variant": null,
+   "jobId": "923ee6a9-1af8-4a89-a7c5-9f27d81782f0",
+   "status": "CANCELLED",
+   "result": {
+    "runId": null,
+    "finalizedBy": "queue",
+    "terminalState": "cancelled",
+    "validationStatus": "CANCELLED",
+    "identityVerified": null,
+    "fixtureUnchanged": null,
+    "normalExit": null,
+    "cleanup": null
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5100",
+   "variant": null,
+   "jobId": "e3548d13-3a06-4b6d-82c0-0a16fe3f7a29",
+   "status": "CANCELLED",
+   "result": {
+    "runId": null,
+    "finalizedBy": "queue",
+    "terminalState": "cancelled",
+    "validationStatus": "CANCELLED",
+    "identityVerified": null,
+    "fixtureUnchanged": null,
+    "normalExit": null,
+    "cleanup": null
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5101",
+   "variant": null,
+   "jobId": "4546ceca-8ba7-4031-867e-822e58e4e4e5",
+   "status": "CANCELLED",
+   "result": {
+    "runId": null,
+    "finalizedBy": "queue",
+    "terminalState": "cancelled",
+    "validationStatus": "CANCELLED",
+    "identityVerified": null,
+    "fixtureUnchanged": null,
+    "normalExit": null,
+    "cleanup": null
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5102",
+   "variant": null,
+   "jobId": "2bf4075b-41dd-4eb9-a714-dca42f2ea99b",
+   "status": "CANCELLED",
+   "result": {
+    "runId": null,
+    "finalizedBy": "queue",
+    "terminalState": "cancelled",
+    "validationStatus": "CANCELLED",
+    "identityVerified": null,
+    "fixtureUnchanged": null,
+    "normalExit": null,
+    "cleanup": null
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5103",
+   "variant": null,
+   "jobId": "d2bbfe6c-6831-4587-a58d-0ad55c24cb55",
+   "status": "CANCELLED",
+   "result": {
+    "runId": null,
+    "finalizedBy": "queue",
+    "terminalState": "cancelled",
+    "validationStatus": "CANCELLED",
+    "identityVerified": null,
+    "fixtureUnchanged": null,
+    "normalExit": null,
+    "cleanup": null
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5200",
+   "variant": null,
+   "jobId": "95680f8e-1dea-439e-957e-01e5b7338920",
+   "status": "CANCELLED",
+   "result": {
+    "runId": null,
+    "finalizedBy": "queue",
+    "terminalState": "cancelled",
+    "validationStatus": "CANCELLED",
+    "identityVerified": null,
+    "fixtureUnchanged": null,
+    "normalExit": null,
+    "cleanup": null
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5201",
+   "variant": null,
+   "jobId": "dae45898-7b73-401f-b14d-a3aca493d71e",
+   "status": "CANCELLED",
+   "result": {
+    "runId": null,
+    "finalizedBy": "queue",
+    "terminalState": "cancelled",
+    "validationStatus": "CANCELLED",
+    "identityVerified": null,
+    "fixtureUnchanged": null,
+    "normalExit": null,
+    "cleanup": null
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5202",
+   "variant": null,
+   "jobId": "76e30642-af1c-4e3f-9ae4-680abb1560e2",
+   "status": "CANCELLED",
+   "result": {
+    "runId": null,
+    "finalizedBy": "queue",
+    "terminalState": "cancelled",
+    "validationStatus": "CANCELLED",
+    "identityVerified": null,
+    "fixtureUnchanged": null,
+    "normalExit": null,
+    "cleanup": null
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5203",
+   "variant": null,
+   "jobId": "a736f914-b174-4220-a9c9-f90ba2ec4c7e",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-f4b0189b74fc4e32b4dbdd315ca9b475",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "normalExit": true,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5300",
+   "variant": null,
+   "jobId": "010e5b93-18dc-4c56-9c86-dde6849dee0a",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-57ee0dc328da430da376eb0f5356f6e0",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5301",
+   "variant": null,
+   "jobId": "9c79f922-0ab9-4798-8046-a4debb18ebf8",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-97a773eb04b34a1e9ac4d251c798d7cd",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5302",
+   "variant": null,
+   "jobId": "5c6cb144-ccf8-4aee-a103-ff75ef92e297",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-65359ab17a22424a949da7bf997cddfe",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "normalExit": true,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5303",
+   "variant": null,
+   "jobId": "bb2fa35e-a75d-4205-821e-7739b3d78a73",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-2c3e466b694b4ee5b2a90b26846bb053",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "normalExit": true,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-clip-mask",
+   "version": "5304",
+   "variant": null,
+   "jobId": "92ba601c-b079-4240-94d4-e0660d751299",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-0d318026724e4e1d90fee7d5e3de5bbf",
+    "finalizedBy": "contained-supervisor",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "normalExit": false,
+    "cleanup": "safe"
+   },
+   "scope": "cov-r2/cov-r3 queue-synced terminal evidence"
   }
  ]
 }
