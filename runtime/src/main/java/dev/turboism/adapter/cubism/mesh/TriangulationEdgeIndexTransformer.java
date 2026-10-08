@@ -72,8 +72,6 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
     private final AtomicReference<String> lazyEdgeDiagnostic = new AtomicReference<>("");
     private final AtomicReference<Outcome> builderOutcome = new AtomicReference<>(Outcome.NONE);
     private final AtomicReference<String> builderDiagnostic = new AtomicReference<>("");
-    private final AtomicReference<Outcome> nativeMeshOutcome = new AtomicReference<>(Outcome.NONE);
-    private final AtomicReference<String> nativeMeshDiagnostic = new AtomicReference<>("");
 
     public TriangulationEdgeIndexTransformer() {
         this(Set.of(REVIEWED_CLASS_SHA256_53X, REVIEWED_CLASS_SHA256_5203), ignored -> {});
@@ -156,16 +154,6 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
         return builderDiagnostic.get();
     }
 
-    /** Initial native mesh weave outcome; this does not grant its extended runtime admission. */
-    public Outcome nativeMeshOutcome() {
-        return nativeMeshOutcome.get();
-    }
-
-    /** Reason the optional native mesh weave declined, independently of the original targets. */
-    public String nativeMeshDiagnostic() {
-        return nativeMeshDiagnostic.get();
-    }
-
     @Override
     public byte[] transform(
             final Module module,
@@ -195,21 +183,6 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
             final byte[] classfileBuffer,
             final boolean unnamedModule) {
         if (classfileBuffer == null || classBeingRedefined != null) return null;
-        if (NativeMeshEdgePatcher.MESH.equals(className)) {
-            // Mesh availability is optional. A late/unavailable mesh must not disable
-            // the original h/builder/angle plan or cause an independent capture.
-            if (lifecycle == null || !unnamedModule) return null;
-            try {
-                byte[] patched = NativeMeshEdgePreparation.prepare(classfileBuffer, domain, loader, lifecycle);
-                nativeMeshOutcome.set(Outcome.PATCHED);
-                return patched;
-            } catch (Throwable failure) {
-                FatalErrors.rethrowIfFatal(failure);
-                nativeMeshOutcome.set(Outcome.SHAPE_REJECTED);
-                nativeMeshDiagnostic.set(failure.getClass().getSimpleName() + ":" + failure.getMessage());
-                return null;
-            }
-        }
         if (MEMBERSHIP_INTERNAL_NAME.equals(className)) {
             final String observed = sha256(classfileBuffer);
             if (!MEMBERSHIP_DIGESTS.contains(observed)) {
