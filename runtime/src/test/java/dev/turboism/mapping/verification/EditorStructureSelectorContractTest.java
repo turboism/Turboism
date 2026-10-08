@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
 class EditorStructureSelectorContractTest {
 
     private static final Path PROJECT_ROOT = EditorSelectorContractTestPaths.projectRoot();
-    private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.legacyEvidence();
+    private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.resolveLegacyEvidence();
 
     @Test
     void exact5302RecordVerifiesPartStructureContract() throws Exception {

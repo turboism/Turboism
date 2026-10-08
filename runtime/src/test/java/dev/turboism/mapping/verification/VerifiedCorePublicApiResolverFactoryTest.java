@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 class VerifiedCorePublicApiResolverFactoryTest {
 
     private static final Path PROJECT_ROOT = EditorSelectorContractTestPaths.projectRoot();
-    private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.legacyEvidence();
+    private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.resolveLegacyEvidence();
     private final VerifiedCorePublicApiResolverFactory factory = new VerifiedCorePublicApiResolverFactory();
 
     @Test
@@ -86,6 +86,9 @@ class VerifiedCorePublicApiResolverFactoryTest {
     }
 
     private static Path coreArtifact(final String profile) {
+        assumeTrue(
+                LEGACY_EVIDENCE != null,
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         final String evidenceDirectory = "5.2.03".equals(profile) ? "5.2" : profile;
         return LEGACY_EVIDENCE.resolve("Cubism-" + evidenceDirectory + "/jars/Live2DCubismCore.jar");
     }

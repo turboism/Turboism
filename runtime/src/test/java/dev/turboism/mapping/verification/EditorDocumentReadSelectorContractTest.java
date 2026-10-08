@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 class EditorDocumentReadSelectorContractTest {
 
     private static final Path PROJECT_ROOT = EditorSelectorContractTestPaths.projectRoot();
-    private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.legacyEvidence();
+    private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.resolveLegacyEvidence();
 
     @Test
     void exact5302RecordVerifiesAllDocumentReadContracts() throws Exception {

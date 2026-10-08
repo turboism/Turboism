@@ -26,11 +26,11 @@ deps="$scene_dir/deps"
   || fail 'build output did not provide required artifacts'
 
 P=turboism.validation.triIdentity
-LOADER=dev.turboism.validation.triprobe.fixture.FixtureLoader
+LOADER=dev.turboism.validation.shared.fixture.FixtureLoader
 
 # Expectation derived from the real CodeSource.toExternalForm of the fixture dir URL —
 # the same URL construction the fixture loader passes to the JVM.
-fx_url="$(java -cp "$sc" dev.turboism.validation.triprobe.CodeSourceUrl "$fx")"
+fx_url="$(java -cp "$sc" dev.turboism.validation.shared.fixture.CodeSourceUrl "$fx")"
 
 run_scenario() {
   local scenario="$1" jar="$2" fxdir="$3" outdir="$4" sarg="${5:-}"
@@ -95,7 +95,7 @@ run_scenario_props wrongSha "$agent_jar" "$fx" "$work/out-wrongsha" \
   && note wrongSha
 run_scenario wrongLoader "$agent_jar" "$fx" "$work/out-wrongloader" && note wrongLoader
 badsha="$(sha256sum "$bs/com/live2d/graphics3d/editableMesh/triangulation/TriangleList.class" | awk '{print $1}')"
-bs_url="$(java -cp "$sc" dev.turboism.validation.triprobe.CodeSourceUrl "$bs")"
+bs_url="$(java -cp "$sc" dev.turboism.validation.shared.fixture.CodeSourceUrl "$bs")"
 run_scenario_props badShape "$agent_jar" "$bs" "$work/out-badshape" \
   "-D$P.expectClassSha256=$badsha" "-D$P.expectCodeSource=$bs_url" && note badShape
 # helper failures: premain refusal (missing jar helper, broken clinit at warm)
