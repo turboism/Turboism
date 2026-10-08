@@ -3,6 +3,7 @@ import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.logging.Logger
+import dev.turboism.gradle.internal.VerificationStamps
 
 private class BoundaryState(private val logger: Logger) {
     var failed = false
@@ -48,25 +49,10 @@ private val forbiddenQualifiedReferencePatterns = listOf(
 )
 
 private val forbiddenHostUiTraversal = listOf(
-    "SwingUtilities.getWindowAncestor(",
-    "SwingUtilities.getRoot(",
-    ".getTopLevelAncestor()"
+    "SwingUtilities.getWindowAncestor(" to Regex("""SwingUtilities\s*\.\s*getWindowAncestor\s*\("""),
+    "SwingUtilities.getRoot(" to Regex("""SwingUtilities\s*\.\s*getRoot\s*\("""),
+    ".getTopLevelAncestor()" to Regex("""\.\s*getTopLevelAncestor\s*\(\s*\)""")
 )
-
-/*
- * The boundary check produces no artifact; the stamp file gives Gradle a persistent
- * output for up-to-date tracking. It is written only after the check action succeeds.
- */
-private fun Task.verificationStamp() {
-    val stamp = project.layout.buildDirectory.file("verification-stamps/$name.stamp")
-    outputs.file(stamp)
-    doLast {
-        stamp.get().asFile.apply {
-            parentFile.mkdirs()
-            writeText("ok\n")
-        }
-    }
-}
 
 tasks.register("checkModuleBoundaries") {
     group = "verification"
@@ -76,7 +62,7 @@ tasks.register("checkModuleBoundaries") {
     inputs.file("settings.gradle.kts")
     inputs.files(
         fileTree(rootDir) {
-            include("**/src/main/java/**/*.java")
+            include("**/src/main/java/**/*.java", "**/src/main/resources/**/*.java")
             exclude(".worktrees/**", ".claude/**", "**/build/**", ".git/**")
         },
         fileTree(rootDir) {
@@ -87,7 +73,7 @@ tasks.register("checkModuleBoundaries") {
     doLast {
         checkModuleBoundaries(rootProject)
     }
-    verificationStamp()
+    VerificationStamps.apply(this)
 }
 
 /**
@@ -320,12 +306,13 @@ private fun checkAsmDependencies(project: Project, state: BoundaryState) {
 }
 
 private fun scanProductionSources(root: Project, project: Project, state: BoundaryState) {
-    val sourceDir = project.file("src/main/java")
-    if (!sourceDir.exists()) {
-        return
-    }
-    sourceDir.walkTopDown().filter { it.isFile && it.extension == "java" }.forEach { file ->
-        checkSourceFile(root, project, file, state)
+    listOf(project.file("src/main/java"), project.file("src/main/resources")).forEach { sourceDir ->
+        if (!sourceDir.exists()) {
+            return@forEach
+        }
+        sourceDir.walkTopDown().filter { it.isFile && it.extension == "java" }.forEach { file ->
+            checkSourceFile(root, project, file, state)
+        }
     }
 }
 
@@ -341,7 +328,9 @@ private fun checkSourceFile(root: Project, project: Project, file: java.io.File,
     if (project.path.startsWith(":plugins:")) {
         checkForbiddenHostUiTraversal(root, file, lines, state)
     }
-    if (project.path == ":runtime") {
+    // Resources carry .java texts that are never compiled, so the runtime layering rules
+    // (which are keyed to compiled source packages) only apply under src/main/java.
+    if (project.path == ":runtime" && file.startsWith(project.file("src/main/java"))) {
         checkRuntimePackageBoundaries(root, file, lines, state)
     }
 }
@@ -403,11 +392,11 @@ private fun checkForbiddenPackageDeclaration(
 private fun checkRestrictedImports(root: Project, file: java.io.File, lines: List<String>, state: BoundaryState) {
     lines.forEachIndexed { index, line ->
         val trimmed = line.trim()
-        if (trimmed.matches(Regex("import dev\\.turboism\\.distribution(?:\\..*)?;"))) {
+        if (trimmed.matches(Regex("import (?:static\\s+)?dev\\.turboism\\.distribution(?:\\..*)?;"))) {
             state.reject("Forbidden distribution import in ${file.relativeTo(root.projectDir)}:${index + 1}")
         }
         forbiddenImportPatterns.forEach { (pattern, message) ->
-            if (trimmed.matches(Regex("import $pattern;"))) {
+            if (trimmed.matches(Regex("import (?:static\\s+)?$pattern;"))) {
                 state.reject(
                     "Forbidden import in ${file.relativeTo(root.projectDir)}:${index + 1}: $message"
                 )
@@ -465,7 +454,14 @@ private fun checkForbiddenQualifiedReferences(
     lines: List<String>,
     state: BoundaryState
 ) {
-    val source = stripJavaCommentsAndStrings(lines.filterNot { it.trimStart().startsWith("import ") }.joinToString("\n"))
+    // Non-static imports are filtered out, but `import static` lines must stay: they can
+    // smuggle forbidden references past both this scan and the restricted-import regex.
+    val source = stripJavaCommentsAndStrings(
+        lines.filterNot {
+            val trimmed = it.trimStart()
+            trimmed.startsWith("import ") && !trimmed.startsWith("import static ")
+        }.joinToString("\n")
+    )
     forbiddenQualifiedReferencePatterns.forEach { (pattern, message) ->
         pattern.find(source)?.let { match ->
             state.reject(
@@ -557,9 +553,11 @@ private fun stripJavaCommentsAndStrings(source: String): String {
 }
 
 private fun checkForbiddenHostUiTraversal(root: Project, file: java.io.File, lines: List<String>, state: BoundaryState) {
-    val source = lines.joinToString("\n")
-    forbiddenHostUiTraversal.forEach { token ->
-        if (source.contains(token)) {
+    // Strip comments and string literals first: the tokens only matter as executed calls,
+    // and whitespace-tolerant matching covers `SwingUtilities .` call-site variants.
+    val source = stripJavaCommentsAndStrings(lines.joinToString("\n"))
+    forbiddenHostUiTraversal.forEach { (token, pattern) ->
+        if (pattern.containsMatchIn(source)) {
             state.reject(
                 "Plugin-owned external Swing views must not discover or mutate host UI trees; " +
                     "forbidden token '$token' in ${file.relativeTo(root.projectDir)}"
@@ -679,7 +677,7 @@ tasks.register("checkPluginBoundaries") {
     doLast {
         checkPluginBoundaries(rootProject, pluginBoundaryProjects)
     }
-    verificationStamp()
+    VerificationStamps.apply(this)
 }
 
 private fun checkPluginBoundaries(root: Project, plugins: List<Project>) {
@@ -964,7 +962,7 @@ tasks.register("checkPluginPermissionAudit") {
     doLast {
         checkPluginPermissionAudit(rootProject, pluginBoundaryProjects)
     }
-    verificationStamp()
+    VerificationStamps.apply(this)
 }
 
 private fun checkPluginPermissionAudit(root: Project, plugins: List<Project>) {

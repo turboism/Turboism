@@ -4,6 +4,25 @@ import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
 import java.util.jar.JarFile
 
+// Every exerciser jar carries exactly one premain agent. The shared helpers they
+// link against (NativeAtlasWorkflow, NativeMemoryObservation, ...) stay in the jar,
+// so each Jar task excludes only the sibling agent classes rather than listing a
+// brittle positive include set.
+val hostValidationAgentClasses = listOf(
+    "ImageArchiveReuseHostAgent",
+    "NativeFloatArrayHostAgent",
+    "NativeTextureUploadHostAgent",
+    "NativeWarpPositionHostAgent",
+    "NativeResourceHostAgent"
+)
+
+fun Jar.agentOnlyClasses(ownAgent: String) {
+    from(compileImageArchiveHostProbe.flatMap { it.destinationDirectory }) {
+        hostValidationAgentClasses.filter { it != ownAgent }
+            .forEach { exclude("dev/turboism/validation/$it*") }
+    }
+}
+
 val compileImageArchiveHostProbe by tasks.registering(JavaCompile::class) {
     group = "host verification"
     description = "Compiles the JDK-only native image archive auxiliary validator; never launches Cubism."
@@ -23,7 +42,7 @@ val buildImageArchiveHostProbe by tasks.registering(Jar::class) {
     dependsOn(compileImageArchiveHostProbe)
     archiveFileName.set("image-archive-host-validation-exerciser.jar")
     destinationDirectory.set(layout.buildDirectory)
-    from(compileImageArchiveHostProbe.flatMap { it.destinationDirectory })
+    agentOnlyClasses("ImageArchiveReuseHostAgent")
     manifest { attributes("Premain-Class" to "dev.turboism.validation.ImageArchiveReuseHostAgent") }
 }
 
@@ -51,7 +70,7 @@ val buildFloatArrayHostProbe by tasks.registering(Jar::class) {
     dependsOn(compileImageArchiveHostProbe)
     archiveFileName.set("float-array-host-validation-exerciser.jar")
     destinationDirectory.set(layout.buildDirectory)
-    from(compileImageArchiveHostProbe.flatMap { it.destinationDirectory })
+    agentOnlyClasses("NativeFloatArrayHostAgent")
     manifest { attributes("Premain-Class" to "dev.turboism.validation.NativeFloatArrayHostAgent") }
 }
 
@@ -80,7 +99,7 @@ val buildTextureUploadHostProbe by tasks.registering(Jar::class) {
     dependsOn(compileImageArchiveHostProbe)
     archiveFileName.set("texture-upload-host-validation-exerciser.jar")
     destinationDirectory.set(layout.buildDirectory)
-    from(compileImageArchiveHostProbe.flatMap { it.destinationDirectory })
+    agentOnlyClasses("NativeTextureUploadHostAgent")
     manifest { attributes("Premain-Class" to "dev.turboism.validation.NativeTextureUploadHostAgent") }
 }
 
@@ -110,7 +129,7 @@ val buildWarpPositionHostProbe by tasks.registering(Jar::class) {
     dependsOn(compileImageArchiveHostProbe)
     archiveFileName.set("warp-position-host-validation-exerciser.jar")
     destinationDirectory.set(layout.buildDirectory)
-    from(compileImageArchiveHostProbe.flatMap { it.destinationDirectory })
+    agentOnlyClasses("NativeWarpPositionHostAgent")
     manifest { attributes("Premain-Class" to "dev.turboism.validation.NativeWarpPositionHostAgent") }
 }
 
@@ -137,7 +156,7 @@ val buildResourceHostProbe by tasks.registering(Jar::class) {
     dependsOn(compileImageArchiveHostProbe)
     archiveFileName.set("resource-host-validation-exerciser.jar")
     destinationDirectory.set(layout.buildDirectory)
-    from(compileImageArchiveHostProbe.flatMap { it.destinationDirectory })
+    agentOnlyClasses("NativeResourceHostAgent")
     manifest { attributes("Premain-Class" to "dev.turboism.validation.NativeResourceHostAgent") }
 }
 

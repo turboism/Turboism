@@ -12,18 +12,11 @@ fi
 WORKTREE_ID="$1"
 BASE_REF="${2:-HEAD}"
 
-# Validate ID
-if [[ ! "${WORKTREE_ID}" =~ ^[a-z][a-z0-9-]{2,63}$ ]]; then
-  echo "Invalid worktree ID: ${WORKTREE_ID}" >&2
-  exit 1
-fi
-
-case "${WORKTREE_ID}" in
-  test|tmp|new|main-copy|my-work)
-    echo "Forbidden worktree ID: ${WORKTREE_ID}" >&2
-    exit 1
-    ;;
-esac
+# Validate ID against the shared worktree-id rules (same implementation the
+# resolver uses; never a copied regex that can drift).
+# shellcheck source=worktree-id-lib.sh
+. "${SCRIPT_DIR}/worktree-id-lib.sh"
+validate_id "${WORKTREE_ID}" || exit 1
 
 WORKTREE_PARENT="${REPO_ROOT}/../turboism-worktrees"
 WORKTREE_DIR="${WORKTREE_PARENT}/${WORKTREE_ID}"

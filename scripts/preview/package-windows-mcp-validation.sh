@@ -3,6 +3,8 @@ set -euo pipefail
 
 # Assembles the production MCP plugin, lifecycle probe, and redacted raw HTTP client.
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=bundle-safety.sh
+. "$repo_root/scripts/preview/bundle-safety.sh"
 cd "$repo_root"
 
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
@@ -21,7 +23,7 @@ readme="$repo_root/scripts/preview/README-mcp-validation.md"
 [ -f "$client" ] || { echo "error: MCP validation client not found: $client" >&2; exit 1; }
 [ -f "$readme" ] || { echo "error: MCP validation README not found: $readme" >&2; exit 1; }
 
-rm -rf "$bundle_root"
+preview_bundle_safe_remove_tree "$bundle_root" "$repo_root/build"
 mkdir -p "$bundle_root/plugins" "$bundle_root/client"
 cp "$preview_root/turboism-agent.jar" "$bundle_root/turboism-agent.jar"
 cp "${mcp_jars[0]}" "$bundle_root/plugins/mcp.jar"
