@@ -1,0 +1,228 @@
+{
+  "task": "T080",
+  "status": "PUBLISHED_MAIN_RECEIVER_LOGGING_GUARD_PASS_PRODUCTION_ADMISSION_OPEN",
+  "productionChanged": false,
+  "hostSubmitted": false,
+  "privateMainReceiverProven": false,
+  "completeAutoConnectExecuted": false,
+  "nativeSuffixFixtureGroups": 576,
+  "checks": 5942,
+  "indexedCalls": 21438,
+  "nativeFallbacks": 432,
+  "appendRegistrations": 13992,
+  "raw": "build/t080-native-mesh-ownership-r1/native-suffix-r4/review.json",
+  "rawSha256": "1aa65915890e0111657338adbd8ddc9f4b28004bd883c662f9bf43627b455a7d",
+  "pins": {
+    "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/Live2D_Cubism.jar": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+    "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+    "${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/diagnostic/verify-native-mesh-edge-loop.py": "6a3bf62df2ac7e56bb7ba9709a6405726f4f6ea9889a63d56d727e1936cb4473",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/diagnostic/NativeMeshEdgeLoopPrototype.java": "e66f7ce7d035b25065b07376a4d55a4a0cc72c5b715158dc72f18f37b61e9d01",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/diagnostic/NativeMeshEdgeLoopSelfCheck.java": "59756e93b8c0f76e7cbced5da37ff34606af37e79f4890304e5691144065914c",
+    "${USER_HOME}/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm/9.7.1/f0ed132a49244b042cd0e15702ab9f2ce3cc8436/asm-9.7.1.jar": "8cadd43ac5eb6d09de05faecca38b917a040bb9139c7edeb4cc81c740b713281",
+    "${USER_HOME}/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-tree/9.7.1/3a53139787663b139de76b627fca0084ab60d32c/asm-tree-9.7.1.jar": "9929881f59eb6b840e86d54570c77b59ce721d104e6dfd7a40978991c2d3b41f",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t080-native-mesh-ownership-r1/native-suffix-r4/compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t080-native-mesh-ownership-r1/native-suffix-r4/compile.process.json": "6b0b8daddde55fda4beae200883b2f28caf45f638d5a41a7cc55c75680484248",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t080-native-mesh-ownership-r1/native-suffix-r4/execution.log": "67d719115bc0d1ceb4971eacc03c3b6b78282ba3073b81ae147885d0cd6a64ba",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t080-native-mesh-ownership-r1/native-suffix-r4/execution.process.json": "fe124d3d44ed2e2ee02cddd9ce92fa3e284f032dd19e0bb12925a16caa7bb670",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t080-native-mesh-ownership-r1/native-suffix-r4/classes/NativeMeshEdgeLoopPrototype$1.class": "e023908bf14d423c8327a8f66031ab61e7d62db58c1a6bc0f6da4892dd755ff7",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t080-native-mesh-ownership-r1/native-suffix-r4/classes/NativeMeshEdgeLoopPrototype.class": "6a6f28a9b86f1af957985c1e7ff6cbfce3cfb6ff84398c8b344931cf65a8b16b",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t080-native-mesh-ownership-r1/native-suffix-r4/classes/NativeMeshEdgeLoopSelfCheck$Control$Lease.class": "376818ebb76358e996ddd515ef88139368c6b347168627f2d0cf19157db5eb4e",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t080-native-mesh-ownership-r1/native-suffix-r4/classes/NativeMeshEdgeLoopSelfCheck$Control.class": "b8207eec3949b1c4ee1ac308b3c669b9da9d0cb2b2d52a99fc570921dda67039",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t080-native-mesh-ownership-r1/native-suffix-r4/classes/NativeMeshEdgeLoopSelfCheck$Loader.class": "6155478722531d7e4ece00933b17007d086cb54a963293ecdac205d4e11b54c1",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t080-native-mesh-ownership-r1/native-suffix-r4/classes/NativeMeshEdgeLoopSelfCheck$Result.class": "9fd552590f470c875c731c8ab48d959b44cb8b28185b4afa97db818bfbeb5188",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t080-native-mesh-ownership-r1/native-suffix-r4/classes/NativeMeshEdgeLoopSelfCheck.class": "2b07bd092d3ca1656a934ecaadd0c483615df0579aa10aca90541a8471fc33a2",
+    "build/t080-native-mesh-ownership-r1/5203-callers.json": "12402969e2ebb76f881d357efb7a7a5ccf043f1e30e262c3056202d88d398c8d",
+    "build/t080-native-mesh-ownership-r1/5302-callers.json": "f100100e86f3cd0f888b8966bc8179aee8c64aed1bf37821ebb097700ca56995",
+    "build/t080-native-mesh-ownership-r1/5303-callers.json": "2f95d15525608ebbb4a8e694075617cc57f1736b32e4e980d65c978386b22421",
+    "build/t080-native-mesh-ownership-r1/5303-append-dependencies.json": "fd4a3d420a5b5cc7986aeb63fe7e3f1f457b255b7f4f55c2d78c028c46158317",
+    "build/t080-native-mesh-ownership-r1/5303-receiver-definitions.json": "8f73fe8ab634647999cf9568b02fb4c0e4620f57f433ba19f8d0c4a36477d0cb",
+    "validation/triangulation-tlindex/diagnostic/inspect-native-mesh-edge-callers.py": "185860df0f2fe97c6ffcb31210d67fb72e0df22e6f437da489410076eecc806e"
+  },
+  "results": [
+    "NATIVE_MESH_EDGE_LOOP_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/Live2D_Cubism.jar assertions=false fixtures=96 checks=990",
+    "NATIVE_MESH_EDGE_LOOP_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/Live2D_Cubism.jar assertions=true fixtures=96 checks=990",
+    "NATIVE_MESH_EDGE_LOOP_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar assertions=false fixtures=96 checks=990",
+    "NATIVE_MESH_EDGE_LOOP_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar assertions=true fixtures=96 checks=990",
+    "NATIVE_MESH_EDGE_LOOP_PASS jar=${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar assertions=false fixtures=96 checks=990",
+    "NATIVE_MESH_EDGE_LOOP_PASS jar=${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar assertions=true fixtures=96 checks=990",
+    "NATIVE_MESH_EDGE_LOOP_FINISHED checks=5942 indexed=21438 native=432 appends=13992 scope=OWNED_SUFFIX_ONLY hostGain=UNPROVEN",
+    "NATIVE_MESH_EDGE_LOOP_BOUNDARY sameSizeExternalSet=COUNTEREXAMPLE_CONFIRMED productionAdmission=OPEN"
+  ],
+  "callers": {
+    "5203": [
+      {
+        "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+        "name": "autoConnect$default",
+        "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;ZZLcom/live2d/util/i/a;ILjava/lang/Object;)V",
+        "codeSha256": "d777cedf1bd120b6cf0c525d52791622cf4f4ec02187a927a3aa4f0baac47523",
+        "classSha256": "734b9bde593f27816b72f63c585a371d724507f21c97ac41980cbf3f347c57ad",
+        "sites": [
+          {
+            "offset": 18,
+            "opcode": 182,
+            "operation": "invokevirtual",
+            "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+            "name": "autoConnect",
+            "descriptor": "(ZZLcom/live2d/util/i/a;)V",
+            "bytes": "b600be"
+          }
+        ]
+      },
+      {
+        "owner": "com/live2d/graphics3d/editableMesh/GEditableMeshHandler",
+        "name": "a",
+        "descriptor": "(Lcom/live2d/graphics3d/type/GVector2;)Lcom/live2d/undo/GroupUndo;",
+        "codeSha256": "fed58d4c8bcbd542dfce66f9a3e6503c7f9c7b173db55b555d7531a437eec401",
+        "classSha256": "92a6591591e226df86dc68a45de97fa4600afd0339f3f11c9954b7e63f8990ba",
+        "sites": [
+          {
+            "offset": 194,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+            "name": "autoConnect$default",
+            "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;ZZLcom/live2d/util/i/a;ILjava/lang/Object;)V",
+            "bytes": "b8003b"
+          }
+        ]
+      },
+      {
+        "owner": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor",
+        "name": "commandAutoConnect",
+        "descriptor": "()V",
+        "codeSha256": "64cfb1fc01d2dfe4f4b6a555e8c16cd80405c1a19711b42a8441dcd25e6adf85",
+        "classSha256": "e2514556485ff55552b36c17e82d997c78e8766a5b71906cfee913edf363802f",
+        "sites": [
+          {
+            "offset": 208,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+            "name": "autoConnect$default",
+            "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;ZZLcom/live2d/util/i/a;ILjava/lang/Object;)V",
+            "bytes": "b800bf"
+          }
+        ]
+      }
+    ],
+    "5302": [
+      {
+        "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+        "name": "autoConnect$default",
+        "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;ZZLcom/live2d/util/j/a;ILjava/lang/Object;)V",
+        "codeSha256": "870739d2ed8db378594eceb2bb3ddf66745256a8bacd328c0f396d8af941ccdd",
+        "classSha256": "d6fe4e690399d767019d113e82c62414da0d82d9a54aa799a74919d9e8693f7a",
+        "sites": [
+          {
+            "offset": 18,
+            "opcode": 182,
+            "operation": "invokevirtual",
+            "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+            "name": "autoConnect",
+            "descriptor": "(ZZLcom/live2d/util/j/a;)V",
+            "bytes": "b600c5"
+          }
+        ]
+      },
+      {
+        "owner": "com/live2d/graphics3d/editableMesh/GEditableMeshHandler",
+        "name": "a",
+        "descriptor": "(Lcom/live2d/graphics3d/type/GVector2;)Lcom/live2d/undo/GroupUndo;",
+        "codeSha256": "fed58d4c8bcbd542dfce66f9a3e6503c7f9c7b173db55b555d7531a437eec401",
+        "classSha256": "b64d237717764cd88b2969b8f3f34598208df743a66b0b422eb3da62273993e5",
+        "sites": [
+          {
+            "offset": 194,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+            "name": "autoConnect$default",
+            "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;ZZLcom/live2d/util/j/a;ILjava/lang/Object;)V",
+            "bytes": "b8003b"
+          }
+        ]
+      },
+      {
+        "owner": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor",
+        "name": "commandAutoConnect",
+        "descriptor": "()V",
+        "codeSha256": "2008825d24720d3cbd33b0668434975f03bff31d0c78353928a941879a964a81",
+        "classSha256": "306b285054c68bcf2c4d94512056291010baa480bd184a60bb17232c88fb7cf6",
+        "sites": [
+          {
+            "offset": 208,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+            "name": "autoConnect$default",
+            "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;ZZLcom/live2d/util/j/a;ILjava/lang/Object;)V",
+            "bytes": "b800c7"
+          }
+        ]
+      }
+    ],
+    "5303": [
+      {
+        "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+        "name": "autoConnect$default",
+        "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;ZZLcom/live2d/util/j/a;ILjava/lang/Object;)V",
+        "codeSha256": "870739d2ed8db378594eceb2bb3ddf66745256a8bacd328c0f396d8af941ccdd",
+        "classSha256": "d6fe4e690399d767019d113e82c62414da0d82d9a54aa799a74919d9e8693f7a",
+        "sites": [
+          {
+            "offset": 18,
+            "opcode": 182,
+            "operation": "invokevirtual",
+            "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+            "name": "autoConnect",
+            "descriptor": "(ZZLcom/live2d/util/j/a;)V",
+            "bytes": "b600c5"
+          }
+        ]
+      },
+      {
+        "owner": "com/live2d/graphics3d/editableMesh/GEditableMeshHandler",
+        "name": "a",
+        "descriptor": "(Lcom/live2d/graphics3d/type/GVector2;)Lcom/live2d/undo/GroupUndo;",
+        "codeSha256": "fed58d4c8bcbd542dfce66f9a3e6503c7f9c7b173db55b555d7531a437eec401",
+        "classSha256": "b64d237717764cd88b2969b8f3f34598208df743a66b0b422eb3da62273993e5",
+        "sites": [
+          {
+            "offset": 194,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+            "name": "autoConnect$default",
+            "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;ZZLcom/live2d/util/j/a;ILjava/lang/Object;)V",
+            "bytes": "b8003b"
+          }
+        ]
+      },
+      {
+        "owner": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor",
+        "name": "commandAutoConnect",
+        "descriptor": "()V",
+        "codeSha256": "8174dc39da65ffb5c0a9374ee6f2eac976d9e2301b93b79cc13f5afd6ff13e29",
+        "classSha256": "b5b17c1a6c346ed4f6851dccdc91a24c2308f17937bfaf1f2e168e5ee48d0e76",
+        "sites": [
+          {
+            "offset": 208,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+            "name": "autoConnect$default",
+            "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;ZZLcom/live2d/util/j/a;ILjava/lang/Object;)V",
+            "bytes": "b800c9"
+          }
+        ]
+      }
+    ]
+  },
+  "limitations": [
+    "Direct caller inventory excludes reflective/method-handle/plugin calls.",
+    "Main mesh is published; exclusive mutation ownership and complete callback closure remain unproven.",
+    "Same-size external mutation counterexample remains confirmed.",
+    "This is a suffix prototype, not production admission or performance evidence."
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "status": "PASS_28_PREPARED_STORE_TESTS_WITH_SCOPED_DIRECT_NMT_HOOK_INVENTORY",
+  "tests": 28,
+  "standaloneHookDependencies": "Python stdlib only; official BAT/ProxyConfig bytes are pinned by hook; no imported sibling helpers.",
+  "scope": "Exact atlas-image-shadow:5303 synchronous standard-context pre-launch only; fixture/plugin/attach-disabled/resource-observation/T099 diagnostic token required. Wrong path, version, task, stage or extra arguments rejected.",
+  "hostSubmitted": false,
+  "firstPrepareAttempt": "Rejected custom hook dependency inventory before shared prepared/job. r1 remains preserved; relocation adds explicit reviewed canonical hook entry.",
+  "inputPins": {
+    "scripts/preview/host_validation_queue.py": "c23ad8b779f0f96df6a31680bb46d97d4e8637bff380cf344860bcf7a0374a80",
+    "scripts/preview/stage-direct-nmt-launcher.py": "cac821be7da130bfe03269ee6c87f0ecb4a2a83696a7be008b351a43758ce9c0",
+    "scripts/test/test_host_validation_queue.py": "1e08dddcef78d6085811a8c2eb0a16f78b1678f14f76e6c817d7330783069b1a",
+    "build/t100-direct-nmt-startup-r1/queue-control-r1/prepared-store-tests.log": "9439df159f0629b1bf11f1ba5d8dffb8734b57ca1f1ddb2df7e2b252ea3278d5",
+    "build/t100-direct-nmt-startup-r1/queue-control-r1/reproduce.py": "6c9360bf5939f032007c31c3c993ad056345b3abee92534038c687562487e5c1"
+  }
+}

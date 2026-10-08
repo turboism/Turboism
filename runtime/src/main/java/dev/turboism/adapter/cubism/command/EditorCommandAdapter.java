@@ -38,6 +38,14 @@ public interface EditorCommandAdapter {
     EditorCommandResult execute(EditorParameterizedRequest command);
 
     /**
+     * @return {@code true} while a live host command surface backs this adapter;
+     *         {@code false} for the {@link #unavailable()} adapter
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    /**
      * An adapter for when no host command surface is attached.
      *
      * @return the fail-closed adapter reporting no available commands and answering every
@@ -76,6 +84,11 @@ public interface EditorCommandAdapter {
         public EditorCommandResult execute(final EditorParameterizedRequest command) {
             java.util.Objects.requireNonNull(command, "command");
             return new EditorCommandResult(EditorCommandResult.Status.UNAVAILABLE, command.commandId());
+        }
+
+        @Override
+        public boolean isAvailable() {
+            return false;
         }
     }
 }

@@ -177,7 +177,7 @@ public final class IncrementalUpdateHostProbePlugin implements TurboismPlugin {
         Map<String, Long> last = null;
         Long disableProbeResult = null;
         try {
-            final PerformanceProbeService stats = context.performanceStats();
+            final PerformanceProbeService stats = context.services().find(PerformanceProbeService.class).orElse(PerformanceProbeService.unavailable());
             final Registration sampling = stats.sample(SAMPLE_INTERVAL, snapshot -> {
                 maxRenderedFrames.accumulateAndGet(snapshot.renderedFrames(), Math::max);
                 fpsSeries.add(snapshot.fps());

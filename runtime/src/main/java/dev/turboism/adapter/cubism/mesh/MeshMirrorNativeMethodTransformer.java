@@ -37,6 +37,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
     private final AtomicReference<ClassLoader> admittedClassLoader = new AtomicReference<>();
     private final AtomicReference<Outcome> outcome = new AtomicReference<>(Outcome.NONE);
     private final Set<String> transformedOwners = ConcurrentHashMap.newKeySet();
+    private final Map<String, byte[]> admittedDefinitions = new ConcurrentHashMap<>();
     private final AtomicBoolean active = new AtomicBoolean(true);
 
     public MeshMirrorNativeMethodTransformer(
@@ -111,12 +112,15 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
             final byte[] classfileBuffer) {
         if (!active.get() || className == null || classfileBuffer == null) return null;
         if (!isTargetOwner(className)) return null;
-        if (classBeingRedefined != null) {
+        if (classBeingRedefined != null
+                && (!className.equals(classBeingRedefined.getName().replace('.', '/'))
+                        || classBeingRedefined.getClassLoader() != loader
+                        || !admittedDefinitions.containsKey(className))) {
             reject(Outcome.RETRANSFORM_REJECTED, "MESH_MIRROR_RETRANSFORM_REJECTED owner=" + className);
             return null;
         }
         if (hostClassName != null && !hostClassName.equals(className)) return null;
-        if (!admit(loader, protectionDomain, className, classfileBuffer)) return null;
+        if (!admit(loader, protectionDomain, className, classfileBuffer, classBeingRedefined != null)) return null;
 
         final boolean[] transformed = {false};
         final boolean[] linkedInjected = {false};
@@ -380,6 +384,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
             final byte[] transformedBytes = writer.toByteArray();
             outcome(Outcome.TARGET_TRANSFORMED, "MESH_MIRROR_TARGET_TRANSFORMED owner=" + className);
             if (!active.get()) return null;
+            admittedDefinitions.putIfAbsent(className, normalizedDefinition(classfileBuffer));
             transformedOwners.add(className);
             return transformedBytes;
         } catch (RuntimeException failure) {
@@ -418,7 +423,11 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
      * pass a check its owner declared, which this fail-closed boundary must never allow.
      */
     private boolean admit(
-            final ClassLoader loader, final ProtectionDomain protectionDomain, final String owner, final byte[] bytes) {
+            final ClassLoader loader,
+            final ProtectionDomain protectionDomain,
+            final String owner,
+            final byte[] bytes,
+            final boolean replay) {
         if (loader == null && (expectedClassLoader != null || expectedArtifact != null)) {
             reject(Outcome.BOOTSTRAP_LOADER_REJECTED, "MESH_MIRROR_BOOTSTRAP_LOADER_REJECTED");
             return false;
@@ -436,8 +445,13 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
             reject(Outcome.LOADER_MISMATCH, "MESH_MIRROR_LOADER_MISMATCH");
             return false;
         }
-        if ((expectedArtifact != null || !pinnedClassSha256.isEmpty())
-                && !ReviewedHostContract.matchesClassBytes(pinnedClassSha256, owner, bytes)) {
+        // Retransformation can reorder the constant pool and omit debug data. A replay must
+        // preserve the entire definition first admitted against the reviewed raw class pin.
+        // Upstream transformer order remains fixed: this transformer precedes mesh-session weaving.
+        if (replay
+                ? !java.util.Arrays.equals(admittedDefinitions.get(owner), normalizedDefinition(bytes))
+                : (expectedArtifact != null || !pinnedClassSha256.isEmpty())
+                        && !ReviewedHostContract.matchesClassBytes(pinnedClassSha256, owner, bytes)) {
             reject(Outcome.CLASS_BYTES_MISMATCH, "MESH_MIRROR_CLASS_BYTES_MISMATCH owner=" + owner);
             return false;
         }
@@ -452,6 +466,12 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         if (admittedClassLoader.compareAndSet(null, loader) || admittedClassLoader.get() == loader) return true;
         reject(Outcome.LOADER_MISMATCH, "MESH_MIRROR_LOADER_MISMATCH");
         return false;
+    }
+
+    private static byte[] normalizedDefinition(final byte[] bytes) {
+        final ClassWriter writer = new ClassWriter(0);
+        new ClassReader(bytes).accept(writer, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        return writer.toByteArray();
     }
 
     private void outcome(final Outcome next, final String message) {
@@ -563,7 +583,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         CLASS_BYTES_MISMATCH,
         /** The class was defined by the bootstrap loader, which is never admitted. */
         BOOTSTRAP_LOADER_REJECTED,
-        /** A redefine/retransform attempt was refused; only first definition is admitted. */
+        /** Replay lacks a previously admitted definition or its defining owner/loader identity. */
         RETRANSFORM_REJECTED,
         /** A required runtime helper class could not be injected into the host loader. */
         HELPER_UNAVAILABLE,

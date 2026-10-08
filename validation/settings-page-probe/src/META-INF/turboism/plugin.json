@@ -20,7 +20,13 @@
     "locales": []
   },
   "dependencies": [],
-  "permissions": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads the active model identity before exercising settings on a rendered modeling document."
+    }
+  ],
   "capabilities": [],
   "environment": {
     "requiresCubism": true,

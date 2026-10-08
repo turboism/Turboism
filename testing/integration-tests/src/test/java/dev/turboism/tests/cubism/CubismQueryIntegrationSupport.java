@@ -31,7 +31,6 @@ final class CubismQueryIntegrationSupport {
     static final String PLUGIN_ID = "plugin.query-tests";
     static final String MODEL_READ_PERMISSION = CubismFacadeImpl.MODEL_READ_PERMISSION;
     static final String MESH_READ_PERMISSION = CubismFacadeImpl.MESH_READ_PERMISSION;
-    static final String PARAMETER_READ_PERMISSION = "turboism.cubism.parameter.read";
 
     private CubismQueryIntegrationSupport() {}
 

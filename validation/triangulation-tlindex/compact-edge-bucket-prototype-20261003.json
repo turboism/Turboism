@@ -1,0 +1,92 @@
+{
+  "status": "PASS_OWNED_BUCKET_AND_FULL_INDEX_PROTOTYPE",
+  "decision": "NEXT_PRIVATE_PRODUCTION_INTEGRATION_THEN_FROZEN_NATIVE_GATES",
+  "checks": 26647072,
+  "fullIndexSuite": {
+    "baseline": 33,
+    "candidate": 33
+  },
+  "allocationRows": [
+    {
+      "size": 0,
+      "repetitions": 20000,
+      "baselineAllocatedBytes": 960000,
+      "compactAllocatedBytes": 640000,
+      "baselineBytesPerBucket": 48.0,
+      "compactBytesPerBucket": 32.0,
+      "changePercent": -33.333333333333336
+    },
+    {
+      "size": 1,
+      "repetitions": 20000,
+      "baselineAllocatedBytes": 960000,
+      "compactAllocatedBytes": 640000,
+      "baselineBytesPerBucket": 48.0,
+      "compactBytesPerBucket": 32.0,
+      "changePercent": -33.333333333333336
+    },
+    {
+      "size": 2,
+      "repetitions": 20000,
+      "baselineAllocatedBytes": 960000,
+      "compactAllocatedBytes": 640000,
+      "baselineBytesPerBucket": 48.0,
+      "compactBytesPerBucket": 32.0,
+      "changePercent": -33.333333333333336
+    },
+    {
+      "size": 3,
+      "repetitions": 20000,
+      "baselineAllocatedBytes": 1600000,
+      "compactAllocatedBytes": 1120000,
+      "baselineBytesPerBucket": 80.0,
+      "compactBytesPerBucket": 56.0,
+      "changePercent": -30.000000000000004
+    },
+    {
+      "size": 4,
+      "repetitions": 20000,
+      "baselineAllocatedBytes": 2240000,
+      "compactAllocatedBytes": 1600000,
+      "baselineBytesPerBucket": 112.0,
+      "compactBytesPerBucket": 80.0,
+      "changePercent": -28.57142857142857
+    },
+    {
+      "size": 8,
+      "repetitions": 20000,
+      "baselineAllocatedBytes": 4160000,
+      "compactAllocatedBytes": 3200000,
+      "baselineBytesPerBucket": 208.0,
+      "compactBytesPerBucket": 160.0,
+      "changePercent": -23.076923076923073
+    },
+    {
+      "size": 32,
+      "repetitions": 20000,
+      "baselineAllocatedBytes": 13760000,
+      "compactAllocatedBytes": 12160000,
+      "baselineBytesPerBucket": 688.0,
+      "compactBytesPerBucket": 608.0,
+      "changePercent": -11.627906976744185
+    }
+  ],
+  "javaVersion": "openjdk version \"17.0.20\" 2026-07-21\nOpenJDK Runtime Environment (build 17.0.20+8)\nOpenJDK 64-Bit Server VM (build 17.0.20+8, mixed mode, sharing)",
+  "pins": {
+    "build/t065-compact-edge-bucket-r1/array-overflow-selfcheck-r3/review.json": "562a06225c9e3bb70f58bec3624fb1d4ce5165efc31e3e47090def30494eadea",
+    "build/t065-compact-edge-bucket-r1/array-overflow-selfcheck-r3/selfcheck.txt": "55a3a1df53d2758ad622693d451aeb801d3bc42cafb5da7e42e9d82305fa2090",
+    "build/t065-compact-edge-bucket-r1/final-full-index-r4/review.json": "64fc664c59892bb3e5dd9a8ce45202d18476e8c44abcfcf78dbf60f344a724c5",
+    "build/t065-compact-edge-bucket-r1/java-version.txt": "b40fa5a990ca630f3722a5569e707befab293cc62ec79b603eb51c1cb0bdaf7e",
+    "validation/triangulation-tlindex/diagnostic/CompactEdgeBucketSelfCheck.java": "5526cd4d519b93736879d5601276f07548f07ecef34d6562e826611c92b06534",
+    "validation/triangulation-tlindex/diagnostic/verify-compact-edge-index.py": "ffbacf4487090fcf0ec47bc1e6140288ced27b759c571065785430a0d5fbd6f3"
+  },
+  "limitations": [
+    "No production edits or native Editor run.",
+    "Allocation counter measures local construction bytes for retained escaping buckets, not retained heap or host allocation rate.",
+    "No bucket arity distribution was measured in Cubism; representative prototype sizes are not host weights.",
+    "Native performance, CPU/RSS caps and lifecycle remain unproven for a new integration.",
+    "Storage changes do not remove native equality/removal or the physical absence settle scan.",
+    "Existing real index test source unchanged; its known serial/unchecked warnings excluded from test-source lint only.",
+    "No new host admission or production readiness claim."
+  ]
+}

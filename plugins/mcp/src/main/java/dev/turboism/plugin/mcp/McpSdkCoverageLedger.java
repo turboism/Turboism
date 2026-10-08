@@ -1,6 +1,6 @@
 package dev.turboism.plugin.mcp;
 
-import dev.turboism.protocol.json.StrictJson;
+import dev.turboism.sdk.json.Json;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -34,11 +34,7 @@ final class McpSdkCoverageLedger {
             if (input == null) {
                 throw new IllegalStateException("MCP SDK coverage ledger is missing: " + RESOURCE);
             }
-            final Object parsed = StrictJson.parse(input.readAllBytes());
-            if (!(parsed instanceof Map<?, ?> map)) {
-                throw new IllegalStateException("MCP SDK coverage ledger must be a JSON object");
-            }
-            final Map<String, Object> ledger = stringMap(map);
+            final Map<String, ?> ledger = Json.parseObject(input.readAllBytes());
             if (!(ledger.get("schemaVersion") instanceof Number version) || version.intValue() != 1) {
                 throw new IllegalStateException("Unsupported MCP SDK coverage schema version");
             }
@@ -97,7 +93,7 @@ final class McpSdkCoverageLedger {
     }
 
     private static List<String> requireStringArray(
-            final Map<String, Object> object, final String field, final boolean emptyAllowed) {
+            final Map<String, ?> object, final String field, final boolean emptyAllowed) {
         final Object value = object.get(field);
         if (!(value instanceof List<?> values) || (!emptyAllowed && values.isEmpty())) {
             throw new IllegalStateException(field + " must be a string array");

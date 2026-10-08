@@ -1,7 +1,8 @@
 # Turboism MCP exact-host validation bundle
 
-This task-local bundle validates the production MCP plugin through its published credential-free
-loopback Streamable HTTP connection file. The external client writes redacted evidence under the
+This task-local bundle validates the production MCP plugin through its published
+loopback Streamable HTTP connection file, carrying the owner-only `mcp.token`
+bearer for mutating calls. The external client writes redacted evidence under the
 task-scoped Turboism home, deletes its MCP session, and never runs against the golden Proton prefix
 directly.
 

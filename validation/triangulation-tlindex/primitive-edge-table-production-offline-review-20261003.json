@@ -1,0 +1,100 @@
+{
+  "task": "T072",
+  "status": "PASS_OFFLINE",
+  "purpose": "NEW_PRIMITIVE_METADATA_CANDIDATE_NOT_HOST_ACCEPTED",
+  "runtimeJUnitTests": 60,
+  "bootstrapContributorTests": 5,
+  "devCheck": "PASS",
+  "actualFrozenTableChecks": 3776818,
+  "actualPremainCases": 39,
+  "composedFixtureGroups": 6,
+  "fixturesPerGroup": 128,
+  "captureCompanionStartupProfiles": 3,
+  "captureStartupScope": "NO_GEOMETRY_STARTUP_SHARED_LEASE_ONLY",
+  "companionPins": {
+    "baseline": "82c0ecbaacf4c10c5fec8214a0fcee6fb1d680be970e1ad7bc189e9c5585d869",
+    "candidate": "bc27301ec2903c1a45fe33dbb4648ddbdfffd9637a23626a7707d7b7f1a22b6a"
+  },
+  "artifactReview": {
+    "canonicalSha256": "3e83ee0a0c9331ef541051c989fcfce3bae71b4dc6819a0c7e7b22558ef1ab73",
+    "family": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex",
+    "outputs": {
+      "production-candidate-r1": {
+        "sha256": "ac74f74831f0292f51011b7d11b4023e341a3f3895b8dea6f5c73ad8ad7dea2d",
+        "baseSha256": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+        "changed": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetKey.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetLookup.class"
+        ],
+        "added": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeTable.class"
+        ],
+        "removed": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeLookup.class"
+        ]
+      },
+      "candidate-producer-r1": {
+        "sha256": "02867ea2c91de606a315ab2eae966305fc575958515ca88d0f7eebe98c1ad340",
+        "baseSha256": "30fb9f66a2e469e0cda465c677e8287e73d07d6393fceb0c80b79b242b6724d7",
+        "changed": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetKey.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetLookup.class"
+        ],
+        "added": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeTable.class"
+        ],
+        "removed": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeLookup.class"
+        ]
+      },
+      "candidate-producer-capture-r1": {
+        "sha256": "bc27301ec2903c1a45fe33dbb4648ddbdfffd9637a23626a7707d7b7f1a22b6a",
+        "baseSha256": "82c0ecbaacf4c10c5fec8214a0fcee6fb1d680be970e1ad7bc189e9c5585d869",
+        "changed": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetKey.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetLookup.class"
+        ],
+        "added": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeTable.class"
+        ],
+        "removed": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeLookup.class"
+        ]
+      }
+    },
+    "initialGuardRefusal": "Broad prefix included Patcher/Transformer; exact family assertion refused before writing any candidate. Correct family matcher uses outer.class or outer$*.class."
+  },
+  "pins": {
+    "build/t072-primitive-edge-table-integration-r1/artifact-review.json": "116ae757813064aec41a832c24178a986579d1159a2dadc6caafaad355120dc9",
+    "build/t072-primitive-edge-table-integration-r1/actual-table-selfcheck-r1/review.json": "09e77c464c2983255fc8ee3d213526b265f14e42afed73886b7f26c21f490a09",
+    "build/t072-primitive-edge-table-integration-r1/premain-r1/review.json": "ca4c8a8a1858f567373146c7c89e70fbe8013acd07a4544e2bd21f816c6f5e6b",
+    "build/t072-primitive-edge-table-integration-r1/capture-premain-r2/review.json": "6cf585542df743b14f3df9c129df1282aa8e96fd9758bc9a016095cac55c2f3c",
+    "build/t072-primitive-edge-table-integration-r1/focused-r1.log": "6744771eda7a7f70d1ca09ad633d849aea97ad1ffdade2f1a2429bf4eaf29fe2",
+    "build/t072-primitive-edge-table-integration-r1/devcheck-r1.log": "d165546b003a1f7998c1bf72cb6a1183badba3bd4b70bac044a5ce925b3cdbe4",
+    "build/t072-primitive-edge-table-integration-r1/TriangulationEdgeIndex.java": "fea7b7aff7ecb2b7177585168eb15a8636824b28f13c7fd8f964e5aeb913d092",
+    "build/t072-primitive-edge-table-integration-r1/TriangulationEdgeIndexTest.java": "aa1beb69c661ed3c48750b00c90e3aab8e314639735ad5ce05ef7989d15c6c6a",
+    "build/t072-primitive-edge-table-integration-r1/verify-frozen-premain.py": "c0874b14fc9ac0f8104bac94f8ef4b54df3a8959c4b5ce81c7aa3c396aa7e933",
+    "build/t072-primitive-edge-table-integration-r1/TEST-dev.turboism.bootstrap.TriangulationEdgeIndexHookContributorTest.xml": "67582553984a15491c33c14fda6efff6e4fd804dae3d57ce31f44d88317b20dd",
+    "build/t072-primitive-edge-table-integration-r1/TEST-dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexExactHostShapeTest.xml": "d2d72ccbda83ab647e81a5260e174e1c5e2c675d21808ac5feb6e440988fe46a",
+    "build/t072-primitive-edge-table-integration-r1/TEST-dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexTest.xml": "d1a84270752793407b1277f0a7715eb7c28823d0e9c5683a835a337b92aa87fa",
+    "build/t072-primitive-edge-table-integration-r1/TEST-dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexTransformerTest.xml": "5aa1a7c049831400cc0c73ff76bf4c5953e06ad8b3fa5f57080f3764e31da508",
+    "build/t072-primitive-edge-table-integration-r1/TEST-dev.turboism.adapter.cubism.mesh.VerifiedTriangulationEdgeIndexInstallerTest.xml": "536681389d3f62f75389c376e3c019b192c4278121135e0d7ded7bdf644ba377"
+  },
+  "limitations": [
+    "Only integer edge metadata table changes; ArrayList buckets and native removal/physicalabsence/geometry remain.",
+    "New source/test integration is uncommitted and unaccepted; production baseline remains frozen T057.",
+    "No host CPU/RSS/output measurement yet; original gates apply.",
+    "First artifact freeze refused overly broad family prefix before output; corrected exact family predicate excludes Patcher/Transformer.",
+    "Capture r1 reporter used wrong pass marker; actual startup produced shared-lease PASS; preserved r1 and reran offline unchanged parameters with correct marker. No Editor performance retry.",
+    "No main merge/push/release; LaneC human review remains pending."
+  ]
+}

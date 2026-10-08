@@ -6,7 +6,7 @@ import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridg
 final class ModelUpdateSkipHookContributor extends NativeOptimizationHookContributor {
 
     ModelUpdateSkipHookContributor() {
-        super("TURBOISM_MODEL_UPDATE_SKIP");
+        super("TURBOISM_MODEL_UPDATE_SKIP", VerifiedModelUpdateSkipInstaller.HOOK_ID);
     }
 
     @Override

@@ -87,7 +87,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
     /**
      * Fail-closed diagnostic sink; every capture failure branch reports a short reason.
      * Static because the capture tiers are static; a single host instance owns the
-     * process. Wired to System.err for host verification (temporary).
+     * process. The caller injects the sink; the default is a no-op.
      */
     private static volatile Consumer<String> diagnostics = reason -> {};
 

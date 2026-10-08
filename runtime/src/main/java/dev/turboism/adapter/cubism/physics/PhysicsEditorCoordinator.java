@@ -5,6 +5,7 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorContribution;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.ui.host.EdtDispatch;
 import java.awt.Component;
 import java.awt.Graphics;
 import java.awt.event.MouseAdapter;
@@ -77,6 +78,13 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
             active = contribution;
         }
         runOnEdt(() -> install(panel, profile, active));
+    }
+
+    @Override
+    public boolean isAvailable() {
+        synchronized (lock) {
+            return !closed;
+        }
     }
 
     @Override
@@ -460,7 +468,6 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
     }
 
     private static void runOnEdt(final Runnable action) {
-        if (SwingUtilities.isEventDispatchThread()) action.run();
-        else SwingUtilities.invokeLater(action);
+        EdtDispatch.post("physics coordinator EDT update", action);
     }
 }

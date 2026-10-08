@@ -59,6 +59,11 @@ public final class RuntimeFileChooserHistoryService implements FileChooserHistor
     }
 
     @Override
+    public boolean isAvailable() {
+        return provider.get() != null;
+    }
+
+    @Override
     public Registration registerProvider(final FileChooserHistoryService.Provider candidate) {
         if (candidate == null) {
             throw new IllegalArgumentException("provider");

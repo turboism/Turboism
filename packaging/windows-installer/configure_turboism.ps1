@@ -207,7 +207,7 @@ function Assert-RuntimeConfigV1 {
         "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
         "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
         "hooks", "launcher", "textureAtlas", "reduceAutoBackup",
-        "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse"
+        "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex"
     ) "config.json"
 
     $format = $Document.PSObject.Properties["format"]
@@ -275,7 +275,7 @@ function Assert-RuntimeConfigV1 {
         throw "config.json useTextIcon must be a boolean"
     }
     foreach ($name in @(
-        "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse"
+        "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex"
     )) {
         $property = $Document.PSObject.Properties[$name]
         if ($null -ne $property -and $property.Value -isnot [bool]) {
@@ -396,7 +396,7 @@ function Convert-RuntimeConfigToV1 {
         "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
         "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
         "hooks", "launcher", "textureAtlas", "reduceAutoBackup",
-        "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
+        "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
         "cubismJvm", "graalVmPath"
     )) { [void]$known.Add($name) }
     foreach ($property in $Document.PSObject.Properties) {
@@ -463,7 +463,8 @@ function Convert-RuntimeConfigToV1 {
 
     foreach ($name in @(
         "safeMode", "useTextIcon", "reduceAutoBackup",
-        "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse"
+        "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
+            "meshTriangulationEdgeIndex"
     )) {
         $property = $Document.PSObject.Properties[$name]
         if ($null -ne $property) {

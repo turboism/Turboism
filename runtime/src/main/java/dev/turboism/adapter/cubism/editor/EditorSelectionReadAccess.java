@@ -61,6 +61,7 @@ final class EditorSelectionReadAccess {
                 resolver.invoke("cubism.editor-model.update-manager.selection-guid-list", updateManager),
                 "Editor selection GUID list");
         if (guidElements.isEmpty()) {
+            traceProjection(0, 0);
             return HostSelection.empty();
         }
         final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
@@ -87,7 +88,17 @@ final class EditorSelectionReadAccess {
                 selectedObjectIds.add(id);
             }
         }
+        traceProjection(guidElements.size(), selectedObjectIds.size());
         return new HostSelection(List.copyOf(selectedObjectIds), Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    private static void traceProjection(final int nativeGuidCount, final int matchedIdCount) {
+        if ("selection-brush".equals(System.getProperty("turboism.meshEditValidation.mode"))) {
+            dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                    "SelectionRead",
+                    "nativeGuidCount=" + nativeGuidCount + " matchedIdCount=" + matchedIdCount + " unmatchedGuidCount="
+                            + (nativeGuidCount - matchedIdCount));
+        }
     }
 
     private Map<String, String> controllableIdsByGuid(final Object modelSource) {

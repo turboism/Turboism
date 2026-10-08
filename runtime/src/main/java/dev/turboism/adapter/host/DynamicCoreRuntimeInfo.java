@@ -14,22 +14,7 @@ import java.util.Objects;
 /** Stable generation-bound view over connection-owned Core runtime metadata. */
 final class DynamicCoreRuntimeInfo implements CoreRuntimeInfo {
 
-    private static final CoreRuntimeInfo UNAVAILABLE = new CoreRuntimeInfo() {
-        @Override
-        public CoreVersion version() {
-            throw unavailable();
-        }
-
-        @Override
-        public CoreCapabilities capabilities() {
-            throw unavailable();
-        }
-
-        @Override
-        public MocInspector mocInspector() {
-            throw unavailable();
-        }
-    };
+    private static final CoreRuntimeInfo UNAVAILABLE = CoreRuntimeInfo.unavailable();
 
     private final Object lifecycle = new Object();
     private long generation;
@@ -46,6 +31,13 @@ final class DynamicCoreRuntimeInfo implements CoreRuntimeInfo {
         synchronized (lifecycle) {
             generation++;
             delegate = UNAVAILABLE;
+        }
+    }
+
+    @Override
+    public boolean isAvailable() {
+        synchronized (lifecycle) {
+            return delegate.isAvailable();
         }
     }
 

@@ -1,5 +1,6 @@
 package dev.turboism.plugin.mcp;
 
+import dev.turboism.sdk.json.Json;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -66,7 +67,9 @@ final class McpProductionDomainCatalog {
                     default -> throw new McpResourceCatalog.ResourceNotFound(uri);
                 };
         return List.of(linked(
-                entry("uri", uri), entry("mimeType", "application/json"), entry("text", Json.stringify(content))));
+                entry("uri", uri),
+                entry("mimeType", "application/json"),
+                entry("text", McpJsonSupport.stringify(content))));
     }
 
     private Map<String, Object> snapshot() {
@@ -231,9 +234,10 @@ final class McpProductionDomainCatalog {
     }
 
     private static Map<String, Object> toolResult(final Map<String, Object> output, final boolean error) {
+        final Map<String, Object> safe = McpJsonSupport.encodable(output);
         return linked(
-                entry("content", List.of(linked(entry("type", "text"), entry("text", Json.stringify(output))))),
-                entry("structuredContent", output),
+                entry("content", List.of(linked(entry("type", "text"), entry("text", Json.stringify(safe))))),
+                entry("structuredContent", safe),
                 entry("isError", error));
     }
 

@@ -220,7 +220,7 @@ public final class ModelUpdateSkipHostProbePlugin implements TurboismPlugin {
             if (Boolean.getBoolean("turboism.validation.modelUpdateUiInventory")) {
                 inventoryFixtureWindow();
             }
-            final PerformanceProbeService stats = context.performanceStats();
+            final PerformanceProbeService stats = context.services().find(PerformanceProbeService.class).orElse(PerformanceProbeService.unavailable());
             windowStartStats = statsSnapshot();
             final long started = System.nanoTime();
             final Registration sampling = stats.sample(SAMPLE_INTERVAL, snapshot -> {

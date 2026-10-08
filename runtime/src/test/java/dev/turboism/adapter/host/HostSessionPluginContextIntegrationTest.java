@@ -50,6 +50,7 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.ui.host.EditorUiFamily;
 import java.nio.file.Path;
@@ -83,7 +84,9 @@ class HostSessionPluginContextIntegrationTest {
                 session);
 
         try {
-            Registration panel = context.uiHost()
+            Registration panel = context.services()
+                    .find(UiHostCapabilityService.class)
+                    .orElse(UiHostCapabilityService.unavailable())
                     .contributeEmbeddedPanel(
                             new EmbeddedPanelContribution("turboism.panel.main", "Turboism", "right", 0));
 

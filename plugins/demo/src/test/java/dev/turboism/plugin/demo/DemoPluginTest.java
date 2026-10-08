@@ -158,7 +158,6 @@ class DemoPluginTest {
             return menus;
         }
 
-        @Override
         public UiHostCapabilityService uiHost() {
             throw unsupported();
         }
@@ -220,23 +219,30 @@ class DemoPluginTest {
             return disposableScope;
         }
 
-        @Override
         public RecordingMainToolbar mainToolbar() {
             return mainToolbar;
         }
 
-        @Override
         public RecordingPaletteToolbar paletteToolbar() {
             return paletteToolbar;
         }
 
-        @Override
         public RecordingContextMenu contextMenu() {
             return contextMenu;
         }
 
         private static UnsupportedOperationException unsupported() {
             return new UnsupportedOperationException("not used by the demo plugin entry-path test");
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .supply(dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.class, () -> this.mainToolbar())
+                    .supply(dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.class, () -> this.paletteToolbar())
+                    .supply(dev.turboism.sdk.ui.context.ContextMenuRegistry.class, () -> this.contextMenu())
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
     }
 

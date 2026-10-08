@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.sdk.json.Json;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -81,9 +82,10 @@ final class McpExpandedProtocolTest {
         final Map<String, Object> validEnvelope = valid.call("validated", Map.of());
         assertEquals(
                 validEnvelope.get("structuredContent"),
-                Json.parse(((String) object(list(validEnvelope.get("content")).get(0))
-                                .get("text"))
-                        .getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                Json.parseObject(
+                        ((String) object(list(validEnvelope.get("content")).get(0))
+                                        .get("text"))
+                                .getBytes(java.nio.charset.StandardCharsets.UTF_8)));
 
         final McpToolCatalog invalid = new McpToolCatalog(
                 java.util.List.of(Map.of(

@@ -12,6 +12,7 @@ import dev.turboism.sdk.cubism.model.ModelStatistics;
 import dev.turboism.sdk.cubism.model.ModelTextures;
 import dev.turboism.sdk.cubism.model.RawTexture;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
+import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.ui.workspace.WorkspaceInfo;
 import dev.turboism.sdk.ui.workspace.WorkspaceService;
 import dev.turboism.sdk.ui.workspace.WorkspaceStatus;
@@ -159,7 +160,9 @@ final class McpDiagnosticsDomain {
                     default -> throw new McpResourceCatalog.ResourceNotFound(uri);
                 };
         return List.of(linked(
-                entry("uri", uri), entry("mimeType", "application/json"), entry("text", Json.stringify(payload))));
+                entry("uri", uri),
+                entry("mimeType", "application/json"),
+                entry("text", McpJsonSupport.stringify(payload))));
     }
 
     private Map<String, Object> core() {
@@ -318,10 +321,7 @@ final class McpDiagnosticsDomain {
         if (contents.size() != 1 || !(contents.get(0).get("text") instanceof String text)) {
             throw new IllegalStateException("Parameter resource did not return one JSON text content");
         }
-        final Object parsed = Json.parse(text.getBytes(StandardCharsets.UTF_8));
-        if (!(parsed instanceof Map<?, ?> raw)) {
-            throw new IllegalStateException("Parameter resource JSON must be an object");
-        }
+        final Map<String, ?> raw = Json.parseObject(text.getBytes(StandardCharsets.UTF_8));
         final LinkedHashMap<String, Object> result = new LinkedHashMap<>();
         for (Map.Entry<?, ?> entry : raw.entrySet()) {
             if (!(entry.getKey() instanceof String key)) {

@@ -1,0 +1,508 @@
+{
+  "task": "T073",
+  "scope": "Read-only raw sampled resource transitions and heap boundary markers; no host run/JFR export",
+  "legs": {
+    "baseline1": {
+      "identity": [
+        1857198,
+        "5557342"
+      ],
+      "windows": [
+        {
+          "phase": "baseline",
+          "cycle": 0,
+          "samples": 30,
+          "rssMedianMiB": 4700.484375,
+          "rssFirstMiB": 4597.484375,
+          "rssLastMiB": 4702.8046875,
+          "boundaryUsedHeapMiB": [
+            3976.397285461426,
+            4088.397285461426
+          ]
+        },
+        {
+          "phase": "operation",
+          "cycle": 1,
+          "samples": 14,
+          "rssMedianMiB": 5034.89453125,
+          "rssFirstMiB": 4734.84375,
+          "rssLastMiB": 5042.14453125,
+          "boundaryUsedHeapMiB": [
+            4088.397285461426,
+            2034.1283416748047
+          ]
+        },
+        {
+          "phase": "retained",
+          "cycle": 1,
+          "samples": 30,
+          "rssMedianMiB": 3564.29296875,
+          "rssFirstMiB": 4938.796875,
+          "rssLastMiB": 3318.0625,
+          "boundaryUsedHeapMiB": [
+            2082.1283416748047,
+            2082.1283416748047
+          ]
+        },
+        {
+          "phase": "operation",
+          "cycle": 2,
+          "samples": 13,
+          "rssMedianMiB": 3462.67578125,
+          "rssFirstMiB": 3343.6875,
+          "rssLastMiB": 3544.62890625,
+          "boundaryUsedHeapMiB": [
+            2082.1283416748047,
+            2826.1283416748047
+          ]
+        },
+        {
+          "phase": "retained",
+          "cycle": 2,
+          "samples": 30,
+          "rssMedianMiB": 3523.01171875,
+          "rssFirstMiB": 3556.76171875,
+          "rssLastMiB": 3414.13671875,
+          "boundaryUsedHeapMiB": [
+            2866.1283416748047,
+            2874.1283416748047
+          ]
+        },
+        {
+          "phase": "operation",
+          "cycle": 3,
+          "samples": 14,
+          "rssMedianMiB": 3653.13671875,
+          "rssFirstMiB": 3432.88671875,
+          "rssLastMiB": 4023.26171875,
+          "boundaryUsedHeapMiB": [
+            2874.1283416748047,
+            3602.1283416748047
+          ]
+        },
+        {
+          "phase": "retained",
+          "cycle": 3,
+          "samples": 30,
+          "rssMedianMiB": 4123.15625,
+          "rssFirstMiB": 4120.78125,
+          "rssLastMiB": 4125.28125,
+          "boundaryUsedHeapMiB": [
+            3650.1283416748047,
+            3658.1283416748047
+          ]
+        }
+      ],
+      "postReturnTransitions": [
+        {
+          "cycle": 1,
+          "returnToRetainedMarkerMillis": 2202,
+          "beforeSampleAgeMillis": 639,
+          "afterSampleDelayMillis": 179,
+          "sampledRssDeltaMiB": -103.34765625,
+          "boundaryUsedHeapDeltaMiB": 48.0
+        },
+        {
+          "cycle": 2,
+          "returnToRetainedMarkerMillis": 1885,
+          "beforeSampleAgeMillis": 113,
+          "afterSampleDelayMillis": 999,
+          "sampledRssDeltaMiB": 12.1328125,
+          "boundaryUsedHeapDeltaMiB": 40.0
+        },
+        {
+          "cycle": 3,
+          "returnToRetainedMarkerMillis": 1920,
+          "beforeSampleAgeMillis": 407,
+          "afterSampleDelayMillis": 671,
+          "sampledRssDeltaMiB": 97.51953125,
+          "boundaryUsedHeapDeltaMiB": 48.0
+        }
+      ]
+    },
+    "candidate1": {
+      "identity": [
+        1870793,
+        "5595798"
+      ],
+      "windows": [
+        {
+          "phase": "baseline",
+          "cycle": 0,
+          "samples": 30,
+          "rssMedianMiB": 2610.25,
+          "rssFirstMiB": 2600.6171875,
+          "rssLastMiB": 2610.25,
+          "boundaryUsedHeapMiB": [
+            1350.9619903564453,
+            1462.9619903564453
+          ]
+        },
+        {
+          "phase": "operation",
+          "cycle": 1,
+          "samples": 13,
+          "rssMedianMiB": 2629.8671875,
+          "rssFirstMiB": 2617.7890625,
+          "rssLastMiB": 2630.51953125,
+          "boundaryUsedHeapMiB": [
+            1462.9619903564453,
+            1339.7590637207031
+          ]
+        },
+        {
+          "phase": "retained",
+          "cycle": 1,
+          "samples": 30,
+          "rssMedianMiB": 2641.2265625,
+          "rssFirstMiB": 2641.19140625,
+          "rssLastMiB": 2641.2265625,
+          "boundaryUsedHeapMiB": [
+            1387.7590637207031,
+            1387.7590637207031
+          ]
+        },
+        {
+          "phase": "operation",
+          "cycle": 2,
+          "samples": 12,
+          "rssMedianMiB": 2642.94140625,
+          "rssFirstMiB": 2641.3515625,
+          "rssLastMiB": 2647.48828125,
+          "boundaryUsedHeapMiB": [
+            1387.7590637207031,
+            1558.2794799804688
+          ]
+        },
+        {
+          "phase": "retained",
+          "cycle": 2,
+          "samples": 30,
+          "rssMedianMiB": 2647.796875,
+          "rssFirstMiB": 2647.796875,
+          "rssLastMiB": 2647.796875,
+          "boundaryUsedHeapMiB": [
+            1598.2794799804688,
+            1606.2794799804688
+          ]
+        },
+        {
+          "phase": "operation",
+          "cycle": 3,
+          "samples": 12,
+          "rssMedianMiB": 2647.921875,
+          "rssFirstMiB": 2647.796875,
+          "rssLastMiB": 2647.93359375,
+          "boundaryUsedHeapMiB": [
+            1606.2794799804688,
+            1200.8412170410156
+          ]
+        },
+        {
+          "phase": "retained",
+          "cycle": 3,
+          "samples": 30,
+          "rssMedianMiB": 2648.0078125,
+          "rssFirstMiB": 2648.14453125,
+          "rssLastMiB": 2648.0078125,
+          "boundaryUsedHeapMiB": [
+            1240.8412170410156,
+            1248.8412170410156
+          ]
+        }
+      ],
+      "postReturnTransitions": [
+        {
+          "cycle": 1,
+          "returnToRetainedMarkerMillis": 1889,
+          "beforeSampleAgeMillis": 828,
+          "afterSampleDelayMillis": 284,
+          "sampledRssDeltaMiB": 10.671875,
+          "boundaryUsedHeapDeltaMiB": 48.0
+        },
+        {
+          "cycle": 2,
+          "returnToRetainedMarkerMillis": 1778,
+          "beforeSampleAgeMillis": 44,
+          "afterSampleDelayMillis": 170,
+          "sampledRssDeltaMiB": 0.30859375,
+          "boundaryUsedHeapDeltaMiB": 40.0
+        },
+        {
+          "cycle": 3,
+          "returnToRetainedMarkerMillis": 1751,
+          "beforeSampleAgeMillis": 156,
+          "afterSampleDelayMillis": 76,
+          "sampledRssDeltaMiB": 0.2109375,
+          "boundaryUsedHeapDeltaMiB": 40.0
+        }
+      ]
+    },
+    "candidate2": {
+      "identity": [
+        1899362,
+        "5672844"
+      ],
+      "windows": [
+        {
+          "phase": "baseline",
+          "cycle": 0,
+          "samples": 30,
+          "rssMedianMiB": 2606.39453125,
+          "rssFirstMiB": 2591.56640625,
+          "rssLastMiB": 2606.39453125,
+          "boundaryUsedHeapMiB": [
+            1124.8780670166016,
+            1236.8780670166016
+          ]
+        },
+        {
+          "phase": "operation",
+          "cycle": 1,
+          "samples": 13,
+          "rssMedianMiB": 2610.76953125,
+          "rssFirstMiB": 2607.44140625,
+          "rssLastMiB": 2618.34375,
+          "boundaryUsedHeapMiB": [
+            1236.8780670166016,
+            1164.1256713867188
+          ]
+        },
+        {
+          "phase": "retained",
+          "cycle": 1,
+          "samples": 30,
+          "rssMedianMiB": 2659.2578125,
+          "rssFirstMiB": 2658.48828125,
+          "rssLastMiB": 2659.2578125,
+          "boundaryUsedHeapMiB": [
+            1180.1256713867188,
+            1180.1256713867188
+          ]
+        },
+        {
+          "phase": "operation",
+          "cycle": 2,
+          "samples": 12,
+          "rssMedianMiB": 2659.12890625,
+          "rssFirstMiB": 2659.25390625,
+          "rssLastMiB": 2659.25390625,
+          "boundaryUsedHeapMiB": [
+            1180.1256713867188,
+            1410.1787643432617
+          ]
+        },
+        {
+          "phase": "retained",
+          "cycle": 2,
+          "samples": 30,
+          "rssMedianMiB": 2659.44921875,
+          "rssFirstMiB": 2659.4375,
+          "rssLastMiB": 2654.69921875,
+          "boundaryUsedHeapMiB": [
+            1458.1787643432617,
+            1458.1787643432617
+          ]
+        },
+        {
+          "phase": "operation",
+          "cycle": 3,
+          "samples": 12,
+          "rssMedianMiB": 2654.69921875,
+          "rssFirstMiB": 2654.69921875,
+          "rssLastMiB": 2685.78515625,
+          "boundaryUsedHeapMiB": [
+            1458.1787643432617,
+            1298.762466430664
+          ]
+        },
+        {
+          "phase": "retained",
+          "cycle": 3,
+          "samples": 29,
+          "rssMedianMiB": 2777.3359375,
+          "rssFirstMiB": 2776.75,
+          "rssLastMiB": 2749.2109375,
+          "boundaryUsedHeapMiB": [
+            1346.762466430664,
+            1346.762466430664
+          ]
+        }
+      ],
+      "postReturnTransitions": [
+        {
+          "cycle": 1,
+          "returnToRetainedMarkerMillis": 2021,
+          "beforeSampleAgeMillis": 904,
+          "afterSampleDelayMillis": 72,
+          "sampledRssDeltaMiB": 40.14453125,
+          "boundaryUsedHeapDeltaMiB": 16.0
+        },
+        {
+          "cycle": 2,
+          "returnToRetainedMarkerMillis": 1918,
+          "beforeSampleAgeMillis": 610,
+          "afterSampleDelayMillis": 460,
+          "sampledRssDeltaMiB": 0.18359375,
+          "boundaryUsedHeapDeltaMiB": 48.0
+        },
+        {
+          "cycle": 3,
+          "returnToRetainedMarkerMillis": 1759,
+          "beforeSampleAgeMillis": 245,
+          "afterSampleDelayMillis": 994,
+          "sampledRssDeltaMiB": 90.96484375,
+          "boundaryUsedHeapDeltaMiB": 48.0
+        }
+      ]
+    },
+    "baseline2": {
+      "identity": [
+        1919012,
+        "5727938"
+      ],
+      "windows": [
+        {
+          "phase": "baseline",
+          "cycle": 0,
+          "samples": 30,
+          "rssMedianMiB": 2717.62109375,
+          "rssFirstMiB": 2704.19140625,
+          "rssLastMiB": 2717.76171875,
+          "boundaryUsedHeapMiB": [
+            1327.3712158203125,
+            1431.3712158203125
+          ]
+        },
+        {
+          "phase": "operation",
+          "cycle": 1,
+          "samples": 14,
+          "rssMedianMiB": 2731.26953125,
+          "rssFirstMiB": 2733.78515625,
+          "rssLastMiB": 2731.80078125,
+          "boundaryUsedHeapMiB": [
+            1431.3712158203125,
+            1338.0340270996094
+          ]
+        },
+        {
+          "phase": "retained",
+          "cycle": 1,
+          "samples": 30,
+          "rssMedianMiB": 2735.65234375,
+          "rssFirstMiB": 2735.48046875,
+          "rssLastMiB": 2735.65234375,
+          "boundaryUsedHeapMiB": [
+            1386.0340270996094,
+            1386.0340270996094
+          ]
+        },
+        {
+          "phase": "operation",
+          "cycle": 2,
+          "samples": 11,
+          "rssMedianMiB": 2735.66015625,
+          "rssFirstMiB": 2735.77734375,
+          "rssLastMiB": 2735.73828125,
+          "boundaryUsedHeapMiB": [
+            1386.0340270996094,
+            1462.0404815673828
+          ]
+        },
+        {
+          "phase": "retained",
+          "cycle": 2,
+          "samples": 30,
+          "rssMedianMiB": 2735.90625,
+          "rssFirstMiB": 2735.98046875,
+          "rssLastMiB": 2735.90625,
+          "boundaryUsedHeapMiB": [
+            1502.0404815673828,
+            1510.0404815673828
+          ]
+        },
+        {
+          "phase": "operation",
+          "cycle": 3,
+          "samples": 11,
+          "rssMedianMiB": 2735.90625,
+          "rssFirstMiB": 2735.90625,
+          "rssLastMiB": 2735.90625,
+          "boundaryUsedHeapMiB": [
+            1510.0404815673828,
+            1625.6850051879883
+          ]
+        },
+        {
+          "phase": "retained",
+          "cycle": 3,
+          "samples": 30,
+          "rssMedianMiB": 2736.01953125,
+          "rssFirstMiB": 2736.01953125,
+          "rssLastMiB": 2736.01953125,
+          "boundaryUsedHeapMiB": [
+            1673.6850051879883,
+            1673.6850051879883
+          ]
+        }
+      ],
+      "postReturnTransitions": [
+        {
+          "cycle": 1,
+          "returnToRetainedMarkerMillis": 2147,
+          "beforeSampleAgeMillis": 376,
+          "afterSampleDelayMillis": 475,
+          "sampledRssDeltaMiB": 3.6796875,
+          "boundaryUsedHeapDeltaMiB": 48.0
+        },
+        {
+          "cycle": 2,
+          "returnToRetainedMarkerMillis": 1800,
+          "beforeSampleAgeMillis": 869,
+          "afterSampleDelayMillis": 329,
+          "sampledRssDeltaMiB": 0.2421875,
+          "boundaryUsedHeapDeltaMiB": 40.0
+        },
+        {
+          "cycle": 3,
+          "returnToRetainedMarkerMillis": 1835,
+          "beforeSampleAgeMillis": 753,
+          "afterSampleDelayMillis": 410,
+          "sampledRssDeltaMiB": 0.11328125,
+          "boundaryUsedHeapDeltaMiB": 48.0
+        }
+      ]
+    }
+  },
+  "pins": {
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline1/resource-review.json": "1f4617f64ea847382f0c963ea6253c75df6f45bcd948b3304f7de9777536003f",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline1/native-evidence/resources.jsonl": "fcd2a91c5329187e850790c9de7db9c97e04e0c020a23369086abbee37856154",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline1/native-evidence/resource-windows.tsv": "46958482394ba35c794d3b429563b4796addf5423e69d2f2dd372d27e29ad37c",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate1/resource-review.json": "92d26546a224fc05e34b2963011ccf79bbe000e2e6ad9c29fe278351f4a9aac2",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate1/native-evidence/resources.jsonl": "d3074c224d9be08774c5ec1bf3f10d26db9fa3864cbea632a0509c363e68d4a1",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate1/native-evidence/resource-windows.tsv": "da12b42350f599084025434d6e12af2b741163ce354e1abeaea68901bfb06715",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate2/resource-review.json": "e09b5fd03a2caca8fac1cd83421c3e95489353380885114afa92f022084de4e3",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate2/native-evidence/resources.jsonl": "c19dad0f24b9cae9fdd425355cc3dbf172c69b3e15f42182966e0601acc6ebe0",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate2/native-evidence/resource-windows.tsv": "4c5757225266eb04e7db45056fa8538470eaf90cc8e66e021f03c028115dd217",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline2/resource-review.json": "47ceb8845968702ebfa16dd743022b904fd70753fec9a47fd5a59f1364a0972c",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline2/native-evidence/resources.jsonl": "40691ea33736466e46fe1011c03664e954cb4f8b14c68e70626243d9697332af",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline2/native-evidence/resource-windows.tsv": "48c4dd61a0d172d93df2422be8a45baf4c5550bc641a31cd6f555d7c0ac161be",
+    "build/t073-memory-window-audit-r1/audit-resource-transitions.py": "e649aaac5c9e81f1cc66a92c0103af2862f2f37660fb38fab9bd1ed5655f4452",
+    "build/t068-command-cpu-boundaries-r1/driver5303/src/T040ShadowSceneDriverAgent.java": "eeee21269fbc49cc11e215c720b512341eadb5365724de32de4fff15436cf634",
+    "validation/triangulation-tlindex/diagnostic/build-auto-connect-driver.py": "b92a2a680260deb2141215ed32836403d40165bf1afa01371958676c4fa5ac06"
+  },
+  "limitations": [
+    "RSS changes are sampled process totals, not allocation or retained-object measurements.",
+    "Used heap boundaries include unreachable objects and do not establish live retention or committed heap.",
+    "No causal Java/native/GC attribution without correlated JFR heap/GC observations.",
+    "T072 fixed gates and withdrawal remain unchanged."
+  ],
+  "status": "RESOURCE_TRANSITIONS_VERIFIED_JFR_CORRELATION_PENDING",
+  "findings": [
+    "B1 already enters baseline observation with boundary used heap3976.3973MiB versus1327.3712MiB in B2; large footprint difference predates first measured command.",
+    "C2 third post-return bracket RSS increases90.96484375MiB; B1 same bracket increases97.51953125MiB. These brackets include sampling overhang and are not exact interval peaks.",
+    "Generated driver executes producer evidence persistence, installation checks, fixture streaming SHA verification and marker reads before retained observation. Background host work can overlap. No operation is assigned causal responsibility.",
+    "All12 post-return boundary used-heap deltas are16/40/48MiB; bucket/primitive-table retention is not proven by these coarse boundaries."
+  ]
+}

@@ -99,6 +99,15 @@ public final class TextureAtlasLayoutCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Whether a provider is currently attached: {@code false} before the first
+     * {@link #connect}, after {@link #deactivate}, after a provider failure, and
+     * once closed.
+     */
+    synchronized boolean hasProvider() {
+        return !closed && provider != null;
+    }
+
     synchronized long generation() {
         return generation;
     }

@@ -1,0 +1,11 @@
+FULL_VECTOR_COPY_D_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/Live2D_Cubism.jar assertions=false fixtures=128 checks=26705 guardCalls=8423 bypasses=7761 copiesElided=19225
+FULL_VECTOR_COPY_D_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/Live2D_Cubism.jar assertions=true fixtures=128 checks=26593 guardCalls=8367 bypasses=7726 copiesElided=18749
+FULL_VECTOR_COPY_D_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar assertions=false fixtures=128 checks=26225 guardCalls=8087 bypasses=7633 copiesElided=19257
+FULL_VECTOR_COPY_D_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar assertions=true fixtures=128 checks=26113 guardCalls=8031 bypasses=7598 copiesElided=18781
+FULL_VECTOR_COPY_D_PASS jar=${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar assertions=false fixtures=128 checks=26225 guardCalls=8087 bypasses=7633 copiesElided=19257
+FULL_VECTOR_COPY_D_PASS jar=${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar assertions=true fixtures=128 checks=26113 guardCalls=8031 bypasses=7598 copiesElided=18781
+FULL_VECTOR_COPY_D_FINISHED checks=157975 scope=OWNED_LEASE_ONLY hostGain=UNPROVEN
+VECTOR_COPY_IDENTITY_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/Live2D_Cubism.jar fixtures=10000 checks=40000
+VECTOR_COPY_IDENTITY_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar fixtures=10000 checks=40000
+VECTOR_COPY_IDENTITY_PASS jar=${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar fixtures=10000 checks=40000
+VECTOR_COPY_IDENTITY_FINISHED checks=120000

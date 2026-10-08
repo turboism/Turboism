@@ -53,4 +53,9 @@ public final class RuntimeAppearanceService implements AppearanceService {
         permissionChecker.check(PermissionIds.TURBOISM_UI_APPEARANCE_MODIFY, "ui.appearance.restore");
         return CompletableFuture.completedFuture(coordinator.restore(pluginId, pluginGeneration));
     }
+
+    @Override
+    public boolean isAvailable() {
+        return coordinator.isAvailable();
+    }
 }

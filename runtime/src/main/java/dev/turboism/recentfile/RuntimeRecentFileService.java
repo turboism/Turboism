@@ -1,6 +1,7 @@
 package dev.turboism.recentfile;
 
 import dev.turboism.adapter.cubism.RecentFileAdapter;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
@@ -22,5 +23,17 @@ public final class RuntimeRecentFileService implements RecentFileService {
     public List<RecentFileSummary> list() {
         permissionChecker.check(PERMISSION, "cubism.recent-file.list");
         return adapter.list();
+    }
+
+    @Override
+    public boolean isAvailable() {
+        // A probe failure (for example host-session teardown running on this
+        // thread) means the host is unavailable; the contract never throws.
+        try {
+            return adapter.available();
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return false;
+        }
     }
 }

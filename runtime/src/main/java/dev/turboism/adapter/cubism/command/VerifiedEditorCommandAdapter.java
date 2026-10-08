@@ -4,17 +4,14 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
 import dev.turboism.sdk.cubism.command.EditorParameterizedRequest;
+import dev.turboism.ui.host.EdtDispatch;
 import java.awt.Component;
 import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
-import javax.swing.SwingUtilities;
 
 /** Invokes only enabled exact-version native menu items from the verified top-menu root. */
 public final class VerifiedEditorCommandAdapter implements EditorCommandAdapter {
@@ -157,23 +154,7 @@ public final class VerifiedEditorCommandAdapter implements EditorCommandAdapter 
     }
 
     private static <T> T onEdt(final Operation<T> operation) {
-        if (SwingUtilities.isEventDispatchThread()) return operation.run();
-        final FutureTask<T> task = new FutureTask<>(operation::run);
-        SwingUtilities.invokeLater(task);
-        try {
-            return task.get(30L, TimeUnit.SECONDS);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Editor command dispatch was interrupted", exception);
-        } catch (TimeoutException exception) {
-            task.cancel(false);
-            throw new IllegalStateException("Editor command dispatch timed out", exception);
-        } catch (java.util.concurrent.ExecutionException exception) {
-            final Throwable cause = exception.getCause();
-            if (cause instanceof RuntimeException runtime) throw runtime;
-            if (cause instanceof Error error) throw error;
-            throw new IllegalStateException("Editor command dispatch failed", cause);
-        }
+        return EdtDispatch.call("editor command EDT operation", operation::run);
     }
 
     @FunctionalInterface

@@ -61,6 +61,19 @@ class RuntimeConfigValidatorTest {
     }
 
     @Test
+    void acceptsEdgeIndexBooleansAndRejectsNonBooleanValues() {
+        for (final boolean value : new boolean[] {false, true}) {
+            final ObjectNode root = base();
+            root.put("meshTriangulationEdgeIndex", value);
+            assertTrue(validator.validate(root, "test.json").isEmpty());
+            assertTrue(validator.validateForRead(root, "test.json").isEmpty());
+        }
+        final ObjectNode invalid = base();
+        invalid.put("meshTriangulationEdgeIndex", "false");
+        assertTrue(codes(invalid).contains("RUNTIME_CONFIG_BAD_TYPE"));
+    }
+
+    @Test
     void acceptsCubismJvmLauncherSelection() {
         final ObjectNode root = base();
         root.withObject("launcher").put("cubismJvm", "graalvm");

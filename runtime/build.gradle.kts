@@ -252,6 +252,9 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
             "dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfileTest"
         )
         includeTestsMatching(
+            "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexExactHostShapeTest"
+        )
+        includeTestsMatching(
             "dev.turboism.mapping.verification.EditorDocumentReadSelectorContractTest"
         )
         includeTestsMatching(
@@ -403,6 +406,7 @@ val checkHeadlessRuntimeClasspath by tasks.registering(JavaExec::class) {
 }
 
 dependencies {
+    testImplementation(project(":plugins:selection-brush"))
     implementation(project(":sdk"))
     // Internal management contracts shared with the framework shell.
     // The runtime never depends on :plugins:* modules.

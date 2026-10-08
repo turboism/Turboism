@@ -41,13 +41,139 @@ public final class T040SelfCheck {
         }
         final AtomicInteger checks = new AtomicInteger();
         checkContract(checks);
+        checkResourceContract(checks);
         checkFreezeBridge(checks);
         checkRunClaimState(checks);
         checkPayloadStore(checks);
         checkEdtStateMachine(checks);
+        checkHigherVersionLoadWarning(checks);
         checkUiStateMachine(checks);
         System.out.println("T040_SHADOW_SCENE_SELFCHECK PASS checks=" + checks.get()
             + " hostExecuted=false");
+    }
+
+    private static void checkResourceContract(final AtomicInteger checks) throws Exception {
+        final String enabled = ShadowSceneContract.NAMED_PREFIX + "resourceObservation";
+        final String token = ShadowSceneContract.NAMED_PREFIX + "tlprodOptIn";
+        final String[] keys = {enabled, token, ShadowSceneContract.LAYOUT_MODE_PROPERTY,
+            ShadowSceneContract.EXPORT_PROBE_PROPERTY};
+        final String[] previous = new String[keys.length];
+        for (int i = 0; i < keys.length; i++) previous[i] = System.getProperty(keys[i]);
+        final String task = "t029-tlprod-resource-selfcheck";
+        try {
+            for (String variant : new String[] {"valid", "no-token", "wrong-token", "wrong-name",
+                    "wrong-hash", "layout", "export", "invalid-boolean"}) {
+                System.setProperty(enabled, "invalid-boolean".equals(variant) ? "maybe" : "true");
+                System.setProperty(token, ShadowSceneContract.TLPROD_OPT_IN);
+                System.setProperty(ShadowSceneContract.LAYOUT_MODE_PROPERTY,
+                    "layout".equals(variant) ? ShadowSceneContract.LAYOUT_MODE_AUTO_SCALE
+                        : ShadowSceneContract.LAYOUT_MODE_PRESERVE);
+                System.setProperty(ShadowSceneContract.EXPORT_PROBE_PROPERTY,
+                    "export".equals(variant) ? "true" : "false");
+                if ("no-token".equals(variant)) System.clearProperty(token);
+                if ("wrong-token".equals(variant)) System.setProperty(token, "wrong");
+                final String name = task + "-" + ("wrong-name".equals(variant)
+                    ? "other.cmo3" : ShadowSceneContract.FIXTURE_HEAVY_NAME);
+                final String sha = "wrong-hash".equals(variant) ? "0".repeat(64)
+                    : ShadowSceneContract.FIXTURE_HEAVY_SHA256;
+                if ("valid".equals(variant)) {
+                    check(checks, T040ShadowSceneDriverAgent.DriverConfig
+                            .resourceObservationSeconds(task, name, sha) == 30L,
+                        "explicit resource protocol has fixed thirty-second windows");
+                } else {
+                    rejects(checks, () -> T040ShadowSceneDriverAgent.DriverConfig
+                        .resourceObservationSeconds(task, name, sha));
+                }
+            }
+            System.clearProperty(enabled);
+            check(checks, T040ShadowSceneDriverAgent.DriverConfig
+                    .resourceObservationSeconds(task, "unused", "unused") == 0L,
+                "resource observation is disabled by default");
+        } finally {
+            for (int i = 0; i < keys.length; i++) {
+                if (previous[i] == null) System.clearProperty(keys[i]);
+                else System.setProperty(keys[i], previous[i]);
+            }
+        }
+    }
+
+    private static void checkHigherVersionLoadWarning(final AtomicInteger checks) throws Exception {
+        final String key = ShadowSceneContract.NAMED_PREFIX + "tlprodOptIn";
+        final String previous = System.getProperty(key);
+        final Path home = Files.createTempDirectory("t040-load-warning-");
+        final String task = "t029-tlprod-selfcheck";
+        final AtomicInteger clicks = new AtomicInteger();
+        final JFrame[] main = new JFrame[1];
+        final JDialog[] warning = new JDialog[1];
+        final JFrame[] unrelated = new JFrame[1];
+        try {
+            for (String variant : new String[] {"no-token", "wrong-hash", "wrong-name", "wrong-version",
+                    "wrong-text", "wrong-owner", "duplicate-load", "shared-owner", "decorated-shared-owner", "valid"}) {
+                clicks.set(0);
+                System.setProperty(key, ShadowSceneContract.TLPROD_OPT_IN);
+                if (variant.equals("no-token")) System.clearProperty(key);
+                final T040ShadowSceneDriverAgent.DriverConfig config =
+                    T040ShadowSceneDriverAgent.DriverConfig.forSelfCheck(home, task, home.resolve("copy.cmo3"),
+                        task + "-" + (variant.equals("wrong-name") ? "other.cmo3" : "heavy.cmo3"),
+                        variant.equals("wrong-hash") ? "0".repeat(64) : ShadowSceneContract.FIXTURE_HEAVY_SHA256,
+                        20L, variant.equals("wrong-version") ? "5302" : "5203",
+                        ShadowSceneContract.LAYOUT_SCALE_KERNEL_PERCENT, ShadowSceneContract.LAYOUT_MODE_PRESERVE);
+                SwingUtilities.invokeAndWait(() -> {
+                    main[0] = new JFrame("Live2D Cubism Editor 5.2.03 PRO - ");
+                    main[0].setSize(500, 300);
+                    main[0].setVisible(true);
+                    unrelated[0] = new JFrame("unrelated");
+                    warning[0] = new JDialog(variant.equals("wrong-owner") ? unrelated[0]
+                        : variant.endsWith("shared-owner") ? (JFrame) null : main[0], "警告", true);
+                    final JPanel panel = new JPanel();
+                    panel.add(new javax.swing.JLabel(variant.equals("wrong-text")
+                        ? T040ShadowSceneDriverAgent.HIGHER_VERSION_LOAD_TEXT.replace("5.3.0", "5.4.0")
+                        : T040ShadowSceneDriverAgent.HIGHER_VERSION_LOAD_TEXT));
+                    final JButton load = new JButton("加载");
+                    load.addActionListener(event -> { clicks.incrementAndGet(); warning[0].dispose(); });
+                    panel.add(load);
+                    panel.add(new JButton("取消"));
+                    if (variant.equals("duplicate-load")) panel.add(new JButton("加载"));
+                    warning[0].add(panel);
+                    warning[0].pack();
+                    if (variant.equals("decorated-shared-owner")) {
+                        final JPanel decoration = new JPanel();
+                        decoration.add(new javax.swing.JLabel("警告"));
+                        decoration.add(new JButton(""));
+                        warning[0].setGlassPane(decoration);
+                        decoration.setVisible(true);
+                    }
+                    SwingUtilities.invokeLater(() -> warning[0].setVisible(true));
+                });
+                final AtomicBoolean accepted = new AtomicBoolean();
+                final AtomicBoolean refused = new AtomicBoolean();
+                SwingUtilities.invokeAndWait(() -> {
+                    final Dialog[] answered = new Dialog[1];
+                    final java.awt.Window[] windows = {main[0], warning[0]};
+                    try {
+                        accepted.set(T040ShadowSceneDriverAgent.answerHigherVersionLoadWarning(config, windows, answered));
+                        if (accepted.get()) {
+                            // A second polling pass must not enqueue a second click.
+                            T040ShadowSceneDriverAgent.answerHigherVersionLoadWarning(config, windows, answered);
+                        }
+                    } catch (IllegalStateException expected) { refused.set(true); }
+                });
+                SwingUtilities.invokeAndWait(() -> { warning[0].dispose(); main[0].dispose(); unrelated[0].dispose(); });
+                final boolean expectedLoad = variant.equals("valid") || variant.endsWith("shared-owner");
+                check(checks, accepted.get() == expectedLoad, "load warning gate: " + variant);
+                if (variant.equals("wrong-text") || variant.equals("wrong-owner") || variant.equals("duplicate-load")) {
+                    check(checks, refused.get(), "malformed load prompt refuses: " + variant);
+                }
+                check(checks, clicks.get() == (expectedLoad ? 1 : 0), "no unintended/repeated click: " + variant);
+            }
+        } finally {
+            SwingUtilities.invokeAndWait(() -> {
+                if (warning[0] != null) warning[0].dispose();
+                if (main[0] != null) main[0].dispose();
+                if (unrelated[0] != null) unrelated[0].dispose();
+            });
+            if (previous == null) System.clearProperty(key); else System.setProperty(key, previous);
+        }
     }
 
     private static void checkContract(final AtomicInteger checks) throws Exception {
@@ -105,6 +231,55 @@ public final class T040SelfCheck {
             ShadowSceneContract.VERSION_5303, TASK_ID,
             TASK_ID + "-" + ShadowSceneContract.FIXTURE_OPACITY52_NAME,
             ShadowSceneContract.FIXTURE_OPACITY52_SHA256));
+
+        // The 5302 profile shares the 5.3 fixture allowlist but records its own scene
+        // identity and official JAR; the 5203 fixture is never admissible on it.
+        check(checks, ShadowSceneContract.VERSION_5302.equals(
+                ShadowSceneContract.requireVersion(ShadowSceneContract.VERSION_5302))
+            && ShadowSceneContract.SCENE_5302.equals(
+                ShadowSceneContract.sceneFor(ShadowSceneContract.VERSION_5302))
+            && ShadowSceneContract.OFFICIAL_JAR_SHA256_5302.equals(
+                ShadowSceneContract.jarSha256For(ShadowSceneContract.VERSION_5302))
+            && !ShadowSceneContract.allowsNewAtlasDialog(ShadowSceneContract.VERSION_5302),
+            "the 5302 profile is admitted with its own scene identity and jar pin");
+        final String heavy5302 = ShadowSceneContract.requireAllowlistedFixture(
+            ShadowSceneContract.VERSION_5302, TASK_ID,
+            TASK_ID + "-" + ShadowSceneContract.FIXTURE_HEAVY_NAME,
+            ShadowSceneContract.FIXTURE_HEAVY_SHA256);
+        check(checks, ShadowSceneContract.FIXTURE_HEAVY_NAME.equals(heavy5302),
+            "the 5302 profile admits the shared heavy fixture pair");
+        rejects(checks, () -> ShadowSceneContract.requireAllowlistedFixture(
+            ShadowSceneContract.VERSION_5302, TASK_ID,
+            TASK_ID + "-" + ShadowSceneContract.FIXTURE_OPACITY52_NAME,
+            ShadowSceneContract.FIXTURE_OPACITY52_SHA256));
+        rejects(checks, () -> ShadowSceneContract.requireVersion("5400"));
+
+        // Replay the production wrapper's 5203 heavy launch identity at the same admission
+        // seam the real DriverConfig uses; ordinary 5203 fixtures above stay unchanged.
+        final String productionFixtureProperty = ShadowSceneContract.NAMED_PREFIX + "tlprodOptIn";
+        try {
+            System.setProperty(productionFixtureProperty, "TLPROD_EXPLICIT_OPT_IN");
+            check(checks, ShadowSceneContract.FIXTURE_HEAVY_NAME.equals(
+                ShadowSceneContract.requireAllowlistedFixture(
+                    ShadowSceneContract.VERSION_5203, TASK_ID,
+                    TASK_ID + "-" + ShadowSceneContract.FIXTURE_HEAVY_NAME,
+                    ShadowSceneContract.FIXTURE_HEAVY_SHA256)),
+                "the explicit production scene admits the pinned heavy pair on 5203");
+            rejects(checks, () -> ShadowSceneContract.requireAllowlistedFixture(
+                ShadowSceneContract.VERSION_5203, TASK_ID,
+                TASK_ID + "-" + ShadowSceneContract.FIXTURE_HEAVY_NAME,
+                ShadowSceneContract.FIXTURE_CIRCLE100_SHA256));
+            rejects(checks, () -> ShadowSceneContract.requireAllowlistedFixture(
+                "5400", TASK_ID, TASK_ID + "-" + ShadowSceneContract.FIXTURE_HEAVY_NAME,
+                ShadowSceneContract.FIXTURE_HEAVY_SHA256));
+            System.setProperty(productionFixtureProperty, "wrong-token");
+            rejects(checks, () -> ShadowSceneContract.requireAllowlistedFixture(
+                ShadowSceneContract.VERSION_5203, TASK_ID,
+                TASK_ID + "-" + ShadowSceneContract.FIXTURE_HEAVY_NAME,
+                ShadowSceneContract.FIXTURE_HEAVY_SHA256));
+        } finally {
+            System.clearProperty(productionFixtureProperty);
+        }
 
         // Budget overrides stay fail-closed and default to the values the scene always used.
         check(checks, ShadowSceneContract.STARTUP_TIMEOUT_SECONDS
@@ -592,7 +767,51 @@ public final class T040SelfCheck {
                 && "false".equals(preserveStage.getProperty("layout.attempted"))
                 && "true".equals(preserveStage.getProperty("editor.closed")),
             "the preserved-layout run confirms the editor without opening any layout dialog");
+        check(checks, !Files.exists(preserve.stage.getParent().resolve("resource-windows.tsv")),
+            "ordinary runs do not opt into resource observations");
         disposeUiFixture(preserve);
+
+        f$b.reset();
+        final UiFixture resources = createUiFixture(
+            Files.createTempDirectory("t040-ui-resources-"), false, false);
+        try {
+            new T040ShadowSceneDriverAgent.FixedDriver(
+                T040ShadowSceneDriverAgent.DriverConfig.forResourceSelfCheck(resources.home,
+                    resources.taskId, resources.fixture, resources.fixtureName, resources.fixtureSha256),
+                expected -> goodFreeze(expected, "NO_CALLS")).run();
+            check(checks, "COMPLETE".equals(ShadowPayloadStore.loadProperties(resources.result)
+                    .getProperty("collectionStatus")) && f$b.OK_CLICKS.get() == 3,
+                "resource protocol completes three native editor operations");
+            final java.util.List<String> windows = Files.readAllLines(
+                resources.stage.getParent().resolve("resource-windows.tsv"), StandardCharsets.UTF_8);
+            final String[] phases = {"baseline-start", "baseline-end", "operation-start",
+                "operation-end", "retained-start", "retained-end", "operation-start",
+                "operation-end", "retained-start", "retained-end", "operation-start",
+                "operation-end", "retained-start", "retained-end"};
+            check(checks, windows.size() == phases.length + 1,
+                "resource protocol publishes all window boundaries");
+            long previousNanos = 0L;
+            long idleStart = 0L;
+            for (int i = 0; i < phases.length; i++) {
+                final String[] fields = windows.get(i + 1).split("\t");
+                final long nanos = Long.parseLong(fields[3]);
+                check(checks, fields.length == 5 && phases[i].equals(fields[0])
+                        && Integer.parseInt(fields[1]) == (i < 2 ? 0 : 1 + (i - 2) / 4)
+                        && Long.parseLong(fields[2]) > 0 && nanos >= previousNanos
+                        && Long.parseLong(fields[4]) >= 0,
+                    "resource boundary has ordered phase, operation, clocks and heap");
+                if (fields[0].equals("baseline-start") || fields[0].equals("retained-start")) {
+                    idleStart = nanos;
+                }
+                if (fields[0].equals("baseline-end") || fields[0].equals("retained-end")) {
+                    check(checks, nanos - idleStart >= 1_000_000_000L,
+                        "resource idle window lasts the complete fixed duration");
+                }
+                previousNanos = nanos;
+            }
+        } finally {
+            disposeUiFixture(resources);
+        }
 
         f$b.reset();
         final Path promptHome = Files.createTempDirectory("t040-ui-prompt-");

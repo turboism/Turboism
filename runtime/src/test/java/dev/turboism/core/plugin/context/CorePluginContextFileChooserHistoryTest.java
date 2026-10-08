@@ -43,10 +43,17 @@ class CorePluginContextFileChooserHistoryTest {
     @Test
     void defaultsToUnavailableWithoutInjection() {
         final CorePluginContext context = new CorePluginContext(dependencies(TEMP), RuntimeHostAdapters.safeMode());
-        assertSame(FileChooserHistoryService.unavailable(), context.fileChooserHistory());
+        assertSame(
+                FileChooserHistoryService.unavailable(),
+                context.services()
+                        .find(FileChooserHistoryService.class)
+                        .orElse(FileChooserHistoryService.unavailable()));
         assertThrows(
                 UnsupportedOperationException.class,
-                () -> context.fileChooserHistory().setExportRecentDirectory(Path.of("x")));
+                () -> context.services()
+                        .find(FileChooserHistoryService.class)
+                        .orElse(FileChooserHistoryService.unavailable())
+                        .setExportRecentDirectory(Path.of("x")));
     }
 
     @Test
@@ -63,11 +70,18 @@ class CorePluginContextFileChooserHistoryTest {
 
         assertFalse(injected instanceof AutoCloseable);
         assertSame(injected, owner.sdkView());
-        assertSame(UiResourceService.unavailable(), safe.uiResources());
+        assertSame(
+                UiResourceService.unavailable(),
+                safe.services().find(UiResourceService.class).orElse(UiResourceService.unavailable()));
         assertSame(injected, composed.uiResources());
-        assertSame(injected, first.uiResources());
-        assertSame(injected, second.uiResources());
-        assertEquals(UiIconAvailability.SERVICE_UNAVAILABLE, first.uiResources().availability(reference));
+        assertSame(injected, first.services().find(UiResourceService.class).orElse(UiResourceService.unavailable()));
+        assertSame(injected, second.services().find(UiResourceService.class).orElse(UiResourceService.unavailable()));
+        assertEquals(
+                UiIconAvailability.SERVICE_UNAVAILABLE,
+                first.services()
+                        .find(UiResourceService.class)
+                        .orElse(UiResourceService.unavailable())
+                        .availability(reference));
     }
 
     @Test
@@ -79,7 +93,8 @@ class CorePluginContextFileChooserHistoryTest {
 
         assertThrows(
                 dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
-                context.fileChooserHistory()::projectRecentDirectory);
+                context.services().find(FileChooserHistoryService.class).orElse(FileChooserHistoryService.unavailable())
+                        ::projectRecentDirectory);
         assertEquals(0, calls.get());
     }
 

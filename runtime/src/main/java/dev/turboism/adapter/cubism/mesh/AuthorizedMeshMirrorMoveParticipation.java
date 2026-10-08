@@ -34,4 +34,9 @@ public final class AuthorizedMeshMirrorMoveParticipation implements MeshMirrorMo
             throw failure;
         }
     }
+
+    @Override
+    public boolean isAvailable() {
+        return delegate.isAvailable();
+    }
 }

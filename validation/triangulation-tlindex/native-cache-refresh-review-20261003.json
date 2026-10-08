@@ -1,0 +1,105 @@
+{
+  "status": "PASS_READ_ONLY_CALLER_PATH_DISCOVERY",
+  "historicalT089": "FAIL_FROZEN_REFERENCE_PARITY",
+  "historicalT088": "FAIL_FIXED_BALANCED_GATES",
+  "productionAcceptance": "NOT_GRANTED",
+  "inputPins": {
+    "build/t087-native-mesh-path-events-r1/native5303-scope-events-r1/cache-refresh-audit-r1.json": "0db46d6c5427589b17be50ff6998cb4856d04a8d919835b27a5cef672ae6720b",
+    "build/t089-native-mesh-memory-diagnostic-r1/native5303-memory-r1/cache-refresh-audit-r1.json": "216e7799b5518bb502e317799163fbad7a45e529ccfa53e5920f6e0c4f01ae82",
+    "build/t089-native-mesh-memory-diagnostic-r1/lazy-selection-static-audit-r1.json": "017c503afbf1ca43be5f05085dfff596e0765074d82ab2027add44097745b468",
+    "build/t089-native-mesh-memory-diagnostic-r1/drag-select-cache-refresh-static-audit.json": "b51baa036fbc1049d7c0c0989e162eb387080a56320f5c8b5374b175aa84be58"
+  },
+  "recordingInputPins": {
+    "T087": {
+      "build/t087-native-mesh-path-events-r1/native5303-scope-events-r1/native-evidence/atlas-profiling.jfr": "ae7506c0fb77a5f8846f89aa019557f5c2cdc9c92f22ec479b722259f48d3f66",
+      "build/t087-native-mesh-path-events-r1/native5303-scope-events-r1/native-evidence/observer-free-command-cpu.tsv": "2e4daf2646d946c3a92806473ac1069dcbbabcc0e1800a369b787c66b4d07b07",
+      "validation/triangulation-tlindex/diagnostic/analyze-native-cache-refresh.py": "3d89cd9ce5b658a9f89a4fe763e8f06bb6a938fc7d3676858da3ad7136b4895d",
+      "validation/triangulation-tlindex/diagnostic/analyze-jfr-native-invocations.py": "c7b5b1620159d069d1939b41d7bb7ac917c7e462277800bc1b1635103df76901",
+      "validation/triangulation-tlindex/analyze-resource-windows.py": "26aaf9ab604cedca477d2dd017111465b2428acd41fc63d878cf48c58aad326f"
+    },
+    "T089": {
+      "build/t089-native-mesh-memory-diagnostic-r1/native5303-memory-r1/post-failure-evidence/atlas-profiling.jfr": "49344a8ac6dd6ed1c40277455f12f80b4a4991646f83955b16211333b871da14",
+      "build/t089-native-mesh-memory-diagnostic-r1/native5303-memory-r1/post-failure-evidence/observer-free-command-cpu.tsv": "fd71a9a377c05ae2a4709a73df4b18b9eac99c871334b67934aae4b511860029",
+      "validation/triangulation-tlindex/diagnostic/analyze-native-cache-refresh.py": "3d89cd9ce5b658a9f89a4fe763e8f06bb6a938fc7d3676858da3ad7136b4895d",
+      "validation/triangulation-tlindex/diagnostic/analyze-jfr-native-invocations.py": "c7b5b1620159d069d1939b41d7bb7ac917c7e462277800bc1b1635103df76901",
+      "validation/triangulation-tlindex/analyze-resource-windows.py": "26aaf9ab604cedca477d2dd017111465b2428acd41fc63d878cf48c58aad326f"
+    }
+  },
+  "cycles": {
+    "T087": {
+      "1": {
+        "executionSamples": 698,
+        "allocationSamples": 249,
+        "fullChainExecutionSamples": 0,
+        "fullChainAllocationSamples": 0,
+        "cacheRefreshSamples": 0,
+        "truncatedStacks": 7
+      },
+      "2": {
+        "executionSamples": 490,
+        "allocationSamples": 226,
+        "fullChainExecutionSamples": 0,
+        "fullChainAllocationSamples": 0,
+        "cacheRefreshSamples": 0,
+        "truncatedStacks": 0
+      },
+      "3": {
+        "executionSamples": 1553,
+        "allocationSamples": 214,
+        "fullChainExecutionSamples": 0,
+        "fullChainAllocationSamples": 0,
+        "cacheRefreshSamples": 0,
+        "truncatedStacks": 1
+      }
+    },
+    "T089": {
+      "1": {
+        "executionSamples": 2353,
+        "allocationSamples": 718,
+        "fullChainExecutionSamples": 1826,
+        "fullChainAllocationSamples": 253,
+        "cacheRefreshSamples": 2088,
+        "truncatedStacks": 87
+      },
+      "2": {
+        "executionSamples": 2478,
+        "allocationSamples": 1167,
+        "fullChainExecutionSamples": 1857,
+        "fullChainAllocationSamples": 240,
+        "cacheRefreshSamples": 2104,
+        "truncatedStacks": 64
+      },
+      "3": {
+        "executionSamples": 2308,
+        "allocationSamples": 1063,
+        "fullChainExecutionSamples": 1825,
+        "fullChainAllocationSamples": 229,
+        "cacheRefreshSamples": 2061,
+        "truncatedStacks": 61
+      }
+    }
+  },
+  "binding": {
+    "T087": {
+      "taskId": "queue-f2c7d9855aa74558b3ccb5f4a0bbb0ba",
+      "cpuPayloadFieldsMatched": 30
+    },
+    "T089": {
+      "taskId": "queue-e917b0bf14474d03a3398012da1f30a5",
+      "cpuPayloadFieldsMatched": 30
+    }
+  },
+  "official5303ArchiveSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+  "conclusions": [
+    "T089 native command EDT stacks show ordered updateIndices/updateMesh/getGlIndices/initByEditableMesh/selection lazy/drag-select/repaint/command invocation in all three cycles.",
+    "No updateIndices frames were sampled in T087 native command EDT windows; this does not prove no execution.",
+    "Point_DragSelect calls aW before subtool and selection admission checks. aW forces aA lazy closest-point computation; aA obtains copied editable meshes through Z$c.c/ac/initByEditableMesh.",
+    "Source cache refresh is an observable side effect; moving or dropping lazy resolution is not yet justified."
+  ],
+  "limitations": [
+    "Sample counts are not exact calls, CPU time or allocation amounts.",
+    "Input-state cause, ThreadMX overhead cause and historical T088 RSS cause remain unproven.",
+    "Historical failed gates and accepted T057 delivery are unchanged."
+  ],
+  "nextStep": "Reproduce action-context lazy mesh copy and source-cache mutation with an owned real-SDK harness before changing production bytecode."
+}

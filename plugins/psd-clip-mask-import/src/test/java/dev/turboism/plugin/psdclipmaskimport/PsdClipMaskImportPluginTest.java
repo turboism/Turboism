@@ -13,7 +13,6 @@ import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
@@ -253,13 +252,6 @@ final class PsdClipMaskImportPluginTest {
                         throw new UnsupportedOperationException("model unavailable");
                     };
                 }
-
-                @Override
-                public TransactionManager transactionManager() {
-                    return (ctx, docId) -> {
-                        throw new UnsupportedOperationException("transactions unavailable");
-                    };
-                }
             };
         }
 
@@ -304,7 +296,6 @@ final class PsdClipMaskImportPluginTest {
             return scope;
         }
 
-        @Override
         public UiHostCapabilityService uiHost() {
             return new UiHostCapabilityService() {
                 @Override
@@ -379,6 +370,14 @@ final class PsdClipMaskImportPluginTest {
                     throw new UnsupportedOperationException();
                 }
             };
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .supply(dev.turboism.sdk.ui.UiHostCapabilityService.class, () -> this.uiHost())
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
     }
 

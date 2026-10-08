@@ -17,7 +17,7 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
                 MainToolbarVerificationManifest.forArtifact(REVIEWED),
                 "cubism-5.3.03.ui-main-toolbar.static",
-                "314bd7b643b030cf5b6c6247b314f50b34290c6ef7442c2bd241dcdd7571375b",
+                "cee7eca72cd4abf180d0e01905381907c8ae35056d68dc4b2f7911d2e2d4fee4",
                 MainToolbarVerificationManifest.ADAPTER_SLICE_ID,
                 MainToolbarVerificationManifest.CAPABILITY_IDS,
                 MainToolbarVerificationManifest.REQUIRED_ALIASES);

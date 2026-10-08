@@ -1,0 +1,45 @@
+{
+  "task": "T076",
+  "status": "FROZEN_BEFORE_SUBMISSION",
+  "purpose": "EXACT_PRODUCTION_GC_HEAP_EXPLANATION_ONLY",
+  "order": [
+    "baseline",
+    "candidate"
+  ],
+  "replacementOrRetryAllowed": false,
+  "performanceAcceptance": "NOT_APPLICABLE_DIAGNOSTIC_LOGGING",
+  "failedBalancedProtocolUnchanged": true,
+  "jvmVariable": "-Xlog:gc=info,gc+heap=debug:stdout:time,uptimemillis,level,tags",
+  "normalizedRequestEquality": "PASS",
+  "preparedIds": {
+    "baseline": "486f983e84b74f66178325edd479446759d91c93057464a023001a66e1094c7c",
+    "candidate": "08b30cb4d26b69f0ec95b0a59a43bce958f1822834061cbe7d5515de6c7d44c8"
+  },
+  "inputPins": {
+    "validation/triangulation-tlindex/production-gc-explanation-protocol-20261003.md": "707f5db2a43455aea14eac9992a7e3c7f378be46e6f983e1189af34d5a8cf47f",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/run-all.py": "7c3088a5b332bb8fa6d187828772a1d825af091ef4346a3a02e4bf2dc49aeb34",
+    "validation/triangulation-tlindex/diagnostic/analyze-gc-heap-log.py": "090c37d46592bf2a3157c05ddac2370e9d3f079c57be2aa3a80d573ca853f179",
+    "validation/triangulation-tlindex/diagnostic/analyze-command-cpu-counters.py": "e083dd50bf0d1fb87895d4323cd0ed799eaba363c7a5ce6eb5b5a7b0e87209ab",
+    "build/t076-production-acceptance-preflight-r1/native5303-dual-r1/native-evidence/auto-connect-command-return-results.tsv": "9db07555ad8dfdac954b25b10fff57fb36fcfaff94f3ffaee4f3bfbb8533c1e6",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/baseline/runner-input.json": "5313d054fe106fb90277ce630f4181889cc5585c61f44ce3947183f9ef584940",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/baseline/prepare.py": "a3b5cda6686a6d0142a857194e6f7c820861201b3df6ace8db6eecbe3b414c55",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/baseline/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/baseline/review-native.py": "03bb58ef7e0f14ab19877ba938c16920a6e0bdab41fa1fdcba780bd5c6060267",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/baseline/run-one.py": "bc8ea9f60c869c0c8d479ef099e2c760b5b83673d67c4b9049bb4aa7fdc755dc",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/baseline/prepared.json": "2601c0eec979194acc35e934504c638cbd0dc9ccb600b526a874876d57f62dd8",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/candidate/runner-input.json": "ba303a1d378655580093fca34edc6e6ec92f3b94bfc862bdc88c8bebcccdf709",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/candidate/prepare.py": "90a623d89ed101da061edf5c84f9e9ca603cbcbc8d4f8ee1fe9d02e1535dd24d",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/candidate/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/candidate/review-native.py": "c1f83747ac26974e1f5c8a5546dc054d470fb2959f992a905b01a06ff1833b46",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/candidate/run-one.py": "489d3997b75933a330b2c96749590339d352c32d2db20d58c90ee36d6d72d359",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/candidate/prepared.json": "55a9d80d0695d204a216e5d28bfc014e05767bfda1d94ef62c7caa6ad1a6f043",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/baseline/bundle/turboism-agent.jar": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/baseline/bundle/observer-free-mesh-probe.jar": "0ffe99c024507ddb96cad151d59c6fd677b8ab2ac717f586bbd78279ed62afda",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/baseline/bundle/settings-page-host-probe.jar": "30f5203eb6efc7141688ffcd3c89a83b32ba715056a922b9d981661433b4d975",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/candidate/bundle/turboism-agent.jar": "aa960bc455ca78f3a8dfbab08a609f878f7d0773fdc1bc88136beed7e9d4b79a",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/candidate/bundle/observer-free-mesh-probe.jar": "0ffe99c024507ddb96cad151d59c6fd677b8ab2ac717f586bbd78279ed62afda",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/candidate/bundle/settings-page-host-probe.jar": "30f5203eb6efc7141688ffcd3c89a83b32ba715056a922b9d981661433b4d975",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/baseline/request/runner-request.json": "ba9df8d2788760228a21a18335d2903a3a80d409d891be58b83071a3ed86559f",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/candidate/request/runner-request.json": "4090644d93cb2f252a08ab535dd13d56ccafd4b59dcb28289febbcc0ef93fc43"
+  }
+}

@@ -176,7 +176,7 @@ public final class BoundingBoxWarpMirrorPlugin implements TurboismPlugin {
     private String blockerText(final PluginLocalization localization, final WarpMirrorBlockerCode code) {
         final String key =
                 "result.blocker." + code.name().toLowerCase(Locale.ROOT).replace('_', '-');
-        return localization.contains(key) ? localization.text(key) : code.name();
+        return localization.text(key, code.name());
     }
 
     private void showMessage(final String message, final int severity) {

@@ -50,4 +50,5 @@ jobs:
       - name: Check four public JSON endpoints and maintain one issue per incident
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          TURBOISM_MONITOR_RECIPIENT: ${{ vars.RELEASE_MONITOR_RECIPIENT }}
         run: python3 scripts/monitor/release_api_monitor.py --notify

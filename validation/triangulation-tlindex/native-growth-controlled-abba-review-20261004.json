@@ -1,0 +1,210 @@
+{
+  "status": "FAIL_FIXED_BALANCED_GATES",
+  "pairs": [
+    {
+      "baseline": "baseline1",
+      "candidate": "candidate1",
+      "candidateChangePercent": {
+        "wallSeconds": -4.640527897186953,
+        "directCpuSeconds": 3.47041612483745,
+        "operationPeakRssBytes": -5.959265778224787
+      },
+      "gates": {
+        "commandWallImproves": true,
+        "javaCpuTotalNoRegression": false,
+        "absoluteRssGrowthWithin20Percent": true,
+        "rssAboveOwnBaselineWithin80MiB": false,
+        "retained3Minus1Within64MiB": false
+      },
+      "pass": false
+    },
+    {
+      "baseline": "baseline2",
+      "candidate": "candidate2",
+      "candidateChangePercent": {
+        "wallSeconds": -5.198632057491526,
+        "directCpuSeconds": -4.287865578188155,
+        "operationPeakRssBytes": 13.789905113244604
+      },
+      "gates": {
+        "commandWallImproves": true,
+        "javaCpuTotalNoRegression": true,
+        "absoluteRssGrowthWithin20Percent": true,
+        "rssAboveOwnBaselineWithin80MiB": false,
+        "retained3Minus1Within64MiB": false
+      },
+      "pass": false
+    }
+  ],
+  "totals": {
+    "baseline": {
+      "wallSeconds": 235.10584709999998,
+      "directCpuSeconds": 249.20999999999998,
+      "sampledCpuSeconds": 330.73
+    },
+    "candidate": {
+      "wallSeconds": 223.5327959,
+      "directCpuSeconds": 248.07,
+      "sampledCpuSeconds": 324.15
+    }
+  },
+  "aggregateCandidateChangePercent": {
+    "wallSeconds": -4.922485485900097,
+    "directCpuSeconds": -0.45744552786806114
+  },
+  "productionAcceptance": "NOT_GRANTED_PENDING_ALL_VERSION_LONG_RUN_AND_HUMAN_REVIEW",
+  "statisticalBenefit": "NOT_ESTABLISHED_TWO_PAIRS",
+  "legs": [
+    {
+      "name": "baseline1",
+      "arm": "baseline",
+      "sequence": 2645,
+      "jobId": "36868d75-3926-408a-a35a-79020a12b0e6",
+      "runId": "queue-ddfa09c1207648319a004095eda14e9a",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 116.32895479999999,
+      "directCpuSeconds": 123.03999999999999,
+      "sampledCpuSeconds": 161.38,
+      "operationPeakRssBytes": 4251635712,
+      "peakAboveBaselineBytes": 1317763072.0,
+      "retained3Minus1Bytes": 1088020480.0,
+      "maximumSampleGapMillis": 1041
+    },
+    {
+      "name": "candidate1",
+      "arm": "candidate",
+      "sequence": 2647,
+      "jobId": "13a0f692-39a5-4122-b67e-e3f7ebf6dc53",
+      "runId": "queue-a58b9b94bdd946c59fcddb5604b17450",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 110.93067719999999,
+      "directCpuSeconds": 127.31,
+      "sampledCpuSeconds": 164.52,
+      "operationPeakRssBytes": 3998269440,
+      "peakAboveBaselineBytes": 1241407488.0,
+      "retained3Minus1Bytes": 1171898368.0,
+      "maximumSampleGapMillis": 1029
+    },
+    {
+      "name": "candidate2",
+      "arm": "candidate",
+      "sequence": 2648,
+      "jobId": "7270d6cb-d8d6-455c-8ed9-9d92e701602c",
+      "runId": "queue-00a1b77b393a4094af717b9d57fd6d88",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 112.6021187,
+      "directCpuSeconds": 120.75999999999999,
+      "sampledCpuSeconds": 159.63,
+      "operationPeakRssBytes": 3994927104,
+      "peakAboveBaselineBytes": 1277583360.0,
+      "retained3Minus1Bytes": 847384576.0,
+      "maximumSampleGapMillis": 1040
+    },
+    {
+      "name": "baseline2",
+      "arm": "baseline",
+      "sequence": 2649,
+      "jobId": "e8eb9aa9-55ef-44fc-998a-c82197d83bd0",
+      "runId": "queue-691067e314d8415d94cb93770e723fdc",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 118.77689229999999,
+      "directCpuSeconds": 126.16999999999999,
+      "sampledCpuSeconds": 169.35000000000002,
+      "operationPeakRssBytes": 3510792192,
+      "peakAboveBaselineBytes": 45084672.0,
+      "retained3Minus1Bytes": 32673792.0,
+      "maximumSampleGapMillis": 1073
+    }
+  ],
+  "task": "T097",
+  "historicalReferenceParity": {
+    "baseline1": "FAIL",
+    "candidate1": "FAIL",
+    "candidate2": "FAIL",
+    "baseline2": "FAIL"
+  },
+  "historicalFailures": "UNCHANGED",
+  "controlledBoundaryRowsPerLeg": 2133,
+  "jfrEnabled": false,
+  "inputPins": {
+    "validation/triangulation-tlindex/native-growth-controlled-abba-protocol-20261004.json": "44ea0fd0541f2e911cc791bad7bd3527dbdd725039d37430a87dea747851707a",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/analyze-all.py": "80208fdcf1ef3df7369745e8643615908cb61fcbfff867d7c00cd6864807329a",
+    "validation/triangulation-tlindex/diagnostic/balanced-cpu-gates.py": "40d6ce54085fbb52be3041ea2c1f95c31bf8ef9621d235699faf10ef1255e548",
+    "validation/triangulation-tlindex/diagnostic/compare-controlled-cache-boundaries.py": "c6780ddeb58e8b657c907f990550f903e48ab1f8bc2a5fb250e89fd39ecf775e",
+    "validation/triangulation-tlindex/analyze-resource-windows.py": "26aaf9ab604cedca477d2dd017111465b2428acd41fc63d878cf48c58aad326f",
+    "validation/triangulation-tlindex/diagnostic/analyze-command-cpu-counters.py": "e083dd50bf0d1fb87895d4323cd0ed799eaba363c7a5ce6eb5b5a7b0e87209ab",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline1/run.json": "d8236a4c84e1755b78090ef325a3bd2fb552e3319f0aa07dfd86c0784d146019",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline1/native-review.json": "2cedaaa2baf4c394b13b0b81e8313439463dd1d92887617ddc81a4b0832a16e2",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline1/direct-cpu-review.json": "5c5134a55d86625e7e0b167e5d4334b3b3a5d11b8e4e80742fc6eb602112f18e",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline1/resource-review.json": "d8727562edaea561ec0641104c7422f994116466b4f7f2fbc3faad262d7a8395",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline1/native-evidence/observer-free-results.tsv": "30f7ca993fcc5a512f62dd092a5e2e177ffd53deda92d4278a50506c22dfaadc",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline1/native-evidence/resources.jsonl": "a5ac8aec3e2b8d9e0ee3726d9b308a1e70a41d0397680c8f56ad99ad2b794c36",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline1/native-evidence/observer-free-command-cpu.tsv": "0b9b4c2602ebda5dddda22f469eedcc840e876853c15c66cdbeb4cc9f8ea6fb1",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate1/run.json": "c76eb277ba2e432035c961f6cfc0b75d0808ed18a8cf194cf7396491474a268e",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate1/native-review.json": "9f77a6268cb44f84995823eb33495bd42cdd377d6d278ff6bc7fa7bf8d10fb2e",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate1/direct-cpu-review.json": "73a2d8d0b4f0966b26ffc1c19e3de9bb93b1fff9c56deea89445abe799d5fd5a",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate1/resource-review.json": "26e0f728bf2ffae1d47ad973ab49a9ded4c20987ed2b2491896281acd75dfec7",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate1/native-evidence/observer-free-results.tsv": "30f7ca993fcc5a512f62dd092a5e2e177ffd53deda92d4278a50506c22dfaadc",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate1/native-evidence/resources.jsonl": "6bb4b3e6d03417426b0d100d2a22aad949fcdbbe3892c06d677933891f99d356",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate1/native-evidence/observer-free-command-cpu.tsv": "31cd9ecb6488251fb55e1fe3d75cc53041501e54a1845d6c50a2cdc066a3beb5",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate2/run.json": "57968a4edbb26fd10eac2578725af485a05fda60ed7ab4b56ffb2e3fad554aac",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate2/native-review.json": "98495591adb0ec946d0ec825b98173e2765b30283f9a89eb4c6aa6fd0ebb9c39",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate2/direct-cpu-review.json": "776cce964633b540ce9a3f14f698e92450c144d77e65d652392c960bf82f2805",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate2/resource-review.json": "02ffc75a25b0db38f526720bcb45bb65052a036eb7466f79c12a40053a5e495d",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate2/native-evidence/observer-free-results.tsv": "30f7ca993fcc5a512f62dd092a5e2e177ffd53deda92d4278a50506c22dfaadc",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate2/native-evidence/resources.jsonl": "aed4a3a57eccd68abdb8963ce5ba9fe8507d5a829d7e0f88f2894dfe29930817",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate2/native-evidence/observer-free-command-cpu.tsv": "a99c3e0afa48beca6f6c34fdb775469b2c2a90432b7b87bd960337097ef4d55e",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline2/run.json": "e51a57fb90150f251e71d59f3d45766eec932fd90c19eb91606d4ef9f4c9c59a",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline2/native-review.json": "46afaa96e5256e27b168ccdda87ed5529521ffd076fdf0b494b3fdfb1204df7f",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline2/direct-cpu-review.json": "e07fa3e3db8857e4aa37c13327bf528f8ad5b4ce8268fb565b4aedb3603ba57c",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline2/resource-review.json": "3d5c917debc26721aac059524cfe35c4883de50cbca2a265001cf5e51fb1b002",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline2/native-evidence/observer-free-results.tsv": "30f7ca993fcc5a512f62dd092a5e2e177ffd53deda92d4278a50506c22dfaadc",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline2/native-evidence/resources.jsonl": "c44cbcd572e0e8905e3389a99888bf3ec9731997cee07bf9a0011da64d4750f6",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline2/native-evidence/observer-free-command-cpu.tsv": "dd57cf60a0b96891016e07ca7a4b4f0496d52be13ace0cbd7743ddde73acfc92"
+  },
+  "limitations": [
+    "Two fixed reversed-order pairs, not statistical evidence or complete production acceptance.",
+    "Exact unchanged production Agents, single premain, identical controlled-input non-JFR task plugin and kernel observer. Direct process CPU includes all Java threads; native-only intervals exclude pre-resolution/preparation/output hashing. Provider resolution is not proven by nanosecond units.",
+    "RSS/PSS remain sampled. Memory operation windows also include common preparation and output snapshots; these broader windows are used conservatively for sampled RSS. No changed caps, favorable retry, or retrospective earlier candidate acceptance."
+  ],
+  "verification": {
+    "protocolPinsRehashed": 57,
+    "analysisPinsRehashed": 34,
+    "legs": {
+      "baseline1": {
+        "rawFilesRehashed": 53,
+        "reviewCopiesRehashed": 23,
+        "rawManifestSha256": "67efe8959eb50d55cce3e0433845295a4f1b968f93cdc4862e42020e74cebb02",
+        "nativeReviewSha256": "2cedaaa2baf4c394b13b0b81e8313439463dd1d92887617ddc81a4b0832a16e2"
+      },
+      "candidate1": {
+        "rawFilesRehashed": 53,
+        "reviewCopiesRehashed": 23,
+        "rawManifestSha256": "90875147ea48e622b187547c11a3d4bd479e1b0c6f64939a9626804740d7404f",
+        "nativeReviewSha256": "9f77a6268cb44f84995823eb33495bd42cdd377d6d278ff6bc7fa7bf8d10fb2e"
+      },
+      "candidate2": {
+        "rawFilesRehashed": 53,
+        "reviewCopiesRehashed": 23,
+        "rawManifestSha256": "996484ae006dea3294f7188de865482495277f8c1850fda494e2b2581d74138b",
+        "nativeReviewSha256": "98495591adb0ec946d0ec825b98173e2765b30283f9a89eb4c6aa6fd0ebb9c39"
+      },
+      "baseline2": {
+        "rawFilesRehashed": 54,
+        "reviewCopiesRehashed": 23,
+        "rawManifestSha256": "2af6609d9737aa34b06efe5593f772c71e7f155f0f96966cb07c8ab1899baf83",
+        "nativeReviewSha256": "46afaa96e5256e27b168ccdda87ed5529521ffd076fdf0b494b3fdfb1204df7f"
+      }
+    },
+    "balancedReviewSha256": "f74beb94b3e76f9a8384dd4a85df8977f87abc32640f25f712430ae73888eb97"
+  },
+  "nextWork": "Diagnose CPU pair regression and retained/operation RSS from separately scoped evidence; no favorable rerun or changed gates. T057 remains accepted delivery."
+}

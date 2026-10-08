@@ -160,9 +160,10 @@ class NotificationTests(unittest.TestCase):
 
     def test_one_issue_per_outage_and_recovery_is_atomic(self):
         api = FakeGitHub()
-        self.assertEqual(monitor.notify(report(False), api, RUN)['action'], 'opened')
-        self.assertEqual(api.issues[0]['assignees'], ['RainTrap341'])
-        self.assertIn('@RainTrap341', api.issues[0]['body'])
+        with patch.object(monitor, 'RECIPIENT', 'ops-reviewer'):
+            self.assertEqual(monitor.notify(report(False), api, RUN)['action'], 'opened')
+        self.assertEqual(api.issues[0]['assignees'], ['ops-reviewer'])
+        self.assertIn('@ops-reviewer', api.issues[0]['body'])
         self.assertIn(RUN, api.issues[0]['body'])
         self.assertEqual(monitor.notify(report(False), api, RUN)['action'], 'ongoing')
         self.assertEqual(len(api.writes), 1)
@@ -177,7 +178,7 @@ class NotificationTests(unittest.TestCase):
 
     def test_does_not_close_human_issues_or_pull_requests(self):
         api = FakeGitHub([{'number': 5, 'state': 'open', 'body': monitor.MARKER,
-                          'user': {'login': 'RainTrap341'}},
+                          'user': {'login': 'issue-author'}},
                          {'number': 6, 'state': 'open', 'body': monitor.MARKER,
                           'user': {'login': 'github-actions[bot]'}, 'pull_request': {}}])
         monitor.notify(report(True), api, RUN)

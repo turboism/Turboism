@@ -61,9 +61,9 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         this.context = Objects.requireNonNull(context, "context");
         cacheIndex = new PreviewCacheIndex(context.storage());
         controller = new RecentPreviewController(
-                java.util.Optional.ofNullable(context.services().get(RecentFileService.class))
-                        .orElseGet(RecentFileService::unavailable),
-                java.util.Optional.ofNullable(context.services().get(ScreenshotCaptureService.class))
+                context.services().find(RecentFileService.class).orElseGet(RecentFileService::unavailable),
+                context.services()
+                        .find(ScreenshotCaptureService.class)
                         .orElseGet(ScreenshotCaptureService::unavailable),
                 cacheIndex);
         renderer =
@@ -288,17 +288,12 @@ public final class RecentPreviewPlugin implements CubismPlugin {
     }
 
     private static String loadingText(final PluginContext context) {
-        try {
-            final String localized = context.localization().text(LOADING_TEXT_KEY);
-            return localized == null || localized.isBlank() ? DEFAULT_LOADING_TEXT : localized;
-        } catch (RuntimeException unavailable) {
-            return DEFAULT_LOADING_TEXT;
-        }
+        return context.localization().text(LOADING_TEXT_KEY, DEFAULT_LOADING_TEXT);
     }
 
     private void refreshPopup() {
-        final RecentPreviewContributionService service = java.util.Optional.ofNullable(
-                        context.services().get(RecentPreviewContributionService.class))
+        final RecentPreviewContributionService service = context.services()
+                .find(RecentPreviewContributionService.class)
                 .orElseGet(RecentPreviewContributionService::unavailable);
         try {
             service.refresh();
@@ -315,8 +310,8 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         if (active == null) return;
         try {
             contribution = context.disposableScope()
-                    .register(java.util.Optional.ofNullable(
-                                    context.services().get(RecentPreviewContributionService.class))
+                    .register(context.services()
+                            .find(RecentPreviewContributionService.class)
                             .orElseGet(RecentPreviewContributionService::unavailable)
                             .contribute(active));
         } catch (RuntimeException unavailable) {

@@ -26,10 +26,12 @@ out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 
 javac --release 17 -cp "$sdk_jar" -d "$out" \
-  "$src/dev/turboism/validation/settingspage/SettingsPageProbePlugin.java"
+  "$src/dev/turboism/validation/settingspage/SettingsPageProbePlugin.java" \
+  "$src/dev/turboism/validation/settingspage/TaskConfigFixture.java"
 cp -r "$src/META-INF" "$out/"
 
-output="$repo_root/build/settings-page-host-probe.jar"
+output="${1:-$repo_root/build/settings-page-host-probe.jar}"
+mkdir -p "$(dirname "$output")"
 jar cf "$output" -C "$out" .
 # Exercise the packaged artifact, not merely the resource source directory.
 jar tf "$output" | grep -Fx "$catalog" >/dev/null

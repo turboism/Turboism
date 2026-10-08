@@ -1,11 +1,11 @@
 # Turboism Windows Workspace Validation
 
 Disposable, exact-host validation harness for the Workspace control slice
-(`PluginContext.workspace()`). It proves the real
+(`PluginContext.services()` (`WorkspaceService`)). It proves the real
 `PluginContext -> RuntimeWorkspaceService -> WorkspaceCoordinator` path while a
 **separate validation javaagent** supplies the candidate exact-version
 `WorkspaceHostProvider`. Production bootstrap composition is not modified:
-`PluginContext.workspace()` stays UNAVAILABLE until the operator or the opt-in automatic matrix connects the provider.
+`PluginContext.services()` (`WorkspaceService`) stays UNAVAILABLE until the operator or the opt-in automatic matrix connects the provider.
 connects the provider.
 
 Nothing in this bundle modifies the Cubism installation, its launchers, its
@@ -23,7 +23,7 @@ must review the finished harness before launch.
 | --- | --- |
 | `turboism-agent.jar` | Production Turboism agent freshly built by `:bootstrap:jar` for this worktree (`build/worktree/<worktree>/bootstrap/libs`); packaging fails closed if the jar is missing, ambiguous, or embeds stale verification records. |
 | `workspace-validation-agent.jar` | Disposable validation javaagent; `Premain-Class` manifest plus `Class-Path: turboism-agent.jar`. |
-| `plugins/workspace-validation-probe.jar` | SDK-only validation plugin (only `PluginContext.workspace()` / `cubism()` / `tasks()` / `paths()`). |
+| `plugins/workspace-validation-probe.jar` | SDK-only validation plugin (only `PluginContext.services()` (`WorkspaceService`) / `cubism()` / `tasks()` / `paths()`). |
 | `cubism-5.2-workspace-control.json` | Exact 5.2.03 candidate workspace-control verification record (static, JAR-metadata; candidate selectors only). |
 | `cubism-5.3.02-workspace-control.json` | Exact 5.3.02 candidate workspace-control verification record (static, JAR-metadata; candidate selectors only). |
 | `launch-workspace-validation.bat.template` | Outer BAT template; edit the five `SET` lines, then rename to `.bat`. |
@@ -159,7 +159,7 @@ Rules:
 What degraded mode proves and does not prove:
 
 - It proves only the exact workspace slice and the public SDK path
-  (`PluginContext.workspace()` → `RuntimeWorkspaceService` →
+  (`PluginContext.services()` (`WorkspaceService`) → `RuntimeWorkspaceService` →
   `WorkspaceCoordinator` → exact-version `WorkspaceHostProvider`), through the
   SDK-only probe, with the provider still gated by the explicit connect marker.
 - It does **not** satisfy `host=ACTIVE`, Cubism facade readiness, model/

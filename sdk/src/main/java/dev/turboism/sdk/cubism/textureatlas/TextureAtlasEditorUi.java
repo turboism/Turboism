@@ -19,4 +19,42 @@ public interface TextureAtlasEditorUi {
      * immediately. The host renderer is supplied by the runtime adapter.
      */
     TextureAtlasEditorPanel attach();
+
+    /**
+     * Reports whether a live runtime backend backs this service.
+     *
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
+    static TextureAtlasEditorUi unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    /**
+     * Sentinel returned by {@link #unavailable()}: {@link #attach()} throws a stable
+     * {@link UnsupportedOperationException}, matching the other unavailable contribution
+     * surfaces; probe with {@link #isAvailable()} first.
+     */
+    enum Unavailable implements TextureAtlasEditorUi {
+        INSTANCE;
+
+        @Override
+        public boolean isAvailable() {
+            return false;
+        }
+
+        @Override
+        public TextureAtlasEditorPanel attach() {
+            throw new UnsupportedOperationException("texture atlas editor UI contribution is unavailable");
+        }
+    }
 }

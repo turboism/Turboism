@@ -15,7 +15,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * Runtime implementation of the canvas-top GL strip state button surface.
@@ -44,7 +43,6 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     private final Object lock = new Object();
     private final Map<String, Entry> entries = new LinkedHashMap<>();
-    private final Set<Object> nativeSeatLogged = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
     private final List<Runnable> pendingBuilds = new ArrayList<>();
     private Object strip;
     private boolean mountAttempted;
@@ -125,7 +123,6 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
             diagnostic("BUTTON_MOUNTED id=" + contribution.contributionId()
                     + " state=" + initialState
                     + " entities=" + built.stateEntities().size());
-            scheduleDeferredSeat(built.button());
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             final String phase = failure instanceof PhaseTagged tagged ? tagged.phase : "UNKNOWN";
@@ -467,15 +464,6 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         return (Float) rect.getClass().getMethod("getHeight").invoke(rect);
     }
 
-    private static Object readField(final Object owner, final String name) throws IllegalAccessException {
-        for (final Field field : owner.getClass().getDeclaredFields()) {
-            if (!field.getName().equals(name)) continue;
-            field.setAccessible(true);
-            return field.get(owner);
-        }
-        return null;
-    }
-
     private static void removeButton(final Object button) {
         try {
             // Remove from H
@@ -523,297 +511,18 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
 
     /**
      * Invoked at the tail of the strip's {@code a(N)} layout dispatch via the
-     * bridge's {@code positionStripButton} injection. The button rides the
-     * same flow layout as every native member — it is appended to list
-     * {@code H} and {@code a(N)} positions each member left-to-right from the
-     * component's left edge — so this pass never assigns coordinates itself.
-     * It only records where the native layout actually seated each button,
-     * once per button, so evidence distinguishes "seated by the strip" from
-     * "never reached by a layout pass".
+     * bridge's {@code positionStripButton} injection. The contributed button
+     * rides the same flow layout as every native member — it is appended to
+     * list {@code H} and {@code a(N)} positions each member left-to-right from
+     * the component's left edge — so this hook owns no runtime work. It must
+     * still resolve: the transformer injects an INVOKESTATIC to it on every
+     * {@code a(N)} RETURN, and a missing method would throw
+     * {@link NoSuchMethodError} inside the host dispatch.
      */
     public void positionButton(final Object stripInstance) {
-        synchronized (lock) {
-            if (stripInstance == null || stripInstance != strip || entries.isEmpty()) return;
-            try {
-                for (final Entry entry : entries.values()) {
-                    final Object button = entry.currentButton();
-                    if (button == null || nativeSeatLogged.contains(button)) continue;
-                    final Object our = rectOf(button);
-                    if (our == null || width(our) <= 0f || height(our) <= 0f) continue;
-                    diagnostic("STRIP_NATIVE_SEAT x=" + minX(our) + " y=" + minY(our) + " w=" + width(our) + " h="
-                            + height(our));
-                    nativeSeatLogged.add(button);
-                }
-            } catch (Throwable failure) {
-                FatalErrors.rethrowIfFatal(failure);
-                diagnostic("STRIP_SEAT_DIAG_FAILED " + failure.getClass().getSimpleName());
-            }
-        }
-    }
-
-    /**
-     * Deferred geometry probes at +1.5/+6/+15/+40s after mount. {@code a(N)}
-     * is the only layout pass for H members and it runs on action dispatch;
-     * these probes record when the contributed button lands in the H flow,
-     * its parent/enabled state and child index — enough to distinguish
-     * "never positioned" from "positioned but not rendered".
-     */
-    private void scheduleDeferredSeat(final Object button) {
-        final Thread worker = new Thread(() -> {
-            for (final long delay : new long[] {1500, 6000, 15000, 40000}) {
-                try {
-                    Thread.sleep(delay);
-                } catch (InterruptedException ignored) {
-                    return;
-                }
-                synchronized (lock) {
-                    dumpGeometry(button, delay);
-                }
-            }
-        });
-        worker.setDaemon(true);
-        worker.start();
-    }
-
-    private void dumpGeometry(final Object button, final long atMs) {
-        try {
-            final StringBuilder sb = new StringBuilder("STRIP_GEOMETRY t=").append(atMs);
-            Entry owner = null;
-            for (final Entry candidate : entries.values()) {
-                if (candidate.currentButton() == button) {
-                    owner = candidate;
-                    break;
-                }
-            }
-            if (owner != null) {
-                for (final Map.Entry<Integer, Object> state :
-                        owner.stateEntities().entrySet()) {
-                    sb.append(" item").append(state.getKey()).append('[');
-                    try {
-                        final Object transform = state.getValue()
-                                .getClass()
-                                .getMethod("getTransform")
-                                .invoke(state.getValue());
-                        final Object pos =
-                                transform.getClass().getMethod("getPosition").invoke(transform);
-                        final Object scale =
-                                transform.getClass().getMethod("getScale").invoke(transform);
-                        sb.append("pos=(")
-                                .append(vec(pos, "getX"))
-                                .append(',')
-                                .append(vec(pos, "getY"))
-                                .append(')')
-                                .append(",scale=(")
-                                .append(vec(scale, "getX"))
-                                .append(',')
-                                .append(vec(scale, "getY"))
-                                .append(')');
-                    } catch (ReflectiveOperationException ignored) {
-                        sb.append("noTransform");
-                    }
-                    Object enabled = "?";
-                    Object invisible = "?";
-                    try {
-                        enabled = state.getValue()
-                                .getClass()
-                                .getMethod("getEnabled")
-                                .invoke(state.getValue());
-                        invisible = state.getValue()
-                                .getClass()
-                                .getMethod("isInvisible")
-                                .invoke(state.getValue());
-                    } catch (ReflectiveOperationException ignored) {
-                    }
-                    sb.append(",en=").append(enabled).append(",inv=").append(invisible);
-                    sb.append(rendererDiag(state.getValue()));
-                    sb.append(']');
-                }
-            }
-            final Object dropdown = strip == null ? null : readField(strip, "z");
-            if (dropdown != null) {
-                try {
-                    final Object zItems =
-                            dropdown.getClass().getMethod("getItems").invoke(dropdown);
-                    if (zItems instanceof List<?> zl) {
-                        int zi = 0;
-                        for (final Object zItem : zl) {
-                            if (zItem == null || zi++ > 3) continue;
-                            sb.append(" zItem").append(zi).append('[');
-                            try {
-                                final Object tr = zItem.getClass()
-                                        .getMethod("getTransform")
-                                        .invoke(zItem);
-                                final Object pos =
-                                        tr.getClass().getMethod("getPosition").invoke(tr);
-                                final Object sc =
-                                        tr.getClass().getMethod("getScale").invoke(tr);
-                                sb.append("pos=(")
-                                        .append(vec(pos, "getX"))
-                                        .append(',')
-                                        .append(vec(pos, "getY"))
-                                        .append(')')
-                                        .append(",sc=(")
-                                        .append(vec(sc, "getX"))
-                                        .append(',')
-                                        .append(vec(sc, "getY"))
-                                        .append(')');
-                            } catch (ReflectiveOperationException ignored) {
-                                sb.append("noTransform");
-                            }
-                            try {
-                                sb.append(",en=")
-                                        .append(zItem.getClass()
-                                                .getMethod("getEnabled")
-                                                .invoke(zItem))
-                                        .append(",inv=")
-                                        .append(zItem.getClass()
-                                                .getMethod("isInvisible")
-                                                .invoke(zItem));
-                            } catch (ReflectiveOperationException ignored) {
-                            }
-                            sb.append(rendererDiag(zItem));
-                            sb.append(']');
-                        }
-                    }
-                } catch (ReflectiveOperationException ignored) {
-                    sb.append(" zItems=unreadable");
-                }
-            }
-            final Object zRect = dropdown == null ? null : rectOf(dropdown);
-            final Object our = rectOf(button);
-            final Object parent = button.getClass().getMethod("getParentEntity").invoke(button);
-            if (zRect != null) {
-                sb.append(" z[x=")
-                        .append(minX(zRect))
-                        .append(",y=")
-                        .append(minY(zRect))
-                        .append(",w=")
-                        .append(width(zRect))
-                        .append(']');
-            } else {
-                sb.append(" z=null");
-            }
-            if (our != null) {
-                sb.append(" our[x=")
-                        .append(minX(our))
-                        .append(",y=")
-                        .append(minY(our))
-                        .append(",w=")
-                        .append(width(our))
-                        .append(",h=")
-                        .append(height(our))
-                        .append(']');
-            } else {
-                sb.append(" our=null");
-            }
-            sb.append(" parent=").append(parent != null);
-            try {
-                sb.append(" enabled=")
-                        .append(button.getClass().getMethod("getEnabled").invoke(button))
-                        .append(" enHier=")
-                        .append(button.getClass()
-                                .getMethod("getEnabledInHierarchy")
-                                .invoke(button))
-                        .append(" inv=")
-                        .append(button.getClass().getMethod("isInvisible").invoke(button));
-            } catch (ReflectiveOperationException ignored) {
-                // flags optional
-            }
-            if (dropdown != null) {
-                try {
-                    sb.append(" zEnHier=")
-                            .append(dropdown.getClass()
-                                    .getMethod("getEnabledInHierarchy")
-                                    .invoke(dropdown));
-                } catch (ReflectiveOperationException ignored) {
-                }
-            }
-            sb.append(" btn").append(rendererDiag(button));
-            if (dropdown != null) {
-                sb.append(" zBtn").append(rendererDiag(dropdown));
-            }
-            try {
-                final Object sceneGraph = sceneGraphOf(strip);
-                final Object objects =
-                        sceneGraph.getClass().getMethod("getObjectsOnComponent").invoke(sceneGraph);
-                final Object children =
-                        objects.getClass().getMethod("getChildren").invoke(objects);
-                final Object list = children.getClass().getMethod("getList").invoke(children);
-                if (list instanceof List<?> entities) {
-                    sb.append(" childIdx=")
-                            .append(entities.indexOf(button))
-                            .append('/')
-                            .append(entities.size());
-                }
-            } catch (ReflectiveOperationException ignored) {
-                // child index optional
-            }
-            if (zRect != null && width(zRect) > 0f && minX(zRect) > 1f) {
-                final float w = our != null && width(our) > 0f ? width(our) : 40f;
-                final float h = our != null && height(our) > 0f ? height(our) : 24f;
-                final float seatX = minX(zRect) + width(zRect);
-                if (our == null || Math.abs(minX(our) - seatX) > 0.5f || Math.abs(minY(our) - minY(zRect)) > 0.5f) {
-                    setBoundsOnComponent(button, newRect(seatX, minY(zRect), w, h, button));
-                    sb.append(" seatedX=").append(seatX);
-                }
-            }
-            diagnostic(sb.toString());
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            diagnostic("STRIP_GEOMETRY_FAILED " + failure.getClass().getSimpleName());
-        }
-    }
-
-    /**
-     * Mesh-renderer level diagnosis: last rendering order (NOT_INITIALIZED
-     * when the renderer was never collected into a render pass), sorting
-     * layer presence and order — separates "entity invisible" from
-     * "renderer never registered".
-     */
-    private static String rendererDiag(final Object entity) {
-        try {
-            final Object renderer =
-                    entity.getClass().getMethod("getMeshRenderer").invoke(entity);
-            if (renderer == null) return ",mr=null";
-            final StringBuilder sb = new StringBuilder(",mr[");
-            try {
-                sb.append("lastOrder=")
-                        .append(renderer.getClass()
-                                .getMethod("getLast_renderingOrder$core")
-                                .invoke(renderer));
-            } catch (ReflectiveOperationException ignored) {
-                sb.append("lastOrder=?");
-            }
-            try {
-                final Object layer =
-                        renderer.getClass().getMethod("getSortingLayer").invoke(renderer);
-                sb.append(",layer=").append(layer != null);
-            } catch (ReflectiveOperationException ignored) {
-                sb.append(",layer=?");
-            }
-            try {
-                sb.append(",order=")
-                        .append(renderer.getClass().getMethod("getOrderInLayer").invoke(renderer));
-            } catch (ReflectiveOperationException ignored) {
-                sb.append(",order=?");
-            }
-            return sb.append(']').toString();
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            return ",mr=ERR";
-        }
-    }
-
-    private static float vec(final Object vector, final String getter) throws ReflectiveOperationException {
-        return (Float) vector.getClass().getMethod(getter).invoke(vector);
-    }
-
-    private static float minX(final Object rect) throws ReflectiveOperationException {
-        return (Float) rect.getClass().getMethod("getMinX").invoke(rect);
-    }
-
-    private static float minY(final Object rect) throws ReflectiveOperationException {
-        return (Float) rect.getClass().getMethod("getMinY").invoke(rect);
+        // Deliberately empty: the button's seat is owned by the native a(N)
+        // flow layout — appended to list H, it is positioned left-to-right
+        // with every other member on each dispatch.
     }
 
     private static void diagnostic(final String stage) {

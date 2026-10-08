@@ -21,20 +21,16 @@ final class RecentFileServiceContractTest {
 
     @Test
     void pluginContextDefaultsToTheTypedUnavailableRecentFileSingleton() throws Exception {
-        final Method accessor = Arrays.stream(PluginContext.class.getMethods())
-                .filter(method -> method.getName().equals("recentFiles"))
-                .findFirst()
-                .orElseThrow();
-
-        assertTrue(accessor.isDefault());
-        assertEquals(RecentFileService.class, accessor.getReturnType());
-        assertEquals(0, accessor.getParameterCount());
+        assertTrue(Arrays.stream(PluginContext.class.getMethods())
+                .noneMatch(method -> method.getName().equals("recentFiles")));
 
         final PluginContext context = (PluginContext) java.lang.reflect.Proxy.newProxyInstance(
                 PluginContext.class.getClassLoader(),
                 new Class<?>[] {PluginContext.class},
                 (proxy, method, args) -> method.isDefault() ? invokeDefault(proxy, method, args) : null);
-        assertSame(RecentFileService.unavailable(), context.recentFiles());
+        assertSame(
+                RecentFileService.unavailable(),
+                context.services().find(RecentFileService.class).orElse(RecentFileService.unavailable()));
 
         assertEquals(
                 List.of("isAvailable", "list", "unavailable"),

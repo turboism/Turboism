@@ -1,0 +1,89 @@
+{
+  "status": "PARTIAL_5303_COMMAND_RETURN_CHAIN_INSPECTED",
+  "nativeExecuted": false,
+  "jvmStarted": false,
+  "hostPreparedOrSubmitted": false,
+  "archiveIdentityRevalidated": false,
+  "historicalExpectedJarSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+  "classPins": {
+    "com/live2d/doc/IEditMode$b": "b64ece23858202fd5028fc472a121711fcf95c5c6b3a0a7b9b11af6b0028dbee",
+    "com/live2d/cubism/doc/ACEditMode": "cc61b1fd26cacec336ca1d089e755a0a8975fcbec7d27b7e888e042410277922",
+    "com/live2d/cubism/pack/CECompletePack": "772e1404e1ce8d9e63adb017c29e14fd790252d34f0c5f580822c09a95305e49",
+    "com/live2d/cubism/CEUpdateManager": "904e8e96460585783331b988bffc001390e55f2afbdac82b53d19d814236a336",
+    "com/live2d/util/aD": "aa7eb8d2b4a8bbe44e88ad1317f09f00a6051cfc80be0cb50f17113884768918",
+    "com/live2d/cubism/T": "432d714c0e28f7254445258814e3c7c58e2770557535a57247475aa30d04df5a",
+    "com/live2d/cubism/view/context/CEViewContext": "6f888ce6f10a79a71f4409ecfc22e6f0cabe190f7eab13bf61279da7f033fd57"
+  },
+  "independentDecoderChecks": [
+    {
+      "class": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor",
+      "method": "commandAutoConnect",
+      "descriptor": "()V",
+      "instructionCount": 130,
+      "status": "PASS_EXACT_INSTRUCTION_OFFSETS_MATCH_PINNED_JAVAP",
+      "dumpSha256": "3ac97ccae42ac0785e177ddcdff9f0f13def262a93769805e53a8d45dbad2d8e",
+      "classSha256": "b5b17c1a6c346ed4f6851dccdc91a24c2308f17937bfaf1f2e168e5ee48d0e76"
+    },
+    {
+      "class": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+      "method": "autoConnect",
+      "descriptor": "(ZZLcom/live2d/util/j/a;)V",
+      "instructionCount": 170,
+      "status": "PASS_EXACT_INSTRUCTION_OFFSETS_MATCH_PINNED_JAVAP",
+      "dumpSha256": "9121d65980e6be01fd5b30a03b7b286e444861869e0d595207bae4e17039dd56",
+      "classSha256": "d6fe4e690399d767019d113e82c62414da0d82d9a54aa799a74919d9e8693f7a"
+    }
+  ],
+  "syntheticDecoderTests": 6,
+  "findings": [
+    {
+      "fact": "Native commandAutoConnect calls endEdit and repaintCanvas after per-source autoConnect/setEdgeUpdated.",
+      "implication": "A post-command snapshot is a distinct observation boundary from producer return."
+    },
+    {
+      "fact": "CECompletePack.repaintCanvas delegates to CEUpdateManager; its per-view callback uses util/aD.c(Function0).",
+      "implication": "Repaint-related event dispatch cannot be assumed to occur only after the driver EDT task completes."
+    },
+    {
+      "fact": "util/aD.c invokes Function0 directly on EDT; the captured T callback calls CEViewContext.onInputEvent. CEUpdateManager also schedules a delayed callback using util/aD.a(long,String,boolean,Function0).",
+      "implication": "Review synchronous per-view processing and delayed work before asserting output stability around command return."
+    },
+    {
+      "fact": "ACEditMode.endEdit calls virtual captureOptionalState, undo-manager addEdit, optional Function1, and modification bookkeeping.",
+      "implication": "The member list alone does not prove that all transitively invoked code preserves the output arrays."
+    }
+  ],
+  "publicationProof": "NOT_COMPLETE",
+  "collectorAdmission": "NOT_GRANTED",
+  "pending": [
+    "Revalidate complete official archive identity when performance window is free.",
+    "Inspect exact live view-context implementations/handlers and undo/edit completion transitive paths.",
+    "Confirm complete per-source generation and a stable read boundary without forced cache refresh or version writes.",
+    "Review corresponding 5203/5302 paths independently.",
+    "Then implement/test a separate command-boundary driver; do not weaken legacy stale-cache refusal."
+  ],
+  "limitations": [
+    "The tool decodes instructions/member references; it is not a JVM verifier or whole-program proof.",
+    "Six synthetic decoder tests and 300 pinned-javap instruction offsets validate bounded decoding, not arbitrary classfiles.",
+    "Static class-byte inspection is not live loaded-class identity, runtime thread behavior, geometry equality or performance acceptance."
+  ],
+  "pins": {
+    "validation/triangulation-tlindex/diagnostic/inspect-command-return-bytecode.py": "38162f3be20505156f5fa6e7687080c43301a5ad7a1db2a186452b19efa32392",
+    "validation/triangulation-tlindex/diagnostic/test-command-return-bytecode.py": "6c22e53a578ebb88254dfbea43adad2e8d0ec7e295ac0e6e30864ac2ab041050",
+    "build/t076-production-acceptance-preflight-r1/command-return-closure5303-r1.json": "255a0ae4cd21245b623d32eb2e9cff0b76d593a0eeee0a711502d9b68ead6399",
+    "build/t076-production-acceptance-preflight-r1/decoder-real-bytecode-crosscheck-r1.json": "5c529a058e9a81cdeb260772e12c0d1339e6b6b58f6bcda442194be900ad5d43",
+    "build/t076-production-acceptance-preflight-r1/decoder-selfcheck-r1.log": "c6b9b1f09add0403cc07e90bfdf272129b1ddfa2f8f7675ea8218862f2516371"
+  },
+  "inspectionRefusals": [
+    {
+      "attempt": "Select endEdit on CModelingEditMode_Base",
+      "result": "REFUSED_NO_SELECTED_CODE",
+      "correction": "Actual implementation inherited from ACEditMode; inspected that class instead."
+    },
+    {
+      "attempt": "Select onEvent on CEViewContext",
+      "result": "REFUSED_NO_SELECTED_CODE",
+      "correction": "Actual T callback names onInputEvent; inspected that method instead."
+    }
+  ]
+}

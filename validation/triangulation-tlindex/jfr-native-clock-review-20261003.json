@@ -1,0 +1,92 @@
+{
+  "status": "PASS_SAME_RECORDING_NATIVE_EDT_OWNERSHIP_DIAGNOSTIC_ONLY",
+  "sequence": 2599,
+  "jobId": "38f427e1-9067-4688-9c5c-fa004bc9e905",
+  "preparedId": "bc07577a64f7487d939f6bd24d881935220e805a6c764906b5ac86c0d198f09b",
+  "sourceProtocolCommit": "cf6af03f5",
+  "productionAgentSha256": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+  "pluginSha256": "7a60b17ecf8a559c8875de0cbb7ac35e7a86d6264a5f626dbf26468ea3a1b8be",
+  "outputRows": 2133,
+  "referenceMismatchCount": 0,
+  "cpuPayloadFieldsMatched": 30,
+  "cycles": [
+    {
+      "cycle": 1,
+      "executionSamples": 631,
+      "settleLeafSamples": 140,
+      "objectsCheckIndexLeafSamples": 142,
+      "sampleScopes": {
+        "all": 631,
+        "indexInclusive": 152,
+        "triangulationInclusive": 427,
+        "emptyStack": 0,
+        "truncatedStack": 0
+      },
+      "allocationEstimatedWeights": {
+        "all": 1110806416,
+        "indexInclusive": 175890320,
+        "triangulationInclusive": 1073068072,
+        "emptyStack": 0,
+        "truncatedStack": 0
+      }
+    },
+    {
+      "cycle": 2,
+      "executionSamples": 531,
+      "settleLeafSamples": 102,
+      "objectsCheckIndexLeafSamples": 114,
+      "sampleScopes": {
+        "all": 531,
+        "indexInclusive": 109,
+        "triangulationInclusive": 361,
+        "emptyStack": 0,
+        "truncatedStack": 0
+      },
+      "allocationEstimatedWeights": {
+        "all": 753583408,
+        "indexInclusive": 242839384,
+        "triangulationInclusive": 691140240,
+        "emptyStack": 0,
+        "truncatedStack": 0
+      }
+    },
+    {
+      "cycle": 3,
+      "executionSamples": 635,
+      "settleLeafSamples": 150,
+      "objectsCheckIndexLeafSamples": 145,
+      "sampleScopes": {
+        "all": 635,
+        "indexInclusive": 156,
+        "triangulationInclusive": 431,
+        "emptyStack": 0,
+        "truncatedStack": 0
+      },
+      "allocationEstimatedWeights": {
+        "all": 753573808,
+        "indexInclusive": 205094608,
+        "triangulationInclusive": 703359328,
+        "emptyStack": 0,
+        "truncatedStack": 0
+      }
+    }
+  ],
+  "excludedWholeRecordingEvents": {
+    "nativeMethodSamples": 12197,
+    "otherThreadExecutionOrAllocation": 6746
+  },
+  "performanceAcceptance": "NOT_GRANTED",
+  "nextAction": "Design exact-safe settlement cost reduction; do not infer checkIndex owner from leaf alone or promote T075.",
+  "rawInputPins": {
+    "build/t076-production-acceptance-preflight-r1/native5303-jfr-clock-feasibility-r1/native-clock-ownership.json": "f7137ea3d83b1b4fbc349bacf7b18e01fa2cbc7e0258b498e30a1017af36923a",
+    "build/t076-production-acceptance-preflight-r1/native5303-jfr-clock-feasibility-r1/native-review.json": "c01cf75bb080458c44c56a52e58f4b20d92547750fc265d6fdd54d43916aa476",
+    "build/t076-production-acceptance-preflight-r1/native5303-jfr-clock-feasibility-r1/outcome.json": "4504e10572cff8dc651fb94703e0a7377b3d6022a4e392401b9e2a324030a909",
+    "build/t076-production-acceptance-preflight-r1/jfr-native-clock-analysis-guard-r1/result.json": "37e1181b052f49e02fa7346c2094bda8e4dd770544b62df5aa982ff89236b400"
+  },
+  "limitations": [
+    "Invocation envelopes include the two CPU reads and command dispatch, exclude preparation/output snapshots.",
+    "Sampled weights and execution-stack counts are not exact allocation bytes or CPU time.",
+    "JFR and Java epoch need not agree: the ten payload fields per event bind independent text evidence.",
+    "This is a distinct diagnostic; historical clock-unproven ownership and failed performance gates remain unchanged."
+  ]
+}

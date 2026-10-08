@@ -1,0 +1,26 @@
+{
+  "status": "PASS_EXACT_FROZEN_BASELINE1_EQUIVALENCE",
+  "eventExportBytes": 1256831081,
+  "eventExportSha256": "cf4d677f032718151c5d4ba14677266901a16069d1361a115a39aeee43f46404",
+  "windowsCompared": 10,
+  "observedChildVmHwmBytes": 25133056,
+  "pausedForLiveBaseline": false,
+  "scope": "Existing diagnostic allocation export only; not host performance acceptance",
+  "pins": {
+    "build/t073-memory-window-audit-r1/allocation-window-review.json": "bf7f76226c6ea1af178a768eba35924d64b36b72aa93b70c3299403801341479",
+    "build/t073-memory-window-audit-r1/streaming-equivalence-r1/streaming-review.json": "e9fc69b9deb2e1477a0eebb95f3ecb0a82f17d4a4c439b1013d48c52202e0b61",
+    "build/t073-memory-window-audit-r1/streaming-equivalence-r1/verify.py": "ccb6efe41a20f2cb0b5c42cecb538d0283b01ee54885c2ac71c1d4a077d60412",
+    "validation/triangulation-tlindex/diagnostic/analyze-allocation-windows-streaming.py": "1f1c1b68fadf4c8990d2dbd595ab9aefec10618223221b9169ee6ccec2abe7e1"
+  },
+  "diagnosticToolCommit": "633d69920",
+  "limitations": [
+    "Exact equality verified for one complete frozen baseline1 export and all10windows, not the remaining3exports.",
+    "VmHWM is observed from child process status while running, not a continuous memory benchmark or comparison with historical tool RSS.",
+    "No new JFR recording or export, no changed performance gate, no candidate host benefit claim."
+  ],
+  "deferredChecks": {
+    "candidate1": "Prelaunch queue guard refused when T075 baseline began; no analysis child launched.",
+    "candidate2": "Not executed",
+    "baseline2": "Not executed"
+  }
+}

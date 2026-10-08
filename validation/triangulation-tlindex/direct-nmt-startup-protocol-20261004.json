@@ -1,0 +1,52 @@
+{
+  "task": "T100",
+  "status": "FROZEN_BEFORE_SUBMISSION",
+  "purpose": "DIRECT_NMT_LAUNCHER_FEASIBILITY_ONLY",
+  "order": [
+    "baseline"
+  ],
+  "preparedIds": {
+    "baseline": "d0a8b70a8e5b9c7a38a0360376f47840e4c8c504dab7ae71574da9d67617d2e9"
+  },
+  "replacementOrRetryAllowed": false,
+  "productionPerformanceAcceptance": "NOT_GRANTED",
+  "launcherHookSha256": "cac821be7da130bfe03269ee6c87f0ecb4a2a83696a7be008b351a43758ce9c0",
+  "taskPluginSha256": "73e7ab52570a5399876ed9d4281d234703d83dd931e9f501bea2cf715c49101f",
+  "baselineAgentSha256": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+  "nmtStartupRoute": "OFFICIAL_BAT_PROXYCONFIG_MAXMEMORY_DIRECT_ARGS_TASK_CLONE_ONLY",
+  "jfrEnabled": false,
+  "nmtMode": "summary",
+  "nmtViaJavaToolOptions": false,
+  "pageObserverIntervalSeconds": 5,
+  "minimumWholePageSamplesPerIdleWindow": 4,
+  "inputPins": {
+    "build/t100-direct-nmt-startup-r1/native5303-feasibility-r2/run-all.py": "1ff254b9f596cc3c5427803fcbdd365399d1dd2ddf334490ee27587466f68f7d",
+    "validation/triangulation-tlindex/direct-nmt-startup-protocol-20261004.md": "15ecc6e007977ea1d8b79783d83f19d7444690857ecbcc898b65145cce907ca9",
+    "validation/triangulation-tlindex/nmt-heap-pages-host-failure-20261004.json": "7734d7fa6697edee2fa2610a60034699bdae4826fa23058735dd36c40c8cafc9",
+    "validation/triangulation-tlindex/direct-nmt-launcher-offline-review-20261004.json": "188fe73b78d8655fa969cbeeac9b789f02aea2e884807b0c02be1a1523085d67",
+    "validation/triangulation-tlindex/direct-nmt-queue-inventory-review-20261004.json": "dbff2958e75bf7fea734d7c0594a7d062ee1ebc5dd8f96b8fad4e553d2e604d5",
+    "validation/triangulation-tlindex/nmt-context-plugin-review-20261004.json": "3b472b1e4924ef902d11c236ce6dd210df6eb4e5b93decd581837862ec28dcb7",
+    "scripts/preview/stage-direct-nmt-launcher.py": "cac821be7da130bfe03269ee6c87f0ecb4a2a83696a7be008b351a43758ce9c0",
+    "scripts/preview/host_validation_queue.py": "c23ad8b779f0f96df6a31680bb46d97d4e8637bff380cf344860bcf7a0374a80",
+    "scripts/test/test_host_validation_queue.py": "1e08dddcef78d6085811a8c2eb0a16f78b1678f14f76e6c817d7330783069b1a",
+    "build/t100-direct-nmt-startup-r1/native5303-feasibility-r2/baseline/runner-input.json": "88cf0d797e5cfa8586b3e0b8d26c188733f1fbb027472f9a4293bef3a9599b3c",
+    "build/t100-direct-nmt-startup-r1/native5303-feasibility-r2/baseline/prepared.json": "e3922403edf4711164741d6502bc11730a3f17f1d663eed99d063e5a8e2d0140",
+    "build/t100-direct-nmt-startup-r1/native5303-feasibility-r2/baseline/prepare.py": "75f8dca4352c54b411cef1f0863a17e98256dc1f62368cab15c4df3d1af625a7",
+    "build/t100-direct-nmt-startup-r1/native5303-feasibility-r2/baseline/run-one.py": "154d37ab1386799204abd10b1926916c390202e18bc8fad83f545c6713c596a5",
+    "build/t100-direct-nmt-startup-r1/native5303-feasibility-r2/baseline/review-native.py": "8f23e72b1ed2fb0b66c7752b85721b1a7c8004d0ffa7b8d728dca700e2365f97",
+    "build/t100-direct-nmt-startup-r1/native5303-feasibility-r2/baseline/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060",
+    "build/t100-direct-nmt-startup-r1/native5303-feasibility-r2/baseline/request/runner-request.json": "ce03ee86ed4dfeeef34644a2ee3a31878773262460aa1d1e13a43b60b5d9ee19",
+    "build/t100-direct-nmt-startup-r1/native5303-feasibility-r2/baseline/bundle/turboism-agent.jar": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+    "build/t100-direct-nmt-startup-r1/native5303-feasibility-r2/baseline/bundle/settings-page-host-probe.jar": "30f5203eb6efc7141688ffcd3c89a83b32ba715056a922b9d981661433b4d975",
+    "build/t100-direct-nmt-startup-r1/native5303-feasibility-r2/baseline/bundle/native-nmt-context-probe.jar": "73e7ab52570a5399876ed9d4281d234703d83dd931e9f501bea2cf715c49101f",
+    "validation/triangulation-tlindex/diagnostic/analyze-nmt-heap-pages.py": "37998bf89255e3898bde9463ca3790ddb2eb94aa2a1fe1374f70371757df1844",
+    "validation/triangulation-tlindex/diagnostic/observe-heap-pages.py": "bfcdc0446e1e32197f27b5dc3b60fbb2c18c73a77cef24325d0444090ec5954a",
+    "validation/triangulation-tlindex/diagnostic/analyze-jvm-context.py": "29a1810be304b02e01aeaeb8c300b5d592b37eb9e881d49b42e4f2ba9aeedd69",
+    "validation/triangulation-tlindex/diagnostic/compare-controlled-cache-boundaries.py": "c6780ddeb58e8b657c907f990550f903e48ab1f8bc2a5fb250e89fd39ecf775e",
+    "validation/triangulation-tlindex/diagnostic/analyze-command-cpu-counters.py": "e083dd50bf0d1fb87895d4323cd0ed799eaba363c7a5ce6eb5b5a7b0e87209ab",
+    "validation/triangulation-tlindex/diagnostic/preserve-terminal-native-evidence.py": "2399d00dfbfd507ce6abc149d068c61acb5e6a27bfd35f8e7f1b210f11753481",
+    "validation/triangulation-tlindex/diagnostic/verify-native-mesh-edge-loop.py": "072c98e9c7d234845d3eb8b7140324106399167c3468882a3db7afcce1b3f299",
+    "build/t092-controlled-cache-differential-r1/baseline/native-evidence/observer-free-results.tsv": "30f7ca993fcc5a512f62dd092a5e2e177ffd53deda92d4278a50506c22dfaadc",
+    "build/t076-production-acceptance-preflight-r1/native5303-dual-r1/native-evidence/auto-connect-command-return-results.tsv": "9db07555ad8dfdac954b25b10fff57fb36fcfaff94f3ffaee4f3bfbb8533c1e6"
+  }
+}

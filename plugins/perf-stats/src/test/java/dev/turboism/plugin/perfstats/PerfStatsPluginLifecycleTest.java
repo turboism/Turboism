@@ -551,7 +551,7 @@ class PerfStatsPluginLifecycleTest {
         final DisposableScope scope = new DisposableScope();
 
         Fixture() {
-            this(null);
+            this(PluginLocalization.unavailable());
         }
 
         Fixture(final PluginLocalization localization) {
@@ -640,15 +640,14 @@ class PerfStatsPluginLifecycleTest {
                                 }
 
                                 @Override
-                                @SuppressWarnings("unchecked")
-                                public <T> T get(final Class<T> serviceType) {
+                                public <T> java.util.Optional<T> find(final Class<T> serviceType) {
                                     if (serviceType == PerformanceProbeService.class) {
-                                        return (T) stats;
+                                        return java.util.Optional.ofNullable(serviceType.cast(stats));
                                     }
                                     if (serviceType == UiHostCapabilityService.class) {
-                                        return (T) uiHost;
+                                        return java.util.Optional.ofNullable(serviceType.cast(uiHost));
                                     }
-                                    return null;
+                                    return java.util.Optional.empty();
                                 }
                             };
                         }
@@ -677,10 +676,7 @@ class PerfStatsPluginLifecycleTest {
                                     (ignored, ignoredMethod, ignoredArgs) -> null);
                         }
                         if (method.getName().equals("localization")) {
-                            if (localizationThrows) {
-                                throw new UnsupportedOperationException("localization service is not available");
-                            }
-                            return localization;
+                            return localizationThrows ? PluginLocalization.unavailable() : localization;
                         }
                         throw new UnsupportedOperationException(method.getName());
                     });

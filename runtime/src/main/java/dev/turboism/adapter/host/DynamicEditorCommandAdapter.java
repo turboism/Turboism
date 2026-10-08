@@ -39,4 +39,9 @@ final class DynamicEditorCommandAdapter implements EditorCommandAdapter {
     public synchronized EditorCommandResult execute(final EditorParameterizedRequest command) {
         return current.execute(command);
     }
+
+    @Override
+    public synchronized boolean isAvailable() {
+        return current.isAvailable();
+    }
 }

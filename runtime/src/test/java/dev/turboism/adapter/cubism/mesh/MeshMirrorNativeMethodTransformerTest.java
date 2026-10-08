@@ -153,6 +153,63 @@ final class MeshMirrorNativeMethodTransformerTest {
     }
 
     @Test
+    void replayAcceptsConstantPoolAndDebugChangesButRejectsChangesToUnrelatedHostCode() throws Exception {
+        final var profile = MeshMirrorHostProfile.reviewed52And53();
+        final var paths = new PathHolder();
+        final String owner = profile.meshEditorOwner();
+        final ClassWriter originalWriter = new ClassWriter(0);
+        new ClassReader(fixture(owner, profile)).accept(originalWriter, 0);
+        originalWriter.visitSource("MeshEditor.java", null);
+        final byte[] original = originalWriter.toByteArray();
+        final var loader = new FixtureLoader();
+        final Class<?> target = loader.define(owner, original);
+        final var domain = paths.domain(paths.expected);
+        final var transformer = new MeshMirrorNativeMethodTransformer(
+                profile, loader, paths.expected, null, null, java.util.Map.of(owner, sha256(original)), ignored -> {});
+        final byte[] initial = transformer.transform(null, loader, owner, null, domain, original);
+        assertNotNull(initial);
+
+        final ClassWriter replayWriter = new ClassWriter(0);
+        replayWriter.newConst("unused JVM constant pool entry");
+        new ClassReader(original).accept(replayWriter, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        final byte[] replay = replayWriter.toByteArray();
+        assertFalse(java.util.Arrays.equals(original, replay), "the replay must actually differ from raw pin bytes");
+        final byte[] replayed = transformer.transform(null, loader, owner, target, domain, replay);
+        assertNotNull(replayed);
+        assertEquals(bridgeCalls(initial), bridgeCalls(replayed));
+
+        final ClassWriter tamperedWriter = new ClassWriter(0);
+        new ClassReader(original)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9, tamperedWriter) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    int access, String name, String descriptor, String signature, String[] exceptions) {
+                                final MethodVisitor delegate =
+                                        super.visitMethod(access, name, descriptor, signature, exceptions);
+                                if (!name.equals("unrelated")) return delegate;
+                                return new MethodVisitor(Opcodes.ASM9, delegate) {
+                                    @Override
+                                    public void visitCode() {
+                                        super.visitCode();
+                                        visitInsn(Opcodes.NOP);
+                                    }
+                                };
+                            }
+                        },
+                        0);
+        assertNull(transformer.transform(null, loader, owner, target, domain, tamperedWriter.toByteArray()));
+        assertEquals(MeshMirrorNativeMethodTransformer.Outcome.CLASS_BYTES_MISMATCH, transformer.outcome());
+        assertNotNull(transformer.transform(null, loader, owner, target, domain, replay));
+    }
+
+    private static final class FixtureLoader extends ClassLoader {
+        Class<?> define(String owner, byte[] bytes) {
+            return defineClass(owner.replace('/', '.'), bytes, 0, bytes.length);
+        }
+    }
+
+    @Test
     void instrumentsOnlyTheExactVerifiedMethods() {
         final MeshMirrorHostProfile profile = MeshMirrorHostProfile.reviewed52And53();
         final MeshMirrorNativeMethodTransformer transformer = new MeshMirrorNativeMethodTransformer(profile, null);
@@ -327,7 +384,7 @@ final class MeshMirrorNativeMethodTransformerTest {
         return writer.toByteArray();
     }
 
-    private static byte[] fixture(final String owner, final MeshMirrorHostProfile profile) {
+    static byte[] fixture(final String owner, final MeshMirrorHostProfile profile) {
         final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, owner, null, "java/lang/Object", null);
         if (owner.equals(profile.meshEditorOwner())) {

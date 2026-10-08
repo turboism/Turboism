@@ -37,6 +37,17 @@ public final class AppearanceCoordinator implements AutoCloseable {
     }
 
     /**
+     * @return {@code true} while the coordinator is open and the bound host
+     *         provider reports live — the only state in which apply/restore can
+     *         reach the host instead of answering {@code UNAVAILABLE}
+     */
+    public boolean isAvailable() {
+        synchronized (monitor) {
+            return !closed && provider.isAvailable();
+        }
+    }
+
+    /**
      * @return the current appearance state: the cached state of the active override
      *     while one plugin owns appearance, otherwise a freshly read host status
      */

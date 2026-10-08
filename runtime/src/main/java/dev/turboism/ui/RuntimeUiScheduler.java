@@ -7,6 +7,7 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.ui.host.HostReadEpoch;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
@@ -113,11 +114,16 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
         if (token != null) {
             CancellationContext.set(token);
         }
+        // One dispatched UI task is one coherent host-read epoch: appearance
+        // projections may reuse a single observation for the whole run, and any
+        // nested dispatched body marks the epoch as potentially mutated.
+        HostReadEpoch.enter();
         try {
             if (!cancelled.get()) {
                 work.run();
             }
         } finally {
+            HostReadEpoch.exit();
             if (token != null) {
                 CancellationContext.clear();
             }

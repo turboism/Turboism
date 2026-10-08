@@ -59,6 +59,17 @@ public final class WorkspaceCoordinator implements AutoCloseable {
     }
 
     /**
+     * @return {@code true} while the coordinator is open with a host provider
+     *         installed — the only state in which workspace operations observe
+     *         the host instead of returning the unavailable result
+     */
+    public boolean isAvailable() {
+        synchronized (monitor) {
+            return !closed && provider != null;
+        }
+    }
+
+    /**
      * Provider identity selection, the host operation, and the post-state read are serialized
      * against connect/disconnect/close by holding the monitor at the EDT execution point. The
      * monitor is never held while dispatching to or waiting for the EDT, so a caller thread

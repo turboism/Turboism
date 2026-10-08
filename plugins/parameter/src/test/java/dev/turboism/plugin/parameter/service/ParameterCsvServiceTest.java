@@ -13,7 +13,6 @@ import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -110,7 +109,7 @@ class ParameterCsvServiceTest {
     }
 
     @Test
-    void importCsvUsesUnifiedModelParametersWithoutOpeningLegacyTransaction() {
+    void importCsvUsesUnifiedModelParameters() {
         RecordingUiHost uiHost = new RecordingUiHost();
         uiHost.chosenFile = Optional.of("/tmp/params.csv");
         RecordingFacade facade = new RecordingFacade();
@@ -123,7 +122,6 @@ class ParameterCsvServiceTest {
         assertEquals(0.75f, model.parameters().find(new ParameterId("p1")).getValue());
         assertEquals(0.1f, model.parameters().find(new ParameterId("p2")).getValue());
         assertEquals(List.of("p1=0.75", "p2=0.1"), facade.parameterWrites());
-        assertEquals(0, facade.transactionOpenCount());
         assertEquals(
                 List.of(new StatusNotification(
                         "parameter.csv.import.completed", "INFO", "Imported 2 parameter value(s) from CSV.")),
@@ -173,7 +171,6 @@ class ParameterCsvServiceTest {
 
         service.importCsv();
 
-        assertEquals(0, facade.transactionOpenCount());
         assertEquals(
                 "parameter.csv.import.failed", uiHost.notifications().get(0).id());
         assertEquals("WARNING", uiHost.notifications().get(0).severity());
@@ -378,16 +375,11 @@ class ParameterCsvServiceTest {
         private final RecordingModel model = new RecordingModel();
         private boolean modelAvailable = true;
         private String failOnParameterId;
-        private int transactionOpenCount;
         private dev.turboism.sdk.cubism.transaction.AuthoringTransactionService transactions =
                 dev.turboism.sdk.cubism.transaction.AuthoringTransactionService.unavailable();
 
         List<String> parameterWrites() {
             return model.parameterWrites();
-        }
-
-        int transactionOpenCount() {
-            return transactionOpenCount;
         }
 
         @Override
@@ -423,14 +415,6 @@ class ParameterCsvServiceTest {
                 }
                 model.failOnParameterId = failOnParameterId;
                 return model;
-            };
-        }
-
-        @Override
-        public TransactionManager transactionManager() {
-            return (ctx, docId) -> {
-                transactionOpenCount++;
-                throw new AssertionError("legacy transaction manager must not be used");
             };
         }
 

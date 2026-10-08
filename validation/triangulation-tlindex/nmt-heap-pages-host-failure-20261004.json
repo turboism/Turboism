@@ -1,0 +1,38 @@
+{
+  "task": "T099",
+  "status": "FAIL_NMT_STARTUP_ROUTE_BEFORE_ANY_COMMAND",
+  "sequence": 2656,
+  "jobId": "53e7abbc-de10-4e9e-9ce0-d2a3d149e0f5",
+  "runId": "queue-cfa3c19735874824aa8eeb54e3b8c454",
+  "preparedId": "b5aabf4d716d55a6d994aebb511fb2d3bf998a68f3e99ef7c14963a59778696f",
+  "standardGates": {
+    "validationStatus": "FAIL",
+    "cleanup": "safe",
+    "normalExit": false,
+    "identityVerified": false,
+    "fixtureUnchanged": false
+  },
+  "rawFilesRehashed": 46,
+  "protocolPinsRehashed": 39,
+  "nativeCommandCpuRows": 0,
+  "pageSamples": 0,
+  "candidateSubmitted": false,
+  "errorMessage": "in-process NMT summary unavailable",
+  "vmWarning": "Native Memory Tracking did not setup properly, using wrong launcher?",
+  "hostJvmVersion": "17.0.3.1+2-LTS",
+  "localJvmVersion": "17.0.20+8",
+  "localEnvironmentReproduction": "Failed expectation: local updated JVM accepted NMT via JAVA_TOOL_OPTIONS; disabled-refusal assertion failed. Preserved, no host retry.",
+  "productionPerformanceAcceptance": "NOT_GRANTED",
+  "T097FormalStatus": "FAIL_FIXED_BALANCED_GATES",
+  "nextWork": "New independently frozen direct-launcher feasibility probe in task clone only; preserve T099 failure and do not submit its candidate.",
+  "inputPins": {
+    "validation/triangulation-tlindex/nmt-heap-pages-host-protocol-20261004.json": "6993fe8dc6ab41cb475fc6917662b2a08ff4d7a786eea88cf5f7113a90e2b037",
+    "build/t099-nmt-diagnostic-r1/native5303-pages-r2/baseline/run.json": "2ad23ada0ec6ad15510d2e09fd7471480c6bbed84f02448a35531ad5dc859cc5",
+    "build/t099-nmt-diagnostic-r1/native5303-pages-r2/baseline/outcome.json": "47932ee24a17cc9d0113d40a8a02cba827cc230a046b200ee3f7356a95d9da0b",
+    "build/t099-nmt-diagnostic-r1/native5303-pages-r2/baseline/raw-terminal-evidence/preservation.json": "7a2da6286bf94e48b5b81d851a76e0b32779e12d502ad4653862751c2b1a68b9",
+    "build/t099-nmt-diagnostic-r1/native5303-pages-r2/baseline/raw-terminal-evidence/evidence/cubism-console.txt": "f591e5b71684e67f608c826f538cc4f334943e036986d16dc162c3b7274fbb8b",
+    "build/t099-nmt-diagnostic-r1/native5303-pages-r2/baseline/raw-terminal-evidence/turboism-home/state/atlas-image-shadow/queue-cfa3c19735874824aa8eeb54e3b8c454/driver-error.properties": "9c587691a4c4c9a2b973c317d3effd642062e8d299918edf8eb83a8869470940",
+    "build/t099-nmt-diagnostic-r1/environment-repro-r1/tool-options.log": "712747cea0ab0f2ece1e539418e7293a7d864a3cea605d620c2e4dab7a83710c",
+    "build/t099-nmt-diagnostic-r1/environment-repro-r1/reproduce.py": "79d8f4708345f3e6f0b7f2be50e21f6e54d7fbd6e7ec23cf52cf8bf4d0ac9dd3"
+  }
+}

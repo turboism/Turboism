@@ -36,7 +36,8 @@ public interface AutoBackupAdapter {
      * under a temporary {@code turboism-backup-} directory (the host already
      * wrote the document to its original file by the time the save hook fires;
      * no host saveDocument/UI is involved, and no file remains in the host
-     * backup directory — the plugin uploads and deletes the temp artifact).
+     * backup directory — the plugin uploads and discards the temp artifact
+     * through its {@code BackupArtifactHandle}).
      * Matching prefers the saved document's UID list (modeling
      * {@code getDocumentUID}, animation {@code getSceneDocs} scene UIDs; game-data
      * has no UID mapping) and falls back to name/path matching. Returns the
@@ -45,6 +46,12 @@ public interface AutoBackupAdapter {
      * copy throws.
      */
     File saveDocumentFor(File matchFile, List<String> documentUids, long timestampMillis);
+
+    /**
+     * @return {@code true} while a live host auto-backup manager backs this
+     *         adapter; {@code false} for the safe-mode adapter
+     */
+    boolean available();
 
     /**
      * An adapter for when no host auto-backup manager is attached.
@@ -160,6 +167,11 @@ public interface AutoBackupAdapter {
             Objects.requireNonNull(matchFile, "matchFile");
             Objects.requireNonNull(documentUids, "documentUids");
             throw new UnsupportedOperationException("auto-backup is not available");
+        }
+
+        @Override
+        public boolean available() {
+            return false;
         }
     }
 }

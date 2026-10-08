@@ -184,11 +184,7 @@ class PreviewReportSnapshotFactoryTest {
                 capabilities,
                 "dev.turboism.plugin.parameter",
                 "cubism.parameter.read",
-                Map.of(
-                        "cubismRead.parameters", "turboism.cubism.model.read",
-                        "parameterQuery.findById", "turboism.cubism.parameter.read",
-                        "parameterQuery.listAll", "turboism.cubism.parameter.read",
-                        "parameterQuery.exists", "turboism.cubism.parameter.read"));
+                Map.of("cubismRead.parameters", "turboism.cubism.model.read"));
         assertCapabilityBindings(
                 capabilities,
                 "dev.turboism.plugin.parameter",

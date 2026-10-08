@@ -89,6 +89,16 @@ silently chooses a first result. Every launch calls the selected installation's
 official Cubism BAT, passes process-scoped Turboism JVM options, and restores
 the caller's environment after the BAT exits.
 
+The performance setting `meshTriangulationEdgeIndex` defaults on. Managed
+launches with that setting enabled pass `-XX:+DisableAttachMechanism`, as the
+guarded lazy-edge optimization requires exclusive premain definition ownership.
+Dynamic-attach diagnostics such as jcmd/jstack are unavailable for that process.
+Turn the setting off and restart through the managed launcher to omit this
+option and restore the JVM's default attach behavior. Other agents or definition
+sources still cause the optimization to fall back; the launcher does not relax
+runtime admission. Optional persisted BAT integrations snapshot the options when
+generated and must be regenerated to update their option block.
+
 For an explicit command-line launch:
 
 ```bat

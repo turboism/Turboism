@@ -11,6 +11,7 @@ public record ShellServices(
         MeshTriangulationSettingsService meshTriangulationSettings,
         AtlasTileBboxSettingsService atlasTileBboxSettings,
         AtlasCacheReuseSettingsService atlasCacheReuseSettings,
+        TriangulationEdgeIndexSettingsService triangulationEdgeIndexSettings,
         dev.turboism.sdk.ui.settings.SettingsContributionSource settingsContributions,
         CorePluginManagement plugins,
         FloatingPanelActions floatingPanelActions,
@@ -24,6 +25,7 @@ public record ShellServices(
                 MeshTriangulationSettingsService.unavailable(),
                 AtlasTileBboxSettingsService.unavailable(),
                 AtlasCacheReuseSettingsService.unavailable(),
+                TriangulationEdgeIndexSettingsService.unavailable(),
                 dev.turboism.sdk.ui.settings.SettingsContributionSource.empty(),
                 plugins,
                 FloatingPanelActions.unavailable(),
@@ -57,6 +59,8 @@ public record ShellServices(
         meshTriangulationSettings = Objects.requireNonNull(meshTriangulationSettings, "meshTriangulationSettings");
         atlasTileBboxSettings = Objects.requireNonNull(atlasTileBboxSettings, "atlasTileBboxSettings");
         atlasCacheReuseSettings = Objects.requireNonNull(atlasCacheReuseSettings, "atlasCacheReuseSettings");
+        triangulationEdgeIndexSettings =
+                Objects.requireNonNull(triangulationEdgeIndexSettings, "triangulationEdgeIndexSettings");
         settingsContributions = Objects.requireNonNull(settingsContributions, "settingsContributions");
         plugins = Objects.requireNonNull(plugins, "plugins");
         floatingPanelActions = Objects.requireNonNull(floatingPanelActions, "floatingPanelActions");

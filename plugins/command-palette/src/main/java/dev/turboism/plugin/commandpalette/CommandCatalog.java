@@ -59,7 +59,7 @@ final class CommandCatalog {
         if (available == null || available.isEmpty()) {
             return List.of();
         }
-        final PluginLocalization localization = localization(context);
+        final PluginLocalization localization = context.localization();
         final List<CommandMatcher.Entry> entries = new ArrayList<>();
         for (final EditorCommand command : EditorCommand.values()) {
             if (available.contains(command)) {
@@ -123,20 +123,7 @@ final class CommandCatalog {
      * translation degrades to readable text instead of a raw id.
      */
     static String name(final EditorCommand command, final PluginLocalization localization) {
-        final String key = key(command);
-        if (localization != null) {
-            try {
-                if (localization.contains(key)) {
-                    final String value = localization.text(key);
-                    if (value != null && !value.isBlank()) {
-                        return value;
-                    }
-                }
-            } catch (RuntimeException unavailable) {
-                // fall through to the humanized default
-            }
-        }
-        return humanize(command.name());
+        return localization.text(key(command), humanize(command.name()));
     }
 
     /** Splits {@code UNDO_LAST_STEP}-style constants into {@code "Undo Last Step"} words. */
@@ -159,29 +146,16 @@ final class CommandCatalog {
     }
 
     private static EditorCommandService service(final PluginContext context) {
-        try {
-            final EditorCommandService service = context.services().get(EditorCommandService.class);
-            return service != null && service.isAvailable() ? service : null;
-        } catch (RuntimeException failure) {
-            return null;
-        }
+        return context.services()
+                .find(EditorCommandService.class)
+                .filter(EditorCommandService::isAvailable)
+                .orElse(null);
     }
 
     private static ActionCatalogService catalogService(final PluginContext context) {
-        try {
-            final ActionCatalogService service = context.services().get(ActionCatalogService.class);
-            return service != null && service.isAvailable() ? service : null;
-        } catch (RuntimeException failure) {
-            return null;
-        }
-    }
-
-    private static PluginLocalization localization(final PluginContext context) {
-        try {
-            final PluginLocalization localization = context.localization();
-            return localization != null && localization.isAvailable() ? localization : null;
-        } catch (RuntimeException unavailable) {
-            return null;
-        }
+        return context.services()
+                .find(ActionCatalogService.class)
+                .filter(ActionCatalogService::isAvailable)
+                .orElse(null);
     }
 }

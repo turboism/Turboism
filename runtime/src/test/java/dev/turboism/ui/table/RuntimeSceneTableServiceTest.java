@@ -1,6 +1,7 @@
 package dev.turboism.ui.table;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -100,6 +101,31 @@ final class RuntimeSceneTableServiceTest {
         final RuntimeSceneTableService service = new RuntimeSceneTableService(new RecordingHost());
         assertThrows(IllegalArgumentException.class, () -> service.setHeader("parts", "name", "Name"));
         assertThrows(IllegalArgumentException.class, () -> service.setItemPosition("scene", "id", -1));
+    }
+
+    @Test
+    void availabilityFollowsTheHostSeam() {
+        assertTrue(new RuntimeSceneTableService(new RecordingHost()).isAvailable());
+
+        final RuntimeSceneTableService.Host detached = new RuntimeSceneTableService.Host() {
+            @Override
+            public void setHeader(final String columnId, final String label) {}
+
+            @Override
+            public void setItemPosition(final String itemId, final int position) {}
+
+            @Override
+            public void setItemOrder(final List<String> itemIds) {}
+
+            @Override
+            public void setManualReordering(final boolean enabled) {}
+
+            @Override
+            public boolean available() {
+                return false;
+            }
+        };
+        assertFalse(new RuntimeSceneTableService(detached).isAvailable());
     }
 
     private static RuntimeScheduler scheduler() {

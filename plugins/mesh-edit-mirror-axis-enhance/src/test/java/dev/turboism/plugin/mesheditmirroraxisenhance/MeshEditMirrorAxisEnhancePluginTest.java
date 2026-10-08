@@ -229,7 +229,6 @@ class MeshEditMirrorAxisEnhancePluginTest {
             return new FixedCubismRead();
         }
 
-        @Override
         public MeshMirrorAxisService meshMirrorAxis() {
             return meshMirrorAxis;
         }
@@ -239,12 +238,10 @@ class MeshEditMirrorAxisEnhancePluginTest {
                 new RecordingMeshMirrorMoveParticipation();
         final RecordingMeshMirrorToolEligibility meshMirrorToolEligibility = new RecordingMeshMirrorToolEligibility();
 
-        @Override
         public dev.turboism.sdk.cubism.mesh.MeshEditParticipation meshEditParticipation() {
             return meshEditParticipation;
         }
 
-        @Override
         public dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts meshMirrorCounterparts() {
             return new dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts() {
                 @Override
@@ -261,17 +258,14 @@ class MeshEditMirrorAxisEnhancePluginTest {
             };
         }
 
-        @Override
         public dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility meshMirrorToolEligibility() {
             return meshMirrorToolEligibility;
         }
 
-        @Override
         public dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation meshMirrorMoveParticipation() {
             return meshMirrorMoveParticipation;
         }
 
-        @Override
         public RecordingMeshEditUiService meshEditUi() {
             return meshEditUi;
         }
@@ -316,9 +310,30 @@ class MeshEditMirrorAxisEnhancePluginTest {
             return localization;
         }
 
-        @Override
         public RecordingUiHost uiHost() {
             return uiHost;
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .supply(dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService.class, () -> this.meshMirrorAxis())
+                    .supply(
+                            dev.turboism.sdk.cubism.mesh.MeshEditParticipation.class,
+                            () -> this.meshEditParticipation())
+                    .supply(
+                            dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts.class,
+                            () -> this.meshMirrorCounterparts())
+                    .supply(
+                            dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility.class,
+                            () -> this.meshMirrorToolEligibility())
+                    .supply(
+                            dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation.class,
+                            () -> this.meshMirrorMoveParticipation())
+                    .supply(dev.turboism.sdk.cubism.mesh.MeshEditUiService.class, () -> this.meshEditUi())
+                    .supply(dev.turboism.sdk.ui.UiHostCapabilityService.class, () -> this.uiHost())
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
     }
 

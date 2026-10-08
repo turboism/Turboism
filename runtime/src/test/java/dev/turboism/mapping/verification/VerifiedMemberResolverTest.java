@@ -2,6 +2,7 @@ package dev.turboism.mapping.verification;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -13,6 +14,64 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 class VerifiedMemberResolverTest {
+    @Test
+    void resolvesTheDescriptorExactOverloadWhenReturnTypesDiffer() {
+        // Real Cubism 5.2.03 ToolMode_MeshEdit_Manual declares two zero-argument getToolPanel()
+        // contracts that differ only in return type: the covariant method and the compiler bridge
+        // that preserves the supertype contract. Name plus parameter types are therefore not a
+        // complete identity, and resolution must select by the full descriptor.
+        final String owner = internalName(SyntheticCovariantHost.class);
+        final VerifiedMemberResolver resolver = new VerifiedMemberResolver(
+                plan(
+                        StaticSelector.method(
+                                "fixture.overload.panel",
+                                owner,
+                                "getToolPanel",
+                                "()Ldev/turboism/mapping/verification/VerifiedMemberResolverTest$SyntheticToolPanel;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "fixture.overload.widget",
+                                owner,
+                                "getToolPanel",
+                                "()Ldev/turboism/mapping/verification/VerifiedMemberResolverTest$SyntheticWidget;",
+                                StaticSelector.ACCESS_PUBLIC)),
+                SyntheticCovariantHost.class.getClassLoader());
+        final SyntheticCovariantHost target = new SyntheticCovariantHost();
+        final SyntheticToolPanel panel = SyntheticCovariantHost.PANEL;
+
+        assertSame(panel, resolver.invoke("fixture.overload.panel", target));
+        assertSame(panel, resolver.invoke("fixture.overload.widget", target));
+        assertSame(panel, resolver.bind("fixture.overload.panel").invoke(target));
+        assertSame(panel, resolver.bind("fixture.overload.widget").invoke(target));
+
+        final VerifiedMemberResolver unsatisfiable = new VerifiedMemberResolver(
+                plan(StaticSelector.method(
+                        "fixture.overload.missing", owner, "getToolPanel", "()I", StaticSelector.ACCESS_PUBLIC)),
+                SyntheticCovariantHost.class.getClassLoader());
+        assertThrows(VerifiedAccessException.class, () -> unsatisfiable.invoke("fixture.overload.missing", target));
+        assertThrows(VerifiedAccessException.class, () -> unsatisfiable.bind("fixture.overload.missing"));
+    }
+
+    /** Supertype contract that the covariant override must keep satisfying. */
+    public interface SyntheticWidget {}
+
+    /** Covariant return type of the overriding method. */
+    public static final class SyntheticToolPanel implements SyntheticWidget {}
+
+    /** Supertype declaration that forces the compiler to emit a bridge method. */
+    public interface SyntheticWidgetSource {
+        SyntheticWidget getToolPanel();
+    }
+
+    /** Host whose zero-argument method exists twice at runtime with different return types. */
+    public static final class SyntheticCovariantHost implements SyntheticWidgetSource {
+        static final SyntheticToolPanel PANEL = new SyntheticToolPanel();
+
+        @Override
+        public SyntheticToolPanel getToolPanel() {
+            return PANEL;
+        }
+    }
 
     @Test
     void failedRuntimeDependencyDisablesOnlyCapabilitiesThatRequireIt() {

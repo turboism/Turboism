@@ -1,0 +1,128 @@
+{
+  "task": "T076",
+  "status": "FAIL_FIXED_BALANCED_GATES",
+  "protocolCommitBeforeSubmission": "df3f39764",
+  "rawEvidence": "build/t076-production-acceptance-preflight-r1/native5303-production-abba-r1",
+  "balancedReviewSha256": "0ad6b7b1a890d069dc9ded3ebb88f7a3f232123e11bda96cd39a48a13f65cba5",
+  "pairs": [
+    {
+      "baseline": "baseline1",
+      "candidate": "candidate1",
+      "candidateChangePercent": {
+        "wallSeconds": -1.9803404638420785,
+        "directCpuSeconds": 0.06403415154749847,
+        "operationPeakRssBytes": -10.200578220691792
+      },
+      "gates": {
+        "commandWallImproves": true,
+        "javaCpuTotalNoRegression": false,
+        "absoluteRssGrowthWithin20Percent": true,
+        "rssAboveOwnBaselineWithin80MiB": false,
+        "retained3Minus1Within64MiB": false
+      },
+      "pass": false
+    },
+    {
+      "baseline": "baseline2",
+      "candidate": "candidate2",
+      "candidateChangePercent": {
+        "wallSeconds": -3.7409036093789205,
+        "directCpuSeconds": -7.906151419558361,
+        "operationPeakRssBytes": -13.45859800319581
+      },
+      "gates": {
+        "commandWallImproves": true,
+        "javaCpuTotalNoRegression": true,
+        "absoluteRssGrowthWithin20Percent": true,
+        "rssAboveOwnBaselineWithin80MiB": true,
+        "retained3Minus1Within64MiB": true
+      },
+      "pass": true
+    }
+  ],
+  "legs": [
+    {
+      "name": "baseline1",
+      "arm": "baseline",
+      "sequence": 2589,
+      "jobId": "be52e83e-0d5a-48bf-acc0-02705f1d80ad",
+      "runId": "queue-2f9162fa8b81431598ec3c8462886c72",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 36.312331799999995,
+      "directCpuSeconds": 46.85,
+      "sampledCpuSeconds": 46.129999999999995,
+      "operationPeakRssBytes": 3233046528,
+      "peakAboveBaselineBytes": 54214656.0,
+      "retained3Minus1Bytes": 1253376.0,
+      "maximumSampleGapMillis": 1025
+    },
+    {
+      "name": "candidate1",
+      "arm": "candidate",
+      "sequence": 2590,
+      "jobId": "3f7df7cc-ec6e-404c-93bb-a1c26b17d079",
+      "runId": "queue-71301734547a4a47a6cef830ce879c21",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 35.593224,
+      "directCpuSeconds": 46.88,
+      "sampledCpuSeconds": 47.15,
+      "operationPeakRssBytes": 2903257088,
+      "peakAboveBaselineBytes": 197545984.0,
+      "retained3Minus1Bytes": 142684160.0,
+      "maximumSampleGapMillis": 1023
+    },
+    {
+      "name": "candidate2",
+      "arm": "candidate",
+      "sequence": 2591,
+      "jobId": "166d4b80-ea4a-4e15-afd1-849de8754281",
+      "runId": "queue-e9212350831c4385b835a5ebed78079e",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 35.830939,
+      "directCpuSeconds": 46.71,
+      "sampledCpuSeconds": 46.68,
+      "operationPeakRssBytes": 2779615232,
+      "peakAboveBaselineBytes": 10616832.0,
+      "retained3Minus1Bytes": 638976.0,
+      "maximumSampleGapMillis": 1045
+    },
+    {
+      "name": "baseline2",
+      "arm": "baseline",
+      "sequence": 2592,
+      "jobId": "f71eb9ac-fc13-454c-a155-42648ab3acfe",
+      "runId": "queue-8378c70b60fe46a383fddb6ace5e635c",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 37.2234317,
+      "directCpuSeconds": 50.72,
+      "sampledCpuSeconds": 48.43,
+      "operationPeakRssBytes": 3211890688,
+      "peakAboveBaselineBytes": 30273536.0,
+      "retained3Minus1Bytes": 1085440.0,
+      "maximumSampleGapMillis": 1031
+    }
+  ],
+  "aggregateCandidateChangePercent": {
+    "wallSeconds": -2.871528627019704,
+    "directCpuSeconds": -4.079122681151981
+  },
+  "sourceRows": 8532,
+  "sourceRowsPerLeg": 2133,
+  "kernelBracketedCpuReadings": 24,
+  "productionAcceptance": "NOT_GRANTED",
+  "deliveryBaseline": "T057_UNCHANGED",
+  "retryOrReplacementCount": 0,
+  "limitations": [
+    "Two fixed reversed-order pairs, not statistical evidence or complete production acceptance.",
+    "Exact unchanged production Agents, single premain, identical task plugin and kernel observer. Direct process CPU includes all Java threads; native-only intervals exclude pre-resolution/preparation/output hashing. Provider resolution is not proven by nanosecond units.",
+    "RSS/PSS remain sampled. Memory operation windows also include common preparation and output snapshots; these broader windows are used conservatively for sampled RSS. No changed caps, favorable retry, or retrospective earlier candidate acceptance."
+  ]
+}

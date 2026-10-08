@@ -340,11 +340,6 @@ class TextureAtlasPluginTest {
                 }
 
                 @Override
-                public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-                    throw unused();
-                }
-
-                @Override
                 public TextureAtlasLayoutService textureAtlasLayouts() {
                     return layouts;
                 }

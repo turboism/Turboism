@@ -290,7 +290,6 @@ class ParameterBatchTransferPluginTest {
             throw new UnsupportedOperationException();
         }
 
-        @Override
         public ContextMenuRegistry contextMenu() {
             return contextMenus;
         }
@@ -330,9 +329,17 @@ class ParameterBatchTransferPluginTest {
             return scope;
         }
 
-        @Override
         public UiHostCapabilityService uiHost() {
             return uiHost;
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .supply(dev.turboism.sdk.ui.context.ContextMenuRegistry.class, () -> this.contextMenu())
+                    .supply(dev.turboism.sdk.ui.UiHostCapabilityService.class, () -> this.uiHost())
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
     }
 
@@ -470,11 +477,6 @@ class ParameterBatchTransferPluginTest {
         @Override
         public boolean isHostPresent() {
             return true;
-        }
-
-        @Override
-        public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-            throw new UnsupportedOperationException();
         }
 
         @Override

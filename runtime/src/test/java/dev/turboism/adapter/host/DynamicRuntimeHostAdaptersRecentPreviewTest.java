@@ -60,6 +60,108 @@ final class DynamicRuntimeHostAdaptersRecentPreviewTest {
     }
 
     @Test
+    void adapterAndServiceAvailabilityFollowsTheCurrentConnection() throws Exception {
+        final DynamicRuntimeHostAdapters dynamic = new DynamicRuntimeHostAdapters();
+        final RuntimeHostAdapters view = dynamic.view();
+        final dev.turboism.recentfile.RuntimeRecentFileService fileService =
+                new dev.turboism.recentfile.RuntimeRecentFileService(
+                        view.recentFiles(), dev.turboism.permissions.PermissionChecker.allowAll());
+        final dev.turboism.screenshot.RuntimeScreenshotCaptureService captureService =
+                new dev.turboism.screenshot.RuntimeScreenshotCaptureService(
+                        view.screenshots(), dev.turboism.permissions.PermissionChecker.allowAll());
+        final dev.turboism.recentpreview.RuntimeRecentPreviewContributionService previewService =
+                new dev.turboism.recentpreview.RuntimeRecentPreviewContributionService(
+                        view.recentPreviews(), dev.turboism.permissions.PermissionChecker.allowAll());
+
+        assertFalse(view.recentFiles().available(), "safe-mode view must report unavailable");
+        assertFalse(view.screenshots().available());
+        assertFalse(view.recentPreviews().available());
+        assertFalse(view.autoBackup().available());
+        assertFalse(fileService.isAvailable(), "services must report unavailable while no host is connected");
+        assertFalse(captureService.isAvailable());
+        assertFalse(previewService.isAvailable());
+
+        final RecentFileSummary file = new RecentFileSummary(new RecentFileId("one"), "One.cmo3");
+        final ScreenshotCaptureResult result = new ScreenshotCaptureResult(file.id(), new ScreenshotImage(1, 1, PNG));
+        dynamic.connect(connected(List.of(file), result));
+
+        assertTrue(view.recentFiles().available());
+        assertTrue(view.screenshots().available());
+        assertTrue(fileService.isAvailable(), "the service probe must track the connected delegate");
+        assertTrue(captureService.isAvailable());
+        assertFalse(
+                view.recentPreviews().available(),
+                "a slice still in safe mode inside a connected bundle must stay unavailable");
+        assertFalse(previewService.isAvailable());
+        assertFalse(view.autoBackup().available());
+
+        dynamic.deactivate();
+        assertFalse(view.recentFiles().available(), "deactivate must return the probe to safe mode");
+        assertFalse(fileService.isAvailable());
+        assertFalse(captureService.isAvailable());
+    }
+
+    @Test
+    void availabilityReflectsASafeModeSliceInsideAConnectedBundle() throws Exception {
+        final DynamicRuntimeHostAdapters dynamic = new DynamicRuntimeHostAdapters();
+        final RuntimeHostAdapters safe = RuntimeHostAdapters.safeMode();
+        final RuntimeHostAdapters partial = new RuntimeHostAdapters(
+                safe.themeStatus(),
+                safe.renderStatus(),
+                safe.projectWorkspace(),
+                safe.clipMaskRead(),
+                safe.statusToolbar(),
+                safe.uiSurface(),
+                safe.recentFiles(),
+                safe.screenshots(),
+                RecentPreviewContributionAdapter.connected(new RecentPreviewContributionAdapter.HostOperations() {
+                    @Override
+                    public Registration contribute(final RecentPreviewRenderer renderer) {
+                        return () -> {};
+                    }
+
+                    @Override
+                    public void refresh() {}
+                }),
+                AutoBackupAdapter.connected(new AutoBackupAdapter.HostOperations() {
+                    @Override
+                    public AutoBackupAdapter.Snapshot settings() {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public AutoBackupAdapter.Snapshot applySettings(final AutoBackupAdapter.Snapshot target) {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public List<AutoBackupAdapter.Document> documents() {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public void triggerBackupNow() {}
+
+                    @Override
+                    public File saveDocumentFor(
+                            final File matchFile,
+                            final java.util.List<String> documentUids,
+                            final long timestampMillis) {
+                        throw new UnsupportedOperationException();
+                    }
+                }));
+        dynamic.connect(partial);
+
+        assertTrue(dynamic.view().recentPreviews().available());
+        assertTrue(dynamic.view().autoBackup().available());
+        assertFalse(dynamic.view().recentFiles().available());
+        assertFalse(dynamic.view().screenshots().available());
+        dynamic.deactivate();
+        assertFalse(dynamic.view().recentPreviews().available());
+        assertFalse(dynamic.view().autoBackup().available());
+    }
+
+    @Test
     void deactivateWaitsForInFlightScreenshotStageToSettle() throws Exception {
         final DynamicRuntimeHostAdapters dynamic = new DynamicRuntimeHostAdapters();
         final CompletableFuture<ScreenshotCaptureResult> pending = new CompletableFuture<>();

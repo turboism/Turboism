@@ -25,8 +25,11 @@ final class ScenePaletteEnhancerPluginTest {
                 new Class<?>[] {PluginContext.class},
                 (proxy, method, args) -> switch (method.getName()) {
                     case "storage" -> dev.turboism.sdk.storage.PluginStorage.unavailable();
-                    case "sceneTable" -> service;
-                    case "services" -> dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy);
+                    case "services" ->
+                        dev.turboism.sdk.plugin.PluginServices.builder()
+                                .install(dev.turboism.sdk.ui.table.SceneTableService.class, service)
+                                .fallback(dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy))
+                                .build();
                     case "logger" -> logger;
                     case "toString" -> "TestPluginContext";
                     case "hashCode" -> System.identityHashCode(proxy);

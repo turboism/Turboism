@@ -1,0 +1,18 @@
+{
+  "status": "PASS_OFFLINE_ONLY",
+  "purpose": "FINAL_CONFIG_CAPTURE_BEFORE_PREFIX_CLEANUP",
+  "testsPassed": 32,
+  "sandboxAttempts": "Unix socket operations refused; isolated tests passed outside sandbox",
+  "hostRun": "NOT_SUBMITTED",
+  "inputPins": {
+    "scripts/preview/capture-direct-nmt-launcher.py": "acbdef516ba54b0ab36d5a148e667fa604e09cc5463424f4604b4a050744264d",
+    "scripts/preview/host_validation_queue.py": "e8dac39ce7f25be08ff3bb67be2cc849f2137b6235d71ed08513f0dfad674363",
+    "scripts/test/test_host_validation_queue.py": "ed5e014f48f24ba64c21481a2926c7d856e2433562d9340182c0f0ae5058dc63",
+    "scripts/test/test_direct_nmt_launcher_capture.py": "fbc82e3f8ffcb3db531ee821dd121c123b4c0f0ed6f4e2596f7d621686bc6071"
+  },
+  "constraints": [
+    "Only exact 5303 synchronous controlled NMT diagnostic context with reviewed staging hook.",
+    "Read-only launcher inputs; exclusive-create final evidence; changed config is preserved as failure.",
+    "T100 frozen gate remains unproven, no retrospective waiver."
+  ]
+}

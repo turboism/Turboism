@@ -29,14 +29,30 @@ public interface ScreenshotCaptureAdapter {
     CompletionStage<ScreenshotCaptureResult> capture(ScreenshotCaptureRequest request);
 
     /**
+     * @return {@code true} while a live capture pipeline backs this adapter;
+     *         {@code false} for the safe-mode adapter
+     */
+    boolean available();
+
+    /**
      * An adapter for when no capture pipeline is attached.
      *
      * @return a host-free adapter whose captures always complete exceptionally with
      *         {@link UnsupportedOperationException}
      */
     static ScreenshotCaptureAdapter safeMode() {
-        return request ->
-                CompletableFuture.failedStage(new UnsupportedOperationException("screenshot capture is not available"));
+        return new ScreenshotCaptureAdapter() {
+            @Override
+            public CompletionStage<ScreenshotCaptureResult> capture(final ScreenshotCaptureRequest request) {
+                return CompletableFuture.failedStage(
+                        new UnsupportedOperationException("screenshot capture is not available"));
+            }
+
+            @Override
+            public boolean available() {
+                return false;
+            }
+        };
     }
 
     /**
@@ -48,27 +64,38 @@ public interface ScreenshotCaptureAdapter {
      */
     static ScreenshotCaptureAdapter connected(final HostOperations host) {
         Objects.requireNonNull(host, "host");
-        return request -> host.capture(Objects.requireNonNull(request, "request"))
-                .thenApply(result -> {
-                    if (!request.id().equals(result.id())) {
-                        throw new ScreenshotCaptureTargetUnavailableException();
-                    }
-                    final var image = result.image();
-                    if (image.width() > request.maxWidth() || image.height() > request.maxHeight()) {
-                        throw new IllegalStateException("screenshot exceeds requested bounds");
-                    }
-                    try {
-                        final BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(image.png()));
-                        if (decoded == null
-                                || decoded.getWidth() != image.width()
-                                || decoded.getHeight() != image.height()) {
-                            throw new IllegalStateException("screenshot is not a readable PNG");
-                        }
-                    } catch (IOException failure) {
-                        throw new IllegalStateException("screenshot is not a readable PNG", failure);
-                    }
-                    return result;
-                });
+        return new ScreenshotCaptureAdapter() {
+            @Override
+            public CompletionStage<ScreenshotCaptureResult> capture(final ScreenshotCaptureRequest request) {
+                return host.capture(Objects.requireNonNull(request, "request"))
+                        .thenApply(result -> validate(request, result));
+            }
+
+            @Override
+            public boolean available() {
+                return host.available();
+            }
+        };
+    }
+
+    private static ScreenshotCaptureResult validate(
+            final ScreenshotCaptureRequest request, final ScreenshotCaptureResult result) {
+        if (!request.id().equals(result.id())) {
+            throw new ScreenshotCaptureTargetUnavailableException();
+        }
+        final var image = result.image();
+        if (image.width() > request.maxWidth() || image.height() > request.maxHeight()) {
+            throw new IllegalStateException("screenshot exceeds requested bounds");
+        }
+        try {
+            final BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(image.png()));
+            if (decoded == null || decoded.getWidth() != image.width() || decoded.getHeight() != image.height()) {
+                throw new IllegalStateException("screenshot is not a readable PNG");
+            }
+        } catch (IOException failure) {
+            throw new IllegalStateException("screenshot is not a readable PNG", failure);
+        }
+        return result;
     }
 
     /** The raw host call surface the connected adapter delegates to. */
@@ -79,5 +106,13 @@ public interface ScreenshotCaptureAdapter {
          * @return a stage completing with the raw host capture result
          */
         CompletionStage<ScreenshotCaptureResult> capture(ScreenshotCaptureRequest request);
+
+        /**
+         * @return {@code true} while the host backend behind these operations is
+         *         attached; the default answers for a live host
+         */
+        default boolean available() {
+            return true;
+        }
     }
 }

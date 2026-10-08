@@ -116,6 +116,13 @@ public final class RuntimeAsyncHostReadService implements AsyncHostReadService, 
     }
 
     @Override
+    public boolean isAvailable() {
+        synchronized (lifecycleLock) {
+            return open && !lane.isClosed();
+        }
+    }
+
+    @Override
     public void close() {
         final ArrayList<RuntimeAsyncHostReadHandle> toCancel;
         synchronized (lifecycleLock) {

@@ -195,13 +195,14 @@ class McpHostValidationClientTest(unittest.TestCase):
                             "Glue's original-history tip guard must run before an Undo leaves a Redo tail")
 
     def test_connection_is_numeric_loopback_without_proxy_or_redirect(self) -> None:
-        client = CLIENT.McpClient("http://127.0.0.1:43123/mcp", CLIENT.PROTOCOL_VERSION)
+        token = "a" * 64
+        client = CLIENT.McpClient("http://127.0.0.1:43123/mcp", CLIENT.PROTOCOL_VERSION, token)
         self.assertEqual("http://127.0.0.1:43123/mcp", client.endpoint)
         for endpoint in ("http://127.0.0.1:43123@evil.invalid/mcp", "http://localhost:43123/mcp",
                          "http://127.0.0.1/mcp", "http://127.0.0.1:43123/mcp?x=1",
                          "http://127.0.0.1:43123/mcp#fragment"):
             with self.subTest(endpoint=endpoint), self.assertRaises(CLIENT.ValidationFailure):
-                CLIENT.McpClient(endpoint, CLIENT.PROTOCOL_VERSION)
+                CLIENT.McpClient(endpoint, CLIENT.PROTOCOL_VERSION, token)
         with self.assertRaises(CLIENT.ValidationFailure):
             CLIENT.NoRedirect().redirect_request(None, None, 302, "redirect", {}, "http://evil.invalid")
 

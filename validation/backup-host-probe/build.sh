@@ -27,7 +27,8 @@ trap 'rm -rf "$out"' EXIT
 javac --release 17 -cp "$sdk_jar" -d "$out" \
   "$src/dev/turboism/validation/backup/BackupHostValidationPlugin.java" \
   "$webdav_src/WebDavConfig.java" \
-  "$webdav_src/WebDavSyncTarget.java"
+  "$webdav_src/WebDavSyncTarget.java" \
+  "$webdav_src/BoundedInputStreamBodyPublisher.java"
 cp -r "$src/META-INF" "$out/"
 
 output="$repo_root/build/backup-host-validation-exerciser.jar"

@@ -34,7 +34,7 @@
     {
       "id": "turboism.cubism.backup.observe",
       "scope": "application",
-      "reason": "Observes privacy-safe Runtime backup completion facts to upload command-owned artifacts."
+      "reason": "Observes backup completion facts and reads runtime-issued artifact bytes through permission-gated BackupArtifactHandle surfaces."
     },
     {
       "id": "turboism.config.plugin.write",
@@ -55,6 +55,11 @@
       "id": "turboism.cubism.model.observe",
       "scope": "application",
       "reason": "Observes model and animation save lifecycle to trigger save-triggered backups."
+    },
+    {
+      "id": "turboism.network.fetch",
+      "scope": "application",
+      "reason": "Uploads backup artifacts to the user-configured WebDAV endpoint through the JDK HttpClient (MKCOL/PROPFIND/PUT/DELETE); redirects are never followed."
     }
   ],
   "capabilities": [],

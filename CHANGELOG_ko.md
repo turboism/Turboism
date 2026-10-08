@@ -10,6 +10,12 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 ### 추가
 
+- 개발 전용이던 에이전트 채팅 플러그인을 범용 `Turboism ACP` 플러그인
+  (`dev.turboism.plugin.acp`)으로 재작성했습니다. 사용자가 설치한 ACP 호환 에이전트
+  (Claude Agent ACP, Codex ACP, Antigravity, Gemini CLI, OpenCode, Pi, Devin CLI 또는
+  사용자 지정 명령)를 실행하고, PATH 의 실행 파일을 감지하며, ACP 인증과 영속 세션을 관리하고,
+  에이전트가 HTTP MCP 를 선언하면 기존처럼 인증된 Turboism MCP 엔드포인트를 연결합니다.
+
 - SDK와 런타임에 애니메이션 워크스페이스 지원: 플러그인이 애니메이션 문서, 프로젝트
   타임라인, 트랙, 속성, 키프레임을 열거하고, 장면을 활성화·이름 변경하고, 재생 위치를
   이동하고, 일괄 키프레임 편집과 커브 타입을 적용하고, 평가된 값을 기록/베이크할 수
@@ -71,7 +77,21 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
   `ActionRegistry.Action.defaultShortcut()`과 새로운
   `Action.of(id, label, shortcut, handler)` 오버로드로 플러그인은 사용자가 다시 바인딩할 수 있는 기본 단축키를 선언할 수 있습니다. 코어 셸은 창 액션에 기본 키를 선언합니다(설정 Ctrl+Alt+S, 플러그인 Ctrl+Alt+P, 로그 Ctrl+Alt+L, 키바인딩 Ctrl+Shift+K). 퍼스트파티 메시 검사, 히스토리 토글, 데모 액션도 SDK 예시로 기본 키를 제공합니다. 행의 단축키 셀을 더블 클릭하면 키 캡처 대화 상자가 바로 열립니다.
 
+### 제거
+
+- 관리형 fx 런타임을 완전히 제거했습니다. 에이전트 바이너리 번들/다운로드, 런타임
+  매니페스트/해시 고정, Turboism 관리 프로바이더 프로필과 자격 증명 저장소, Gateway/OpenAI
+  어댑터를 모두 없앴습니다. 에이전트 인증·프로바이더·모델은 에이전트 자신이 관리합니다.
+  개발 전용 `turboism-with-fx` 플러그인 ID 는 폐기되었고, 릴리스 도구에서 fx 패키징/검증
+  픽스처 참조를 모두 제거했습니다.
+
 ### 변경
+
+- MCP 플러그인: 루프백 서버가 변경 도구 `tools/call` 및 세션 종료에 `Authorization: Bearer`
+  토큰(`<plugin-state>/mcp.token`, 소유자 전용 저장)을 요구하도록 변경하고, 같은 디렉터리에
+  `TurboismMcpBridge.java` stdio↔HTTP 릴레이를 게시합니다. MCP 클라이언트는
+  `{"command":"java","args":[...]}` 한 줄로 연결되며 토큰을 직접 다루지 않습니다.
+  읽기 전용 메서드는 계속 인증이 필요 없습니다.
 
 - 일반 CI가 이제 모든 pull request와 `main`으로의 push에서 `devCheck`와 전체
   `checkCompletedCommit` 스위트를 모두 실행하며, 디스플레이 의존 테스트에는 Xvfb를
@@ -132,10 +152,22 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 ### 수정
 
+- ACP로 연결된 에이전트가 Turboism MCP 쓰기 도구를 다시 사용할 수 있습니다. MCP 플러그인이
+  연결 스냅샷에 자격 증명 없는 stdio 실행 설명자를 게시하고, ACP 플러그인은 이를 stdio MCP
+  서버로 연결합니다. MCP 플러그인 JAR 내부의 미리 컴파일된 브리지가 bearer token을 직접
+  읽으므로 `jdk.compiler`가 없는 JRE에서도 동작합니다. HTTP 엔드포인트는 읽기 전용 폴백으로
+  유지되며, 엔드포인트 변경 시 MCP가 연결된 모든 세션이 재연결되고, Agent 트랜스크립트는
+  도구가 쓰기 가능인지 읽기 전용인지를 보고합니다.
 - `ClassPinTable.load`는 이제 에이전트 클래스에 정의 로더가 없을 때 시스템 클래스 로더로
   폴백합니다. 배포 에이전트의 `Boot-Class-Path` 매니페스트 항목이 이들을 부트스트랩 로드하므로
   premain 중 핀 테이블 조회가 null을 역참조하여 실제 호스트에서 런타임 전체가 시작되지 않고
   안전하게 실패했습니다.
+- 도구에서 머신 종속 리터럴 제거: 미리보기 실행 스크립트가 개인 `F:\Live2D` 설치 경로를 더
+  이상 탐색하지 않고, 매개변수 검증 GraalVM 프로브가 Proton `Z:` 경로를 하드코딩된 사용자
+  이름 대신 `$HOME`에서 유도하며, 릴리스 API 모니터의 인시던트 수신자는
+  `TURBOISM_MONITOR_RECIPIENT`(워크플로가 `RELEASE_MONITOR_RECIPIENT` 저장소 변수에서 주입)
+  를 사용하고, 원격 위생 게이트가 `/home/` 외에 `Users\`·`home\` 형태의 개발자 홈 표기도
+  거부합니다.
 - 애니메이션 문서, 장면, 트랙, 속성이 이제 객체 그래프 전반에서 플러그인 권한, 스코프
   활성 상태, 문서 세대를 강제합니다. 키프레임 복사는 오래되거나 외부 소스를 거부하면서
   동일 플러그인이 소유한 활성 뷰 간의 유효한 복사는 유지합니다.

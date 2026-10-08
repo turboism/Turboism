@@ -1,0 +1,7 @@
+# T096 无JFR受控测量插件离线通过
+
+新插件e03edb6d6d54fd3aa5869a7204cf19694ed4bc2a6d95b69553a9f45e82ae4b8a保留真实画布中心无按钮MOUSE_MOVED、测量区间外的六次原字段输入快照、直接预解析原生命令及两次CPU读数。实际打包类无JFR/NativeCommandJfrClock依赖，指令审查确认直接invokeMeasured调用，原CPU测量方法源码与b497逐字相同。输入派发、原字段观察、CPU读数、输出writer和数组snapshot五个helper类族与b497逐字节相同。
+
+六项实际打包helper正反例检查及已接受T057/最终T093两个真实生产loader检查PASS。首次构建误传Cubism归档作Turboism插件SDK而编译失败，plugin-r1证据保留；plugin-r2改用原有TurboismSDK，无宿主重试。尚未提交正式宿主任务，无CPU/耗时/RSS性能验收。
+
+下一步冻结T057/最终T093的四腿受控ABBA；无JFR、原生mesh诊断覆盖或额外表计数，相同插件和参数，保留完整2133命令边界与独立CPU单位/正常退出/kernelcleanup核验，使用原CPU/耗时/RSS门槛。T088和全部历史失败不改，T057接受交付不变，多版本实机/长期/LaneC仍开放。

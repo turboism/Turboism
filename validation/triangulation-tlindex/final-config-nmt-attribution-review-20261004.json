@@ -1,0 +1,426 @@
+{
+  "task": "T101",
+  "status": "PASS_CONTROLLED_NMT_DIAGNOSTIC_NOT_PERFORMANCE_ACCEPTANCE",
+  "protocolSha256": "d6fd27caae4289964d9701f797c0b3ca500a9b328510cb64510522e307cc82c0",
+  "productionPerformanceAcceptance": "NOT_GRANTED",
+  "acceptedDelivery": "T057",
+  "historicalFailures": "T088/T089/T097_UNCHANGED",
+  "T100FinalConfigGate": "UNPROVEN_UNCHANGED",
+  "legs": {
+    "baseline": {
+      "sequence": 2661,
+      "jobId": "ea35d3e2-2b9c-4e18-804b-10e2013b1c1e",
+      "runId": "queue-f3d8ba88b2a742a5a979539b36b86db3",
+      "preparedId": "38ecac6911fd2ac514d6780dca1e626f8e0509dd4558fe9120652611b5340a70",
+      "standardGates": "PASS",
+      "finalConfigGate": "PASS",
+      "controlledRows": 2133,
+      "controlledMismatches": 0,
+      "historicalReferenceMismatches": 378,
+      "nmtSnapshots": 20,
+      "pageSamples": 55,
+      "windowSamples": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "windowRssMiB": [
+        {
+          "operation": 0,
+          "heap": 2334.1640625,
+          "outside": 666.73828125,
+          "crossing": 0.0
+        },
+        {
+          "operation": 1,
+          "heap": 2273.677734375,
+          "outside": 671.328125,
+          "crossing": 0.0
+        },
+        {
+          "operation": 2,
+          "heap": 2460.15625,
+          "outside": 689.595703125,
+          "crossing": 0.0
+        },
+        {
+          "operation": 3,
+          "heap": 3479.82421875,
+          "outside": 726.8359375,
+          "crossing": 0.0
+        }
+      ],
+      "heapRetained3Minus1MiB": 1206.146484375,
+      "outsideRetained3Minus1MiB": 55.5078125,
+      "retainedNmt": [
+        {
+          "operation": 1,
+          "committedMiB": {
+            "Java Heap": 2360.0,
+            "Class": 13.8232421875,
+            "Thread": 59.0322265625,
+            "Code": 49.865234375,
+            "GC": 147.0,
+            "Compiler": 0.3251953125,
+            "Internal": 3.0791015625,
+            "Other": 29.39453125,
+            "Symbol": 19.521484375,
+            "Native Memory Tracking": 10.0595703125,
+            "Shared class space": 10.375,
+            "Arena Chunk": 0.4453125,
+            "Tracing": 0.03125,
+            "Logging": 0.0048828125,
+            "Arguments": 0.0078125,
+            "Module": 0.8046875,
+            "Safepoint": 0.0078125,
+            "Synchronization": 0.125,
+            "Serviceability": 0.001953125,
+            "Metaspace": 84.798828125,
+            "String Deduplication": 0.0009765625,
+            "Total": 2788.7041015625
+          }
+        },
+        {
+          "operation": 2,
+          "committedMiB": {
+            "Java Heap": 2536.0,
+            "Class": 13.830078125,
+            "Thread": 59.0322265625,
+            "Code": 50.712890625,
+            "GC": 153.646484375,
+            "Compiler": 0.3251953125,
+            "Internal": 3.0810546875,
+            "Other": 29.39453125,
+            "Symbol": 19.5224609375,
+            "Native Memory Tracking": 10.076171875,
+            "Shared class space": 10.375,
+            "Arena Chunk": 0.1953125,
+            "Tracing": 0.03125,
+            "Logging": 0.0048828125,
+            "Arguments": 0.0078125,
+            "Module": 0.8046875,
+            "Safepoint": 0.0078125,
+            "Synchronization": 0.125,
+            "Serviceability": 0.001953125,
+            "Metaspace": 84.861328125,
+            "String Deduplication": 0.0009765625,
+            "Total": 2972.0380859375
+          }
+        },
+        {
+          "operation": 3,
+          "committedMiB": {
+            "Java Heap": 3560.0,
+            "Class": 13.8388671875,
+            "Thread": 59.0322265625,
+            "Code": 51.314453125,
+            "GC": 192.3330078125,
+            "Compiler": 0.33984375,
+            "Internal": 3.0986328125,
+            "Other": 29.39453125,
+            "Symbol": 19.5263671875,
+            "Native Memory Tracking": 10.1015625,
+            "Shared class space": 10.375,
+            "Arena Chunk": 2.818359375,
+            "Tracing": 0.03125,
+            "Logging": 0.0048828125,
+            "Arguments": 0.0078125,
+            "Module": 0.8076171875,
+            "Safepoint": 0.0078125,
+            "Synchronization": 0.125,
+            "Serviceability": 0.001953125,
+            "Metaspace": 84.923828125,
+            "String Deduplication": 0.0009765625,
+            "Total": 4038.0859375
+          }
+        }
+      ],
+      "retainedHeapUsed": [
+        {
+          "operation": 1,
+          "heapUsedMiB": 1393.7236633300781
+        },
+        {
+          "operation": 2,
+          "heapUsedMiB": 2111.232192993164
+        },
+        {
+          "operation": 3,
+          "heapUsedMiB": 1156.9765243530273
+        }
+      ],
+      "commandProcessCpuSeconds": 127.19,
+      "commandBoundaryWallSeconds": 115.32233709900001
+    },
+    "candidate": {
+      "sequence": 2662,
+      "jobId": "3eb18a65-0e82-45ce-afca-e1f718be5bab",
+      "runId": "queue-4f87aa906aba4b78805b56702ce47364",
+      "preparedId": "5daf3fe22a9dd03f133c4882fc10d4a6fa41392475b719f31d04b7a058b2e400",
+      "standardGates": "PASS",
+      "finalConfigGate": "PASS",
+      "controlledRows": 2133,
+      "controlledMismatches": 0,
+      "historicalReferenceMismatches": 378,
+      "nmtSnapshots": 20,
+      "pageSamples": 57,
+      "windowSamples": [
+        6,
+        6,
+        6,
+        6
+      ],
+      "windowRssMiB": [
+        {
+          "operation": 0,
+          "heap": 2388.58203125,
+          "outside": 684.466796875,
+          "crossing": 0.0
+        },
+        {
+          "operation": 1,
+          "heap": 2316.65625,
+          "outside": 586.984375,
+          "crossing": 0.0
+        },
+        {
+          "operation": 2,
+          "heap": 2805.28125,
+          "outside": 593.791015625,
+          "crossing": 0.0
+        },
+        {
+          "operation": 3,
+          "heap": 2824.41015625,
+          "outside": 612.14453125,
+          "crossing": 0.0
+        }
+      ],
+      "heapRetained3Minus1MiB": 507.75390625,
+      "outsideRetained3Minus1MiB": 25.16015625,
+      "retainedNmt": [
+        {
+          "operation": 1,
+          "committedMiB": {
+            "Java Heap": 2400.0,
+            "Class": 13.65625,
+            "Thread": 59.0322265625,
+            "Code": 49.65625,
+            "GC": 147.9501953125,
+            "Compiler": 0.3271484375,
+            "Internal": 3.0693359375,
+            "Other": 29.51953125,
+            "Symbol": 19.3037109375,
+            "Native Memory Tracking": 9.978515625,
+            "Shared class space": 10.375,
+            "Arena Chunk": 1.3193359375,
+            "Tracing": 0.03125,
+            "Logging": 0.0048828125,
+            "Arguments": 0.0078125,
+            "Module": 0.806640625,
+            "Safepoint": 0.0078125,
+            "Synchronization": 0.126953125,
+            "Serviceability": 0.001953125,
+            "Metaspace": 83.6298828125,
+            "String Deduplication": 0.0009765625,
+            "Total": 2828.8056640625
+          }
+        },
+        {
+          "operation": 2,
+          "committedMiB": {
+            "Java Heap": 2880.0,
+            "Class": 13.6630859375,
+            "Thread": 59.0322265625,
+            "Code": 50.322265625,
+            "GC": 165.796875,
+            "Compiler": 0.3271484375,
+            "Internal": 3.0732421875,
+            "Other": 29.51953125,
+            "Symbol": 19.3056640625,
+            "Native Memory Tracking": 9.99609375,
+            "Shared class space": 10.375,
+            "Arena Chunk": 0.1953125,
+            "Tracing": 0.03125,
+            "Logging": 0.0048828125,
+            "Arguments": 0.0078125,
+            "Module": 0.806640625,
+            "Safepoint": 0.0078125,
+            "Synchronization": 0.126953125,
+            "Serviceability": 0.001953125,
+            "Metaspace": 83.7548828125,
+            "String Deduplication": 0.0009765625,
+            "Total": 3326.3486328125
+          }
+        },
+        {
+          "operation": 3,
+          "committedMiB": {
+            "Java Heap": 2880.0,
+            "Class": 13.6689453125,
+            "Thread": 59.0322265625,
+            "Code": 50.7744140625,
+            "GC": 165.7998046875,
+            "Compiler": 0.341796875,
+            "Internal": 3.072265625,
+            "Other": 29.39453125,
+            "Symbol": 19.2744140625,
+            "Native Memory Tracking": 9.9921875,
+            "Shared class space": 10.375,
+            "Arena Chunk": 0.3203125,
+            "Tracing": 0.03125,
+            "Logging": 0.0048828125,
+            "Arguments": 0.0078125,
+            "Module": 0.806640625,
+            "Safepoint": 0.0078125,
+            "Synchronization": 0.126953125,
+            "Serviceability": 0.001953125,
+            "Metaspace": 83.888671875,
+            "String Deduplication": 0.0009765625,
+            "Total": 3326.921875
+          }
+        }
+      ],
+      "retainedHeapUsed": [
+        {
+          "operation": 1,
+          "heapUsedMiB": 1431.8039016723633
+        },
+        {
+          "operation": 2,
+          "heapUsedMiB": 2363.1327056884766
+        },
+        {
+          "operation": 3,
+          "heapUsedMiB": 1138.102668762207
+        }
+      ],
+      "commandProcessCpuSeconds": 128.44,
+      "commandBoundaryWallSeconds": 120.572277201
+    }
+  },
+  "rehashCounts": {
+    "protocol": 43,
+    "raw": 122,
+    "saved": 62,
+    "rawSmaps": 112
+  },
+  "evidencePins": {
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/runner-input.json": "576253cee5cfe770c2ddeec8d35fe86879c3575e75995c7a2044a15da7b4d135",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/prepared.json": "518ed43ee9889b70aedd0ff482093b334470e867c794ab1b6a9fb09f3283ff5b",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/queue-before.json": "e75601938c261861a504e7edf4c7a09e457981f6095588afb8bd7c11dfc0444e",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/run.json": "b6464f077b411e3bc6f30a0ac591abb9291f28216c27a2039c7fc1d42a084c04",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/outcome.json": "9bf4cade819e7a54e4f8f72a97e1ef208338dec56a0b73f1440f3d8c17261a03",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-review.process.json": "60e769ada0e28ee0f90fa7b5f98bd3c564dff948644342f0daa588ae26341b41",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-review.json": "92b56219abf258e67ed1b8e2d7fd38190b7d01b801ef072a053dc992029fab13",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/jvm-context-review.process.json": "c16573f8aec523aa2af260ce07c4792960423fae03278bf15153cb6167f9b620",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/jvm-context-review.json": "4777c73f6b974f0751981ca2e41e5d468c3904bdd59cf1327a1be3cddb4572b5",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/nmt-pages-review.process.json": "f6e753526b2370548a7504aaf550621232211532601e2aa2073598f90aca9d0b",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/nmt-pages-review.json": "6c4c54807cb2c723bf4202f707be8d04ed11c01a437f119d2af32361dd499650",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/prepare-wrapper.log": "ca5cdac32954e4d2a2b8538591f245e728e672932da6c9fcdd68cfc988b18e16",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/observer.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/page-observer.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-review.log": "b080460731de83dcb732fed4429beb6fc858ed24886ade466ea0bf4903f14889",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/jvm-context-review.log": "38f1a8ac9123a80d99aa49117b1d6cb98b17f3a2e267eb8a403ce7f2ebff0cde",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/nmt-pages-review.log": "2b0e67de0a391ee69a7f70ff69f3ba97cab26cad46a6a2f02cf6a1618ccd0a18",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/outcome.json": "906dfc5ad7d1c3b46a303d8223b50d504826109c4dfe089ab5a33cb825226417",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/prepared.json": "5619bcc8c3926af72fb0afa424bb484d11d168e30620e49afd295a6abe60d2e8",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/config.json": "190ea2fcf912c290a4db40ccd512becf4d3f032098f9cbeca339c2f0903cce02",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/runtime.log": "58a4c410ff0f2c6dbe2be5a9c78eb102f4e10bd5525e9381119af49f9188055a",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/console.txt": "d2eaa073a51261cd7aa21f54aa82363548fdccf4e3c1a7fe89a6be9b9ef141a1",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/terminal-result.txt": "98d876937aa321f3219a96f7fec7c4c60189640cb26049701ee44d380b394d19",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/resources.jsonl": "2a84113ca44918d5000d867165388652e167ad40d1c99c47cd7e6139f39cb666",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/page-residency.jsonl": "3f6ad98c163a344a71c488aa37bed5686eb95e6c4854136986c4203d8980887b",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/settings-result.txt": "1ea771658210a447944f02b423456ad9bfb516039aabc1d9bfe648a941d6edc4",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/auto-connect-selected.txt": "b15126881463acc9b57ea396f585b4b2982330e16cad2c121cbc4e09e0babdae",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/observer-free-protocol.properties": "25e9dbfd81b2365135fa3b28cc855bdcbc743a2b690cc0f6dba4176548b77f5f",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/observer-free-command-cpu.tsv": "4ca6ba397c8145e2c1f862678d848e7f9c4ad619a20fe8e8c2272f09dc3ff2d1",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/observer-free-results.tsv": "30f7ca993fcc5a512f62dd092a5e2e177ffd53deda92d4278a50506c22dfaadc",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/native-nmt-summary.tsv": "85df46860932a071897c2a22a0a8ab51083e89d55b150c8ba949918a32c69690",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/native-jvm-context.tsv": "603d65fe64da4cb4e048f9ec33d92ce69d66fe674e8c02d8f91bbb0920644e6f",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/resource-windows.tsv": "103ff7864a4ada163d6b8c0e2bdc11a277e92e1ee6038900d33c995692551071",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/native-input-state.tsv": "8ba590c2a269d9ddf33b642d8ce36133613b9b8cff77af0a107aa3da366e510a",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/observer-free-cancel.properties": "3838d81ed3f449a9d3a360580c022df12273ecb7d5f54a77d9a13c311d96fc1d",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/payload.properties": "66365d960b3ee3586068db5cadaae196d80601c3d6c853d6aeb6d8f2202e91d1",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/driver-stage.properties": "9b537ac0875d0cc849b609430259d5ababdf6b93a869e00ba808e1ad7bf8d53a",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/direct-nmt-launcher.json": "764fad644529eed02ddc6fd3d2d1145e0f2b53f9a03b83ca9a046ad991efe110",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/nmt-proxy-before.bin": "c9b924644749a5e3fc8131443a8ff162278791a7e64e8dd8756625a5a9e2b9e4",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/nmt-proxy-after.bin": "5504a03576a3bc6e193d95cbe00317af338c3ac54c4ed5b4837022f90e054d9d",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/direct-nmt-final-launcher.json": "b90a8de5012eb0a952f5d235d48699bcf6b1bc64026e2be6a3fce896e766176d",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/nmt-proxy-final.bin": "5504a03576a3bc6e193d95cbe00317af338c3ac54c4ed5b4837022f90e054d9d",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/identity-before.properties": "60bf1b0ae62f46e7e97ce6e527d6d4c29c72a96a2bfcf5bb7005d9edfc448372",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/cloned-identity.properties": "df62ca54225ef85b13c15f3d8171829ff7c113918d6254eba45a3e515dc8ae41",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/final-hashes.properties": "565fdb225ef7d405305f3716f67ccb34559345eab7909d06885bf4541b134461",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/java-process.ready.properties": "75f31763f42cf499b4acd9453044b369ccfd8999de73c5be2e98d0935f2d2b25",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/java-process.result.properties": "fbdd5a116c28fc75e5f6f948bf0e76436494d5192dfc6f6db6803af6766f1608",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/native-evidence/wrapper.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/baseline/raw-terminal-evidence/preservation.json": "1d11943af5e535665c8fccd82780074a9f950d1375df78c9628603f3a22dd095",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/runner-input.json": "aa6ea31d5765a6e24d680bfcef7ec47712e830ee09728d2bddc9485621d36e35",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/prepared.json": "5521028169d0839bc45f4956628e7ec341b0a35b694a5b9aa3ae955994e84217",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/queue-before.json": "e75601938c261861a504e7edf4c7a09e457981f6095588afb8bd7c11dfc0444e",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/run.json": "3394804e32bd5df600d071c4dda600a3adeedf9398993a8d15705f7aa1d8a462",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/outcome.json": "b758f56630ea0bc34ac8f698ce89901a0cb28efe26b9798f719c55d61fa01f7e",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-review.process.json": "7191a8cf63f82fba9e6b1e8818500a405b587a66728d08e013f7f124213afed9",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-review.json": "0d4141a1aa2c71b44d86dc8e490193294ffa72b26cc378444926863677773dab",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/jvm-context-review.process.json": "f0c6836a1194f0533b769132f46f2ad3ba5cb091b1e5bdefa4b65c25bc9c4b07",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/jvm-context-review.json": "58908e22b8c7396ef7ad14feca1180b4b3817510d2acd6841129282e4dd34988",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/nmt-pages-review.process.json": "6e767f22543aa142e15d0fe13b0d88a9f14ad62d95358aeb41871d7fb80414f0",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/nmt-pages-review.json": "38bfdeb4df97ec97e863763ec3a0b294f0d645e95b0cde43c5b20f6a04d5aa17",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/prepare-wrapper.log": "d5bfd223b5f748069eeab3adaf49d8099c8f2965cad58535d85c8501deb87762",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/observer.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/page-observer.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-review.log": "b080460731de83dcb732fed4429beb6fc858ed24886ade466ea0bf4903f14889",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/jvm-context-review.log": "38f1a8ac9123a80d99aa49117b1d6cb98b17f3a2e267eb8a403ce7f2ebff0cde",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/nmt-pages-review.log": "2b0e67de0a391ee69a7f70ff69f3ba97cab26cad46a6a2f02cf6a1618ccd0a18",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/outcome.json": "802294f5b5424401609392fe2106c47ebd33dcdc6526d04d1a6adc4dc14e24ae",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/prepared.json": "a42d53f705596cde6ed9d97dc519adc2e6a84ceb6183ef4c25821840b659082e",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/config.json": "190ea2fcf912c290a4db40ccd512becf4d3f032098f9cbeca339c2f0903cce02",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/runtime.log": "d6e49196856509c4e195213e44c5ccef62939e2f4d9582062cb292a54c5c1751",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/console.txt": "571ede7862431e606b45cef6347c2faecd636322297486ab1f1aa3708b92f292",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/terminal-result.txt": "828046c10729d87d267ad17cce84471578b5574077bb54f9df9038cb35247080",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/resources.jsonl": "3b558ac3c5fb448df9fab799044eee5aa9abd49bec9d2353f1e443323d1a533d",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/page-residency.jsonl": "1de6206c559f1c5743072e98fab2ec63227d57538ecc6cedb96f2dd44e741f2d",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/settings-result.txt": "1ea771658210a447944f02b423456ad9bfb516039aabc1d9bfe648a941d6edc4",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/auto-connect-selected.txt": "b15126881463acc9b57ea396f585b4b2982330e16cad2c121cbc4e09e0babdae",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/observer-free-protocol.properties": "25e9dbfd81b2365135fa3b28cc855bdcbc743a2b690cc0f6dba4176548b77f5f",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/observer-free-command-cpu.tsv": "5e1e4ad76151febd838b0391d39c3ed1439ff8453f68c691866274d09c4e388f",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/observer-free-results.tsv": "30f7ca993fcc5a512f62dd092a5e2e177ffd53deda92d4278a50506c22dfaadc",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/native-nmt-summary.tsv": "3ccbbceb619299204df808b619c657602b51071fcee6bf967178160a7594926e",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/native-jvm-context.tsv": "a331fecee70e61b117f926802a0b59495f25895bb23515afee70ad1fcce8aa9f",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/resource-windows.tsv": "1d7f899840eae8f40c9080d11a2bd949cfb2ebbee306f0975312f70eee15d536",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/native-input-state.tsv": "1bf062b386ebe564eec79d8c6e6792325cc0a82f0edf1561809a34e7f371ba0f",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/observer-free-cancel.properties": "3838d81ed3f449a9d3a360580c022df12273ecb7d5f54a77d9a13c311d96fc1d",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/payload.properties": "13edcd560fde1f6e414118527052e0bc078164e64111cd4c49fb4bebd56a0096",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/driver-stage.properties": "5384daf2af04fc27470466a07f89747ce634b9a310c1efa5f7eff272d5039c14",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/direct-nmt-launcher.json": "764fad644529eed02ddc6fd3d2d1145e0f2b53f9a03b83ca9a046ad991efe110",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/nmt-proxy-before.bin": "c9b924644749a5e3fc8131443a8ff162278791a7e64e8dd8756625a5a9e2b9e4",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/nmt-proxy-after.bin": "5504a03576a3bc6e193d95cbe00317af338c3ac54c4ed5b4837022f90e054d9d",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/direct-nmt-final-launcher.json": "08be6bc31870f04921663befbf6c763f4154c7774fcf20cd4e4e5ec4acf87a2b",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/nmt-proxy-final.bin": "5504a03576a3bc6e193d95cbe00317af338c3ac54c4ed5b4837022f90e054d9d",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/identity-before.properties": "631ab687fd539ea8a1892edd36c92c36a54c42b265d99b7a746e264cad9b7b53",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/cloned-identity.properties": "df62ca54225ef85b13c15f3d8171829ff7c113918d6254eba45a3e515dc8ae41",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/final-hashes.properties": "565fdb225ef7d405305f3716f67ccb34559345eab7909d06885bf4541b134461",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/java-process.ready.properties": "25ed6bc6caa8f74f8db83ea4ed5a6fce0e549ba657f09bc72b1b8841a62616a5",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/java-process.result.properties": "3e88664f063461d72d83c0bc14231ff71d368049d476d22503404169589bc929",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/native-evidence/wrapper.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/candidate/raw-terminal-evidence/preservation.json": "3f48dbaa5ed75133d8d9174502309207dbda6a2147bcb7ab937311f2ad30a837",
+    "build/t101-nmt-final-config-r1/native5303-attribution-r2/review-pair.py": "7e8b6d323c411934fc5d564e4fccf92dbb3b29cefbfe74051e48b853e8056e5a"
+  },
+  "descriptiveChangesPercent": {
+    "commandProcessCpuSeconds": 0.9827816652252519,
+    "commandBoundaryWallSeconds": 4.552405227005685
+  },
+  "findings": [
+    "In both independently observed legs, retained RSS growth is predominantly inside the Java heap range.",
+    "Candidate heap growth is smaller in this diagnostic, but process CPU and boundary wall are higher; no production acceptance or algorithmic causal proof.",
+    "GC committed growth is much smaller than Java heap committed growth; NMT accounting is not RSS.",
+    "Next attribution target: heap allocation volume and allocation sites, with a distinct scoped protocol; do not tune JVM/force GC or waive gates."
+  ],
+  "limitations": [
+    "Single sequential diagnostic pair with NMT overhead; not formal ABBA acceptance.",
+    "Sparse non-atomic mapping scans; separate component medians are not necessarily additive.",
+    "Outside heap includes Wine and untracked allocations; committed/reserved is not RSS.",
+    "No statistical, allocation-site or causal proof; earlier failed gates remain."
+  ]
+}

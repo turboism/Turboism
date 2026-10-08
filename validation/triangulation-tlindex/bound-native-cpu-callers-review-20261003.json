@@ -1,0 +1,66 @@
+{
+  "task": "T078",
+  "status": "PASS_BOUND_NATIVE_EDT_CPU_CALLER_DIAGNOSTIC_ONLY",
+  "recordingTask": "queue-c8ecccf0402c4884a3d8be457b38d4ce",
+  "scope": "Existing FIFO2599 exact T057 same-recording native EDT diagnostic; no new host submission",
+  "cycles": [
+    {
+      "cycle": 1,
+      "executionSamples": 631,
+      "settleFromQuery": 92,
+      "settleFromContains": 48,
+      "checkIndexFromExistingMeshEdge": 142,
+      "checkIndexCallerChains": [
+        [
+          "java.util.Objects.checkIndex(II)I <- java.util.ArrayList.get(I)Ljava/lang/Object; <- com.live2d.type.CArrayList.get(I)Ljava/lang/Object; <- com.live2d.graphics3d.editableMesh.GEditableMesh2.chechExistingEdge_exe(IIZ)Ljava/lang/Integer; <- com.live2d.graphics3d.editableMesh.GEditableMesh2.checkExitingTypedEdge(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;)Ljava/lang/Integer; <- com.live2d.graphics3d.editableMesh.GEditableMesh2.addEdge(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZZ)Ljava/lang/Integer; <- com.live2d.graphics3d.editableMesh.GEditableMesh2.addEdgeIfNotExists(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;Z)Ljava/lang/Integer; <- com.live2d.graphics3d.editableMesh.GEditableMesh2.addEdgeIfNotExists$default(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZILjava/lang/Object;)Ljava/lang/Integer;",
+          142
+        ]
+      ]
+    },
+    {
+      "cycle": 2,
+      "executionSamples": 531,
+      "settleFromQuery": 55,
+      "settleFromContains": 47,
+      "checkIndexFromExistingMeshEdge": 114,
+      "checkIndexCallerChains": [
+        [
+          "java.util.Objects.checkIndex(II)I <- java.util.ArrayList.get(I)Ljava/lang/Object; <- com.live2d.type.CArrayList.get(I)Ljava/lang/Object; <- com.live2d.graphics3d.editableMesh.GEditableMesh2.chechExistingEdge_exe(IIZ)Ljava/lang/Integer; <- com.live2d.graphics3d.editableMesh.GEditableMesh2.checkExitingTypedEdge(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;)Ljava/lang/Integer; <- com.live2d.graphics3d.editableMesh.GEditableMesh2.addEdge(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZZ)Ljava/lang/Integer; <- com.live2d.graphics3d.editableMesh.GEditableMesh2.addEdgeIfNotExists(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;Z)Ljava/lang/Integer; <- com.live2d.graphics3d.editableMesh.GEditableMesh2.addEdgeIfNotExists$default(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZILjava/lang/Object;)Ljava/lang/Integer;",
+          114
+        ]
+      ]
+    },
+    {
+      "cycle": 3,
+      "executionSamples": 635,
+      "settleFromQuery": 93,
+      "settleFromContains": 57,
+      "checkIndexFromExistingMeshEdge": 145,
+      "checkIndexCallerChains": [
+        [
+          "java.util.Objects.checkIndex(II)I <- java.util.ArrayList.get(I)Ljava/lang/Object; <- com.live2d.type.CArrayList.get(I)Ljava/lang/Object; <- com.live2d.graphics3d.editableMesh.GEditableMesh2.chechExistingEdge_exe(IIZ)Ljava/lang/Integer; <- com.live2d.graphics3d.editableMesh.GEditableMesh2.checkExitingTypedEdge(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;)Ljava/lang/Integer; <- com.live2d.graphics3d.editableMesh.GEditableMesh2.addEdge(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZZ)Ljava/lang/Integer; <- com.live2d.graphics3d.editableMesh.GEditableMesh2.addEdgeIfNotExists(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;Z)Ljava/lang/Integer; <- com.live2d.graphics3d.editableMesh.GEditableMesh2.addEdgeIfNotExists$default(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZILjava/lang/Object;)Ljava/lang/Integer;",
+          145
+        ]
+      ]
+    }
+  ],
+  "bindingFieldsMatched": 30,
+  "originalCpuScopesAndReportedLeafCountsMatch": true,
+  "unitScopeTests": 5,
+  "initialRefusalPreserved": "analysis-guard-r1: ordering of equally counted leaf sites differed; final comparison matches method/count maps, preserving counts and windows",
+  "nextAction": "Inspect pinned native mesh existing-edge checks and operation-local indexing opportunities; no runtime change authorized by samples alone",
+  "performanceAcceptance": "NOT_GRANTED",
+  "inputPins": {
+    "build/t078-bound-native-cpu-callers-r1/caller-review.json": "fd869920a51eff379e479db6b6ff3add89c602e36782a4b8e923f8b5214dc2b2",
+    "build/t078-bound-native-cpu-callers-r1/analysis-guard-r2/result.json": "4fc7012b708fa660de366994505abe6be5eb753e22ddd5248d27ee07e75539ef",
+    "validation/triangulation-tlindex/diagnostic/analyze-bound-native-cpu-callers.py": "e774c83c67cec6ceaa5624a3a8ea2be99e4193f9ecc7e1beab661f68cba62a38",
+    "validation/triangulation-tlindex/diagnostic/test-bound-native-cpu-callers.py": "01dbbf16941b5221da1b7ce55686bc02d68c2d3e4615123129810e8249e33afd"
+  },
+  "limitations": [
+    "Execution samples are observed stacks, not CPU durations or causal gains.",
+    "Caller chains retain at most eight frames; inlining/truncation limits attribution.",
+    "Only ExecutionSample events are exported; native event-loop samples are not CPU evidence.",
+    "This recording uses T057, predating T075 QuerySnapshot and T077 settlement deferral.",
+    "Historical clock-unproven reports and failed performance gates remain unchanged."
+  ]
+}

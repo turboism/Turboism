@@ -184,8 +184,24 @@ final class DynamicRuntimeHostAdapters {
                             public java.util.Optional<dev.turboism.sdk.cubism.recentfile.RecentFileId> current() {
                                 return call(adapters -> adapters.recentFiles().current());
                             }
+
+                            @Override
+                            public boolean available() {
+                                return call(adapters -> adapters.recentFiles().available());
+                            }
                         }),
-                request -> callAsync(adapters -> adapters.screenshots().capture(request)),
+                new dev.turboism.adapter.cubism.ScreenshotCaptureAdapter() {
+                    @Override
+                    public CompletionStage<dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureResult> capture(
+                            final dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest request) {
+                        return callAsync(adapters -> adapters.screenshots().capture(request));
+                    }
+
+                    @Override
+                    public boolean available() {
+                        return call(adapters -> adapters.screenshots().available());
+                    }
+                },
                 dev.turboism.adapter.cubism.RecentPreviewContributionAdapter.connected(
                         new dev.turboism.adapter.cubism.RecentPreviewContributionAdapter.HostOperations() {
                             @Override
@@ -200,6 +216,12 @@ final class DynamicRuntimeHostAdapters {
                                     adapters.recentPreviews().refresh();
                                     return null;
                                 });
+                            }
+
+                            @Override
+                            public boolean available() {
+                                return call(
+                                        adapters -> adapters.recentPreviews().available());
                             }
                         }),
                 new AutoBackupAdapter() {
@@ -231,6 +253,11 @@ final class DynamicRuntimeHostAdapters {
                             final File matchFile, final List<String> documentUids, final long timestampMillis) {
                         return call(adapters ->
                                 adapters.autoBackup().saveDocumentFor(matchFile, documentUids, timestampMillis));
+                    }
+
+                    @Override
+                    public boolean available() {
+                        return call(adapters -> adapters.autoBackup().available());
                     }
                 },
                 new UiResourceService() {

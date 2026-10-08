@@ -66,6 +66,11 @@ public final class RuntimeSceneTableService implements SceneTableService {
         host.setManualReordering(enabled);
     }
 
+    @Override
+    public boolean isAvailable() {
+        return host.available();
+    }
+
     /** Publishes a detached header-click observation without invoking plugin code on Swing EDT. */
     public void publishHeaderClick(final String columnId) {
         publish(new SceneTableHeaderClickEvent(new HeaderClick(SCENE_TABLE_ID, requireText(columnId, "columnId"))));
@@ -145,5 +150,13 @@ public final class RuntimeSceneTableService implements SceneTableService {
          * @param enabled whether users may reorder rows manually
          */
         void setManualReordering(boolean enabled);
+
+        /**
+         * @return {@code true} while a live host binding serves this seam; the
+         *         default answers for a bound host
+         */
+        default boolean available() {
+            return true;
+        }
     }
 }

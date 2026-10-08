@@ -10,7 +10,6 @@ import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.ui.workspace.WorkspaceId;
 import dev.turboism.sdk.ui.workspace.WorkspaceInfo;
@@ -308,11 +307,6 @@ class WindowsWorkspaceValidationProbeTest {
             @Override
             public boolean isHostPresent() {
                 return true;
-            }
-
-            @Override
-            public TransactionManager transactionManager() {
-                throw new UnsupportedOperationException();
             }
         };
         final CommandResult result = WindowsWorkspaceValidationProbe.executeCommand(
@@ -643,11 +637,6 @@ class WindowsWorkspaceValidationProbeTest {
             @Override
             public boolean isHostPresent() {
                 return hostPresent;
-            }
-
-            @Override
-            public TransactionManager transactionManager() {
-                throw new UnsupportedOperationException();
             }
         };
     }

@@ -5,6 +5,7 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.CanvasHintHandle;
 import dev.turboism.sdk.ui.CanvasHintNotification;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 
 import javax.swing.JButton;
 import javax.swing.SwingUtilities;
@@ -351,7 +352,7 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
      */
     private boolean nativeHintSurfaceAcceptsHints() {
         try {
-            final CanvasHintHandle handle = context.uiHost().notifyCanvasHint(
+            final CanvasHintHandle handle = context.services().find(UiHostCapabilityService.class).orElse(UiHostCapabilityService.unavailable()).notifyCanvasHint(
                 new CanvasHintNotification(
                     HINT_PROBE_ID,
                     "Turboism update-check validation",

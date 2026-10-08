@@ -3,10 +3,13 @@ package dev.turboism.exportsettings;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.ui.host.EdtDispatch;
+import dev.turboism.ui.host.EdtDispatchException;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.event.HierarchyEvent;
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Deque;
@@ -17,10 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import javax.swing.BoxLayout;
 import javax.swing.JCheckBox;
@@ -303,20 +303,16 @@ public final class ExportSettingsAttachBackend {
 
     private static void removeParts(final Container target, final JPanel panel, final DialogGrowth growth) {
         try {
-            onEdt(
-                    () -> {
-                        if (growth != null) {
-                            growth.undo();
-                        }
-                        if (panel.getParent() == target) {
-                            target.remove(panel);
-                        }
-                        target.revalidate();
-                        target.repaint();
-                        return null;
-                    },
-                    false,
-                    true);
+            onEdtEventually(() -> {
+                if (growth != null) {
+                    growth.undo();
+                }
+                if (panel.getParent() == target) {
+                    target.remove(panel);
+                }
+                target.revalidate();
+                target.repaint();
+            });
         } catch (Throwable ignored) {
             FatalErrors.rethrowIfFatal(ignored);
             // The caller already has a typed attach/close failure. Do not mask it with cleanup.
@@ -344,20 +340,16 @@ public final class ExportSettingsAttachBackend {
             return;
         }
         try {
-            onEdt(
-                    () -> {
-                        if (dialogGrowth != null) {
-                            dialogGrowth.undo();
-                        }
-                        if (panel.getParent() == target) {
-                            target.remove(panel);
-                        }
-                        target.revalidate();
-                        target.repaint();
-                        return null;
-                    },
-                    false,
-                    true);
+            onEdtEventually(() -> {
+                if (dialogGrowth != null) {
+                    dialogGrowth.undo();
+                }
+                if (panel.getParent() == target) {
+                    target.remove(panel);
+                }
+                target.revalidate();
+                target.repaint();
+            });
         } catch (ExportSettingsAttachException failure) {
             throw failure;
         } catch (Throwable failure) {
@@ -419,59 +411,40 @@ public final class ExportSettingsAttachBackend {
     }
 
     private static <T> T onEdt(final Operation<T> operation, final boolean rejectInterrupted) {
-        return onEdt(operation, rejectInterrupted, false);
-    }
-
-    private static <T> T onEdt(
-            final Operation<T> operation, final boolean rejectInterrupted, final boolean keepQueuedAfterCallerStops) {
         Objects.requireNonNull(operation, "operation");
-        if (SwingUtilities.isEventDispatchThread()) {
-            return operation.run();
-        }
         if (rejectInterrupted && Thread.currentThread().isInterrupted()) {
             throw new ExportSettingsAttachException(INTERRUPTED_KEY);
         }
-
-        final CountDownLatch completed = new CountDownLatch(1);
-        final AtomicBoolean execute = new AtomicBoolean(true);
-        final AtomicReference<T> result = new AtomicReference<>();
-        final AtomicReference<Throwable> failure = new AtomicReference<>();
-        SwingUtilities.invokeLater(() -> {
-            if (!execute.get()) {
-                completed.countDown();
-                return;
-            }
-            try {
-                result.set(operation.run());
-            } catch (Throwable throwable) {
-                FatalErrors.rethrowIfFatal(throwable);
-                failure.set(throwable);
-            } finally {
-                completed.countDown();
-            }
-        });
         try {
-            if (!completed.await(EDT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
-                if (!keepQueuedAfterCallerStops) {
-                    execute.set(false);
-                }
-                throw new ExportSettingsAttachException(EDT_TIMEOUT_KEY);
-            }
-        } catch (InterruptedException interrupted) {
-            if (!keepQueuedAfterCallerStops) {
-                execute.set(false);
-            }
-            Thread.currentThread().interrupt();
-            throw new ExportSettingsAttachException(INTERRUPTED_KEY, interrupted);
+            return EdtDispatch.call(
+                    "export-settings attach EDT operation", Duration.ofMillis(EDT_TIMEOUT_MILLIS), operation::run);
+        } catch (EdtDispatchException dispatch) {
+            throw new ExportSettingsAttachException(
+                    dispatch.reason() == EdtDispatchException.Reason.INTERRUPTED ? INTERRUPTED_KEY : EDT_TIMEOUT_KEY,
+                    dispatch);
+        } catch (ExportSettingsAttachException typed) {
+            throw typed;
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            throw new ExportSettingsAttachException(BOUNDARY_FAILURE_KEY, failure);
         }
-        final Throwable operationFailure = failure.get();
-        if (operationFailure != null) {
-            if (operationFailure instanceof ExportSettingsAttachException typed) {
-                throw typed;
-            }
-            throw new ExportSettingsAttachException(BOUNDARY_FAILURE_KEY, operationFailure);
+    }
+
+    /**
+     * Removal work dispatched while the caller is already unwinding: the queued task still runs
+     * exactly once when the EDT drains even if the acceptance bound lapses or the caller is
+     * interrupted, so a detached panel is never orphaned by the caller's own failure path. The
+     * interrupt surfaces to the caller only after the task is safely queued.
+     */
+    private static void onEdtEventually(final Runnable operation) {
+        if (SwingUtilities.isEventDispatchThread()) {
+            operation.run();
+            return;
         }
-        return result.get();
+        EdtDispatch.runEventually("export-settings EDT removal", Duration.ofMillis(EDT_TIMEOUT_MILLIS), operation);
+        if (Thread.currentThread().isInterrupted()) {
+            throw new ExportSettingsAttachException(INTERRUPTED_KEY);
+        }
     }
 
     @FunctionalInterface

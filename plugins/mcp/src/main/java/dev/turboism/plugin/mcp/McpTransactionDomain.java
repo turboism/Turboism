@@ -5,6 +5,7 @@ import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
+import dev.turboism.sdk.json.Json;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -196,7 +197,7 @@ final class McpTransactionDomain {
                 executed.add(stepOutput(plan, output, "mcp.transaction.step_output_too_deep"));
                 throw new StepFailed(plan.id(), null);
             }
-            final int outputBytes = Json.stringify(output).getBytes(StandardCharsets.UTF_8).length;
+            final int outputBytes = McpJsonSupport.stringify(output).getBytes(StandardCharsets.UTF_8).length;
             if (outputBytes > MAX_STEP_RESULT_BYTES) {
                 executed.add(stepOutput(plan, output, "mcp.transaction.step_output_too_large"));
                 throw new StepFailed(plan.id(), null);
@@ -435,10 +436,11 @@ final class McpTransactionDomain {
     }
 
     private static Map<String, Object> envelope(final Map<String, Object> output) {
+        final Map<String, Object> safe = McpJsonSupport.encodable(output);
         return immutableMap(
-                entry("content", List.of(immutableMap(entry("type", "text"), entry("text", Json.stringify(output))))),
-                entry("structuredContent", output),
-                entry("isError", !Boolean.TRUE.equals(output.get("ok"))));
+                entry("content", List.of(immutableMap(entry("type", "text"), entry("text", Json.stringify(safe))))),
+                entry("structuredContent", safe),
+                entry("isError", !Boolean.TRUE.equals(safe.get("ok"))));
     }
 
     private static Map<String, Object> toolDefinition() {

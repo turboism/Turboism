@@ -42,7 +42,7 @@ tasks.register<Exec>("checkMappingReviewWrapperArgs") {
         "scripts/test/test_mapping_review_wrapper_args.sh",
         "scripts/dev/mapping-review.sh",
         "scripts/dev/worktree-id.sh",
-        fileTree("gradle/internal") { include("*.java") }
+        fileTree("buildSrc/src/main/java/dev/turboism/gradle/internal") { include("*.java") }
     )
     verificationStamp()
     commandLine("bash", "scripts/test/test_mapping_review_wrapper_args.sh")
@@ -108,18 +108,6 @@ tasks.register<Exec>("checkHistoryValidationProbePackaging") {
     commandLine("bash", "scripts/test/test_history_validation_probe_packaging.sh")
 }
 
-tasks.register<Exec>("checkFxValidationBrokerArguments") {
-    group = "verification"
-    description = "Verifies bounded validation-only fx broker accept lifetimes offline."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/test/test_fx_validation_broker_arguments.py",
-        "scripts/preview/fx-validation-bridge/fx_validation_broker.py"
-    )
-    verificationStamp()
-    commandLine("python3", "scripts/test/test_fx_validation_broker_arguments.py")
-}
-
 tasks.register<Exec>("checkGraalScriptHostValidationDryRun") {
     group = "verification"
     description = "Verifies the Graal script host-validation wrapper uses configurable Java and packaged wildcard classpath."
@@ -150,7 +138,6 @@ tasks.register("checkGraalScriptHostValidation") {
     dependsOn(
         "checkCubismHostValidationArguments",
         "checkCubismHostValidationJavaEvidence",
-        "checkFxValidationBrokerArguments",
         "checkGraalScriptHostValidationDryRun",
         "checkGraalPreviewLauncherContract"
     )
@@ -319,15 +306,26 @@ tasks.register<Exec>("checkCodeQuality") {
         fileTree("plugins") { include("**/src/main/**/*.java") },
         fileTree("compatibility/cubism") { include("**/*.json") }
     )
+    // The controlchars rule also scans these roots for literal control bytes.
+    inputs.files(
+        fileTree("runtime/src/test/java") { include("**/*.java") },
+        fileTree("bootstrap/src/test/java") { include("**/*.java") },
+        fileTree("testing/integration-tests/src/test/java") { include("**/*.java") },
+        fileTree("buildSrc") { include("**/*.java", "**/*.kts") },
+        fileTree("scripts") { include("**/*.py") },
+        fileTree("gradle") { include("**/*.kts") },
+        "build.gradle.kts",
+        "settings.gradle.kts"
+    )
     val selectedRules = providers.gradleProperty("turboismCodeQualityRules")
     val strict = providers.gradleProperty("turboismCodeQualityStrict")
-    inputs.property("turboismCodeQualityRules", selectedRules.orElse("javadoc,digests,naming,assets"))
+    inputs.property("turboismCodeQualityRules", selectedRules.orElse("javadoc,digests,naming,assets,edt-dispatch,controlchars"))
     inputs.property("turboismCodeQualityStrict", strict.orElse("false"))
     inputs.property("turboismCodeQualityJavaHome", codeQualityJavaHome)
     verificationStamp()
     doFirst {
         environment("TURBOISM_QUALITY_JAVA_HOME", codeQualityJavaHome.get())
-        val rules = selectedRules.getOrElse("javadoc,digests,naming,assets")
+        val rules = selectedRules.getOrElse("javadoc,digests,naming,assets,edt-dispatch,controlchars")
         val command = mutableListOf(
             "python3", "scripts/test/check_code_quality.py", rootDir.absolutePath,
             "--rules", rules
@@ -835,11 +833,11 @@ tasks.register<Exec>("checkPythonLint") {
 }
 
 val devCheck by tasks.registering {
+    dependsOn("checkPluginBoundaries", "checkPluginPermissionAudit")
     group = "verification"
     description = "Fast production compilation and permanent structural boundaries for an implementation slice."
     dependsOn(
         productionClasses,
-        "checkFxValidationBrokerArguments",
         checkDuplicateJavaImports,
         checkPackageLayout,
         "checkModuleBoundaries",
@@ -1410,6 +1408,7 @@ val checkCompletedCommit by tasks.registering {
         checkVerificationRecordIndex,
         checkVerificationSources,
         "checkSdkApiBaselineTool",
+        "checkSdkBaselineAnchorConsistency",
         "checkModuleBoundariesSelfTest",
         checkCodeQualitySelfTest,
         checkThrowableContainmentSelfTest,
@@ -1455,6 +1454,10 @@ val checkReleaseTooling by tasks.registering(Exec::class) {
     )
 }
 
+// Published by gradle/sdk-api.gradle.kts: one checkSdkV<N>ExactApiCompatibility task
+// per anchor-table row, so this gate tracks the anchored versions automatically.
+val sdkExactCompatibilityCheckTasks = extra["sdkExactCompatibilityCheckTasks"] as List<*>
+
 tasks.register("checkRelease") {
     group = "verification"
     description = "Runs completed-commit verification plus supply-chain and historical release audits."
@@ -1463,16 +1466,7 @@ tasks.register("checkRelease") {
         checkReleaseTooling,
         "checkInstallerVersion",
         "checkSdkApiReferenceBuilder",
-        "checkSdkV2ExactApiCompatibility",
-        "checkSdkV3ExactApiCompatibility",
-        "checkSdkV4ExactApiCompatibility",
-        "checkSdkV5ExactApiCompatibility",
-        "checkSdkV6ExactApiCompatibility",
-        "checkSdkV7ExactApiCompatibility",
-        "checkSdkV8ExactApiCompatibility",
-        "checkSdkV9ExactApiCompatibility",
-        "checkSdkV10ExactApiCompatibility",
-        "checkSdkV11ExactApiCompatibility",
+        sdkExactCompatibilityCheckTasks,
         "checkSdkV8Linkage",
         "checkTextureAtlasSdkV7Linkage",
         checkMarketReleaseMetadata,

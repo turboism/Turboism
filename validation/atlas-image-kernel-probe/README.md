@@ -376,3 +376,28 @@ T033/T035/T038/T039 authority is `specs/020-atlas-image-parallelism/tasks.md` T0
 its plan Summary, including SC-04a. The fixture scope stays inside this directory.
 SC-04a requires real CPU time, RSS/PSS/JVM-heap, elapsed, paired host measurements;
 this offline slice records no such measurement and cannot substitute for it.
+
+The explicit validation-only `premainForOwnerColdRemoval` entry requires
+`turboism.validation.t039.ownerColdRemovalOptIn=T039_OWNED_COLD_REMOVAL_V1`
+and the actual `SUPPORTED_OWNED_PREMAIN` gateway. Default `premain` keeps its
+self-removal contract. The new callback records its terminal outcome without
+removing a transformer inside the JVM callback. Its verified candidate still
+always returns full bounds; `removalStatus=NOT_ATTEMPTED` and registration=true
+remain truthful until ordinary `completeOwnerColdRemoval(expectedRunId)`.
+Inspect the resulting snapshot: false/throw stays BLOCKED, and a rejected target
+cannot become freeze-eligible merely because cleanup succeeds. Wrong/early/repeat
+or callback completion refuses. Freeze retains the real REMOVED requirement,
+one-shot counts, zero rejection/late callbacks and the existing 43-key schema.
+
+Registration and completion order is required: T039 before production Atlas;
+target definition only after Atlas registration; real removal before any lazy
+capture. Cold removal permanently revokes an existing captured gate. The caller
+must never count that revoked gate as optimization admission.
+
+The real-gateway owned-fixture regression is
+`validation/triangulation-tlindex/diagnostic/check-t039-owner-cold.py`.
+Evidence lives in `build/t050-lazy-edge-bytecode/t039-owner-cold-r1/`.
+Eight owned JVM cases and the original full offline suite pass, with no official
+class definition/initialization, geometry or Editor. The distinct sidecar is
+not admitted for native5303: pre/post contributor integration, actual unique
+Turboism premain ordering and native acceptance remain open.

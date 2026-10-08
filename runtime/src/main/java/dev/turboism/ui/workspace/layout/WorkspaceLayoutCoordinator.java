@@ -53,6 +53,17 @@ public final class WorkspaceLayoutCoordinator implements AutoCloseable {
     }
 
     /**
+     * @return {@code true} while the coordinator is open with a host provider
+     *         installed — the only state in which a layout read observes the
+     *         host instead of returning the unavailable snapshot
+     */
+    public boolean isAvailable() {
+        synchronized (monitor) {
+            return !closed && provider != null;
+        }
+    }
+
+    /**
      * Provider identity selection, the host read, and the snapshot are serialized against
      * connect/disconnect/close by holding the monitor at the EDT execution point. The monitor
      * is never held while dispatching to or waiting for the EDT, so a caller thread blocked in

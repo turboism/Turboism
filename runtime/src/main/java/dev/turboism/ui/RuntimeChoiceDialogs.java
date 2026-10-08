@@ -94,6 +94,7 @@ final class RuntimeChoiceDialogs {
         final JComboBox<ChoiceDialogOption> choices = new JComboBox<>(model);
         choices.setRenderer((list, value, index, isSelected, cellHasFocus) -> {
             final JLabel label = new JLabel(value == null ? "" : value.label());
+            label.putClientProperty("html.disable", Boolean.TRUE);
             label.setEnabled(value == null || value.enabled());
             if (isSelected) {
                 label.setOpaque(true);
@@ -135,7 +136,9 @@ final class RuntimeChoiceDialogs {
         final JPanel bottom = new JPanel();
         bottom.setLayout(new javax.swing.BoxLayout(bottom, javax.swing.BoxLayout.Y_AXIS));
         final JButton accept = new JButton(request.acceptLabel());
+        accept.putClientProperty("html.disable", Boolean.TRUE);
         final JButton cancel = new JButton(request.cancelLabel());
+        cancel.putClientProperty("html.disable", Boolean.TRUE);
         accept.addActionListener(ignored -> {
             final ChoiceDialogOption option = (ChoiceDialogOption) choices.getSelectedItem();
             if (option != null && option.enabled()) {
@@ -149,6 +152,7 @@ final class RuntimeChoiceDialogs {
         });
         request.refresher().ifPresent(refresher -> {
             final JButton reload = new JButton(request.reloadLabel().isBlank() ? "Reload" : request.reloadLabel());
+            reload.putClientProperty("html.disable", Boolean.TRUE);
             reload.addActionListener(ignored -> {
                 final String previousId = ((ChoiceDialogOption) choices.getSelectedItem()) == null
                         ? null
@@ -167,6 +171,7 @@ final class RuntimeChoiceDialogs {
         });
         for (ChoiceDialogAction action : request.actions()) {
             final JButton button = new JButton(action.label());
+            button.putClientProperty("html.disable", Boolean.TRUE);
             button.addActionListener(ignored -> {
                 final ChoiceDialogOption option = (ChoiceDialogOption) choices.getSelectedItem();
                 dialog.dispose();
@@ -264,6 +269,7 @@ final class RuntimeChoiceDialogs {
             gbc.weightx = 0;
             gbc.fill = java.awt.GridBagConstraints.NONE;
             final JLabel label = new JLabel(detail.label());
+            label.putClientProperty("html.disable", Boolean.TRUE);
             label.setFont(label.getFont().deriveFont(java.awt.Font.BOLD));
             panel.add(label, gbc);
             gbc.gridx = 1;
@@ -272,7 +278,7 @@ final class RuntimeChoiceDialogs {
             if (detail.url() != null && !detail.url().isBlank()) {
                 panel.add(urlLabel(detail.value(), detail.url()), gbc);
             } else {
-                panel.add(new JLabel(detail.value().isEmpty() ? "-" : detail.value()), gbc);
+                panel.add(plainLabel(detail.value().isEmpty() ? "-" : detail.value()), gbc);
             }
             row++;
         }
@@ -280,7 +286,18 @@ final class RuntimeChoiceDialogs {
         return panel;
     }
 
-    private static JLabel urlLabel(final String text, final String url) {
+    private static JLabel plainLabel(final String text) {
+        final JLabel label = new JLabel(text);
+        label.putClientProperty("html.disable", Boolean.TRUE);
+        return label;
+    }
+
+    static JLabel urlLabel(final String text, final String url) {
+        if (!dev.turboism.core.net.HttpLinks.isAllowed(url)) {
+            dev.turboism.runtime.log.RuntimeDiagnostics.warn(
+                    "ui.choice-dialog", "Refused non-http(s) detail link: " + url);
+            return plainLabel(text.isEmpty() ? "-" : text);
+        }
         final String escaped = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
         final JLabel link = new JLabel("<html><a href=''>" + escaped + "</a></html>");
         link.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));

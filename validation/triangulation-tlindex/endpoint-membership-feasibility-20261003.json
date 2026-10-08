@@ -1,0 +1,92 @@
+{
+  "taskId": "T052",
+  "status": "PASS_OWNED_LOCAL_BUILDER_FEASIBILITY",
+  "productionIntegration": "NOT_IMPLEMENTED",
+  "exactHostAcceptance": "NOT_RUN",
+  "classesScanned": 16992,
+  "officialJarSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+  "nativeClassPins": {
+    "com/live2d/graphics3d/editableMesh/triangulation/k.class": "e8693a33e23caca96cabef3ff98088d5e2cb95978640929792152dc9452a28e9",
+    "com/live2d/graphics3d/editableMesh/triangulation/TriPoint.class": "7d09c3c00c7fe730e09ccff106749de65821ce21654b86c982c1660e90f59b5c",
+    "com/live2d/graphics3d/editableMesh/triangulation/j.class": "1037aa92fd095da9eba18409ee75f01b1eec7ff40c3b698432d1f2d5ca95f961"
+  },
+  "directKReferencingClasses": [
+    "com/live2d/graphics3d/editableMesh/triangulation/c.class",
+    "com/live2d/graphics3d/editableMesh/triangulation/h.class",
+    "com/live2d/graphics3d/editableMesh/triangulation/k.class",
+    "com/live2d/graphics3d/editableMesh/triangulation/TriangleList.class"
+  ],
+  "kJavaLeafSamples": 379,
+  "triangleListLocalBuilderSamples": 363,
+  "fractionOfKLeafSamplesInLocalBuilder": 0.9577836411609498,
+  "correctedFacts": [
+    "Pinned TriPoint.index is private final, no ordinary setter",
+    "Pinned final j holds private final endpoints",
+    "TriangleList.b creates k in local1, uses only membership/add before returning; no list/iterator exposure inside this builder"
+  ],
+  "generalCacheDecision": "REJECT_UNPROVEN_RAW_LIST_ALIASES",
+  "candidate": "Use builder-local unordered endpoint membership preserving first edge identity and insertion order; avoid global cache or replacing native edge list",
+  "ownedChecks": 32734,
+  "workload": {
+    "triangles": 2048,
+    "resultEdges": 4097,
+    "warmupPairs": 24,
+    "measuredPairs": 5,
+    "baselineMedianNanos": 17631669,
+    "candidateMedianNanos": 1500956,
+    "ownedReductionPercent": 91.48715870289988,
+    "rounds": [
+      [
+        1,
+        17778998,
+        1547357,
+        4097
+      ],
+      [
+        2,
+        17856347,
+        1350234,
+        4097
+      ],
+      [
+        3,
+        17631669,
+        1533436,
+        4097
+      ],
+      [
+        4,
+        17430453,
+        1354109,
+        4097
+      ],
+      [
+        5,
+        17400196,
+        1500956,
+        4097
+      ]
+    ]
+  },
+  "inputPins": {
+    "build/t052-endpoint-membership-r1/audit.py": "c57664022b951d255a39fa509adea2feaf0b4360ed28ffc119c0215d58f4eec5",
+    "build/t052-endpoint-membership-r1/reference-audit.json": "e3b695926530efca5ee5bd25b0be1247de965129c99c89dd315aef8c01461767",
+    "build/t052-endpoint-membership-r1/k-caller-samples.json": "3d6fa58969cd263795d50a651a4f0312733a077acdcf7cf9d5adebcdfd530384",
+    "build/t052-endpoint-membership-r1/owned-builder-selfcheck.log": "589ce2997f3bf16c504fdd0eb98d61780b1202629a0a83df94eb7195ee6e338e",
+    "validation/triangulation-tlindex/diagnostic/EndpointMembershipSelfCheck.java": "44767e6c8862e57ec55177532144af70ab1a08dce70bbc5448cdf045dc4ab0e3",
+    "build/t052-endpoint-membership-r1/c.javap.txt": "df360ee11328a588a6d03cb2a95d44debce1140da8e3645e5c7bace0b57350d8",
+    "build/t052-endpoint-membership-r1/h.javap.txt": "62af75cb058cc6644fb9181693f7f8e51fa5895c6bd71ac3c6c74ed42e284638",
+    "build/t052-endpoint-membership-r1/TriangleList.javap.txt": "6f7b94910aa65bcda429608d0a75cdfcd5183393dd581ed47015046dcbb1b2c5",
+    "build/t052-endpoint-membership-r1/k.javap.txt": "2732b9e67035e1ed276bfeb18b448b8ad2f1f1c6c7ad90d0ad996e2428b128f4",
+    "build/t052-endpoint-membership-r1/j.javap.txt": "a38ef4247ccf0b7e62a3e01b9dc5d2b654814c2e8d2807d85309355ee7088e07",
+    "build/t052-endpoint-membership-r1/TriPoint.javap.txt": "f22d51d41d79025e5a730736f583d482ff1929a3beca957e6e2000fdb1618a35"
+  },
+  "limitations": [
+    "No native speed/memory claim; boxed HashSet prototype has additional allocation",
+    "No class transformation or native host verification executed",
+    "Constant-pool scan does not prove absence of reflective/native access",
+    "Future production patch must verify exact TriangleList.b control flow plus k/j/TriPoint dependencies, preserve all three native edge getters and native append ordering",
+    "No OOM/fatal-equivalence or arbitrary external concurrent mutation guarantee inferred",
+    "Original current candidate and acceptance scope unchanged"
+  ]
+}

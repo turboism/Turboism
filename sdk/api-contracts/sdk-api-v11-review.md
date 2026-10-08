@@ -1,5 +1,10 @@
 # SDK v11 inline-label and history-relation contract review
 
+> Superseded as the live gate by [v12](sdk-api-v12-review.md). The frozen v11
+> baseline and historical audit remain bound to
+> `181e9e9756e5dbb5a028c8f7f2c3c4b4ca76647d`, with 8526 canonical lines.
+> The original review below describes the initial v11 revision.
+
 This revision registers the semantic-history and typed inline-icon surface as the
 reviewed exact contract following the `worktree/semantic-history-timeline` merge.
 It adds API and changes a small, explicit set of existing records. This is a

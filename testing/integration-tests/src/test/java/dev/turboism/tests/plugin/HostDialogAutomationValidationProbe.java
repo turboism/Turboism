@@ -4,6 +4,7 @@ import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.ui.dialog.HostDialogAction;
+import dev.turboism.sdk.ui.dialog.HostDialogAutomationService;
 import dev.turboism.sdk.ui.dialog.HostDialogMatcher;
 import dev.turboism.sdk.ui.dialog.HostDialogOutcome;
 import java.awt.Window;
@@ -81,10 +82,18 @@ public final class HostDialogAutomationValidationProbe implements CubismPlugin {
             context.logger().info("DIALOG_AUTO_CANCEL outcome=" + cancelOutcome);
             if (cancelOutcome != HostDialogOutcome.ACTED) {
                 context.logger()
-                        .info("DIALOG_AUTO_SNAPSHOTS " + context.hostDialogs().snapshots());
+                        .info("DIALOG_AUTO_SNAPSHOTS "
+                                + context.services()
+                                        .find(HostDialogAutomationService.class)
+                                        .orElse(HostDialogAutomationService.unavailable())
+                                        .snapshots());
             }
 
-            final boolean dialogGone = context.hostDialogs().snapshots().isEmpty();
+            final boolean dialogGone = context.services()
+                    .find(HostDialogAutomationService.class)
+                    .orElse(HostDialogAutomationService.unavailable())
+                    .snapshots()
+                    .isEmpty();
             final boolean hostAlive = onHostThread(() -> hostWindow.isDisplayable() && hostWindow.isVisible());
 
             final boolean passed = cancelOutcome == HostDialogOutcome.ACTED && dialogGone && hostAlive;
@@ -129,7 +138,10 @@ public final class HostDialogAutomationValidationProbe implements CubismPlugin {
             final HostDialogAction action)
             throws Exception {
         triggerClose(route, hostWindow);
-        return context.hostDialogs().act(HostDialogMatcher.anyConfirmation(), action, CONFIRMATION_TIMEOUT);
+        return context.services()
+                .find(HostDialogAutomationService.class)
+                .orElse(HostDialogAutomationService.unavailable())
+                .act(HostDialogMatcher.anyConfirmation(), action, CONFIRMATION_TIMEOUT);
     }
 
     private static void triggerClose(
