@@ -10,4 +10,7 @@ public interface GuardedServiceFixture extends Registration {
     String mutate(String value);
 
     GuardedServiceFixture child();
+
+    /** Same-named verb with an argument: never a terminal operation, stays fenced. */
+    default void close(final String reason) {}
 }
