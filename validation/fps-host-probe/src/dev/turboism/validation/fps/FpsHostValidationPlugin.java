@@ -114,10 +114,18 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
         }
         // Host identity is pinned by the runner (--version plus the exact JAR
         // identity gate) and by the agent's FPS hook digest admission (console
-        // evidence checked post-run). The preview runtime report is NOT a gate
-        // here: a pre-existing main regression (the strict preview-report
-        // validator rejects localeSource=STARTUP, so the report is never
-        // written) would otherwise block every report-gated exerciser.
+        // evidence checked post-run). The preview runtime report additionally
+        // gates readiness: sampling starts only once it is written with
+        // identityState MATCHED, adapterState READY and runtimeState RUNNING.
+        if (!awaitRuntimeReport()) {
+            final JvmSnapshot jvm = jvmSnapshot();
+            logger.warn("FPS_EXERCISER_REPORT_TIMEOUT"
+                + " reason=preview-runtime-report-not-matched"
+                + " timeoutMillis=" + HOST_READY_TIMEOUT_MILLIS);
+            finish(false, "runtime report timeout", "missing", modelId.orElse("missing"),
+                0L, 0.0, 0, "none", jvm, jvm, summarizeJank(List.of()), List.of());
+            return;
+        }
         final String hostVersion = hostVersionLabel();
         logger.info("FPS_EXERCISER_READY"
             + " hostState=ACTIVE documentSignal=verified-modeling-document"
@@ -139,6 +147,40 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
             FpsLifecycleAcceptance.run(context, stateDir, hostVersion, modelId.orElseThrow());
         } else {
             runSampling(hostVersion, modelId.orElseThrow());
+        }
+    }
+
+    /**
+     * Report gate: the preview runtime report must be written with
+     * identityState MATCHED, adapterState READY and runtimeState RUNNING
+     * before sampling starts. Polls on the same ready timeout the model wait
+     * uses; an absent or unmatched report fails the exerciser.
+     */
+    private boolean awaitRuntimeReport() {
+        final long deadline = System.currentTimeMillis() + HOST_READY_TIMEOUT_MILLIS;
+        while (System.currentTimeMillis() < deadline) {
+            if (activeRuntimeReportPresent()) {
+                return true;
+            }
+            try {
+                Thread.sleep(SETTLE_STEP_MILLIS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return false;
+    }
+
+    private boolean activeRuntimeReportPresent() {
+        final Path report = stateDir.getParent().resolve("runtime/preview-runtime-report.json");
+        try {
+            final String json = Files.readString(report);
+            return json.contains("\"identityState\":\"MATCHED\"")
+                && json.contains("\"adapterState\":\"READY\"")
+                && json.contains("\"runtimeState\":\"RUNNING\"");
+        } catch (java.io.IOException unavailable) {
+            return false;
         }
     }
 
