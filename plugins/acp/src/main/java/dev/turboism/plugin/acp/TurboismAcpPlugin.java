@@ -215,8 +215,7 @@ public final class TurboismAcpPlugin implements TurboismPlugin {
                         currentSettings.initialPrompt().orElse(""));
                 final AcpChatController next = new AcpChatController(context, currentSettings, created);
                 created.bind(
-                        () -> next.connect(
-                                created.agentId(), created.customCommand(), created.initialPrompt()),
+                        () -> next.connect(created.agentId(), created.customCommand(), created.initialPrompt()),
                         next::sendPrompt,
                         next::cancel,
                         next::setConfigOption,
@@ -227,15 +226,12 @@ public final class TurboismAcpPlugin implements TurboismPlugin {
                         next::authenticate,
                         next::openAgentLogin,
                         next::logout,
-                        () -> next.saveSettings(
-                                created.agentId(), created.customCommand(), created.initialPrompt()));
+                        () -> next.saveSettings(created.agentId(), created.customCommand(), created.initialPrompt()));
                 window = created;
                 controller = next;
             }
             toShow = window;
-            if (toShow != null && controller != null
-                    && target == WindowTarget.AGENT
-                    && toShow.claimAutoConnect()) {
+            if (toShow != null && controller != null && target == WindowTarget.AGENT && toShow.claimAutoConnect()) {
                 autoConnect = controller;
             }
         }
@@ -244,9 +240,7 @@ public final class TurboismAcpPlugin implements TurboismPlugin {
             return;
         }
         final AcpChatController connection = autoConnect;
-        presentAgentWindow(
-                connection == null ? null : connection::connect,
-                toShow::showAgentAndFront);
+        presentAgentWindow(connection == null ? null : connection::connect, toShow::showAgentAndFront);
     }
 
     /** Starts first-open background work before the Agent frame claims foreground focus. */

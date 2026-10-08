@@ -144,8 +144,7 @@ final class AcpChatControllerTest {
             final java.lang.reflect.Method method =
                     controller.getClass().getDeclaredMethod("activateSession", AcpSession.class);
             method.setAccessible(true);
-            method.invoke(
-                    controller, new AcpSession("ephemeral-session", List.of(), AcpClient.AcpCapabilities.NONE));
+            method.invoke(controller, new AcpSession("ephemeral-session", List.of(), AcpClient.AcpCapabilities.NONE));
 
             assertEquals("", fixture.config.value("acpSessionId"));
             assertEquals("ephemeral-session", session(controller).sessionId());
@@ -170,8 +169,7 @@ final class AcpChatControllerTest {
             final Map<String, Object> prompt = object(list(params.get("prompt")).get(0));
             final String text = (String) prompt.get("text");
             assertTrue(text.startsWith(AcpChatController.SYSTEM_BOUNDARY));
-            assertTrue(text.indexOf("Prefer concise Cubism edits.")
-                    > text.indexOf(AcpChatController.SYSTEM_BOUNDARY));
+            assertTrue(text.indexOf("Prefer concise Cubism edits.") > text.indexOf(AcpChatController.SYSTEM_BOUNDARY));
             assertTrue(text.endsWith("rename the object"));
         }
     }
@@ -365,7 +363,8 @@ final class AcpChatControllerTest {
             captured.set(configuration);
             final AcpClient connected = new AcpClient(transport, listener);
             try {
-                setCapabilities(connected, new AcpClient.AcpCapabilities(true, false, false, false, false, true, false));
+                setCapabilities(
+                        connected, new AcpClient.AcpCapabilities(true, false, false, false, false, true, false));
             } catch (ReflectiveOperationException failure) {
                 throw new IllegalStateException(failure);
             }
@@ -377,8 +376,7 @@ final class AcpChatControllerTest {
             assertEquals(List.of("connected", "agent:restored"), fixture.view.timeline);
             assertEquals("saved-session", fixture.config.value("acpSessionId"));
             assertEquals(
-                    List.of(temporaryExecutable().toString()),
-                    captured.get().command());
+                    List.of(temporaryExecutable().toString()), captured.get().command());
             assertEquals(
                     List.of(
                             "ACP connection: starting",
@@ -441,7 +439,10 @@ final class AcpChatControllerTest {
             set(controller, "mcpConnection", testMcpConnection());
             invokeActivateSession(
                     controller,
-                    new AcpSession("old-session", List.of(), new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)));
+                    new AcpSession(
+                            "old-session",
+                            List.of(),
+                            new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)));
 
             selectSessionNow(controller, "selected-session");
 
@@ -465,7 +466,10 @@ final class AcpChatControllerTest {
             set(
                     controller,
                     "session",
-                    new AcpSession("old-session", List.of(), new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)));
+                    new AcpSession(
+                            "old-session",
+                            List.of(),
+                            new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)));
 
             selectSessionNow(controller, "selected-session");
             fixture.view.awaitTimeline("agent:restored");
@@ -555,7 +559,10 @@ final class AcpChatControllerTest {
             set(controller, "client", source);
             invokeActivateSession(
                     controller,
-                    new AcpSession("old-session", List.of(), new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)));
+                    new AcpSession(
+                            "old-session",
+                            List.of(),
+                            new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)));
             for (int index = 0; index < 256; index++) {
                 invokeUi(controller, () -> fixture.view.record("queued"));
             }
@@ -566,7 +573,9 @@ final class AcpChatControllerTest {
                     controller,
                     load,
                     new AcpSession(
-                            "selected-session", List.of(), new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)),
+                            "selected-session",
+                            List.of(),
+                            new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)),
                     () -> fixture.view.record("reset")));
 
             assertEquals("old-session", session(controller).sessionId());
@@ -702,7 +711,10 @@ final class AcpChatControllerTest {
             set(controller, "mcpConnection", testMcpConnection());
             invokeActivateSession(
                     controller,
-                    new AcpSession("old-session", List.of(), new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)));
+                    new AcpSession(
+                            "old-session",
+                            List.of(),
+                            new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)));
             final java.util.concurrent.CompletableFuture<Void> select =
                     java.util.concurrent.CompletableFuture.runAsync(() -> {
                         try {
@@ -742,7 +754,8 @@ final class AcpChatControllerTest {
         final AcpChatController controller = fixture.controller((configuration, listener) -> {
             final AcpClient connected = new AcpClient(transport, listener);
             source.set(connected);
-            setCapabilitiesUnchecked(connected, new AcpClient.AcpCapabilities(true, false, false, false, false, true, false));
+            setCapabilitiesUnchecked(
+                    connected, new AcpClient.AcpCapabilities(true, false, false, false, false, true, false));
             return connected;
         });
         try {
@@ -810,7 +823,10 @@ final class AcpChatControllerTest {
             set(
                     controller,
                     "session",
-                    new AcpSession("old-session", List.of(), new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)));
+                    new AcpSession(
+                            "old-session",
+                            List.of(),
+                            new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)));
 
             selectSessionNow(controller, "loading-session");
             flushUi();
@@ -837,7 +853,12 @@ final class AcpChatControllerTest {
                     java.util.concurrent.CompletableFuture.supplyAsync(() -> controller.permission(
                             source,
                             "current-session",
-                            new AcpListener.PermissionRequest("Rename", "edit", "call-1", "{}", new AcpClient.PermissionOptionSet("allow_once", "allow_always", "reject_once"))));
+                            new AcpListener.PermissionRequest(
+                                    "Rename",
+                                    "edit",
+                                    "call-1",
+                                    "{}",
+                                    new AcpClient.PermissionOptionSet("allow_once", "allow_always", "reject_once"))));
             assertTrue(fixture.view.permissionEntered.await(2, java.util.concurrent.TimeUnit.SECONDS));
 
             controller.terminated(source, "terminated");
@@ -863,7 +884,14 @@ final class AcpChatControllerTest {
             beginPendingLoad(controller, source, "loading-session");
 
             final AcpListener.PermissionDecision decision = controller.permission(
-                    source, "loading-session", new AcpListener.PermissionRequest("Rename", "edit", "call-1", "{}", new AcpClient.PermissionOptionSet("allow_once", "allow_always", "reject_once")));
+                    source,
+                    "loading-session",
+                    new AcpListener.PermissionRequest(
+                            "Rename",
+                            "edit",
+                            "call-1",
+                            "{}",
+                            new AcpClient.PermissionOptionSet("allow_once", "allow_always", "reject_once")));
 
             assertEquals(AcpListener.PermissionDecision.CANCELLED, decision);
             assertEquals(0, fixture.view.permissionRequests.get());
@@ -1075,7 +1103,14 @@ final class AcpChatControllerTest {
             controller.agentThought(source, "old-session", "delayed thought");
             controller.toolCall(source, "old-session", "call-1", "Rename object", "edit", "pending");
             final AcpListener.PermissionDecision decision = controller.permission(
-                    source, "old-session", new AcpListener.PermissionRequest("Rename", "edit", "call-1", "{}", new AcpClient.PermissionOptionSet("allow_once", "allow_always", "reject_once")));
+                    source,
+                    "old-session",
+                    new AcpListener.PermissionRequest(
+                            "Rename",
+                            "edit",
+                            "call-1",
+                            "{}",
+                            new AcpClient.PermissionOptionSet("allow_once", "allow_always", "reject_once")));
             awaitSerial(controller);
 
             assertTrue(fixture.view.agentMessages.isEmpty());
@@ -1107,8 +1142,7 @@ final class AcpChatControllerTest {
     void mcpEndpointDriftReconnectsToBindTheLatestEndpoint() throws Exception {
         final Fixture fixture = new Fixture();
         fixture.mcpConnection = Optional.of(testMcpConnection());
-        final java.util.concurrent.atomic.AtomicInteger launches =
-                new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger launches = new java.util.concurrent.atomic.AtomicInteger();
         try (AcpClient source = inactiveClient();
                 AcpChatController controller = fixture.controller((configuration, listener) -> {
                     launches.incrementAndGet();
@@ -1121,8 +1155,13 @@ final class AcpChatControllerTest {
             assertEquals(1, launches.get());
 
             set(controller, "client", source);
-            set(controller, "session", new AcpSession("sess-1", List.of(),
-                    new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)));
+            set(
+                    controller,
+                    "session",
+                    new AcpSession(
+                            "sess-1",
+                            List.of(),
+                            new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)));
             set(controller, "mcpConnection", testMcpConnection());
 
             // A same-endpoint republish must not reconnect.
@@ -1132,13 +1171,14 @@ final class AcpChatControllerTest {
 
             fixture.view.awaitFailure("status.mcp-endpoint-changed");
             awaitSerial(controller);
-            assertEquals(2, launches.get(),
-                    "failures=" + fixture.view.failures + " infos=" + fixture.logger.infos);
+            assertEquals(2, launches.get(), "failures=" + fixture.view.failures + " infos=" + fixture.logger.infos);
             assertTrue(atomicClient(controller) == null);
             assertTrue(session(controller) == null);
-            assertEquals(1, fixture.view.failures.stream()
-                    .filter("status.mcp-endpoint-changed"::equals)
-                    .count());
+            assertEquals(
+                    1,
+                    fixture.view.failures.stream()
+                            .filter("status.mcp-endpoint-changed"::equals)
+                            .count());
         }
     }
 
@@ -1146,8 +1186,7 @@ final class AcpChatControllerTest {
     void mcpEndpointRevocationReconnectsAndNotificationsStopAfterClose() throws Exception {
         final Fixture fixture = new Fixture();
         fixture.mcpConnection = Optional.of(testMcpConnection());
-        final java.util.concurrent.atomic.AtomicInteger launches =
-                new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger launches = new java.util.concurrent.atomic.AtomicInteger();
         final AcpChatController controller = fixture.controller((configuration, listener) -> {
             launches.incrementAndGet();
             throw new java.io.IOException("no agent in test");
@@ -1156,8 +1195,13 @@ final class AcpChatControllerTest {
             controller.connect("custom", temporaryExecutable().toString(), "");
             fixture.view.awaitFailure("status.executable-start-failed");
             set(controller, "client", source);
-            set(controller, "session", new AcpSession("sess-1", List.of(),
-                    new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)));
+            set(
+                    controller,
+                    "session",
+                    new AcpSession(
+                            "sess-1",
+                            List.of(),
+                            new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)));
             set(controller, "mcpConnection", testMcpConnection());
 
             fixture.pushMcpConnection(Optional.empty());
@@ -1210,10 +1254,7 @@ final class AcpChatControllerTest {
     }
 
     private static boolean completePendingLoad(
-            final AcpChatController controller,
-            final Object load,
-            final AcpSession session,
-            final Runnable reset)
+            final AcpChatController controller, final Object load, final AcpSession session, final Runnable reset)
             throws ReflectiveOperationException {
         final java.lang.reflect.Method method = controller
                 .getClass()
@@ -1301,8 +1342,7 @@ final class AcpChatControllerTest {
         field.set(client, capabilities);
     }
 
-    private static void setCapabilitiesUnchecked(
-            final AcpClient client, final AcpClient.AcpCapabilities capabilities) {
+    private static void setCapabilitiesUnchecked(final AcpClient client, final AcpClient.AcpCapabilities capabilities) {
         try {
             setCapabilities(client, capabilities);
         } catch (ReflectiveOperationException failure) {
@@ -1317,8 +1357,7 @@ final class AcpChatControllerTest {
         return field.getBoolean(target);
     }
 
-    private static AcpClient atomicClient(final AcpChatController controller)
-            throws ReflectiveOperationException {
+    private static AcpClient atomicClient(final AcpChatController controller) throws ReflectiveOperationException {
         final java.lang.reflect.Field field = controller.getClass().getDeclaredField("client");
         field.setAccessible(true);
         @SuppressWarnings("unchecked")
@@ -1351,12 +1390,10 @@ final class AcpChatControllerTest {
                 new java.util.concurrent.atomic.AtomicInteger();
         private boolean uiRejects;
         private Optional<dev.turboism.sdk.mcp.McpHttpConnection> mcpConnection = Optional.empty();
-        private final java.util.List<
-                        java.util.function.Consumer<Optional<dev.turboism.sdk.mcp.McpHttpConnection>>>
+        private final java.util.List<java.util.function.Consumer<Optional<dev.turboism.sdk.mcp.McpHttpConnection>>>
                 mcpListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
 
-        private void pushMcpConnection(
-                final Optional<dev.turboism.sdk.mcp.McpHttpConnection> connection) {
+        private void pushMcpConnection(final Optional<dev.turboism.sdk.mcp.McpHttpConnection> connection) {
             mcpConnection = connection;
             mcpListeners.forEach(listener -> listener.accept(connection));
         }
@@ -1439,8 +1476,8 @@ final class AcpChatControllerTest {
                                                 @Override
                                                 public Registration subscribe(
                                                         final java.util.function.Consumer<
-                                                                        Optional<dev.turboism.sdk.mcp
-                                                                                .McpHttpConnection>>
+                                                                        Optional<
+                                                                                dev.turboism.sdk.mcp.McpHttpConnection>>
                                                                 listener) {
                                                     mcpListeners.add(listener);
                                                     listener.accept(mcpConnection);
@@ -1490,8 +1527,7 @@ final class AcpChatControllerTest {
                 new java.util.concurrent.atomic.AtomicInteger();
         private volatile java.util.concurrent.CountDownLatch permissionEntered;
         private volatile java.util.concurrent.CountDownLatch releasePermission;
-        private volatile AcpListener.PermissionDecision permissionDecision =
-                AcpListener.PermissionDecision.CANCELLED;
+        private volatile AcpListener.PermissionDecision permissionDecision = AcpListener.PermissionDecision.CANCELLED;
 
         private void record(final String event) {
             timeline.add(event);
@@ -1611,8 +1647,7 @@ final class AcpChatControllerTest {
             for (int attempt = 0; !failures.contains(expected) && attempt < 2000; attempt++) {
                 Thread.sleep(1L);
             }
-            assertTrue(failures.contains(expected),
-                    "missing controller failure " + expected + " in " + failures);
+            assertTrue(failures.contains(expected), "missing controller failure " + expected + " in " + failures);
         }
 
         private void awaitPrompting() throws InterruptedException {
@@ -1993,7 +2028,12 @@ final class AcpChatControllerTest {
             final AcpListener.PermissionDecision permission = listener.permission(
                     source,
                     (String) params.get("sessionId"),
-                    new AcpListener.PermissionRequest("Resume", "edit", "call-1", "{}", new AcpClient.PermissionOptionSet("allow_once", "allow_always", "reject_once")));
+                    new AcpListener.PermissionRequest(
+                            "Resume",
+                            "edit",
+                            "call-1",
+                            "{}",
+                            new AcpClient.PermissionOptionSet("allow_once", "allow_always", "reject_once")));
             decision.set(permission);
             final Map<String, Object> response = new LinkedHashMap<>();
             response.put("jsonrpc", "2.0");

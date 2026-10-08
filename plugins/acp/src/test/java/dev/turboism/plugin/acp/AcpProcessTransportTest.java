@@ -21,8 +21,7 @@ final class AcpProcessTransportTest {
     void commandIsAnOpaqueArgvList() {
         assertEquals(
                 java.util.List.of("C:\\Program Files\\agent.exe", "acp"),
-                new AgentLaunchSpec(
-                                java.util.List.of("C:\\Program Files\\agent.exe", "acp"), temporaryDirectory)
+                new AgentLaunchSpec(java.util.List.of("C:\\Program Files\\agent.exe", "acp"), temporaryDirectory)
                         .command());
         assertEquals(
                 java.util.List.of("agent", "acp", "--model", "vendor/model with space"),
@@ -35,15 +34,13 @@ final class AcpProcessTransportTest {
     @Test
     void specValidationRejectsEmptyAndOversizedArgv() {
         assertThrows(
-                IllegalArgumentException.class,
-                () -> new AgentLaunchSpec(java.util.List.of(), temporaryDirectory));
+                IllegalArgumentException.class, () -> new AgentLaunchSpec(java.util.List.of(), temporaryDirectory));
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new AgentLaunchSpec(java.util.List.of("agent", ""), temporaryDirectory));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new AgentLaunchSpec(
-                        java.util.List.of("agent", "x".repeat(5000)), temporaryDirectory));
+                () -> new AgentLaunchSpec(java.util.List.of("agent", "x".repeat(5000)), temporaryDirectory));
     }
 
     @Test

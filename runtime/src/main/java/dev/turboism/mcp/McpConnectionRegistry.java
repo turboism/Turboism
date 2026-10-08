@@ -9,8 +9,7 @@ import java.util.function.Consumer;
 /** Process-owned, non-persistent loopback MCP connection slot. */
 public final class McpConnectionRegistry implements AutoCloseable {
 
-    private final CopyOnWriteArrayList<Consumer<Optional<McpHttpConnection>>> listeners =
-            new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<Consumer<Optional<McpHttpConnection>>> listeners = new CopyOnWriteArrayList<>();
     private long generation;
     private boolean closed;
     private Published published;
@@ -54,8 +53,7 @@ public final class McpConnectionRegistry implements AutoCloseable {
      * run synchronously on the caller's thread and must return quickly without calling back into
      * this registry.
      */
-    public synchronized Registration subscribe(
-            final Consumer<Optional<McpHttpConnection>> listener) {
+    public synchronized Registration subscribe(final Consumer<Optional<McpHttpConnection>> listener) {
         java.util.Objects.requireNonNull(listener, "listener");
         if (closed) {
             try {
@@ -67,8 +65,7 @@ public final class McpConnectionRegistry implements AutoCloseable {
         }
         listeners.add(listener);
         try {
-            listener.accept(
-                    published == null ? Optional.empty() : Optional.of(published.connection()));
+            listener.accept(published == null ? Optional.empty() : Optional.of(published.connection()));
         } catch (RuntimeException ignored) {
             // Keep the subscription: the initial replay failure must not hide future changes.
         }

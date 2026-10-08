@@ -512,8 +512,7 @@ final class AcpClientTest {
         try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {});
                 AcpClient client = new AcpClient(transport, new AcpListener() {})) {
             for (int attempt = 0; attempt < 70; attempt++) {
-                final AcpException failure =
-                        assertThrows(AcpException.class, () -> client.initialize(Duration.ZERO));
+                final AcpException failure = assertThrows(AcpException.class, () -> client.initialize(Duration.ZERO));
                 assertTrue(failure.getMessage().contains("timed out"));
             }
         }
@@ -1075,8 +1074,7 @@ final class AcpClientTest {
 
         private void run(final Script script) {
             try (BoundedLineReader lines = new BoundedLineReader(
-                            new InputStreamReader(serverStdin, StandardCharsets.UTF_8),
-                            AcpClient.MAX_ACP_LINE_CHARS);
+                            new InputStreamReader(serverStdin, StandardCharsets.UTF_8), AcpClient.MAX_ACP_LINE_CHARS);
                     BufferedWriter output =
                             new BufferedWriter(new OutputStreamWriter(serverStdout, StandardCharsets.UTF_8));
                     BufferedWriter errors =

@@ -70,12 +70,9 @@ final class AcpPluginSettingsTest {
     void unknownAgentAndMalformedCommandAreRejected() {
         final MemoryConfig config = new MemoryConfig();
         try (AcpPluginSettings settings = new AcpPluginSettings(config, logger())) {
+            assertThrows(IllegalArgumentException.class, () -> settings.writeUserSettings("no-such-agent", null, ""));
             assertThrows(
-                    IllegalArgumentException.class,
-                    () -> settings.writeUserSettings("no-such-agent", null, ""));
-            assertThrows(
-                    IllegalArgumentException.class,
-                    () -> settings.writeUserSettings("custom", "'unterminated", ""));
+                    IllegalArgumentException.class, () -> settings.writeUserSettings("custom", "'unterminated", ""));
             assertEquals(AcpPluginSettings.defaultAgentId(), settings.agentId());
             assertTrue(config.written.isEmpty());
         }

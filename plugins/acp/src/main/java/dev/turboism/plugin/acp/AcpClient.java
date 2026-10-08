@@ -118,9 +118,7 @@ final class AcpClient implements AutoCloseable {
         clientInfo.put("version", "0.1.0");
         final LinkedHashMap<String, Object> params = new LinkedHashMap<>();
         params.put("protocolVersion", 1L);
-        params.put(
-                "clientCapabilities",
-                Map.of("auth", Map.of("terminal", true)));
+        params.put("clientCapabilities", Map.of("auth", Map.of("terminal", true)));
         params.put("clientInfo", clientInfo);
         final Map<String, Object> result = object(await(request("initialize", params), timeout));
         if (longValue(result.get("protocolVersion")) != 1L) {
@@ -246,9 +244,7 @@ final class AcpClient implements AutoCloseable {
 
     /** Runs one advertised protocol-driven authentication method. */
     void authenticate(final String methodId, final Duration timeout) throws AcpException {
-        await(
-                request("authenticate", Map.of("methodId", requireText(methodId, "methodId", 512))),
-                timeout);
+        await(request("authenticate", Map.of("methodId", requireText(methodId, "methodId", 512))), timeout);
     }
 
     /** Ends the agent's authenticated state when it advertises the logout capability. */
@@ -384,9 +380,7 @@ final class AcpClient implements AutoCloseable {
                 awaitStderrAfterProcessExit();
                 final String hint = stderrFailureHint.get();
                 fail(new AcpException(
-                        hint == null
-                                ? "ACP stdout closed unexpectedly"
-                                : "ACP stdout closed unexpectedly: " + hint));
+                        hint == null ? "ACP stdout closed unexpectedly" : "ACP stdout closed unexpectedly: " + hint));
             }
         } catch (IOException | RuntimeException failure) {
             if (!closed.get()) {
@@ -529,15 +523,15 @@ final class AcpClient implements AutoCloseable {
             sendCancelledPermission(id);
             return;
         }
-        final String optionId = switch (decision) {
-            case ALLOW_ONCE -> request.options().allowOnce();
-            case ALLOW_ALWAYS -> request.options().allowAlways();
-            case REJECT_ONCE -> request.options().rejectOnce();
-            case CANCELLED -> null;
-        };
-        final Map<String, Object> outcome = optionId == null
-                ? Map.of("outcome", "cancelled")
-                : Map.of("outcome", "selected", "optionId", optionId);
+        final String optionId =
+                switch (decision) {
+                    case ALLOW_ONCE -> request.options().allowOnce();
+                    case ALLOW_ALWAYS -> request.options().allowAlways();
+                    case REJECT_ONCE -> request.options().rejectOnce();
+                    case CANCELLED -> null;
+                };
+        final Map<String, Object> outcome =
+                optionId == null ? Map.of("outcome", "cancelled") : Map.of("outcome", "selected", "optionId", optionId);
         sendResult(id, Map.of("outcome", outcome));
     }
 
@@ -600,8 +594,7 @@ final class AcpClient implements AutoCloseable {
                 final String choiceValue = string(choice.get("value"));
                 final String choiceName = string(choice.get("name"));
                 if (choiceValue != null && choiceName != null) {
-                    choices.add(new AcpConfigOption.Choice(
-                            choiceValue, redactedUi(choiceName, MAX_UI_METADATA_CHARS)));
+                    choices.add(new AcpConfigOption.Choice(choiceValue, redactedUi(choiceName, MAX_UI_METADATA_CHARS)));
                 }
             }
             if (!choices.isEmpty()) {

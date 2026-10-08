@@ -4,8 +4,7 @@ import java.util.List;
 import java.util.Objects;
 
 /** Active ACP session identity plus the latest agent-owned configuration catalog. */
-record AcpSession(
-        String sessionId, List<AcpConfigOption> configOptions, AcpClient.AcpCapabilities capabilities) {
+record AcpSession(String sessionId, List<AcpConfigOption> configOptions, AcpClient.AcpCapabilities capabilities) {
     AcpSession {
         sessionId = Objects.requireNonNull(sessionId, "sessionId");
         if (sessionId.isBlank() || sessionId.length() > 512) {
