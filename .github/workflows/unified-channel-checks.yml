@@ -72,6 +72,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends nsis
+      - name: Install the pinned scripts lint tool
+        run: python3 -m pip install 'ruff==0.16.9'
       - name: Resolve explicit QA-only identity, without allocating or publishing a product build
         env:
           CHANNEL: ${{ matrix.channel }}
