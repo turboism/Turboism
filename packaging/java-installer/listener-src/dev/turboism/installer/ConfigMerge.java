@@ -56,19 +56,23 @@ final class ConfigMerge {
     static final String PLUGIN_DIR = "plugins";
     static final String CONFIG_FILE = "config.json";
     static final String PLUGIN_JSON_ENTRY = "META-INF/turboism/plugin.json";
+    /** Classpath location of the bundled retired-plugin manifest (packaging/retired-plugins.txt). */
+    static final String RETIRED_PLUGINS_RESOURCE = "/turboism/retired-plugins.txt";
+    private static final java.util.regex.Pattern RETIRED_ID =
+            java.util.regex.Pattern.compile("dev\\.turboism\\.plugin\\.[a-z0-9-]+");
     /**
      * Retired or superseded official plugin ids: during a managed upgrade, a JAR below the canonical
      * plugins directory is removed only when its embedded plugin.json id is one of these exact ids;
      * filename alone is never authorization. {@code dev.turboism.plugin.backup} is superseded by
      * {@code dev.turboism.plugin.webdav} (the webdav-backup rename), so an upgraded install loses
      * its stale {@code backup.jar} no matter what that file is now called.
+     *
+     * <p>The id list is loaded from the single manifest shared with the PowerShell installers and
+     * the runtime admission boundary ({@code packaging/retired-plugins.txt}), bundled into this jar
+     * at build time. A missing or malformed manifest fails class initialization closed rather than
+     * guessing the authorization list.</p>
      */
-    static final Set<String> RETIRED_PLUGIN_IDS = Set.of(
-            "dev.turboism.plugin.logfilter",
-            "dev.turboism.plugin.clipmask",
-            "dev.turboism.plugin.perfopt",
-            "dev.turboism.plugin.renderopt",
-            "dev.turboism.plugin.backup");
+    static final Set<String> RETIRED_PLUGIN_IDS = loadRetiredPluginIds();
     static final String INSTALLATION_STATE_FILE = "cubism-installations.json";
     static final String TEMPLATE_RESOURCE = "/turboism/config.template.json";
     private static final int MAX_INSTALLATIONS = 256;
@@ -1241,6 +1245,38 @@ final class ConfigMerge {
         validateCurrent(normalized);
         return normalized;
     }
+    /**
+     * Loads the bundled retired-plugin manifest ({@link #RETIRED_PLUGINS_RESOURCE}).
+     * The manifest is the single source shared with the PowerShell installers
+     * and the runtime admission boundary; it must contain at least one entry,
+     * only exact {@code dev.turboism.plugin.<name>} ids, no duplicates and
+     * ASCII-sorted order. Any deviation fails class initialization closed.
+     */
+    private static Set<String> loadRetiredPluginIds() {
+        try (java.io.InputStream in = ConfigMerge.class.getResourceAsStream(RETIRED_PLUGINS_RESOURCE)) {
+            if (in == null) {
+                throw new IllegalStateException("bundled retired plugin manifest is missing");
+            }
+            List<String> ids = new ArrayList<>();
+            for (String line : new String(in.readAllBytes(), StandardCharsets.UTF_8).split("\n")) {
+                String entry = line.strip();
+                if (!RETIRED_ID.matcher(entry).matches()) {
+                    throw new IllegalStateException("retired plugin manifest contains an invalid entry");
+                }
+                if (!ids.isEmpty() && ids.get(ids.size() - 1).compareTo(entry) >= 0) {
+                    throw new IllegalStateException("retired plugin manifest is not ASCII-sorted and unique");
+                }
+                ids.add(entry);
+            }
+            if (ids.isEmpty()) {
+                throw new IllegalStateException("retired plugin manifest is empty");
+            }
+            return Set.copyOf(ids);
+        } catch (IOException e) {
+            throw new IllegalStateException("cannot read bundled retired plugin manifest", e);
+        }
+    }
+
     /**
      * Loads the canonical template bundled with the installer. The template is
      * the single source of truth for fresh-install defaults and is taken from
