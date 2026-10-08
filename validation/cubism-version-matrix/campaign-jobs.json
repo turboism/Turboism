@@ -4474,9 +4474,10 @@
    "variant": "standard",
    "jobId": "e234ba02-8e27-4e47-81af-1af5e148ba48",
    "preparedDigest": "d5a21d9f1914058f77d28abf2515b1dd8910a4d22e76373ddcf6658e2d0b798d",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5000; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5001",
@@ -4485,9 +4486,10 @@
    "variant": "standard",
    "jobId": "c56bbec4-83b0-49d5-811b-67fcc2766407",
    "preparedDigest": "7a2aef8134bde25056a555a1d0417148d0a526d59db3dce105374f278e040277",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5001; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5002",
@@ -4496,9 +4498,10 @@
    "variant": "standard",
    "jobId": "4d42d54e-ddd9-4c50-a832-83fdb3036842",
    "preparedDigest": "1bd26e8d1198fe620012567e8351b6b0ff44430ab6c4b31149e56dffe1df17cb",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5002; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5003",
@@ -4507,9 +4510,10 @@
    "variant": "standard",
    "jobId": "36d569fc-a4e8-490c-91f4-e858e26e48e2",
    "preparedDigest": "318c44ee9da8501995891b9edeee199f5cc3efd9f7ed1fb46edf62f65bb15e06",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5003; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5004",
@@ -4518,9 +4522,10 @@
    "variant": "standard",
    "jobId": "ba6f0287-6f3b-4593-8a00-4f8337cc686a",
    "preparedDigest": "e313d0b28df63e57f2c80c0926771691e30d3b7495b191553c0bc40c0bb1fec7",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5004; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5005",
@@ -4529,9 +4534,10 @@
    "variant": "standard",
    "jobId": "554b3c1b-41d8-4558-8727-67522088108a",
    "preparedDigest": "53f7c0ac84c67df3744522990a756d04951a4f23a480fa1253ef3c7d4b617c65",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5005; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5006",
@@ -4540,9 +4546,10 @@
    "variant": "standard",
    "jobId": "32431a1e-d5e7-41a1-b3c8-e51ed8f077df",
    "preparedDigest": "e378cac25dcdd29997f08f987d894c031bb6e771aa3fe606f0c1b3390da3fb42",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5006; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5100",
@@ -4551,9 +4558,10 @@
    "variant": "standard",
    "jobId": "e029ca6d-aa8e-4d64-865c-266bfca92239",
    "preparedDigest": "678ec0045b0330a4afd58d6b8eb4854b7ac752a26721688232ee673f39812ca0",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5100; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5101",
@@ -4562,9 +4570,10 @@
    "variant": "standard",
    "jobId": "19e19cd8-a84b-4bd2-8819-e91b0ff6134a",
    "preparedDigest": "9f89eff1d11254e28ddc5276b62ddc3719c781bd6cc726939b8448d300752f7c",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5101; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5102",
@@ -4573,9 +4582,10 @@
    "variant": "standard",
    "jobId": "e3f21098-6f2e-47ee-a8cb-2d663e2485ad",
    "preparedDigest": "4849b26afbe37aa2a233dad995ff2b060086c8b4f19a96cf0854ebc86322cc1d",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5102; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5103",
@@ -4584,9 +4594,10 @@
    "variant": "standard",
    "jobId": "2880105c-fde0-44b4-8e2b-44fa069089bd",
    "preparedDigest": "e377d7109e53e84e043ab3299c8de6fac4b71be259405467ec75452da1fd8c14",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5103; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5200",
@@ -4595,9 +4606,10 @@
    "variant": "standard",
    "jobId": "c5311303-680d-43aa-a244-424df61f2716",
    "preparedDigest": "2fbfe5c36e493650a24aa3c3f1e3c1a96dfcffbf47d226185b6403297f788dc9",
-   "status": "SUBMITTED",
+   "status": "CANCELLED",
    "scope": "Coverage expansion: clipmask-viewer on 5200; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "cancelled"
   },
   {
    "version": "5201",
@@ -4606,9 +4618,10 @@
    "variant": "standard",
    "jobId": "a1f44fe4-8037-41ef-9ad3-d4703b25ac12",
    "preparedDigest": "da962d45d7616cd1ee695f7b566c9dce71b451ddc903748acdeec6ce9fd4b98a",
-   "status": "SUBMITTED",
+   "status": "CANCELLED",
    "scope": "Coverage expansion: clipmask-viewer on 5201; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "cancelled"
   },
   {
    "version": "5202",
@@ -4617,9 +4630,10 @@
    "variant": "standard",
    "jobId": "c42bb7e8-38a4-4951-a2af-cb81aebbadfd",
    "preparedDigest": "fcce9b71b7b1fc5facb0d23a9b6ab967ba36b7977a27fbb1937a22c55846dd7b",
-   "status": "SUBMITTED",
+   "status": "CANCELLED",
    "scope": "Coverage expansion: clipmask-viewer on 5202; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "cancelled"
   },
   {
    "version": "5203",
@@ -4628,9 +4642,10 @@
    "variant": "standard",
    "jobId": "c91f79b9-09c9-4cf9-a0a2-1ffbbfedd713",
    "preparedDigest": "382844352b21faf5318dee75027e8fbf29d1c8ff0e74f24469cfc5d0fad0dd92",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: edit on 5203; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "succeeded"
   },
   {
    "version": "5203",
@@ -4639,9 +4654,10 @@
    "variant": "standard",
    "jobId": "1fc5facb-3289-43a5-b107-281e8ae4a260",
    "preparedDigest": "a8c46f4e7c27f033fb33664a484bd788984261427cc1a9e5ad291e3602a96016",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5203; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5203",
@@ -4650,9 +4666,10 @@
    "variant": "analyse",
    "jobId": "70d541a9-d2ef-432b-bbd9-5475d81a71fc",
    "preparedDigest": "3b11e4e38f5db6dbe8d83d07edbf45ea29e5b58e1154a1491d5ff620951dc7bf",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: boundingbox-warp-mirror on 5203; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5300",
@@ -4661,9 +4678,10 @@
    "variant": "standard",
    "jobId": "fab014ed-60ab-4188-8b86-0a8f79ac01ef",
    "preparedDigest": "c8cba5ac94f9f0456c9fc1c8035eb7d00573f62002601a12fe863ddbc976f60b",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: edit on 5300; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5300",
@@ -4672,9 +4690,10 @@
    "variant": "standard",
    "jobId": "fdb7d0ec-0873-4376-807e-af570ed5afe5",
    "preparedDigest": "c7dce2c3b3dd97a319b78177546b331596cbac582572fa0165a75a3e67a4e4c9",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5300; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5301",
@@ -4683,9 +4702,10 @@
    "variant": "standard",
    "jobId": "0f6c55de-923c-4923-be24-013a6c8089df",
    "preparedDigest": "e89fe3023b975d05a37ea0d14bd11cc07072bf5a8886fc21813712bda9c255cf",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: edit on 5301; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5301",
@@ -4694,9 +4714,10 @@
    "variant": "standard",
    "jobId": "0ad530cf-d9e0-485c-abf5-92d88d9fa493",
    "preparedDigest": "c316bc896bf7731cc7af60bb12061bcda834fbcf6feaff7adb0a379e5e8d1bb0",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5301; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5302",
@@ -4705,9 +4726,10 @@
    "variant": "standard",
    "jobId": "f039e05e-b5a4-4776-a8b0-d49b17509cad",
    "preparedDigest": "64cc6d3dec656f53ea12d057c37c42429afd92a50bdb58fe00a8495e32aaea0b",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: edit on 5302; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "succeeded"
   },
   {
    "version": "5302",
@@ -4716,9 +4738,10 @@
    "variant": "standard",
    "jobId": "a20299da-10ff-42c8-bb58-98ce7fbaf587",
    "preparedDigest": "5514a8c704acb0ccf27058260648305b214fa32f06e5c178591ceacee184046a",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5302; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5302",
@@ -4727,9 +4750,10 @@
    "variant": "analyse",
    "jobId": "28a6c085-1789-4565-8048-3c2e75980857",
    "preparedDigest": "b8bea410132c94c6a3b1dc5077534bdf5a8668131c97ae9ff0312f8501cbbded",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: boundingbox-warp-mirror on 5302; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5303",
@@ -4738,9 +4762,10 @@
    "variant": "standard",
    "jobId": "32530974-9647-4d32-8541-8ea819c950ad",
    "preparedDigest": "7754ef6379f458d86ed03e07fcdaa5d34b95cc704a1c90cc09f4dab08ca05c70",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: edit on 5303; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "succeeded"
   },
   {
    "version": "5303",
@@ -4749,9 +4774,10 @@
    "variant": "standard",
    "jobId": "2a04892a-10be-4933-896c-ff0291b0859f",
    "preparedDigest": "0715e94bba07b1cdd80a38a5f4a743f5194a9bd79271e535a4e2b883d39159b9",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5303; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5303",
@@ -4760,9 +4786,10 @@
    "variant": "analyse",
    "jobId": "88ce14ee-4bdd-4529-bcfa-bcd239476b9d",
    "preparedDigest": "41f4400760ece5684292d414be123ee73e23af81368ff27b670be06b5124e118",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: boundingbox-warp-mirror on 5303; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5304",
@@ -4771,9 +4798,10 @@
    "variant": "standard",
    "jobId": "4a14bdbb-056a-44d3-9d7b-0608e65b2af0",
    "preparedDigest": "b8f1d8fa8328e01ba0f95b9cf7a049377dd8dd5593356c46048e675d5fd6c513",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: edit on 5304; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5304",
@@ -4782,9 +4810,10 @@
    "variant": "standard",
    "jobId": "118ae41f-af3c-4cbe-8927-35d81a933d32",
    "preparedDigest": "66aee8c71cef2daf25b847682c431927611eadd4f566330411d50b2737bb0488",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: clipmask-viewer on 5304; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5000",
@@ -4793,9 +4822,10 @@
    "variant": "matrix",
    "jobId": "5a4cad2b-0131-457c-95bf-2dc6b5c960a9",
    "preparedDigest": "fc23614b80ee344dd184353530fdfc26e05e2cd346ad4ad7051e2028fa6d34c5",
-   "status": "SUBMITTED",
+   "status": "CANCELLED",
    "scope": "Coverage expansion: psd-clip-mask on 5000; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "cancelled"
   },
   {
    "version": "5001",
@@ -4804,9 +4834,10 @@
    "variant": "matrix",
    "jobId": "289675d0-5800-49cd-8365-99dab5c3a8df",
    "preparedDigest": "1ce691edf5844b62276f14f56693b270e292971c859b58dbbdedaa3c5361d045",
-   "status": "SUBMITTED",
+   "status": "CANCELLED",
    "scope": "Coverage expansion: psd-clip-mask on 5001; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "cancelled"
   },
   {
    "version": "5002",
@@ -4815,9 +4846,10 @@
    "variant": "matrix",
    "jobId": "17380480-b96f-4410-a223-4843ff4264b7",
    "preparedDigest": "9cb6b6fc8383f0c13ac52ce9b780eac336fc12317265dae360e0c95667191ae1",
-   "status": "SUBMITTED",
+   "status": "CANCELLED",
    "scope": "Coverage expansion: psd-clip-mask on 5002; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "cancelled"
   },
   {
    "version": "5003",
@@ -4826,9 +4858,10 @@
    "variant": "matrix",
    "jobId": "dd00aad2-d431-42fc-8393-1bf90c74c7e3",
    "preparedDigest": "2ca101ace98edb9ecf712c9e2073a656545568fd00f1869570b93af8eca80a0c",
-   "status": "SUBMITTED",
+   "status": "CANCELLED",
    "scope": "Coverage expansion: psd-clip-mask on 5003; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "cancelled"
   },
   {
    "version": "5004",
@@ -4837,9 +4870,10 @@
    "variant": "matrix",
    "jobId": "d8d32bb1-6ede-4afd-95bc-7ff3920d4079",
    "preparedDigest": "e694c48dcf46c9c164013c24396f3ef4a7724e619abcd455cea9540f946e9893",
-   "status": "SUBMITTED",
+   "status": "CANCELLED",
    "scope": "Coverage expansion: psd-clip-mask on 5004; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "cancelled"
   },
   {
    "version": "5005",
@@ -4848,9 +4882,10 @@
    "variant": "matrix",
    "jobId": "05b24e14-7047-49bd-83a7-6f48273a47da",
    "preparedDigest": "40c1ac7c578c651109793308ffdf98ca2ff8dfa6eef09aa4a7c065a06b284837",
-   "status": "SUBMITTED",
+   "status": "CANCELLED",
    "scope": "Coverage expansion: psd-clip-mask on 5005; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "cancelled"
   },
   {
    "version": "5006",
@@ -4859,9 +4894,10 @@
    "variant": "matrix",
    "jobId": "923ee6a9-1af8-4a89-a7c5-9f27d81782f0",
    "preparedDigest": "38dd5c070645dca4f1d35b983bfaf0ecf3505a62651f3f5c31dac3ea23824de3",
-   "status": "SUBMITTED",
+   "status": "CANCELLED",
    "scope": "Coverage expansion: psd-clip-mask on 5006; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "cancelled"
   },
   {
    "version": "5100",
@@ -4870,9 +4906,10 @@
    "variant": "matrix",
    "jobId": "e3548d13-3a06-4b6d-82c0-0a16fe3f7a29",
    "preparedDigest": "c76831377d41995a44ccffcf35eba2a8f005b8758f243117507ce4d4d0088c25",
-   "status": "SUBMITTED",
+   "status": "CANCELLED",
    "scope": "Coverage expansion: psd-clip-mask on 5100; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "cancelled"
   },
   {
    "version": "5101",
@@ -4881,9 +4918,10 @@
    "variant": "matrix",
    "jobId": "4546ceca-8ba7-4031-867e-822e58e4e4e5",
    "preparedDigest": "d1b8d9da0a4e3689f3e5d7c75b4264a85367ee8d4a5af6e83aa8a1ed208953e4",
-   "status": "SUBMITTED",
+   "status": "CANCELLED",
    "scope": "Coverage expansion: psd-clip-mask on 5101; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "cancelled"
   },
   {
    "version": "5102",
@@ -4892,9 +4930,10 @@
    "variant": "matrix",
    "jobId": "2bf4075b-41dd-4eb9-a714-dca42f2ea99b",
    "preparedDigest": "3756dbffc171f5118a54b1f7f557b585deec71d8dc141f56be3f7114fe7972bd",
-   "status": "SUBMITTED",
+   "status": "CANCELLED",
    "scope": "Coverage expansion: psd-clip-mask on 5102; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "cancelled"
   },
   {
    "version": "5103",
@@ -4903,9 +4942,10 @@
    "variant": "matrix",
    "jobId": "d2bbfe6c-6831-4587-a58d-0ad55c24cb55",
    "preparedDigest": "ed8ae44d384c6aeea04d3487e9c02b3de79191f36490a1ccf47ac8cc40aeac4f",
-   "status": "SUBMITTED",
+   "status": "CANCELLED",
    "scope": "Coverage expansion: psd-clip-mask on 5103; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "cancelled"
   },
   {
    "version": "5200",
@@ -4914,9 +4954,10 @@
    "variant": "matrix",
    "jobId": "95680f8e-1dea-439e-957e-01e5b7338920",
    "preparedDigest": "0914d1ab882251a88eb0ec35d9d0b84327ae02072a5178fb133d0ea282a049bd",
-   "status": "SUBMITTED",
+   "status": "CANCELLED",
    "scope": "Coverage expansion: psd-clip-mask on 5200; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "cancelled"
   },
   {
    "version": "5201",
@@ -4925,9 +4966,10 @@
    "variant": "matrix",
    "jobId": "dae45898-7b73-401f-b14d-a3aca493d71e",
    "preparedDigest": "7389584857ed70c132dc423948b76861af947a6831db98b5b9e013acb54374c6",
-   "status": "SUBMITTED",
+   "status": "CANCELLED",
    "scope": "Coverage expansion: psd-clip-mask on 5201; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "cancelled"
   },
   {
    "version": "5202",
@@ -4936,9 +4978,10 @@
    "variant": "matrix",
    "jobId": "76e30642-af1c-4e3f-9ae4-680abb1560e2",
    "preparedDigest": "5b9d5d53587c245fb60934a7b310588bb40f07b12348e944d9bb5d38b686b0a9",
-   "status": "SUBMITTED",
+   "status": "CANCELLED",
    "scope": "Coverage expansion: psd-clip-mask on 5202; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "cancelled"
   },
   {
    "version": "5203",
@@ -4947,9 +4990,10 @@
    "variant": "matrix",
    "jobId": "a736f914-b174-4220-a9c9-f90ba2ec4c7e",
    "preparedDigest": "0138c70b9df2266a5f60bbbe59ee1fcdb96e80d8fea7d73018b83efa24cbb4d5",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: psd-clip-mask on 5203; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "succeeded"
   },
   {
    "version": "5300",
@@ -4958,9 +5002,10 @@
    "variant": "matrix",
    "jobId": "010e5b93-18dc-4c56-9c86-dde6849dee0a",
    "preparedDigest": "c1193d3dd6240eb5ee2b31b694b7ab5f73d7419ea2a7cd5c4d8ea7b666d1d42a",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: psd-clip-mask on 5300; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5301",
@@ -4969,9 +5014,10 @@
    "variant": "matrix",
    "jobId": "9c79f922-0ab9-4798-8046-a4debb18ebf8",
    "preparedDigest": "75a32e471d23795cb5b86a4f366fee26935c66551706f9dd0fab0002dc9c86bb",
-   "status": "SUBMITTED",
+   "status": "FINAL",
    "scope": "Coverage expansion: psd-clip-mask on 5301; capability-level verdict only",
-   "assistance": "same as prior"
+   "assistance": "same as prior",
+   "terminalState": "failed"
   },
   {
    "version": "5302",
@@ -5004,6 +5050,325 @@
    "preparedDigest": "3554660d9c7b91ecaf7e00a0d8f01bc41d0ec24c60b162e9f64e1202a0d84b04",
    "status": "SUBMITTED",
    "scope": "Coverage expansion: psd-clip-mask on 5304; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5302",
+   "task": "parameter-batch-transfer",
+   "round": "cov-r2",
+   "variant": "standard",
+   "jobId": "063d3093-c9f9-4f3b-911d-26a547f74b27",
+   "preparedDigest": "",
+   "status": "SUBMITTED",
+   "scope": "PBT 5302 with campaign-standard fixture; pinned 8b1718d2 artifact lost, .env override",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5000",
+   "task": "clipmask-viewer",
+   "round": "cov-r2",
+   "variant": "assisted",
+   "jobId": "2c2bbb07-d633-4b51-b515-f8bf44d3ce14",
+   "preparedDigest": "5f6d35b114ae96a26bc309ebf0966ba075785a86253ef6059fba924a5f28447a",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: clipmask-viewer on 5000; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5000",
+   "task": "psd-clip-mask",
+   "round": "cov-r2",
+   "variant": "matrix-assisted",
+   "jobId": "3891c4ed-f89e-4804-acf6-8ad08ee21ede",
+   "preparedDigest": "20023af71b588e00b36070016be855627ac7250ecb38758fbb87662a09fc4ac3",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: psd-clip-mask on 5000; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5001",
+   "task": "clipmask-viewer",
+   "round": "cov-r2",
+   "variant": "assisted",
+   "jobId": "5f697ea1-5987-4371-a005-a273acbe9781",
+   "preparedDigest": "92aac96e1d1a85c1dc8b7a9726a5b37d16d1037200d678ef9c08efb84ee0a248",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: clipmask-viewer on 5001; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5001",
+   "task": "psd-clip-mask",
+   "round": "cov-r2",
+   "variant": "matrix-assisted",
+   "jobId": "f292f735-15ee-4987-b3e8-f37d2cc95294",
+   "preparedDigest": "1b5349be02d0c93e3ffa46936b9d231e2fcc8a330d9801664aa6aedf752a5f8c",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: psd-clip-mask on 5001; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5002",
+   "task": "clipmask-viewer",
+   "round": "cov-r2",
+   "variant": "assisted",
+   "jobId": "bfe2e4db-152a-41fe-8c2e-6109358d3a08",
+   "preparedDigest": "3ad72c9a97737403d44452b4686849c30ac55fb150357a8e5cbd6f9e2d0f7544",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: clipmask-viewer on 5002; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5002",
+   "task": "psd-clip-mask",
+   "round": "cov-r2",
+   "variant": "matrix-assisted",
+   "jobId": "9bba187b-fa53-4b69-8203-9686e4ca0d13",
+   "preparedDigest": "2eff9e60b1bf5c13ca352008050071522abc564f15ff885928c60c093a5604c2",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: psd-clip-mask on 5002; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5003",
+   "task": "clipmask-viewer",
+   "round": "cov-r2",
+   "variant": "assisted",
+   "jobId": "d3bb7184-f747-4917-ada1-765b396555cd",
+   "preparedDigest": "f62ea2dffde4ef54428dd3641f3df4d0eaee409b5b411f82f767f91ed8e775cd",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: clipmask-viewer on 5003; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5003",
+   "task": "psd-clip-mask",
+   "round": "cov-r2",
+   "variant": "matrix-assisted",
+   "jobId": "034f9367-1a16-4fb3-8708-3cddc52d899f",
+   "preparedDigest": "005766c707871ceec10c5dd17059c7bb060d6069fe6b021fbc2a1de8d7c7970b",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: psd-clip-mask on 5003; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5004",
+   "task": "clipmask-viewer",
+   "round": "cov-r2",
+   "variant": "assisted",
+   "jobId": "ddc01f96-a78e-4b62-88af-0a6df655c943",
+   "preparedDigest": "8404de67602942d23785212ea86ece2be1ecd9d2a3f75fd74d89489d174148d7",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: clipmask-viewer on 5004; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5004",
+   "task": "psd-clip-mask",
+   "round": "cov-r2",
+   "variant": "matrix-assisted",
+   "jobId": "c17ba109-af61-4b9d-a188-cd02c3077a02",
+   "preparedDigest": "18337529e88cde1383d825a5792935d151f9c96e3437036e6462ad1fcf985bae",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: psd-clip-mask on 5004; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5005",
+   "task": "clipmask-viewer",
+   "round": "cov-r2",
+   "variant": "assisted",
+   "jobId": "46af6339-adf3-4fe9-95c3-f23b063cb919",
+   "preparedDigest": "07d0b6af507365736fc4ec9a21ab1d39fe16005bf3122a54ff6d34268d7f803b",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: clipmask-viewer on 5005; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5005",
+   "task": "psd-clip-mask",
+   "round": "cov-r2",
+   "variant": "matrix-assisted",
+   "jobId": "5e77a54a-bcb7-475f-ad9a-09af34e1f3e7",
+   "preparedDigest": "2b257bf8affc2cebb8355b503d598838705cea1931cbb6f66f873b004c7b11a6",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: psd-clip-mask on 5005; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5006",
+   "task": "clipmask-viewer",
+   "round": "cov-r2",
+   "variant": "assisted",
+   "jobId": "88e82094-4894-497f-b3d9-422b3f032216",
+   "preparedDigest": "09f12300839cb4f44e3ca3444fcaea53d9173f20adc45a1f278fda804dd37fde",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: clipmask-viewer on 5006; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5006",
+   "task": "psd-clip-mask",
+   "round": "cov-r2",
+   "variant": "matrix-assisted",
+   "jobId": "d1fe8569-4316-4ee4-a0e0-a0e9ad370806",
+   "preparedDigest": "123923be74c3615ef61bc3e2515f0b902e8beb12f2054438767109514f2bd96d",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: psd-clip-mask on 5006; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5100",
+   "task": "clipmask-viewer",
+   "round": "cov-r2",
+   "variant": "assisted",
+   "jobId": "095fd974-8f91-4711-be61-a768bd42dee5",
+   "preparedDigest": "4bf8743414ff2afe961f52388b70b279f18eca0462eef8bab6144ac26654774c",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: clipmask-viewer on 5100; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5100",
+   "task": "psd-clip-mask",
+   "round": "cov-r2",
+   "variant": "matrix-assisted",
+   "jobId": "a9ea930b-c648-48b2-babd-dbd5b406275d",
+   "preparedDigest": "5b78bb88a61f761f2416a7297f21306594ddcaebe49fc5b098cd42fd2a3a1157",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: psd-clip-mask on 5100; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5101",
+   "task": "clipmask-viewer",
+   "round": "cov-r2",
+   "variant": "assisted",
+   "jobId": "9ad5ca9f-50d8-47e2-8570-05ebb7e3b3a3",
+   "preparedDigest": "c592ec19fa312426d846d6cb5c4c7618b876f8ef7c25e3e95447f9a129493ce4",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: clipmask-viewer on 5101; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5101",
+   "task": "psd-clip-mask",
+   "round": "cov-r2",
+   "variant": "matrix-assisted",
+   "jobId": "52dfbea5-67dd-4296-996e-23e33a254168",
+   "preparedDigest": "975f9a526962b3373da6de403eb73d1043c292f8bc8a9748be1926195a4c1f91",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: psd-clip-mask on 5101; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5102",
+   "task": "clipmask-viewer",
+   "round": "cov-r2",
+   "variant": "assisted",
+   "jobId": "647004c0-dd2e-4e44-873e-859d10588312",
+   "preparedDigest": "ad870b23d36ab481009fa711729f69e398f690820140f7bf8a3036c9f6f384d8",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: clipmask-viewer on 5102; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5102",
+   "task": "psd-clip-mask",
+   "round": "cov-r2",
+   "variant": "matrix-assisted",
+   "jobId": "8d900700-6c11-4b07-8219-0d6dc1ffac36",
+   "preparedDigest": "10c600379e3ddda2708a01a6614f9ef3aa4c291fe5eb4f39d72c6b8f46a24182",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: psd-clip-mask on 5102; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5103",
+   "task": "clipmask-viewer",
+   "round": "cov-r2",
+   "variant": "assisted",
+   "jobId": "a6ea3f0d-3f3d-4e96-b30f-e9eea97e715b",
+   "preparedDigest": "29b50f8c8f913dae370f5d3e4594cb18e32c902cc067246fd96908a563565b2d",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: clipmask-viewer on 5103; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5103",
+   "task": "psd-clip-mask",
+   "round": "cov-r2",
+   "variant": "matrix-assisted",
+   "jobId": "d2a3d8ed-5ff3-4558-87a9-00b053dd51c3",
+   "preparedDigest": "3c50c00e31be5d9d28d854b0e676549c07cbcce52e75a1af946bf67e3ae1aab5",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: psd-clip-mask on 5103; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5200",
+   "task": "clipmask-viewer",
+   "round": "cov-r2",
+   "variant": "assisted",
+   "jobId": "9e3c859c-61d9-405e-8282-9a0189b0e2c9",
+   "preparedDigest": "54aff0ed54cb6f89ba1632a29380bacda96a8c1df39041c29b02785420a030f6",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: clipmask-viewer on 5200; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5200",
+   "task": "psd-clip-mask",
+   "round": "cov-r2",
+   "variant": "matrix-assisted",
+   "jobId": "67e47ef1-10ba-4dfd-a0df-39237285386a",
+   "preparedDigest": "fcba526fda32bda199861acd6013e5ccecbe6aa277775157283078756ce87b7d",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: psd-clip-mask on 5200; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5201",
+   "task": "clipmask-viewer",
+   "round": "cov-r2",
+   "variant": "assisted",
+   "jobId": "a8940958-0800-434f-a9ad-e59f8e36b2ab",
+   "preparedDigest": "46065d00ef36e9a577aa5740be7a192588739af9b1839ae9010058303c4451c1",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: clipmask-viewer on 5201; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5201",
+   "task": "psd-clip-mask",
+   "round": "cov-r2",
+   "variant": "matrix-assisted",
+   "jobId": "406fb753-df18-4071-b86a-c8ac6eaf4d4e",
+   "preparedDigest": "003b54664846f4f2232825f1cab95012f89d1f58a85d493f38e6139ee11b9b87",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: psd-clip-mask on 5201; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5202",
+   "task": "clipmask-viewer",
+   "round": "cov-r2",
+   "variant": "assisted",
+   "jobId": "3bbac015-1f96-4781-bb2e-a9b8afb5ae85",
+   "preparedDigest": "d976eb27ccc80450e0bf3cc553f4ffc46484b53d2fe0ce890afdd9742964b5e6",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: clipmask-viewer on 5202; capability-level verdict only",
+   "assistance": "same as prior"
+  },
+  {
+   "version": "5202",
+   "task": "psd-clip-mask",
+   "round": "cov-r2",
+   "variant": "matrix-assisted",
+   "jobId": "76bbe871-1ca9-485f-88ee-51407c65393c",
+   "preparedDigest": "00bf0a08c21b83e174b63f5652caf491aa251cbf4fdad70da61034b369f52842",
+   "status": "SUBMITTED",
+   "scope": "Coverage expansion: psd-clip-mask on 5202; capability-level verdict only",
    "assistance": "same as prior"
   }
  ]
