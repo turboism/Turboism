@@ -32,6 +32,7 @@ record PreviewPluginRuntimeResources(
         dev.turboism.internal.core.MeshTriangulationSettingsService meshTriangulationSettings,
         dev.turboism.internal.core.AtlasTileBboxSettingsService atlasTileBboxSettings,
         dev.turboism.internal.core.AtlasCacheReuseSettingsService atlasCacheReuseSettings,
+        dev.turboism.internal.core.TriangulationEdgeIndexSettingsService triangulationEdgeIndexSettings,
         dev.turboism.internal.core.CoreUpdateService updateService,
         PluginLifecyclePolicy lifecyclePolicy,
         PluginLifecycleLane lifecycleLane,
@@ -207,6 +208,8 @@ record PreviewPluginRuntimeResources(
                 new dev.turboism.config.AtlasTileBboxSettingsFileService(home);
         final dev.turboism.config.AtlasCacheReuseSettingsFileService atlasCacheReuseSettings =
                 new dev.turboism.config.AtlasCacheReuseSettingsFileService(home);
+        final dev.turboism.config.TriangulationEdgeIndexSettingsFileService triangulationEdgeIndexSettings =
+                new dev.turboism.config.TriangulationEdgeIndexSettingsFileService(home);
         final dev.turboism.internal.core.CoreUpdateService updateService = new dev.turboism.update.RuntimeUpdateService(
                 home,
                 scheduler,
@@ -258,6 +261,7 @@ record PreviewPluginRuntimeResources(
                 meshTriangulationSettings,
                 atlasTileBboxSettings,
                 atlasCacheReuseSettings,
+                triangulationEdgeIndexSettings,
                 updateService,
                 lifecyclePolicy,
                 lifecycleLane,

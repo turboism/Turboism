@@ -243,6 +243,9 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
             "dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfileTest"
         )
         includeTestsMatching(
+            "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexExactHostShapeTest"
+        )
+        includeTestsMatching(
             "dev.turboism.mapping.verification.EditorDocumentReadSelectorContractTest"
         )
         includeTestsMatching(

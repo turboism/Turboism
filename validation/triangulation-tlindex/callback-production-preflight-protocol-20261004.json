@@ -1,0 +1,32 @@
+{
+  "task": "T109",
+  "status": "FROZEN_BEFORE_SUBMISSION",
+  "purpose": "CONTROLLED_FINAL_CALLBACK_PRODUCTION_PREFLIGHT",
+  "preparedId": "c3ea5533b5a4902b030bce721ec5589ce76678258ce0c451aef33495b07ca0ad",
+  "probeCount": 1,
+  "replacementOrRetryAllowed": false,
+  "performanceAcceptance": "NOT_APPLICABLE_PREFLIGHT",
+  "productionCandidateSha256": "6a7aa03b362e100a4a6db2a273da82e63119aa877a6d1dbb38e56aee9b071c13",
+  "inputPluginSha256": "b497712e8e4b98ab8f95e5b458e5a5afacc72635987361394a7ea47760fbdf56",
+  "historicalFailures": "UNCHANGED",
+  "inputPins": {
+    "validation/triangulation-tlindex/callback-production-preflight-protocol-20261004.md": "9affc7d5f1d7a01698e723bf17463d2144c69ebf8249593503ae8b75cefb0152",
+    "validation/triangulation-tlindex/owned-callback-context-integration-review-20261004.json": "ecaa8dbb1f594ef6e7417a495f0754dc737b24f7a7cc37d5457c9832658feb99",
+    "build/t109-callback-production-preflight-r1/native5303-production-r1/runner-input.json": "34fb5c44dfcc153e2ecb21b1f8da9f88460899208af320281f1bda1c8418ca77",
+    "build/t109-callback-production-preflight-r1/native5303-production-r1/prepared.json": "e1ce903d6f2f035c2923a4f19972215787a391123f59e5956de9179213deb79d",
+    "build/t109-callback-production-preflight-r1/native5303-production-r1/request/runner-request.json": "6d9d4817fda0bdf9b400547d687c8e3319dad5e46a73b14fc3456e26b3738415",
+    "build/t109-callback-production-preflight-r1/native5303-production-r1/prepare.py": "a94c9c815c46b5e9a818f4a9b01918d8c70fd91e49197fa36f206fe519d99fb1",
+    "build/t109-callback-production-preflight-r1/native5303-production-r1/run-one.py": "73e4af85603d0696f7ef7a98b82daca62e5e46aabbc1e73f089e4bafd38363ea",
+    "build/t109-callback-production-preflight-r1/native5303-production-r1/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060",
+    "build/t109-callback-production-preflight-r1/native5303-production-r1/review-native.py": "cc9fd68cde328bbd9fb61cabe9086bdab80fef0d21d1d63314ef769b4036c5b9",
+    "build/t109-callback-production-preflight-r1/native5303-production-r1/bundle/turboism-agent.jar": "6a7aa03b362e100a4a6db2a273da82e63119aa877a6d1dbb38e56aee9b071c13",
+    "build/t109-callback-production-preflight-r1/native5303-production-r1/bundle/native-canvas-input-probe.jar": "b497712e8e4b98ab8f95e5b458e5a5afacc72635987361394a7ea47760fbdf56",
+    "build/t109-callback-production-preflight-r1/native5303-production-r1/bundle/settings-page-host-probe.jar": "30f5203eb6efc7141688ffcd3c89a83b32ba715056a922b9d981661433b4d975",
+    "validation/triangulation-tlindex/diagnostic/analyze-native-cache-refresh.py": "3d89cd9ce5b658a9f89a4fe763e8f06bb6a938fc7d3676858da3ad7136b4895d",
+    "validation/triangulation-tlindex/diagnostic/analyze-native-input-state.py": "3a833b648d1325b8fae68288b5a933d88bc73a8bd76b1fff87b4c9ed939a2528",
+    "validation/triangulation-tlindex/diagnostic/analyze-jfr-native-invocations.py": "c7b5b1620159d069d1939b41d7bb7ac917c7e462277800bc1b1635103df76901",
+    "validation/triangulation-tlindex/diagnostic/compare-controlled-cache-boundaries.py": "c6780ddeb58e8b657c907f990550f903e48ab1f8bc2a5fb250e89fd39ecf775e",
+    "validation/triangulation-tlindex/diagnostic/analyze-command-cpu-counters.py": "e083dd50bf0d1fb87895d4323cd0ed799eaba363c7a5ce6eb5b5a7b0e87209ab",
+    "validation/triangulation-tlindex/diagnostic/preserve-terminal-native-evidence.py": "2399d00dfbfd507ce6abc149d068c61acb5e6a27bfd35f8e7f1b210f11753481"
+  }
+}

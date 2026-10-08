@@ -1,0 +1,816 @@
+{
+  "status": "PASS_PAIRED_CORRECTNESS",
+  "resourceGates": {
+    "javaCpuTotalNoRegression": false,
+    "absoluteRssGrowthWithin20Percent": true,
+    "rssAboveOwnBaselineWithin80MiB": true,
+    "retained3Minus1Within64MiB": true
+  },
+  "allOriginalResourceGatesPass": false,
+  "orderedEdgeCapturesMatch": true,
+  "semanticFields": 11,
+  "matchedRows": 2133,
+  "differences": {
+    "cycle": 0,
+    "invocation": 0,
+    "sourceIdBase64": 0,
+    "status": 0,
+    "failureBase64": 0,
+    "pointCount": 0,
+    "edgeVersion": 0,
+    "positionValues": 0,
+    "indexValues": 0,
+    "positionsSha256": 0,
+    "indicesSha256": 0
+  },
+  "summary": {
+    "baseline": {
+      "wallSeconds": 39.0011898,
+      "producerSeconds": 35.4272964,
+      "sampledCpuSeconds": 50.7,
+      "operationPeakRssBytes": 3295768576,
+      "peakAboveBaselineBytes": 216809472.0,
+      "retained3Minus1Bytes": 308920320.0,
+      "maximumSampleGapMillis": 1026
+    },
+    "candidate": {
+      "wallSeconds": 41.3627435,
+      "producerSeconds": 37.574623700000004,
+      "sampledCpuSeconds": 54.71,
+      "operationPeakRssBytes": 3167801344,
+      "peakAboveBaselineBytes": 34525184.0,
+      "retained3Minus1Bytes": 937984.0,
+      "maximumSampleGapMillis": 1058
+    }
+  },
+  "candidateChangePercent": {
+    "wallSeconds": 6.055081170882648,
+    "producerSeconds": 6.061222611387307,
+    "sampledCpuSeconds": 7.909270216962527,
+    "operationPeakRssBytes": -3.8827735943556707
+  },
+  "productionPerformanceClaim": "NOT_ESTABLISHED_DIAGNOSTIC_COMPANION",
+  "inputPins": {
+    "build/t060-borrowed-integration-r1/native5303-pair1/review-native-r3.py": "78dc087959431ad16549804c6a6fdf3d50eb8a39b05446f109a6084c3a1fe560",
+    "build/t060-borrowed-integration-r1/native5303-pair1/analyze-pair-r3.py": "f4a3fca8ee2edc4a9d3fa0bb7937d59a9aadb3e88b44b70ff4f95ea24c358420",
+    "build/t060-borrowed-integration-r1/offline-review.json": "e56db1a2df52cc69c60237f4ae28969c712548c1137fe08a13bbc02ba6d79b62",
+    "build/t060-borrowed-integration-r1/artifact-review.json": "a3ffabc1e3964eb918183d6126c5e03b9182ff025fa73beda11aa0a7c9e1f467",
+    "build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-review.json": "90ee2155860a05f06c787eed8300c75b8cbf24a1c94b569229eb8e6a951652ec",
+    "build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-review.json": "cc8012d8b7f74ae1a24d397bc5af6afd220d3c77e548f51fec66f1edaff898a2",
+    "build/t060-borrowed-integration-r1/native5303-pair1/baseline/resource-review.json": "fdfc9b8001ae22adf6a6ffb25c38a924bc12083ad796d677423f1e481b4d85c6",
+    "build/t060-borrowed-integration-r1/native5303-pair1/candidate/resource-review.json": "d73b2dae7d64d0c5567027080fa0a7ab72d8969e1000ac7cc6d8034be32bdae4"
+  },
+  "limitations": [
+    "Single sequential pair; no statistically established speed improvement.",
+    "CPU excludes unsampled boundaries; RSS/PSS are sampled, not continuous maxima.",
+    "Companion-only return-capture admission is different from production; instrumented pair does not establish direct production performance or long-run stability.",
+    "This new SHA has separate review status from the previously approved candidate."
+  ],
+  "decision": "REJECT_PRODUCTION_INTEGRATION_KEEP_T057",
+  "offlineCloseoutPin": "11d2fe2942f9222badae38b84cf80978bcb01765e7e9e605ac1850bf1a785f43",
+  "nativeReviewPins": {
+    "baseline": {
+      "status": "PASS_BOUNDED_NATIVE_PRODUCER_OUTPUT",
+      "productionAcceptance": "NOT_PASSED",
+      "jobId": "a27382f1-adcd-4060-833e-c1bec71dacf5",
+      "sequence": 2536,
+      "preparedId": "4a3cc394379d106d67232235386c4ffb841f5af8624d7c0a08ff58fcdae3c4e7",
+      "runId": "queue-6739fe38e45c4aa4b4321fe3b8bd997f",
+      "taskDir": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f",
+      "standardGates": "PASS",
+      "inventory": {
+        "files": 140,
+        "directories": 13
+      },
+      "singlePremain": true,
+      "cleanupEvidence": "43-key frozen snapshot confirms real removal; bootstrap runtime records both validation contributors cleanup COMPLETE after normal exit. Console snapshot is earlier and lacks their late raw stdout.",
+      "shadowFreeze": {
+        "candidateReturnedCount": "1",
+        "frozen": "true",
+        "fullBoundsPreserved": "true",
+        "helperHash": "9aa1db0ff67c27b026d4c29fd56485bfb0641c92d1e5b31963764462c4a8caf0",
+        "helperPrewarmed": "true",
+        "profile": "5303",
+        "reason": "official-shadow-ready-candidate:owner-cold-removal",
+        "removalStatus": "REMOVED",
+        "runId": "queue-6739fe38e45c4aa4b4321fe3b8bd997f",
+        "sampleOutcome": "NO_CALLS",
+        "schemaVersion": "1",
+        "shadowMode": "shadow-ready",
+        "state": "SHADOW_READY",
+        "stats.admitted": "0",
+        "stats.aliased": "0",
+        "stats.candidateCount": "1",
+        "stats.candidateReturnedCount": "1",
+        "stats.dropped": "0",
+        "stats.eventLimit": "64",
+        "stats.lastAdmitted": "false",
+        "stats.lastAliased": "false",
+        "stats.lastDestinationLength": "0",
+        "stats.lastFullHeight": "0",
+        "stats.lastFullWidth": "0",
+        "stats.lastKx": "0",
+        "stats.lastKy": "0",
+        "stats.lastOptimizationRequested": "false",
+        "stats.lastPadding": "0",
+        "stats.lastPotentialTrim": "false",
+        "stats.lastSourceHeight": "0",
+        "stats.lastSourceLength": "0",
+        "stats.lastSourceWidth": "0",
+        "stats.lastStride": "0",
+        "stats.lateCallbacks": "0",
+        "stats.methodExecuted": "false",
+        "stats.potentialTrim": "0",
+        "stats.recorded": "0",
+        "stats.rejected": "0",
+        "stats.rejectionCount": "0",
+        "stats.targetEvents": "1",
+        "t038HelperHash": "47500ced125b0d69bd42d1af3f3d55137a2e3fb785ffaca87f69678bf3635fd6",
+        "t038HelperPrewarmed": "true",
+        "transformerRegistered": "false"
+      },
+      "ownedColdShadowOrder": true,
+      "cleanupKernelProof": {
+        "bootId": "e99fe8f9-2885-446a-8d1d-e53db7e433e0",
+        "cgroupDevice": 33,
+        "cgroupInode": 1069304,
+        "cgroupKillWritten": false,
+        "cgroupPath": "/user.slice/user-1000.slice/user@1000.service/app.slice/turboism-queue-1e74e0d49c847e98e410b6e2276e54bc.scope",
+        "cleanupMethod": "cgroup-destroyed",
+        "errors": [],
+        "finalReading": {
+          "error": "[Errno 19] No such device",
+          "kind": "destroyed",
+          "populated": null
+        },
+        "initialReadings": {
+          "events": "populated 1\nfrozen 0\n",
+          "populated": 1
+        },
+        "observations": [
+          {
+            "error": "[Errno 19] No such device",
+            "kind": "destroyed",
+            "populated": null
+          },
+          {
+            "error": "[Errno 19] No such device",
+            "kind": "destroyed",
+            "populated": null
+          }
+        ],
+        "originalCgroupBound": true,
+        "processReturncode": 0,
+        "processTimedOut": false
+      },
+      "legacyWrapperCleanupMarkerPresent": false,
+      "companionOnlyExactReturnCaptureAdmission": true,
+      "reviewedProductionBaseEntryDifferences": [
+        "META-INF/turboism/hooks",
+        "dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgePreparation$Plan.class",
+        "dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgePreparation.class"
+      ],
+      "validationAdditions": [
+        "dev/turboism/bootstrap/TriangulationSingleAgentShadowPreHook.class",
+        "dev/turboism/bootstrap/TriangulationSingleAgentValidationHook$1.class",
+        "dev/turboism/bootstrap/TriangulationSingleAgentValidationHook$2.class",
+        "dev/turboism/bootstrap/TriangulationSingleAgentValidationHook$Sidecar.class",
+        "dev/turboism/bootstrap/TriangulationSingleAgentValidationHook.class"
+      ],
+      "artifactPins": {
+        "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-agent.jar": "82c0ecbaacf4c10c5fec8214a0fcee6fb1d680be970e1ad7bc189e9c5585d869",
+        "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-home/validation/tri-weave-agent.jar": "f0b11990c6c8f39710ea2352ac7f3dc6fed274d5136c460b9e9f2f5e96a37e70",
+        "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-home/validation/t039-shadow-agent.jar": "12d5fea3e9cbfaf5e16f7148731c3e499232f4679aefee127561e9cb52cb8680",
+        "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-home/validation/atlas-image-shadow-scene-driver.jar": "fe920a1d1c3521b58a134e9af7864a0210fb109e56343f0ee5f77422d3ed3491",
+        "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-home/plugins/settings-page-host-probe.jar": "30f5203eb6efc7141688ffcd3c89a83b32ba715056a922b9d981661433b4d975",
+        "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t057-angle-integration-r1/production-scoped-r3/turboism-agent.jar": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295"
+      },
+      "startupReadOnly": {
+        "schemaVersion": "1",
+        "plugin": "dev.turboism.validation.settingspage",
+        "reviewedHostVersion": "5.3.03",
+        "preferenceKey": "meshTriangulationEdgeIndex",
+        "hostVersion": "5303",
+        "activeModel": "e04529dd-6182-480f-b54a-59db4413eac3",
+        "uniformHookInstalled": "true",
+        "completedFramesBeforeSettings": "10",
+        "mode": "startup-read-only",
+        "expectedEdgeIndex": "true",
+        "persistedEdgeIndex": "true",
+        "startupConfigSha256": "190ea2fcf912c290a4db40ccd512becf4d3f032098f9cbeca339c2f0903cce02",
+        "settingsOpened": "false",
+        "configWritten": "false",
+        "editorExitOwnedBySceneDriver": "true",
+        "steps": "readiness=menu-ready,startup=menu-model-native-frame-and-preference",
+        "failures": "0",
+        "status": "PASS"
+      },
+      "selectedSources": 711,
+      "producerEventRows": 2133,
+      "cycles": [
+        {
+          "cycle": 1,
+          "sources": 711,
+          "status": "PASS",
+          "threadId": "23",
+          "producerDurationSeconds": 13.0282988,
+          "nativeCommandWallSeconds": 14.3323848,
+          "fullObservationWallSeconds": 14.345989
+        },
+        {
+          "cycle": 2,
+          "sources": 711,
+          "status": "PASS",
+          "threadId": "23",
+          "producerDurationSeconds": 11.0960618,
+          "nativeCommandWallSeconds": 12.2295739,
+          "fullObservationWallSeconds": 12.2327106
+        },
+        {
+          "cycle": 3,
+          "sources": 711,
+          "status": "PASS",
+          "threadId": "23",
+          "producerDurationSeconds": 11.3029358,
+          "nativeCommandWallSeconds": 12.4392311,
+          "fullObservationWallSeconds": 12.4422478
+        }
+      ],
+      "crossCycleResultDifferences": {
+        "cycle2Vs1": {
+          "pointCount": 0,
+          "edgeVersion": 711,
+          "positionValues": 0,
+          "indexValues": 4,
+          "positionsSha256": 0,
+          "indicesSha256": 8
+        },
+        "cycle3Vs1": {
+          "pointCount": 0,
+          "edgeVersion": 711,
+          "positionValues": 0,
+          "indexValues": 2,
+          "positionsSha256": 0,
+          "indicesSha256": 5
+        }
+      },
+      "firstFourOrderedEdgeDigests": [
+        {
+          "seq": "1",
+          "edgeCount": "129",
+          "sha256": "565ed461b29b7774f3aa6140ff64ea7512ba93d35fe7b94ef481aeb5fc68baf1"
+        },
+        {
+          "seq": "2",
+          "edgeCount": "112",
+          "sha256": "2ca75fb46fdbe030a0737dce78ea3c01683dfb867d3789d71040b65949680897"
+        },
+        {
+          "seq": "3",
+          "edgeCount": "132",
+          "sha256": "d2ce8521c3632d2de32a252f919a5b2f134f9358933f32fb2fae516172cdfad3"
+        },
+        {
+          "seq": "4",
+          "edgeCount": "109",
+          "sha256": "f16605d9f1d4941f20b6822a9ec2e6feaf2d1776802d09a0f66b239b73805101"
+        }
+      ],
+      "resourceAndJfrAnalyzed": false,
+      "cancelConfirmation": {
+        "nativeResponder": {
+          "status": "PASS",
+          "resource": "CUB3-4362",
+          "answer": "YES_CANCEL_MESH_EDIT",
+          "answers": "1"
+        },
+        "afterAllMeasurementWindows": true,
+        "cancelWaitSeconds": 0.6307926,
+        "externalWindowAction": false
+      },
+      "limitations": [
+        "This is native auto-connect diagnostic protocol, not Atlas A/B.",
+        "Complete per-source position/index digests are captured; raw arrays are not persisted.",
+        "Individual leg review provides no paired verdict, stable net benefit or retention safety verdict.",
+        "In-process task-bound cancel responder runs after all measurement windows; no external window operation was needed.",
+        "This angle-guard pair does not repeat prior all-version UI acceptance or establish long-run memory stability."
+      ],
+      "savedEvidence": [
+        {
+          "source": "${USER_HOME}/.local/state/turboism/host-validation/jobs/a27382f1-adcd-4060-833e-c1bec71dacf5/outcome.json",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/outcome.json",
+          "sha256": "0aa6dcee9c24919449e82d0ff22eada5a49df85e347bf14cf81f8a4488db1699"
+        },
+        {
+          "source": "${USER_HOME}/.local/state/turboism/host-validation/prepared/4a3cc394379d106d67232235386c4ffb841f5af8624d7c0a08ff58fcdae3c4e7/prepared.json",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/prepared.json",
+          "sha256": "5eb7766dca9abb763b0bdf7ad5d09083d9a824149ac1323e8e1e978361fd8e8e"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-home/logs/runtime/2026-10-02/turboism-20-35-34.264-p344-8202071314297499480.log",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/runtime.log",
+          "sha256": "a07491b85d821e91b436ad92c8f1bd7b896a8d56b101415dd067a7ded2455210"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/evidence/cubism-console.txt",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/cubism-console.txt",
+          "sha256": "835490a44513d348d8d80afc9c1847e71cd5a7b624d9035a87e7d9541fccaa24"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-home/state/atlas-image-shadow/result.txt",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/terminal-result.txt",
+          "sha256": "9d2be5a6d647c1761f13334f1a51b2b783054c45786b90d9fa721f555a1c9949"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-home/state/atlas-image-shadow/queue-6739fe38e45c4aa4b4321fe3b8bd997f/payload.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/payload.properties",
+          "sha256": "5ed371710d3456dc1b38a54a422b4c9c06d5c4b3cb7ee3bdb3b0127b16565e68"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-home/state/dev.turboism.validation.settingspage/settings-result.txt",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/settings-result.txt",
+          "sha256": "1ea771658210a447944f02b423456ad9bfb516039aabc1d9bfe648a941d6edc4"
+        },
+        {
+          "source": "${USER_HOME}/.local/state/turboism/host-validation/prepared/4a3cc394379d106d67232235386c4ffb841f5af8624d7c0a08ff58fcdae3c4e7/inputs/2/edge-index-ui-on.json",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/startup-config.json",
+          "sha256": "190ea2fcf912c290a4db40ccd512becf4d3f032098f9cbeca339c2f0903cce02"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-home/tl-weave/tri-weave-dump-t060-baseline.log",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/capture.log",
+          "sha256": "04ffe2c5ecab31ebb5e84f90f425d8eb061684966832e9909ff0bbe33d47c4a3"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-home/tl-weave/tri-weave-def-t060-baseline.log",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/definition.log",
+          "sha256": "b9d4641028bb7b6031c978c07c11c8d37e84b0a1c891771937a46f024511784f"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-home/atlas-profiling.jfr",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/atlas-profiling.jfr",
+          "sha256": "168c5b33a9c8995288129171f0865c3a0f0fb419efd763e6f4b25396b957eb51"
+        },
+        {
+          "source": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/resources.jsonl",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/resources.jsonl",
+          "sha256": "ca6c76961a575e6bd37b425e94475e2fbc21c2b3784d2c36fc1c9e8ba1e8952b"
+        },
+        {
+          "source": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/process.csv",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/process.csv",
+          "sha256": "59a8ab8856021f18c7483d728961f6a20e26421d0292ff664266957f36cccd1d"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-home/state/atlas-image-shadow/queue-6739fe38e45c4aa4b4321fe3b8bd997f/auto-connect-protocol.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/auto-connect-protocol.properties",
+          "sha256": "6ac09f6896934c81850748dea5bae79dea01714bc5e37daadb5ff6a7227e6a8c"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-home/state/atlas-image-shadow/queue-6739fe38e45c4aa4b4321fe3b8bd997f/auto-connect-capture-wait.tsv",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/auto-connect-capture-wait.tsv",
+          "sha256": "131f030eb488fb471a2f936325ac96bbbf483066d95b0952fc5299f8bb41307d"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-home/state/atlas-image-shadow/queue-6739fe38e45c4aa4b4321fe3b8bd997f/resource-windows.tsv",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/resource-windows.tsv",
+          "sha256": "4619bd1caf13c489e284fe5c38e70b5db1c0caf99bb4634b3c5dcdfbe57e07f5"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-home/state/atlas-image-shadow/queue-6739fe38e45c4aa4b4321fe3b8bd997f/auto-connect-selected.txt",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/auto-connect-selected.txt",
+          "sha256": "b15126881463acc9b57ea396f585b4b2982330e16cad2c121cbc4e09e0babdae"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-home/state/atlas-image-shadow/queue-6739fe38e45c4aa4b4321fe3b8bd997f/auto-connect-producer-results.tsv",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/auto-connect-producer-results.tsv",
+          "sha256": "aa2d8ed25bba32aa317a61b0f58e5f74e886134b91129418c8676dc499fbdbdb"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-home/state/atlas-image-shadow/queue-6739fe38e45c4aa4b4321fe3b8bd997f/auto-connect-producer-status.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/auto-connect-producer-status.properties",
+          "sha256": "0baadb8665d7981fbb1203565a593cb2f6cfdbcde0a4036f3f04f24253d84bba"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-home/state/atlas-image-shadow/queue-6739fe38e45c4aa4b4321fe3b8bd997f/auto-connect-cancel.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/auto-connect-cancel.properties",
+          "sha256": "1926a94b0632dd6d8e8bfa33c648e9853cd5b090de5c58848a2c3ae013eb06fd"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/turboism-home/state/atlas-image-shadow/queue-6739fe38e45c4aa4b4321fe3b8bd997f/driver-stage.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/driver-stage.properties",
+          "sha256": "dacea94546be11ba335e10f17320bc6f58b62e5cac74fd40a24a00d94a8d0403"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/evidence/identity-before.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/identity-before.properties",
+          "sha256": "cbe800829f4f2ad76eecabcf28a46f0946524c59b8773843c1412e07180d6a07"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/evidence/cloned-identity.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/cloned-identity.properties",
+          "sha256": "df62ca54225ef85b13c15f3d8171829ff7c113918d6254eba45a3e515dc8ae41"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/evidence/final-hashes.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/final-hashes.properties",
+          "sha256": "565fdb225ef7d405305f3716f67ccb34559345eab7909d06885bf4541b134461"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/evidence/java-process.ready.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/java-process.ready.properties",
+          "sha256": "2eb9a2073506f40a1b47814c3bd19161c9b5b88877111f9fd399d3c431f2686d"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/evidence/java-process.result.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/java-process.result.properties",
+          "sha256": "bca72600a01a32ba9f6e7f0ec95307d487adf7ca65e85aa03ae815462757be50"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-baseline3-heavy-jfr/queue-6739fe38e45c4aa4b4321fe3b8bd997f/evidence/wrapper.exit",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/wrapper.exit",
+          "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+        }
+      ],
+      "inputPins": {
+        "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/review-native-r3.py": "78dc087959431ad16549804c6a6fdf3d50eb8a39b05446f109a6084c3a1fe560",
+        "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/baseline/run.json": "4acae90ebe451e175d7b3ad473570967cd03f292db20f9bc3cf49164c728f006",
+        "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/offline-review.json": "e56db1a2df52cc69c60237f4ae28969c712548c1137fe08a13bbc02ba6d79b62"
+      }
+    },
+    "candidate": {
+      "status": "PASS_BOUNDED_NATIVE_PRODUCER_OUTPUT",
+      "productionAcceptance": "NOT_PASSED",
+      "jobId": "e9b07412-26d0-4bf3-b365-83e2158aa4ef",
+      "sequence": 2537,
+      "preparedId": "96eb9c627156c02028016692abe08cb07d777746fee55e0aebefc6dcbbab30fc",
+      "runId": "queue-4e76666f4b00404ebf37562e4c88bd04",
+      "taskDir": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04",
+      "standardGates": "PASS",
+      "inventory": {
+        "files": 140,
+        "directories": 13
+      },
+      "singlePremain": true,
+      "cleanupEvidence": "43-key frozen snapshot confirms real removal; bootstrap runtime records both validation contributors cleanup COMPLETE after normal exit. Console snapshot is earlier and lacks their late raw stdout.",
+      "shadowFreeze": {
+        "candidateReturnedCount": "1",
+        "frozen": "true",
+        "fullBoundsPreserved": "true",
+        "helperHash": "9aa1db0ff67c27b026d4c29fd56485bfb0641c92d1e5b31963764462c4a8caf0",
+        "helperPrewarmed": "true",
+        "profile": "5303",
+        "reason": "official-shadow-ready-candidate:owner-cold-removal",
+        "removalStatus": "REMOVED",
+        "runId": "queue-4e76666f4b00404ebf37562e4c88bd04",
+        "sampleOutcome": "NO_CALLS",
+        "schemaVersion": "1",
+        "shadowMode": "shadow-ready",
+        "state": "SHADOW_READY",
+        "stats.admitted": "0",
+        "stats.aliased": "0",
+        "stats.candidateCount": "1",
+        "stats.candidateReturnedCount": "1",
+        "stats.dropped": "0",
+        "stats.eventLimit": "64",
+        "stats.lastAdmitted": "false",
+        "stats.lastAliased": "false",
+        "stats.lastDestinationLength": "0",
+        "stats.lastFullHeight": "0",
+        "stats.lastFullWidth": "0",
+        "stats.lastKx": "0",
+        "stats.lastKy": "0",
+        "stats.lastOptimizationRequested": "false",
+        "stats.lastPadding": "0",
+        "stats.lastPotentialTrim": "false",
+        "stats.lastSourceHeight": "0",
+        "stats.lastSourceLength": "0",
+        "stats.lastSourceWidth": "0",
+        "stats.lastStride": "0",
+        "stats.lateCallbacks": "0",
+        "stats.methodExecuted": "false",
+        "stats.potentialTrim": "0",
+        "stats.recorded": "0",
+        "stats.rejected": "0",
+        "stats.rejectionCount": "0",
+        "stats.targetEvents": "1",
+        "t038HelperHash": "47500ced125b0d69bd42d1af3f3d55137a2e3fb785ffaca87f69678bf3635fd6",
+        "t038HelperPrewarmed": "true",
+        "transformerRegistered": "false"
+      },
+      "ownedColdShadowOrder": true,
+      "cleanupKernelProof": {
+        "bootId": "e99fe8f9-2885-446a-8d1d-e53db7e433e0",
+        "cgroupDevice": 33,
+        "cgroupInode": 1078479,
+        "cgroupKillWritten": false,
+        "cgroupPath": "/user.slice/user-1000.slice/user@1000.service/app.slice/turboism-queue-13219ed44536aa96048a6a9fe2cc5987.scope",
+        "cleanupMethod": "cgroup-destroyed",
+        "errors": [],
+        "finalReading": {
+          "error": "[Errno 19] No such device",
+          "kind": "destroyed",
+          "populated": null
+        },
+        "initialReadings": {
+          "events": "populated 1\nfrozen 0\n",
+          "populated": 1
+        },
+        "observations": [
+          {
+            "error": "[Errno 19] No such device",
+            "kind": "destroyed",
+            "populated": null
+          },
+          {
+            "error": "[Errno 19] No such device",
+            "kind": "destroyed",
+            "populated": null
+          }
+        ],
+        "originalCgroupBound": true,
+        "processReturncode": 0,
+        "processTimedOut": false
+      },
+      "legacyWrapperCleanupMarkerPresent": true,
+      "companionOnlyExactReturnCaptureAdmission": true,
+      "reviewedProductionBaseEntryDifferences": [
+        "META-INF/turboism/hooks",
+        "dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgePreparation$Plan.class",
+        "dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgePreparation.class"
+      ],
+      "validationAdditions": [
+        "dev/turboism/bootstrap/TriangulationSingleAgentShadowPreHook.class",
+        "dev/turboism/bootstrap/TriangulationSingleAgentValidationHook$1.class",
+        "dev/turboism/bootstrap/TriangulationSingleAgentValidationHook$2.class",
+        "dev/turboism/bootstrap/TriangulationSingleAgentValidationHook$Sidecar.class",
+        "dev/turboism/bootstrap/TriangulationSingleAgentValidationHook.class"
+      ],
+      "artifactPins": {
+        "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-agent.jar": "b10238ae4ae524603ca255550b2053c1128eaa2569dd7887999fb5cadf941b93",
+        "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-home/validation/tri-weave-agent.jar": "f0b11990c6c8f39710ea2352ac7f3dc6fed274d5136c460b9e9f2f5e96a37e70",
+        "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-home/validation/t039-shadow-agent.jar": "12d5fea3e9cbfaf5e16f7148731c3e499232f4679aefee127561e9cb52cb8680",
+        "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-home/validation/atlas-image-shadow-scene-driver.jar": "fe920a1d1c3521b58a134e9af7864a0210fb109e56343f0ee5f77422d3ed3491",
+        "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-home/plugins/settings-page-host-probe.jar": "30f5203eb6efc7141688ffcd3c89a83b32ba715056a922b9d981661433b4d975",
+        "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/production-candidate-r1/turboism-agent.jar": "e91db380b40db8dbc3608c6cc387c1669955aad382563e688dc643e8ce55dc7b"
+      },
+      "startupReadOnly": {
+        "schemaVersion": "1",
+        "plugin": "dev.turboism.validation.settingspage",
+        "reviewedHostVersion": "5.3.03",
+        "preferenceKey": "meshTriangulationEdgeIndex",
+        "hostVersion": "5303",
+        "activeModel": "e04529dd-6182-480f-b54a-59db4413eac3",
+        "uniformHookInstalled": "true",
+        "completedFramesBeforeSettings": "10",
+        "mode": "startup-read-only",
+        "expectedEdgeIndex": "true",
+        "persistedEdgeIndex": "true",
+        "startupConfigSha256": "190ea2fcf912c290a4db40ccd512becf4d3f032098f9cbeca339c2f0903cce02",
+        "settingsOpened": "false",
+        "configWritten": "false",
+        "editorExitOwnedBySceneDriver": "true",
+        "steps": "readiness=menu-ready,startup=menu-model-native-frame-and-preference",
+        "failures": "0",
+        "status": "PASS"
+      },
+      "selectedSources": 711,
+      "producerEventRows": 2133,
+      "cycles": [
+        {
+          "cycle": 1,
+          "sources": 711,
+          "status": "PASS",
+          "threadId": "23",
+          "producerDurationSeconds": 14.4043388,
+          "nativeCommandWallSeconds": 15.790588,
+          "fullObservationWallSeconds": 15.8121093
+        },
+        {
+          "cycle": 2,
+          "sources": 711,
+          "status": "PASS",
+          "threadId": "23",
+          "producerDurationSeconds": 11.6941623,
+          "nativeCommandWallSeconds": 12.9478701,
+          "fullObservationWallSeconds": 12.9533842
+        },
+        {
+          "cycle": 3,
+          "sources": 711,
+          "status": "PASS",
+          "threadId": "23",
+          "producerDurationSeconds": 11.4761226,
+          "nativeCommandWallSeconds": 12.6242854,
+          "fullObservationWallSeconds": 12.6274386
+        }
+      ],
+      "crossCycleResultDifferences": {
+        "cycle2Vs1": {
+          "pointCount": 0,
+          "edgeVersion": 711,
+          "positionValues": 0,
+          "indexValues": 4,
+          "positionsSha256": 0,
+          "indicesSha256": 8
+        },
+        "cycle3Vs1": {
+          "pointCount": 0,
+          "edgeVersion": 711,
+          "positionValues": 0,
+          "indexValues": 2,
+          "positionsSha256": 0,
+          "indicesSha256": 5
+        }
+      },
+      "firstFourOrderedEdgeDigests": [
+        {
+          "seq": "1",
+          "edgeCount": "129",
+          "sha256": "565ed461b29b7774f3aa6140ff64ea7512ba93d35fe7b94ef481aeb5fc68baf1"
+        },
+        {
+          "seq": "2",
+          "edgeCount": "112",
+          "sha256": "2ca75fb46fdbe030a0737dce78ea3c01683dfb867d3789d71040b65949680897"
+        },
+        {
+          "seq": "3",
+          "edgeCount": "132",
+          "sha256": "d2ce8521c3632d2de32a252f919a5b2f134f9358933f32fb2fae516172cdfad3"
+        },
+        {
+          "seq": "4",
+          "edgeCount": "109",
+          "sha256": "f16605d9f1d4941f20b6822a9ec2e6feaf2d1776802d09a0f66b239b73805101"
+        }
+      ],
+      "resourceAndJfrAnalyzed": false,
+      "cancelConfirmation": {
+        "nativeResponder": {
+          "status": "PASS",
+          "resource": "CUB3-4362",
+          "answer": "YES_CANCEL_MESH_EDIT",
+          "answers": "1"
+        },
+        "afterAllMeasurementWindows": true,
+        "cancelWaitSeconds": 0.6031762,
+        "externalWindowAction": false
+      },
+      "limitations": [
+        "This is native auto-connect diagnostic protocol, not Atlas A/B.",
+        "Complete per-source position/index digests are captured; raw arrays are not persisted.",
+        "Individual leg review provides no paired verdict, stable net benefit or retention safety verdict.",
+        "In-process task-bound cancel responder runs after all measurement windows; no external window operation was needed.",
+        "This angle-guard pair does not repeat prior all-version UI acceptance or establish long-run memory stability."
+      ],
+      "savedEvidence": [
+        {
+          "source": "${USER_HOME}/.local/state/turboism/host-validation/jobs/e9b07412-26d0-4bf3-b365-83e2158aa4ef/outcome.json",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/outcome.json",
+          "sha256": "ded322cc557cb9172e6cb5ff2b4baf858b6680ea055a364626f3643a514e7e29"
+        },
+        {
+          "source": "${USER_HOME}/.local/state/turboism/host-validation/prepared/96eb9c627156c02028016692abe08cb07d777746fee55e0aebefc6dcbbab30fc/prepared.json",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/prepared.json",
+          "sha256": "b482cf47681833cbe9d79cd381a9084b0266b1b2e54bc600213524ab7633671e"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-home/logs/runtime/2026-10-02/turboism-20-41-06.614-p340-16809490033852709765.log",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/runtime.log",
+          "sha256": "8d216087ead5dabf767ff445c1b32b8bbd671957a044c8694d28d9a563c10f2a"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/evidence/cubism-console.txt",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/cubism-console.txt",
+          "sha256": "588fd5971d2fbb3eaa97027d137c96464b77ba17573e3202e00f9ef7fd3759eb"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-home/state/atlas-image-shadow/result.txt",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/terminal-result.txt",
+          "sha256": "34877e56d0b923719c6ab0f49b20dc4be42aef9f6d794daad7ffe6bb0a2869b0"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-home/state/atlas-image-shadow/queue-4e76666f4b00404ebf37562e4c88bd04/payload.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/payload.properties",
+          "sha256": "d2ada4ca52fdcd81cf03356f4577a62cc8c091fcad210aad3dabf3a37a04d881"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-home/state/dev.turboism.validation.settingspage/settings-result.txt",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/settings-result.txt",
+          "sha256": "1ea771658210a447944f02b423456ad9bfb516039aabc1d9bfe648a941d6edc4"
+        },
+        {
+          "source": "${USER_HOME}/.local/state/turboism/host-validation/prepared/96eb9c627156c02028016692abe08cb07d777746fee55e0aebefc6dcbbab30fc/inputs/2/edge-index-ui-on.json",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/startup-config.json",
+          "sha256": "190ea2fcf912c290a4db40ccd512becf4d3f032098f9cbeca339c2f0903cce02"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-home/tl-weave/tri-weave-dump-t060-candidate.log",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/capture.log",
+          "sha256": "672de2daab21bf4c6a59175236cc9eb2ae955444b8388dd0545f4fab3494cb1a"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-home/tl-weave/tri-weave-def-t060-candidate.log",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/definition.log",
+          "sha256": "b9d4641028bb7b6031c978c07c11c8d37e84b0a1c891771937a46f024511784f"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-home/atlas-profiling.jfr",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/atlas-profiling.jfr",
+          "sha256": "15e4b977321d478149f828db2cd12b1b47d8bc01f45ccdd239c71cd6246e5dff"
+        },
+        {
+          "source": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/resources.jsonl",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/resources.jsonl",
+          "sha256": "537170f826ad1fc60483358677eb3e1a1f6b371673245a8c577bf59888ee55b7"
+        },
+        {
+          "source": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/process.csv",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/process.csv",
+          "sha256": "59ad875e3cc914a72d9cc4ab51884df4785ea2d79a3b2d065302ee5de971a6c1"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-home/state/atlas-image-shadow/queue-4e76666f4b00404ebf37562e4c88bd04/auto-connect-protocol.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/auto-connect-protocol.properties",
+          "sha256": "6ac09f6896934c81850748dea5bae79dea01714bc5e37daadb5ff6a7227e6a8c"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-home/state/atlas-image-shadow/queue-4e76666f4b00404ebf37562e4c88bd04/auto-connect-capture-wait.tsv",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/auto-connect-capture-wait.tsv",
+          "sha256": "131f030eb488fb471a2f936325ac96bbbf483066d95b0952fc5299f8bb41307d"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-home/state/atlas-image-shadow/queue-4e76666f4b00404ebf37562e4c88bd04/resource-windows.tsv",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/resource-windows.tsv",
+          "sha256": "a8d3c7145e506c39b16c407f5099156fee1ffbc614c6648a6c736983f21bca25"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-home/state/atlas-image-shadow/queue-4e76666f4b00404ebf37562e4c88bd04/auto-connect-selected.txt",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/auto-connect-selected.txt",
+          "sha256": "b15126881463acc9b57ea396f585b4b2982330e16cad2c121cbc4e09e0babdae"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-home/state/atlas-image-shadow/queue-4e76666f4b00404ebf37562e4c88bd04/auto-connect-producer-results.tsv",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/auto-connect-producer-results.tsv",
+          "sha256": "e543180be9d62b70883b5c127cb2c164e9f6b4e0c72bf818224b55a5ff497cb5"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-home/state/atlas-image-shadow/queue-4e76666f4b00404ebf37562e4c88bd04/auto-connect-producer-status.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/auto-connect-producer-status.properties",
+          "sha256": "0baadb8665d7981fbb1203565a593cb2f6cfdbcde0a4036f3f04f24253d84bba"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-home/state/atlas-image-shadow/queue-4e76666f4b00404ebf37562e4c88bd04/auto-connect-cancel.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/auto-connect-cancel.properties",
+          "sha256": "1926a94b0632dd6d8e8bfa33c648e9853cd5b090de5c58848a2c3ae013eb06fd"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/turboism-home/state/atlas-image-shadow/queue-4e76666f4b00404ebf37562e4c88bd04/driver-stage.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/driver-stage.properties",
+          "sha256": "cc5b02cd96c3e898d994b677ca97497746a5e9f451ddad07937fa4c4a018de02"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/evidence/identity-before.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/identity-before.properties",
+          "sha256": "608e369d8da2a0e8094d2b5620c29ecf60b9c43fed53ed08b22b32883339b201"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/evidence/cloned-identity.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/cloned-identity.properties",
+          "sha256": "df62ca54225ef85b13c15f3d8171829ff7c113918d6254eba45a3e515dc8ae41"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/evidence/final-hashes.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/final-hashes.properties",
+          "sha256": "565fdb225ef7d405305f3716f67ccb34559345eab7909d06885bf4541b134461"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/evidence/java-process.ready.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/java-process.ready.properties",
+          "sha256": "dbbd26a6fcfb7ae0cd71fc103cff236d19963832d6e340f37fac148a7b883a01"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/evidence/java-process.result.properties",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/java-process.result.properties",
+          "sha256": "ae1430314aaaa9459af6eb3e48b55efce134f724afe238cd634296c8fd914f71"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/evidence/wrapper.exit",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/wrapper.exit",
+          "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+        },
+        {
+          "source": "${USER_HOME}/TurboismValidation/atlas-image-shadow/5303-t060-borrowed-candidate3-heavy-jfr/queue-4e76666f4b00404ebf37562e4c88bd04/evidence/wrapper.cleanup",
+          "saved": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/wrapper.cleanup",
+          "sha256": "29cd1584f08144add12395543ad3eff52e50adfe8c1305a72d90418bcde6fa67"
+        }
+      ],
+      "inputPins": {
+        "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/review-native-r3.py": "78dc087959431ad16549804c6a6fdf3d50eb8a39b05446f109a6084c3a1fe560",
+        "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/native5303-pair1/candidate/run.json": "7e9381ff22f274076cca84374a5054cd93d021b7e13e87ce491286130646a1fa",
+        "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/offline-review.json": "e56db1a2df52cc69c60237f4ae28969c712548c1137fe08a13bbc02ba6d79b62"
+      }
+    }
+  }
+}

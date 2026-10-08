@@ -495,6 +495,14 @@ LINUX_ENV_VALUE = re.compile(r"^[A-Za-z0-9._:,=+/-]{1,200}$")
 # invocation must carry, error description). Each entry is an explicit review of
 # that one hook; the queue still snapshots the hook file and digests its closure.
 REVIEWED_PRE_LAUNCH_HOOKS = {
+    # Self-contained stdlib-only task-clone configuration writer. NMT must be
+    # initialized by the old Java launcher, not injected via JAVA_TOOL_OPTIONS.
+    "stage-direct-nmt-launcher.py": (
+        frozenset({"--require-fixture-unchanged", "--plugin", "-XX:+DisableAttachMechanism",
+                   "-Dturboism.validation.atlasImageShadow.resourceObservation=true",
+                   "-Dturboism.validation.observerFree.optIn=T099_NMT_HEAP_PAGES_DIAGNOSTIC_V1"}),
+        "direct NMT launcher hook requires its reviewed controlled diagnostic protocol",
+    ),
     "fps-resize-driver.sh": (
         frozenset({"--remote-pre-launch-background", "--remote-pre-launch-args-only"}),
         "FPS hook requires its reviewed background/args-only protocol",
@@ -906,14 +914,43 @@ class PreparedStore:
                         if rss_hook:
                             require_external_psd_rss_protocol(argv)
                         elif not memory_hook:
-                            reviewed = (REVIEWED_PRE_LAUNCH_HOOKS.get(source.name)
-                                        if flag == "--remote-pre-launch"
+                            final_nmt_hook = (flag == "--remote-pre-cleanup"
+                                              and source.name == "capture-direct-nmt-launcher.py"
+                                              and source.parent == source_root / "scripts/preview")
+                            reviewed = (REVIEWED_PRE_LAUNCH_HOOKS.get(
+                                "stage-direct-nmt-launcher.py" if final_nmt_hook else source.name)
+                                        if (flag == "--remote-pre-launch" or final_nmt_hook)
                                         and source.parent == source_root / "scripts/preview" else None)
                             if reviewed is None:
                                 raise QueueError("custom hook requires reviewed dependency inventory")
                             required_flags, description = reviewed
                             if not required_flags.issubset(argv):
                                 raise QueueError(description)
+                            if source.name == "stage-direct-nmt-launcher.py" or final_nmt_hook:
+                                # This synchronous writer accepts only the runner's
+                                # standard context, never caller-supplied arguments.
+                                options: dict[str, list[str]] = {}
+                                option_index = 0
+                                while option_index < len(argv):
+                                    option = argv[option_index]
+                                    if option in BOOLEAN_FLAGS:
+                                        options.setdefault(option, []).append("")
+                                        option_index += 1
+                                    elif option in INPUT_FLAGS | COMPOSITE_FLAGS | VALUE_FLAGS and option_index + 1 < len(argv):
+                                        options.setdefault(option, []).append(argv[option_index + 1])
+                                        option_index += 2
+                                    else:
+                                        raise QueueError(f"unsupported normalized runner option: {option}")
+                                if (task_spec != "atlas-image-shadow:5303"
+                                        or options.get("--name") != ["atlas-image-shadow"]
+                                        or options.get("--version") != ["5303"]
+                                        or options.get("--remote-pre-launch") != [str(source_root / "scripts/preview/stage-direct-nmt-launcher.py")]
+                                        or ("--remote-pre-cleanup" in options and options["--remote-pre-cleanup"] != [
+                                            str(source_root / "scripts/preview/capture-direct-nmt-launcher.py")])
+                                        or any(flag in options for flag in (
+                                            "--remote-pre-launch-background", "--remote-pre-launch-args-only",
+                                            "--remote-pre-launch-arg", "--remote-post-launch"))):
+                                    raise QueueError(description)
                     relative = Path("inputs") / str(len(source_inputs)) / source.name
                     copy_verified(source, stage / relative)
                     source_inputs.append({"source": str(source), "path": relative.as_posix(),

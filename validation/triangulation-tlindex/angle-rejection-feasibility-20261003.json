@@ -1,0 +1,202 @@
+{
+  "task": "T055",
+  "status": "owned_predicate_feasible_production_integration_pending",
+  "production_changed": false,
+  "host_launched": false,
+  "jdk": "OpenJDK17.0.20+8",
+  "window_analysis": {
+    "scope": "Same-JVM event wall timestamp vs explicit auto-connect start/returned markers; native and Java samples remain separate, counts are not CPU or calls",
+    "legs": {
+      "baseline": {
+        "windows": [
+          {
+            "operation": 1,
+            "start_epoch_ms": 1790960966540,
+            "end_epoch_ms": 1790960990064
+          },
+          {
+            "operation": 2,
+            "start_epoch_ms": 1790961023872,
+            "end_epoch_ms": 1790961045826
+          },
+          {
+            "operation": 3,
+            "start_epoch_ms": 1790961079304,
+            "end_epoch_ms": 1790961101235
+          }
+        ],
+        "counts": {
+          "1": {
+            "jdk.NativeMethodSample": 232,
+            "nativeAtan2Leaf": 231,
+            "nativeAtan2WithHD": 230,
+            "jdk.ExecutionSample": 380
+          },
+          "outside": {
+            "jdk.NativeMethodSample": 13,
+            "nativeAtan2Leaf": 13,
+            "nativeAtan2WithHD": 13,
+            "jdk.ExecutionSample": 12
+          },
+          "2": {
+            "jdk.ExecutionSample": 354,
+            "jdk.NativeMethodSample": 228,
+            "nativeAtan2Leaf": 228,
+            "nativeAtan2WithHD": 227
+          },
+          "3": {
+            "jdk.ExecutionSample": 338,
+            "jdk.NativeMethodSample": 215,
+            "nativeAtan2Leaf": 215,
+            "nativeAtan2WithHD": 214
+          }
+        },
+        "native_angle_paths": {
+          "1": {
+            "java/lang/StrictMath.atan2(DD)D <- java/lang/Math.atan2(DD)D <- com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)F <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V": 230,
+            "java/lang/StrictMath.atan2(DD)D <- java/lang/Math.atan2(DD)D <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/h;Lcom/live2d/graphics3d/editableMesh/triangulation/l;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 1
+          },
+          "outside": {
+            "java/lang/StrictMath.atan2(DD)D <- java/lang/Math.atan2(DD)D <- com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)F <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V": 13
+          },
+          "2": {
+            "java/lang/StrictMath.atan2(DD)D <- java/lang/Math.atan2(DD)D <- com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)F <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V": 227,
+            "java/lang/StrictMath.atan2(DD)D <- java/lang/Math.atan2(DD)D <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/h;Lcom/live2d/graphics3d/editableMesh/triangulation/l;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 1
+          },
+          "3": {
+            "java/lang/StrictMath.atan2(DD)D <- java/lang/Math.atan2(DD)D <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/h;Lcom/live2d/graphics3d/editableMesh/triangulation/l;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 1,
+            "java/lang/StrictMath.atan2(DD)D <- java/lang/Math.atan2(DD)D <- com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)F <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V": 214
+          }
+        },
+        "pins": {
+          "build/t053-local-builder-r1/hotspots/baseline-samples.json": "c9d75a096e58b8122aa93209d7af6e71b2627c94b288b8d8ad8998121dfe9277",
+          "build/t053-local-builder-r1/native5303-pair1/baseline/native-evidence/resource-windows.tsv": "e2d60a27c6c1f2e9b1918191d5c53eb492fa143ef49e2f674f8d82add96334e4"
+        }
+      },
+      "candidate": {
+        "windows": [
+          {
+            "operation": 1,
+            "start_epoch_ms": 1790961425176,
+            "end_epoch_ms": 1790961448263
+          },
+          {
+            "operation": 2,
+            "start_epoch_ms": 1790961481964,
+            "end_epoch_ms": 1790961503525
+          },
+          {
+            "operation": 3,
+            "start_epoch_ms": 1790961537250,
+            "end_epoch_ms": 1790961558548
+          }
+        ],
+        "counts": {
+          "1": {
+            "jdk.ExecutionSample": 271,
+            "jdk.NativeMethodSample": 236,
+            "nativeAtan2Leaf": 235,
+            "nativeAtan2WithHD": 233
+          },
+          "outside": {
+            "jdk.NativeMethodSample": 14,
+            "nativeAtan2Leaf": 14,
+            "nativeAtan2WithHD": 14,
+            "jdk.ExecutionSample": 6
+          },
+          "2": {
+            "jdk.ExecutionSample": 213,
+            "jdk.NativeMethodSample": 230,
+            "nativeAtan2Leaf": 229,
+            "nativeAtan2WithHD": 227
+          },
+          "3": {
+            "jdk.NativeMethodSample": 246,
+            "nativeAtan2Leaf": 246,
+            "nativeAtan2WithHD": 245,
+            "jdk.ExecutionSample": 199
+          }
+        },
+        "native_angle_paths": {
+          "1": {
+            "java/lang/StrictMath.atan2(DD)D <- java/lang/Math.atan2(DD)D <- com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)F <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V": 233,
+            "java/lang/StrictMath.atan2(DD)D <- java/lang/Math.atan2(DD)D <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/h;Lcom/live2d/graphics3d/editableMesh/triangulation/l;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 2
+          },
+          "outside": {
+            "java/lang/StrictMath.atan2(DD)D <- java/lang/Math.atan2(DD)D <- com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)F <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V": 14
+          },
+          "2": {
+            "java/lang/StrictMath.atan2(DD)D <- java/lang/Math.atan2(DD)D <- com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)F <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V": 227,
+            "java/lang/StrictMath.atan2(DD)D <- java/lang/Math.atan2(DD)D <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/h;Lcom/live2d/graphics3d/editableMesh/triangulation/l;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 2
+          },
+          "3": {
+            "java/lang/StrictMath.atan2(DD)D <- java/lang/Math.atan2(DD)D <- com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)F <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V": 245,
+            "java/lang/StrictMath.atan2(DD)D <- java/lang/Math.atan2(DD)D <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/h;Lcom/live2d/graphics3d/editableMesh/triangulation/l;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 1
+          }
+        },
+        "pins": {
+          "build/t053-local-builder-r1/hotspots/candidate-samples.json": "60af51786934cb7dc9db3396b5d367acfa0de219124b234ce04b8a9100fe86b2",
+          "build/t053-local-builder-r1/native5303-pair1/candidate/native-evidence/resource-windows.tsv": "03728c20aea6e0b4fc3cc800fb827931c897e24ec69ca00c900a0098e7a53b45"
+        }
+      }
+    },
+    "analyzer_sha256": "af6143a13f295d8b7383586933b2ad82c7a6d3463903668b4242d31873f32d67"
+  },
+  "native_method_audit": {
+    "5203": {
+      "angle_body_normalized_sha256": "ac12313b37f04968737dbb3d86d2477bf5262e1b62a849b73384db4dedc6dfc4",
+      "h_d_branch_threshold": 0.0,
+      "disassembly_pins": {
+        "build/t055-angle-audit-r1/r-5203.txt": "ce9af2b7872ad8a01d371c709e3a045ddac5f790d030d87017ff6c1bf0e84f44",
+        "build/t055-angle-audit-r1/h-5203.txt": "edd190dcd9a34a6bf63150758dafeae09dc5ac882ddcf0b1b23f4a704495f0d2",
+        "build/t055-angle-audit-r1/L-5203.txt": "67e4f9f9d57d54b763e12dc2a1f4c056e9f2ac69431c0780d5b8e7ffe057a85a"
+      }
+    },
+    "5302": {
+      "angle_body_normalized_sha256": "ac12313b37f04968737dbb3d86d2477bf5262e1b62a849b73384db4dedc6dfc4",
+      "h_d_branch_threshold": 1e-06,
+      "disassembly_pins": {
+        "build/t055-angle-audit-r1/r-5302.txt": "e2ca1c09643bcf86dbd89d1741604cbb94d0816c8a0c58d5b9e25990329da9aa",
+        "build/t055-angle-audit-r1/h-5302.txt": "1166bfacdcb696a181f1e8824e38c17eeb44f2ce30007ff483de7f3725a649df",
+        "build/t055-angle-audit-r1/L-5302.txt": "67e4f9f9d57d54b763e12dc2a1f4c056e9f2ac69431c0780d5b8e7ffe057a85a"
+      }
+    },
+    "5303": {
+      "angle_body_normalized_sha256": "ac12313b37f04968737dbb3d86d2477bf5262e1b62a849b73384db4dedc6dfc4",
+      "h_d_branch_threshold": 1e-06,
+      "disassembly_pins": {
+        "build/t055-angle-audit-r1/r-5303.txt": "e2ca1c09643bcf86dbd89d1741604cbb94d0816c8a0c58d5b9e25990329da9aa",
+        "build/t055-angle-audit-r1/h-5303.txt": "1166bfacdcb696a181f1e8824e38c17eeb44f2ce30007ff483de7f3725a649df",
+        "build/t055-angle-audit-r1/L-5303.txt": "67e4f9f9d57d54b763e12dc2a1f4c056e9f2ac69431c0780d5b8e7ffe057a85a"
+      }
+    }
+  },
+  "inputs_per_profile": 240986,
+  "checks_total": 1387528,
+  "guard_rejections_per_profile": 157699,
+  "fallbacks_per_profile": 63821,
+  "native_assertions_per_profile": 19466,
+  "guard": "Finite normal cross/dot with original float order; dot<0 or abs(double(cross))>double(dot)*2e-6",
+  "pins": {
+    "validation/triangulation-tlindex/diagnostic/AngleRejectionSelfCheck.java": "c3879347ff73cb41b44d5d2a18ce80e8ef77626f3afdb13010ad05188e80083b",
+    "validation/triangulation-tlindex/diagnostic/analyze-angle-hotspot.py": "af6143a13f295d8b7383586933b2ad82c7a6d3463903668b4242d31873f32d67",
+    "validation/triangulation-tlindex/analyze-resource-windows.py": "26aaf9ab604cedca477d2dd017111465b2428acd41fc63d878cf48c58aad326f",
+    "validation/triangulation-tlindex/angle-rejection-feasibility-20261003-controls.txt": "da1b3ec4ca0c2892673c163031a86e468d7e45727033d8e59a2f50bf596936ee",
+    "build/t055-angle-audit-r1/native-method-audit.json": "aabf9dc4271327f390e780c6e723d458069ea740d6cd09574988a20d42dedcb3",
+    "build/t055-angle-audit-r1/window-review.json": "281a0c4b608ae2a1a18c60a76b3513dac7bcb7d41ac4884d1149bfc8423ec987",
+    "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/Live2D_Cubism.jar": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+    "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+    "${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+    "build/t055-angle-audit-r1/native-controls-r3.txt": "93046e72300f1e1eaa82b999fb8c4fb551bca6590a840a37b3ea58bf9a1d0389"
+  },
+  "limitations": [
+    "No transformed h.d execution or live shared lease proof",
+    "No actual input distribution or host bypass rate",
+    "No timings of guard vs native or full command benefit",
+    "Predicate controls are not exhaustive float enumeration or a readiness claim",
+    "Scalar prototype omits vector getter/class-init/failure-ordering integration",
+    "Normalized disassembly SHA is review evidence, never a production admission fingerprint",
+    "Earlier tool-only audit failed on5203 epsilon assumption; final profile-specific audit supersedes it"
+  ],
+  "tracked_log_sanitization": "Only the home-directory prefix becomes ${USER_HOME}; original unmodified output remains pinned in build/"
+}

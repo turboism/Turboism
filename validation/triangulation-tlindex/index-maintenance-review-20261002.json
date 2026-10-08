@@ -1,0 +1,77 @@
+{
+  "status": "PASS_PAIRED_CORRECTNESS",
+  "semanticFields": 11,
+  "matchedRows": 2133,
+  "differences": {
+    "cycle": 0,
+    "invocation": 0,
+    "sourceIdBase64": 0,
+    "status": 0,
+    "failureBase64": 0,
+    "pointCount": 0,
+    "edgeVersion": 0,
+    "positionValues": 0,
+    "indexValues": 0,
+    "positionsSha256": 0,
+    "indicesSha256": 0
+  },
+  "summary": {
+    "baseline": {
+      "wallSeconds": 74.8908097,
+      "producerSeconds": 71.1415356,
+      "sampledCpuSeconds": 87.9,
+      "operationPeakRssBytes": 3211083776,
+      "peakAboveBaselineBytes": 126779392.0,
+      "retained3Minus1Bytes": -6373376.0,
+      "maximumSampleGapMillis": 1073
+    },
+    "candidate": {
+      "wallSeconds": 69.3933322,
+      "producerSeconds": 65.90698520000001,
+      "sampledCpuSeconds": 78.78999999999999,
+      "operationPeakRssBytes": 2794627072,
+      "peakAboveBaselineBytes": 84824064.0,
+      "retained3Minus1Bytes": 61349888.0,
+      "maximumSampleGapMillis": 1022
+    }
+  },
+  "candidateChangePercent": {
+    "wallSeconds": -7.340657047269183,
+    "producerSeconds": -7.3579384474236615,
+    "sampledCpuSeconds": -10.364050056882835,
+    "operationPeakRssBytes": -12.969350320681261
+  },
+  "allocationReductionPercent": 15.380283805090478,
+  "inputPins": {
+    "build/t051-index-maintenance-r1/native5303-pair1/review-native.py": "d99807ff1a41a7b81bd9f9748b8fe5ed343da32932d5026ac14a9aaaefe74a5d",
+    "build/t051-index-maintenance-r1/native5303-pair1/analyze-pair.py": "6b3d73c9b345d678a4bd1f6a0f743750c535cc83d6a4cdf0cfd607a5f7fec884",
+    "build/t051-index-maintenance-r1/offline-review.json": "d0ea9015fe1e88d034ec7c9387c5dd6c70df1da2de07471a5efa965d960799d4",
+    "build/t051-index-maintenance-r1/artifact-review.json": "3265bca6aa5ebd96d8bd50f6dac1a2000b310325ee5f810f2c5c58486b1dce20",
+    "build/t051-index-maintenance-r1/native5303-pair1/baseline/native-review.json": "a10186f5baa399b6743469bfdbfb4667ac2321c417e443f2520752c1789b6a61",
+    "build/t051-index-maintenance-r1/native5303-pair1/candidate/native-review.json": "9cfb6646be34ffb8f7ebc4edddc415f889ab4d690f663c74184ae47cda3a2f40",
+    "build/t051-index-maintenance-r1/native5303-pair1/baseline/resource-review.json": "699867d669de21d623e4fe88e8c98d8699aa6c180ef9be48533890808ff8fd80",
+    "build/t051-index-maintenance-r1/native5303-pair1/candidate/resource-review.json": "7127a98d282e3eed2b099ff8010e673276a85cc2a03e0db12d45131cd85ee827"
+  },
+  "limitations": [
+    "Single sequential pair; no statistically established speed improvement.",
+    "CPU excludes unsampled boundaries; RSS/PSS are sampled, not continuous maxima.",
+    "Owned-index allocation reduction does not establish host memory savings or long-run stability.",
+    "This new SHA has separate review status from the previously approved candidate."
+  ],
+  "taskId": "T051",
+  "productionAcceptance": "HOLD_RESOURCE_ENVELOPE",
+  "manualReview": "NOT_APPROVED_FOR_NEW_SHA",
+  "resourceGates": {
+    "sampledCpuRegressionAtMostZero": true,
+    "operationRssGrowthAtMost20Percent": true,
+    "peakAboveOwnBaselineAtMost80MiB": false,
+    "retained3Minus1AtMost64MiB": true
+  },
+  "verifiedPins": 62,
+  "hostSequences": {
+    "baseline": 2501,
+    "candidate": 2502
+  },
+  "productionSha256": "3a1666c11cb46fd26b34f914ca238f7bf0d80441175706a3f76c970fc39b4a86",
+  "companionSha256": "0f980862fa236a7d2abd1e36ccc7aa970f1043592b242749a8e79396586a7c07"
+}

@@ -1,0 +1,52 @@
+{
+  "task": "T092",
+  "status": "FROZEN_BEFORE_SUBMISSION",
+  "purpose": "CONTROLLED_COMMAND_BOUNDARY_DIFFERENTIAL",
+  "order": [
+    "baseline",
+    "candidate"
+  ],
+  "preparedIds": {
+    "baseline": "4a1ea3943ec276d437a4149f242985c46e5fb49cc5f72d641af069a987ec2ea9",
+    "candidate": "e4e8ae1112437f4acaf5c4fcb6283e2331e2c6552a48b9df7693a09032422531"
+  },
+  "probeCountPerLeg": 1,
+  "replacementOrRetryAllowed": false,
+  "performanceAcceptance": "NOT_APPLICABLE_DIAGNOSTIC",
+  "normalizedArgvEquality": "PASS",
+  "versionComparison": "Per-command uint32 edge delta/cache validity; absolute point and vertex-cache versions",
+  "historicalFailures": "UNCHANGED",
+  "inputPins": {
+    "validation/triangulation-tlindex/controlled-cache-differential-protocol-20261004.md": "ba2b6fcafef7494a8a0431386edb9c154b8263959c299e8c1c441f89ce9e35b4",
+    "build/t092-controlled-cache-differential-r1/run-pair.py": "ecb3bbed9807a30047a4812e995d049d1653e005c356e1acf742a0d5038da2cc",
+    "validation/triangulation-tlindex/diagnostic/compare-controlled-cache-boundaries.py": "c6780ddeb58e8b657c907f990550f903e48ab1f8bc2a5fb250e89fd39ecf775e",
+    "validation/triangulation-tlindex/diagnostic/test-controlled-cache-boundaries.py": "bb409c4c061f1106797cd679c4223f3670f1fa7c343308e0287f229964ee6c6b",
+    "validation/triangulation-tlindex/diagnostic/preserve-terminal-native-evidence.py": "2399d00dfbfd507ce6abc149d068c61acb5e6a27bfd35f8e7f1b210f11753481",
+    "validation/triangulation-tlindex/diagnostic/analyze-native-cache-refresh.py": "3d89cd9ce5b658a9f89a4fe763e8f06bb6a938fc7d3676858da3ad7136b4895d",
+    "validation/triangulation-tlindex/diagnostic/analyze-native-input-state.py": "3a833b648d1325b8fae68288b5a933d88bc73a8bd76b1fff87b4c9ed939a2528",
+    "validation/triangulation-tlindex/diagnostic/analyze-jfr-native-invocations.py": "c7b5b1620159d069d1939b41d7bb7ac917c7e462277800bc1b1635103df76901",
+    "validation/triangulation-tlindex/diagnostic/analyze-command-cpu-counters.py": "e083dd50bf0d1fb87895d4323cd0ed799eaba363c7a5ce6eb5b5a7b0e87209ab",
+    "validation/triangulation-tlindex/native-canvas-input-review-20261004.json": "bcdaf66a2706ee44c2eafe5d8cac9e6c44a1e64891fabd265b7da20761d9d485",
+    "build/t076-production-acceptance-preflight-r1/native5303-dual-r1/native-evidence/auto-connect-command-return-results.tsv": "9db07555ad8dfdac954b25b10fff57fb36fcfaff94f3ffaee4f3bfbb8533c1e6",
+    "build/t092-controlled-cache-differential-r1/baseline/runner-input.json": "da764910bc19a88071b8c73adbf33d050b2f98c18dbd868c985b52dc964f0b36",
+    "build/t092-controlled-cache-differential-r1/baseline/request/runner-request.json": "d7e71df9de0675e1e00869f9457992de2be742a63e5e8e14be94b42944c719e0",
+    "build/t092-controlled-cache-differential-r1/baseline/prepared.json": "2bb09926cc52a6f480b945f2f6b5b6feffa3f2925c35edd8d1a7cc4763974ea8",
+    "build/t092-controlled-cache-differential-r1/baseline/prepare.py": "03a9b22943e7e9c9c32e97ea3acff3df8a622232f9e919410729b8ce911f5480",
+    "build/t092-controlled-cache-differential-r1/baseline/run-one.py": "6c610c0e93a6fceed2d5354eb4130ed9549f959681940ef7356a6581bc6941ad",
+    "build/t092-controlled-cache-differential-r1/baseline/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060",
+    "build/t092-controlled-cache-differential-r1/baseline/review-native.py": "5ccbd592a4c8874ccdd98803dddb8a11f70bdc1522f851b8971c6bb17cca2b3d",
+    "build/t092-controlled-cache-differential-r1/baseline/bundle/turboism-agent.jar": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+    "build/t092-controlled-cache-differential-r1/baseline/bundle/settings-page-host-probe.jar": "30f5203eb6efc7141688ffcd3c89a83b32ba715056a922b9d981661433b4d975",
+    "build/t092-controlled-cache-differential-r1/baseline/bundle/native-canvas-input-probe.jar": "b497712e8e4b98ab8f95e5b458e5a5afacc72635987361394a7ea47760fbdf56",
+    "build/t092-controlled-cache-differential-r1/candidate/runner-input.json": "a1cec135e12c4d5881685f041e66fa5274c49bd2444d5e7a8df37c7d38b03c1d",
+    "build/t092-controlled-cache-differential-r1/candidate/request/runner-request.json": "f9607265f30b91c6d8e943c3c02e8365953b937c5fd0039957f58ae2a1728a7a",
+    "build/t092-controlled-cache-differential-r1/candidate/prepared.json": "874f9c90c780ec14a1d97058fbf03158e2a548f2232425a943400fc518b351f3",
+    "build/t092-controlled-cache-differential-r1/candidate/prepare.py": "26246733427c892a8575a6c80551e0710f38a1dea968ab52514d12352be0e3fa",
+    "build/t092-controlled-cache-differential-r1/candidate/run-one.py": "7adbc79b96d48aae0c1141ce95fa1d35826df81d3936bb1a5df774fe6e38a200",
+    "build/t092-controlled-cache-differential-r1/candidate/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060",
+    "build/t092-controlled-cache-differential-r1/candidate/review-native.py": "54231e2c132d2f39f5b27cb1b89b13cb01f2cfd57bc566cdfe49742c421b799c",
+    "build/t092-controlled-cache-differential-r1/candidate/bundle/turboism-agent.jar": "eb6875699d3fdb92e3340a0a0af106fcf30f2985d490389f81fe3a0823c209f8",
+    "build/t092-controlled-cache-differential-r1/candidate/bundle/settings-page-host-probe.jar": "30f5203eb6efc7141688ffcd3c89a83b32ba715056a922b9d981661433b4d975",
+    "build/t092-controlled-cache-differential-r1/candidate/bundle/native-canvas-input-probe.jar": "b497712e8e4b98ab8f95e5b458e5a5afacc72635987361394a7ea47760fbdf56"
+  }
+}

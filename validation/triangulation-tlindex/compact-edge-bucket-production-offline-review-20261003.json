@@ -1,0 +1,83 @@
+{
+  "status": "PASS_OFFLINE",
+  "focusedJUnitTests": 59,
+  "bootstrapContributorTests": 5,
+  "devCheck": "PASS",
+  "actualFrozenBucketChecks": 26647044,
+  "actualPremainCases": 39,
+  "composedFixtureGroups": 6,
+  "fixturesPerGroup": 128,
+  "captureCompanionProfiles": 3,
+  "companionPins": {
+    "baseline": "82c0ecbaacf4c10c5fec8214a0fcee6fb1d680be970e1ad7bc189e9c5585d869",
+    "candidate": "a111ba81e518882146b008682346ab54188447e40d368df247f783d0cafd2a07"
+  },
+  "artifactReview": {
+    "canonicalSha256": "15f12e145f6e673337894c54a705af3dbf3660a67fe6a5ebfe3a7e2ad8ef374d",
+    "family": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex",
+    "outputs": {
+      "production-candidate-r1": {
+        "sha256": "4b6145a7ada0eb77c4df72e813897f423bb4da418da788befcc4a6aab33e6b88",
+        "baseSha256": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+        "changed": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetKey.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeLookup.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetLookup.class"
+        ],
+        "added": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$Bucket.class"
+        ]
+      },
+      "candidate-producer-r1": {
+        "sha256": "9da82dddf2dbb0964f871d20170a838a80472a5ab6e519daa6601aacd365e006",
+        "baseSha256": "30fb9f66a2e469e0cda465c677e8287e73d07d6393fceb0c80b79b242b6724d7",
+        "changed": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetKey.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeLookup.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetLookup.class"
+        ],
+        "added": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$Bucket.class"
+        ]
+      },
+      "candidate-producer-capture-r1": {
+        "sha256": "a111ba81e518882146b008682346ab54188447e40d368df247f783d0cafd2a07",
+        "baseSha256": "82c0ecbaacf4c10c5fec8214a0fcee6fb1d680be970e1ad7bc189e9c5585d869",
+        "changed": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetKey.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeLookup.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetLookup.class"
+        ],
+        "added": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$Bucket.class"
+        ]
+      }
+    }
+  },
+  "pins": {
+    "build/t066-compact-edge-bucket-integration-r1/premain-r1/review.json": "b64680d4e6227254a5bae13754d1c9113d6b53bf372243eac5f997f7d2c73046",
+    "build/t066-compact-edge-bucket-integration-r1/capture-premain-r1/review.json": "8eb0d75d81b39820df3b2236ac438fc28b490f47af71c45e67bce5b74ad726a7",
+    "build/t066-compact-edge-bucket-integration-r1/actual-bucket-selfcheck-r1/review.json": "e17af5f8046f8d6fe5bf0798e76e4e8351ac525f4ea32671fb80400d3ef825e6",
+    "build/t066-compact-edge-bucket-integration-r1/artifact-review.json": "a2756cee01af6ef64bad8e6caa612d1528e151b29c3390e607d9a5d13ba91d44",
+    "build/t066-compact-edge-bucket-integration-r1/verification-pins.json": "87514d2d651a02d62418f4592a65187c4e5096862970e422ce82216f32a93d5b",
+    "build/t066-compact-edge-bucket-integration-r1/verify-frozen-premain.py": "3e17c2775ca3097a1cd62f8e46aad6eda1afe2380501194ba0c78e2c43137945"
+  },
+  "limitations": [
+    "Only private index storage family changed; original native h/TL/lease/removal/settle bytes and all unrelated artifact entries preserved.",
+    "No new native performance, uninstrumented production or long-run memory evidence yet.",
+    "Working production integration is uncommitted and not accepted; original CPU/RSS caps apply.",
+    "LaneC human review pending; no main merge/push/release.",
+    "Historical offline candidate: subsequently withdrawn after original native CPU gate failed by0.64%."
+  ],
+  "subsequentDecision": "WITHDRAW_T066_PRODUCTION_RETAIN_T057",
+  "nativeReport": "validation/triangulation-tlindex/compact-edge-bucket-production-native-review-20261003.json"
+}

@@ -1,0 +1,50 @@
+{
+  "task": "T093",
+  "status": "PASS_GROWTH_AND_EXACT_SOLE_PREMAIN_NATIVE_CONTROLS",
+  "candidateSha256": "fa9e417c52cfc8463bfdf7c505da93bfbb70930e9cbc9edf397d0a3aba234e1d",
+  "candidatePath": "build/t093-native-table-growth-r1/sole-premain-r1/turboism-agent.jar",
+  "startupControls": 54,
+  "sdkAssertionGroups": 6,
+  "ownedCompleteOperationComparisons": 306,
+  "ownedGrowthFixtures": 18,
+  "ownedGrowthInitialCapacity": 16,
+  "ownedGrowthFinalCapacities": [
+    1024,
+    2048,
+    2048
+  ],
+  "ownedGrowthCounts": [
+    6,
+    7,
+    7
+  ],
+  "systemLoaderCompleteOperationComparisons": 306,
+  "nativeCopyComparisons": 72,
+  "nativeCopyRecords": 216,
+  "finalReservationBytes": 0,
+  "artifactChangedClasses": [
+    "NativeMeshEdgeLookup",
+    "NativeMeshEdgeTable"
+  ],
+  "artifactUnchangedEntries": 5315,
+  "performanceAcceptance": "NOT_GRANTED",
+  "allocationAndRssImprovement": "NOT_MEASURED",
+  "editorLaunched": false,
+  "acceptedDelivery": "T057_UNCHANGED",
+  "historicalFailures": "UNCHANGED",
+  "preservedExplorationFailure": "growth-runtime-matrix-r1/compile.log: non-final lambda capture; fixed in r2; no host rerun",
+  "nextStep": "Versioned growth-aware allocation overlay and controlled-input final-artifact host validation before frozen formal performance gates",
+  "pins": {
+    "build/t093-native-table-growth-r1/growth-runtime-matrix-r2/review.json": "4a00288134efdcf0150c8067693fe67cd97e1b89abcfe1e80f96f3d0c348097a",
+    "build/t093-native-table-growth-r1/sole-premain-r1/review.json": "662bb741d6e1a687be2150910fd823a2f6d240d956d9d55ca00acc03fa44b8fa",
+    "build/t093-native-table-growth-r1/sole-premain-r1/t085-isolation-audit.json": "efe73edb0f54456c23087920704a63e7126004880eb2ba40ca96f41b65aef8d9",
+    "build/t093-native-table-growth-r1/production-geometry-r1/review.json": "14cb360065a04c27867bda0f3e1b28ef819ba78ada6cef47000c68c6c6b0cc95",
+    "build/t093-native-table-growth-r1/cache-copy-r1/review.json": "d21cb7284ef0f9c5415d241d0c51ae942f270699e86412351ca3938e846eab08",
+    "validation/triangulation-tlindex/diagnostic/growth-r1/NativeMeshAutoConnectSelfCheck.java": "e57fcc6ad1fd892b7b996655e7ba67155fc2b45cef62e490d6132fa42ec12535",
+    "validation/triangulation-tlindex/diagnostic/growth-r1/NativeMeshEdgeLoopSelfCheck.java": "6499b3659c5ac3f44b3da6be6f72b8b6fbe5065e00d1c841832767edb89955c4",
+    "validation/triangulation-tlindex/diagnostic/growth-r1/NativeMeshProductionExecutionSelfCheck.java": "7263ca09e11baed278b7603be37c3fca4b0ea335a61ff6de868a75fde93e2fc4",
+    "validation/triangulation-tlindex/diagnostic/growth-r1/verify-native-growth-cache-copy.py": "a6b15571a11f4930a700e19b6b8c3b7ff9113bc2aba8e78a7df9a8dff07b1e73",
+    "validation/triangulation-tlindex/diagnostic/growth-r1/verify-native-mesh-growth-geometry.py": "50eacd283e9772f9410fc18ed44b546fd87267e20d872d5afde89ca3c943974c",
+    "validation/triangulation-tlindex/diagnostic/growth-r1/verify-native-mesh-growth.py": "5e0f99b983024aa2357c2af01b74cf963bd9cae93e2d82c7bf4b9a3a514597b7"
+  }
+}

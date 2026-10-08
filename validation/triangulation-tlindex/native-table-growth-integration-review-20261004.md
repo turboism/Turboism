@@ -1,0 +1,9 @@
+# T093 exact artifact and growth controls
+
+The new sole-premain candidate `fa9e417c52cfc8463bfdf7c505da93bfbb70930e9cbc9edf397d0a3aba234e1d` changes only NativeMeshEdgeLookup.class and NativeMeshEdgeTable.class versus frozen T085. All 5,315 unrelated archive entries are byte-identical. The three official SDK profiles pass all 54 startup admission, revocation, callback and fallback controls.
+
+The versioned owned runtime matrix passes 306 complete-operation comparisons plus existing 288 unavailable-admission fallback fixtures and 211 helper controls. Its 18 new fixtures clear the edge list once after generated indices appear, then exercise the actual helper from capacity16 through 6/7/7 growth steps for 248/312/376 points. Final capacities are 1024/2048/2048; native output, points, caches, callbacks, versions and exceptions remain identical. All reservations release. Capacity reads are owned diagnostic instrumentation; these are not allocation or RSS measurements.
+
+Actual sole-premain/system-loader operations pass all 306 complete-operation comparisons against pristine SDK, including the larger fixtures. Native source-cache copying passes 72 comparisons/216 records across pristine SDK, frozen T085 and new T093, with nonempty indices and actual production admission checks. This covers the copy seam, not the full host action context. All 611 raw report input/output pins were rehashed (60 owned, 344 premain, 100 geometry, 107 copy).
+
+The first owned execution retained a fixture compilation failure due to a non-final lambda capture; r2 fixes the fixture. No host measurement was rerun. T088 formal RSS failure, all other historical failures and accepted T057 remain unchanged. No editor was launched and no performance acceptance is granted. Next: independent growth-aware allocation accounting, then final-artifact controlled-input host validation and frozen CPU/wall/RSS gates.
