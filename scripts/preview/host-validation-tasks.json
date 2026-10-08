@@ -306,11 +306,37 @@
           "{version}",
           "{runLabel}"
         ],
+        "default-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "reduced": [
           "{version}",
           "{runLabel}-reduced",
           "--windows-env",
           "TURBOISM_REDUCE_AUTO_BACKUP=1"
+        ],
+        "reduced-assisted": [
+          "{version}",
+          "{runLabel}-reduced",
+          "--windows-env",
+          "TURBOISM_REDUCE_AUTO_BACKUP=1",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ]
       },
       "defaultVariant": "default"
@@ -322,10 +348,25 @@
         "5302",
         "5303"
       ],
-      "arguments": [
-        "{version}",
-        "{runLabel}"
-      ],
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
       "resources": {
         "host-slot": 1
       }
@@ -536,6 +577,22 @@
           "--jvm-option",
           "-Dturboism.validation.fps.settleSeconds=75"
         ],
+        "default-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.fps.sustained=true",
+          "--jvm-option",
+          "-Dturboism.validation.fps.settleSeconds=75",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "zgc": [
           "{version}",
           "{runLabel}-zgc",
@@ -546,6 +603,24 @@
           "--jvm-option",
           "-XX:+UseZGC"
         ],
+        "zgc-assisted": [
+          "{version}",
+          "{runLabel}-zgc",
+          "--jvm-option",
+          "-Dturboism.validation.fps.sustained=true",
+          "--jvm-option",
+          "-Dturboism.validation.fps.settleSeconds=75",
+          "--jvm-option",
+          "-XX:+UseZGC",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "jfr": [
           "{version}",
           "{runLabel}-jfr",
@@ -553,6 +628,22 @@
           "-Dturboism.validation.fps.sustained=true",
           "--jvm-option",
           "-Dturboism.validation.fps.settleSeconds=75"
+        ],
+        "jfr-assisted": [
+          "{version}",
+          "{runLabel}-jfr",
+          "--jvm-option",
+          "-Dturboism.validation.fps.sustained=true",
+          "--jvm-option",
+          "-Dturboism.validation.fps.settleSeconds=75",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "opengl": [
           "{version}",
@@ -564,6 +655,24 @@
           "--jvm-option",
           "-Dsun.java2d.opengl=true"
         ],
+        "opengl-assisted": [
+          "{version}",
+          "{runLabel}-opengl",
+          "--jvm-option",
+          "-Dturboism.validation.fps.sustained=true",
+          "--jvm-option",
+          "-Dturboism.validation.fps.settleSeconds=75",
+          "--jvm-option",
+          "-Dsun.java2d.opengl=true",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "d3d": [
           "{version}",
           "{runLabel}-d3d",
@@ -573,6 +682,24 @@
           "-Dturboism.validation.fps.settleSeconds=75",
           "--jvm-option",
           "-Dsun.java2d.d3d=true"
+        ],
+        "d3d-assisted": [
+          "{version}",
+          "{runLabel}-d3d",
+          "--jvm-option",
+          "-Dturboism.validation.fps.sustained=true",
+          "--jvm-option",
+          "-Dturboism.validation.fps.settleSeconds=75",
+          "--jvm-option",
+          "-Dsun.java2d.d3d=true",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ]
       },
       "defaultVariant": "default"
@@ -610,11 +737,39 @@
           "--locale",
           "system"
         ],
+        "system-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--locale",
+          "system",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "en": [
           "{version}",
           "{runLabel}",
           "--locale",
           "en"
+        ],
+        "en-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--locale",
+          "en",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "ja": [
           "{version}",
@@ -622,11 +777,39 @@
           "--locale",
           "ja"
         ],
+        "ja-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--locale",
+          "ja",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "ko": [
           "{version}",
           "{runLabel}",
           "--locale",
           "ko"
+        ],
+        "ko-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--locale",
+          "ko",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "zh-Hans": [
           "{version}",
@@ -634,11 +817,39 @@
           "--locale",
           "zh-Hans"
         ],
+        "zh-Hans-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--locale",
+          "zh-Hans",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "zh-Hant": [
           "{version}",
           "{runLabel}",
           "--locale",
           "zh-Hant"
+        ],
+        "zh-Hant-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--locale",
+          "zh-Hant",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "environment-ja": [
           "{version}",
@@ -648,6 +859,22 @@
           "--environment-language",
           "ja"
         ],
+        "environment-ja-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--locale",
+          "system",
+          "--environment-language",
+          "ja",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "environment-en": [
           "{version}",
           "{runLabel}",
@@ -655,6 +882,22 @@
           "system",
           "--environment-language",
           "en"
+        ],
+        "environment-en-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--locale",
+          "system",
+          "--environment-language",
+          "en",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ]
       },
       "resources": {
@@ -697,15 +940,54 @@
           "{version}",
           "{runLabel}"
         ],
+        "off-assisted": [
+          "off",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "probe": [
           "probe",
           "{version}",
           "{runLabel}"
         ],
+        "probe-assisted": [
+          "probe",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "on": [
           "on",
           "{version}",
           "{runLabel}"
+        ],
+        "on-assisted": [
+          "on",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ]
       },
       "defaultVariant": "on"
@@ -746,15 +1028,54 @@
           "{version}",
           "{runLabel}"
         ],
+        "off-assisted": [
+          "off",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "probe": [
           "probe",
           "{version}",
           "{runLabel}"
         ],
+        "probe-assisted": [
+          "probe",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "on": [
           "on",
           "{version}",
           "{runLabel}"
+        ],
+        "on-assisted": [
+          "on",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ]
       },
       "defaultVariant": "on"
@@ -791,135 +1112,486 @@
           "matrix",
           "{runLabel}"
         ],
+        "matrix-assisted": [
+          "{version}",
+          "matrix",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "model-edit-level": [
           "{version}",
           "model-edit-level",
           "{runLabel}"
+        ],
+        "model-edit-level-assisted": [
+          "{version}",
+          "model-edit-level",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "wave1": [
           "{version}",
           "wave1",
           "{runLabel}"
         ],
+        "wave1-assisted": [
+          "{version}",
+          "wave1",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "statistics-read": [
           "{version}",
           "statistics-read",
           "{runLabel}"
+        ],
+        "statistics-read-assisted": [
+          "{version}",
+          "statistics-read",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "binding-read": [
           "{version}",
           "binding-read",
           "{runLabel}"
         ],
+        "binding-read-assisted": [
+          "{version}",
+          "binding-read",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "binding-matrix": [
           "{version}",
           "binding-matrix",
           "{runLabel}"
+        ],
+        "binding-matrix-assisted": [
+          "{version}",
+          "binding-matrix",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "parameter-menu-smoke": [
           "{version}",
           "parameter-menu-smoke",
           "{runLabel}"
         ],
+        "parameter-menu-smoke-assisted": [
+          "{version}",
+          "parameter-menu-smoke",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "persist-write": [
           "{version}",
           "persist-write",
           "{runLabel}"
+        ],
+        "persist-write-assisted": [
+          "{version}",
+          "persist-write",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "persist-read": [
           "{version}",
           "persist-read",
           "{runLabel}"
         ],
+        "persist-read-assisted": [
+          "{version}",
+          "persist-read",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "plugin-scope-close": [
           "{version}",
           "plugin-scope-close",
           "{runLabel}"
+        ],
+        "plugin-scope-close-assisted": [
+          "{version}",
+          "plugin-scope-close",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "document-close": [
           "{version}",
           "document-close",
           "{runLabel}"
         ],
+        "document-close-assisted": [
+          "{version}",
+          "document-close",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "native-control-background": [
           "{version}",
           "native-control-background",
           "{runLabel}"
+        ],
+        "native-control-background-assisted": [
+          "{version}",
+          "native-control-background",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "native-control-background-document-close": [
           "{version}",
           "native-control-background-document-close",
           "{runLabel}"
         ],
+        "native-control-background-document-close-assisted": [
+          "{version}",
+          "native-control-background-document-close",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "native-control-background-persist-write": [
           "{version}",
           "native-control-background-persist-write",
           "{runLabel}"
+        ],
+        "native-control-background-persist-write-assisted": [
+          "{version}",
+          "native-control-background-persist-write",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "native-control-background-persist-reopen": [
           "{version}",
           "native-control-background-persist-reopen",
           "{runLabel}"
         ],
+        "native-control-background-persist-reopen-assisted": [
+          "{version}",
+          "native-control-background-persist-reopen",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "native-control-background-persist-final": [
           "{version}",
           "native-control-background-persist-final",
           "{runLabel}"
+        ],
+        "native-control-background-persist-final-assisted": [
+          "{version}",
+          "native-control-background-persist-final",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "perf-observe": [
           "{version}",
           "perf-observe",
           "{runLabel}"
         ],
+        "perf-observe-assisted": [
+          "{version}",
+          "perf-observe",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "perf-observe-zgc": [
           "{version}",
           "perf-observe-zgc",
           "{runLabel}"
+        ],
+        "perf-observe-zgc-assisted": [
+          "{version}",
+          "perf-observe-zgc",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "native-baseline": [
           "{version}",
           "native-baseline",
           "{runLabel}"
         ],
+        "native-baseline-assisted": [
+          "{version}",
+          "native-baseline",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "native-tuned": [
           "{version}",
           "native-tuned",
           "{runLabel}"
+        ],
+        "native-tuned-assisted": [
+          "{version}",
+          "native-tuned",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "native-tuned2": [
           "{version}",
           "native-tuned2",
           "{runLabel}"
         ],
+        "native-tuned2-assisted": [
+          "{version}",
+          "native-tuned2",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "native-tuned3": [
           "{version}",
           "native-tuned3",
           "{runLabel}"
+        ],
+        "native-tuned3-assisted": [
+          "{version}",
+          "native-tuned3",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "native-tuned4": [
           "{version}",
           "native-tuned4",
           "{runLabel}"
         ],
+        "native-tuned4-assisted": [
+          "{version}",
+          "native-tuned4",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "native-tuned5": [
           "{version}",
           "native-tuned5",
           "{runLabel}"
+        ],
+        "native-tuned5-assisted": [
+          "{version}",
+          "native-tuned5",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "native-tuned6": [
           "{version}",
           "native-tuned6",
           "{runLabel}"
         ],
+        "native-tuned6-assisted": [
+          "{version}",
+          "native-tuned6",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "perf-observe-batch": [
           "{version}",
           "perf-observe-batch",
           "{runLabel}"
         ],
+        "perf-observe-batch-assisted": [
+          "{version}",
+          "perf-observe-batch",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "native-tuned7": [
           "{version}",
           "native-tuned7",
           "{runLabel}"
+        ],
+        "native-tuned7-assisted": [
+          "{version}",
+          "native-tuned7",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ]
       },
       "resources": {
@@ -1152,10 +1824,25 @@
         "5303",
         "5304"
       ],
-      "arguments": [
-        "{version}",
-        "{runLabel}"
-      ],
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
       "resources": {
         "host-slot": 1
       }
@@ -1168,11 +1855,27 @@
         "5302",
         "5303"
       ],
-      "arguments": [
-        "selection-brush",
-        "{version}",
-        "{runLabel}"
-      ],
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "selection-brush",
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "selection-brush",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
       "resources": {
         "host-slot": 1,
         "display-input": 1
@@ -1213,11 +1916,37 @@
           "{version}",
           "{runLabel}"
         ],
+        "default-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "zgc": [
           "{version}",
           "{runLabel}-zgc",
           "--jvm-option",
           "-XX:+UseZGC"
+        ],
+        "zgc-assisted": [
+          "{version}",
+          "{runLabel}-zgc",
+          "--jvm-option",
+          "-XX:+UseZGC",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ]
       },
       "defaultVariant": "default"
@@ -1247,10 +1976,25 @@
         "5303",
         "5304"
       ],
-      "arguments": [
-        "{version}",
-        "{runLabel}"
-      ],
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
       "resources": {
         "host-slot": 1
       }
@@ -1280,10 +2024,25 @@
         "5303",
         "5304"
       ],
-      "arguments": [
-        "{version}",
-        "{runLabel}"
-      ],
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
       "resources": {
         "host-slot": 1
       }
@@ -1313,10 +2072,25 @@
         "5303",
         "5304"
       ],
-      "arguments": [
-        "{version}",
-        "{runLabel}"
-      ],
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
       "resources": {
         "host-slot": 1
       }
@@ -1346,10 +2120,25 @@
         "5303",
         "5304"
       ],
-      "arguments": [
-        "{version}",
-        "{runLabel}"
-      ],
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
       "resources": {
         "host-slot": 1
       }
@@ -1386,20 +2175,72 @@
           "{runLabel}",
           "current"
         ],
+        "current-assisted": [
+          "{version}",
+          "{runLabel}",
+          "current",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "new": [
           "{version}",
           "{runLabel}",
           "new"
+        ],
+        "new-assisted": [
+          "{version}",
+          "{runLabel}",
+          "new",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "safe": [
           "{version}",
           "{runLabel}",
           "safe"
         ],
+        "safe-assisted": [
+          "{version}",
+          "{runLabel}",
+          "safe",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "demo": [
           "{version}",
           "{runLabel}",
           "demo"
+        ],
+        "demo-assisted": [
+          "{version}",
+          "{runLabel}",
+          "demo",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ]
       },
       "resources": {
@@ -1528,10 +2369,25 @@
         "5303",
         "5304"
       ],
-      "arguments": [
-        "{version}",
-        "{runLabel}"
-      ],
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
       "resources": {
         "host-slot": 1,
         "display-input": 1
@@ -1605,17 +2461,57 @@
           "{version}",
           "{runLabel}"
         ],
+        "analyse-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "drive": [
           "{version}",
           "{runLabel}",
           "--jvm-option",
           "-Dturboism.validation.warpAlt.mode=drive"
         ],
+        "drive-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.mode=drive",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "observe": [
           "{version}",
           "{runLabel}",
           "--jvm-option",
           "-Dturboism.validation.warpAlt.mode=observe"
+        ],
+        "observe-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.mode=observe",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "weight": [
           "{version}",
@@ -1627,6 +2523,24 @@
           "--jvm-option",
           "-Dturboism.validation.warpAlt.drag=48,0"
         ],
+        "weight-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.mode=weightStroke",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.axis=1",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.drag=48,0",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "weight-h": [
           "{version}",
           "{runLabel}",
@@ -1637,11 +2551,43 @@
           "--jvm-option",
           "-Dturboism.validation.warpAlt.drag=0,48"
         ],
+        "weight-h-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.mode=weightStroke",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.axis=2",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.drag=0,48",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "drive-gesture": [
           "{version}",
           "{runLabel}",
           "--jvm-option",
           "-Dturboism.validation.warpAlt.mode=driveGesture"
+        ],
+        "drive-gesture-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.mode=driveGesture",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "drive-gesture-c5": [
           "{version}",
@@ -1651,6 +2597,22 @@
           "--jvm-option",
           "-Dturboism.validation.warpAlt.point=5"
         ],
+        "drive-gesture-c5-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.mode=driveGesture",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.point=5",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "manual": [
           "{version}",
           "{runLabel}",
@@ -1658,6 +2620,22 @@
           "-Dturboism.validation.warpAlt.mode=observe",
           "--jvm-option",
           "-Dturboism.validation.warpAlt.observeSeconds=5400"
+        ],
+        "manual-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.mode=observe",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.observeSeconds=5400",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ],
         "bezier": [
           "{version}",
@@ -1669,6 +2647,24 @@
           "--jvm-option",
           "-Dturboism.validation.warpAlt.drag=48,-32"
         ],
+        "bezier-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.mode=bezierHandle",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.axis=1",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.drag=48,-32",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
         "bezier-h": [
           "{version}",
           "{runLabel}",
@@ -1678,6 +2674,24 @@
           "-Dturboism.validation.warpAlt.axis=2",
           "--jvm-option",
           "-Dturboism.validation.warpAlt.drag=48,-32"
+        ],
+        "bezier-h-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.mode=bezierHandle",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.axis=2",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.drag=48,-32",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
         ]
       },
       "resources": {
