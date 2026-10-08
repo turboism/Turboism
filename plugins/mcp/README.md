@@ -34,6 +34,7 @@ Runs a token-gated MCP Streamable HTTP server on the local loopback interface, p
 - Provides workflow prompts for inspection, diagnostics, editing, recovery, and bounded Editor automation.
 - Serves only loopback clients and enforces origin, body-size, protocol, session, and rate limits.
 - Gates mutating tool calls and session close behind a per-user bearer token that the stdio bridge supplies automatically.
+- Publishes a credential-free stdio launch descriptor (the running JVM's launcher, the plugin classpath, the bridge main class, and the state directory) through the runtime connection boundary, so bundled consumers such as the ACP plugin attach agents to a precompiled bridge without handling the token.
 
 ## Requirements and compatibility
 
@@ -60,7 +61,7 @@ Connect a local MCP client with the configuration shown in **Turboism → MCP Co
 
 ### Common coding agents
 
-**stdio (recommended)** — the plugin publishes `TurboismMcpBridge.java` next to `mcp.token` in its state directory; the bridge relays stdio frames to the loopback endpoint with the bearer token attached. The connection window shows the exact, copyable line:
+**stdio (recommended)** — the plugin publishes `TurboismMcpBridge.java` next to `mcp.token` in its state directory; the bridge relays stdio frames to the loopback endpoint with the bearer token attached. Bundled in-process consumers such as the ACP plugin instead launch the precompiled bridge class shipped inside this plugin JAR with the state directory as an argument, which also works on JREs without `jdk.compiler`. The connection window shows the exact, copyable line:
 
 ```json
 {
