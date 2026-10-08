@@ -1,0 +1,86 @@
+{
+  "task": "T076",
+  "status": "PASS_OFFLINE_PACKAGED_HELPERS_AND_REAL_PRODUCTION_LOADER_NOT_HOST_VALIDATED",
+  "pluginSha256": "0ffe99c024507ddb96cad151d59c6fd677b8ab2ac717f586bbd78279ed62afda",
+  "productionDependencySha256": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+  "profile": "5303",
+  "generatedSourceCount": 12,
+  "producerRecorderOrTransformerPackaged": false,
+  "productionAgentChanged": false,
+  "ownFixtureChecks": {
+    "commandCore": 24,
+    "evidenceWriter": 13,
+    "existingCpuCounter": 14,
+    "existingMeshSnapshot": 17
+  },
+  "loaderHarness": "Actual frozen T057 inspector and PluginContractClassLoader, outside real premain; 55 assertions include per-method entrypoint checks, not 55 independent host scenarios.",
+  "protocol": "OBSERVER_FREE_COMMAND_RETURN_V1",
+  "fullRepositoryGate": {
+    "status": "PASS",
+    "exitCode": 0,
+    "wallSeconds": 750.7879691123962,
+    "jobs": [],
+    "command": [
+      "xvfb-run",
+      "-a",
+      "./gradlew",
+      "--no-daemon",
+      "--max-workers=1",
+      "--offline",
+      "checkCompletedCommit",
+      "--console=plain"
+    ],
+    "tasksExecuted": 65,
+    "tasksUpToDate": 262
+  },
+  "earlyReturnAdmission": "All selected native boundary-loop results required nonempty before timing; empty loops refuse whole command. Native5303 static early-return chain reviewed, not native-executed by these own fixtures.",
+  "nativeGenerationScope": "Normal native command over exact ordered set, pre/post document/mode/source/mesh identities, before edge/position/count and stable return arrays; edge change alone is not generation proof.",
+  "nativeGeometryOrPerformanceAdmission": "NOT_GRANTED",
+  "hostPreparedOrSubmitted": false,
+  "limitations": [
+    "No native cold startup or producer-free geometry admission yet.",
+    "The loader harness uses the actual production loader outside real premain.",
+    "Full all-version command/publication proof and independent kernel CPU brackets pending.",
+    "No new host task or performance acceptance; T075 original legs unchanged."
+  ],
+  "pins": {
+    "build/t076-production-acceptance-preflight-r1/observer-free-plugin-r6/build.json": "f3710aa272a8b2c7b0233cbec1d79059327d76199f851f6016288aade9f78e95",
+    "build/t076-production-acceptance-preflight-r1/observer-free-plugin-guard-r6/result.json": "5edd8eeabc2b3259b6a36af552cc9e5d739a68cacfb50626c0ee5b00eb09dce9",
+    "build/t076-production-acceptance-preflight-r1/observer-free-chain5303-r1.json": "ee973707a4fa96ce674f459173db86d4723a7d4a696f602896c54d8ce822ad7a",
+    "build/t076-production-acceptance-preflight-r1/observer-free-plugin-r6/plugin-loader-selfcheck.log": "27f01a6e705035c978d0578c10efbf2fd3aaf11035ddf1221e6b9516303bedc0",
+    "build/t076-production-acceptance-preflight-r1/observer-free-plugin-r6/NativeObserverFreeAutoConnectSelfCheck.log": "d956f63006dfdb5f7713cfeb28f229a50de373f4d8512f87f8331b9e0e6f3340",
+    "build/t076-production-acceptance-preflight-r1/observer-free-plugin-r6/CommandCpuBoundarySelfCheck.log": "12b1b2244dc98aa2feac2d45f40edfdc01c73fa53e36164b03132a1500000d25",
+    "build/t076-production-acceptance-preflight-r1/observer-free-plugin-r6/MeshResultSnapshotSelfCheck.log": "3790a5717c9b21b08a7c155ed45b6dd7cb3085ae013b8de32ba83a6b575a68db",
+    "build/t076-production-acceptance-preflight-r1/observer-free-plugin-r6/ObserverFreeEvidenceWriterSelfCheck.log": "26dcccf6b85559210ca8b9ca995a95a00ae5698c8ca2963e8dacc00461f2e045",
+    "build/t076-production-acceptance-preflight-r1/completed-gate-r4/result.json": "67852f927adcca8a245ad9b2896c3990a17cc0361804eedd9c864bd735f38751",
+    "build/t076-production-acceptance-preflight-r1/completed-gate-r4/gradle.log": "92d29c7da07ac27fcdff4575f830c8c1c39d21cb358900942195dc70fad1b50c"
+  },
+  "sourcePins": {
+    "validation/atlas-image-shadow-scene/src/dev/turboism/validation/atlasimage/shadow/FixedEdt.java": "2a4d4c9fe7ea87abdea987890b2db6682873525370c62349f7ccdbcd81326c80",
+    "validation/atlas-image-shadow-scene/src/dev/turboism/validation/atlasimage/shadow/StageEvidence.java": "852c11116b5d328019df93191dd5f3e57cc8f44b070bab94edf26d3d69b5a0b2",
+    "validation/atlas-image-shadow-scene/src/dev/turboism/validation/atlasimage/shadow/ShadowPayloadStore.java": "0f0bc7763f628b2b22ae74dd8cb98085556a7e5277fee835e5d2a4b74218301a",
+    "validation/atlas-image-shadow-scene/src/dev/turboism/validation/atlasimage/shadow/ShadowSceneContract.java": "db5e3bdc55325c8b545610f3c8e35fbfe1d988b76cb5d53163561b94d07b17ee",
+    "validation/atlas-image-shadow-scene/src/dev/turboism/validation/atlasimage/shadow/T040ShadowSceneDriverAgent.java": "e1be189f55c355081f7b52a100e709272e75f92d9d3edc2fd68a5337c12cf870",
+    "validation/triangulation-tlindex/diagnostic/NativeObserverFreeAutoConnect.java": "de2c489a29713bf6506067fafbc8a815d9d9d874edd0c96e953d31975a7301df",
+    "validation/triangulation-tlindex/diagnostic/NativeAutoConnect.java": "4a8706650be0b2dff5e637f56665ffde5061bd7d6075473f0ce8597256dfe099",
+    "validation/triangulation-tlindex/diagnostic/NativeCancelPrompt.java": "446dad2f71e2f7046937d258f4bd73048ea5ecb0423b8a03051182194549409b",
+    "validation/triangulation-tlindex/diagnostic/MeshResultSnapshot.java": "bbf259de40f22d388b494c38adfdf5aac3971fdc7fd3bb66c6e074fde229df49",
+    "validation/triangulation-tlindex/diagnostic/CommandCpuBoundary.java": "6cf6f55bd41872b77f9cff372336217f86d803c14c109207e32831769775775a",
+    "validation/triangulation-tlindex/diagnostic/ObserverFreeEvidenceWriter.java": "a6865585a64a478a278e55c62e5bc55418b25e197ba177f8388a8b3f81dc4421",
+    "validation/triangulation-tlindex/diagnostic/ObserverFreeMeshProbePlugin.java": "da62f4a5e3af2bf6edf4c50034cbb6d8ce7f08e78cef52ece5a2e2747e50db66",
+    "validation/triangulation-tlindex/diagnostic/build-observer-free-mesh-plugin.py": "4cb3601f8cb7d1bad190776fe75d3c6eb28df44023e239433e20602f68165ba9",
+    "validation/triangulation-tlindex/diagnostic/ObserverFreePluginLoaderSelfCheck.java": "324d5a12881e9625dfe1eb4e00786eb3ed07ea1e598e26744fbada9b006c5205",
+    "validation/triangulation-tlindex/diagnostic/NativeObserverFreeAutoConnectSelfCheck.java": "04f6ab69a7cfd29afd5495f28512b0b2e4c8e7b137c60630e39f59ac71e5942b",
+    "validation/triangulation-tlindex/diagnostic/CommandCpuBoundarySelfCheck.java": "73c07c3d663b80a9fee429259e0a549d35d215a93102e92f1fb23244beda6555",
+    "validation/triangulation-tlindex/diagnostic/MeshResultSnapshotSelfCheck.java": "19cc88ddae0414a3df5257008eedf568ded38e8e954a6a9dcc90057a8061d9ec",
+    "validation/triangulation-tlindex/diagnostic/ObserverFreeEvidenceWriterSelfCheck.java": "8c81e22730644de9618382bd07669ea33bfa1cc58072435b04e270e8843f4e17"
+  },
+  "freshJUnitReports": {
+    "reports": 716,
+    "tests": 5129,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 55,
+    "scope": "Only reports modified during r4; cached tasks are not counted as rerun."
+  }
+}

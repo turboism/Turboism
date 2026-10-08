@@ -1,0 +1,4 @@
+NATIVE_ANGLE_PREDICATE_PASS profile=5203 threshold=0.0 jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/Live2D_Cubism.jar inputs=240986 checks=462509 rejected=157699 fallback=63821 nativeAssertions=19466
+NATIVE_ANGLE_PREDICATE_PASS profile=5302 threshold=1.0E-6 jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar inputs=240986 checks=462509 rejected=157699 fallback=63821 nativeAssertions=19466
+NATIVE_ANGLE_PREDICATE_PASS profile=5303 threshold=1.0E-6 jar=${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar inputs=240986 checks=462509 rejected=157699 fallback=63821 nativeAssertions=19466
+ANGLE_REJECTION_FINISHED checks=1387528 scope=OWNED_PREDICATE_ONLY hostGain=UNPROVEN

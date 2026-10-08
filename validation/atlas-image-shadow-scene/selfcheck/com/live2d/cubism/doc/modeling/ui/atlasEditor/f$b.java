@@ -160,7 +160,11 @@ public final class f$b extends JDialog {
 
     private static JButton exitOption(final String key, final String suffix) {
         final String label = javax.swing.UIManager.getString(key);
-        final JButton button = new JButton((label == null ? key : label) + suffix);
+        final String base = label == null ? key : label;
+        // Some locales already carry the mnemonic suffix (e.g. zh_CN "否(N)"); a second one
+        // would defeat the driver's single-suffix label normalization.
+        final JButton button = new JButton(
+            base.endsWith(")") || base.endsWith("）") ? base : base + suffix);
         button.addActionListener(event -> {
             EXIT_PROMPT_CLICKS.incrementAndGet();
             for (final Window window : Window.getWindows()) {

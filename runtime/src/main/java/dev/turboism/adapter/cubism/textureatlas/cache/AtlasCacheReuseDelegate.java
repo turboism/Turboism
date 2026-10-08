@@ -393,33 +393,26 @@ public final class AtlasCacheReuseDelegate {
     /**
      * SHA-256 over the image's ARGB int raster; DataBufferInt fast path when available.
      * Returns {@code null} for a degenerate or over-budget pixel count: the digest is
-     * then uncomputable and must never act as a comparable cache key.
+     * then uncomputable and must never act as a comparable cache key. Package-private for
+     * the reference-implementation parity tests.
      */
-    private static String pixelDigest(final BufferedImage image) {
+    static String pixelDigest(final BufferedImage image) {
         final long pixels = (long) image.getWidth() * image.getHeight();
         if (pixels <= 0 || pixels > MAX_PIXELS) return null;
         final MessageDigest sha = sha256();
+        final byte[] scratch = new byte[64 * 1024];
+        int used = 0;
         final DataBuffer buffer = image.getRaster().getDataBuffer();
-        if (buffer instanceof DataBufferInt ints
-                && image.getRaster().getDataBuffer().getSize() == image.getWidth() * image.getHeight()) {
-            for (final int v : ints.getData()) {
-                sha.update((byte) (v >>> 24));
-                sha.update((byte) (v >>> 16));
-                sha.update((byte) (v >>> 8));
-                sha.update((byte) v);
-            }
+        if (buffer instanceof DataBufferInt ints && buffer.getSize() == image.getWidth() * image.getHeight()) {
+            used = updatePixels(sha, scratch, used, ints.getData());
         } else {
             final int[] row = new int[image.getWidth()];
             for (int y = 0; y < image.getHeight(); y++) {
                 image.getRGB(0, y, image.getWidth(), 1, row, 0, image.getWidth());
-                for (final int v : row) {
-                    sha.update((byte) (v >>> 24));
-                    sha.update((byte) (v >>> 16));
-                    sha.update((byte) (v >>> 8));
-                    sha.update((byte) v);
-                }
+                used = updatePixels(sha, scratch, used, row);
             }
         }
+        if (used != 0) sha.update(scratch, 0, used);
         final byte[] digest = sha.digest();
         final StringBuilder hex = new StringBuilder(64);
         for (final byte b : digest) {
@@ -427,6 +420,27 @@ public final class AtlasCacheReuseDelegate {
             hex.append(Character.forDigit(b & 0xF, 16));
         }
         return hex.toString();
+    }
+
+    /**
+     * Appends {@code values} to {@code sha} big-endian (one ARGB int = 4 bytes, most
+     * significant first) through {@code scratch}, flushing full blocks via
+     * {@code update(byte[],int,int)}. Returns the scratch fill level so callers can chain
+     * batches and flush the remainder once — the hashed byte stream is identical to four
+     * per-byte {@code update(byte)} calls per int, only chunked.
+     */
+    private static int updatePixels(final MessageDigest sha, final byte[] scratch, int used, final int[] values) {
+        for (final int v : values) {
+            scratch[used++] = (byte) (v >>> 24);
+            scratch[used++] = (byte) (v >>> 16);
+            scratch[used++] = (byte) (v >>> 8);
+            scratch[used++] = (byte) v;
+            if (used == scratch.length) {
+                sha.update(scratch, 0, used);
+                used = 0;
+            }
+        }
+        return used;
     }
 
     private static MessageDigest sha256() {

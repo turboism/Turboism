@@ -1,7 +1,9 @@
 package dev.turboism.recentfile;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.RecentFileAdapter;
 import dev.turboism.permissions.PermissionChecker;
@@ -31,6 +33,68 @@ final class RuntimeRecentFileServiceTest {
         assertEquals(
                 List.of(),
                 new RuntimeRecentFileService(RecentFileAdapter.safeMode(), PermissionChecker.allowAll()).list());
+    }
+
+    @Test
+    void reportsUnavailableForSafeModeAdapter() {
+        assertFalse(
+                new RuntimeRecentFileService(RecentFileAdapter.safeMode(), PermissionChecker.allowAll()).isAvailable());
+    }
+
+    @Test
+    void reportsAvailableForConnectedAdapter() {
+        assertTrue(new RuntimeRecentFileService(adapter(List.of()), PermissionChecker.allowAll()).isAvailable());
+    }
+
+    @Test
+    void availabilityFollowsTheHostOperationsProbe() {
+        final boolean[] attached = {false};
+        final RecentFileAdapter adapter = RecentFileAdapter.connected(new RecentFileAdapter.HostOperations() {
+            @Override
+            public List<RecentFileSummary> list() {
+                return List.of();
+            }
+
+            @Override
+            public Optional<RecentFileId> current() {
+                return Optional.empty();
+            }
+
+            @Override
+            public boolean available() {
+                return attached[0];
+            }
+        });
+        final RuntimeRecentFileService service = new RuntimeRecentFileService(adapter, PermissionChecker.allowAll());
+
+        assertFalse(service.isAvailable());
+        attached[0] = true;
+        assertTrue(service.isAvailable(), "the probe must answer the current delegate state, not a snapshot");
+    }
+
+    @Test
+    void aThrowingAvailabilityProbeReportsUnavailableInsteadOfThrowing() {
+        final RuntimeRecentFileService service = new RuntimeRecentFileService(
+                RecentFileAdapter.connected(new RecentFileAdapter.HostOperations() {
+                    @Override
+                    public List<RecentFileSummary> list() {
+                        return List.of();
+                    }
+
+                    @Override
+                    public Optional<RecentFileId> current() {
+                        return Optional.empty();
+                    }
+
+                    @Override
+                    public boolean available() {
+                        // Mirrors DynamicRuntimeHostAdapters.call: an outermost
+                        // adapter call may run session teardown on this thread.
+                        throw new IllegalStateException("host session teardown on the calling thread");
+                    }
+                }),
+                PermissionChecker.allowAll());
+        assertFalse(service.isAvailable(), "a throwing probe is an unavailable host, never an escaping failure");
     }
 
     @Test

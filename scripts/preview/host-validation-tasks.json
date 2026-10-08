@@ -315,6 +315,21 @@
       },
       "defaultVariant": "default"
     },
+    "backup-webdav": {
+      "description": "WebDAV backup end-to-end host validation: production webdav plugin uploads to the probe's recording WebDAV mock after a semantic SAVE.",
+      "command": "scripts/preview/run-backup-webdav-host-validation.sh",
+      "versions": [
+        "5302",
+        "5303"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1
+      }
+    },
     "backup-interactive": {
       "description": "Human-operated WebDAV backup session.",
       "command": "scripts/preview/run-backup-interactive-session.sh",
@@ -1104,6 +1119,24 @@
         "host-slot": 1
       }
     },
+    "selection-brush": {
+      "description": "Selection Brush gestures, native selection, real input, lifecycle and invariant verification.",
+      "command": "scripts/preview/run-mesh-edit-host-validation.sh",
+      "versions": [
+        "5203",
+        "5302",
+        "5303"
+      ],
+      "arguments": [
+        "selection-brush",
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
+    },
     "selection-lag": {
       "description": "Selection latency evidence; machine-exclusive to keep thresholds meaningful.",
       "command": "scripts/preview/run-selection-lag-host-validation.sh",
@@ -1452,17 +1485,6 @@
       "description": "Animation workspace SDK validation (enumeration, timeline, playback, scene ops, keyframe/easing writes, evaluated bake, native undo).",
       "command": "scripts/preview/run-animation-timeline-host-validation.sh",
       "versions": [
-        "5000",
-        "5001",
-        "5002",
-        "5003",
-        "5004",
-        "5005",
-        "5006",
-        "5100",
-        "5101",
-        "5102",
-        "5103",
         "5200",
         "5201",
         "5202",
@@ -1729,21 +1751,6 @@
       "description": "Native PSD export observation: readable-v2 or explicit save-only profile; issued handle and stop; no fidelity/replace/external-edit acceptance.",
       "command": "scripts/preview/run-psd-export-observation-host-validation.sh",
       "versions": [
-        "5000",
-        "5001",
-        "5002",
-        "5003",
-        "5004",
-        "5005",
-        "5006",
-        "5100",
-        "5101",
-        "5102",
-        "5103",
-        "5200",
-        "5201",
-        "5202",
-        "5203",
         "5300",
         "5301",
         "5302",

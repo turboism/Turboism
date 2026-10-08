@@ -6,7 +6,7 @@ import dev.turboism.adapter.cubism.optimization.geometry.WarpPositionProjectionB
 final class WarpPositionProjectionHookContributor extends NativeOptimizationHookContributor {
 
     WarpPositionProjectionHookContributor() {
-        super("TURBOISM_WARP_POSITION_PROJECTION");
+        super("TURBOISM_WARP_POSITION_PROJECTION", VerifiedWarpPositionProjectionInstaller.HOOK_ID);
     }
 
     @Override

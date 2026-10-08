@@ -23,15 +23,26 @@ import dev.turboism.runtime.log.RuntimeDiagnostics;
 abstract class NativeOptimizationHookContributor implements HookContributor {
 
     private final String protocolId;
+    private final String policyId;
     private boolean complete;
 
     NativeOptimizationHookContributor(final String protocolId) {
+        this(protocolId, protocolId);
+    }
+
+    NativeOptimizationHookContributor(final String protocolId, final String policyId) {
         this.protocolId = protocolId;
+        this.policyId = policyId;
     }
 
     @Override
     public final String id() {
         return protocolId;
+    }
+
+    @Override
+    public final String policyId() {
+        return policyId;
     }
 
     @Override

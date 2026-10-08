@@ -1,6 +1,7 @@
 package dev.turboism.recentpreview;
 
 import dev.turboism.adapter.cubism.RecentPreviewContributionAdapter;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer;
@@ -30,5 +31,17 @@ public final class RuntimeRecentPreviewContributionService implements RecentPrev
     public void refresh() {
         permissionChecker.check(PERMISSION, "ui.recent-preview.refresh");
         adapter.refresh();
+    }
+
+    @Override
+    public boolean isAvailable() {
+        // A probe failure (for example host-session teardown running on this
+        // thread) means the host is unavailable; the contract never throws.
+        try {
+            return adapter.available();
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return false;
+        }
     }
 }

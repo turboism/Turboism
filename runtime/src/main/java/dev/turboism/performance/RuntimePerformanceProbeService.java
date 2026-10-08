@@ -293,6 +293,13 @@ public final class RuntimePerformanceProbeService implements PerformanceProbeSer
     }
 
     @Override
+    public boolean isAvailable() {
+        synchronized (lifecycle) {
+            return !closed;
+        }
+    }
+
+    @Override
     public void close() {
         synchronized (lifecycle) {
             closed = true;

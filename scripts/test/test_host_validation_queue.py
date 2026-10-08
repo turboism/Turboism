@@ -509,8 +509,45 @@ class PreparedStoreTest(unittest.TestCase):
         with self.assertRaisesRegex(queue.QueueError, "runtime dependency changed"):
             self.prepared.command(prepared["digest"], self.base / "evidence")
 
+    def test_window_helper_and_installed_dependencies_are_snapshotted_and_rechecked(self):
+        helper = self.preview / "focus-cubism-validation-window.py"
+        helper.write_text("# task-owned window helper fixture\n")
+        niri = self.base / "niri"
+        niri.write_text("# installed niri fixture\n")
+        alias = self.base / "niri-alias"
+        alias.symlink_to(niri)
+        argv = [*self.request["argv"], "--focus-editor-window", "--editor-window-niri", str(alias),
+                "--editor-window-python", sys.executable]
+        with mock.patch.object(queue.shutil, "which", return_value=str(niri)):
+            prepared = self.prepared.capture({**self.request, "argv": argv}, self.source, "test:5302")
+        snapshot = self.store.root / "prepared" / prepared["digest"] / "tool/scripts/preview" / helper.name
+        self.assertEqual(helper.read_bytes(), snapshot.read_bytes())
+        self.assertEqual({"--editor-window-niri", "--editor-window-python"},
+                         {item["option"] for item in prepared["hostDependencies"]})
+        helper.unlink()
+        alias.unlink()
+        alias.symlink_to(self.input)
+        command = self.prepared.command(prepared["digest"], self.base / "evidence")
+        self.assertEqual(str(niri.resolve()), command[command.index("--editor-window-niri") + 1])
+        niri.write_text("# changed installed binary\n")
+        with self.assertRaisesRegex(queue.QueueError, "runtime dependency changed"):
+            self.prepared.command(prepared["digest"], self.base / "evidence")
+
+    def test_window_helper_rejects_missing_or_substituted_dependencies(self):
+        (self.preview / "focus-cubism-validation-window.py").write_text("# helper fixture\n")
+        niri = self.base / "niri"
+        niri.write_text("# niri fixture\n")
+        valid = ["--focus-editor-window", "--editor-window-niri", str(niri),
+                 "--editor-window-python", sys.executable]
+        for flags in (["--focus-editor-window"], valid[:-1],
+                      [*valid[:-1], str(self.input)], ["--editor-window-niri", str(niri)]):
+            with self.subTest(flags=flags), mock.patch.object(queue.shutil, "which", return_value=str(niri)):
+                with self.assertRaises(queue.QueueError):
+                    self.prepared.capture({**self.request, "argv": [*self.request["argv"], *flags]},
+                                          self.source, "test:5302")
+
     def test_only_enumerated_fps_hook_is_allowed(self) -> None:
-        for flag, name in (("--remote-pre-launch", "fx-validation-remote-pre-launch.sh"),
+        for flag, name in (("--remote-pre-launch", "agent-validation-remote-pre-launch.sh"),
                            ("--remote-post-launch", "fps-resize-driver.sh"),
                            ("--client-script", "mcp-host-validation-client.py")):
             source = self.preview / name
@@ -722,6 +759,61 @@ class PreparedStoreTest(unittest.TestCase):
             self.prepared.capture(
                 {**self.request, "argv": [*self.request["argv"], "--remote-post-launch", str(hook)]},
                 self.source, "host-locale:5302")
+
+    def test_direct_nmt_hook_requires_exact_diagnostic_context(self) -> None:
+        hook = self.preview / "stage-direct-nmt-launcher.py"
+        hook.write_text("# stdlib-only reviewed fixture, never executed\n")
+        base_argv = list(self.request["argv"])
+        base_argv[base_argv.index("--name") + 1] = "atlas-image-shadow"
+        base_argv[base_argv.index("--version") + 1] = "5303"
+        argv = [*base_argv,
+                "--remote-pre-launch", str(hook), "--require-fixture-unchanged",
+                "--plugin", str(self.input) + ":probe.jar",
+                "--jvm-option", "-XX:+DisableAttachMechanism",
+                "--jvm-option", "-Dturboism.validation.atlasImageShadow.resourceObservation=true",
+                "--jvm-option", "-Dturboism.validation.observerFree.optIn=T099_NMT_HEAP_PAGES_DIAGNOSTIC_V1"]
+        prepared = self.prepared.capture({**self.request, "argv": argv}, self.source, "atlas-image-shadow:5303")
+        captured = next(item for item in prepared["sourceInputs"] if Path(item["source"]).name == hook.name)
+        self.assertEqual(queue.file_digest(hook), prepared["inventory"][captured["path"]])
+        # A captured hook remains usable when the source changes; it is a frozen input.
+        hook.write_text("changed source\n")
+        command = self.prepared.command(prepared["digest"], self.base / "nmt-evidence")
+        self.assertIn("reviewed fixture", Path(command[command.index("--remote-pre-launch") + 1]).read_text())
+        invalid = [argv + ["--remote-pre-launch-background"], argv + ["--remote-pre-launch-args-only"],
+                   argv + ["--remote-pre-launch-arg", "extra"], argv + ["--remote-post-launch", str(hook)],
+                   [item.replace("resourceObservation=true", "resourceObservation=false") for item in argv],
+                   [item.replace("T099_NMT_HEAP_PAGES_DIAGNOSTIC_V1", "other-token") for item in argv]]
+        version = list(argv); version[version.index("--version") + 1] = "5302"; invalid.append(version)
+        outside = self.base / hook.name; outside.write_text("unreviewed copy\n")
+        outside_argv = list(argv); outside_argv[outside_argv.index("--remote-pre-launch") + 1] = str(outside)
+        with self.assertRaisesRegex(queue.QueueError, "dependency inventory"):
+            self.prepared.capture({**self.request, "argv": outside_argv}, self.source, "atlas-image-shadow:5303")
+        for request in invalid:
+            with self.subTest(argv=request), self.assertRaises(queue.QueueError):
+                self.prepared.capture({**self.request, "argv": request}, self.source, "atlas-image-shadow:5303")
+        with self.assertRaises(queue.QueueError):
+            self.prepared.capture({**self.request, "argv": argv}, self.source, "other:5303")
+        final_hook = self.preview / "capture-direct-nmt-launcher.py"
+        final_hook.write_text("# stdlib-only final capture fixture, never executed\n")
+        final_argv = [*argv, "--remote-pre-cleanup", str(final_hook)]
+        captured_final = self.prepared.capture({**self.request, "argv": final_argv}, self.source, "atlas-image-shadow:5303")
+        final_hook.write_text("changed final hook\n")
+        command = self.prepared.command(captured_final["digest"], self.base / "final-nmt-evidence")
+        self.assertIn("final capture fixture", Path(command[command.index("--remote-pre-cleanup") + 1]).read_text())
+        invalid_final = [final_argv + ["--remote-pre-launch-background"],
+                         [x.replace("T099_NMT_HEAP_PAGES_DIAGNOSTIC_V1", "wrong") for x in final_argv]]
+        without_launch = list(final_argv)
+        index = without_launch.index("--remote-pre-launch"); del without_launch[index:index + 2]
+        invalid_final.append(without_launch)
+        wrong_stage = list(final_argv); wrong_stage[wrong_stage.index("--remote-pre-cleanup")] = "--remote-post-launch"
+        invalid_final.append(wrong_stage)
+        outside_final = self.base / final_hook.name; outside_final.write_text("unreviewed\n")
+        wrong_path = list(final_argv); wrong_path[wrong_path.index("--remote-pre-cleanup") + 1] = str(outside_final)
+        invalid_final.append(wrong_path)
+        for request in invalid_final:
+            with self.subTest(argv=request), self.assertRaises(queue.QueueError):
+                self.prepared.capture({**self.request, "argv": request}, self.source, "atlas-image-shadow:5303")
+        self.assertEqual([], self.store.jobs())
 
     def test_external_psd_rss_hook_protocol_and_dependency_snapshot(self) -> None:
         hook = self.source / queue.EXTERNAL_PSD_RSS_HOOK

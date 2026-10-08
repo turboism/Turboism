@@ -1,0 +1,43 @@
+{
+  "status": "FINAL_VIEW_DISPATCH_METADATA_CORRECTED_PAIRING_PROTOTYPE_WRITTEN",
+  "nativeExecuted": false,
+  "jvmStarted": false,
+  "hostPreparedOrSubmitted": false,
+  "archiveIdentityRevalidated": false,
+  "classSha256": "6f888ce6f10a79a71f4409ecfc22e6f0cabe190f7eab13bf61279da7f033fd57",
+  "method": {
+    "name": "onInputEvent_exe",
+    "descriptor": "(Lcom/live2d/ui/event/h;)V",
+    "access": 17,
+    "final": true,
+    "codeSha256": "951f8acec1f427e717948162ecfe8840fb027a59c625b17a8bef5772e2971acc"
+  },
+  "correction": "Previous report called onInputEvent_exe virtual because its invocation opcode is invokevirtual. Method access is public final, so no subclass override dispatch is possible for this method. Calls from inside its body can still reach runtime actions/handlers.",
+  "factoryFinding": "The inspected repaint event factory builds ui/event/m with ui/event/f.a when its widget binding exists, otherwise it returns null. The final view dispatcher contains event-specific branches; its complete member list cannot be treated as the executed repaint path.",
+  "prototype": {
+    "sourcePins": {
+      "validation/triangulation-tlindex/diagnostic/NativeCommandReturnSnapshot.java": "29a5c301de5b4a19cfd214889198b6d134d52762abb6f49bced24bb1c26968ef",
+      "validation/triangulation-tlindex/diagnostic/NativeCommandReturnSnapshotSelfCheck.java": "93911fd36d91a28369128be87d4d9caede578d03ba0c9ea0f01cbbded4fe0927"
+    },
+    "status": "WRITTEN_UNCOMMITTED_NOT_COMPILED_OR_EXECUTED",
+    "scope": "Feasibility helper only; requires complete normal-return producer observation on same EDT and cycle, unique ordered source/invocation coverage, matching thread, stable native getters/arrays and exact shape/hash parity. Preserves producer/command/cache version metadata separately.",
+    "legacySnapshotGuard": "UNCHANGED",
+    "hostBindingResponsibility": "Future driver caller must prove task/document/edit-mode and pre/post mesh identity in same EDT dispatch; helper alone does not provide it.",
+    "productionAdmission": "NOT_GRANTED",
+    "nextChecks": [
+      "Compile actual NativeCommandReturnSnapshot with existing NativeProducerAutoConnect/MeshProducerRecorder/NativeAutoConnect/NativeCancelPrompt/MeshResultSnapshot sources, Java17 lint/Werror.",
+      "Execute its own SelfCheck on EDT with stale-cache, detached-result, missing/incomplete/failed producer, duplicate/reordered/invocation/cycle/thread/source, position-staleness, getter mutation, shape and off-EDT refusals.",
+      "Only then add a separate opt-in dual-boundary diagnostic driver; keep all frozen T075 inputs untouched.",
+      "Exact native dual-boundary probe must establish all selected sources and complete output parity before observer-free collector admission."
+    ]
+  },
+  "rawPins": {
+    "build/t076-production-acceptance-preflight-r1/view-event-dispatch5303-r1.json": "259b9ac13bdad2f907090bee5578122f40cd1d87362656e23f753121c5baffac",
+    "build/t076-production-acceptance-preflight-r1/repaint-event-factory5303-r1.json": "d964dfeab4c4528548353aab1bc127c964bf1a574f6bc5b8b08a1ec8772e05b9"
+  },
+  "pending": [
+    "Complete official archive integrity revalidation in a free window.",
+    "Native per-source dual-boundary feasibility, all-version and production driver/output admission.",
+    "Full repository gate and Lane C human review."
+  ]
+}

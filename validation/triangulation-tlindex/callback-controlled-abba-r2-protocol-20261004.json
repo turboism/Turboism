@@ -1,0 +1,77 @@
+{
+  "task": "T110R2",
+  "status": "FROZEN_BEFORE_SUBMISSION",
+  "purpose": "FORMAL_CONTROLLED_CALLBACK_ABBA_REVISION2",
+  "revision": "Rerun of T110 after user desktop session restored; T110 baseline1 host-environment failure preserved.",
+  "supersededFailure": "validation/triangulation-tlindex/callback-controlled-abba-review-20261004.json",
+  "order": [
+    "baseline1",
+    "candidate1",
+    "candidate2",
+    "baseline2"
+  ],
+  "pairs": [
+    [
+      "baseline1",
+      "candidate1"
+    ],
+    [
+      "baseline2",
+      "candidate2"
+    ]
+  ],
+  "preparedIds": {
+    "baseline1": "e55cfbbda7761a3c34fcefb9aedad5443b948c32215ab0244441586f18b74093",
+    "candidate1": "877ff834096940036e44636371cbbb67757620eec547a838a3d0d1c0048a02dc",
+    "candidate2": "683abe34bc8dfae8f43d2f704cbc3d5bf5687b5f97702c06182339d274c144a2",
+    "baseline2": "31889f20d667c05fd2aca1ea31fbcb6fc52c40411c2c2e88517dc66091391951"
+  },
+  "replacementOrRetryAllowed": false,
+  "baselineAgentSha256": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+  "candidateAgentSha256": "6a7aa03b362e100a4a6db2a273da82e63119aa877a6d1dbb38e56aee9b071c13",
+  "taskPluginSha256": "e03edb6d6d54fd3aa5869a7204cf19694ed4bc2a6d95b69553a9f45e82ae4b8a",
+  "jfrEnabled": false,
+  "gates": {
+    "pairCpuRegressionPercentMax": 0,
+    "pairWallStrictImprovement": true,
+    "pairPeakRssGrowthPercentMax": 20,
+    "peakAboveOwnBaselineMiBMax": 80,
+    "retained3Minus1MiBMax": 64
+  },
+  "priorEvidence": {
+    "t109Preflight": "validation/triangulation-tlindex/callback-production-preflight-review-20261004.json",
+    "t110EnvironmentFailure": "validation/triangulation-tlindex/callback-controlled-abba-review-20261004.json"
+  },
+  "inputPins": {
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/baseline1/runner-input.json": "f164a151b78e5d8369de3cba5f182bb387797f84ce99326fede071cf5ae097c7",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/baseline1/prepare.py": "2ee10f2ba19d3b0ba8639793f22bc4db52ff470f49f6df2903bc247c8b8c6024",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/baseline1/review-native.py": "5adcd501d4660728dffe7db37ffdcc22746a199628c323231e0bceb75ec99a42",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/baseline1/run-one.py": "db7ca6177f0ac806a03df47e3ddc1c27b7893e02a5597fae3cbb61e67bd5b5d7",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/baseline1/request/runner-request.json": "ffe605c3ff1c84866c0fe8ce2842e147c8ce458edbf06fa865d5369dcab8056d",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/baseline1/prepared.json": "61f2a79628bc1cb92a0cd68ed9a4553beb59967eb1ddeae179694764d361f5e7",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/baseline1/bundle/turboism-agent.jar": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/candidate1/runner-input.json": "0900a6d4006dcb9cbbb800a7252926303fedf4608f79bf3ef89f99f05698f815",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/candidate1/prepare.py": "8e7bc6c6500395455a879298bee2ae6404e03ba7da3fabba50a628cc7fdc478d",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/candidate1/review-native.py": "5a7705e7aa67a307e995034fd334aaa3ccc7df3514c730c685318d7b700176d9",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/candidate1/run-one.py": "3e5b331a391a143dbb9f88adb4115e757e4deb9d7f98d88870531e95de497e03",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/candidate1/request/runner-request.json": "862cc7f215d5cc4140bb505d4affc2cfcbcd2b2402323c18051903ee46c34332",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/candidate1/prepared.json": "88d923d8c6ca04825e5edd54a744dd2fc4ea446d4e6f7e5504986c3bd5ed97ce",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/candidate1/bundle/turboism-agent.jar": "6a7aa03b362e100a4a6db2a273da82e63119aa877a6d1dbb38e56aee9b071c13",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/candidate2/runner-input.json": "35dad4c263f5da94c99a6655a9660f05491f080df06339635a9a625862ccec5e",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/candidate2/prepare.py": "04c48b0a44fd2abef0b8146c57319622e87097975453c717b7fb9632b9dd9ffa",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/candidate2/review-native.py": "89e1cf9ef9ee868d3616aaae988e9b1385dbb1c7551fcda411c86b4e1997c1ce",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/candidate2/run-one.py": "8b97accb6035e8d4480e2862cdad7e6bf4ada49b687be30e4a91eb4c76c136b7",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/candidate2/request/runner-request.json": "60209552cafe14b39fb9963ef90528610cf393351ef40f1d1deeb875696fa589",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/candidate2/prepared.json": "73182c5da83c6beecefcf932d555e3df585df8534cb53eee92f8272ddeac9f30",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/candidate2/bundle/turboism-agent.jar": "6a7aa03b362e100a4a6db2a273da82e63119aa877a6d1dbb38e56aee9b071c13",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/baseline2/runner-input.json": "3df1fd08b9034f59a4f36f37c45b3c75ac4ad7faecfb2d42454303f4a87b06dc",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/baseline2/prepare.py": "412b72a2bf3b48276510e455924c82b6b3afc74b4547f174a637e84c25b25df9",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/baseline2/review-native.py": "8783059f6634126d2c95a8df1f27ee3b86b781e913d1fad83f0248a274555e42",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/baseline2/run-one.py": "65b0a7ea2a8cfea04097c035769550e5950e939c9c8510b227c8e7e08f27732e",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/baseline2/request/runner-request.json": "f656ea3b0db405c04668725cd62a868216294ae389362cd8854c18ba5e924970",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/baseline2/prepared.json": "8251f6192252ee9ac0c7b5ee9d128ae4c176e13bd38bfd93d1a0fc6f7c195211",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/baseline2/bundle/turboism-agent.jar": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/run-all.py": "c227f15158e173ece9c1edb477268fc2772418e1852f21041e9d3c7386c546bc",
+    "build/t110r2-callback-controlled-abba-r2/native5303-abba-r2/analyze-all.py": "c3573ad06ad668e840a90585b9f2cb9c5f5b2f4affb8a300512025c24d255b7e"
+  }
+}

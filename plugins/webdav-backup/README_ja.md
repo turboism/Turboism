@@ -62,11 +62,12 @@ Cubism のバックアップ成果物を、ユーザーが設定した WebDAV �
 |---|---|---|
 | `turboism.config.plugin.read` | `application` | backup/webdav.cfg のエンドポイント設定を読み取ります。 |
 | `turboism.event.subscribe` | `application` | 新しいバックアップ成果物をアップロードするために BackupCompletedEvent を購読します。 |
-| `turboism.cubism.backup.observe` | `application` | プライバシー保護された Runtime バックアップ完了の事実を監視します。厳密な成果物は開始コマンドの結果内に残ります。 |
+| `turboism.cubism.backup.observe` | `application` | バックアップ完了の事実を監視し、権限ゲート付きの `BackupArtifactHandle` 経由でランタイム発行の成果物バイトを読み取ります。一時成果物は同じハンドルで破棄します。 |
 | `turboism.config.plugin.write` | `application` | 読み戻し確認付きの backup/webdav.cfg 書き込みパスを通じて、WebDAV エンドポイント設定を永続化します。 |
 | `turboism.action.register` | `application` | Turboism メニュー項目の背後にある backup.webdav.settings.open アクションを登録します。 |
 | `turboism.ui.menu.contribute` | `application` | Turboism メニューを通じて WebDAV バックアップ設定 ダイアログを公開します。 |
 | `turboism.cubism.model.observe` | `application` | 保存トリガー型バックアップを開始するため、モデルとアニメーションの保存ライフサイクルを監視します。 |
+| `turboism.network.fetch` | `application` | JDK HttpClient（MKCOL/PROPFIND/PUT/DELETE）でバックアップ成果物をユーザー設定の WebDAV エンドポイントへアップロードします。リダイレクトは一切追随しません。 |
 
 ## プライバシーとデータ
 

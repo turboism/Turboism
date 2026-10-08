@@ -1,9 +1,11 @@
 package dev.turboism.sdk.script;
 
+import dev.turboism.sdk.Incubating;
 import java.util.List;
 import java.util.Objects;
 
 /** Immutable public metadata for one installed script. */
+@Incubating
 public record ScriptDescriptor(
         ScriptId id, String name, String version, ScriptLanguage language, String entry, List<String> permissions) {
 

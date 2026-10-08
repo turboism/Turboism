@@ -387,8 +387,21 @@ public final class ConfigMergeRegression {
     private static void runtimeConfigValidation() throws Exception {
         ConfigMerge.validateCurrent(validRuntimeConfig());
         check("valid runtime config passes installer validation", true);
+        for (Boolean value : List.of(Boolean.FALSE, Boolean.TRUE)) {
+            Map<String, Object> source = validRuntimeConfig();
+            source.put("meshTriangulationEdgeIndex", value);
+            ConfigMerge.validateCurrent(source);
+            Map<String, Object> merged = ConfigMerge.applyPolicy(
+                    source, ConfigMerge.mergeDisabled(source, Set.of(), Set.of(), false));
+            ConfigMerge.validateCurrent(merged);
+            check("meshTriangulationEdgeIndex " + value + " survives installer upgrade",
+                    value.equals(merged.get("meshTriangulationEdgeIndex")));
+        }
 
         List<Map<String, Object>> invalid = new java.util.ArrayList<>();
+        Map<String, Object> invalidEdgeIndex = validRuntimeConfig();
+        invalidEdgeIndex.put("meshTriangulationEdgeIndex", "false");
+        invalid.add(invalidEdgeIndex);
         Map<String, Object> unknown = validRuntimeConfig();
         unknown.put("unknownField", true);
         invalid.add(unknown);

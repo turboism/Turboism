@@ -271,9 +271,6 @@ class CubismFacadeImplTest {
                         ignored -> {},
                         FIXED_CLOCK),
                 new ImmutableSnapshotFactory(),
-                (context, document) -> {
-                    throw new UnsupportedOperationException();
-                },
                 () -> emptyModel("core-model"),
                 backend,
                 new ParameterLifecycleCoordinator(),
@@ -496,9 +493,6 @@ class CubismFacadeImplTest {
                         ignored -> {},
                         FIXED_CLOCK),
                 new ImmutableSnapshotFactory(),
-                (context, document) -> {
-                    throw new UnsupportedOperationException();
-                },
                 () -> {
                     activeCalls[0]++;
                     return backendModel;
@@ -558,9 +552,6 @@ class CubismFacadeImplTest {
                 emptySource(),
                 new CubismPermissionGate("plugin.demo", List.of(), ignored -> {}, FIXED_CLOCK),
                 new ImmutableSnapshotFactory(),
-                (context, document) -> {
-                    throw new UnsupportedOperationException();
-                },
                 () -> emptyModel("texture-model"),
                 new ParameterLifecycleCoordinator(),
                 new dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator(),
@@ -1411,7 +1402,7 @@ class CubismFacadeImplTest {
         final CubismFacadeImpl facade = facadeWith(
                 sampleSource(), new ArrayList<>(), List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)));
 
-        assertThrows(UnsupportedOperationException.class, () -> facade.model().active());
+        assertThrows(IllegalStateException.class, () -> facade.model().active());
     }
 
     @Test
@@ -2390,9 +2381,6 @@ class CubismFacadeImplTest {
                         ignored -> {},
                         FIXED_CLOCK),
                 new ImmutableSnapshotFactory(),
-                (context, document) -> {
-                    throw new UnsupportedOperationException();
-                },
                 () -> animationGraphModel(calls),
                 new ParameterLifecycleCoordinator(),
                 new dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator(),

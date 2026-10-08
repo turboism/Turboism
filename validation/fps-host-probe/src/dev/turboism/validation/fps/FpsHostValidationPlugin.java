@@ -196,7 +196,7 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
         final AtomicReference<String> failure = new AtomicReference<>();
         final JvmSnapshot jvmBefore = jvmSnapshot();
         try {
-            final PerformanceProbeService stats = context.performanceStats();
+            final PerformanceProbeService stats = context.services().find(PerformanceProbeService.class).orElse(PerformanceProbeService.unavailable());
             final Registration sampling = stats.sample(SAMPLE_INTERVAL, snapshot -> {
                 maxRenderedFrames.accumulateAndGet(
                     snapshot.renderedFrames(), Math::max

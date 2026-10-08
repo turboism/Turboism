@@ -1,7 +1,9 @@
 package dev.turboism.ui.appearance;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
@@ -28,6 +30,17 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 class AppearanceCoordinatorTest {
+
+    @Test
+    void availabilityFollowsTheHostProviderAndClose() {
+        final AppearanceCoordinator detached = new AppearanceCoordinator(new UnavailableAppearanceHostProvider());
+        assertFalse(detached.isAvailable(), "a coordinator over the fail-closed provider reports unavailable");
+
+        final AppearanceCoordinator coordinator = new AppearanceCoordinator(new RecordingProvider());
+        assertTrue(coordinator.isAvailable());
+        coordinator.close();
+        assertFalse(coordinator.isAvailable(), "a closed coordinator must report unavailable");
+    }
 
     @Test
     void appliesPublishesOnceAndRestoresOwnedBaseline() {

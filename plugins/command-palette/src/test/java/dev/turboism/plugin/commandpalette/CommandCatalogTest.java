@@ -214,14 +214,10 @@ class CommandCatalogTest {
             };
         }
 
-        @Deprecated
-        @Override
         public EditorCommandService editorCommands() {
             return commands;
         }
 
-        @Deprecated
-        @Override
         public ActionCatalogService actionCatalog() {
             return catalog;
         }
@@ -289,6 +285,15 @@ class CommandCatalogTest {
         @Override
         public DisposableScope disposableScope() {
             return scope;
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .supply(dev.turboism.sdk.cubism.command.EditorCommandService.class, () -> this.editorCommands())
+                    .supply(dev.turboism.sdk.action.ActionCatalogService.class, () -> this.actionCatalog())
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
     }
 }

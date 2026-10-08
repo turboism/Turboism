@@ -14,6 +14,7 @@ import dev.turboism.internal.core.CoreUpdateService;
 import dev.turboism.internal.core.CubismJvmSettingsService;
 import dev.turboism.internal.core.MeshTriangulationSettingsService;
 import dev.turboism.internal.core.ShellServices;
+import dev.turboism.internal.core.TriangulationEdgeIndexSettingsService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
@@ -96,7 +97,7 @@ class CoreShellTest {
                         MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
                         10)),
                 context.mainToolbar().buttonContributions());
-        assertEquals(16, context.uiHost().settingsContributions().size());
+        assertEquals(17, context.uiHost().settingsContributions().size());
         assertEquals(
                 List.of(
                         "cubism-graalvm-path",
@@ -113,6 +114,7 @@ class CoreShellTest {
                         "mesa-gl-thread",
                         "performance-restart-note",
                         "mesh-triangulation-hash",
+                        "triangulation-edge-index",
                         "atlas-tile-bbox",
                         "atlas-cache-reuse"),
                 context.uiHost().settingsContributions().stream()
@@ -677,6 +679,7 @@ class CoreShellTest {
                 MeshTriangulationSettingsService.unavailable(),
                 AtlasTileBboxSettingsService.unavailable(),
                 AtlasCacheReuseSettingsService.unavailable(),
+                TriangulationEdgeIndexSettingsService.unavailable(),
                 dev.turboism.sdk.ui.settings.SettingsContributionSource.empty(),
                 plugins(),
                 ShellServices.FloatingPanelActions.unavailable(),
@@ -949,19 +952,26 @@ class CoreShellTest {
             return menus;
         }
 
-        @Override
-        public RecordingMainToolbarRegistry mainToolbar() {
+        RecordingMainToolbarRegistry mainToolbar() {
             return mainToolbar;
         }
 
-        @Override
-        public ContextMenuRegistry contextMenu() {
+        ContextMenuRegistry contextMenu() {
             return contextMenu;
         }
 
-        @Override
-        public RecordingUiHost uiHost() {
+        RecordingUiHost uiHost() {
             return uiHost;
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .install(dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.class, mainToolbar)
+                    .install(ContextMenuRegistry.class, contextMenu)
+                    .install(dev.turboism.sdk.ui.UiHostCapabilityService.class, uiHost)
+                    .install(dev.turboism.sdk.runtime.RuntimeSettingsService.class, runtimeSettings)
+                    .build();
         }
 
         @Override
@@ -1007,30 +1017,28 @@ class CoreShellTest {
             return null;
         }
 
-        @Override
-        public dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings() {
-            return new dev.turboism.sdk.runtime.RuntimeSettingsService() {
-                private dev.turboism.sdk.runtime.RuntimeSettings settings =
-                        new dev.turboism.sdk.runtime.RuntimeSettings(false, "INFO", false, false, false);
+        private final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings =
+                new dev.turboism.sdk.runtime.RuntimeSettingsService() {
+                    private dev.turboism.sdk.runtime.RuntimeSettings settings =
+                            new dev.turboism.sdk.runtime.RuntimeSettings(false, "INFO", false, false, false);
 
-                @Override
-                public dev.turboism.sdk.runtime.RuntimeSettings read() {
-                    return settings;
-                }
+                    @Override
+                    public dev.turboism.sdk.runtime.RuntimeSettings read() {
+                        return settings;
+                    }
 
-                @Override
-                public dev.turboism.sdk.runtime.RuntimeSettings save(
-                        final dev.turboism.sdk.runtime.RuntimeSettings value) {
-                    settings = value;
-                    return settings;
-                }
+                    @Override
+                    public dev.turboism.sdk.runtime.RuntimeSettings save(
+                            final dev.turboism.sdk.runtime.RuntimeSettings value) {
+                        settings = value;
+                        return settings;
+                    }
 
-                @Override
-                public DockCleanupResult cleanEmptyDocks() {
-                    return new DockCleanupResult("Empty dock cleanup completed.");
-                }
-            };
-        }
+                    @Override
+                    public DockCleanupResult cleanEmptyDocks() {
+                        return new DockCleanupResult("Empty dock cleanup completed.");
+                    }
+                };
 
         private UiScheduler uiScheduler;
         private final List<Runnable> delayed = new ArrayList<>();

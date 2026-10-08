@@ -20,7 +20,6 @@ import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations;
 import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
 import dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
@@ -354,7 +353,6 @@ class ParameterPluginTest {
             return menus;
         }
 
-        @Override
         public RecordingContextMenuRegistry contextMenu() {
             return contextMenu;
         }
@@ -374,9 +372,17 @@ class ParameterPluginTest {
             return disposableScope;
         }
 
-        @Override
         public RecordingUiHost uiHost() {
             return uiHost;
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .supply(dev.turboism.sdk.ui.context.ContextMenuRegistry.class, () -> this.contextMenu())
+                    .supply(dev.turboism.sdk.ui.UiHostCapabilityService.class, () -> this.uiHost())
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
     }
 
@@ -566,13 +572,6 @@ class ParameterPluginTest {
                 public void update() {
                     throw unsupported();
                 }
-            };
-        }
-
-        @Override
-        public TransactionManager transactionManager() {
-            return (ctx, docId) -> {
-                throw new AssertionError("legacy transaction manager must not be used");
             };
         }
 

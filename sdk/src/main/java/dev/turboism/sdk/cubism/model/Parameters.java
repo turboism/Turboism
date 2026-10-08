@@ -8,7 +8,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-/** Parameters in one Cubism model. */
+/**
+ * Parameters in one Cubism model.
+ *
+ * <p>Value writes go through {@link Parameter#setValue(float)} on the objects returned here.
+ * Structural operations — {@link #create}, {@link #copy}, {@link #remove}, {@link #createMany} —
+ * are Editor authoring writes and join an ambient authoring transaction when one is open.
+ */
 public interface Parameters {
 
     /** Returns all parameters in stable model order. */
@@ -69,6 +75,7 @@ public interface Parameters {
      * unique in the active model.</p>
      *
      * @throws IllegalArgumentException when the ID is already present or the definition is invalid
+     * @throws UnsupportedOperationException when the backend does not support parameter authoring
      */
     default Parameter create(final ParameterDefinition definition) {
         return create(definition, java.util.Optional.empty());
@@ -79,6 +86,7 @@ public interface Parameters {
      *
      * @throws IllegalArgumentException when the ID is already present or the definition is invalid
      * @throws NoSuchElementException when the folder is absent
+     * @throws UnsupportedOperationException when the backend does not support parameter authoring
      */
     default Parameter create(
             final ParameterDefinition definition,
@@ -95,6 +103,7 @@ public interface Parameters {
      * the source.</p>
      *
      * @throws NoSuchElementException when the source parameter is absent
+     * @throws UnsupportedOperationException when the backend does not support parameter authoring
      */
     default Parameter copy(final ParameterId id) {
         Objects.requireNonNull(id, "id");
@@ -105,6 +114,7 @@ public interface Parameters {
      * Deletes one parameter, including its keyform bindings, Morph Targets, and physics references.
      *
      * @throws NoSuchElementException when the parameter is absent
+     * @throws UnsupportedOperationException when the backend does not support parameter authoring
      */
     default void remove(final ParameterId id) {
         Objects.requireNonNull(id, "id");
@@ -119,6 +129,7 @@ public interface Parameters {
      *
      * @throws IllegalArgumentException when an ID is already present, duplicated within
      *                                  the batch, or a definition is invalid
+     * @throws UnsupportedOperationException when the backend does not support parameter authoring
      */
     default List<Parameter> createMany(final List<ParameterDefinition> definitions) {
         return createMany(definitions, java.util.Optional.empty());
@@ -130,6 +141,7 @@ public interface Parameters {
      * @throws IllegalArgumentException when an ID is already present, duplicated within
      *                                  the batch, or a definition is invalid
      * @throws NoSuchElementException   when the folder is absent
+     * @throws UnsupportedOperationException when the backend does not support parameter authoring
      */
     default List<Parameter> createMany(
             final List<ParameterDefinition> definitions,
@@ -143,6 +155,7 @@ public interface Parameters {
      * Deletes several parameters as one undo unit.
      *
      * @throws NoSuchElementException when any parameter is absent
+     * @throws UnsupportedOperationException when the backend does not support parameter authoring
      */
     default void removeMany(final List<ParameterId> ids) {
         Objects.requireNonNull(ids, "ids");

@@ -1,0 +1,33 @@
+{
+  "task": "T086",
+  "status": "FROZEN_BEFORE_SUBMISSION",
+  "purpose": "NATIVE_SHARED_INDEX_REAL_HOST_PATH_PROOF",
+  "preparedId": "ae2391cd4f0efe630cf853adb13db6bb08b82df1431847c7a496189dc4e2af37",
+  "probeCount": 1,
+  "replacementOrRetryAllowed": false,
+  "performanceAcceptance": "NOT_APPLICABLE_DIAGNOSTIC",
+  "sourceCount": 711,
+  "commandCount": 3,
+  "requiredNativeTableSamplesPerCycle": 1,
+  "executionSamplePeriod": "1 ms",
+  "inputPins": {
+    "validation/triangulation-tlindex/native-mesh-host-proof-protocol-20261003.md": "a7868dc96288fa6a862e2d2437d194fe3a342abc36d2caff94cc1ad10116a943",
+    "build/t086-native-mesh-host-proof-r1/native5303-index-proof-r1/runner-input.json": "022e98452423b372818cc82406378b8e3bf66e76da89bf034b99da1e8ef3ca0a",
+    "build/t086-native-mesh-host-proof-r1/native5303-index-proof-r1/request/runner-request.json": "86d08417a89460dd1fbb7e96d7f8c370d2f89e08cd41d320cd8a49b77d58b6ac",
+    "build/t086-native-mesh-host-proof-r1/native5303-index-proof-r1/prepared.json": "acac9722212819c6a81b69967f265580df70102ed790743c03794192343a62d7",
+    "build/t086-native-mesh-host-proof-r1/native5303-index-proof-r1/prepare.py": "a174c94628d987beac483cbca1f3e17efdb73d0956e4c1e58da6382113c67e44",
+    "build/t086-native-mesh-host-proof-r1/native5303-index-proof-r1/run-one.py": "c3066e36985c14fc6af07d1d54aaadf68db3cde7ed7a5a3306c9ce58170d7b10",
+    "build/t086-native-mesh-host-proof-r1/native5303-index-proof-r1/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060",
+    "build/t086-native-mesh-host-proof-r1/native5303-index-proof-r1/review-native.py": "20537dce2cb5165516f576d6fa005b9b82c2e49cb28d54b09163c6be4bb24b03",
+    "build/t086-native-mesh-host-proof-r1/native5303-index-proof-r1/analyze-index-proof.py": "14e8751ca2136a231a79f96c4068378ebe167171585e957a916bc758cf03ac38",
+    "build/t086-native-mesh-host-proof-r1/native5303-index-proof-r1/native-index-proof.jfc": "bfeda22a2ae83309a2d20ff8747ab0a5f1d357fb8ec40d44621105391dccbb3d",
+    "build/t086-native-mesh-host-proof-r1/native5303-index-proof-r1/bundle/turboism-agent.jar": "eb6875699d3fdb92e3340a0a0af106fcf30f2985d490389f81fe3a0823c209f8",
+    "build/t086-native-mesh-host-proof-r1/native5303-index-proof-r1/bundle/observer-free-mesh-probe.jar": "7a60b17ecf8a559c8875de0cbb7ac35e7a86d6264a5f626dbf26468ea3a1b8be",
+    "build/t086-native-mesh-host-proof-r1/native5303-index-proof-r1/bundle/settings-page-host-probe.jar": "30f5203eb6efc7141688ffcd3c89a83b32ba715056a922b9d981661433b4d975",
+    "validation/triangulation-tlindex/diagnostic/analyze-jfr-native-invocations.py": "c7b5b1620159d069d1939b41d7bb7ac917c7e462277800bc1b1635103df76901",
+    "validation/triangulation-tlindex/analyze-resource-windows.py": "26aaf9ab604cedca477d2dd017111465b2428acd41fc63d878cf48c58aad326f",
+    "validation/triangulation-tlindex/diagnostic/analyze-command-cpu-counters.py": "e083dd50bf0d1fb87895d4323cd0ed799eaba363c7a5ce6eb5b5a7b0e87209ab",
+    "build/t076-production-acceptance-preflight-r1/native5303-dual-r1/native-evidence/auto-connect-command-return-results.tsv": "9db07555ad8dfdac954b25b10fff57fb36fcfaff94f3ffaee4f3bfbb8533c1e6",
+    "build/t050-lazy-edge-bytecode/single-agent-host/edge-index-ui-on.json": "190ea2fcf912c290a4db40ccd512becf4d3f032098f9cbeca339c2f0903cce02"
+  }
+}

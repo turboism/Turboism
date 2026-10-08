@@ -2,8 +2,9 @@ package dev.turboism.adapter.cubism.backup;
 
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
-import dev.turboism.sdk.cubism.backup.BackupArtifact;
+import dev.turboism.sdk.cubism.backup.BackupArtifactHandle;
 import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
 import dev.turboism.sdk.cubism.backup.BackupDocumentStatus;
 import dev.turboism.sdk.cubism.backup.BackupRunResult;
@@ -11,12 +12,14 @@ import dev.turboism.sdk.cubism.backup.BackupSyncTarget;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupStatus;
+import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.task.PluginCompletionFuture;
 import dev.turboism.task.RuntimePluginTaskScheduler;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -76,6 +79,7 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
 
     private final AutoBackupAdapter adapter;
     private final Consumer<BackupCompletedEvent> eventSink;
+    private final PermissionChecker permissions;
     private final Clock clock;
     private final long pollTimeoutMillis;
     private final long pollIntervalMillis;
@@ -120,14 +124,16 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
             final Clock clock,
             final long pollTimeoutMillis,
             final Consumer<String> diagnostics,
-            final RuntimePluginTaskScheduler pluginTasks) {
+            final RuntimePluginTaskScheduler pluginTasks,
+            final PermissionChecker permissions) {
         this(
                 adapter,
                 Objects.requireNonNull(eventBroker, "eventBroker")::publishRuntime,
                 clock,
                 pollTimeoutMillis,
                 diagnostics,
-                pluginTasks);
+                pluginTasks,
+                permissions);
     }
 
     AutoBackupCoordinator(
@@ -154,6 +160,17 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
             final long pollTimeoutMillis,
             final Consumer<String> diagnostics,
             final RuntimePluginTaskScheduler pluginTasks) {
+        this(adapter, eventSink, clock, pollTimeoutMillis, diagnostics, pluginTasks, PermissionChecker.allowAll());
+    }
+
+    AutoBackupCoordinator(
+            final AutoBackupAdapter adapter,
+            final Consumer<BackupCompletedEvent> eventSink,
+            final Clock clock,
+            final long pollTimeoutMillis,
+            final Consumer<String> diagnostics,
+            final RuntimePluginTaskScheduler pluginTasks,
+            final PermissionChecker permissions) {
         this(
                 adapter,
                 eventSink,
@@ -161,6 +178,7 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
                 pollTimeoutMillis,
                 diagnostics,
                 pluginTasks,
+                permissions,
                 Executors.newSingleThreadExecutor(daemon("turboism-autobackup-host")));
     }
 
@@ -172,8 +190,29 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
             final Consumer<String> diagnostics,
             final RuntimePluginTaskScheduler pluginTasks,
             final ExecutorService hostThread) {
+        this(
+                adapter,
+                eventSink,
+                clock,
+                pollTimeoutMillis,
+                diagnostics,
+                pluginTasks,
+                PermissionChecker.allowAll(),
+                hostThread);
+    }
+
+    AutoBackupCoordinator(
+            final AutoBackupAdapter adapter,
+            final Consumer<BackupCompletedEvent> eventSink,
+            final Clock clock,
+            final long pollTimeoutMillis,
+            final Consumer<String> diagnostics,
+            final RuntimePluginTaskScheduler pluginTasks,
+            final PermissionChecker permissions,
+            final ExecutorService hostThread) {
         this.adapter = Objects.requireNonNull(adapter, "adapter");
         this.eventSink = Objects.requireNonNull(eventSink, "eventSink");
+        this.permissions = Objects.requireNonNull(permissions, "permissions");
         this.clock = Objects.requireNonNull(clock, "clock");
         if (pollTimeoutMillis <= 0) {
             throw new IllegalArgumentException("pollTimeoutMillis must be positive");
@@ -215,9 +254,53 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
     }
 
     @Override
+    public boolean isAvailable() {
+        final boolean isActive;
+        synchronized (lifecycleLock) {
+            isActive = active;
+        }
+        if (!isActive) {
+            return false;
+        }
+        // The adapter probe runs outside lifecycleLock: an outermost
+        // DynamicRuntimeHostAdapters call may run host-session teardown on
+        // this thread, and that callback must never execute while the
+        // lifecycle lock is held. A throwing probe is an unavailable host,
+        // never an escaping failure — isAvailable is a total contract.
+        try {
+            return adapter.available();
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return false;
+        }
+    }
+
+    @Override
     public List<EditorAutoBackupStatus> statuses() {
         requireOpen();
         return adapter.documents().stream().map(AutoBackupCoordinator::toStatus).toList();
+    }
+
+    @Override
+    public List<BackupArtifactHandle> artifacts() {
+        permissions.check(PermissionIds.TURBOISM_CUBISM_BACKUP_OBSERVE, "cubism.backup.artifacts");
+        requireOpen();
+        final File backupDir = adapter.settings().backupDir();
+        if (backupDir == null) {
+            return List.of();
+        }
+        final Path directory = backupDir.toPath();
+        if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+            return List.of();
+        }
+        try (var stream = Files.list(directory)) {
+            return stream.filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+                    .sorted(Comparator.comparing(path -> path.getFileName().toString()))
+                    .map(path -> RuntimeBackupArtifactHandle.issue(path, directory, false, permissions))
+                    .collect(java.util.stream.Collectors.toUnmodifiableList());
+        } catch (IOException failure) {
+            throw new IllegalStateException("auto-backup artifact listing failed", failure);
+        }
     }
 
     @Override
@@ -336,17 +419,21 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
         adapter.triggerBackupNow();
 
         final List<File> newFiles = pollForArtifacts(before, beforeDocuments, startedAt);
+        final Path artifactRoot =
+                before.backupDir() == null ? null : before.backupDir().toPath();
+        final List<BackupArtifactHandle> handles =
+                newFiles.stream().map(file -> handle(file, artifactRoot, false)).toList();
         final List<EditorAutoBackupStatus> statuses = adapter.documents().stream()
                 .map(AutoBackupCoordinator::toStatus)
                 .toList();
-        final BackupRunResult result = new BackupRunResult(clock.millis(), newFiles, statuses);
+        final BackupRunResult result = new BackupRunResult(clock.millis(), handles, statuses);
 
         // The detached observation is published first; then internal sync targets run.
         // A throwing target is isolated and can never corrupt the command result.
         eventSink.accept(observation(result));
         for (BackupSyncTarget target : syncTargets) {
             try {
-                target.sync(newFiles);
+                target.sync(handles);
             } catch (RuntimeException | Error targetFailure) {
                 diagnostics.accept("backupNow:sync-target-failed "
                         + targetFailure.getClass().getName());
@@ -376,14 +463,17 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
                             + "; pack contents: " + packNames);
         }
         final File confirmed = pollForArtifact(artifact, startedAt);
+        // Save-triggered artifacts are runtime-owned temp copies; the handle
+        // confines them to their temp directory and permits discard.
+        final BackupArtifactHandle handle = handle(confirmed, confirmed.toPath().getParent(), true);
         final List<EditorAutoBackupStatus> statuses = adapter.documents().stream()
                 .map(AutoBackupCoordinator::toStatus)
                 .toList();
-        final BackupRunResult result = new BackupRunResult(clock.millis(), List.of(confirmed), statuses);
+        final BackupRunResult result = new BackupRunResult(clock.millis(), List.of(handle), statuses);
         eventSink.accept(observation(result));
         for (BackupSyncTarget target : syncTargets) {
             try {
-                target.sync(List.of(confirmed));
+                target.sync(List.of(handle));
             } catch (RuntimeException | Error targetFailure) {
                 diagnostics.accept("backupAfterSave:sync-target-failed "
                         + targetFailure.getClass().getName());
@@ -392,12 +482,24 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
         return result;
     }
 
+    /**
+     * Issues an opaque handle over {@code file} confined to {@code root} — the
+     * host backup directory for scanned artifacts, the {@code turboism-backup-*}
+     * temp directory for save-triggered ones. A null root falls back to the
+     * file's parent so a handle can never claim a wider scope. {@code temporary}
+     * is asserted by the caller: save-triggered artifacts are runtime-owned temp
+     * copies, scanned host-directory artifacts are never temporary.
+     */
+    private BackupArtifactHandle handle(final File file, final Path root, final boolean temporary) {
+        final Path path = file.toPath();
+        final Path issuingRoot = root == null ? path.getParent() : root;
+        return RuntimeBackupArtifactHandle.issue(path, issuingRoot, temporary, permissions);
+    }
+
     private static BackupCompletedEvent observation(final BackupRunResult result) {
         return new BackupCompletedEvent(
                 result.completedAtMillis(),
-                result.newBackupFiles().stream()
-                        .map(file -> new BackupArtifact(file.getName(), Math.max(0L, file.length()), temporary(file)))
-                        .toList(),
+                result.artifacts().stream().map(BackupArtifactHandle::artifact).toList(),
                 result.statuses().stream()
                         .map(status -> new BackupDocumentStatus(
                                 status.documentName(),
@@ -405,11 +507,6 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
                                 status.lastSavedTimeMillis(),
                                 status.modifiedAfterSaving()))
                         .toList());
-    }
-
-    private static boolean temporary(final File file) {
-        final File parent = file.getParentFile();
-        return parent != null && parent.getName().startsWith("turboism-backup-");
     }
 
     /** Polls the exact save-triggered artifact (size &gt; 0) until it appears or the timeout expires. */
@@ -528,13 +625,12 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
                 snapshot.enabled(),
                 snapshot.intervalMinutes(),
                 snapshot.maxMB(),
-                snapshot.backupDir() == null ? null : snapshot.backupDir().getPath());
+                java.util.Optional.ofNullable(snapshot.backupDir()).map(File::getPath));
     }
 
     private static EditorAutoBackupStatus toStatus(final AutoBackupAdapter.Document document) {
         return new EditorAutoBackupStatus(
                 document.name(),
-                document.file() == null ? null : document.file().getPath(),
                 document.lastAutoBackupTimeMillis(),
                 document.lastSavedTimeMillis(),
                 document.modifiedAfterSaving());

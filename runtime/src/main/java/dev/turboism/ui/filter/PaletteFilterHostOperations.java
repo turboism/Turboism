@@ -5,6 +5,7 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
+import dev.turboism.ui.host.EdtDispatch;
 import dev.turboism.ui.palette.LogPaletteHostStructure;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
 import dev.turboism.ui.toolbar.PaletteToolbarHostOperations;
@@ -26,7 +27,6 @@ import javax.swing.JTable;
 import javax.swing.JTextPane;
 import javax.swing.JTree;
 import javax.swing.JViewport;
-import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 /**
@@ -894,10 +894,6 @@ public class PaletteFilterHostOperations
     }
 
     static void onEdt(final Runnable runnable) {
-        if (SwingUtilities.isEventDispatchThread()) {
-            runnable.run();
-        } else {
-            SwingUtilities.invokeLater(runnable);
-        }
+        EdtDispatch.post("palette filter EDT update", runnable);
     }
 }

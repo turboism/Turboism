@@ -46,10 +46,14 @@ public final class MainToolbarContributionProvider implements EditorUiContributi
         if (!admission.isAdmittedTo(hostGeneration)) {
             throw new IllegalStateException("main-toolbar provider admission is stale");
         }
-        final List<MainToolbarContributionDescriptor> descriptors = contributions.stream()
-                .map(MainToolbarContributionDescriptor::from)
-                .toList();
-        final Reconciler reconciler = new Reconciler(descriptors);
+        for (EditorUiContribution<?> contribution : contributions) {
+            if (contribution.descriptor() instanceof ModelingToolbarContributionDescriptor) {
+                ModelingToolbarContributionDescriptor.from(contribution);
+            } else {
+                MainToolbarContributionDescriptor.from(contribution);
+            }
+        }
+        final Reconciler reconciler = new Reconciler(contributions);
         reconciler.reconcile();
         final Registration rebuild = host.onRebuild(reconciler::reconcile);
         final Registration appearance = host.onAppearanceChanged(reconciler::refreshAppearance);
@@ -57,22 +61,42 @@ public final class MainToolbarContributionProvider implements EditorUiContributi
     }
 
     private final class Reconciler implements Registration {
-        private final List<MainToolbarContributionDescriptor> descriptors;
+        private final List<EditorUiContribution<?>> descriptors;
         private List<Registration> nativeButtons = List.of();
         private boolean closed;
 
-        private Reconciler(final List<MainToolbarContributionDescriptor> descriptors) {
+        private Reconciler(final List<EditorUiContribution<?>> descriptors) {
             this.descriptors = List.copyOf(descriptors);
         }
 
-        private synchronized void reconcile() {
+        private void reconcile() {
+            dev.turboism.ui.host.EdtDispatch.call("main-toolbar reconciliation", () -> {
+                reconcileOnEdt();
+                return null;
+            });
+        }
+
+        private void reconcileOnEdt() {
             if (closed) {
                 return;
             }
-            closeAll(nativeButtons);
+            final List<Registration> previous = nativeButtons;
+            nativeButtons = List.of();
+            closeAll(previous);
             final List<Registration> installed = new ArrayList<>();
             try {
-                for (MainToolbarContributionDescriptor descriptor : descriptors) {
+                for (EditorUiContribution<?> contribution : descriptors) {
+                    if (contribution.descriptor() instanceof ModelingToolbarContributionDescriptor) {
+                        host.addModelingButton(ModelingToolbarContributionDescriptor.from(contribution))
+                                .ifPresent(installed::add);
+                        if (closed) {
+                            closeAll(installed);
+                            return;
+                        }
+                        continue;
+                    }
+                    final MainToolbarContributionDescriptor descriptor =
+                            MainToolbarContributionDescriptor.from(contribution);
                     final Optional<MainToolbarHostOperations.AnchorHandle> anchor =
                             resolveAnchor(descriptor.placement());
                     installed.add(Objects.requireNonNull(
@@ -81,6 +105,10 @@ public final class MainToolbarContributionProvider implements EditorUiContributi
                                     anchor,
                                     () -> actionRouter.invoke(descriptor.pluginId(), descriptor.actionId())),
                             "host.addButton()"));
+                    if (closed) {
+                        closeAll(installed);
+                        return;
+                    }
                 }
             } catch (RuntimeException | Error failure) {
                 closeAllSuppressing(installed, failure);
@@ -104,7 +132,11 @@ public final class MainToolbarContributionProvider implements EditorUiContributi
         }
 
         @Override
-        public synchronized void close() {
+        public void close() {
+            dev.turboism.ui.host.EdtDispatch.runEventually("main-toolbar reconciliation removal", this::closeOnEdt);
+        }
+
+        private void closeOnEdt() {
             if (closed) {
                 return;
             }

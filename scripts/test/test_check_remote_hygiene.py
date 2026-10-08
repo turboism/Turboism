@@ -198,6 +198,8 @@ class ContentRuleTest(unittest.TestCase):
     def test_repository_local_machine_values_are_forbidden(self):
         cases = {
             "fixture=" + "/home/" + "r" + "ain/project.cmo3": "local-machine-home",
+            "winhome=" + "C:\\Users\\" + "r" + "ain\\docs": "local-machine-home",
+            "machome=" + "/Users/" + "r" + "ain/Documents": "local-machine-home",
             "ssh=" + "r" + "ain" + "@172.17.0.1": "local-machine-ssh-host",
             "key=id_ed25519_" + "turboism_arch_rebuild": "local-machine-ssh-key-name",
             "cwd=/workspace/projects/" + "turboism/.worktrees/release": "local-machine-workspace",

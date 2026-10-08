@@ -460,7 +460,7 @@ class StaticVerificationRecordRepositoryTest {
                     "b4ae3e4691f513e2399032bcace2c9ed3a3a3de5968e8d97647d3adc57c5ca0b"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.2.03-editor-model.json",
-                    "dabaa7b4b474d7ac9b10111b615533ba1cf2e73bab159d8967a712a3af3609b3"),
+                    "5587dd62835e46fab4ce57d3f56032e8a996a8326b4059bee3709d57dc9e90b8"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.2.03-performance-render-scene.json",
                     "14150a41fab8676f60def999820fc56e09cb83ddd5e29ef61852f3209e8b5c60"),
@@ -619,7 +619,7 @@ class StaticVerificationRecordRepositoryTest {
                     "f4702a5914c8fa8f6e8b266c675bc0c9e21b2667364ddca05b313f10b1351459"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.3.03-editor-model.json",
-                    "d3b858e8253864f181d9c613af0d21f8da8d9fd50a7a343785b3a5415f5160ac"),
+                    "53237b80480fbc935c5777caa459e424c7ed0d4b7e8fa9b458ea4d0cce072045"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.3.03-performance-render-scene.json",
                     "1f46c24551b7b5ccc63bb379a4498d5b3166fa20916499ca9b5c8c52da307ba5"),
@@ -790,7 +790,7 @@ class StaticVerificationRecordRepositoryTest {
                                     ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                                     ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
                                     MainToolbarVerificationManifest.RECORD_5_2_03.recordSha256(),
-                                    28,
+                                    49,
                                     MainToolbarVerificationManifest.REQUIRED_ALIASES,
                                     MainToolbarVerificationManifest.REQUIRED_ALIASES,
                                     mainToolbarMethodAliases(),
@@ -818,7 +818,7 @@ class StaticVerificationRecordRepositoryTest {
                                             .artifact()
                                             .sha256(),
                                     MainToolbarVerificationManifest.RECORD_5_3_02.recordSha256(),
-                                    28,
+                                    49,
                                     MainToolbarVerificationManifest.REQUIRED_ALIASES,
                                     MainToolbarVerificationManifest.REQUIRED_ALIASES,
                                     mainToolbarMethodAliases(),
@@ -850,8 +850,8 @@ class StaticVerificationRecordRepositoryTest {
                                     "Live2D_Cubism.jar",
                                     ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                                     ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                                    "dabaa7b4b474d7ac9b10111b615533ba1cf2e73bab159d8967a712a3af3609b3",
-                                    844,
+                                    "5587dd62835e46fab4ce57d3f56032e8a996a8326b4059bee3709d57dc9e90b8",
+                                    931,
                                     EditorModelVerificationManifest.cubism52Aliases(),
                                     EditorModelVerificationManifest.cubism52Aliases(),
                                     recordMethodAliases(
@@ -879,7 +879,7 @@ class StaticVerificationRecordRepositoryTest {
                                             .artifact()
                                             .sha256(),
                                     EditorModelVerificationManifest.RECORD_5_3_02.recordSha256(),
-                                    898,
+                                    985,
                                     EditorModelVerificationManifest.cubism5302Aliases(),
                                     EditorModelVerificationManifest.cubism5302Aliases(),
                                     recordMethodAliases(
@@ -1117,7 +1117,7 @@ class StaticVerificationRecordRepositoryTest {
         return switch (fileName) {
             case "cubism-5.3.03-autobackup" -> "639036d9d0bc35a480ef18521efc43eec29f26a95c4eea7b136f52e40cf0d74d";
             case "cubism-5.3.03-clipmask" -> "f4702a5914c8fa8f6e8b266c675bc0c9e21b2667364ddca05b313f10b1351459";
-            case "cubism-5.3.03-editor-model" -> "d3b858e8253864f181d9c613af0d21f8da8d9fd50a7a343785b3a5415f5160ac";
+            case "cubism-5.3.03-editor-model" -> "53237b80480fbc935c5777caa459e424c7ed0d4b7e8fa9b458ea4d0cce072045";
             case "cubism-5.3.03-performance-render-scene" ->
                 "1f46c24551b7b5ccc63bb379a4498d5b3166fa20916499ca9b5c8c52da307ba5";
             case "cubism-5.3.03-protected-export" -> "de6066d86686cd3445b921086e7747167cf30b2fa89eb8efe49da064242d99b7";
@@ -1129,7 +1129,7 @@ class StaticVerificationRecordRepositoryTest {
                 "6c771b8564af0569ed1c47064f13db20a0da5b8ef3dd1d90d06905311c58f710";
             case "cubism-5.3.03-ui-embedded-panel" ->
                 "efd21e78301e09cb5cdf4d4d80fdbaa78c6f676f8bb813ef28af41a2656dca55";
-            case "cubism-5.3.03-ui-main-toolbar" -> "314bd7b643b030cf5b6c6247b314f50b34290c6ef7442c2bd241dcdd7571375b";
+            case "cubism-5.3.03-ui-main-toolbar" -> "cee7eca72cd4abf180d0e01905381907c8ae35056d68dc4b2f7911d2e2d4fee4";
             case "cubism-5.3.03-ui-status-bar" -> "f74152ef76ac4f88daf22ae3670aa8296757f18818f98d8763deea913cd3a1f2";
             case "cubism-5.3.03-ui-top-menu" -> "8468ba23f43f3176cd20b92851348c719b1b8811b90c5af055fd26bf10f0bfea";
             case "cubism-5.3.03-workspace-control" ->
@@ -1901,7 +1901,26 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism.ui-main-toolbar.icon.create",
                 "cubism.ui-main-toolbar.main-frame-view.main-container",
                 "cubism.ui-main-toolbar.vbox.create",
-                "cubism.ui-main-toolbar.widget.jcomponent");
+                "cubism.ui-main-toolbar.widget.jcomponent",
+                "cubism.ui-main-toolbar.mesh-tool-mode.instance",
+                "cubism.ui-main-toolbar.mesh-tool-mode.tool-panel",
+                "cubism.ui-main-toolbar.mesh-tool-panel.panel",
+                "cubism.ui-main-toolbar.mesh-tool-panel.arrow-button",
+                "cubism.ui-main-toolbar.abstract-button.set-selected",
+                "cubism.ui-main-toolbar.abstract-button.get-jabstract-button",
+                "cubism.ui-main-toolbar.abstract-button.set-icon",
+                "cubism.ui-main-toolbar.abstract-button.set-pressed-icon",
+                "cubism.ui-main-toolbar.abstract-button.set-selected-icon",
+                "cubism.ui-main-toolbar.abstract-button.set-disabled-icon",
+                "cubism.ui-main-toolbar.abstract-button.set-disabled-selected-icon",
+                "cubism.ui-main-toolbar.slider.create",
+                "cubism.ui-main-toolbar.slider.set-min",
+                "cubism.ui-main-toolbar.slider.set-max",
+                "cubism.ui-main-toolbar.slider.set-value",
+                "cubism.ui-main-toolbar.slider.min",
+                "cubism.ui-main-toolbar.slider.max",
+                "cubism.ui-main-toolbar.slider.value",
+                "cubism.ui-main-toolbar.slider.set-on-changed");
     }
 
     private static SliceExpectation coreExpectation(

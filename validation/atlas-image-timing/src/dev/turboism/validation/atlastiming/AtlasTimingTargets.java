@@ -16,7 +16,14 @@ import java.util.List;
  *       page-copy initialisation that owns the per-image edit-layer setup;</li>
  *   <li>{@code SETUP_EDIT_LAYER} — per-ModelImage edit-layer construction, which drives
  *       the editable-mesh triangulation;</li>
- *   <li>{@code UPDATE_MESH} — the triangulation pass itself.</li>
+ *   <li>{@code UPDATE_MESH} — the triangulation pass itself;</li>
+ *   <li>{@code UPDATE_VERTICES} / {@code UPDATE_INDICES} — the dirty-version-gated vertex
+ *       buffer rebuild and the index rebuild inside {@code updateMesh};</li>
+ *   <li>{@code DELAUNAY_COMPUTE} / {@code DELAUNAY_APPLY} — the candidate-triangle
+ *       computation and the mutation apply of the Delaunay branch of
+ *       {@code updateIndices};</li>
+ *   <li>{@code AUTO_TRIANGULATE} — the fused compute-and-apply call of the
+ *       non-Delaunay branch.</li>
  * </ul>
  *
  * <p>Ordinals are the metric wire ids passed by the woven bytecode; append only, never reorder.</p>
@@ -34,6 +41,11 @@ final class AtlasTimingTargets {
         "pageFill",
         "pagePostPass",
         "cacheRegister",
+        "updateVertices",
+        "updateIndices",
+        "delaunayCompute",
+        "delaunayApply",
+        "autoTriangulate",
     };
 
     static final int UPDATE_TEXTURE = 0;
@@ -51,6 +63,16 @@ final class AtlasTimingTargets {
     static final int PAGE_POST_PASS = 9;
     /** {@code CCachedImageManager.a(CImageResource)} registration in updateTexture's tail. */
     static final int CACHE_REGISTER = 10;
+    /** Vertex-position buffer rebuild inside {@code GEditableMesh2.updateMesh}. */
+    static final int UPDATE_VERTICES = 11;
+    /** Index rebuild inside {@code updateMesh}, gated on the edge-edit version. */
+    static final int UPDATE_INDICES = 12;
+    /** Delaunay candidate-triangle list computation ({@code editableMesh.b.b}). */
+    static final int DELAUNAY_COMPUTE = 13;
+    /** Delaunay apply: edge/indices mutation driven by the candidate list ({@code b.a}). */
+    static final int DELAUNAY_APPLY = 14;
+    /** Fused non-Delaunay auto-triangulation ({@code triangulation.g.a}). */
+    static final int AUTO_TRIANGULATE = 15;
 
     private AtlasTimingTargets() {
     }
@@ -115,7 +137,33 @@ final class AtlasTimingTargets {
                 "com/live2d/graphics/cachedImage/CCachedImageManager",
                 "a",
                 "(Lcom/live2d/graphics/CImageResource;)V",
-                CACHE_REGISTER)
+                CACHE_REGISTER),
+            new Target(
+                "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+                "updateVertices",
+                "()V",
+                UPDATE_VERTICES),
+            new Target(
+                "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+                "updateIndices",
+                "(Lcom/live2d/util/j/a;)V",
+                UPDATE_INDICES),
+            new Target(
+                "com/live2d/graphics3d/editableMesh/b",
+                "b",
+                "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;)Ljava/util/List;",
+                DELAUNAY_COMPUTE),
+            new Target(
+                "com/live2d/graphics3d/editableMesh/b",
+                "a",
+                "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;"
+                    + "ZLcom/live2d/util/j/a;)V",
+                DELAUNAY_APPLY),
+            new Target(
+                "com/live2d/graphics3d/editableMesh/triangulation/g",
+                "a",
+                "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Lcom/live2d/util/j/a;)V",
+                AUTO_TRIANGULATE)
         );
     }
 
@@ -183,7 +231,33 @@ final class AtlasTimingTargets {
                 "com/live2d/graphics/cachedImage/CCachedImageManager",
                 "a",
                 "(Lcom/live2d/graphics/CImageResource;)V",
-                CACHE_REGISTER)
+                CACHE_REGISTER),
+            new Target(
+                "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+                "updateVertices",
+                "()V",
+                UPDATE_VERTICES),
+            new Target(
+                "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+                "updateIndices",
+                "(Lcom/live2d/util/i/a;)V",
+                UPDATE_INDICES),
+            new Target(
+                "com/live2d/graphics3d/editableMesh/b",
+                "b",
+                "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;)Ljava/util/List;",
+                DELAUNAY_COMPUTE),
+            new Target(
+                "com/live2d/graphics3d/editableMesh/b",
+                "a",
+                "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;"
+                    + "ZLcom/live2d/util/i/a;)V",
+                DELAUNAY_APPLY),
+            new Target(
+                "com/live2d/graphics3d/editableMesh/triangulation/g",
+                "a",
+                "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Lcom/live2d/util/i/a;)V",
+                AUTO_TRIANGULATE)
         );
     }
 

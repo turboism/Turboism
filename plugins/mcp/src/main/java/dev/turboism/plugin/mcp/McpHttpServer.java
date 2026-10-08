@@ -3,7 +3,6 @@ package dev.turboism.plugin.mcp;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import dev.turboism.protocol.json.StrictJson;
 import dev.turboism.sdk.cubism.CubismEditorApiUnavailableException;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.command.EditorCommandService;
@@ -11,11 +10,12 @@ import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
+import dev.turboism.sdk.json.Json;
+import dev.turboism.sdk.mcp.McpStdioLaunch;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.ui.UiScheduler;
@@ -27,25 +27,16 @@ import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.attribute.AclEntry;
-import java.nio.file.attribute.AclEntryPermission;
-import java.nio.file.attribute.AclEntryType;
-import java.nio.file.attribute.AclFileAttributeView;
-import java.nio.file.attribute.PosixFileAttributeView;
-import java.nio.file.attribute.PosixFilePermission;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Instant;
-import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -66,8 +57,12 @@ final class McpHttpServer implements AutoCloseable {
     private final ExecutorService executor;
     private final PluginLogger logger;
     private final McpProtocol protocol;
+    private final McpToolCatalog tools;
+    private final McpAccessToken accessToken;
     private final Path connectionFile;
+    private final Path bridgeFile;
     private final URI endpoint;
+    private final Optional<McpStdioLaunch> stdioLaunch;
     private final WindowRateLimiter rateLimiter;
     private final McpSessionRegistry sessions;
     private final McpConnectionHistory history;
@@ -78,8 +73,12 @@ final class McpHttpServer implements AutoCloseable {
             final ExecutorService executor,
             final PluginLogger logger,
             final McpProtocol protocol,
+            final McpToolCatalog tools,
+            final McpAccessToken accessToken,
             final Path connectionFile,
+            final Path bridgeFile,
             final URI endpoint,
+            final Optional<McpStdioLaunch> stdioLaunch,
             final WindowRateLimiter rateLimiter,
             final McpSessionRegistry sessions,
             final McpConnectionHistory history) {
@@ -87,8 +86,12 @@ final class McpHttpServer implements AutoCloseable {
         this.executor = executor;
         this.logger = logger;
         this.protocol = protocol;
+        this.tools = Objects.requireNonNull(tools, "tools");
+        this.accessToken = Objects.requireNonNull(accessToken, "accessToken");
         this.connectionFile = connectionFile;
+        this.bridgeFile = bridgeFile;
         this.endpoint = endpoint;
+        this.stdioLaunch = Objects.requireNonNull(stdioLaunch, "stdioLaunch");
         this.rateLimiter = rateLimiter;
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.history = Objects.requireNonNull(history, "history");
@@ -102,36 +105,31 @@ final class McpHttpServer implements AutoCloseable {
             final PluginLogger logger = context.logger();
             stage.enter("context.modelObjects()");
             final ModelObjectService modelObjects = context.modelObjects();
-            stage.enter("context.parameterQuery()");
-            final ParameterQueryService parameterQuery = context.parameterQuery();
             stage.enter("context.modelHierarchyQuery()");
             final ModelHierarchyQueryService hierarchyQuery = context.modelHierarchyQuery();
             stage.enter("context.selectionQuery()");
             final SelectionQueryService selectionQuery = context.selectionQuery();
             stage.enter("context.cubismRead()");
             final CubismReadCapabilityService read = context.cubismRead();
-            stage.enter("context.services().get(CubismClipMaskService.class)");
-            final CubismClipMaskService clipMasks = java.util.Optional.ofNullable(
-                            context.services().get(CubismClipMaskService.class))
-                    .orElseGet(CubismClipMaskService::unavailable);
+            stage.enter("context.services().find(CubismClipMaskService.class)");
+            final CubismClipMaskService clipMasks =
+                    context.services().find(CubismClipMaskService.class).orElseGet(CubismClipMaskService::unavailable);
             stage.enter("context.cubism()");
             final CubismFacade cubism = context.cubism();
             stage.enter("context.cubism().history()");
             final CubismHistory history = cubism.history();
-            stage.enter("context.services().get(WorkspaceService.class)");
-            final WorkspaceService workspace = java.util.Optional.ofNullable(
-                            context.services().get(WorkspaceService.class))
-                    .orElseGet(WorkspaceService::unavailable);
-            stage.enter("context.services().get(WorkspaceLayoutService.class)");
-            final WorkspaceLayoutService workspaceLayout = java.util.Optional.ofNullable(
-                            context.services().get(WorkspaceLayoutService.class))
+            stage.enter("context.services().find(WorkspaceService.class)");
+            final WorkspaceService workspace =
+                    context.services().find(WorkspaceService.class).orElseGet(WorkspaceService::unavailable);
+            stage.enter("context.services().find(WorkspaceLayoutService.class)");
+            final WorkspaceLayoutService workspaceLayout = context.services()
+                    .find(WorkspaceLayoutService.class)
                     .orElseGet(WorkspaceLayoutService::unavailable);
             stage.enter("context.diagnostics()");
             final DiagnosticReport diagnostics = context.diagnostics();
-            stage.enter("context.services().get(EditorCommandService.class)");
-            final EditorCommandService editorCommands = java.util.Optional.ofNullable(
-                            context.services().get(EditorCommandService.class))
-                    .orElseGet(EditorCommandService::unavailable);
+            stage.enter("context.services().find(EditorCommandService.class)");
+            final EditorCommandService editorCommands =
+                    context.services().find(EditorCommandService.class).orElseGet(EditorCommandService::unavailable);
             stage.enter("context.uiScheduler()");
             final UiScheduler uiScheduler = context.uiScheduler();
             stage.enter("context.paths().stateDir()");
@@ -145,7 +143,6 @@ final class McpHttpServer implements AutoCloseable {
                     new Dependencies(
                             logger,
                             modelObjects,
-                            parameterQuery,
                             hierarchyQuery,
                             selectionQuery,
                             read,
@@ -197,7 +194,7 @@ final class McpHttpServer implements AutoCloseable {
             final McpExecutionBridge execution = new McpExecutionBridge(checked.uiScheduler());
             final McpTools legacyTools = new McpTools(
                     checked.modelObjects(),
-                    checked.parameterQuery(),
+                    checked.cubism(),
                     checked.hierarchyQuery(),
                     checked.selectionQuery(),
                     checked.read(),
@@ -235,14 +232,25 @@ final class McpHttpServer implements AutoCloseable {
                     diagnostics.resourceCatalog(),
                     parameterResources,
                     historyCommands.resources()));
+            stage.enter("access-token publication");
+            final McpAccessToken accessToken = McpAccessToken.loadOrCreate(checked.stateDir());
+            stage.enter("stdio bridge publication");
+            final Path bridgeFile = McpStdioBridge.publish(checked.stateDir());
+            stage.enter("stdio launch descriptor");
+            final Optional<McpStdioLaunch> stdioLaunch = McpStdioBridge.launch(checked.stateDir(), logger);
+
             final McpConnectionHistory history = new McpConnectionHistory();
             transport = new McpHttpServer(
                     server,
                     executor,
                     logger,
                     McpProtocol.forCatalogs(tools, resources, McpPromptCatalog.defaults()),
+                    tools,
+                    accessToken,
                     connectionFile,
+                    bridgeFile,
                     endpoint,
+                    stdioLaunch,
                     new WindowRateLimiter(checked.requestsPerMinute()),
                     new McpSessionRegistry(
                             java.time.Duration.ofMinutes(30),
@@ -321,6 +329,14 @@ final class McpHttpServer implements AutoCloseable {
         return connectionFile;
     }
 
+    Optional<McpStdioLaunch> stdioLaunch() {
+        return stdioLaunch;
+    }
+
+    String stdioClientConfig() {
+        return McpStdioBridge.clientConfigJson(connectionFile.getParent());
+    }
+
     List<McpConnectionHistory.Entry> connectionHistory() {
         return history.snapshot();
     }
@@ -347,6 +363,10 @@ final class McpHttpServer implements AutoCloseable {
                 return;
             }
             if ("DELETE".equalsIgnoreCase(method)) {
+                if (!authorized(exchange)) {
+                    unauthorized(exchange);
+                    return;
+                }
                 final String sessionId = exchange.getRequestHeaders().getFirst("MCP-Session-Id");
                 if (sessionId == null || !sessions.remove(sessionId)) {
                     sendEmpty(exchange, 404);
@@ -393,7 +413,7 @@ final class McpHttpServer implements AutoCloseable {
             }
             final Object request;
             try {
-                request = StrictJson.parse(body);
+                request = Json.parseObject(body);
             } catch (IllegalArgumentException failure) {
                 sendJson(exchange, 200, McpProtocol.parseError(failure.getMessage()));
                 return;
@@ -438,6 +458,10 @@ final class McpHttpServer implements AutoCloseable {
             }
             if (!session.initialized() && !isPingRequest(request)) {
                 sendEmpty(exchange, 400);
+                return;
+            }
+            if (requiresBearer(request) && !authorized(exchange)) {
+                unauthorized(exchange);
                 return;
             }
             history.record(McpConnectionHistory.Event.REQUEST, "", requestMethod(request));
@@ -486,128 +510,50 @@ final class McpHttpServer implements AutoCloseable {
     }
 
     private void writeConnectionFile() throws IOException {
-        final Path directory = Objects.requireNonNull(connectionFile.getParent(), "connection-file directory");
-        requirePrivateDirectory(directory);
-        rejectUnsafeConnectionFile();
         final LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("transport", "streamable-http");
         content.put("endpoint", endpoint.toString());
         content.put("protocolVersion", McpProtocol.VERSION);
+        content.put(
+                "authentication",
+                Map.of(
+                        "scheme", "bearer",
+                        "scope", "mutating tools/call methods and DELETE",
+                        "tokenFile", McpAccessToken.FILE_NAME));
+        content.put("stdio", McpStdioBridge.clientConfig(connectionFile.getParent()));
         content.put("pid", ProcessHandle.current().pid());
         content.put("startedAt", Instant.now().toString());
-        final byte[] bytes = StrictJson.bytes(content);
-        final Path temporary = createSecuredTemporary(directory);
+        McpStateFiles.publish(connectionFile, ".mcp-connection-", Json.bytes(content));
+    }
+
+    /**
+     * Mutating operations require {@code Authorization: Bearer <mcp.token>}:
+     * session close plus every {@code tools/call} whose registered tool is not
+     * effect {@code READ}. Read-only tools, lifecycle methods, and discovery stay
+     * credential-free behind the existing loopback + Origin + session checks.
+     */
+    private boolean requiresBearer(final Object request) {
+        if (!(request instanceof Map<?, ?> values)) return false;
+        if (!"tools/call".equals(values.get("method"))) return false;
+        final Object params = values.get("params");
+        if (!(params instanceof Map<?, ?> paramValues)) return false;
+        final Object name = paramValues.get("name");
+        if (!(name instanceof String toolName)) return false;
         try {
-            Files.write(temporary, bytes);
-            enforceOwnerOnly(temporary, false);
-            try {
-                Files.move(
-                        temporary, connectionFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (AtomicMoveNotSupportedException unsupported) {
-                Files.move(temporary, connectionFile, StandardCopyOption.REPLACE_EXISTING);
-            }
-            if (!Files.isRegularFile(connectionFile, LinkOption.NOFOLLOW_LINKS)
-                    || Files.isSymbolicLink(connectionFile)) {
-                throw new IOException("MCP connection file publication was redirected");
-            }
-            enforceOwnerOnly(connectionFile, false);
-        } finally {
-            Files.deleteIfExists(temporary);
+            return tools.registration(toolName).effect() != McpOperationEffect.READ;
+        } catch (IllegalArgumentException unknownTool) {
+            return false;
         }
     }
 
-    private void rejectUnsafeConnectionFile() throws IOException {
-        if (!Files.exists(connectionFile, LinkOption.NOFOLLOW_LINKS)) return;
-        if (Files.isSymbolicLink(connectionFile) || !Files.isRegularFile(connectionFile, LinkOption.NOFOLLOW_LINKS)) {
-            throw new IOException("MCP connection file path is unsafe");
-        }
-        final Path directory = Objects.requireNonNull(connectionFile.getParent(), "connection-file directory");
-        if (!Files.getOwner(connectionFile, LinkOption.NOFOLLOW_LINKS)
-                .equals(Files.getOwner(directory, LinkOption.NOFOLLOW_LINKS))) {
-            throw new IOException("MCP connection file ownership is unsafe");
-        }
+    private boolean authorized(final HttpExchange exchange) {
+        return accessToken.accepts(exchange.getRequestHeaders().getFirst("Authorization"));
     }
 
-    private static Path createSecuredTemporary(final Path directory) throws IOException {
-        try {
-            return Files.createTempFile(
-                    directory, ".mcp-connection-", ".tmp", PosixFilePermissions.asFileAttribute(FILE_OWNER_ONLY));
-        } catch (UnsupportedOperationException noPosix) {
-            final Path temporary = Files.createTempFile(directory, ".mcp-connection-", ".tmp");
-            try {
-                enforceOwnerOnly(temporary, false);
-                return temporary;
-            } catch (IOException | RuntimeException failure) {
-                Files.deleteIfExists(temporary);
-                throw failure;
-            }
-        }
+    private static void unauthorized(final HttpExchange exchange) throws IOException {
+        exchange.getResponseHeaders().set("WWW-Authenticate", "Bearer realm=\"turboism-mcp\"");
+        sendEmpty(exchange, 401);
     }
-
-    private static void requirePrivateDirectory(final Path directory) throws IOException {
-        final Path absolute = directory.toAbsolutePath().normalize();
-        Path current = absolute.getRoot();
-        for (Path segment : absolute) {
-            current = current == null ? segment : current.resolve(segment);
-            if (Files.isSymbolicLink(current)) {
-                throw new IOException("MCP state directory contains a symbolic link");
-            }
-        }
-        if (!Files.exists(absolute, LinkOption.NOFOLLOW_LINKS)
-                || !Files.isDirectory(absolute, LinkOption.NOFOLLOW_LINKS)) {
-            throw new IOException("MCP state directory is unsafe");
-        }
-        enforceOwnerOnly(absolute, true);
-    }
-
-    private static void enforceOwnerOnly(final Path path, final boolean directory) throws IOException {
-        final PosixFileAttributeView posix =
-                Files.getFileAttributeView(path, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
-        if (posix != null) {
-            posix.setPermissions(directory ? DIRECTORY_OWNER_ONLY : FILE_OWNER_ONLY);
-            return;
-        }
-        final AclFileAttributeView acl =
-                Files.getFileAttributeView(path, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
-        if (acl != null) {
-            acl.setAcl(List.of(ownerOnlyEntry(acl.getOwner(), directory)));
-            return;
-        }
-        final java.nio.file.attribute.DosFileAttributeView dos = Files.getFileAttributeView(
-                path, java.nio.file.attribute.DosFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
-        if (dos != null) {
-            // The JDK provider exposes no ACL API. The plugin state root is per-user;
-            // ownership and reparse-point checks remain the publication boundary.
-            return;
-        }
-        throw new IOException("MCP owner-only permissions are unavailable");
-    }
-
-    private static AclEntry ownerOnlyEntry(final java.nio.file.attribute.UserPrincipal owner, final boolean directory) {
-        final Set<AclEntryPermission> permissions = EnumSet.noneOf(AclEntryPermission.class);
-        permissions.add(AclEntryPermission.READ_DATA);
-        permissions.add(AclEntryPermission.WRITE_DATA);
-        permissions.add(AclEntryPermission.APPEND_DATA);
-        permissions.add(AclEntryPermission.READ_ATTRIBUTES);
-        permissions.add(AclEntryPermission.WRITE_ATTRIBUTES);
-        permissions.add(AclEntryPermission.READ_NAMED_ATTRS);
-        permissions.add(AclEntryPermission.WRITE_NAMED_ATTRS);
-        permissions.add(AclEntryPermission.READ_ACL);
-        permissions.add(AclEntryPermission.WRITE_ACL);
-        permissions.add(AclEntryPermission.SYNCHRONIZE);
-        if (directory) {
-            permissions.add(AclEntryPermission.EXECUTE);
-            permissions.add(AclEntryPermission.DELETE_CHILD);
-        }
-        return AclEntry.newBuilder()
-                .setType(AclEntryType.ALLOW)
-                .setPrincipal(owner)
-                .setPermissions(permissions)
-                .build();
-    }
-
-    private static final Set<PosixFilePermission> FILE_OWNER_ONLY = PosixFilePermissions.fromString("rw-------");
-    private static final Set<PosixFilePermission> DIRECTORY_OWNER_ONLY = PosixFilePermissions.fromString("rwx------");
 
     private static boolean originAllowed(final String origin) {
         if (origin == null || origin.isBlank()) return true;
@@ -672,8 +618,9 @@ final class McpHttpServer implements AutoCloseable {
         return name instanceof String text && !text.isBlank() ? text : "unknown client";
     }
 
-    private static void sendJson(final HttpExchange exchange, final int status, final Object body) throws IOException {
-        final byte[] bytes = StrictJson.bytes(body);
+    private static void sendJson(final HttpExchange exchange, final int status, final Map<String, ?> body)
+            throws IOException {
+        final byte[] bytes = Json.bytes(body);
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
         exchange.sendResponseHeaders(status, bytes.length);
         exchange.getResponseBody().write(bytes);
@@ -786,7 +733,6 @@ final class McpHttpServer implements AutoCloseable {
     record Dependencies(
             PluginLogger logger,
             ModelObjectService modelObjects,
-            ParameterQueryService parameterQuery,
             ModelHierarchyQueryService hierarchyQuery,
             SelectionQueryService selectionQuery,
             CubismReadCapabilityService read,
@@ -804,7 +750,6 @@ final class McpHttpServer implements AutoCloseable {
         Dependencies(
                 final PluginLogger logger,
                 final ModelObjectService modelObjects,
-                final ParameterQueryService parameterQuery,
                 final ModelHierarchyQueryService hierarchyQuery,
                 final SelectionQueryService selectionQuery,
                 final CubismReadCapabilityService read,
@@ -816,7 +761,6 @@ final class McpHttpServer implements AutoCloseable {
             this(
                     logger,
                     modelObjects,
-                    parameterQuery,
                     hierarchyQuery,
                     selectionQuery,
                     read,
@@ -873,18 +817,12 @@ final class McpHttpServer implements AutoCloseable {
                 public boolean isHostPresent() {
                     return false;
                 }
-
-                @Override
-                public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-                    throw new UnsupportedOperationException("Cubism is unavailable");
-                }
             };
         }
 
         Dependencies {
             logger = Objects.requireNonNull(logger, "logger");
             modelObjects = Objects.requireNonNull(modelObjects, "modelObjects");
-            parameterQuery = Objects.requireNonNull(parameterQuery, "parameterQuery");
             hierarchyQuery = Objects.requireNonNull(hierarchyQuery, "hierarchyQuery");
             selectionQuery = Objects.requireNonNull(selectionQuery, "selectionQuery");
             read = Objects.requireNonNull(read, "read");

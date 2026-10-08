@@ -12,11 +12,14 @@ import dev.turboism.sdk.cubism.mesh.MeshPointPosition;
 import dev.turboism.sdk.cubism.mesh.MeshPointRef;
 import dev.turboism.sdk.cubism.mesh.MeshSnapshot;
 import dev.turboism.sdk.cubism.model.Drawable;
+import java.awt.Point;
+import java.awt.event.InputEvent;
 import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.List;
+import java.util.Set;
 import javax.swing.JTree;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
@@ -83,6 +86,65 @@ class WindowsMeshEditValidationProbeTest {
     }
 
     @Test
+    void ordinaryOracleRetainsBothOwnersAtTheSameLocalIndexAndCapsuleBoundary() {
+        final var points = List.of(
+                new WindowsModelingSelectionBrushProbe.NativePoint("mesh:MeshPointRef:0", 50, 0),
+                new WindowsModelingSelectionBrushProbe.NativePoint("warp:WarpPointRef:0", 50, 32),
+                new WindowsModelingSelectionBrushProbe.NativePoint("warp:WarpPointRef:1", 50, 32.25f),
+                new WindowsModelingSelectionBrushProbe.NativePoint("mesh:MeshPointRef:1", -32, 0),
+                new WindowsModelingSelectionBrushProbe.NativePoint("mesh:MeshPointRef:2", 132, 0));
+        assertEquals(
+                Set.of("mesh:MeshPointRef:0", "warp:WarpPointRef:0", "mesh:MeshPointRef:1", "mesh:MeshPointRef:2"),
+                WindowsModelingSelectionBrushProbe.hits(points, List.of(new Point(0, 0), new Point(100, 0)), 32));
+    }
+
+    @Test
+    void nativeLassoOracleDetectsTheObservedTranslatedDragFootprint() {
+        final var points = List.of(
+                new WindowsModelingSelectionBrushProbe.NativePoint("mesh:MeshPointRef:0", 200.08083f, 408.2952f));
+        for (int extent : new int[] {16, 64}) {
+            final var requested = List.of(
+                    new Point(200 - extent, 408 - extent),
+                    new Point(200 + extent, 408 - extent),
+                    new Point(200 + extent, 408 + extent),
+                    new Point(200 - extent, 408 + extent),
+                    new Point(200 - extent, 408 - extent));
+            final var delivered = new java.util.ArrayList<Point>();
+            delivered.add(requested.get(0));
+            for (int i = 1; i < requested.size(); i++) {
+                final Point from = requested.get(i - 1), to = requested.get(i);
+                for (int step = 1; step <= 2 * extent / 4; step++) {
+                    final Point position = new Point(
+                            from.x + Integer.signum(to.x - from.x) * 4 * step,
+                            from.y + Integer.signum(to.y - from.y) * 4 * step);
+                    delivered.add(new Point(position.x, position.y - 20));
+                    delivered.add(position);
+                }
+            }
+            assertEquals(
+                    Set.of("mesh:MeshPointRef:0"), WindowsModelingSelectionBrushProbe.lassoHits(points, requested));
+            assertEquals(
+                    extent == 16 ? Set.of() : Set.of("mesh:MeshPointRef:0"),
+                    WindowsModelingSelectionBrushProbe.lassoHits(points, delivered));
+        }
+    }
+
+    @Test
+    void ordinaryOracleUsesControlPrecedenceAndLeavesZeroHitSelectionIntact() {
+        final Set<String> before = Set.of("mesh:MeshPointRef:0", "warp:WarpPointRef:0");
+        final Set<String> hit = Set.of("warp:WarpPointRef:0", "warp:WarpPointRef:1");
+        assertEquals(hit, WindowsModelingSelectionBrushProbe.apply(before, hit, 0));
+        assertEquals(
+                Set.of("mesh:MeshPointRef:0", "warp:WarpPointRef:0", "warp:WarpPointRef:1"),
+                WindowsModelingSelectionBrushProbe.apply(before, hit, InputEvent.SHIFT_DOWN_MASK));
+        assertEquals(
+                Set.of("mesh:MeshPointRef:0"),
+                WindowsModelingSelectionBrushProbe.apply(
+                        before, hit, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK));
+        assertEquals(before, WindowsModelingSelectionBrushProbe.apply(before, Set.of(), 0));
+    }
+
+    @Test
     void uniqueSelectionTargetUsesDisplayNameButRetainsExactId() {
         final var target = WindowsMeshEditValidationProbe.uniqueSelectionTarget(
                 List.of(drawable("ArtMesh9", "Face"), drawable("ArtMesh4", "Body")));
@@ -114,6 +176,32 @@ class WindowsMeshEditValidationProbeTest {
                 2, WindowsMeshEditValidationProbe.findTreePaths(tree, "Body").size());
         assertTrue(
                 WindowsMeshEditValidationProbe.findTreePaths(tree, "ArtMesh4").isEmpty());
+    }
+
+    @Test
+    void partsClickUsesTheTreeNameColumnAndRejectsIconOnlyTables() {
+        final javax.swing.JTable table = new javax.swing.JTable(
+                new Object[][] {{"visible", "Body", "locked"}}, new Object[] {"Visibility", "Name", "Lock"});
+        final RendererTree tree = new RendererTree();
+        table.getColumnModel().getColumn(1).setCellRenderer(tree);
+
+        assertEquals(1, WindowsMeshEditValidationProbe.renderedTreeColumn(table, tree, 0));
+        table.getColumnModel().getColumn(1).setCellRenderer(new javax.swing.table.DefaultTableCellRenderer());
+        assertThrows(
+                IllegalStateException.class, () -> WindowsMeshEditValidationProbe.renderedTreeColumn(table, tree, 0));
+    }
+
+    private static final class RendererTree extends JTree implements javax.swing.table.TableCellRenderer {
+        @Override
+        public java.awt.Component getTableCellRendererComponent(
+                final javax.swing.JTable table,
+                final Object value,
+                final boolean selected,
+                final boolean focus,
+                final int row,
+                final int column) {
+            return this;
+        }
     }
 
     @Test
@@ -200,6 +288,22 @@ class WindowsMeshEditValidationProbeTest {
         assertThrows(IllegalArgumentException.class, WindowsMeshEditValidationProbe::fixturePath);
         System.setProperty("turboism.validation.fixture", temporary.toString());
         assertEquals(temporary, WindowsMeshEditValidationProbe.fixturePath());
+    }
+
+    @Test
+    void robotOriginUsesTheReceivedViewCoordinatesInsteadOfFrameDecorations() {
+        assertEquals(
+                new java.awt.Point(1388, 160),
+                WindowsMeshEditValidationProbe.robotOriginFromMovement(
+                        new java.awt.Point(1653, 609), new java.awt.Point(265, 449)));
+    }
+
+    @Test
+    void uniformRobotScreenshotsCannotSatisfyPreviewEvidence() {
+        final var image = new java.awt.image.BufferedImage(4, 4, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        assertFalse(WindowsMeshEditValidationProbe.imageHasVariation(image));
+        image.setRGB(2, 2, 0x191996);
+        assertTrue(WindowsMeshEditValidationProbe.imageHasVariation(image));
     }
 
     private static MeshSnapshot mesh(final List<MeshPointRef> points, final List<MeshEdgeRef> edges) {

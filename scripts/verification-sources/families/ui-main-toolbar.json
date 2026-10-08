@@ -18,5 +18,7 @@
  "coverage": true,
  "packs": [],
  "extraLiterals": [],
- "coverageSources": []
+ "coverageSources": [
+  "runtime/src/main/java/dev/turboism/ui/mesh/MeshToolbarSelectorContract.java"
+ ]
 }

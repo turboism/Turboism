@@ -46,6 +46,18 @@ class RuntimeFileChooserHistoryServiceTest {
         }
     }
 
+    @Test
+    void availabilityFollowsProviderRegistration() {
+        final RuntimeFileChooserHistoryService service = service(true);
+        assertFalse(service.isAvailable(), "without a provider the service fails closed");
+
+        final FileChooserHistoryService.Registration registration = service.registerProvider(new RecordingProvider());
+        assertTrue(service.isAvailable());
+
+        registration.close();
+        assertFalse(service.isAvailable(), "a withdrawn provider must flip the probe back");
+    }
+
     private RuntimeFileChooserHistoryService service(final boolean enabled) {
         return new RuntimeFileChooserHistoryService(() -> enabled);
     }
