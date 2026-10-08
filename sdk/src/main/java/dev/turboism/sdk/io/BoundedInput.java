@@ -1,5 +1,6 @@
 package dev.turboism.sdk.io;
 
+import dev.turboism.sdk.Incubating;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Objects;
@@ -13,6 +14,7 @@ import java.util.function.Supplier;
  * than a flag a caller can forget to check. The {@link #readNBytes(InputStream, long, Supplier)}
  * variant lets a domain reader surface overflow under its own failure code.</p>
  */
+@Incubating
 public final class BoundedInput {
 
     private BoundedInput() {}
