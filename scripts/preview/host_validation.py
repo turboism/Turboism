@@ -404,10 +404,14 @@ def build_parser(default_manifest: Path) -> argparse.ArgumentParser:
         command = commands.add_parser(name)
         command.add_argument("tasks", nargs="+" if name != "prepare" else 1)
         command.add_argument("--run-label", default="r1")
+        command.add_argument("--full-matrix", action="store_true",
+            help="disable cluster-equivalence coverage annotations")
     submit = commands.add_parser("submit")
     submit.add_argument("--prepared", required=True)
     submit.add_argument("--request-id", required=True)
     submit.add_argument("--timeout-seconds", type=int, default=1800)
+    submit.add_argument("--full-matrix", action="store_true",
+        help="disable cluster-equivalence coverage annotations")
     submit.add_argument("--json", action="store_true")
     status = commands.add_parser("status")
     status.add_argument("job", nargs="?")
@@ -475,25 +479,46 @@ def main(argv: list[str] | None = None) -> int:
                 return list_tasks(manifest)
             if not SAFE_NAME.fullmatch(args.run_label):
                 raise SchedulerError("run label must be a safe bounded label")
-            requests = [parse_request(spec, args.run_label, manifest) for spec in args.tasks]
+            import host_validation_static_gates as static_gates
+            families = {} if args.full_matrix else static_gates.load_cluster_table()
+            gated: list[tuple[Request, tuple[str, ...], str | None]] = []
+            for spec in args.tasks:
+                request = parse_request(spec, args.run_label, manifest)
+                try:
+                    request, outcome = static_gates.evaluate(request, Request, manifest, environment)
+                except static_gates.StaticGateRefusal as refusal:
+                    emit({"schemaVersion": 1, "spec": request.spec, "skipped": refusal.skip,
+                          "reason": refusal.reason, "detail": refusal.detail})
+                    continue
+                covered = None if args.full_matrix else static_gates.covered_by_equivalent(
+                    request.task.name, request.version, families)
+                gated.append((request, outcome.notes, covered))
             if args.command == "plan":
                 print("local-only FIFO; one host session, including cleanup; no SSH")
-                for index, request in enumerate(requests, 1):
+                for index, (request, notes, covered) in enumerate(gated, 1):
                     state = "runnable" if request.task.runnable else f"blocked: {request.task.blocked_reason}"
                     print(f"{index}. {request.spec} {state}")
+                    for note in notes:
+                        print("   " + note)
+                    if covered:
+                        print(f"   covered-by-equivalent={covered}")
                     if request.task.runnable:
                         print("   " + shlex.join(render_command(request, manifest)))
-                return 0 if all(request.task.runnable for request in requests) else 1
-            if any(not request.task.runnable for request in requests):
+                return 0 if all(request.task.runnable for request, _, _ in gated) and len(gated) == len(args.tasks) else 1
+            if any(not request.task.runnable for request, _, _ in gated):
                 raise SchedulerError("cannot run blocked tasks")
+            if not gated:
+                return 3  # Every spec was refused by a static gate; nothing enqueued.
             store = queue.Store()
-            prepared = [prepare_request(request, manifest, store, environment) for request in requests]
+            prepared = [prepare_request(request, manifest, store, environment) for request, _, _ in gated]
             if args.command == "prepare":
-                emit({"schemaVersion": 1, "preparedId": prepared[0]["digest"]})
+                emit({"schemaVersion": 1, "preparedId": prepared[0]["digest"],
+                      **({"coveredByEquivalent": gated[0][2]} if gated[0][2] else {})})
                 return 0
             jobs = [store.submit(item["digest"], item["digest"], str(uuid.uuid4())) for item in prepared]
-            for job in jobs:
-                emit({"schemaVersion": 1, "job": job})
+            for (_, _, covered), job in zip(gated, jobs):
+                emit({"schemaVersion": 1, "job": job,
+                      **({"coveredByEquivalent": covered} if covered else {})})
             queue.wake(store)
             results = [wait_job(store, job["job_id"]) for job in jobs]
             return max(results, default=0)
@@ -514,7 +539,16 @@ def main(argv: list[str] | None = None) -> int:
             prepared = {"digest": args.prepared} if prior else queue.PreparedStore(store).load(args.prepared)
             job = store.submit(args.prepared, prepared["digest"], args.request_id, args.timeout_seconds)
             queue.wake(store)
-            emit({"schemaVersion": 1, "job": job, "workerOnline": queue.worker_online(store)})
+            covered = None
+            task_spec = prepared.get("taskSpec") if isinstance(prepared, dict) else None
+            if task_spec and ":" in task_spec and not args.full_matrix:
+                import host_validation_static_gates as static_gates
+                covered = static_gates.covered_by_equivalent(
+                    task_spec.split(":")[0].split("@")[0],
+                    task_spec.split(":", 1)[1].split("@")[0],
+                    static_gates.load_cluster_table())
+            emit({"schemaVersion": 1, "job": job, "workerOnline": queue.worker_online(store),
+                  **({"coveredByEquivalent": covered} if covered else {})})
             return 0
         if args.command == "status":
             try:
