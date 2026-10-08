@@ -83,6 +83,26 @@ final class McpConnectionRegistryTest {
     }
 
     @Test
+    void detachedSnapshotsPreserveTheStdioLaunchDescriptor() {
+        final McpConnectionRegistry registry = new McpConnectionRegistry();
+        final McpHttpConnection withLaunch = new McpHttpConnection(
+                URI.create("http://127.0.0.1:41009/mcp"),
+                "2025-11-25",
+                new dev.turboism.sdk.mcp.McpStdioLaunch(
+                        java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java")
+                                .toAbsolutePath()
+                                .toString(),
+                        List.of("-cp", "plugin.jar", "dev.turboism.plugin.mcp.TurboismMcpBridge", "/state")));
+        final List<Optional<McpHttpConnection>> seen = new ArrayList<>();
+
+        registry.subscribe(seen::add);
+        registry.publish("mcp", withLaunch);
+
+        assertEquals(withLaunch.stdioLaunch(), registry.current().orElseThrow().stdioLaunch());
+        assertEquals(withLaunch.stdioLaunch(), seen.get(1).orElseThrow().stdioLaunch());
+    }
+
+    @Test
     void subscribeAfterCloseReplaysEmptyOnly() {
         final McpConnectionRegistry registry = new McpConnectionRegistry();
         registry.close();
