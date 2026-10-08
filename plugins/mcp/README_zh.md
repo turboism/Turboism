@@ -241,7 +241,7 @@ url = "http://127.0.0.1:43123/mcp"
 
 ### 网络
 
-服务器仅监听 `127.0.0.1`。请求仍需满足回环来源、MCP 协议与会话、1 MiB 正文上限和速率限制；写操作工具调用与会话关闭还要求 `Authorization: Bearer <令牌>`（即 `mcp.token` 的内容），只读方法无需凭据。它并非为远程访问而设计。
+服务器仅监听 `127.0.0.1`。请求的 `Host` 头必须是回环地址（`127.0.0.1`、`localhost` 或 `[::1]`，可带 `:port`），并满足回环来源、MCP 协议与会话、1 MiB 正文上限和速率限制；写操作工具调用与会话关闭还要求 `Authorization: Bearer <令牌>`（即 `mcp.token` 的内容），只读方法无需凭据。设置系统属性 `turboism.mcp.requireAuthForRead=true` 可将 Bearer 要求扩展到所有 `tools/call`（包括读操作工具）。它并非为远程访问而设计。
 
 ### 本地数据
 
@@ -256,7 +256,7 @@ url = "http://127.0.0.1:43123/mcp"
 ## 状态与限制
 
 - **状态：** 预览。
-- 稳定默认端口为 `43123`。仅在显式设置 `turboism.mcp.port=0` 时选择临时端口。`turboism.mcp.requestsPerMinute` 是高级速率限制系统属性。
+- 稳定默认端口为 `43123`。仅在显式设置 `turboism.mcp.port=0` 时选择临时端口。`turboism.mcp.requestsPerMinute` 是高级速率限制系统属性。`turboism.mcp.requireAuthForRead`（`true`/`false`，默认 `false`）使读操作 `tools/call` 同样需要 Bearer 令牌。
 - 未实现 GET SSE、资源订阅、列表变更通知、进度通知和 MCP Tasks。
 - 工作区切换和默认布局变更被有意设为不可用，因为运行时当前以 `turboism.host.unsafe` 对它们进行门控。
 - 在 MCP 会话无需接受原始路径即可获得真实 `UserFileHandle` 授权之前，`EditorFileCommandRequest`、导入/导出、另存为、备份和其他基于句柄的文件工作流始终不可用。

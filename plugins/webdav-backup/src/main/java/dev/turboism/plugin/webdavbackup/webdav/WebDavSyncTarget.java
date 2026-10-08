@@ -78,6 +78,8 @@ public final class WebDavSyncTarget implements BackupSyncTarget, AutoCloseable {
                 .executor(uploadWorkers)
                 .followRedirects(HttpClient.Redirect.NEVER);
         if (!config.verifyTls()) {
+            diagnostics.accept(
+                    "webdav:tls-verification-disabled accepts any certificate and is interceptable (MITM risk)");
             builder.sslContext(permissiveSslContext());
         }
         this.client = builder.build();
@@ -370,6 +372,12 @@ public final class WebDavSyncTarget implements BackupSyncTarget, AutoCloseable {
         }
     }
 
+    /**
+     * Trust-all TLS context for the verifyTls=false opt-out. Any certificate is
+     * accepted, so a network attacker can present a forged endpoint certificate
+     * and intercept the backup traffic; the settings UI and README carry the
+     * same warning and construction emits a diagnostics WARN.
+     */
     private static SSLContext permissiveSslContext() {
         try {
             final TrustManager[] trustAll = {
