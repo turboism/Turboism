@@ -60,6 +60,9 @@ def dotted(version: str) -> str:
 # capability evidence in those versions' verification records.
 TASK_REQUIRED_CAPABILITIES: dict[str, tuple[str, ...]] = {
     "parameter-batch-transfer": ("cubism.editor-model.write",),
+    # parameter panel write legs go through the same Parameter.setValue slice
+    # the batch-transfer probes proved admission-blocked on 5.0.x/5.1.x.
+    "parameter": ("cubism.editor-model.write",),
     "animation-timeline": ("cubism.editor-model.animation-timeline.write",),
 }
 
