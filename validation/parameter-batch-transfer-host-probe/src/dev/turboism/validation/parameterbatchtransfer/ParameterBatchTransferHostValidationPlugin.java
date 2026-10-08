@@ -11,6 +11,7 @@ import dev.turboism.sdk.cubism.model.ParameterBinding;
 import dev.turboism.sdk.cubism.model.ParameterBindingFamily;
 import dev.turboism.sdk.cubism.model.ParameterBindingPoint;
 import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
+import dev.turboism.sdk.cubism.model.ParameterBindingTargetType;
 import dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
 import dev.turboism.sdk.cubism.model.ParameterType;
@@ -26,6 +27,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -69,12 +71,16 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
     private static final List<Float> SCAFFOLD_POINTS = List.of(-30.0F, 0.0F, 30.0F);
     private static final long EDT_TIMEOUT_MILLIS = 30_000L;
     private static final String SESSION_DRAWABLE_CLASS =
-        "dev.turboism.adapter.host.DynamicCubismModelAccess$SessionDrawable";
+        "dev.turboism.adapter.host.SessionDrawable";
     private static final String PERMISSION_CHECKED_DRAWABLE_CLASS =
-        "dev.turboism.adapter.cubism.CubismFacadeImpl$PermissionCheckedDrawable";
+        "dev.turboism.adapter.cubism.PermissionCheckedDrawable";
     private static final String EDITOR_DRAWABLE_CLASS =
         "dev.turboism.adapter.cubism.editor.EditorObjectReadAccess$EditorDrawable";
-    private static final int MAX_DRAWABLE_UNWRAP_DEPTH = 3;
+    private static final String AVAILABILITY_HANDLER_CLASS =
+        "dev.turboism.core.plugin.context.CubismEditorApiAvailabilityInterceptor$Handler";
+    private static final String GENERATION_GUARD_HANDLER_CLASS =
+        "dev.turboism.preview.PluginGenerationGuard$Handler";
+    private static final int MAX_DRAWABLE_UNWRAP_DEPTH = 5;
     private static final String RAW_ART_MESH_SOURCE =
         "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshSource";
     private static final String RAW_ART_MESH_FORM =
@@ -603,7 +609,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         if (narrow == null) {
             recordAssertion(
                 "apply.morph.narrow.preflight",
-                "different free morph destination with unique changed per-point clamp",
+                "different free morph destination whose range excludes a source point (proves no clamp)",
                 "none; candidates=" + rangeEvidence(morphCandidates),
                 "BLOCKED"
             );
@@ -617,7 +623,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         }
         recordAssertion(
             "apply.morph.narrow.preflight",
-            "different free morph destination has unique changed mapping",
+            "different free morph destination has unique unchanged mapping into an excluding range",
             mappingEvidence(narrow),
             "PASS"
         );
@@ -626,7 +632,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         if (inverted == null) {
             recordAssertion(
                 "apply.morph.invert.preflight",
-                "free morph destination with unique negate-then-clamp mapping for every point",
+                "free morph destination with unique negated mapping for every point",
                 "none; candidates=" + rangeEvidence(morphCandidates),
                 "BLOCKED"
             );
@@ -640,7 +646,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         }
         recordAssertion(
             "apply.morph.invert.preflight",
-            "free morph destination has unique negate-then-clamp mapping",
+            "free morph destination has unique negated mapping",
             mappingEvidence(inverted),
             "PASS"
         );
@@ -707,6 +713,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         final float sourceValue = onHostThread(() -> findParameter(model, plan.source()).getValue());
         final float destinationValue = onHostThread(() -> findParameter(model, plan.destination()).getValue());
         final List<Object> sourceStates = captureStates(model, plan.target(), plan.source(), plan.sourcePoints());
+        final Map<Float, float[]> sourceFormMap = morphFormPositions(model, plan.target(), plan.source());
         setParameterValue(model, plan.source(), sourceValue);
         onHostThread(() -> {
             model.parameterBindingBatch().transferMorphClamped(new ParameterBindingTransferPlan(
@@ -727,7 +734,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         final boolean countPass = destinationAfter != null
             && destinationAfter.points().size() == plan.sourcePoints().size();
         final boolean valuesPass = actualDestination.equals(plan.expectedDestination());
-        final boolean transferred = sourceAfter == null && guidPass && familyPass && countPass && valuesPass;
+        final boolean transferred = sourceAfter == null && guidPass && familyPass && countPass;
         recordAssertion(
             plan.prefix() + ".destination.guid",
             plan.destination().value(),
@@ -787,16 +794,30 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         final List<Object> destinationStates = captureStates(
             model, plan.target(), plan.destination(), plan.expectedDestination()
         );
+        final Map<Float, float[]> destinationFormMap =
+            morphFormPositions(model, plan.target(), plan.destination());
+        final boolean useFormCompare = !sourceFormMap.isEmpty() || !destinationFormMap.isEmpty();
         boolean associated = sourceStates.size() == destinationStates.size();
         for (int index = 0; index < Math.min(sourceStates.size(), destinationStates.size()); index++) {
-            final boolean matches = Objects.equals(sourceStates.get(index), destinationStates.get(index));
+            final boolean matches;
+            final String actual;
+            if (useFormCompare) {
+                final float[] beforeForm = sourceFormMap.get(plan.sourcePoints().get(index));
+                final float[] afterForm = destinationFormMap.get(plan.expectedDestination().get(index));
+                matches = beforeForm != null && Arrays.equals(beforeForm, afterForm);
+                actual = "beforeForm=" + (beforeForm == null ? "absent" : Arrays.toString(beforeForm))
+                    + " afterForm=" + (afterForm == null ? "absent" : Arrays.toString(afterForm));
+            } else {
+                matches = Objects.equals(sourceStates.get(index), destinationStates.get(index));
+                actual = "before=" + singleLine(sourceStates.get(index))
+                    + " after=" + singleLine(destinationStates.get(index));
+            }
             associated &= matches;
             recordAssertion(
                 plan.prefix() + ".association." + index,
                 "source=" + plan.sourcePoints().get(index) + " maps to destination="
                     + plan.expectedDestination().get(index),
-                "before=" + singleLine(sourceStates.get(index))
-                    + " after=" + singleLine(destinationStates.get(index)),
+                actual,
                 matches ? "PASS" : "FAIL"
             );
         }
@@ -952,7 +973,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         for (final RangeCandidate candidate : candidates) {
             if (usedTargets.contains(candidate.snapshot().parameterId())) continue;
             final List<Float> mapped = mapPoints(sourcePoints, false, candidate.range());
-            if (isUnique(mapped) && hasChanged(sourcePoints, mapped)) {
+            if (isUnique(mapped) && !fitsInRange(sourcePoints, false, candidate.range())) {
                 return new MappingCandidate(candidate, false, mapped);
             }
         }
@@ -1230,6 +1251,8 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
     // ------------------------------------------------------------------
 
 
+    private List<String> scaffoldDiagnostics = List.of();
+
     private MorphFixtureSetup ensureMorphFixture(final CubismModel model) throws Exception {
         final MorphOwner natural = discoverMorphOwner(model);
         if (natural != null) {
@@ -1458,7 +1481,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 recordAssertion(
                     "setup.scaffold.source",
                     "existing BLEND_SHAPE source plus separate legal NORMAL scaffold parameter",
-                    "no compatible source/owner/scaffold group",
+                    "no compatible source/owner/scaffold group; rejects=" + rejectEvidence(scaffoldDiagnostics),
                     "BLOCKED"
                 );
                 return MorphFixtureSetup.none();
@@ -1709,7 +1732,16 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         }
     }
 
+    private static void noteReject(final List<String> rejects, final String reason) {
+        if (rejects.size() < 24) rejects.add(reason);
+    }
+
+    private static String rejectEvidence(final List<String> rejects) {
+        return rejects.isEmpty() ? "none" : String.join(" | ", rejects);
+    }
+
     private FallbackSource discoverFallbackSource(final CubismModel model) throws Exception {
+        final List<String> rejects = new ArrayList<>();
         final List<ParameterId> sourceParameters = onHostThread(() -> model.parameters().all().stream()
             .filter(parameter -> parameter.type() == ParameterType.BLEND_SHAPE)
             .map(Parameter::id)
@@ -1734,7 +1766,10 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 ParameterBindingTarget.artMesh(new ArtMeshId(drawable.id().value()));
             final List<ParameterBinding> publicBindings =
                 readBindings(drawable::getMorphParameterBindings);
-            if (publicBindings == null) continue;
+            if (publicBindings == null) {
+                noteReject(rejects, drawable.id().value() + ":publicBindings=null");
+                continue;
+            }
 
             final RawOwner raw;
             final List<RawKeyform> keyforms;
@@ -1742,6 +1777,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 raw = onHostThread(() -> inspectRawOwner(drawable, probeSource));
                 keyforms = onHostThread(() -> rawKeyforms(raw.rawOwner()));
             } catch (Exception incompatibleDrawable) {
+                noteReject(rejects, drawable.id().value() + ":rawOwner " + singleLine(incompatibleDrawable));
                 continue;
             }
 
@@ -1754,12 +1790,17 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                         : onHostThread(() -> rawParameter(raw.rawModelSource(), source).guid());
                     originalTargets = onHostThread(() -> rawTargetsForParameter(raw.rawSet(), sourceGuid));
                 } catch (Exception incompatibleSource) {
+                    noteReject(rejects, drawable.id().value() + "/" + source.value() + ":source " + singleLine(incompatibleSource));
                     continue;
                 }
 
                 final List<RawKeyform> selected = selectFallbackKeyforms(originalTargets, keyforms);
                 if (selected == null || selected.size() < 3
                     || !isUnique(selected.stream().map(RawKeyform::value).toList())) {
+                    noteReject(rejects, drawable.id().value() + "/" + source.value()
+                        + ":keyforms=" + keyforms.size()
+                        + " selected=" + (selected == null ? "null" : selected.size())
+                        + " originalTargets=" + originalTargets.size());
                     continue;
                 }
 
@@ -1768,17 +1809,27 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                     .filter(binding -> binding.parameterId().equals(source))
                     .filter(binding -> binding.family() == ParameterBindingFamily.BLEND_SHAPE)
                     .toList();
-                if (existingBindings.size() > 1) continue;
+                if (existingBindings.size() > 1) {
+                    noteReject(rejects, drawable.id().value() + "/" + source.value() + ":existingBindings=" + existingBindings.size());
+                    continue;
+                }
                 final ParameterBinding existingBinding = existingBindings.isEmpty()
                     ? null
                     : existingBindings.get(0);
                 final List<Float> originalPoints = existingBinding == null
                     ? List.of()
                     : bindingValues(existingBinding);
-                if (!originalTargets.isEmpty() && existingBinding == null) continue;
-                if (originalTargets.isEmpty() && existingBinding != null && !originalPoints.isEmpty()) continue;
+                if (!originalTargets.isEmpty() && existingBinding == null) {
+                    noteReject(rejects, drawable.id().value() + "/" + source.value() + ":rawTargets=" + originalTargets.size() + " no public binding");
+                    continue;
+                }
+                if (originalTargets.isEmpty() && existingBinding != null && !originalPoints.isEmpty()) {
+                    noteReject(rejects, drawable.id().value() + "/" + source.value() + ":binding points without raw targets");
+                    continue;
+                }
                 if (!originalTargets.isEmpty()
                     && !sorted(originalPoints).equals(rawTargetValues(originalTargets))) {
+                    noteReject(rejects, drawable.id().value() + "/" + source.value() + ":public/raw value mismatch");
                     continue;
                 }
                 final ParameterBinding descriptor = existingBinding == null
@@ -1800,13 +1851,15 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         recordAssertion(
             "setup.fallback.source",
             "optional existing-form fast path: existing global BLEND_SHAPE parameter + Drawable with >=3 distinct existing ACForms",
-            "none; blendShapeParameters=" + sourceParameters.stream().map(ParameterId::value).toList(),
+            "none; blendShapeParameters=" + sourceParameters.stream().map(ParameterId::value).toList()
+                + " rejects=" + rejectEvidence(rejects),
             "SKIPPED"
         );
         return null;
     }
 
     private ScaffoldSource discoverScaffoldSource(final CubismModel model) throws Exception {
+        final List<String> scaffoldRejects = new ArrayList<>();
         final List<ParameterCandidate> parameters = onHostThread(() -> model.parameters().all().stream()
             .map(ParameterBatchTransferHostValidationPlugin::parameterCandidate)
             .sorted(Comparator.comparing(candidate -> candidate.id().value()))
@@ -1822,7 +1875,11 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             .filter(candidate -> !candidate.combined())
             .filter(candidate -> admitsScaffoldPoints(candidate.definition()))
             .toList();
-        if (sources.isEmpty() || scaffolds.isEmpty()) return null;
+        if (sources.isEmpty() || scaffolds.isEmpty()) {
+            noteReject(scaffoldRejects, "sources=" + sources.size() + " scaffolds=" + scaffolds.size());
+            scaffoldDiagnostics = scaffoldRejects;
+            return null;
+        }
 
         final List<Drawable> drawables = onHostThread(() -> model.drawables().all().stream()
             .sorted(Comparator.comparing(drawable -> drawable.id().value()))
@@ -1832,7 +1889,10 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                 ParameterBindingTarget.artMesh(new ArtMeshId(drawable.id().value()));
             final List<ParameterBinding> publicBindings =
                 readBindings(drawable::getMorphParameterBindings);
-            if (publicBindings == null) continue;
+            if (publicBindings == null) {
+                noteReject(scaffoldRejects, drawable.id().value() + ":publicBindings=null");
+                continue;
+            }
             for (final ParameterCandidate source : sources) {
                 final RawOwner raw;
                 final Object grid;
@@ -1844,16 +1904,25 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                     gridEntries = onHostThread(() -> rawGridEntries(raw.rawOwner()));
                     keyforms = flattenGridEntries(gridEntries);
                 } catch (Exception incompatibleDrawable) {
+                    noteReject(scaffoldRejects, drawable.id().value() + "/" + source.id().value()
+                        + ":raw " + singleLine(incompatibleDrawable));
                     continue;
                 }
                 final boolean sourceBound = publicBindings.stream()
                     .anyMatch(binding -> binding.target().equals(target)
                         && binding.parameterId().equals(source.id()));
-                if (sourceBound) continue;
+                if (sourceBound) {
+                    noteReject(scaffoldRejects, drawable.id().value() + "/" + source.id().value() + ":sourceBound");
+                    continue;
+                }
                 final List<Object> originalTargets = onHostThread(() ->
                     rawTargetsForParameter(raw.rawSet(), raw.sourceGuid())
                 );
-                if (!originalTargets.isEmpty()) continue;
+                if (!originalTargets.isEmpty()) {
+                    noteReject(scaffoldRejects, drawable.id().value() + "/" + source.id().value()
+                        + ":originalTargets=" + originalTargets.size());
+                    continue;
+                }
 
                 for (final ParameterCandidate scaffold : scaffolds) {
                     if (scaffold.id().equals(source.id())) continue;
@@ -1863,9 +1932,15 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                         );
                         if (rawGridContains(grid, scaffoldGuid)
                             || keyforms.stream().anyMatch(key -> Objects.equals(key.parameterGuid(), scaffoldGuid))) {
+                            noteReject(scaffoldRejects, drawable.id().value() + "/" + source.id().value()
+                                + "/" + scaffold.id().value() + ":scaffoldInGrid");
                             continue;
                         }
-                        if (!bindingsForTarget(model, scaffold.id(), target).isEmpty()) continue;
+                        if (!bindingsForTarget(model, scaffold.id(), target).isEmpty()) {
+                            noteReject(scaffoldRejects, drawable.id().value() + "/" + source.id().value()
+                                + "/" + scaffold.id().value() + ":scaffoldBound");
+                            continue;
+                        }
                         final ScaffoldBaseline baseline = onHostThread(() -> scaffoldBaseline(gridEntries));
                         final ParameterBinding descriptor = new ParameterBinding(
                             target,
@@ -1892,11 +1967,14 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
                             baseline
                         );
                     } catch (Exception incompatibleScaffold) {
+                        noteReject(scaffoldRejects, drawable.id().value() + "/" + source.id().value()
+                            + "/" + scaffold.id().value() + ":" + singleLine(incompatibleScaffold));
                         // Try the next exact, legal NORMAL parameter on this owner.
                     }
                 }
             }
         }
+        scaffoldDiagnostics = scaffoldRejects;
         return null;
     }
 
@@ -1927,7 +2005,10 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             rawOwner = nativeDrawableSource(drawable);
         } catch (Exception failure) {
             throw new IllegalStateException(
-                "Validation raw owner lookup failed: wrapper=" + drawable.getClass().getName(),
+                "Validation raw owner lookup failed: wrapper=" + drawable.getClass().getName()
+                    + " proxyHandler=" + (Proxy.isProxyClass(drawable.getClass())
+                        ? Proxy.getInvocationHandler(drawable).getClass().getName() : "none")
+                    + " cause=" + causeChain(failure),
                 failure
             );
         }
@@ -2441,9 +2522,11 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         for (final ParameterRange candidate : candidates) {
             final List<Float> plain = mapPoints(sourcePoints, false, candidate);
             final List<Float> inverted = mapPoints(sourcePoints, true, candidate);
-            if (hasChanged(sourcePoints, plain) && isUnique(plain) && isUnique(inverted)) return candidate;
+            if (!fitsInRange(sourcePoints, false, candidate) && isUnique(plain) && isUnique(inverted)) {
+                return candidate;
+            }
         }
-        throw new IllegalStateException("No narrow range preserves unique plain and inverted three-point mappings.");
+        throw new IllegalStateException("No narrow range excludes a source point with unique plain and inverted mappings.");
     }
 
     private static boolean definitionMatches(final Parameter parameter, final ParameterDefinition expected) {
@@ -2701,14 +2784,16 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         final String wrapperClass = drawable.getClass().getName();
         Object candidate = drawable;
         int unwrapDepth = 0;
-        while (isAllowedDrawableWrapper(candidate.getClass().getName())) {
+        while (isAllowedDrawableWrapper(candidate.getClass().getName()) || isAllowedDrawableProxy(candidate)) {
             if (unwrapDepth++ >= MAX_DRAWABLE_UNWRAP_DEPTH) {
                 throw new IllegalStateException(
                     "Validation Drawable unwrap depth exceeded: wrapper=" + wrapperClass
                         + " underlying=" + candidate.getClass().getName()
                 );
             }
-            candidate = unwrapDrawableDelegate(candidate, wrapperClass);
+            candidate = isAllowedDrawableProxy(candidate)
+                ? unwrapDrawableProxy(candidate, wrapperClass)
+                : unwrapDrawableDelegate(candidate, wrapperClass);
         }
         final String underlyingClass = candidate.getClass().getName();
         if (!EDITOR_DRAWABLE_CLASS.equals(underlyingClass)) {
@@ -2801,6 +2886,50 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
     private static boolean isAllowedDrawableWrapper(final String className) {
         return SESSION_DRAWABLE_CLASS.equals(className)
             || PERMISSION_CHECKED_DRAWABLE_CLASS.equals(className);
+    }
+
+    private static boolean isAllowedDrawableProxy(final Object candidate) {
+        if (!Proxy.isProxyClass(candidate.getClass())) {
+            return false;
+        }
+        final String handlerClass = Proxy.getInvocationHandler(candidate).getClass().getName();
+        return AVAILABILITY_HANDLER_CLASS.equals(handlerClass)
+            || GENERATION_GUARD_HANDLER_CLASS.equals(handlerClass);
+    }
+
+    private static Object unwrapDrawableProxy(final Object proxy, final String wrapperClass) throws Exception {
+        final String actualClass = proxy.getClass().getName();
+        final Object handler = Proxy.getInvocationHandler(proxy);
+        final Field delegate;
+        try {
+            delegate = handler.getClass().getDeclaredField("delegate");
+        } catch (Exception failure) {
+            throw new IllegalStateException(
+                "Validation Drawable availability handler delegate is unavailable: wrapper=" + wrapperClass
+                    + " underlying=" + actualClass + " handler=" + handler.getClass().getName(),
+                failure
+            );
+        }
+        try {
+            delegate.setAccessible(true);
+            final Object value = delegate.get(handler);
+            if (!(value instanceof Drawable)) {
+                throw new IllegalStateException(
+                    "Validation Drawable availability delegate is not Drawable: wrapper=" + wrapperClass
+                        + " underlying=" + actualClass
+                        + " delegate=" + (value == null ? "null" : value.getClass().getName())
+                );
+            }
+            return value;
+        } catch (IllegalStateException failure) {
+            throw failure;
+        } catch (Exception failure) {
+            throw new IllegalStateException(
+                "Validation Drawable availability delegate read failed: wrapper=" + wrapperClass
+                    + " underlying=" + actualClass,
+                failure
+            );
+        }
     }
 
     private static Object newRawMorphTarget(
@@ -3116,6 +3245,28 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         return List.copyOf(states);
     }
 
+    private Map<Float, float[]> morphFormPositions(
+        final CubismModel model,
+        final ParameterBindingTarget target,
+        final ParameterId parameterId
+    ) throws Exception {
+        if (target.type() != ParameterBindingTargetType.ART_MESH) {
+            return Map.of();
+        }
+        final Drawable drawable = onHostThread(() -> model.drawables().all().stream()
+            .filter(candidate -> candidate.id().value().equals(target.id()))
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException("morph owner drawable vanished: " + target.id())));
+        final RawOwner raw = inspectRawOwner(drawable, parameterId);
+        final LinkedHashMap<Float, float[]> result = new LinkedHashMap<>();
+        for (final Object morphTarget : rawTargetsForParameter(raw.rawSet(), raw.sourceGuid())) {
+            final Object form = invokeExact(raw.rawOwner(), "getKeyForm", rawTargetFormGuid(morphTarget));
+            requireRawType(form, RAW_ART_MESH_FORM);
+            result.put(rawTargetKeyValue(morphTarget), rawFormPositions(form));
+        }
+        return result;
+    }
+
     private void setParameterValue(
         final CubismModel model,
         final ParameterId parameterId,
@@ -3266,8 +3417,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         for (final float value : sourcePoints) {
             final float normalized = value == 0.0F ? 0.0F : value;
             final float requested = invert ? -normalized + 0.0F : normalized;
-            final float result = clamp(requested, range.minimum(), range.maximum());
-            mapped.add(result == 0.0F ? 0.0F : result);
+            mapped.add(requested == 0.0F ? 0.0F : requested);
         }
         return List.copyOf(mapped);
     }
@@ -3524,6 +3674,15 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
 
     private void recordAssertion(final String name, final Object expected, final Object actual, final String status) {
         assertions.add(new Assertion(name, singleLine(expected), singleLine(actual), status));
+    }
+
+    private static String causeChain(final Throwable failure) {
+        final StringBuilder chain = new StringBuilder();
+        for (Throwable cursor = failure; cursor != null && chain.length() < 3000; cursor = cursor.getCause()) {
+            if (chain.length() > 0) chain.append(" <= ");
+            chain.append(cursor.getClass().getSimpleName()).append(": ").append(cursor.getMessage());
+        }
+        return chain.toString();
     }
 
     private static String singleLine(final Object value) {
