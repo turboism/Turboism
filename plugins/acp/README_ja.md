@@ -16,70 +16,82 @@ interface: swing
 
 > **Turboism 公式プラグイン** · **ステータス: 開発中 — 未公開**
 
-Agent と Settings の 2 つのウィンドウを開き、ユーザーがインストールした ACP 対応エージェントを Agent Client Protocol (ACP) v1 経由で認証済み Turboism MCP サーバーへ接続します。
+Agent 会話ウィンドウと Agent 設定ウィンドウを開き、ユーザーがインストールした ACP v1 対応エージェントを Agent Client Protocol 経由で駆動し、認証情報を持たない stdio ブリッジでローカル Turboism MCP サーバーへ接続します。
 
-| 項目 | 値 |
-|---|---|
-| プラグイン ID | `dev.turboism.plugin.acp` |
-| 表示名 | Turboism ACP |
-| カテゴリ | 統合 |
-| タグ | automation, acp, agent |
-| 配布 | 開発ビルドのみ — リリースパッケージには同梱されません |
+## このプラグインの機能
+
+- **Agent**（会話）と **Agent 設定** の 2 つの Swing ウィンドウを開きます。
+- stdin/stdout JSON-RPC でユーザーインストールの ACP エージェントを起動します：Claude Agent ACP、Codex ACP、Antigravity、Gemini CLI、OpenCode、Pi、Devin CLI、またはカスタムコマンド。
+- ACP v1 契約に従い `initialize`、`authenticate`、`session/new`、`session/load`、`session/resume`、`session/prompt`、`session/cancel`、`session/close`、`session/list`、`session/update`、`session/request_permission`、`session/set_config_option`、`logout` を駆動します。
+- Turboism MCP サーバーを ACP stdio MCP サーバーとして接続し、エージェントが Cubism ツールを利用できるようにします。HTTP エンドポイントは HTTP MCP サポートのみを宣言するエージェント向けの読み取り専用フォールバックとして残ります。
+- PATH および一般的なインストール先でエージェント実行ファイルを検出し、少量のプラグイン保有状態（選択エージェント、カスタムコマンド、永続セッション ID、初期指示）を保存します。
+
+## 要件と互換性
+
+- Turboism SDK API 範囲 `[0.1.0,0.2.0)`。
+- ユーザーがインストールした ACP v1 対応エージェント実行ファイル。PATH 上にあるか、**Agent 設定** でカスタムコマンドとして設定します。
+- MCP ツールを使う場合は、同梱の `dev.turboism.plugin.mcp` プラグインが Turboism MCP サーバーを提供します。
+- インストール済みの Cubism Editor ホストが必要です。スタンドアロンプレビュー内では動作しません。
+
+## インストールと有効化
+
+- このプラグインは Turboism に同梱され、既定で有効です。
+- **Agent 設定** を開いてエージェントを選択するか、カスタムコマンドを入力してください。
+
+## 使用方法
+
+1. メインツールバーの ACP Agent アイコンをクリックするか、Turboism メニューから Agent ウィンドウを開きます。
+2. **Agent 設定** でエージェントを選択するか、カスタムコマンドを入力して保存します。
+3. **接続** を押します。エージェントが認証を要求する場合は **サインイン…** を押して宣言された方式を完了します。
+4. 会話フィールドにプロンプトを入力します。エージェントは Turboism MCP ツールを呼び出せます。権限プロンプトはウィンドウ内のダイアログとして表示されます。
+5. エージェントが設定オプションを宣言している場合は、セッションオプションタブで provider、model、mode を切り替えます。
+
+### MCP 接続方式
+
+- MCP サーバーが stdio 起動記述子を公開している場合、セッションは `{name:"turboism", command, args, env:[]}` で接続し、ブリッジプロセス自身が永続化された bearer token を付与します。エージェントは読み取り・書き込みツールを利用できます。
+- HTTP エンドポイントのみ利用可能で、エージェントが HTTP MCP サポートを宣言している場合、セッションはエンドポイントを読み取り専用として接続します。変更系の呼び出しは引き続き bearer token でゲートされ、その token が MCP 状態ディレクトリの外に出ることはありません。
+- どちらの形式も利用できない場合、セッションは MCP ツールなしで実行されます。
 
 ## 機能
 
-- `PATH` またはカスタムコマンドからユーザーインストール済みのエージェント実行ファイルを検出・起動し、シェルを介さず監視付き stdio で ACP v1 を話します。
-- エージェントランタイムは同梱しません。Turboism はサードパーティのエージェントバイナリをダウンロード・同梱・検証・管理しません。
-- HTTP MCP 対応を宣言したエージェントへ現在の認証済み Turboism MCP エンドポイントを渡し、型付き Cubism 自動化ツールを呼び出せます。
-- 永続セッションのサイドバー、色分けされた有界ライブトランスクリプト、IME 対応のプロンプト送信、キャンセル、権限確認、ACP 駆動の認証を備えた専用 Agent 会話ウィンドウを提供します。
-- エージェントが対応するセッションケイパビリティを宣言した場合、永続セッションの一覧・作成・読み込み・再開・終了を行います。
+| 機能 | ユーザーへの効果 |
+|---|---|
+| `automation.agent.acp` | Agent Client Protocol v1 経由でユーザーインストールの ACP 対応エージェントへ接続します。 |
+| `mcp.client` | 認証情報を持たない stdio ブリッジでローカル Turboism MCP サーバーをエージェントセッションへ接続し、HTTP エンドポイントを読み取り専用フォールバックとして使います。 |
+| `ui.window` | Agent 会話ウィンドウと Agent 設定ウィンドウを開きます。 |
 
-## エージェント選択
+## 権限
 
-Settings → Agent で内蔵カタログまたはカスタムコマンドを選びます。
-
-| エージェント | 実行ファイル | ACP 起動 |
+| 権限 | スコープ | 要求理由 |
 |---|---|---|
-| Claude Agent (ACP) | `claude-agent-acp` | 直接 |
-| Codex (ACP) | `codex-acp` | 直接 |
-| Google Antigravity | `agy-acp` | 直接 |
-| Gemini CLI | `gemini` | `--experimental-acp` |
-| OpenCode | `opencode` | `acp` サブコマンド |
-| Pi (ACP) | `pi-acp` | 直接 |
-| Devin CLI | `devin` | `acp` サブコマンド |
-| カスタムコマンド | ユーザー argv | 入力どおり |
+| `turboism.action.register` | `application` | Agent ウィンドウを開くアクションを登録します。 |
+| `turboism.ui.menu.contribute` | `application` | Turboism メニューに Agent 設定の項目を追加します。 |
+| `turboism.ui.toolbar.main.contribute` | `application` | メインツールバーの Turboism Home の隣に Agent ボタンを追加します。 |
+| `turboism.config.plugin.read` | `application` | 選択エージェント ID、カスタムコマンド、永続セッション ID、初期指示を復元します。 |
+| `turboism.config.plugin.write` | `application` | 上記のプラグイン保有状態を保存します。エージェント認証情報や MCP 認可は保存しません。 |
+| `turboism.file.read` | `application` | PATH と一般的なインストール先でユーザーインストールのエージェント実行ファイルを検出します。 |
+| `turboism.process.run` | `application` | 選択したエージェント実行ファイルを起動・管理します。 |
+| `turboism.mcp.connection.read` | `application` | 認証情報を持たない stdio 起動記述子を含む現在の MCP 接続スナップショットを読み取り、エンドポイント変更を購読して接続済みセッションを再接続します。 |
 
-**検出**は `PATH` と一般的なユーザー別インストールディレクトリを探します。エージェントの認証・プロバイダ・モデルはエージェント自身が管理します。ACP `authMethods` を公開するエージェントは Settings ページからサインインでき、端末ログインが必要なエージェントは **ログイン端末を開く** から起動します。Turboism はエージェントの資格情報を保存しません。
+## プライバシーとデータ
 
-## 実行時とセキュリティモデル
+- プラグインは自身のスコープにプラグイン保有設定のみを保存します：選択エージェント、カスタムコマンド、永続セッション ID、初期指示。
+- MCP bearer token は ACP ペイロード、コマンドライン引数、環境変数、UI テキスト、ログのいずれにも入りません。stdio ブリッジが MCP プラグイン状態ディレクトリ内でそれを読み取ります。
+- プロンプトとトランスクリプトの内容はローカルに起動したエージェントプロセスにのみ送られます。
 
-- **プロセス境界:** 選択されたエージェントは Turboism が監視する子プロセスとして動作し、終了時にプロセスツリーごと停止します。
-- **MCP 接続:** エージェントが HTTP MCP を宣言した場合のみ、認証済み loopback MCP エンドポイントをセッションへ注入します。URL にトークンは含まれず、信頼境界はユーザーがインストールして選んだエージェントバイナリです。
-- **権限:** すべてのエージェントツール呼び出しは ACP `session/request_permission` ダイアログで事前に確認されます。
-- **常時指示:** 固定の境界プロンプトはエージェントへ Turboism MCP ツールのみ使うよう指示しますが、これは助言であり隔離境界ではありません。ネイティブのファイル/端末ツールを持つエージェントは各エージェント自身の設定で管理されます。
+## 制限とステータス
 
-## 使い方
+- 開発中プラグイン：インターフェースと永続状態の形式はリリース間で変更される場合があります。
+- エージェント側機能（永続セッション、モデルセレクター、モード）は各エージェントが宣言する機能に依存します。
 
-1. 対応エージェントを 1 つインストールし、端末ログインが必要なら各 CLI でサインインします。
-2. プラグイン管理で **Turboism MCP Server** と **Turboism ACP** を有効化します。
-3. **Turboism → ACP Settings** を開き、エージェントを選ぶかカスタムコマンドを入力して、**検出** またはサインインを実行します。
-4. メインツールバーの **ACP** アイコンで Agent ウィンドウを開き、セッションを開始します。
+## トラブルシューティング
 
-## 付与される権限
+- **「Executable not found」で接続に失敗する**：**Agent 設定** でカスタムコマンドを設定するか、検出対象のいずれかのエージェントをインストールして PATH 上に置いてください。
+- **「エージェントがサインインを必要としています」**：**サインイン…** を押してエージェントの認証方式を完了し、再接続してください。
+- **セッションで Cubism ツールが使えない**：Agent トランスクリプトに MCP が書き込み可能（stdio ブリッジ）、読み取り専用（HTTP）、未接続のいずれで接続されたか表示されます。`dev.turboism.plugin.mcp` プラグインが有効で起動しているか確認してください。
+- **セッションを読み込めない**：保存された永続セッションが古い可能性があります。プラグインは自動で新規セッションへフォールバックします。
 
-| 権限 | スコープ | 目的 |
-|---|---|---|
-| `turboism.action.register` | application | Agent ウィンドウと Settings を開くアクションを登録します。 |
-| `turboism.ui.menu.contribute` | application | Turboism メニューへ **ACP Settings** を追加します。 |
-| `turboism.ui.toolbar.main.contribute` | application | メインツールバーの Turboism Home の隣へ ACP Agent アイコンを追加します。 |
-| `turboism.config.plugin.read` | application | 選択済みエージェント ID、カスタムコマンド、永続セッション ID、初期指示を復元します。 |
-| `turboism.config.plugin.write` | application | その Turboism 管理の状態を保存します。エージェント資格情報やトランスクリプトは保存しません。 |
-| `turboism.file.read` | application | PATH と一般的なユーザー別インストールディレクトリにあるエージェント実行ファイルを検出します。 |
-| `turboism.process.run` | application | 選択されたエージェント実行ファイルを起動・監視します。 |
-| `turboism.mcp.connection.read` | application | 現在の認証済み MCP エンドポイントを読み取り、その変更を購読して ACP セッションへ接続します。 |
+## サポートとライセンス
 
-## 既知の制限
-
-- ACP v1 のみ対応。プロトコル v2（`auth/login`、`session/resume` 相当）はまだ交渉しません。
-- セッション中に MCP サーバーを無効化・再起動すると、プラグインがエンドポイント変更を検知して自動的に再接続し、新しいエンドポイントにバインドし直します。永続セッションは agent の load/resume 機能で復元されます（ACP は既存セッションの `mcpServers` を再バインドできません）。
-- 実エージェントバイナリに対するホストレベル検証は、廃止された fx プローブに代わるスクリプト化 ACP エージェントフィクスチャが用意されるまで手動です。
+- 問題は Turboism のサポートチャンネルへ報告してください。
+- Turboism と同じライセンスで配布されます。

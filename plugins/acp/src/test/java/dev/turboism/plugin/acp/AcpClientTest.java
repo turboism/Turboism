@@ -74,6 +74,85 @@ final class AcpClientTest {
     }
 
     @Test
+    void attachesTheStdioBridgeServerRegardlessOfHttpCapability() throws Exception {
+        try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
+                    final String method = string(request.get("method"));
+                    final long id = (Long) request.get("id");
+                    if ("initialize".equals(method)) {
+                        output.response(id, initializeResult(false));
+                    } else if ("session/new".equals(method)) {
+                        final Map<String, Object> params = object(request.get("params"));
+                        final List<Object> servers = list(params.get("mcpServers"));
+                        assertEquals(1, servers.size());
+                        final Map<String, Object> server = object(servers.get(0));
+                        assertEquals(java.util.Set.of("name", "command", "args", "env"), server.keySet());
+                        assertEquals("turboism", server.get("name"));
+                        assertEquals(stdioLaunch().command(), server.get("command"));
+                        assertEquals(stdioLaunch().args(), server.get("args"));
+                        assertEquals(List.of(), server.get("env"));
+                        output.response(id, Map.of("sessionId", "sess-stdio"));
+                    }
+                });
+                AcpClient client = new AcpClient(transport, new AcpListener() {})) {
+            client.initialize(Duration.ofSeconds(2));
+            assertFalse(client.capabilities().mcpHttp());
+            assertEquals(
+                    "sess-stdio",
+                    client.newSession(Path.of("."), stdioConnection(), Duration.ofSeconds(2))
+                            .sessionId());
+        }
+    }
+
+    @Test
+    void stdioServerPayloadCarriesNoTokenMaterial() throws Exception {
+        final String token = "ab12cd34".repeat(8);
+        try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
+                    final String method = string(request.get("method"));
+                    final long id = (Long) request.get("id");
+                    if ("initialize".equals(method)) {
+                        output.response(id, initializeResult());
+                    } else if ("session/new".equals(method)) {
+                        final Map<String, Object> params = object(request.get("params"));
+                        final List<Object> servers = list(params.get("mcpServers"));
+                        final Map<String, Object> server = object(servers.get(0));
+                        assertFalse(server.toString().contains(token));
+                        assertFalse(server.toString().contains("Bearer"));
+                        @SuppressWarnings("unchecked")
+                        final List<String> args = (List<String>) server.get("args");
+                        args.forEach(arg -> assertFalse(arg.contains(token)));
+                        output.response(id, Map.of("sessionId", "sess-1"));
+                    }
+                });
+                AcpClient client = new AcpClient(transport, new AcpListener() {})) {
+            client.initialize(Duration.ofSeconds(2));
+            client.newSession(Path.of("."), stdioConnection(), Duration.ofSeconds(2));
+        }
+    }
+
+    @Test
+    void omitsMcpServersWhenNeitherStdioNorHttpIsUsable() throws Exception {
+        try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
+                    final String method = string(request.get("method"));
+                    final long id = (Long) request.get("id");
+                    if ("initialize".equals(method)) {
+                        output.response(id, initializeResult(false));
+                    } else if ("session/new".equals(method)) {
+                        final Map<String, Object> params = object(request.get("params"));
+                        assertEquals(List.of(), params.get("mcpServers"));
+                        output.response(id, Map.of("sessionId", "sess-none"));
+                    }
+                });
+                AcpClient client = new AcpClient(transport, new AcpListener() {})) {
+            client.initialize(Duration.ofSeconds(2));
+            assertFalse(client.capabilities().mcpHttp());
+            assertEquals(
+                    "sess-none",
+                    client.newSession(Path.of("."), connection(), Duration.ofSeconds(2))
+                            .sessionId());
+        }
+    }
+
+    @Test
     void parsesTheExactAdvertisedSessionLifecycleSurface() throws Exception {
         try (ScriptedTransport transport = new ScriptedTransport(
                         (request, output) -> output.response((Long) request.get("id"), initializeResult()));
@@ -954,6 +1033,10 @@ final class AcpClientTest {
     }
 
     private static Map<String, Object> initializeResult() {
+        return initializeResult(true);
+    }
+
+    private static Map<String, Object> initializeResult(final boolean mcpHttp) {
         return Map.of(
                 "protocolVersion", 1L,
                 "agentInfo", Map.of("name", "test-agent", "version", "9.9.9"),
@@ -967,11 +1050,23 @@ final class AcpClientTest {
                                         "resume", Map.of(),
                                         "close", Map.of()),
                                 "mcpCapabilities",
-                                Map.of("http", true)));
+                                Map.of("http", mcpHttp)));
     }
 
     private static McpHttpConnection connection() {
         return new McpHttpConnection(URI.create("http://127.0.0.1:43123/mcp"), "2025-11-25");
+    }
+
+    private static McpHttpConnection stdioConnection() {
+        return new McpHttpConnection(URI.create("http://127.0.0.1:43123/mcp"), "2025-11-25", stdioLaunch());
+    }
+
+    private static dev.turboism.sdk.mcp.McpStdioLaunch stdioLaunch() {
+        return new dev.turboism.sdk.mcp.McpStdioLaunch(
+                java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java")
+                        .toAbsolutePath()
+                        .toString(),
+                List.of("-cp", "/plugins dir/mcp.jar", "dev.turboism.plugin.mcp.TurboismMcpBridge", "/state dir"));
     }
 
     private static List<Map<String, Object>> options(final String provider, final String model) {
