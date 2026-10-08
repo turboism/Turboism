@@ -7,7 +7,7 @@ import java.nio.file.Path;
 final class EditorSelectorContractTestPaths {
 
     private static final Path PROJECT_ROOT = locateProjectRoot();
-    private static final Path LEGACY_EVIDENCE = locateLegacyEvidence();
+    private static Path legacyEvidence;
 
     private EditorSelectorContractTestPaths() {}
 
@@ -15,8 +15,27 @@ final class EditorSelectorContractTestPaths {
         return PROJECT_ROOT;
     }
 
-    static Path legacyEvidence() {
-        return LEGACY_EVIDENCE;
+    static synchronized Path legacyEvidence() {
+        if (legacyEvidence == null) {
+            legacyEvidence = locateLegacyEvidence();
+        }
+        return legacyEvidence;
+    }
+
+    /**
+     * Resolves the external evidence directory, or {@code null} when none is provisioned.
+     * An explicitly configured but missing directory still fails loudly.
+     */
+    static synchronized Path resolveLegacyEvidence() {
+        try {
+            return legacyEvidence();
+        } catch (final IllegalStateException unavailable) {
+            final String configured = System.getenv("TURBOISM_LEGACY_CUBISM_REF");
+            if (configured != null && !configured.isBlank()) {
+                throw unavailable;
+            }
+            return null;
+        }
     }
 
     private static Path locateProjectRoot() {
