@@ -59,8 +59,14 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         void verify(Path javaExecutable) throws Exception;
     }
 
-    public static final String GRAAL_VERSION = "25.2.4";
-    public static final String JAVA_VERSION = "25.0.4";
+    /** Classpath location of the bundled managed-Graal pin (packaging/managed-graal.json). */
+    private static final String MANAGED_GRAAL_RESOURCE = "/META-INF/turboism/managed-graal.json";
+
+    private static final JsonNode MANAGED_GRAAL_MANIFEST = loadManagedGraalManifest();
+    public static final String GRAAL_VERSION =
+            MANAGED_GRAAL_MANIFEST.get("graalVersion").asText();
+    public static final String JAVA_VERSION =
+            MANAGED_GRAAL_MANIFEST.get("javaVersion").asText();
     private static final long MAX_ARCHIVE_BYTES = 400L * 1024L * 1024L;
     private static final long MAX_EXTRACTED_BYTES = 2L * 1024L * 1024L * 1024L;
     private static final int MAX_ARCHIVE_ENTRIES = 32_000;
@@ -1333,13 +1339,49 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         return new Operation(status);
     }
 
+    /**
+     * Loads the bundled managed-Graal pin ({@link #MANAGED_GRAAL_RESOURCE}): the
+     * single manifest shared with install-managed-graal.ps1 so the install-time
+     * and in-product download pins can never drift. A missing or malformed
+     * manifest fails class initialization closed.
+     */
+    private static JsonNode loadManagedGraalManifest() {
+        try (InputStream in = ManagedGraalRuntimeService.class.getResourceAsStream(MANAGED_GRAAL_RESOURCE)) {
+            if (in == null) {
+                throw new IllegalStateException("bundled managed-graal manifest is missing");
+            }
+            final JsonNode document = PROTOCOL_JSON.readTree(in);
+            if (document == null
+                    || !"turboism.managed-graal".equals(document.path("format").asText(null))
+                    || document.path("schemaVersion").asInt(-1) != 1
+                    || document.path("graalVersion").asText("").isBlank()
+                    || document.path("javaVersion").asText("").isBlank()
+                    || !document.path("platforms").isObject()) {
+                throw new IllegalStateException("bundled managed-graal manifest is malformed");
+            }
+            return document;
+        } catch (IOException e) {
+            throw new IllegalStateException("cannot read bundled managed-graal manifest", e);
+        }
+    }
+
     static final class Platform {
-        static final Platform WINDOWS_X64 = new Platform(
-                "windows-x64",
-                "bin/java.exe",
-                "graalvm-community-jdk-25i2-25.0.4_windows-x64_bin.zip",
-                341_299_924L,
-                "789d2af1c06c3c24f402d2d4a711bdbb19b36f7d8c74afe6a959492fd121ef33");
+        static final Platform WINDOWS_X64 = fromManifest("windows-x64");
+
+        private static Platform fromManifest(final String id) {
+            final JsonNode platform = MANAGED_GRAAL_MANIFEST.path("platforms").path(id);
+            final String archiveName = platform.path("archiveName").asText("");
+            final String javaRelativePath = platform.path("javaRelativePath").asText("");
+            final long archiveBytes = platform.path("archiveBytes").asLong(-1L);
+            final String sha256 = platform.path("sha256").asText("");
+            if (archiveName.isBlank()
+                    || javaRelativePath.isBlank()
+                    || archiveBytes <= 0L
+                    || !sha256.matches("[0-9a-f]{64}")) {
+                throw new IllegalStateException("bundled managed-graal manifest is malformed for " + id);
+            }
+            return new Platform(id, javaRelativePath, archiveName, archiveBytes, sha256);
+        }
 
         private final String id;
         private final String javaRelativePath;

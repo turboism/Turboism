@@ -280,11 +280,11 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 ### P07-a — 内部点Warp纯计算快路径：离线数值通过，但更慢，拒绝产品Hook
 
 - **新假设/区别**：P03-e实际缩放CPU leaf为`warp.o.a`。其原生方法约3395字节，外部点外推占大部分字节码；尝试将内部点的双线性/三角插值提取为较小纯Java循环。这不是P01点引用投影缓存，也不跳过模型更新或数学步骤。
-- **实现**：`testing/host-validation/experiments/WarpInteriorPrototype.java`，仅离线，不进入产品或辅助Agent。至多131072点/stride2..16，检查数组边界、维度/整数溢出、输出不与grid别名，完整预检所有缩放坐标后才写入；外部/边界/非有限输入回退。保留原生浮点操作顺序、in-place src/out语义，不缓存。未新增Runtime/Bootstrap seam。
+- **实现**：`testing/host-validation/experiments/WarpInteriorPrototype.java`（已在二轮评审死代码清理中删除；本条为历史记录），仅离线，不进入产品或辅助Agent。至多131072点/stride2..16，检查数组边界、维度/整数溢出、输出不与grid别名，完整预检所有缩放坐标后才写入；外部/边界/非有限输入回退。保留原生浮点操作顺序、in-place src/out语义，不缓存。未新增Runtime/Bootstrap seam。
 - **验证**：Linux JDK17加载精确已审阅JAR的纯warp singleton（不是Cubism启动），4000个固定种子case、1,538,058个raw float值逐位相同，双线性/三角、offset/stride、原地输出及拒绝不写入测试PASS。JAR hash运行时验证。Java语法diagnostics0错误。随后相同MethodHandle调用，64/1024/16384点，预热5000轮，7轮交替测量，计入全量预检成本。
 - **结果**：native/candidate中位ns每点分别20.0845/22.0542、21.0004/25.5399、13.8448/17.9026；候选分别慢9.8%、21.6%、29.3%。`NO_OFFLINE_BENEFIT`，不增加产品hook，不进行无意义实机A/B。不是用户端CPU占用回退测量，也不是RAM/GPU结论。
 - **可能原因**：完整准入扫描额外遍历输入，成本超过缩短冷分支代码的收益；原始JIT已能有效处理内部点分支。没有通过移除安全预检、忽略alias或部分写入后不安全回退来制造快样本。原因是与机制一致的解释，不是完整汇编归因。
-- **复现**：`javac --release 17 -d build/native-followup/prototype testing/host-validation/experiments/WarpInteriorPrototype.java`；Linux JDK17 `java -Djava.awt.headless=true -cp "build/native-followup/prototype:<reviewed5302-install>/app/lib/*" WarpInteriorPrototype "<reviewed5302-install>/app/lib/Live2D_Cubism.jar"`。全部7轮数值保留`build/native-followup/warp-interior-offline.log`。
+- **复现**：`javac --release 17 -d build/native-followup/prototype testing/host-validation/experiments/WarpInteriorPrototype.java`；Linux JDK17 `java -Djava.awt.headless=true -cp "build/native-followup/prototype:<reviewed5302-install>/app/lib/*" WarpInteriorPrototype "<reviewed5302-install>/app/lib/Live2D_Cubism.jar"`。（源文件已删，复现需从历史检出）全部7轮数值保留`build/native-followup/warp-interior-offline.log`。
 - **重试条件**：需要新的算法/可证明不需重复扫描的调用契约或真实输入分布；不原样重复该guard+双遍历实现。另一个排序矩阵候选仅完成字节码阅读：getSortingZOrder取首顶点经父链矩阵再camera矩阵的Z，直接用位置Z或跨帧缓存会破坏父变换/相机语义；未实施，不称为失败。
 
 ### 本轮阶段性收口与下一准入点

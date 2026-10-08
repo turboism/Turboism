@@ -598,3 +598,24 @@ Function CollectUncheckedPluginIds
   ${EndIf}
 FunctionEnd
 
+; 卸载白名单：仅删除安装器部署的插件 JAR；未知文件与第三方 JAR 保留（对齐 IzPack 卸载语义）。
+Function un.DeleteInstallerPluginJars
+  Delete "$INSTDIR\plugins\atlas-maxrects-bssf.jar"
+  Delete "$INSTDIR\plugins\clipmask-viewer.jar"
+  Delete "$INSTDIR\plugins\cubism-tab-filter.jar"
+  Delete "$INSTDIR\plugins\history-panel.jar"
+  Delete "$INSTDIR\plugins\mcp.jar"
+  Delete "$INSTDIR\plugins\mesh-edit-mirror-axis-enhance.jar"
+  Delete "$INSTDIR\plugins\palette-label-style.jar"
+  Delete "$INSTDIR\plugins\parameter-batch-transfer.jar"
+  Delete "$INSTDIR\plugins\perf-stats.jar"
+  Delete "$INSTDIR\plugins\physics-editor.jar"
+  Delete "$INSTDIR\plugins\protected-export.jar"
+  Delete "$INSTDIR\plugins\psd-clip-mask-import.jar"
+  Delete "$INSTDIR\plugins\recent-preview.jar"
+  Delete "$INSTDIR\plugins\scene-palette-enhancer.jar"
+  Delete "$INSTDIR\plugins\selection-brush.jar"
+  Delete "$INSTDIR\plugins\texture-atlas-stats.jar"
+  Delete "$INSTDIR\plugins\ui-theme.jar"
+  Delete "$INSTDIR\plugins\webdav-backup.jar"
+FunctionEnd
