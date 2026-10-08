@@ -45,6 +45,7 @@ exec bash "$runner" \
   --home-file "$seed:config/dev.turboism.plugin.acp/settings.properties" \
   --home-file "$bundle_root/acp-validation/acp-fake-agent.jar:acp-validation/acp-fake-agent.jar" \
   --home-file "$bundle_root/acp-validation/agent.properties:acp-validation/agent.properties" \
+  --windows-env "TURBOISM_ACP_FAKE_RUN_ID={TASK_ID}" \
   --fixture-host "$fixture_src" \
   --fixture-sha256 "$fixture_sha256" \
   --require-fixture-unchanged \
