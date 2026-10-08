@@ -58,22 +58,14 @@ final class AgentTerminalLauncher {
      * Opens {@code command} in a visible terminal inside {@code workingDirectory}, applying
      * {@code environment} overrides on top of the inherited process environment.
      */
-    static void open(
-            final List<String> command,
-            final Map<String, String> environment,
-            final Path workingDirectory)
+    static void open(final List<String> command, final Map<String, String> environment, final Path workingDirectory)
             throws IOException {
         final List<String> argv = checkedCommand(command);
         final Map<String, String> overrides = checkedEnvironment(environment);
         final Path cwd = Objects.requireNonNull(workingDirectory, "workingDirectory")
                 .toAbsolutePath()
                 .normalize();
-        final LaunchPlan plan = plan(
-                System.getProperty("os.name", ""),
-                argv,
-                overrides,
-                cwd,
-                System.getenv());
+        final LaunchPlan plan = plan(System.getProperty("os.name", ""), argv, overrides, cwd, System.getenv());
         final ProcessBuilder builder = new ProcessBuilder(plan.command());
         builder.directory(cwd.toFile());
         builder.environment().putAll(plan.environment());

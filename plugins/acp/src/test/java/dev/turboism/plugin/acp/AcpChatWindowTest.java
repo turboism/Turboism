@@ -113,7 +113,8 @@ final class AcpChatWindowTest {
         assertTrue(AcpChatWindow.recordLifecycleMessage(
                 "Connecting to the agent…", "The agent started but ACP initialization failed."));
         assertFalse(AcpChatWindow.recordLifecycleMessage(
-                "The agent started but ACP initialization failed.", "The agent started but ACP initialization failed."));
+                "The agent started but ACP initialization failed.",
+                "The agent started but ACP initialization failed."));
     }
 
     @Test

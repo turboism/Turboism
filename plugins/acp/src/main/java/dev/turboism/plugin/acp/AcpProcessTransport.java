@@ -100,11 +100,17 @@ final class AcpProcessTransport implements AcpTransport {
     }
 
     private static String cmdQuoted(final String argument) {
-        if (argument.chars().anyMatch(value -> value < 0x20
-                || value == '"' || value == '%' || value == '!' || value == '|'
-                || value == '<' || value == '>' || value == '&' || value == '^')) {
-            throw new IllegalArgumentException(
-                    "agent command element cannot be passed through a Windows shell shim");
+        if (argument.chars()
+                .anyMatch(value -> value < 0x20
+                        || value == '"'
+                        || value == '%'
+                        || value == '!'
+                        || value == '|'
+                        || value == '<'
+                        || value == '>'
+                        || value == '&'
+                        || value == '^')) {
+            throw new IllegalArgumentException("agent command element cannot be passed through a Windows shell shim");
         }
         return "\"" + argument + "\"";
     }

@@ -62,8 +62,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     private volatile McpHttpConnection mcpConnection;
     private volatile AgentLaunchSpec launchSpec;
     private volatile boolean prompting;
-    private final AtomicReference<dev.turboism.sdk.plugin.Registration> mcpSubscription =
-            new AtomicReference<>();
+    private final AtomicReference<dev.turboism.sdk.plugin.Registration> mcpSubscription = new AtomicReference<>();
     private final AtomicReference<java.util.Optional<McpHttpConnection>> lastMcpSnapshot =
             new AtomicReference<>(java.util.Optional.empty());
     private final AtomicBoolean mcpReconnectQueued = new AtomicBoolean();
@@ -173,7 +172,8 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         submit(() -> {
             try {
                 final AgentLaunchSpec spec = launchSpec != null ? launchSpec : resolveLaunchSpec();
-                final AgentProfile profile = AgentCatalog.profile(settings.agentId()).orElse(null);
+                final AgentProfile profile =
+                        AgentCatalog.profile(settings.agentId()).orElse(null);
                 final List<String> arguments = profile != null ? profile.loginArguments() : List.of();
                 if (arguments.isEmpty()) {
                     ui(() -> view.showSessionFailure("status.auth-terminal-unavailable"));
@@ -220,8 +220,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         });
     }
 
-    private boolean saveSettingsNow(
-            final String agentId, final String customCommand, final String initialPrompt) {
+    private boolean saveSettingsNow(final String agentId, final String customCommand, final String initialPrompt) {
         try {
             if (settings.writeUserSettings(agentId, customCommand, initialPrompt)) return true;
             context.logger().warn("Turboism ACP settings could not be persisted");
@@ -246,8 +245,8 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             argv.add(AgentLocator.resolve(parsed.get(0)).toString());
             argv.addAll(parsed.subList(1, parsed.size()));
         } else {
-            final AgentProfile profile = AgentCatalog.profile(agentId)
-                    .orElseThrow(() -> new IllegalStateException("status.agent-unknown"));
+            final AgentProfile profile =
+                    AgentCatalog.profile(agentId).orElseThrow(() -> new IllegalStateException("status.agent-unknown"));
             argv.add(AgentLocator.locate(profile)
                     .map(java.nio.file.Path::toString)
                     .orElseThrow(() -> new IllegalStateException("status.agent-not-found-generic")));
@@ -260,9 +259,8 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         context.logger().info("ACP connection: starting");
         disconnectNow();
         try {
-            final McpConnectionService mcpConnections = context.services()
-                    .find(McpConnectionService.class)
-                    .orElseGet(McpConnectionService::unavailable);
+            final McpConnectionService mcpConnections =
+                    context.services().find(McpConnectionService.class).orElseGet(McpConnectionService::unavailable);
             ensureMcpSubscription(mcpConnections);
             final McpHttpConnection connection = mcpSubscription.get() != null
                     ? lastMcpSnapshot.get().orElse(null)
@@ -271,10 +269,10 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             try {
                 spec = resolveLaunchSpec();
             } catch (IllegalArgumentException | IllegalStateException failure) {
-                ui(() -> view.showFailure(failure.getMessage() != null
-                                && failure.getMessage().startsWith("status.")
-                        ? failure.getMessage()
-                        : "status.agent-not-found-generic"));
+                ui(() -> view.showFailure(
+                        failure.getMessage() != null && failure.getMessage().startsWith("status.")
+                                ? failure.getMessage()
+                                : "status.agent-not-found-generic"));
                 return;
             }
             launchSpec = spec;
@@ -314,22 +312,18 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     /**
      * Restores the durable session when the agent supports it, otherwise creates a new one.
      */
-    private void establishSession(
-            final AcpClient connected, final McpHttpConnection connection)
-            throws AcpException {
+    private void establishSession(final AcpClient connected, final McpHttpConnection connection) throws AcpException {
         final AcpClient.AcpCapabilities capabilities = connected.capabilities();
         final String savedSessionId = settings.sessionId();
         if (savedSessionId != null && !capabilities.loadSession() && !capabilities.resumeSession()) {
             saveSessionIdSafely(null);
         }
-        final String restorable = savedSessionId != null
-                        && (capabilities.loadSession() || capabilities.resumeSession())
+        final String restorable = savedSessionId != null && (capabilities.loadSession() || capabilities.resumeSession())
                 ? savedSessionId
                 : null;
         if (restorable == null) {
             context.logger().info("ACP connection: creating session");
-            final AcpSession created =
-                    connected.newSession(context.paths().stateDir(), connection, REQUEST_TIMEOUT);
+            final AcpSession created = connected.newSession(context.paths().stateDir(), connection, REQUEST_TIMEOUT);
             activateSession(created);
             context.logger().info("ACP connection: session ready");
             ui(() -> view.showConnected(
@@ -344,13 +338,16 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             context.logger().info("ACP connection: loading saved session");
             final LoadTransaction load = beginLoadTransaction(connected, restorable);
             try {
-                final AcpSession restored = connected.loadSession(
-                        restorable, context.paths().stateDir(), connection, REQUEST_TIMEOUT);
-                if (!completeLoadTransaction(load, restored, () -> view.showConnected(
-                        connected.agentInfo(),
-                        restored.configOptions(),
-                        restored.durableSessionsAvailable(),
-                        connection != null && capabilities.mcpHttp()))) {
+                final AcpSession restored =
+                        connected.loadSession(restorable, context.paths().stateDir(), connection, REQUEST_TIMEOUT);
+                if (!completeLoadTransaction(
+                        load,
+                        restored,
+                        () -> view.showConnected(
+                                connected.agentInfo(),
+                                restored.configOptions(),
+                                restored.durableSessionsAvailable(),
+                                connection != null && capabilities.mcpHttp()))) {
                     return;
                 }
                 context.logger().info("ACP connection: session ready");
@@ -367,8 +364,8 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         } else {
             try {
                 context.logger().info("ACP connection: resuming saved session");
-                final AcpSession restored = connected.resumeSession(
-                        restorable, context.paths().stateDir(), connection, REQUEST_TIMEOUT);
+                final AcpSession restored =
+                        connected.resumeSession(restorable, context.paths().stateDir(), connection, REQUEST_TIMEOUT);
                 activateSession(restored);
                 ui(() -> {
                     view.clearTranscript();
@@ -387,8 +384,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         }
         saveSessionIdSafely(null);
         context.logger().info("ACP connection: creating session");
-        final AcpSession created =
-                connected.newSession(context.paths().stateDir(), connection, REQUEST_TIMEOUT);
+        final AcpSession created = connected.newSession(context.paths().stateDir(), connection, REQUEST_TIMEOUT);
         activateSession(created);
         context.logger().info("ACP connection: session ready");
         ui(() -> view.showConnected(
@@ -830,8 +826,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     }
 
     @Override
-    public void configOptions(
-            final AcpClient source, final String sessionId, final List<AcpConfigOption> options) {
+    public void configOptions(final AcpClient source, final String sessionId, final List<AcpConfigOption> options) {
         synchronized (stateLock) {
             final AcpSession current = session;
             if (client.get() != source
@@ -1181,10 +1176,10 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     private void applyMcpConnectionChange(final McpHttpConnection latest) {
         if (closed.get()) return;
         final AcpSession current = session;
-        final boolean liveMcpSession =
-                client.get() != null && current != null && current.capabilities().mcpHttp();
-        final java.net.URI boundEndpoint =
-                mcpConnection == null ? null : mcpConnection.endpoint();
+        final boolean liveMcpSession = client.get() != null
+                && current != null
+                && current.capabilities().mcpHttp();
+        final java.net.URI boundEndpoint = mcpConnection == null ? null : mcpConnection.endpoint();
         final java.net.URI latestEndpoint = latest == null ? null : latest.endpoint();
         if (!liveMcpSession || Objects.equals(boundEndpoint, latestEndpoint)) {
             mcpConnection = latest;
@@ -1206,11 +1201,9 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         if (closed.get()) return;
         final AcpSession current = session;
         if (client.get() == null || current == null || !current.capabilities().mcpHttp()) return;
-        final java.net.URI boundEndpoint =
-                mcpConnection == null ? null : mcpConnection.endpoint();
-        final java.net.URI latestEndpoint = lastMcpSnapshot.get()
-                .map(McpHttpConnection::endpoint)
-                .orElse(null);
+        final java.net.URI boundEndpoint = mcpConnection == null ? null : mcpConnection.endpoint();
+        final java.net.URI latestEndpoint =
+                lastMcpSnapshot.get().map(McpHttpConnection::endpoint).orElse(null);
         if (Objects.equals(boundEndpoint, latestEndpoint)) return;
         connectNow();
     }
@@ -1286,9 +1279,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     }
 
     private static String agentLabel(final String agentId) {
-        return AgentCatalog.profile(agentId)
-                .map(AgentProfile::displayName)
-                .orElse(agentId);
+        return AgentCatalog.profile(agentId).map(AgentProfile::displayName).orElse(agentId);
     }
 
     private static String diagnosticKey(final AcpException failure) {
@@ -1315,8 +1306,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
 
     @FunctionalInterface
     interface ClientStarter {
-        AcpClient start(AgentLaunchSpec configuration, AcpListener listener)
-                throws IOException, AcpException;
+        AcpClient start(AgentLaunchSpec configuration, AcpListener listener) throws IOException, AcpException;
     }
 
     /** UI contract kept independent from Swing so controller behavior remains testable. */

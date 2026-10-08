@@ -81,8 +81,7 @@ final class AcpChatWindow implements AcpChatController.View {
     private static final String SEND_ACTION = "turboism-acp.send-prompt";
     private static final String SETTINGS_ICON_RESOURCE = "icons/settings.png";
     private static final Dimension PERMISSION_DIALOG_MINIMUM = new Dimension(620, 360);
-    private static final AgentItem CUSTOM_ITEM =
-            new AgentItem(AgentCatalog.CUSTOM_AGENT_ID, null);
+    private static final AgentItem CUSTOM_ITEM = new AgentItem(AgentCatalog.CUSTOM_AGENT_ID, null);
 
     static {
         installFallbackSwingUis(UIManager.getDefaults());
@@ -256,8 +255,7 @@ final class AcpChatWindow implements AcpChatController.View {
         final String display = agentInfo.displayName();
         final String version = agentInfo.version();
         if (!display.isBlank() || !version.isBlank()) {
-            appendSystem(localization.format(
-                    "transcript.agent-info", display, version.isBlank() ? "?" : version));
+            appendSystem(localization.format("transcript.agent-info", display, version.isBlank() ? "?" : version));
         }
         if (!mcpAttached) {
             appendSystem(localization.text("transcript.mcp-unavailable"));
@@ -703,13 +701,15 @@ final class AcpChatWindow implements AcpChatController.View {
         if (detected == null) {
             agentDetection.setText(localization.text("status.agent-undetected"));
         } else if (detected.isEmpty()) {
-            agentDetection.setText(localization.format("status.agent-not-found", profile.executableCandidates().get(0)));
+            agentDetection.setText(localization.format(
+                    "status.agent-not-found", profile.executableCandidates().get(0)));
         } else {
             agentDetection.setText(localization.format("status.agent-found", detected));
         }
-        agentHint.setText(profile.installHint().isEmpty()
-                ? profile.homepage()
-                : localization.format("label.agent-install-hint", profile.installHint()));
+        agentHint.setText(
+                profile.installHint().isEmpty()
+                        ? profile.homepage()
+                        : localization.format("label.agent-install-hint", profile.installHint()));
         agentLogin.setEnabled(!profile.loginArguments().isEmpty());
     }
 
