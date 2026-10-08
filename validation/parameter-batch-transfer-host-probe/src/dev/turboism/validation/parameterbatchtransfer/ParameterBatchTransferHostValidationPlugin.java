@@ -439,11 +439,12 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         final List<RangeCandidate> rangeCandidates = rangeCandidates(
             model, ownerTarget, targets, source.parameterId()
         );
+        final ParameterRange sourceRange = parameterRange(model, source.parameterId());
         final RangeCandidate rangeContained = rangeCandidates.stream()
             .filter(candidate -> fitsInRange(originalPoints, false, candidate.range()))
             .filter(candidate -> fitsInRange(originalPoints, true, candidate.range()))
-            .filter(candidate -> isUnique(mapPoints(originalPoints, false, candidate.range())))
-            .filter(candidate -> isUnique(mapPoints(originalPoints, true, candidate.range())))
+            .filter(candidate -> isUnique(mapPoints(originalPoints, sourceRange, false, candidate.range())))
+            .filter(candidate -> isUnique(mapPoints(originalPoints, sourceRange, true, candidate.range())))
             .findFirst()
             .orElse(null);
         final Set<ParameterId> usedTargets = new java.util.HashSet<>();
@@ -473,7 +474,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         }
 
         final MappingCandidate narrow = findNarrowCandidate(
-            originalPoints, rangeCandidates, usedTargets, false
+            originalPoints, sourceRange, rangeCandidates, usedTargets, false
         );
         if (narrow == null) {
             recordAssertion(
@@ -496,7 +497,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
 
         if (rangeContained == null) {
             final MappingCandidate inverted = findNarrowCandidate(
-                originalPoints, rangeCandidates, usedTargets, true
+                originalPoints, sourceRange, rangeCandidates, usedTargets, true
             );
             if (inverted == null) {
                 recordAssertion(
@@ -519,7 +520,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
         }
 
         final MappingCandidate collision = findCollisionCandidate(
-            originalPoints, rangeCandidates, usedTargets
+            originalPoints, sourceRange, rangeCandidates, usedTargets
         );
         if (collision == null) {
             recordAssertion(
@@ -1020,8 +1021,9 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             return;
         }
 
+        final ParameterRange sourceRange = parameterRange(model, source);
         final ParameterRange destinationRange = parameterRange(model, destination);
-        final List<Float> mappedBySource = mapPoints(originalPoints, invert, destinationRange);
+        final List<Float> mappedBySource = mapPoints(originalPoints, sourceRange, invert, destinationRange);
         final List<Float> expectedDestination = sorted(mappedBySource);
         recordAssertion(
             assertionPrefix + ".mapped.unique",
@@ -3184,6 +3186,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
 
     private static MappingCandidate findNarrowCandidate(
         final List<Float> originalPoints,
+        final ParameterRange sourceRange,
         final List<RangeCandidate> candidates,
         final Set<ParameterId> usedTargets,
         final boolean invert
@@ -3192,7 +3195,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             final boolean skipUsed = pass == 0;
             for (final RangeCandidate candidate : candidates) {
                 if (skipUsed && usedTargets.contains(candidate.snapshot().parameterId())) continue;
-                final List<Float> mapped = mapPoints(originalPoints, invert, candidate.range());
+                final List<Float> mapped = mapPoints(originalPoints, sourceRange, invert, candidate.range());
                 if (isUnique(mapped) && hasChanged(originalPoints, mapped)) {
                     return new MappingCandidate(candidate, invert, mapped);
                 }
@@ -3203,6 +3206,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
 
     private static MappingCandidate findCollisionCandidate(
         final List<Float> originalPoints,
+        final ParameterRange sourceRange,
         final List<RangeCandidate> candidates,
         final Set<ParameterId> usedTargets
     ) {
@@ -3211,7 +3215,7 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             for (final RangeCandidate candidate : candidates) {
                 if (skipUsed && usedTargets.contains(candidate.snapshot().parameterId())) continue;
                 for (final boolean invert : List.of(false, true)) {
-                    final List<Float> mapped = mapPoints(originalPoints, invert, candidate.range());
+                    final List<Float> mapped = mapPoints(originalPoints, sourceRange, invert, candidate.range());
                     if (!isUnique(mapped)) {
                         return new MappingCandidate(candidate, invert, mapped);
                     }
@@ -3219,6 +3223,38 @@ public final class ParameterBatchTransferHostValidationPlugin implements Turbois
             }
         }
         return null;
+    }
+
+    /**
+     * Mirrors {@code transferClamped}: reflect each source keyform coordinate across the
+     * source parameter range when inverting, linearly remap it into the destination range
+     * and clamp to that range; a degenerate source range skips remapping entirely.
+     */
+    private static List<Float> mapPoints(
+        final List<Float> sourcePoints,
+        final ParameterRange sourceRange,
+        final boolean invert,
+        final ParameterRange range
+    ) {
+        final float sourceSpan = sourceRange.maximum() - sourceRange.minimum();
+        final boolean remaps = Math.abs(sourceSpan) >= 0.000000001F;
+        final ArrayList<Float> mapped = new ArrayList<>(sourcePoints.size());
+        for (final float value : sourcePoints) {
+            final float normalized = value == 0.0F ? 0.0F : value;
+            final float requested = invert
+                ? sourceRange.minimum() + sourceRange.maximum() - normalized + 0.0F
+                : normalized;
+            final float result;
+            if (remaps) {
+                final float ratio = (requested - sourceRange.minimum()) / sourceSpan;
+                final float targetSpan = range.maximum() - range.minimum();
+                result = clamp(range.minimum() + ratio * targetSpan, range.minimum(), range.maximum());
+            } else {
+                result = requested;
+            }
+            mapped.add(result == 0.0F ? 0.0F : result);
+        }
+        return List.copyOf(mapped);
     }
 
     private static List<Float> mapPoints(
