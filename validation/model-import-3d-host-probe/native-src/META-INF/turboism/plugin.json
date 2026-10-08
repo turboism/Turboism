@@ -1,0 +1,24 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.model-import-3d",
+  "name": "3D Import N2 Native Probe",
+  "version": "0.0.0",
+  "description": "Task-only SDK probe for a new blank model, native ArtMesh creation, stored forms and ordinary grid Undo/Redo. Not a production importer.",
+  "entrypoints": ["dev.turboism.validation.modelimport3d.host.HostProbe"],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [{"name": "Turboism Validation"}],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {"baseName": "META-INF/turboism/i18n/messages", "locales": []},
+  "dependencies": [],
+  "permissions": [
+    {"id": "turboism.cubism.model.read", "scope": "application", "reason": "Observe task-created model, stored forms, grid and native history through SDK."},
+    {"id": "turboism.cubism.model.write", "scope": "application", "reason": "Create a new task document and micro mesh/parameters; restore with native Undo. Never edit the startup seed."},
+    {"id": "turboism.ui.file-chooser.request", "scope": "application", "reason": "T014 persistence leg: request the single task-pinned save grant."},
+    {"id": "turboism.file.write", "scope": "application", "reason": "T014 persistence leg: SAVE_AS writes only the task state directory cmo3."}
+  ],
+  "capabilities": ["cubism.parameter.read", "cubism.parameter.write"],
+  "environment": {"requiresCubism": true, "ui": "embedded"}
+}

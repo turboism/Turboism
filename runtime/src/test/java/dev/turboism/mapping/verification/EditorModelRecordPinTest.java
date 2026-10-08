@@ -3,10 +3,22 @@ package dev.turboism.mapping.verification;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EditorModelRecordPinTest {
+    @Test
+    void exact5302ManifestCanActuallyAuthorizeItsTextureAtlasProvider() {
+        assertTrue(EditorModelVerificationManifest.cubism5302Capabilities().contains(
+            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.CAPABILITY_ID));
+        final var missing = new java.util.HashSet<>(
+            dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES);
+        missing.removeAll(EditorModelVerificationManifest.cubism5302Aliases());
+        assertEquals(Set.of(), missing, "The real record must admit every provider selector; synthetic fixtures cannot supply missing aliases.");
+    }
+
     @Test
     void qSelectorRecordsMatchThePinsUsedBeforeHostConnection() throws Exception {
         Path root = Path.of("").toAbsolutePath();
@@ -22,6 +34,31 @@ class EditorModelRecordPinTest {
             assertEquals(pin.verificationId(), loaded.record().verificationId());
             assertTrue(loaded.record().selectors().stream().anyMatch(s ->
                 s.alias().equals("cubism.texture-atlas.native.item.scale")), "q selector missing");
+        }
+    }
+
+    @Test
+    void reviewedRecordRosterMatchesRuntimeManifestExactly() throws Exception {
+        Path root = Path.of("").toAbsolutePath();
+        while (root != null && !Files.isDirectory(root.resolve("compatibility/cubism/verification")))
+            root = root.getParent();
+        assertNotNull(root, "Repository verification records must be available; never skip roster validation");
+        for (var pin : List.of(EditorModelVerificationManifest.RECORD_5_2_03,
+                EditorModelVerificationManifest.RECORD_5_3_02, EditorModelVerificationManifest.RECORD_5_3_03)) {
+            var loaded = new StaticVerificationRecordLoader().load(root.resolve(
+                "compatibility/cubism/verification/cubism-" + pin.cubismVersion() + "-editor-model.json"));
+            var manifest = EditorModelVerificationManifest.forArtifact(pin.artifact());
+            Set<String> recordAliases = loaded.record().selectors().stream()
+                .map(StaticSelector::alias).collect(Collectors.toSet());
+            // PinnedVerifiedResolverWorkflow.authorizes requires exact equality, not subset:
+            // a reviewed selector absent from the runtime manifest fails host admission.
+            assertEquals(manifest.requiredAliases(), recordAliases,
+                "Runtime selector roster drift: " + pin.cubismVersion());
+            assertEquals(manifest.capabilityIds(),
+                Set.copyOf(loaded.record().capabilityIds()),
+                "Runtime capability roster drift: " + pin.cubismVersion());
+            assertEquals(manifest.adapterSliceId(), loaded.record().adapterSliceId());
+            assertEquals(manifest.verificationId(), loaded.record().verificationId());
         }
     }
 }

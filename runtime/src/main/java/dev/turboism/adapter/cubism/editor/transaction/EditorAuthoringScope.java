@@ -5,6 +5,8 @@ import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.IdentityHashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -19,6 +21,9 @@ final class EditorAuthoringScope {
     private final List<EditorUndoContribution> contributions = new ArrayList<>();
     private final EnumSet<EditorRefreshRequirement> refreshRequirements =
         EnumSet.noneOf(EditorRefreshRequirement.class);
+    private final IdentityHashMap<Object, EditorUndoContribution> createdTargets = new IdentityHashMap<>();
+    private final Set<String> rootUndoListenerKeys = new HashSet<>();
+    private boolean recovering;
     private Object edit;
     private boolean editEndAttempted;
     private boolean editClosed;
@@ -67,6 +72,27 @@ final class EditorAuthoringScope {
     void add(final EditorUndoContribution contribution) {
         contributions.add(Objects.requireNonNull(contribution, "contribution"));
         refreshRequirements.addAll(contribution.refreshRequirements());
+    }
+
+    void createdTarget(final Object target, final EditorUndoContribution contribution) {
+        if (createdTargets.containsKey(target)) throw new IllegalStateException("target already created in this root");
+        createdTargets.put(Objects.requireNonNull(target), contribution);
+    }
+
+    void beginRecovery() { recovering = true; }
+
+    boolean claimRootUndoListener(final String key) {
+        return rootUndoListenerKeys.add(key);
+    }
+
+    boolean ownsArtMeshParentRecovery(final String targetIdentity) {
+        return recovering && contributions.stream().anyMatch(c ->
+            c.operationId().equals("cubism.art-mesh.set-target-deformer") && c.targetIdentity().equals(targetIdentity));
+    }
+
+    boolean createdTargetRestored(final Object target) {
+        final var creation = createdTargets.get(target);
+        return recovering && creation != null && creation.restored().getAsBoolean();
     }
 
     void captureActual(final EditorUndoContribution contribution) {

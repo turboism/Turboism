@@ -17,6 +17,7 @@ import dev.turboism.sdk.cubism.model.Deformers;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
+import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
 import dev.turboism.sdk.cubism.model.RotationDeformers;
@@ -335,6 +336,17 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         @Override public boolean modelEditing() {
             return current(generation, CubismModel::modelEditing, delegate);
         }
+        @Override public dev.turboism.sdk.cubism.model.CubismMocExport exportMoc(
+            final dev.turboism.sdk.cubism.model.CubismMocExportSettings settings
+        ) {
+            return current(generation, model -> model.exportMoc(settings), delegate);
+        }
+
+        @Override public dev.turboism.sdk.cubism.model.CubismRenderedPixels renderPixels(
+            final int width, final int height
+        ) {
+            return current(generation, model -> model.renderPixels(width, height), delegate);
+        }
         @Override public dev.turboism.sdk.cubism.core.MocInfo mocInfo() {
             return current(generation, CubismModel::mocInfo, delegate);
         }
@@ -425,6 +437,17 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
                 delegate
             );
             return new dev.turboism.sdk.cubism.model.ParameterBindingOperations() {
+                @Override public dev.turboism.sdk.cubism.model.ParameterInterpolation interpolation(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target
+                ) {
+                    return current(generation, ignored -> operations.interpolation(target), delegate);
+                }
+                @Override public void setInterpolation(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
+                    final dev.turboism.sdk.cubism.model.ParameterInterpolation settings
+                ) {
+                    guardedVoid(generation, () -> operations.setInterpolation(target, settings));
+                }
                 @Override public void bind(
                     final dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
                     final List<dev.turboism.sdk.cubism.model.ParameterBindingPoint> points
@@ -594,6 +617,23 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         }
         @Override public void removeRawImage(final dev.turboism.sdk.cubism.id.RawImageId id) {
             guardedVoid(generation, () -> delegate.removeRawImage(id));
+        }
+        @Override public dev.turboism.sdk.cubism.model.ModelImageBinding registerImageAndBind(
+            final dev.turboism.sdk.cubism.model.AuthorizedImageContent image,
+            final dev.turboism.sdk.cubism.id.ArtMeshId target
+        ) {
+            return guarded(generation, () -> delegate.registerImageAndBind(image, target));
+        }
+        @Override public dev.turboism.sdk.cubism.model.ModelImageBinding bindModelImage(
+            final dev.turboism.sdk.cubism.id.ModelImageId image,
+            final dev.turboism.sdk.cubism.id.ArtMeshId target
+        ) {
+            return guarded(generation, () -> delegate.bindModelImage(image, target));
+        }
+        @Override public java.util.Optional<dev.turboism.sdk.cubism.model.ArtMeshTextureInput> textureInput(
+            final dev.turboism.sdk.cubism.id.ArtMeshId target
+        ) {
+            return guarded(generation, () -> delegate.textureInput(target));
         }
     }
 
@@ -1233,6 +1273,17 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
             );
         }
 
+        @Override public dev.turboism.sdk.cubism.model.ArtMeshSourceTriangulation previewSourceTriangulation(
+            final dev.turboism.sdk.cubism.model.ArtMeshGeometry geometry
+        ) {
+            return guarded(generation, () -> delegate.previewSourceTriangulation(Objects.requireNonNull(geometry, "geometry")));
+        }
+
+        @Override public void select(final List<ArtMeshId> ids) {
+            final List<ArtMeshId> checked = List.copyOf(Objects.requireNonNull(ids, "ids"));
+            guardedVoid(generation, () -> delegate.select(checked));
+        }
+
         @Override public Drawable create(
             final String name,
             final Part parent,
@@ -1250,6 +1301,16 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
                     geometry
                 )
             ));
+        }
+
+        @Override public Drawable createWithSourceGeometry(
+            final String name, final Part parent, final int index,
+            final ArtMeshGeometry sourceGeometry, final List<Point2> defaultPositions
+        ) {
+            return guarded(generation, () -> new SessionDrawable(
+                generation, modelGeneration, modelId,
+                delegate.createWithSourceGeometry(name, unwrapPart(generation, parent), index,
+                    sourceGeometry, defaultPositions)));
         }
 
         @Override public void remove(final Drawable drawable) {
@@ -1388,6 +1449,74 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         }
         @Override public ArtMeshGeometry geometry() {
             return guarded(generation, delegate::geometry);
+        }
+        @Override public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot authoringSnapshot() {
+            return guarded(generation, delegate::authoringSnapshot);
+        }
+        @Override public dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot evaluationSnapshot() {
+            return guarded(generation, delegate::evaluationSnapshot);
+        }
+        @Override public dev.turboism.sdk.cubism.model.ArtMeshKeyform ordinaryKeyform(
+            final List<dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Coordinate> coordinates
+        ) {
+            final var target = guarded(generation, () -> delegate.ordinaryKeyform(coordinates));
+            return new dev.turboism.sdk.cubism.model.ArtMeshKeyform() {
+                @Override public List<dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Coordinate> coordinates() {
+                    return guarded(generation, target::coordinates);
+                }
+                @Override public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form snapshot() {
+                    return guarded(generation, target::snapshot);
+                }
+                @Override public boolean defaultKeyform() { return guarded(generation, target::defaultKeyform); }
+                @Override public void setPositions(final List<dev.turboism.sdk.cubism.model.Point2> positions) {
+                    guardedVoid(generation, () -> target.setPositions(positions));
+                }
+                @Override public void setDrawOrder(final int drawOrder) {
+                    guardedVoid(generation, () -> target.setDrawOrder(drawOrder));
+                }
+            };
+        }
+        @Override public void setOrdinaryKeyformPositions(
+            final dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
+            final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions> edits
+        ) {
+            guardedVoid(generation, () -> delegate.setOrdinaryKeyformPositions(expected, edits));
+        }
+        @Override public void setOrdinaryKeyformDrawOrders(
+            final dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
+            final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder> edits
+        ) {
+            guardedVoid(generation, () -> delegate.setOrdinaryKeyformDrawOrders(expected, edits));
+        }
+        @Override public dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform morphKeyform(
+            final String parameterGuid, final float keyValue
+        ) {
+            return guardedMorphKeyform(guarded(generation, () -> delegate.morphKeyform(parameterGuid, keyValue)));
+        }
+        @Override public dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform createMorphKeyform(
+            final String parameterGuid, final float keyValue
+        ) {
+            return guardedMorphKeyform(guarded(generation, () -> delegate.createMorphKeyform(parameterGuid, keyValue)));
+        }
+        private dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform guardedMorphKeyform(
+            final dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform target
+        ) {
+            return new dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform() {
+                @Override public String parameterGuid() { return guarded(generation, target::parameterGuid); }
+                @Override public float keyValue() { return guarded(generation, target::keyValue); }
+                @Override public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form snapshot() {
+                    return guarded(generation, target::snapshot);
+                }
+                @Override public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form baseSnapshot() {
+                    return guarded(generation, target::baseSnapshot);
+                }
+                @Override public void setPositions(final List<dev.turboism.sdk.cubism.model.Point2> positions) {
+                    guardedVoid(generation, () -> target.setPositions(positions));
+                }
+                @Override public void setDrawOrder(final int drawOrder) {
+                    guardedVoid(generation, () -> target.setDrawOrder(drawOrder));
+                }
+            };
         }
         @Override public void replaceGeometry(final ArtMeshGeometry geometry) {
             guardedVoid(generation, () -> delegate.replaceGeometry(geometry));
@@ -1743,6 +1872,13 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
             return guarded(generation, delegate::getCombinedParameterBindings);
         }
         @Override public WarpGrid grid() { return guarded(generation, delegate::grid); }
+        @Override public dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot authoringSnapshot() {
+            return guarded(generation, delegate::authoringSnapshot);
+        }
+        @Override public void setOrdinaryKeyformPositions(
+            dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot expected,
+            List<dev.turboism.sdk.cubism.model.WarpKeyformPositions> edits
+        ) { guardedVoid(generation, () -> delegate.setOrdinaryKeyformPositions(expected, edits)); }
         @Override public void replaceGrid(final WarpGrid grid) {
             guardedVoid(generation, () -> delegate.replaceGrid(grid));
         }
@@ -1858,6 +1994,13 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         @Override public float baseAngle() { return guarded(generation, delegate::baseAngle); }
         @Override public void setBaseAngle(final float angle) {
             guardedVoid(generation, () -> delegate.setBaseAngle(angle));
+        }
+        @Override public dev.turboism.sdk.cubism.model.RotationAuthoringSnapshot authoringSnapshot() {
+            return guarded(generation, delegate::authoringSnapshot);
+        }
+        @Override public void setOrdinaryKeyformForms(dev.turboism.sdk.cubism.model.RotationAuthoringSnapshot expected,
+                List<dev.turboism.sdk.cubism.model.RotationKeyformForm> edits) {
+            guardedVoid(generation, () -> delegate.setOrdinaryKeyformForms(expected, List.copyOf(edits)));
         }
         @Override public RotationDeformerForm form() {
             return guarded(generation, delegate::form);

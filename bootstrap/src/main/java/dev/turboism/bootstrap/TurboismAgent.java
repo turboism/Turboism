@@ -76,6 +76,12 @@ public final class TurboismAgent {
         dev.turboism.adapter.cubism.textureatlas.cache
             .VerifiedAtlasCacheReuseInstaller.Installation>
         ATLAS_CACHE_REUSE = new AtomicReference<>();
+    private static final AtomicReference<
+        dev.turboism.adapter.cubism.interpolation.VerifiedMeshInterpolationInstaller.Installation>
+        MESH_INTERPOLATION = new AtomicReference<>();
+    private static final AtomicReference<
+        dev.turboism.adapter.cubism.shader.VerifiedShaderUniformInstaller.Installation>
+        SHADER_UNIFORM = new AtomicReference<>();
     private static final AtomicReference<PipeImplLoopbackInstaller.Installation> PIPE_IMPL_SHIM =
         new AtomicReference<>();
     private static final AtomicReference<dev.turboism.sdk.plugin.Registration> OVERLAY_HOOK =
@@ -256,6 +262,10 @@ public final class TurboismAgent {
                         + ", transformOutcome=" + atlasCacheReuse.transformOutcome()
                 );
             }
+            installMeshInterpolationPremain(instrumentation,
+                dev.turboism.config.RuntimeStartupConfig.load(options.home()));
+            installShaderUniformPremain(instrumentation,
+                dev.turboism.config.RuntimeStartupConfig.load(options.home()));
             installMeshMirrorHookPremain(
                 instrumentation,
                 System.getProperty("java.class.path", ""),
@@ -1127,6 +1137,62 @@ public final class TurboismAgent {
         installation.close();
     }
 
+    static boolean meshInterpolationEnabled(
+        final dev.turboism.config.RuntimeStartupConfig policy,
+        final boolean requested
+    ) {
+        return requested && policy != null && policy.hookEnabled("cubism.mesh.interpolation");
+    }
+
+    static boolean meshInterpolationRequested(String option) {
+        return option == null || Boolean.parseBoolean(option);
+    }
+
+    static boolean modelSerializationEnabled(final dev.turboism.config.RuntimeStartupConfig policy,final boolean requested) {
+        return requested && policy != null && policy.hookEnabled("cubism.model.serialization");
+    }
+
+    static boolean shaderUniformEnabled(
+        final dev.turboism.config.RuntimeStartupConfig policy,
+        final boolean requested
+    ) {
+        return requested && policy != null && policy.hookEnabled("cubism.shader.uniform");
+    }
+
+    static boolean shaderUniformRequested(String option) {
+        return option == null || Boolean.parseBoolean(option);
+    }
+
+    private static void installShaderUniformPremain(
+        final Instrumentation instrumentation,
+        final dev.turboism.config.RuntimeStartupConfig policy
+    ) {
+        if (!shaderUniformEnabled(policy, shaderUniformRequested(System.getProperty("turboism.shaderUniform.enabled")))) return;
+        try {
+            final var installation = dev.turboism.adapter.cubism.shader.VerifiedShaderUniformInstaller.install(
+                instrumentation, code -> System.err.println("[turboism] " + code));
+            if (!SHADER_UNIFORM.compareAndSet(null, installation) && installation != null) installation.close();
+        } catch (RuntimeException | LinkageError failure) {
+            dev.turboism.runtime.log.RuntimeDiagnostics.error("shader-uniform", "Shader uniform optimization admission declined", failure);
+        }
+    }
+
+    private static void installMeshInterpolationPremain(
+        final Instrumentation instrumentation,
+        final dev.turboism.config.RuntimeStartupConfig policy
+    ) {
+        final boolean interpolation=meshInterpolationEnabled(policy,meshInterpolationRequested(System.getProperty("turboism.meshInterpolation.enabled")));
+        final boolean serialization=modelSerializationEnabled(policy,Boolean.parseBoolean(System.getProperty("turboism.modelSerialization.enabled","true")));
+        if (!interpolation && !serialization) return;
+        try {
+            final var installation = dev.turboism.adapter.cubism.interpolation.VerifiedMeshInterpolationInstaller.install(
+                instrumentation, code -> System.err.println("[turboism] " + code),interpolation,serialization);
+            if (!MESH_INTERPOLATION.compareAndSet(null, installation) && installation != null) installation.close();
+        } catch (RuntimeException | LinkageError failure) {
+            dev.turboism.runtime.log.RuntimeDiagnostics.error("mesh-interpolation", "Interpolation optimization admission declined", failure);
+        }
+    }
+
     private static VerifiedMeshMirrorHookInstaller installMeshMirrorHookPremain(
         final Instrumentation instrumentation,
         final String classPath,
@@ -1153,7 +1219,10 @@ public final class TurboismAgent {
                 instrumentation,
                 null,
                 artifact.orElseThrow().toAbsolutePath().normalize(),
-                profile
+                null,
+                null,
+                profile,
+                message -> dev.turboism.runtime.log.RuntimeDiagnostics.info("mesh-mirror", message)
             );
             installer.install();
             if (!MESH_MIRROR_HOOK.compareAndSet(null, installer)) {
@@ -1396,6 +1465,10 @@ public final class TurboismAgent {
         closeMeshTriangulationHashIfCurrent(MESH_TRIANGULATION_HASH.getAndSet(null));
         closeAtlasTileBboxIfCurrent(ATLAS_TILE_BBOX.getAndSet(null));
         closeAtlasCacheReuseIfCurrent(ATLAS_CACHE_REUSE.getAndSet(null));
+        final var interpolation = MESH_INTERPOLATION.getAndSet(null);
+        if (interpolation != null) interpolation.close();
+        final var shaderUniform = SHADER_UNIFORM.getAndSet(null);
+        if (shaderUniform != null) shaderUniform.close();
         closeProjectLifecycleHook(runtime, "process-exit");
         closeFileChooserHistoryHook(runtime, "process-exit");
         closeParameterHook(runtime, "process-exit");

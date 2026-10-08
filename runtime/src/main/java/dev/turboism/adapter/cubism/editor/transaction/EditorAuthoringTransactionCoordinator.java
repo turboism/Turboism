@@ -46,6 +46,16 @@ public final class EditorAuthoringTransactionCoordinator {
     }
 
     /**
+     * Whether this coordinator owns a root on the current thread. Writers that retain a
+     * legacy standalone path must still use {@link #mutate} to validate participation.
+     *
+     * @return true only while a root callback is active on this thread
+     */
+    public boolean hasActiveTransaction() {
+        return ambient.get() != null;
+    }
+
+    /**
      * Executes one root authoring callback synchronously.
      *
      * @param binding plugin, document, model, generation, and thread binding
@@ -133,6 +143,69 @@ public final class EditorAuthoringTransactionCoordinator {
         final Binding binding,
         final EditorUndoContribution contribution
     ) {
+        mutate(binding, contribution, null);
+    }
+
+    /**
+     * Admits creation and records its native object identity for dependent writers' recovery.
+     * Only a creation primitive may call this, with its complete removal postcondition.
+     *
+     * @param binding current authoring binding
+     * @param target newly allocated native object, never a pre-existing target
+     * @param contribution creation primitive and native removal verifier
+     */
+    public void mutateCreated(final Binding binding, final Object target, final EditorUndoContribution contribution) {
+        mutate(binding, contribution, Objects.requireNonNull(target, "target"));
+    }
+
+    /**
+     * Claims a listener key once for the current native root during Undo admission.
+     * Writers still admit and verify every child Undo; this only deduplicates a
+     * root notification, which native GroupUndo emits after all child operations.
+     */
+    public boolean claimRootUndoListener(final Binding binding, final Object edit, final String key) {
+        Objects.requireNonNull(binding, "binding");
+        Objects.requireNonNull(edit, "edit");
+        if (Objects.requireNonNull(key, "key").isBlank()) throw new IllegalArgumentException("empty listener key");
+        final EditorAuthoringScope scope = ambient.get();
+        if (scope == null || !binding.isCurrentThread() || !scope.binding().sameScope(binding)
+            || scope.edit() != edit || !current(binding)) {
+            throw new IllegalStateException("Root Undo listener must belong to the current native edit.");
+        }
+        return scope.claimRootUndoListener(key);
+    }
+
+    /**
+     * Checks during recovery whether this root's creation has already been fully removed.
+     * Uses object identity and the creation writer's complete restoration predicate; an absent
+     * pre-existing object, a foreign scope, and observations outside recovery never qualify.
+     *
+     * @param binding dependent writer's original binding
+     * @param target dependent writer's native object
+     * @return whether the root's creation was fully reverted
+     */
+    public boolean isCreatedTargetRestored(final Binding binding, final Object target) {
+        final EditorAuthoringScope scope = ambient.get();
+        return scope != null && binding.isCurrentThread() && scope.binding().sameScope(binding)
+            && current(binding) && scope.createdTargetRestored(target);
+    }
+
+    /**
+     * Whether this recovering root admitted a native ArtMesh parent conversion on this target.
+     * That native factory snapshots all stored positions, including the default and morph forms.
+     * Dependent keyform compensation may rebuild a complete before image only in this domain.
+     *
+     * @param binding original writer binding
+     * @param targetIdentity same target identity carried by the parent contribution
+     * @return true only in the current root's recovery
+     */
+    public boolean ownsArtMeshParentRecovery(final Binding binding, final String targetIdentity) {
+        final EditorAuthoringScope scope = ambient.get();
+        return scope != null && binding.isCurrentThread() && scope.binding().sameScope(binding)
+            && current(binding) && scope.ownsArtMeshParentRecovery(targetIdentity);
+    }
+
+    private void mutate(final Binding binding, final EditorUndoContribution contribution, final Object createdTarget) {
         final Binding checkedBinding = Objects.requireNonNull(binding, "binding");
         final EditorUndoContribution checkedContribution = Objects.requireNonNull(
             contribution,
@@ -140,7 +213,7 @@ public final class EditorAuthoringTransactionCoordinator {
         );
         final EditorAuthoringScope scope = ambient.get();
         if (scope != null) {
-            apply(scope, checkedBinding, checkedContribution);
+            apply(scope, checkedBinding, checkedContribution, createdTarget);
             return;
         }
 
@@ -149,7 +222,7 @@ public final class EditorAuthoringTransactionCoordinator {
             AuthoringTransactionOptions.of(checkedContribution.standaloneLabel()),
             () -> {
                 apply(Objects.requireNonNull(ambient.get(), "ambient scope"),
-                    checkedBinding, checkedContribution);
+                    checkedBinding, checkedContribution, createdTarget);
                 return null;
             }
         );
@@ -267,7 +340,8 @@ public final class EditorAuthoringTransactionCoordinator {
     private void apply(
         final EditorAuthoringScope scope,
         final Binding binding,
-        final EditorUndoContribution contribution
+        final EditorUndoContribution contribution,
+        final Object createdTarget
     ) {
         if (!scope.binding().sameScope(binding) || !binding.isCurrentThread()) {
             throw new ScopeRejectedException(
@@ -283,8 +357,12 @@ public final class EditorAuthoringTransactionCoordinator {
                 "native edit"
             ));
         }
-        contribution.undoAdmission().admit(scope.edit(), scope.options().label());
+        // The contribution is owned by the scope before admission runs: native
+        // Undo factories may already mutate the host (eager attach/register), so
+        // a rejected admission must still be visible to recovery.
         scope.add(contribution);
+        if (createdTarget != null) scope.createdTarget(createdTarget, contribution);
+        contribution.undoAdmission().admit(scope.edit(), scope.options().label());
         contribution.mutation().run();
         if (!contribution.applied().getAsBoolean()) {
             throw new IllegalStateException(
@@ -299,6 +377,7 @@ public final class EditorAuthoringTransactionCoordinator {
         final Throwable failure,
         final boolean scopeRejected
     ) {
+        scope.beginRecovery();
         Throwable recoveryFailure = null;
         if (scope.edit() != null && !scope.editEndAttempted()) {
             try {
@@ -363,9 +442,12 @@ public final class EditorAuthoringTransactionCoordinator {
 
         final AuthoringTransactionReceipt receipt = receipt(scope, after, Optional.empty());
         if (recoveryFailure != null) {
+            // Keep the callback cause as the primary diagnostic. Cleanup failures remain
+            // attached for logging; they must not hide the failure that triggered rollback.
+            if (recoveryFailure != failure) failure.addSuppressed(recoveryFailure);
             return AuthoringTransactionResult.recoveryFailed(
                 receipt,
-                diagnostic("authoring.recovery-failed", recoveryFailure)
+                diagnostic("authoring.recovery-failed", failure)
             );
         }
         final String diagnostic = diagnostic(

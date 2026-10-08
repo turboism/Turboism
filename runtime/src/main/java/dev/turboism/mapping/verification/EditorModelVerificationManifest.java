@@ -4,6 +4,8 @@ import dev.turboism.mapping.verification.selector.EditorAnimationReadSelectorCon
 import dev.turboism.mapping.verification.selector.EditorAnimationSceneOperationSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAnimationTimelineEditSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAnimationTimelineReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorArtMeshEvaluationReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorArtMeshMorphSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAutoYureReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorClipMaskReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockReadSelectorContract;
@@ -43,6 +45,9 @@ import dev.turboism.mapping.verification.selector.EditorPartStructureSelectorCon
 import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPhysicsReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPsdSnapshotSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorRenderPixelsSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorSourceTriangulationSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorMocExportSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import java.util.List;
 import java.util.Set;
@@ -71,7 +76,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.editor-model.static",
-        "39a873247694072062893c05a965d1163506b23afebd224f53cde37bf8fdbfd2",
+        "b790ed794774ed80663bdaff4bde83b3f39fece8afeb04603982cb4cc14b1663",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -80,7 +85,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.editor-model.static",
-        "42ca3e7cf4a208a7a29c0f921bc92b082126783556f3b89b88c7dab73b28395c",
+        "1b406038cff52c36762f39dda390b622263bc283810a631f2a428eac50a040ab",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -93,7 +98,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_03,
         "cubism-5.3.03.editor-model.static",
-        "c0c24f6f8183ace1154820f8f836e74ee1d0f1f3bb2a8a6ca91dd5e523b411ea",
+        "197c727e7efa6846b92141d467681b2d35cc1704b3cc0df54a7945d6b62f5bc9",
         CUBISM_VERSION_5_3_03,
         "cubism-5.3.03"
     );
@@ -754,12 +759,12 @@ public final class EditorModelVerificationManifest {
             return record.toManifest(
                 ADAPTER_SLICE_ID,
                 ObjectContextMenuVerificationManifest.capabilities(cubism5303Capabilities()),
-                ObjectContextMenuVerificationManifest.aliases(cubism5303StaticAliases())
+                ObjectContextMenuVerificationManifest.aliases(cubism5303Aliases())
             );
         }
         return record.toManifest(
             ADAPTER_SLICE_ID,
-            ObjectContextMenuVerificationManifest.capabilities(CAPABILITY_IDS),
+            ObjectContextMenuVerificationManifest.capabilities(cubism5302Capabilities()),
             ObjectContextMenuVerificationManifest.aliases(cubism5302Aliases())
         );
     }
@@ -771,9 +776,7 @@ public final class EditorModelVerificationManifest {
     }
 
     static Set<String> cubism5303Capabilities() {
-        final java.util.HashSet<String> values = new java.util.HashSet<>(CAPABILITY_IDS);
-        values.remove(EditorHistorySemanticSelectorContract.CAPABILITY_ID);
-        return Set.copyOf(values);
+        return cubism5302Capabilities();
     }
 
     private static final Set<String> CUBISM_5303_ONLY_ALIASES = Set.of(
@@ -787,17 +790,49 @@ public final class EditorModelVerificationManifest {
         "cubism.texture-atlas.texture-manager.change-input-to-atlas"
     );
 
+    /** Capability roster carried by the reviewed 5.3.02 static record; shared by 5.3.03. */
+    public static Set<String> cubism5302Capabilities() {
+        return union(CAPABILITY_IDS, Set.of(dev.turboism.mapping.verification.selector.EditorParameterInterpolationSelectorContract.CAPABILITY_ID, EditorArtMeshEvaluationReadSelectorContract.CAPABILITY_ID,
+            EditorArtMeshMorphSelectorContract.CAPABILITY_ID,
+            EditorSourceTriangulationSelectorContract.CAPABILITY_ID,
+            EditorRenderPixelsSelectorContract.CAPABILITY_ID,
+            EditorMocExportSelectorContract.CAPABILITY_ID,
+            EditorTextureSelectorContract.REGISTER_BIND_CAPABILITY_ID));
+    }
     /** Exact selector roster carried by the reviewed 5.3.02 static record. */
     public static Set<String> cubism5302Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
         values.removeAll(CUBISM_5303_ONLY_ALIASES);
+        // These four atlas calls are also present in the exact 5.3.02 JAR.
+        // Omitting them silently prevents the 5.3.02 layout provider from connecting.
+        values.addAll(Set.of(
+            "cubism.texture-atlas.texture-input-relink.helper-instance",
+            "cubism.texture-atlas.texture-input-relink.rebuild",
+            "cubism.texture-atlas.texture-manager-handler.drawable-uses",
+            "cubism.texture-atlas.texture-manager.change-input-to-atlas"
+        ));
+        values.add("cubism.texture-atlas.texture-manager.reinit-input");
+        values.addAll(EditorObjectHierarchyEditSelectorContract.EDITABLE_MESH_5302_ALIASES);
+        values.addAll(EditorObjectHierarchyEditSelectorContract.ART_MESH_SELECT_5302_ALIASES);
+        values.addAll(EditorArtMeshEvaluationReadSelectorContract.NEW_ALIASES);
+        values.addAll(EditorArtMeshMorphSelectorContract.NEW_ALIASES);
+        values.addAll(EditorTextureSelectorContract.REGISTER_BIND_REQUIRED_ALIASES);
+        values.addAll(EditorTextureSelectorContract.DECODE_ORACLE_ALIASES);
+        values.addAll(EditorTextureSelectorContract.TEXTURE_INPUT_OBSERVE_ALIASES);
+        values.addAll(EditorSourceTriangulationSelectorContract.NEW_ALIASES);
+        values.addAll(EditorRenderPixelsSelectorContract.NEW_ALIASES);
+        values.addAll(EditorMocExportSelectorContract.NEW_ALIASES);
+        values.addAll(dev.turboism.mapping.verification.selector.EditorParameterInterpolationSelectorContract.REQUIRED_ALIASES);
         return Set.copyOf(values);
     }
 
-    /** Full exact-JAR selector roster carried by the independent 5.3.03 static record. */
-    public static Set<String> cubism5303StaticAliases() {
+    /**
+     * Exact selector roster carried by the reviewed 5.3.03 static record.
+     * The semantic-history and authoring members were reviewed against the exact
+     * 5.3.03 artifact on 2026-10-08: all rosters verified statically.
+     */
+    public static Set<String> cubism5303Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
-        values.removeIf(alias -> alias.startsWith("cubism.editor-history.semantic."));
         values.addAll(Set.of(
             "cubism.editor-model.model-source.all-parameters",
             "cubism.editor-model.modeling-document.last-active-view",
@@ -812,20 +847,30 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.part.id",
             "cubism.editor-model.update-manager.selection-guid-list"
         ));
+        values.addAll(EditorObjectHierarchyEditSelectorContract.EDITABLE_MESH_5302_ALIASES);
+        values.addAll(EditorObjectHierarchyEditSelectorContract.ART_MESH_SELECT_5302_ALIASES);
+        values.addAll(EditorArtMeshEvaluationReadSelectorContract.NEW_ALIASES);
+        values.addAll(EditorArtMeshMorphSelectorContract.NEW_ALIASES);
+        values.addAll(EditorTextureSelectorContract.REGISTER_BIND_REQUIRED_ALIASES);
+        values.addAll(EditorTextureSelectorContract.DECODE_ORACLE_ALIASES);
+        values.addAll(EditorTextureSelectorContract.TEXTURE_INPUT_OBSERVE_ALIASES);
+        values.addAll(EditorSourceTriangulationSelectorContract.NEW_ALIASES);
+        values.addAll(EditorRenderPixelsSelectorContract.NEW_ALIASES);
+        values.addAll(EditorMocExportSelectorContract.NEW_ALIASES);
+        values.addAll(dev.turboism.mapping.verification.selector.EditorParameterInterpolationSelectorContract.REQUIRED_ALIASES);
         return Set.copyOf(values);
     }
 
     /**
      * Returns the mature Editor runtime scope for exact Cubism 5.3.03.
      *
-     * <p>The native semantic-history capability and aliases remain deliberately absent until
-     * exact-host evidence for that version is reviewed. Other 5.3.03-only helper aliases remain
-     * recorded but are not required by mature feature contracts.</p>
+     * <p>The semantic-history capability and aliases are admitted: every selector
+     * in the reviewed 5.3.03 record verifies statically against the exact artifact.</p>
      */
     static PinnedVerifiedResolverWorkflow.RuntimeScope cubism5303RuntimeScope() {
         return new PinnedVerifiedResolverWorkflow.RuntimeScope(
             cubism5303Capabilities(),
-            cubism5303StaticAliases()
+            cubism5303Aliases()
         );
     }
 
@@ -1457,6 +1502,12 @@ public final class EditorModelVerificationManifest {
      */
     public static Set<String> cubism52Capabilities() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(CAPABILITY_IDS);
+        values.add(dev.turboism.mapping.verification.selector.EditorParameterInterpolationSelectorContract.CAPABILITY_ID);
+        values.add(EditorArtMeshEvaluationReadSelectorContract.CAPABILITY_ID);
+        values.add(EditorArtMeshMorphSelectorContract.CAPABILITY_ID);
+        values.add(EditorSourceTriangulationSelectorContract.CAPABILITY_ID);
+        values.add(EditorRenderPixelsSelectorContract.CAPABILITY_ID);
+        values.add(EditorTextureSelectorContract.REGISTER_BIND_CAPABILITY_ID);
         values.remove(EditorPartOpacitySelectorContract.CAPABILITY_ID);
         values.add(EditorPartOpacity52SelectorContract.CAPABILITY_ID);
         values.remove(EditorInspectorDrawableWriteSelectorContract.CAPABILITY_ID);
@@ -1491,8 +1542,6 @@ public final class EditorModelVerificationManifest {
     public static Set<String> cubism52Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
         values.removeAll(EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES);
-        values.removeAll(CUBISM_5303_ONLY_ALIASES);
-        values.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES);
         values.removeAll(PART_OPACITY_ADDITIVE_ALIASES);
         values.removeAll(EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES);
         values.addAll(EditorPartOpacity52SelectorContract.REQUIRED_ALIASES);
@@ -1511,9 +1560,76 @@ public final class EditorModelVerificationManifest {
         values.removeAll(EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES);
         values.removeAll(EditorInspectorDrawableWriteSelectorContract.ALPHA_COMPOSITION_ALIASES);
         values.addAll(EditorInspectorDrawableWrite52SelectorContract.REQUIRED_ALIASES);
-        values.removeAll(CUBISM_5303_ONLY_ALIASES);
+        values.addAll(CUBISM_52_EXPANDED_AUTHORING_ALIASES);
         return Set.copyOf(values);
     }
+
+    /**
+     * Selector aliases admitted for exact 5.2.03 by the extended classfile review:
+     * every member was verified directly against the reviewed 5.2.03 artifact
+     * (owner, member name, descriptor, and access flags). The shared 5.3-family
+     * contract sets supply the subset that resolves identically on 5.2.03; this
+     * set carries the remainder, including the 5.2.03-specific descriptor for
+     * {@code editable-mesh.gl-indices-default} and the partial official-export
+     * surface whose members exist (full MOC export stays unadmitted because five
+     * exporter members are absent from the exact 5.2.03 artifact).
+     */
+    private static final Set<String> CUBISM_52_EXPANDED_AUTHORING_ALIASES = union(
+        union(
+            EditorObjectHierarchyEditSelectorContract.EDITABLE_MESH_5302_ALIASES,
+            EditorObjectHierarchyEditSelectorContract.ART_MESH_SELECT_5302_ALIASES
+        ),
+        union(
+            union(
+                EditorArtMeshEvaluationReadSelectorContract.NEW_ALIASES,
+                EditorArtMeshMorphSelectorContract.NEW_ALIASES
+            ),
+            union(
+                union(
+                    EditorTextureSelectorContract.REGISTER_BIND_REQUIRED_ALIASES,
+                    EditorTextureSelectorContract.DECODE_ORACLE_ALIASES
+                ),
+                union(
+                    union(
+                        EditorTextureSelectorContract.TEXTURE_INPUT_OBSERVE_ALIASES,
+                        EditorSourceTriangulationSelectorContract.NEW_ALIASES
+                    ),
+                    union(
+                        union(
+                            EditorRenderPixelsSelectorContract.NEW_ALIASES,
+                            dev.turboism.mapping.verification.selector.EditorParameterInterpolationSelectorContract.REQUIRED_ALIASES
+                        ),
+                        Set.of(
+                            "cubism.editor-model.model-source.all-parameters",
+                            "cubism.editor-model.modeling-document.last-active-view",
+                            "cubism.editor-model.modeling-view.model",
+                            "cubism.editor-model.morph-target-set.remove",
+                            "cubism.editor-model.morph-target.set-parameter",
+                            "cubism.editor-model.morph-target.set-parameter-and-key-value",
+                            "cubism.editor-model.official-export.exporter-create",
+                            "cubism.editor-model.official-export.exporter-settings",
+                            "cubism.editor-model.official-export.set-extend-edge",
+                            "cubism.editor-model.official-export.set-format",
+                            "cubism.editor-model.official-export.set-invisible-mesh",
+                            "cubism.editor-model.official-export.set-invisible-part",
+                            "cubism.editor-model.official-export.set-origin-x",
+                            "cubism.editor-model.official-export.set-origin-y",
+                            "cubism.editor-model.official-export.set-pixels-per-unit",
+                            "cubism.editor-model.official-export.set-sketch-part",
+                            "cubism.editor-model.official-export.settings-create",
+                            "cubism.editor-model.parameter-controllable-source.internal-set-parent",
+                            "cubism.editor-model.parameter-group.guid",
+                            "cubism.editor-model.part-form.class",
+                            "cubism.editor-model.part-source.remove-child",
+                            "cubism.editor-model.part.current-keyform",
+                            "cubism.editor-model.part.id",
+                            "cubism.editor-model.update-manager.selection-guid-list"
+                        )
+                    )
+                )
+            )
+        )
+    );
 
 
     private EditorModelVerificationManifest() {

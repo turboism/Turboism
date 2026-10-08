@@ -121,9 +121,15 @@ final class VerifiedTypedEditorCommandOperations {
     static final String CANVAS_EDIT_LABEL = "Change Canvas Size";
 
     private final VerifiedMemberResolver resolver;
+    private final VerifiedMemberResolver editorModelResolver;
 
     VerifiedTypedEditorCommandOperations(final VerifiedMemberResolver resolver) {
+        this(resolver, resolver);
+    }
+
+    VerifiedTypedEditorCommandOperations(final VerifiedMemberResolver resolver, final VerifiedMemberResolver editorModelResolver) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
+        this.editorModelResolver = editorModelResolver;
     }
 
     EditorCommandResult execute(final EditorParameterizedRequest request) {
@@ -373,6 +379,15 @@ final class VerifiedTypedEditorCommandOperations {
             Aliases.CANVAS_END_EDIT_DEFAULT, Aliases.CANVAS_MARK_DIRTY, Aliases.CANVAS_UNDO,
             APP_INSTANCE
         );
+        // The 5.3.02 scale helper removes a temporary rotation source after its
+        // last updateModelInstances call. Rebuild the live collection once more
+        // using the already verified editor-model selector before completing.
+        final boolean rebuildInstances = "5.3.02".equals(resolver.cubismVersion());
+        if (rebuildInstances && (editorModelResolver == null
+            || !resolver.cubismVersion().equals(editorModelResolver.cubismVersion()))) {
+            throw new IllegalStateException("Canvas instance rebuild requires the verified editor-model selector.");
+        }
+        if (rebuildInstances) editorModelResolver.bind("cubism.editor-model.model-source.update-instances");
         final ModelingContext context = new ModelingContext();
         if ((Boolean) resolver.invoke(Aliases.CANVAS_IS_EDITING, context.editMode)) {
             // An unrelated edit is in progress; fail closed before the first mutation.
@@ -392,6 +407,7 @@ final class VerifiedTypedEditorCommandOperations {
                 // Rollback through the native Undo path: close the transaction and undo the partial
                 // group so no partial canvas/model state and no open edit remain.
                 rollbackEdit(context.editMode, undoPosBefore);
+                if (rebuildInstances) editorModelResolver.invoke("cubism.editor-model.model-source.update-instances", context.modelSource);
             } catch (RollbackFailed rollbackFailure) {
                 rollbackFailure.addSuppressed(failure);
                 throw rollbackFailure;
@@ -443,6 +459,9 @@ final class VerifiedTypedEditorCommandOperations {
             zero,
             group
         );
+        if ("5.3.02".equals(resolver.cubismVersion())) {
+            editorModelResolver.invoke("cubism.editor-model.model-source.update-instances", context.modelSource);
+        }
         resolver.invokeStatic(
             Aliases.CANVAS_END_EDIT_DEFAULT, context.editMode, false, null, 1, null
         );
@@ -520,9 +539,12 @@ final class VerifiedTypedEditorCommandOperations {
             Aliases.CANVAS_CURRENT_VIEW_CONTEXT, appInstance()
         );
         final File target = command.file().toFile();
+        // The native boolean controls revealing the saved file, not Save As.
+        // Both native save paths persist/update their file independently of it.
+        // A typed file command should not launch an unsolicited file manager.
         if (resolver.isInstance(Aliases.FILE_SCENE_DOCUMENT, viewContext)) {
             final Object content = resolver.invoke(Aliases.FILE_SCENE_CONTENT, viewContext);
-            final boolean saved = (Boolean) resolver.invoke(Aliases.FILE_SAVE_SCENE, content, target, true);
+            final boolean saved = (Boolean) resolver.invoke(Aliases.FILE_SAVE_SCENE, content, target, false);
             return saved
                 ? new EditorCommandResult(EditorCommandResult.Status.EXECUTED, command.commandId())
                 : new EditorCommandResult(EditorCommandResult.Status.FAILED, command.commandId());
@@ -531,7 +553,19 @@ final class VerifiedTypedEditorCommandOperations {
         if (document == null) {
             return new EditorCommandResult(EditorCommandResult.Status.INVALID_STATE, command.commandId());
         }
-        final boolean saved = (Boolean) resolver.invoke(Aliases.FILE_SAVE_MODEL, document, target, true);
+        final boolean saved;
+        if (resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03") && editorModelResolver != null
+                && editorModelResolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03") && editorModelResolver.authorizesFeature(
+                dev.turboism.mapping.verification.selector.EditorParameterInterpolationSelectorContract.ADAPTER_SLICE_ID,
+                dev.turboism.mapping.verification.selector.EditorParameterInterpolationSelectorContract.CAPABILITY_ID,
+                dev.turboism.mapping.verification.selector.EditorParameterInterpolationSelectorContract.REQUIRED_ALIASES)) {
+            requireResolvable(Aliases.CANVAS_MODEL_SOURCE);
+            final Object source = resolver.invoke(Aliases.CANVAS_MODEL_SOURCE, document);
+            saved = NativeInterpolationSaveCache.save(editorModelResolver, source,
+                () -> (Boolean) resolver.invoke(Aliases.FILE_SAVE_MODEL, document, target, false));
+        } else {
+            saved = (Boolean) resolver.invoke(Aliases.FILE_SAVE_MODEL, document, target, false);
+        }
         return saved
             ? new EditorCommandResult(EditorCommandResult.Status.EXECUTED, command.commandId())
             : new EditorCommandResult(EditorCommandResult.Status.FAILED, command.commandId());

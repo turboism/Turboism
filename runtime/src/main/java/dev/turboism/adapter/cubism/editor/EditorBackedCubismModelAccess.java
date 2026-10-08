@@ -95,6 +95,8 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
 
     private final EditorDocumentReadAccess documentReadAccess;
     private final EditorModelInstanceAccess modelInstanceAccess;
+    private final EditorRenderPixelsAccess renderPixelsAccess;
+    private final EditorMocExportAccess mocExportAccess;
     private final EditorTextureAccess textureAccess;
     private final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin;
 
@@ -124,8 +126,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             this::source
         );
         this.parameterStructureAccess = new EditorParameterStructureAccess(
-            resolver,
-            this::requireCurrent
+            resolver, this::requireCurrent, authoringCoordinator, this::authoringParticipationBinding
         );
         this.parameterGroupsAccess = new EditorParameterGroupsAccess(
             resolver,
@@ -150,7 +151,9 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         );
         this.hierarchyEditAccess = new EditorObjectHierarchyEditAccess(
             resolver,
-            this::requireCurrent
+            this::requireCurrent,
+            this.authoringCoordinator,
+            this::authoringParticipationBinding
         );
 
         this.documentReadAccess = new EditorDocumentReadAccess(
@@ -161,9 +164,16 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             resolver,
             this::requireCurrent
         );
-        this.textureAccess = new EditorTextureAccess(
+        this.mocExportAccess = new EditorMocExportAccess(resolver, this::requireCurrent);
+        this.renderPixelsAccess = new EditorRenderPixelsAccess(
             resolver,
             this::requireCurrent
+        );
+        this.textureAccess = new EditorTextureAccess(
+            resolver,
+            this::requireCurrent,
+            this.authoringCoordinator,
+            this::authoringParticipationBinding
         );
         this.modelProfileAccess = new EditorModelProfileAccess(
             resolver,
@@ -501,7 +511,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
                 "Cubism MOC metadata is unavailable: no Core evaluated join is installed."
             );
         }
-        return evaluatedJoin.mocInfo();
+        return evaluatedJoin.mocInfo(binding().identity());
     }
 
     private void setParameterValue(
@@ -1230,6 +1240,18 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             return modelInstanceAccess.modelEditing(identity, source, model);
         }
 
+        @Override public dev.turboism.sdk.cubism.model.CubismMocExport exportMoc(
+            final dev.turboism.sdk.cubism.model.CubismMocExportSettings settings
+        ) {
+            return mocExportAccess.exportMoc(identity, source, model, settings);
+        }
+
+        @Override public dev.turboism.sdk.cubism.model.CubismRenderedPixels renderPixels(
+            final int width, final int height
+        ) {
+            return renderPixelsAccess.renderPixels(identity, source, model, width, height);
+        }
+
         @Override public dev.turboism.sdk.cubism.model.ModelTextures textures() {
             return textureAccess.textures(identity, source, model);
         }
@@ -1250,7 +1272,9 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
                 EditorBackedCubismModelAccess.this::requireCurrent,
                 objectReadAccess::parameterBindings,
                 objectReadAccess::bindingTargetSource,
-                EditorBackedCubismModelAccess.this::source
+                EditorBackedCubismModelAccess.this::source,
+                authoringCoordinator,
+                EditorBackedCubismModelAccess.this::authoringParticipationBinding
             );
         }
         @Override public ParameterBindingBatchOperations parameterBindingBatch() {

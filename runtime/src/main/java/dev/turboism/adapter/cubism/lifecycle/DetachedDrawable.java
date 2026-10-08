@@ -22,30 +22,58 @@ final class DetachedDrawable implements Drawable {
 
     private final ArtMeshId id;
     private final float opacity;
-    private final byte constantFlag;
-    private final byte dynamicFlag;
-    private final BlendMode blendMode;
-    private final int textureIndex;
+    private final Field<Byte> constantFlag;
+    private final Field<Byte> dynamicFlag;
+    private final Field<BlendMode> blendMode;
+    private final Field<Integer> textureIndex;
     private final int drawOrder;
-    private final int renderOrder;
-    private final Color multiplyColor;
-    private final Color screenColor;
+    private final Field<Integer> renderOrder;
+    private final Field<Color> multiplyColor;
+    private final Field<Color> screenColor;
     private final int parentPartIndex;
     private final int parentDeformerIndex;
 
     private DetachedDrawable(final Drawable source, final float opacity) {
         id = source.id();
         this.opacity = opacity;
-        constantFlag = source.constantFlag();
-        dynamicFlag = source.dynamicFlag();
-        blendMode = source.blendMode();
-        textureIndex = source.textureIndex();
+        // Evaluated-overlay fields fail closed on hosts without a Core projection
+        // (e.g. Editor-bound models expose no CubismModel). The capture keeps the
+        // failure verbatim and the getter rethrows it, so events still deliver the
+        // fields that genuinely exist instead of aborting the whole lifecycle write.
+        constantFlag = Field.read(source::constantFlag);
+        dynamicFlag = Field.read(source::dynamicFlag);
+        blendMode = Field.read(source::blendMode);
+        textureIndex = Field.read(source::textureIndex);
         drawOrder = source.drawOrder();
-        renderOrder = source.renderOrder();
-        multiplyColor = source.multiplyColor();
-        screenColor = source.screenColor();
+        renderOrder = Field.read(source::renderOrder);
+        multiplyColor = Field.read(source::multiplyColor);
+        screenColor = Field.read(source::screenColor);
         parentPartIndex = source.parentPartIndex();
         parentDeformerIndex = source.parentDeformerIndex();
+    }
+
+    /** A field captured at event time: either its value or the failure it produced. */
+    private static final class Field<T> {
+        private final T value;
+        private final RuntimeException failure;
+
+        private Field(final T value, final RuntimeException failure) {
+            this.value = value;
+            this.failure = failure;
+        }
+
+        private static <T> Field<T> read(final java.util.function.Supplier<T> source) {
+            try {
+                return new Field<>(source.get(), null);
+            } catch (RuntimeException failure) {
+                return new Field<>(null, failure);
+            }
+        }
+
+        private T get() {
+            if (failure != null) throw failure;
+            return value;
+        }
     }
 
     static DetachedDrawable capture(final Drawable drawable, final float opacity) {
@@ -53,19 +81,19 @@ final class DetachedDrawable implements Drawable {
     }
 
     @Override public ArtMeshId id() { return id; }
-    @Override public byte constantFlag() { return constantFlag; }
-    @Override public byte dynamicFlag() { return dynamicFlag; }
-    @Override public BlendMode blendMode() { return blendMode; }
-    @Override public int textureIndex() { return textureIndex; }
+    @Override public byte constantFlag() { return constantFlag.get(); }
+    @Override public byte dynamicFlag() { return dynamicFlag.get(); }
+    @Override public BlendMode blendMode() { return blendMode.get(); }
+    @Override public int textureIndex() { return textureIndex.get(); }
     @Override public int drawOrder() { return drawOrder; }
-    @Override public int renderOrder() { return renderOrder; }
+    @Override public int renderOrder() { return renderOrder.get(); }
     @Override public float getOpacity() { return opacity; }
     @Override public IntSequence masks() { return EMPTY_INTS; }
     @Override public FloatSequence vertexPositions() { return EMPTY_FLOATS; }
     @Override public FloatSequence vertexUvs() { return EMPTY_FLOATS; }
     @Override public IntSequence indices() { return EMPTY_INTS; }
-    @Override public Color multiplyColor() { return multiplyColor; }
-    @Override public Color screenColor() { return screenColor; }
+    @Override public Color multiplyColor() { return multiplyColor.get(); }
+    @Override public Color screenColor() { return screenColor.get(); }
     @Override public int parentPartIndex() { return parentPartIndex; }
     @Override public int parentDeformerIndex() { return parentDeformerIndex; }
     @Override public IntSequence parameters() { return EMPTY_INTS; }

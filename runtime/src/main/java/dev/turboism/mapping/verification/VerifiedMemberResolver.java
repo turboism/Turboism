@@ -80,6 +80,22 @@ public final class VerifiedMemberResolver {
     }
 
     /**
+     * Returns whether the admitted artifact is exactly one of the given Cubism versions.
+     *
+     * @param expectedVersions exact version strings to compare against
+     * @return {@code true} only when one of them equals the admitted version exactly
+     */
+    public boolean isExactCubismVersion(final String... expectedVersions) {
+        final String admitted = accessPlan.cubismVersion();
+        for (final String expectedVersion : expectedVersions) {
+            if (admitted.equals(expectedVersion)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Returns the exact Cubism version of the admitted artifact.
      *
      * @return the reviewed version string

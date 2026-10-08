@@ -28,6 +28,45 @@ class MappingPackDraftImportTest {
     private final MappingPackValidator validator = new MappingPackValidator();
 
     @Test
+    void editorModel5302EvaluationDraftMatchesStaticInventory() throws Exception {
+        final var pack = mapper.readTree(DRAFT_DIR.resolve("cubism-5.3.02-editor-model-read.json").toFile());
+        final var root = DRAFT_DIR.getParent().getParent().getParent().getParent();
+        final byte[] bytes = Files.readAllBytes(root.resolve(pack.path("metadata").path("inventoryRef").asText()));
+        final var record = mapper.readTree(bytes);
+        assertEquals("DRAFT", pack.path("status").asText());
+        assertEquals("VERIFIED_STATIC", record.path("status").asText());
+        assertEquals(871, record.path("selectors").size());
+        assertEquals(871, pack.path("entries").size());
+        assertEquals(record.path("selectors").size(), pack.path("metadata").path("selectorCount").asInt());
+        assertEquals(record.path("capabilityIds").size(), pack.path("metadata").path("capabilityCount").asInt());
+        assertEquals(java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes)),
+            pack.path("metadata").path("verificationRecordSha256").asText());
+        final var entries = new java.util.HashMap<String, JsonNode>();
+        pack.path("entries").forEach(e -> assertNull(entries.put(e.path("name").asText(), e)));
+        for (final var selector : record.path("selectors")) {
+            final String alias = selector.path("alias").asText();
+            if (!dev.turboism.mapping.verification.selector.EditorArtMeshEvaluationReadSelectorContract.NEW_ALIASES.contains(alias)
+                && !dev.turboism.mapping.verification.selector.EditorArtMeshMorphSelectorContract.NEW_ALIASES.contains(alias)
+                && !dev.turboism.mapping.verification.selector.EditorMocExportSelectorContract.NEW_ALIASES.contains(alias)) continue;
+            final var entry = entries.get(alias);
+            assertNotNull(entry);
+            assertEquals(selector.path("mappingId"), entry.path("semanticName"));
+            assertEquals(selector.path("kind"), entry.path("kind"));
+            if (selector.path("kind").asText().equals("class")) {
+                assertEquals(selector.path("ownerInternalName"), entry.path("runtime"));
+            } else {
+                assertEquals(selector.path("memberName"), entry.path("runtime"));
+                assertEquals(selector.path("descriptor"), entry.path("descriptor"));
+            }
+            for (final String field : List.of("ownerInternalName", "requiredAccessFlags", "forbiddenAccessFlags")) {
+                assertEquals(selector.path(field), entry.path("x.verification").path(field));
+            }
+            assertEquals("DRAFT", entry.path("status").asText());
+            assertTrue(entry.path("verifiedAt").isNull());
+        }
+    }
+
+    @Test
     void allDraftPacksAreValid() throws Exception {
         try (Stream<Path> files = Files.list(DRAFT_DIR)) {
             files.filter(p -> p.toString().endsWith(".json")).forEach(path -> {
@@ -252,8 +291,9 @@ class MappingPackDraftImportTest {
             "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
             metadata.path("artifactSha256").asText()
         );
-        assertEquals(621, root.path("entries").size());
-        assertEquals(58, metadata.path("capabilityCount").asInt());
+        // Animation workspace expansion: 621 + 119 additions - 1 removal.
+        assertEquals(739, root.path("entries").size());
+        assertEquals(63, metadata.path("capabilityCount").asInt());
         final Set<String> capabilities = asStringSet(metadata.path("capabilityIds"));
         assertEquals(metadata.path("capabilityCount").asInt(), capabilities.size());
         assertTrue(capabilities.containsAll(Set.of(
@@ -262,6 +302,25 @@ class MappingPackDraftImportTest {
             "cubism.editor-model.parameter-structure.write",
             "cubism.editor-model.part-structure.write"
         )));
+    }
+
+    @Test
+    void editorModel5303DraftMetadataMatchesStaticInventory() throws Exception {
+        final JsonNode pack = mapper.readTree(
+            DRAFT_DIR.resolve("cubism-5.3.03-editor-model-read.json").toFile());
+        final JsonNode metadata = pack.path("metadata");
+        final Path project = Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")));
+        final byte[] inventoryBytes = Files.readAllBytes(project.resolve(metadata.path("inventoryRef").asText()));
+        final JsonNode inventory = mapper.readTree(inventoryBytes);
+        assertEquals("DRAFT", pack.path("status").asText());
+        assertEquals("VERIFIED_STATIC", inventory.path("status").asText());
+        assertEquals(pack.path("entries").size(), metadata.path("selectorCount").asInt());
+        assertEquals(inventory.path("selectors").size(), metadata.path("selectorCount").asInt());
+        assertEquals(asStringSet(inventory.path("capabilityIds")), asStringSet(metadata.path("capabilityIds")));
+        assertEquals(inventory.path("capabilityIds").size(), metadata.path("capabilityCount").asInt());
+        assertEquals(java.util.HexFormat.of().formatHex(
+            java.security.MessageDigest.getInstance("SHA-256").digest(inventoryBytes)),
+            metadata.path("verificationRecordSha256").asText());
     }
 
     @Test

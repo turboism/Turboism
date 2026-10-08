@@ -30,6 +30,9 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
     private final String capabilityId;
     private final Set<String> requiredAliases;
     private final IdentityHashMap<Object, Long> revisions = new IdentityHashMap<>();
+    private Object directDocument;
+    private Object directSource;
+    private long directGeneration;
 
     VerifiedTextureAtlasLayoutProviderEngine(
         final VerifiedMemberResolver resolver,
@@ -94,7 +97,7 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
             final Object listener = resolver.createFunctionalProxy(
                 "cubism.editor-model.undo-listener.class",
                 ignored -> {
-                    relinkTextureInputs(binding.modelSource(), binding.textureManager());
+                    relinkTextureInputs(binding.modelSource(), binding.textureManager(), false);
                     refresh(binding.modelSource(), completePack);
                     return null;
                 }
@@ -107,7 +110,7 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
                     "Cubism rejected the texture-atlas Undo/Redo refresh listener."
                 );
             }
-            relinkTextureInputs(binding.modelSource(), binding.textureManager());
+            relinkTextureInputs(binding.modelSource(), binding.textureManager(), true);
             refresh(binding.modelSource(), completePack);
             resolver.invoke(
                 "cubism.editor-model.modeling-document.mark-dirty", binding.document()
@@ -131,7 +134,11 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
     }
 
     private Binding binding() {
+        if (capture.isClosed()) return null;
         final Object dataModel = capture.current().orElse(null);
+        // 5.3.02 imports can author an atlas before its editor window is opened.
+        // Use the same verified model transaction; no native UI object is needed.
+        if (dataModel == null && "5.3.02".equals(exactVersion)) return directBinding();
         if (!resolver.isInstance("cubism.texture-atlas.data-model.class", dataModel)) return null;
         final Object document = resolver.invoke("cubism.texture-atlas.data-model.document", dataModel);
         final Object source = resolver.invoke("cubism.texture-atlas.data-model.model-source", dataModel);
@@ -148,13 +155,33 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
         if (activeDocument != document || resolver.invoke(
             "cubism.editor-model.modeling-document.model-source", document
         ) != source) {
-            return null;
+            return "5.3.02".equals(exactVersion) ? directBinding() : null;
         }
         final Object guid = resolver.invoke("cubism.editor-model.model-source.guid", source);
         final String modelId = text(guid == null ? null : resolver.invoke("cubism.editor-model.guid.value", guid));
         final Object textureManager = resolver.invoke("cubism.texture-atlas.model-source.texture-manager", source);
         if (modelId == null || textureManager == null) return null;
         return new Binding(document, source, dataModel, textureManager, sessionIdentity, modelId);
+    }
+
+    private Binding directBinding() {
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Object document = app == null ? null : resolver.invoke(
+            "cubism.editor-model.app-controller.current-document", app);
+        final Object source = resolver.isInstance("cubism.editor-model.modeling-document.class", document)
+            ? resolver.invoke("cubism.editor-model.modeling-document.model-source", document) : null;
+        if (document != directDocument || source != directSource) {
+            directDocument = document;
+            directSource = source;
+            directGeneration++;
+        }
+        if (source == null) return null;
+        final Object guid = resolver.invoke("cubism.editor-model.model-source.guid", source);
+        final String modelId = text(guid == null ? null : resolver.invoke("cubism.editor-model.guid.value", guid));
+        final Object manager = resolver.invoke("cubism.texture-atlas.model-source.texture-manager", source);
+        if (modelId == null || manager == null || atlases(manager).isEmpty()) return null;
+        return new Binding(document, source, source, manager,
+            sessionIdentity + ":active-model:" + directGeneration, modelId);
     }
 
     private TextureAtlasAuthoringState project(final Binding binding) {
@@ -300,7 +327,8 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
 
     private void relinkTextureInputs(
         final Object modelSource,
-        final Object textureManager
+        final Object textureManager,
+        final boolean selectAtlas
     ) {
         final Object helper = resolver.readStaticField(
             "cubism.texture-atlas.texture-input-relink.helper-instance"
@@ -318,8 +346,12 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
             2,
             null
         );
+        // Undo/Redo must retain a later raw-image display selection. Forcing atlas mode
+        // can leave current inputs pointing at removed pages when creation is undone next.
         resolver.invoke(
-            "cubism.texture-atlas.texture-manager.change-input-to-atlas",
+            !selectAtlas && "5.3.02".equals(exactVersion)
+                ? "cubism.texture-atlas.texture-manager.reinit-input"
+                : "cubism.texture-atlas.texture-manager.change-input-to-atlas",
             textureManager
         );
     }

@@ -210,12 +210,12 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.ADAPTER_SLICE_ID,
             EditorModelVerificationManifest.RECORD_5_3_02.cubismVersion(),
             EditorModelVerificationManifest.RECORD_5_3_02.profileId(),
-            EditorModelVerificationManifest.CAPABILITY_IDS,
+            EditorModelVerificationManifest.cubism5302Capabilities(),
             "Live2D_Cubism.jar",
             EditorModelVerificationManifest.RECORD_5_3_02.artifact().size(),
             EditorModelVerificationManifest.RECORD_5_3_02.artifact().sha256(),
             EditorModelVerificationManifest.RECORD_5_3_02.recordSha256(),
-            761,
+            899, // Includes native editable-mesh initialization and extension ownership.
             EditorModelVerificationManifest.cubism5302Aliases(),
             EditorModelVerificationManifest.cubism5302Aliases(),
             recordMethodAliases("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
@@ -318,7 +318,7 @@ class StaticVerificationRecordRepositoryTest {
             case "cubism-5.3.03-clipmask" ->
                 "c17a6596497b148fb71e9d9074b97d2967a9697d38e7222848f154e44fb5a597";
             case "cubism-5.3.03-editor-model" ->
-                "c0c24f6f8183ace1154820f8f836e74ee1d0f1f3bb2a8a6ca91dd5e523b411ea";
+                "197c727e7efa6846b92141d467681b2d35cc1704b3cc0df54a7945d6b62f5bc9";
             case "cubism-5.3.03-performance-render-scene" ->
                 "045979891bc7512e0f2a89c0972e34fa6b7cb8ae1515086ae1307b5bb5413feb";
             case "cubism-5.3.03-project-workspace" ->

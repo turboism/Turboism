@@ -54,7 +54,7 @@ public final class EditorDeformerInspectorSelectorContract {
         "cubism.editor-model.parameter-controllable-source.target-deformer-source",
         "cubism.editor-model.parameter-controllable-handler.class",
         "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
-        "cubism.editor-model.parameter-controllable-handler.change-target-deformer",
+        "cubism.editor-model.parameter-controllable-handler.change-target-deformer-guid",
         "cubism.editor-model.model-source.update-instances",
         "cubism.editor-model.model-source.verify",
         "cubism.editor-model.model-source.target-version",
