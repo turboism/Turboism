@@ -1,0 +1,44 @@
+{
+  "status": "PASS_FROZEN_PRODUCTION_ARCHIVES_ONLY",
+  "baselineSha256": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+  "candidateSha256": "aa960bc455ca78f3a8dfbab08a609f878f7d0773fdc1bc88136beed7e9d4b79a",
+  "changed": [
+    "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey.class",
+    "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeLookup.class",
+    "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetKey.class",
+    "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetLookup.class",
+    "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St.class",
+    "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.class"
+  ],
+  "added": [
+    "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$QuerySnapshot.class"
+  ],
+  "removed": [],
+  "unchangedEntryCount": 5298,
+  "productionHookRegistryUnchanged": true,
+  "validationObserverClassesAbsent": true,
+  "inputReportSha256": "86a3cf32bbca08f1229f1300e63960f01ee493c3d333eb78580bde1b35049a6d",
+  "hostExecuted": false,
+  "productionAcceptance": "NOT_GRANTED_ARCHIVE_AUDIT",
+  "auditScriptSha256": "6570548b8b7944f7f87742939166d0544e45214621d0d2374decbf0e293433fd",
+  "actualNonProductionRefusals": [
+    {
+      "input": "producer",
+      "sha256": "d1d6596462cb539b49e56114e5de833ab9ec2c2127fa4067a7f26410f918836c",
+      "status": "REFUSED",
+      "reason": "candidate is not the frozen T075 production jar"
+    },
+    {
+      "input": "capture",
+      "sha256": "dc09b3d06e7e2a999d349adff51bfa07a26e6ff3b14345d4afc3b830d9d8a2da",
+      "status": "REFUSED",
+      "reason": "candidate is not the frozen T075 production jar"
+    },
+    {
+      "input": "canonical",
+      "sha256": "907322d5d82c2e3676701dc173774be491e12617eeafd9604fc83ccd9b42030b",
+      "status": "REFUSED",
+      "reason": "candidate is not the frozen T075 production jar"
+    }
+  ]
+}

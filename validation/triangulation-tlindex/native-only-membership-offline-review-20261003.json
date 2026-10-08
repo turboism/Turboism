@@ -1,0 +1,77 @@
+{
+  "task": "T077",
+  "status": "PASS_OFFLINE_EXACT_T057_PLUS_MEMBERSHIP_SETTLEMENT_DEFER",
+  "performanceAcceptance": "NOT_GRANTED",
+  "candidate": {
+    "status": "PASS_T057_PLUS_NATIVE_ONLY_MEMBERSHIP_OVERLAY_ARCHIVE_ONLY",
+    "baselineSha256": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+    "candidateSha256": "79e92acc450e92ee411bf8048b3ef58ef7b4df67bf262458494e1a562bc56675",
+    "changedEntries": [
+      "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetKey.class",
+      "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St.class",
+      "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.class",
+      "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey.class",
+      "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeLookup.class",
+      "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetLookup.class"
+    ],
+    "addedEntries": [],
+    "removedEntries": [],
+    "unrelatedEntriesByteIdentical": 5298,
+    "classPins": {
+      "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetKey.class": "832387d73d806a2fb85c525a46b6772014b5a5af3b0c2e20950d4c00cebe403d",
+      "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St.class": "c2db04191543a36952a1188d0bf3390e33f3ecde18295f0c6b2e4e30b3596851",
+      "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.class": "e3b48e093f4d6a3500c0261190ae1bf1e6fb59ad19f026b3f07b3bf6fb73c919",
+      "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey.class": "89932971d3c362b5cf7a3cc4c51c0fa39fac16ba8ea22ab28e635048798aa8b4",
+      "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeLookup.class": "3ce6546fb743673fa5082b1b7901ed4ff71863ae79200140ccc7401d98d3ce8b",
+      "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetLookup.class": "02da892c376056b11d5699bf46707cdd889ce819bb7c0e9f96450aa6fca0b569"
+    },
+    "sourcePins": {
+      "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.java": "2fe3636129006a3846492a236a24ebb7517b3573c1636cfc4bca6899b7685022",
+      "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t075-small-query-snapshot-integration-r1/baseline-TriangulationEdgeIndex.java": "2fe0f008cd71ff373e0ae0a4453707fd7b4aa6aa114df13d3ca06b426d3d52ec",
+      "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t077-native-only-membership-r1/freeze-candidate-r2.py": "2e3d09f532607656c9b204d04f95eb83f37316c0d122e75fa07afbf627a42f41"
+    },
+    "performanceAcceptance": "NOT_GRANTED"
+  },
+  "tests": [
+    {
+      "name": "TriangulationEdgeIndexTest",
+      "tests": 35,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "name": "TriangulationEdgeIndexExactHostShapeTest",
+      "tests": 7,
+      "failures": 0,
+      "skipped": 0
+    }
+  ],
+  "premainCases": 39,
+  "profiles": [
+    "5203",
+    "5302",
+    "5303"
+  ],
+  "pairedGeometryGroups": 6,
+  "devCheck": "PASS",
+  "withdrawnSourceExperiment": "T075 QuerySnapshot restored to pinned T057 source/tests after failed production gates; all frozen artifacts/results unchanged",
+  "failuresPreserved": [
+    "test-guard-r2/stop-reason.json: wrong Gradle task filtering caused unfiltered runtime test, explicitly cancelled owned command",
+    "production-candidate-r1: ZIP-info shared object mutation broke read-back audit; not a valid candidate"
+  ],
+  "nextAction": "Freeze independent four-leg exact-production ABBA before submission",
+  "inputPins": {
+    "build/t077-native-only-membership-r1/production-candidate-r2/review.json": "aec1877c7f570d97ffa66d7382e72488c4386a646335c7588ea30f8ad896b007",
+    "build/t077-native-only-membership-r1/premain-r1/review.json": "4908ca8b58d0788fb5da43b09c99e50bb4f875a962c26144a4a3e2573296c802",
+    "build/t077-native-only-membership-r1/final-test-guard-r1/result.json": "51b224e242479d13c153fb1fe261f5088402373da47e8763c2e5ac93a6e396aa",
+    "build/t077-native-only-membership-r1/legacy-guard-r1/result.json": "b794c2ba091d1ff0d3a17b6de55379421e14e8ce7408cdc74eaa3a4cdfab8209",
+    "build/t077-native-only-membership-r1/premain-guard-r1/result.json": "69fb89b937402183cab0c80d56d61f153da366b8ffb3331377dad671c0c7b891",
+    "build/t077-native-only-membership-r1/freeze-candidate-r2.py": "2e3d09f532607656c9b204d04f95eb83f37316c0d122e75fa07afbf627a42f41",
+    "build/t077-native-only-membership-r1/verify-frozen-premain.py": "98a8d8dce56bf3c20053d9e99b55dd5828b6d28b2b966aa5f5f32dbe588b81ce",
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.java": "2fe3636129006a3846492a236a24ebb7517b3573c1636cfc4bca6899b7685022",
+    "runtime/src/test/java/dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndexTest.java": "03a862b63c1128b58caeed1dc227ed96c0f0c3ba12048c8a9a48012a729043e9",
+    "build/t052-endpoint-membership-r1/h.javap.txt": "62af75cb058cc6644fb9181693f7f8e51fa5895c6bd71ac3c6c74ed42e284638",
+    "build/t077-native-only-membership-r1/TEST-dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexTest.xml": "e7659541f715f89a64f9c6f44a069ea9f537638cc5c0d4a8652af3212693a4c5",
+    "build/t077-native-only-membership-r1/TEST-dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexExactHostShapeTest.xml": "ea80649e70e489f1e212026f9d424fd7205a0517b56a42905b651d6e63c6ef51"
+  }
+}

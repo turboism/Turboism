@@ -1,0 +1,89 @@
+{
+  "task": "T090",
+  "status": "PASS_INDEPENDENT_INPUT_STATE_DIAGNOSTIC",
+  "sequence": 2638,
+  "jobId": "5ece6e98-aaaa-45ce-8d88-b294b8d9bc77",
+  "runId": "queue-59f668e94e8c4f2c91e48cc47c384a9c",
+  "preparedId": "33f9584ea1d13694e646d00af2034215507d9af760f2db88cde8e950786b92a5",
+  "productionCandidateSha256": "eb6875699d3fdb92e3340a0a0af106fcf30f2985d490389f81fe3a0823c209f8",
+  "inputPluginSha256": "d486a2b2789acf8e2b71b667e43da4ddf4e4aee6ad89959e728ba38158ed5e8d",
+  "standardGates": "PASS",
+  "referenceMismatchCount": 0,
+  "outputRows": 2133,
+  "kernelCpuUnitComparisons": 6,
+  "cpuPayloadFieldsMatched": 30,
+  "sameJfrTaskAndEdtBinding": "PASS",
+  "cycles": [
+    {
+      "cycle": 1,
+      "before": {
+        "widget": "null",
+        "subtool": "POINT_ADD",
+        "views": "com.live2d.cubism.view.context.CEViewContext_ModelingView@1965943511;mouse=null;actionPack=com.live2d.cubism.view.context.actionManager.aG@387998535"
+      },
+      "after": {
+        "widget": "null",
+        "subtool": "POINT_ADD",
+        "views": "com.live2d.cubism.view.context.CEViewContext_ModelingView@1965943511;mouse=null;actionPack=com.live2d.cubism.view.context.actionManager.aG@387998535"
+      },
+      "widgetTextUnchanged": true,
+      "subtoolTextUnchanged": true,
+      "invalidatedIndexCacheSources": 711,
+      "currentIndexCacheSources": 0,
+      "fullChainExecutionSamples": 0,
+      "fullChainAllocationSamples": 0
+    },
+    {
+      "cycle": 2,
+      "before": {
+        "widget": "null",
+        "subtool": "POINT_ADD",
+        "views": "com.live2d.cubism.view.context.CEViewContext_ModelingView@1965943511;mouse=null;actionPack=com.live2d.cubism.view.context.actionManager.aG@387998535"
+      },
+      "after": {
+        "widget": "null",
+        "subtool": "POINT_ADD",
+        "views": "com.live2d.cubism.view.context.CEViewContext_ModelingView@1965943511;mouse=null;actionPack=com.live2d.cubism.view.context.actionManager.aG@387998535"
+      },
+      "widgetTextUnchanged": true,
+      "subtoolTextUnchanged": true,
+      "invalidatedIndexCacheSources": 711,
+      "currentIndexCacheSources": 0,
+      "fullChainExecutionSamples": 0,
+      "fullChainAllocationSamples": 0
+    },
+    {
+      "cycle": 3,
+      "before": {
+        "widget": "null",
+        "subtool": "POINT_ADD",
+        "views": "com.live2d.cubism.view.context.CEViewContext_ModelingView@1965943511;mouse=null;actionPack=com.live2d.cubism.view.context.actionManager.aG@387998535"
+      },
+      "after": {
+        "widget": "null",
+        "subtool": "POINT_ADD",
+        "views": "com.live2d.cubism.view.context.CEViewContext_ModelingView@1965943511;mouse=null;actionPack=com.live2d.cubism.view.context.actionManager.aG@387998535"
+      },
+      "widgetTextUnchanged": true,
+      "subtoolTextUnchanged": true,
+      "invalidatedIndexCacheSources": 711,
+      "currentIndexCacheSources": 0,
+      "fullChainExecutionSamples": 0,
+      "fullChainAllocationSamples": 0
+    }
+  ],
+  "savedEvidenceRehashed": 24,
+  "inputPins": {
+    "build/t090-native-input-state-r1/native5303-input-r1/native-review.json": "e99ecbe462e1f08ee04b3dd12ba5731ca55f99b56ca14268278b093698ab184c",
+    "build/t090-native-input-state-r1/native5303-input-r1/cache-refresh-review.json": "2075e97d0fdfe2e38eb343959e0d55d934cb1a14438afc0aab0ddb28f395a9c5",
+    "build/t090-native-input-state-r1/native5303-input-r1/input-cache-stack-review.json": "d625d41e4b9eb1f713cbc40886b0512cd673d48113de5651791c188cea14eb79",
+    "build/t090-native-input-state-r1/native5303-input-r1/run.json": "c0564027ce373f8d29174ec023c9668c5dbe770409157938106760731679cb9c",
+    "build/t090-native-input-state-r1/native5303-input-r1/outcome.json": "2173d55158824e12fa311f7c1918f231239c996c56e6664777276fa38a969092",
+    "validation/triangulation-tlindex/diagnostic/analyze-native-input-state.py": "3a833b648d1325b8fae68288b5a933d88bc73a8bd76b1fff87b4c9ed939a2528",
+    "validation/triangulation-tlindex/diagnostic/test-native-input-state.py": "ca464bab3cb96e0aba9d6d34fdc231b410a8f26fa385aea01abbbf02ffc020c9"
+  },
+  "historicalFailures": "UNCHANGED",
+  "performanceAcceptance": "NOT_GRANTED",
+  "causation": "NOT_PROVEN",
+  "nextStep": "Controlled own-task input dispatch through the actual canvas listener; prove output parity for both cache boundaries before production changes."
+}

@@ -1,0 +1,24 @@
+{
+  "task": "T093",
+  "status": "PASS_SOURCE_AND_OWNED_RUNTIME_CONTROLS_NOT_PRODUCTION_ARTIFACT_ACCEPTANCE",
+  "focusedTests": 9,
+  "focusedFailures": 0,
+  "sdkAssertionGroups": 6,
+  "completeOperationFixtures": 288,
+  "fallbackFixtures": 288,
+  "helperControls": 211,
+  "finalReservationBytes": 0,
+  "productionArtifactBuilt": false,
+  "performanceAcceptance": "NOT_GRANTED",
+  "historicalFailures": "UNCHANGED",
+  "implementation": "Initial current-list capacity with budgeted replacement-buffer growth; unchanged entry limit and native fallback",
+  "inputPins": {
+    "build/t093-native-table-growth-r1/owned-runtime-matrix-r1/review.json": "f5d22388ee832ce30c3a1b6a73c14c78c961bd47611db2379caa3de725e4d3dd",
+    "build/t093-native-table-growth-r1/focused-test.log": "57cac1652800fd7131956e154c22e98757035a2f75fcf89938dc3e1d914fbe1b",
+    "build/worktree/perf-cubism-edt-async/runtime/test-results/test/TEST-dev.turboism.adapter.cubism.mesh.NativeMeshEdgeTableTest.xml": "6d1f1788c6044df635f04433688538294d7977569e36ba024f5edfa74172eb3d",
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/NativeMeshEdgeTable.java": "451f3342b216bbc496f5249b919b64545f79b6f5c8ebcff94e94ea6850e8322f",
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/NativeMeshEdgeLookup.java": "fd47dcdeaeffbbdf06cb5562d7a862a6cf14b639982bc63f64a1a95e0d4508f1",
+    "runtime/src/test/java/dev/turboism/adapter/cubism/mesh/NativeMeshEdgeTableTest.java": "c02cbd1cd6153b12b18d1841e773844914aeaf04210414d7299e63377e8a0d51"
+  },
+  "nextStep": "Build exact sole-premain integration and extend growth-heavy native controls, then independently validate allocations and formally measure the new artifact."
+}

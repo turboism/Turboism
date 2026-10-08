@@ -1,0 +1,154 @@
+{
+  "status": "FAIL_FIXED_BALANCED_GATES",
+  "pairs": [
+    {
+      "baseline": "baseline1",
+      "candidate": "candidate1",
+      "candidateChangePercent": {
+        "wallSeconds": -0.2549951514091986,
+        "directCpuSeconds": 2.0017219113215745,
+        "operationPeakRssBytes": -41.41773907748001
+      },
+      "gates": {
+        "commandWallImproves": true,
+        "javaCpuTotalNoRegression": false,
+        "absoluteRssGrowthWithin20Percent": true,
+        "rssAboveOwnBaselineWithin80MiB": true,
+        "retained3Minus1Within64MiB": true
+      },
+      "pass": false
+    },
+    {
+      "baseline": "baseline2",
+      "candidate": "candidate2",
+      "candidateChangePercent": {
+        "wallSeconds": -10.584888567551475,
+        "directCpuSeconds": -19.110723626852653,
+        "operationPeakRssBytes": 26.857434182012163
+      },
+      "gates": {
+        "commandWallImproves": true,
+        "javaCpuTotalNoRegression": true,
+        "absoluteRssGrowthWithin20Percent": false,
+        "rssAboveOwnBaselineWithin80MiB": true,
+        "retained3Minus1Within64MiB": true
+      },
+      "pass": false
+    }
+  ],
+  "legs": [
+    {
+      "name": "baseline1",
+      "arm": "baseline",
+      "sequence": 2600,
+      "jobId": "fb64a35f-bd9a-4be8-b3f3-19438208612c",
+      "runId": "queue-a8d594f43f26415ea549cd94a089c27a",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 36.6583833,
+      "directCpuSeconds": 46.46,
+      "sampledCpuSeconds": 45.4,
+      "operationPeakRssBytes": 4842721280,
+      "peakAboveBaselineBytes": 712556544.0,
+      "retained3Minus1Bytes": 61497344.0,
+      "maximumSampleGapMillis": 1041,
+      "operationPeakRssMiB": 4618.37890625,
+      "peakAboveBaselineMiB": 679.546875,
+      "retained3Minus1MiB": 58.6484375
+    },
+    {
+      "name": "candidate1",
+      "arm": "candidate",
+      "sequence": 2601,
+      "jobId": "f6679378-9301-40ed-97c9-4d053b833152",
+      "runId": "queue-3feaf1ac817347859e1e03290ff787da",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 36.564906199999996,
+      "directCpuSeconds": 47.39,
+      "sampledCpuSeconds": 47.84,
+      "operationPeakRssBytes": 2836975616,
+      "peakAboveBaselineBytes": 13467648.0,
+      "retained3Minus1Bytes": 475136.0,
+      "maximumSampleGapMillis": 1032,
+      "operationPeakRssMiB": 2705.55078125,
+      "peakAboveBaselineMiB": 12.84375,
+      "retained3Minus1MiB": 0.453125
+    },
+    {
+      "name": "candidate2",
+      "arm": "candidate",
+      "sequence": 2602,
+      "jobId": "77cf2f25-b58b-467d-b1a7-6d75d20f648a",
+      "runId": "queue-327735af45bc4def8aca70c27d7663cb",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 37.7829081,
+      "directCpuSeconds": 46.39,
+      "sampledCpuSeconds": 45.68,
+      "operationPeakRssBytes": 3740471296,
+      "peakAboveBaselineBytes": -42766336.0,
+      "retained3Minus1Bytes": 5107712.0,
+      "maximumSampleGapMillis": 1047,
+      "operationPeakRssMiB": 3567.19140625,
+      "peakAboveBaselineMiB": -40.78515625,
+      "retained3Minus1MiB": 4.87109375
+    },
+    {
+      "name": "baseline2",
+      "arm": "baseline",
+      "sequence": 2603,
+      "jobId": "f0f03a38-a1f0-48e4-be90-62e589a84654",
+      "runId": "queue-716eb888eae642009161579bc67adc05",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 42.2556182,
+      "directCpuSeconds": 57.35,
+      "sampledCpuSeconds": 56.12,
+      "operationPeakRssBytes": 2948562944,
+      "peakAboveBaselineBytes": 217378816.0,
+      "retained3Minus1Bytes": -2039808.0,
+      "maximumSampleGapMillis": 1078,
+      "operationPeakRssMiB": 2811.96875,
+      "peakAboveBaselineMiB": 207.30859375,
+      "retained3Minus1MiB": -1.9453125
+    }
+  ],
+  "aggregateCandidateChangePercent": {
+    "wallSeconds": -5.786282678872901,
+    "directCpuSeconds": -9.661882284943646
+  },
+  "statisticalBenefit": "NOT_ESTABLISHED_TWO_PAIRS",
+  "limitations": [
+    "Two fixed reversed-order pairs, not statistical evidence or complete production acceptance.",
+    "Exact unchanged production Agents, single premain, identical task plugin and kernel observer. Direct process CPU includes all Java threads; native-only intervals exclude pre-resolution/preparation/output hashing. Provider resolution is not proven by nanosecond units.",
+    "RSS/PSS remain sampled. Memory operation windows also include common preparation and output snapshots; these broader windows are used conservatively for sampled RSS. No changed caps, favorable retry, or retrospective earlier candidate acceptance."
+  ],
+  "task": "T077",
+  "sourceProtocolCommitBeforeSubmission": "a17e616ad",
+  "sourceRestored": "T057_SEMANTICS_AFTER_WHITESPACE_NORMALIZATION",
+  "withdrawalTests": 33,
+  "withdrawalDevCheck": "PASS",
+  "productionAcceptance": "NOT_GRANTED",
+  "productionBaseline": "T057",
+  "retryOrReplacement": false,
+  "inputPins": {
+    "build/t077-native-only-membership-r1/native5303-production-abba-r1/balanced-review.json": "c510823332dda28bca9b8df8863383bc80153fd1514fae248238f95f57bf4fe6",
+    "build/t077-native-only-membership-r1/withdrawal-guard-r1/result.json": "e26d931cb8278c0468fedb6414db88d9e78dfb331905cb69ae70c7c06858cbc4",
+    "build/worktree/perf-cubism-edt-async/runtime/test-results/test/TEST-dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexTest.xml": "bed6547b25fdfce2ec2fcf4c30a63f018f66709f44b3b7c66df43a8dee7e838e"
+  },
+  "rejectedSourcePins": {
+    "build/t077-native-only-membership-r1/rejected-source-snapshot-r1/compiled-index-family/TriangulationEdgeIndex$EdgeKey.class": "89932971d3c362b5cf7a3cc4c51c0fa39fac16ba8ea22ab28e635048798aa8b4",
+    "build/t077-native-only-membership-r1/rejected-source-snapshot-r1/compiled-index-family/TriangulationEdgeIndex$EdgeLookup.class": "3ce6546fb743673fa5082b1b7901ed4ff71863ae79200140ccc7401d98d3ce8b",
+    "build/t077-native-only-membership-r1/rejected-source-snapshot-r1/compiled-index-family/TriangulationEdgeIndex$St.class": "c2db04191543a36952a1188d0bf3390e33f3ecde18295f0c6b2e4e30b3596851",
+    "build/t077-native-only-membership-r1/rejected-source-snapshot-r1/compiled-index-family/TriangulationEdgeIndex$SetLookup.class": "02da892c376056b11d5699bf46707cdd889ce819bb7c0e9f96450aa6fca0b569",
+    "build/t077-native-only-membership-r1/rejected-source-snapshot-r1/compiled-index-family/TriangulationEdgeIndex$SetKey.class": "832387d73d806a2fb85c525a46b6772014b5a5af3b0c2e20950d4c00cebe403d",
+    "build/t077-native-only-membership-r1/rejected-source-snapshot-r1/compiled-index-family/TriangulationEdgeIndex.class": "e3b48e093f4d6a3500c0261190ae1bf1e6fb59ad19f026b3f07b3bf6fb73c919",
+    "build/t077-native-only-membership-r1/rejected-source-snapshot-r1/runtime/src/test/java/dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndexTest.java": "03a862b63c1128b58caeed1dc227ed96c0f0c3ba12048c8a9a48012a729043e9",
+    "build/t077-native-only-membership-r1/rejected-source-snapshot-r1/runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.java": "2fe3636129006a3846492a236a24ebb7517b3573c1636cfc4bca6899b7685022"
+  }
+}

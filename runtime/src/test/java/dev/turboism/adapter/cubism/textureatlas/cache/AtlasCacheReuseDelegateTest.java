@@ -14,6 +14,13 @@ import com.live2d.graphics.CWritableImage;
 import com.live2d.type.CAffine;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBuffer;
+import java.awt.image.DataBufferInt;
+import java.awt.image.DirectColorModel;
+import java.awt.image.Raster;
+import java.awt.image.WritableRaster;
+import java.security.MessageDigest;
+import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -332,5 +339,148 @@ final class AtlasCacheReuseDelegateTest {
         assertFalse(
                 AtlasCacheReuseDelegate.tryReuse(CTextureAtlas.class, brokenAtlas, true),
                 "content equality is unproven, so the guard must rebuild");
+    }
+
+    // --- T041-DIGEST: the batched digest must hash the byte-identical stream ---
+
+    /**
+     * The original byte-at-a-time algorithm, kept verbatim as the parity reference for
+     * the chunked implementation. Both branches — the raw {@code DataBufferInt} array
+     * and the per-row {@code getRGB} fallback — and the budget guard are reproduced
+     * exactly.
+     */
+    private static String referenceDigest(final BufferedImage image) {
+        final long pixels = (long) image.getWidth() * image.getHeight();
+        if (pixels <= 0 || pixels > 64L * 1024L * 1024L) return null;
+        final MessageDigest sha;
+        try {
+            sha = MessageDigest.getInstance("SHA-256");
+        } catch (java.security.NoSuchAlgorithmException unavailable) {
+            throw new IllegalStateException("SHA-256 is unavailable", unavailable);
+        }
+        final DataBuffer buffer = image.getRaster().getDataBuffer();
+        if (buffer instanceof DataBufferInt ints
+                && image.getRaster().getDataBuffer().getSize() == image.getWidth() * image.getHeight()) {
+            for (final int v : ints.getData()) {
+                sha.update((byte) (v >>> 24));
+                sha.update((byte) (v >>> 16));
+                sha.update((byte) (v >>> 8));
+                sha.update((byte) v);
+            }
+        } else {
+            final int[] row = new int[image.getWidth()];
+            for (int y = 0; y < image.getHeight(); y++) {
+                image.getRGB(0, y, image.getWidth(), 1, row, 0, image.getWidth());
+                for (final int v : row) {
+                    sha.update((byte) (v >>> 24));
+                    sha.update((byte) (v >>> 16));
+                    sha.update((byte) (v >>> 8));
+                    sha.update((byte) v);
+                }
+            }
+        }
+        final byte[] digest = sha.digest();
+        final StringBuilder hex = new StringBuilder(64);
+        for (final byte b : digest) {
+            hex.append(Character.forDigit((b >> 4) & 0xF, 16));
+            hex.append(Character.forDigit(b & 0xF, 16));
+        }
+        return hex.toString();
+    }
+
+    private static BufferedImage randomImage(final int width, final int height, final int type, final long seed) {
+        final BufferedImage image = new BufferedImage(width, height, type);
+        final Random random = new Random(seed);
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                image.setRGB(x, y, random.nextInt());
+            }
+        }
+        return image;
+    }
+
+    @Test
+    void batchedDigestMatchesByteAtATimeOnIntRasters() {
+        // Odd dimensions keep the pixel count off power-of-two boundaries.
+        for (final int type :
+                new int[] {BufferedImage.TYPE_INT_ARGB, BufferedImage.TYPE_INT_RGB, BufferedImage.TYPE_INT_ARGB_PRE}) {
+            final BufferedImage image = randomImage(37, 23, type, 0xC041 + type);
+            assertEquals(
+                    referenceDigest(image),
+                    AtlasCacheReuseDelegate.pixelDigest(image),
+                    "int-raster fast path must hash the identical big-endian stream");
+        }
+    }
+
+    @Test
+    void batchedDigestMatchesAcrossScratchBlockBoundaries() {
+        // 300×200 = 240_000 digest bytes > 64 KiB scratch: exercises mid-stream flushes;
+        // 128×128 = 65_536 bytes lands the last pixel exactly on a full block.
+        for (final int[] dims : new int[][] {{300, 200}, {128, 128}, {129, 128}, {1, 70000}}) {
+            final BufferedImage image =
+                    randomImage(dims[0], dims[1], BufferedImage.TYPE_INT_ARGB, dims[0] * 31 + dims[1]);
+            assertEquals(
+                    referenceDigest(image),
+                    AtlasCacheReuseDelegate.pixelDigest(image),
+                    "multi-block and boundary-length streams must not reorder a single byte");
+        }
+    }
+
+    @Test
+    void batchedDigestMatchesOnTheGetRgbPath() {
+        // Non-int buffers always take the per-row getRGB path; palette/banded types
+        // also exercise ARGB conversion rather than raw passthrough.
+        for (final int type : new int[] {
+            BufferedImage.TYPE_3BYTE_BGR,
+            BufferedImage.TYPE_4BYTE_ABGR,
+            BufferedImage.TYPE_BYTE_GRAY,
+            BufferedImage.TYPE_BYTE_BINARY
+        }) {
+            final BufferedImage image = randomImage(37, 23, type, 0xB0A7 + type);
+            assertEquals(
+                    referenceDigest(image),
+                    AtlasCacheReuseDelegate.pixelDigest(image),
+                    "getRGB fallback must hash the identical stream for type " + type);
+        }
+    }
+
+    @Test
+    void batchedDigestMatchesOnASubimageSharingAParentBuffer() {
+        // A subimage keeps the parent's DataBuffer: getSize() (parent area) no longer
+        // equals w*h, so even DataBufferInt rasters fall back to getRGB rows.
+        final BufferedImage parent = randomImage(64, 64, BufferedImage.TYPE_INT_ARGB, 0x5EB1);
+        final BufferedImage sub = parent.getSubimage(8, 8, 16, 16);
+        assertEquals(
+                referenceDigest(sub),
+                AtlasCacheReuseDelegate.pixelDigest(sub),
+                "a shared parent buffer must still take the getRGB path");
+    }
+
+    @Test
+    void batchedDigestStillHashesTheOversizedBackingTail() {
+        // DataBufferInt whose array is longer than its declared size: the fast-path
+        // guard compares size, while getData() returns the whole array — the legacy
+        // stream includes the tail ints and parity requires hashing them too.
+        final int[] data = new int[64 + 16];
+        final Random random = new Random(0xFEED);
+        for (int i = 0; i < data.length; i++) data[i] = random.nextInt();
+        final DataBufferInt buffer = new DataBufferInt(data, 64);
+        final WritableRaster raster = Raster.createPackedRaster(
+                buffer, 8, 8, 8, new int[] {0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000}, null);
+        final BufferedImage image = new BufferedImage(
+                new DirectColorModel(32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000), raster, false, null);
+        assertEquals(
+                referenceDigest(image),
+                AtlasCacheReuseDelegate.pixelDigest(image),
+                "the backing-array tail must remain part of the hashed stream");
+    }
+
+    @Test
+    void batchedDigestStaysNullOverBudget() {
+        final BufferedImage overBudget = new BufferedImage(8193, 8193, BufferedImage.TYPE_BYTE_BINARY);
+        assertNull(referenceDigest(overBudget));
+        assertNull(
+                AtlasCacheReuseDelegate.pixelDigest(overBudget),
+                "over-budget digests must remain uncomputable, never a comparable key");
     }
 }

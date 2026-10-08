@@ -1,0 +1,19 @@
+# T072 primitive edge metadata integration: offline gates
+
+The complete owned index now uses a nested primitive long-key table instead of `EdgeKey`/`HashMap` metadata. **Offline gates pass; production performance acceptance remains unproven.** The working integration is uncommitted. Frozen T057 remains the delivery baseline while the candidate is tested.
+
+The table supports all long endpoint keys with exact equality, full-bit hashing, a two-thirds load bound and linear probing. Deletion shifts only entries whose probe path crosses the gap and clears the final key/value slot. Arrays allocate lazily; growth publishes only a completely rehashed pair of arrays. The capacity refusal throws into existing guarded bookkeeping, preserving native fallback. Clear releases bucket references and retains capacity. The table monitor covers lookups, bucket mutations and deletion shifts, preserving clean-set concurrent queries. Existing `ArrayList` buckets, mutable detached query snapshots, native geometric removal, actual identity-absence scan, pending identities, dirty/dead/rebuild behavior, weak owner registry and woven public signatures remain intact.
+
+Verification:
+
+- 60 actual runtime JUnit tests and 5 bootstrap contributor tests PASS, no skips, plus `devCheck` and packaged bootstrap license check PASS.
+- New wrapped-collision deletion test verifies every possible victim position and released slots; a 256-triangle nonmanifold test verifies growth, deletion, native survivor order and independent mutable snapshots. Existing equality mutation, native victim, dirty/dead/fallback, weak lifetime and concurrent query regressions pass.
+- A reflection adapter loads the **actual frozen production candidate table** and reruns the owned differential harness: 3,776,818 checks PASS. It observes exact methods/arrays rather than substituting prototype behavior. Allocation counts and native performance are not inferred.
+- Genuine sole-premain controls and composed fixtures pass 39 cases across all three reviewed profiles, including startup rejection, dependency mutation, revocation and six paired geometry groups (128 fixtures per group, assertions on/off).
+- Three capture-only companions pass shared-lease startup checks on the reviewed profiles. Those checks explicitly do not execute native geometry; full native output/capture proof is still required.
+
+Freeze overlays exactly the index outer/nested family on each T057 artifact. `EdgeKey` and `EdgeLookup` are removed; `EdgeTable` is added; all unrelated entries, patchers, transformers, native command pipeline and hook resources are byte-identical to their respective T057 bases. Production candidate SHA `ac74f74831f0292f51011b7d11b4023e341a3f3895b8dea6f5c73ad8ad7dea2d`; producer SHA `02867ea2c91de606a315ab2eae966305fc575958515ca88d0f7eebe98c1ad340`; capture SHA `bc27301ec2903c1a45fe33dbb4648ddbdfffd9637a23626a7707d7b7f1a22b6a`. Raw source/test snapshots, compiled artifacts, test XML, logs and pins are retained in `build/t072-primitive-edge-table-integration-r1/`.
+
+Two offline reporting issues are preserved: the initial freeze's exact-family assertion refused a broad prefix that also matched Patcher/Transformer before writing any candidate; the matcher was corrected to outer.class/outer$*.class. The first capture startup reporter used the wrong PASS string; its JVM produced the expected shared-lease startup marker. The failed r1 record was retained and offline startup rerun with the correct marker and unchanged parameters. Neither issue triggered an Editor or performance retry.
+
+Next: run the separately frozen four-leg ABBA protocol with the same direct process CPU metric and original CPU ≤0%/RSS/output/lifecycle caps. Restore T057 source if the fixed gates fail; retain the frozen rejected evidence. No historical gate reinterpretation, main merge, push or release. Lane C human review remains pending and the broader performance goal remains active.

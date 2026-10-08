@@ -23,17 +23,36 @@ $fixture = Join-Path ([System.IO.Path]::GetTempPath()) ('turboism-bat-regression
 [void][System.IO.Directory]::CreateDirectory($fixture)
 try {
     $original = "@echo off`r`nrem synthetic fixture, never executed`r`nexit /b 0`r`n"
+    $syntheticRoot = Join-Path $fixture 'synthetic options host'
+    [void][System.IO.Directory]::CreateDirectory($syntheticRoot)
+    $syntheticBat = Join-Path $syntheticRoot 'CubismEditor5.bat'
+    $syntheticBody = "@echo off`r`ncd /d `"$syntheticRoot`"`r`n%JAVA_EXE% -showversion ^`r`n  com.live2d.cubism.CECubismEditorApp ^`r`n  %*`r`n"
+    [System.IO.File]::WriteAllText($syntheticBat, $syntheticBody)
+    $syntheticHash = Get-CubismSha256 $syntheticBat
     foreach ($name in @('plain', 'with spaces', '中文 home')) {
         $homePath = Join-Path $fixture $name
         [void][System.IO.Directory]::CreateDirectory($homePath)
+        $syntheticAgent = Join-Path $homePath 'turboism-agent.jar'
+        [System.IO.File]::WriteAllText($syntheticAgent, 'synthetic normal file; never executed')
+        $managedBat = New-CubismManagedOptionsBat -OfficialBat $syntheticBat -CubismRoot $syntheticRoot -TurboismHome $homePath -Agent $syntheticAgent
+        $managedText = [System.IO.File]::ReadAllText($managedBat)
+        Assert-BatRegression (([regex]::Matches($managedText, '-XX:\+DisableAttachMechanism')).Count -eq 1) "ephemeral managed BAT emits default ownership option once: $name"
+        Assert-BatRegression ((Get-CubismSha256 $syntheticBat) -eq $syntheticHash) "managed staging preserves synthetic official BAT bytes: $name"
         $text = Get-CubismBatIntegrationText -OriginalText $original -TurboismHome $homePath
         $lines = @($text -split '\r?\n')
         $expectedHome = 'set "TURBOISM_HOME=' + $homePath + '"'
         Assert-BatRegression (@($lines | Where-Object { $_ -ceq $expectedHome }).Count -eq 1) "one complete HOME assignment: $name"
         Assert-BatRegression (@($lines | Where-Object { $_ -match '^set "JAVA_TOOL_OPTIONS=.*-javaagent:.*%JAVA_TOOL_OPTIONS%"$' }).Count -eq 1) "one complete JVM assignment: $name"
         Assert-BatRegression (([regex]::Matches($text, '-javaagent:')).Count -eq 1) "one agent argument: $name"
+        Assert-BatRegression (([regex]::Matches($text, '-XX:\+DisableAttachMechanism')).Count -eq 1) "default edge ownership startup option is emitted once: $name"
         Assert-BatRegression ($text.EndsWith($original)) "original BAT body preserved: $name"
         Assert-BatRegression ((Get-CubismBatIntegrationText -OriginalText $text -TurboismHome $homePath) -ceq $text) "managed text idempotent: $name"
+        [System.IO.File]::WriteAllText((Join-Path $homePath 'config.json'), '{"meshTriangulationEdgeIndex":false}')
+        $offText = Get-CubismBatIntegrationText -OriginalText $text -TurboismHome $homePath
+        Assert-BatRegression ($offText -notmatch 'DisableAttachMechanism') "regenerated off integration restores normal attach defaults: $name"
+        Assert-BatRegression ($offText.EndsWith($original)) "off integration preserves the original BAT body: $name"
+        $offBat = New-CubismManagedOptionsBat -OfficialBat $syntheticBat -CubismRoot $syntheticRoot -TurboismHome $homePath -Agent $syntheticAgent
+        Assert-BatRegression ([System.IO.File]::ReadAllText($offBat) -notmatch 'DisableAttachMechanism') "managed restart reads the saved off preference: $name"
     }
 
     $homePath = Join-Path $fixture 'upgrade home'

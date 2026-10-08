@@ -1,0 +1,199 @@
+{
+  "status": "FAIL_FIXED_BALANCED_GATES",
+  "pairs": [
+    {
+      "baseline": "baseline1",
+      "candidate": "candidate1",
+      "candidateChangePercent": {
+        "wallSeconds": 1.6536385174129586,
+        "directCpuSeconds": 4.217362095991639,
+        "operationPeakRssBytes": 35.858438335455304
+      },
+      "gates": {
+        "commandWallImproves": false,
+        "javaCpuTotalNoRegression": false,
+        "absoluteRssGrowthWithin20Percent": false,
+        "rssAboveOwnBaselineWithin80MiB": true,
+        "retained3Minus1Within64MiB": true
+      },
+      "pass": false
+    },
+    {
+      "baseline": "baseline2",
+      "candidate": "candidate2",
+      "candidateChangePercent": {
+        "wallSeconds": 8.636696482983485,
+        "directCpuSeconds": 10.02065262288312,
+        "operationPeakRssBytes": -20.35898333587982
+      },
+      "gates": {
+        "commandWallImproves": false,
+        "javaCpuTotalNoRegression": false,
+        "absoluteRssGrowthWithin20Percent": true,
+        "rssAboveOwnBaselineWithin80MiB": false,
+        "retained3Minus1Within64MiB": true
+      },
+      "pass": false
+    }
+  ],
+  "totals": {
+    "baseline": {
+      "wallSeconds": 237.88657240199998,
+      "directCpuSeconds": 255.01999999999998,
+      "sampledCpuSeconds": 332.83000000000004
+    },
+    "candidate": {
+      "wallSeconds": 249.735013799,
+      "directCpuSeconds": 272.8,
+      "sampledCpuSeconds": 377.28000000000003
+    }
+  },
+  "aggregateCandidateChangePercent": {
+    "wallSeconds": 4.980710461024906,
+    "directCpuSeconds": 6.972002195906213
+  },
+  "productionAcceptance": "NOT_GRANTED_PENDING_ALL_VERSION_LONG_RUN_AND_HUMAN_REVIEW",
+  "statisticalBenefit": "NOT_ESTABLISHED_TWO_PAIRS",
+  "legs": [
+    {
+      "name": "baseline1",
+      "arm": "baseline",
+      "sequence": 2667,
+      "jobId": "4bf84843-2141-493a-84a8-35179133226f",
+      "runId": "queue-e67cf590140346539a111edbfcbcf931",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 124.54572019899999,
+      "directCpuSeconds": 133.97,
+      "sampledCpuSeconds": 175.97,
+      "operationPeakRssBytes": 3673972736,
+      "peakAboveBaselineBytes": 569647104.0,
+      "retained3Minus1Bytes": 525012992.0,
+      "maximumSampleGapMillis": 1047
+    },
+    {
+      "name": "candidate1",
+      "arm": "candidate",
+      "sequence": 2668,
+      "jobId": "4abcbbf9-b06c-4ef3-8dbe-0bb37032223d",
+      "runId": "queue-22d502baa9be4dc0a4d1f7acdb94427e",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 126.60525620000001,
+      "directCpuSeconds": 139.62,
+      "sampledCpuSeconds": 193.48000000000002,
+      "operationPeakRssBytes": 4991401984,
+      "peakAboveBaselineBytes": 54116352.0,
+      "retained3Minus1Bytes": -1265643520.0,
+      "maximumSampleGapMillis": 1051
+    },
+    {
+      "name": "candidate2",
+      "arm": "candidate",
+      "sequence": 2670,
+      "jobId": "47b6e8d0-fbfc-462c-a5f8-74db970e3f7f",
+      "runId": "queue-0282c20c8b464438ba86def691fa1b14",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 123.129757599,
+      "directCpuSeconds": 133.18,
+      "sampledCpuSeconds": 183.8,
+      "operationPeakRssBytes": 3223900160,
+      "peakAboveBaselineBytes": 121884672.0,
+      "retained3Minus1Bytes": 19075072.0,
+      "maximumSampleGapMillis": 1075
+    },
+    {
+      "name": "baseline2",
+      "arm": "baseline",
+      "sequence": 2672,
+      "jobId": "f360994f-6c0a-44f5-a2ba-70a9fdead176",
+      "runId": "queue-47e1c8c3b6ba4c7fadb682ae5dc55dc0",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 113.340852203,
+      "directCpuSeconds": 121.05,
+      "sampledCpuSeconds": 156.86,
+      "operationPeakRssBytes": 4048039936,
+      "peakAboveBaselineBytes": 1403707392.0,
+      "retained3Minus1Bytes": 568188928.0,
+      "maximumSampleGapMillis": 1033
+    }
+  ],
+  "task": "T106",
+  "historicalReferenceParity": {
+    "baseline1": "FAIL",
+    "candidate1": "FAIL",
+    "candidate2": "FAIL",
+    "baseline2": "FAIL"
+  },
+  "historicalFailures": "UNCHANGED",
+  "controlledBoundaryRowsPerLeg": 2133,
+  "jfrEnabled": false,
+  "inputPins": {
+    "validation/triangulation-tlindex/point-controlled-abba-protocol-20261004.json": "b4d4744d628c0a8ee374e05bab241a508df108e1c58c1027be62093fb5f55fb4",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/analyze-all.py": "007489446e08c788ce5cd784e870b1830326b4efb1c230b7d69358c572c432b1",
+    "validation/triangulation-tlindex/diagnostic/balanced-cpu-gates.py": "40d6ce54085fbb52be3041ea2c1f95c31bf8ef9621d235699faf10ef1255e548",
+    "validation/triangulation-tlindex/diagnostic/compare-controlled-cache-boundaries.py": "c6780ddeb58e8b657c907f990550f903e48ab1f8bc2a5fb250e89fd39ecf775e",
+    "validation/triangulation-tlindex/analyze-resource-windows.py": "26aaf9ab604cedca477d2dd017111465b2428acd41fc63d878cf48c58aad326f",
+    "validation/triangulation-tlindex/diagnostic/analyze-command-cpu-counters.py": "e083dd50bf0d1fb87895d4323cd0ed799eaba363c7a5ce6eb5b5a7b0e87209ab",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline1/run.json": "3932be371fe58898fb1ae727629320285dfee0888abfbd55b7b841a299b089bc",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline1/native-review.json": "a2bbc48470e92a92ac54f48dab7c2a0f448644105a8a464b3cda085722b818d5",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline1/direct-cpu-review.json": "46fba1891356b598e57d9be9bbbac2318060a9d78a1398af92b452e2274d2ed7",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline1/resource-review.json": "4a98aeb0fbbf3cfafb532c5e16ba28d5d99581385919440d302e920488b08ca4",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline1/native-evidence/observer-free-results.tsv": "30f7ca993fcc5a512f62dd092a5e2e177ffd53deda92d4278a50506c22dfaadc",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline1/native-evidence/resources.jsonl": "73d3a68c910b7d1fbbf3f573564c424673c78e7233e09cd4615bcbac5de5d563",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline1/native-evidence/observer-free-command-cpu.tsv": "aa15d519ac745f83708234fd9dcd862bdee859e3146b29e799cf846e66ec15c8",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate1/run.json": "9fd5b7a43e8e6cfb54f15a483e9e58a0ee12748f60d69a9ea35ebe850e4fdcc1",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate1/native-review.json": "21ec6244e22832077ef088189c1b0586de6b501ce33c97c22f553260efac4921",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate1/direct-cpu-review.json": "eddfd27e08cfe634209645cbee54c96a85254f12d0c17f6a1e9816d395c2d994",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate1/resource-review.json": "b5802d311cae486df8281baf0bebcc92f1f530a34a61f1034337d52841634214",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate1/native-evidence/observer-free-results.tsv": "30f7ca993fcc5a512f62dd092a5e2e177ffd53deda92d4278a50506c22dfaadc",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate1/native-evidence/resources.jsonl": "06b8d389a4b511ca9ce6b8513bc5139609bdba5ca943ce6476150bce899ee988",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate1/native-evidence/observer-free-command-cpu.tsv": "f901346fe02242f091ea9641f1c042ad7f8e1568cc0627c63fbf1c9b11b7d808",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate2/run.json": "e902a7bfea0dacec98d3707919c14222bfbfa30e05cd3f9be8d216f3b7fbde20",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate2/native-review.json": "97dc5b3550009e7006e46683de6c1c8143008bb1924334e60de3326abe552aea",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate2/direct-cpu-review.json": "5a92f16881ff1a42ff7ddcfcf509e3d818e65ea62f53722554475b20a543bf31",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate2/resource-review.json": "c3dbf04ea56c420c36b35b9671c18090d3d75ebb2e59969bc304e7d2790a0905",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate2/native-evidence/observer-free-results.tsv": "30f7ca993fcc5a512f62dd092a5e2e177ffd53deda92d4278a50506c22dfaadc",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate2/native-evidence/resources.jsonl": "27f64ee36f580a926426170474c03f3bcc7bc02cee11ae217fe6dbb14f2b66b5",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate2/native-evidence/observer-free-command-cpu.tsv": "10930137f9e1c281c6294c3b76886440602acb769303d4ad19793204e5cfe292",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline2/run.json": "03c03e64dacd34852f14d035ddcab8b689cf87c17e3e784d3a9b655729dc579c",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline2/native-review.json": "605896a02abd70dfbb13d429eb398eee518330414da6d20f6fe195146420a99e",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline2/direct-cpu-review.json": "000cc49a37f3f319604ff0872ce260b168115224686792e78d97a9b8550fc16d",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline2/resource-review.json": "57b161d591d36fb41628c8153500dad9082feaf3a86f7d944dab1d4081e8fa98",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline2/native-evidence/observer-free-results.tsv": "30f7ca993fcc5a512f62dd092a5e2e177ffd53deda92d4278a50506c22dfaadc",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline2/native-evidence/resources.jsonl": "c5fca85b802547a61212becf91aece3a26037a5eca5a08f75e82cac3d0802d86",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline2/native-evidence/observer-free-command-cpu.tsv": "38b766db530f4228177e60631adb2eeccb82bd5fd9d5328ef747f0186a5ae7e9",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline1/raw-terminal-evidence/preservation.json": "01d494ccb9d0e22105d76917cb9ab17c3bb20a6dd736086c000ac4727b4537fd",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline1/outcome.json": "6fc63a5502109a8b3c698e26ff000413e32b10586cf9153bb3c208a9d186d84c",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline1/native-review.log": "1dfd0e020852dea0b7274ca48e897b4bdbc7b729bca1ee379c302ce4b3ca96b8",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate1/raw-terminal-evidence/preservation.json": "e6830970b73d3afe313c6c78d25b2c457b563a214f6a66e0178cd3cfea1d989d",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate1/outcome.json": "387b3938566ff0f9807ee55bb660d5321a47a5307a8cd1a5c60c258589d4c5f9",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate1/native-review.log": "1dfd0e020852dea0b7274ca48e897b4bdbc7b729bca1ee379c302ce4b3ca96b8",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate2/raw-terminal-evidence/preservation.json": "84d446beba95a4a11f8054586dfa0e154b053475d6371740ec45b1817cc66acb",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate2/outcome.json": "5803fa183bda2a6ae8261c8b82bbebda4254b54962434856abe4abce0005e307",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/candidate2/native-review.log": "1dfd0e020852dea0b7274ca48e897b4bdbc7b729bca1ee379c302ce4b3ca96b8",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline2/raw-terminal-evidence/preservation.json": "bdc111baca5c1879daee26e9e8cc7f9fd214e5aaa5c03b9ffff0ae25fd7cbefc",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline2/outcome.json": "9e97e79de228df98203b3dd479dc79c5f39705422255fac1d4cd56ebdb9a8851",
+    "build/t106-point-controlled-abba-r1/native5303-abba-r1/baseline2/native-review.log": "1dfd0e020852dea0b7274ca48e897b4bdbc7b729bca1ee379c302ce4b3ca96b8"
+  },
+  "limitations": [
+    "Two fixed reversed-order pairs, not statistical evidence or complete production acceptance.",
+    "Exact unchanged production Agents, single premain, identical controlled-input non-JFR task plugin and kernel observer. Direct process CPU includes all Java threads; native-only intervals exclude pre-resolution/preparation/output hashing. Provider resolution is not proven by nanosecond units.",
+    "RSS/PSS remain sampled. Memory operation windows also include common preparation and output snapshots; these broader windows are used conservatively for sampled RSS. No changed caps, favorable retry, or retrospective earlier candidate acceptance."
+  ],
+  "rawFilesRehashed": 215,
+  "reviewCopiesRehashed": 92,
+  "protocolInputPinsRehashed": 58,
+  "analysisInputPinsRehashed": 34,
+  "reportSha256": "c76eb7a574b66f58b53ca19e0d20878ef689f77df095b758939119b5a056fe0f",
+  "acceptedDelivery": "T057_UNCHANGED",
+  "candidateSha256": "678bb3fd4d9810ea7ec3171ebd2db4107a70648741836ce356da57c7ac2e5b80",
+  "hostRetryCount": 0,
+  "nextStep": "Analyze existing T105 allocation samples; do not retry or grant production acceptance"
+}

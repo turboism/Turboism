@@ -1,0 +1,102 @@
+{
+  "task": "T110R3",
+  "status": "FAIL_FIXED_BALANCED_GATES",
+  "protocol": "validation/triangulation-tlindex/callback-controlled-abba-r3-protocol-20261004.json",
+  "baselineAgentSha256": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+  "candidateAgentSha256": "6a7aa03b362e100a4a6db2a273da82e63119aa877a6d1dbb38e56aee9b071c13",
+  "pairResults": [
+    {
+      "baseline": "baseline1",
+      "candidate": "candidate1",
+      "candidateChangePercent": {
+        "wallSeconds": -2.037703688343173,
+        "directCpuSeconds": -1.1923509561304835,
+        "operationPeakRssBytes": -29.80776825066839
+      },
+      "gates": {
+        "commandWallImproves": true,
+        "javaCpuTotalNoRegression": true,
+        "absoluteRssGrowthWithin20Percent": true,
+        "rssAboveOwnBaselineWithin80MiB": false,
+        "retained3Minus1Within64MiB": true
+      },
+      "pass": false
+    },
+    {
+      "baseline": "baseline2",
+      "candidate": "candidate2",
+      "candidateChangePercent": {
+        "wallSeconds": -1.2682102898186276,
+        "directCpuSeconds": 4.526518186188122,
+        "operationPeakRssBytes": 1.782473605909396
+      },
+      "gates": {
+        "commandWallImproves": true,
+        "javaCpuTotalNoRegression": false,
+        "absoluteRssGrowthWithin20Percent": true,
+        "rssAboveOwnBaselineWithin80MiB": false,
+        "retained3Minus1Within64MiB": true
+      },
+      "pass": false
+    }
+  ],
+  "legs": {
+    "baseline1": {
+      "sequence": 2678,
+      "jobId": "98975167-d67c-441b-b0d3-ee6d6275a49f",
+      "runId": "queue-c5da505740794a5bb7482b9acd15797d",
+      "wallSeconds": 120.648787901,
+      "directCpuSeconds": 133.35,
+      "operationPeakRssMiB": 4302.87,
+      "peakAboveOwnBaselineMiB": 1845.42,
+      "retained3Minus1MiB": 1182.24,
+      "balancedReviewSha": null
+    },
+    "candidate1": {
+      "sequence": 2679,
+      "jobId": "2e4494a1-7206-498e-8b7e-5dacb466ec1c",
+      "runId": "queue-60341f6ac89443b198b3b1d7f48e421e",
+      "wallSeconds": 118.1903231,
+      "directCpuSeconds": 131.76,
+      "operationPeakRssMiB": 3020.28,
+      "peakAboveOwnBaselineMiB": 145.49,
+      "retained3Minus1MiB": 11.19,
+      "balancedReviewSha": null
+    },
+    "candidate2": {
+      "sequence": 2680,
+      "jobId": "b37c1dbc-c71c-4296-8f89-d4e6cda6ad8d",
+      "runId": "queue-8935890995444cfe8492f5d05941e1c5",
+      "wallSeconds": 115.5361442,
+      "directCpuSeconds": 130.47,
+      "operationPeakRssMiB": 2990.48,
+      "peakAboveOwnBaselineMiB": 388.07,
+      "retained3Minus1MiB": -56.29,
+      "balancedReviewSha": null
+    },
+    "baseline2": {
+      "sequence": 2681,
+      "jobId": "bc6c141c-ecfe-4a07-a41c-7dc223c79837",
+      "runId": "queue-10778c8a6e334d6580cbb4a7a9c006a4",
+      "wallSeconds": 117.0202065,
+      "directCpuSeconds": 124.82,
+      "operationPeakRssMiB": 2938.11,
+      "peakAboveOwnBaselineMiB": 36.7,
+      "retained3Minus1MiB": 7.36,
+      "balancedReviewSha": null
+    }
+  },
+  "decision": "CANDIDATE_NOT_ADOPTED; production delivery remains accepted T057 17b2a714",
+  "failedGateDetail": {
+    "pair1": "RSS above own baseline 145.5 MiB exceeds 80 MiB gate (CPU/wall/RSS-peak/retained all pass)",
+    "pair2": "Java CPU +4.53% regression and RSS above own baseline 388.1 MiB exceed gates",
+    "context": "baseline1 leg itself showed extreme memory behaviour (peak 4303 MiB, retained 3-1 1182 MiB) vs the other three legs (~2.9-3.0 GiB); desktop session had just been restored. Frozen gates were applied as-is without outlier removal."
+  },
+  "historicalFailures": "UNCHANGED",
+  "productionAcceptance": "NOT_GRANTED",
+  "limitations": [
+    "Two reversed-order pairs, not statistical evidence.",
+    "All four legs passed lifecycle, controlled parity (2133 rows each) and kernel CPU unit checks.",
+    "No gate change, outlier removal, or retrospective acceptance."
+  ]
+}
