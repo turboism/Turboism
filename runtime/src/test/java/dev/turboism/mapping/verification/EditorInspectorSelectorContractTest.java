@@ -2,6 +2,7 @@ package dev.turboism.mapping.verification;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorContract;
@@ -25,6 +26,9 @@ class EditorInspectorSelectorContractTest {
 
     @Test
     void exact5302RecordVerifiesDeformerPartAndGlueInspectorContracts() throws Exception {
+        assumeTrue(
+                LEGACY_EVIDENCE != null,
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar");
         final var resolver = new VerifiedEditorModelResolverFactory()
                 .create(
@@ -48,6 +52,9 @@ class EditorInspectorSelectorContractTest {
 
     @Test
     void exact5203RecordVerifiesDeformerGlueAndPartIdButRejectsPartMaskAndAlpha() throws Exception {
+        assumeTrue(
+                LEGACY_EVIDENCE != null,
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.2/jars/Live2D_Cubism.jar");
         final var resolver = new VerifiedEditorModelResolverFactory()
                 .create(
