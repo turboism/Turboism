@@ -27,6 +27,15 @@ import java.util.function.Supplier;
 /** Read-only Main-mode projection of the active document's verified native Undo manager. */
 public final class EditorHistorySnapshotProvider implements CubismHistory {
 
+    /**
+     * Mutable entry fields — presentation labels, significance, open-group child
+     * details — can drift without an undo notification. The skip gate therefore
+     * only serves the cache for this many consecutive polls per unchanged stamp
+     * before paying one re-projection, so silently stale content still converges
+     * while an idle document avoids almost every EDT round trip.
+     */
+    private static final int MAX_UNCHANGED_STAMP_POLLS = 10;
+
     private final Supplier<Optional<VerifiedMemberResolver>> resolver;
     private final LongSupplier generation;
     /**
@@ -46,6 +55,7 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
     private HistorySnapshot lastSnapshot;
     private long stampGeneration = -1;
     private long lastChangeStamp = Long.MIN_VALUE;
+    private int unchangedStampPolls;
 
     public EditorHistorySnapshotProvider(
             final Supplier<Optional<VerifiedMemberResolver>> resolver, final LongSupplier generation) {
@@ -105,19 +115,25 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
             return HistorySnapshot.unavailable();
         // The stamp is read strictly before the EDT round trip, so a change that
         // lands during the projection records a stale (lower) stamp and the next
-        // read rebuilds instead of skipping a real mutation.
+        // read rebuilds instead of skipping a real mutation. The cache is served
+        // at most MAX_UNCHANGED_STAMP_POLLS times per unchanged stamp: entry
+        // labels and open-group details can drift without an undo notification,
+        // so an unbounded cache could stay stale indefinitely.
         final long stamp = changeStamp.getAsLong();
         synchronized (revisionLock) {
             if (stamp >= 0
                     && stamp == lastChangeStamp
                     && stampGeneration == expectedGeneration
-                    && lastSnapshot != null) {
+                    && lastSnapshot != null
+                    && unchangedStampPolls < MAX_UNCHANGED_STAMP_POLLS) {
+                unchangedStampPolls++;
                 return lastSnapshot;
             }
         }
         try {
             final HistorySnapshot snapshot = onEdt(() -> project(available.orElseThrow(), expectedGeneration));
             synchronized (revisionLock) {
+                unchangedStampPolls = 0;
                 if (snapshot.availability() == HistorySnapshot.Availability.AVAILABLE) {
                     stampGeneration = expectedGeneration;
                     lastChangeStamp = stamp;
@@ -131,6 +147,7 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
         } catch (Exception exception) {
             synchronized (revisionLock) {
                 lastChangeStamp = Long.MIN_VALUE;
+                unchangedStampPolls = 0;
             }
             return HistorySnapshot.unavailable();
         }

@@ -1787,7 +1787,11 @@ startup):
   previous always-project behavior. Generation binding is unchanged — a
   lifecycle generation bump forces a rebuild. The stamp is sampled before the
   EDT trip, so a mutation landing mid-projection records a stale (lower) stamp
-  and the next poll rebuilds rather than skipping a real change.
+  and the next poll rebuilds rather than skipping a real change. Cache reuse is
+  bounded to 10 consecutive polls per unchanged stamp
+  (`MAX_UNCHANGED_STAMP_POLLS`): mutable entry fields (labels, significance,
+  open-group details) can drift without an undo notification, so one
+  re-projection every ~10 s keeps silently stale content converging.
 - Idle-thread retirement (memory): `PluginWorkExecutor` worker pool and
   timeout scheduler, `PluginEventLane` worker, `PluginLongLane` worker and
   monitor, `StorageIoExecutor`, `TypedConfigIoExecutor`,
@@ -1801,10 +1805,15 @@ startup):
 Harness (unchanged fixture/host): probe plugin
 `dev.turboism.validation.perf-metrics` writing 1 Hz
 `epoch_ms,phase,cpu_percent,fps,rendered_frames,heap_used_bytes,nonheap_bytes,gc_collections,gc_pause_millis`;
-`proc-sampler.ps1` (500 ms RSS/private/handles/threads/CPU-s);
-`resize-driver.ps1` (~29 Hz 1 px MoveWindow); `jcmd Thread.print`. Evidence in
-`build/manual-test/turboism/windows-perf/` (`*-baseline.csv`, `*-on2.csv`,
-`threads-agent-on{,2}.txt`), outside /tmp.
+tracked drivers `scripts/preview/windows-perf-proc-sampler.ps1` (500 ms
+RSS/private/handles/threads/CPU-s) and
+`scripts/preview/windows-perf-resize-driver.ps1` (~29 Hz 1 px MoveWindow);
+`jcmd Thread.print`. Evidence in `build/manual-test/turboism/windows-perf/`
+(`*-baseline.csv`, `*-on2.csv`, `threads-agent-on{,2}.txt`), outside /tmp.
+Re-run: `powershell -File scripts/preview/windows-perf-proc-sampler.ps1
+-FixtureToken fixture.cmo3 -OutFile <out.csv>` and `powershell -File
+scripts/preview/windows-perf-resize-driver.ps1 -DurationSeconds 60` against
+the editor launched with the agent jar.
 
 Results, agent-ON new build vs the same-fixture agent-ON baseline:
 
