@@ -73,8 +73,6 @@ class EditorTextureRelationsSelectorContractTest {
     }
 
     private static Path locateLegacyEvidence() {
-        final Path explicit = Path.of("/opt/dev/projects/turboism-legacy/cubism-ref");
-        if (Files.isDirectory(explicit)) return explicit;
         return EditorSelectorContractTestPaths.resolveLegacyEvidence();
     }
 
