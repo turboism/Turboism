@@ -1231,6 +1231,19 @@ public final class CubismFacadeImpl implements CubismFacade {
             requireModelRead("model.modelEditing");
             return delegate.modelEditing();
         }
+        @Override public dev.turboism.sdk.cubism.model.CubismMocExport exportMoc(
+            final dev.turboism.sdk.cubism.model.CubismMocExportSettings settings
+        ) {
+            requireModelRead("model.exportMoc");
+            return delegate.exportMoc(settings);
+        }
+
+        @Override public dev.turboism.sdk.cubism.model.CubismRenderedPixels renderPixels(
+            final int width, final int height
+        ) {
+            requireModelRead("model.renderPixels");
+            return delegate.renderPixels(width, height);
+        }
         @Override public dev.turboism.sdk.cubism.core.MocInfo mocInfo() {
             requireModelRead("model.mocInfo");
             return delegate.mocInfo();
@@ -1298,6 +1311,40 @@ public final class CubismFacadeImpl implements CubismFacade {
                 @Override public void removeRawImage(final dev.turboism.sdk.cubism.id.RawImageId id) {
                     requireModelWrite("model.textures.removeRawImage");
                     textures.removeRawImage(id);
+                }
+                @Override public dev.turboism.sdk.cubism.model.ModelImageBinding registerImageAndBind(
+                    final dev.turboism.sdk.cubism.model.AuthorizedImageContent image,
+                    final dev.turboism.sdk.cubism.id.ArtMeshId target
+                ) {
+                    requireModelWrite("model.textures.registerImageAndBind");
+                    final dev.turboism.sdk.cubism.model.ModelImageBinding[] bound =
+                        new dev.turboism.sdk.cubism.model.ModelImageBinding[1];
+                    runSemanticConfirmed(
+                        CubismOperation.REGISTER_MODEL_IMAGE,
+                        id().value(),
+                        () -> bound[0] = textures.registerImageAndBind(image, target)
+                    );
+                    return bound[0];
+                }
+                @Override public dev.turboism.sdk.cubism.model.ModelImageBinding bindModelImage(
+                    final dev.turboism.sdk.cubism.id.ModelImageId image,
+                    final dev.turboism.sdk.cubism.id.ArtMeshId target
+                ) {
+                    requireModelWrite("model.textures.bindModelImage");
+                    final dev.turboism.sdk.cubism.model.ModelImageBinding[] bound =
+                        new dev.turboism.sdk.cubism.model.ModelImageBinding[1];
+                    runSemanticConfirmed(
+                        CubismOperation.BIND_MODEL_IMAGE,
+                        id().value(),
+                        () -> bound[0] = textures.bindModelImage(image, target)
+                    );
+                    return bound[0];
+                }
+                @Override public java.util.Optional<dev.turboism.sdk.cubism.model.ArtMeshTextureInput> textureInput(
+                    final dev.turboism.sdk.cubism.id.ArtMeshId target
+                ) {
+                    requireModelRead("model.textures.textureInput");
+                    return textures.textureInput(target);
                 }
             };
         }
@@ -1531,6 +1578,19 @@ public final class CubismFacadeImpl implements CubismFacade {
             final dev.turboism.sdk.cubism.model.ParameterBindingOperations operations =
                 delegate.parameterBindings(Objects.requireNonNull(parameterId, "parameterId"));
             return new dev.turboism.sdk.cubism.model.ParameterBindingOperations() {
+                @Override public dev.turboism.sdk.cubism.model.ParameterInterpolation interpolation(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target
+                ) {
+                    requireModelRead("model.parameterBindings.interpolation");
+                    return operations.interpolation(target);
+                }
+                @Override public void setInterpolation(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
+                    final dev.turboism.sdk.cubism.model.ParameterInterpolation settings
+                ) {
+                    requireModelWrite("model.parameterBindings.setInterpolation");
+                    operations.setInterpolation(target, settings);
+                }
                 private void write(
                     final CubismOperation semanticOperation,
                     final String operation,
@@ -1753,6 +1813,16 @@ public final class CubismFacadeImpl implements CubismFacade {
                         values.find(Objects.requireNonNull(id, "id"))
                     );
                 }
+                @Override public dev.turboism.sdk.cubism.model.ArtMeshSourceTriangulation previewSourceTriangulation(
+                    final dev.turboism.sdk.cubism.model.ArtMeshGeometry geometry
+                ) {
+                    requireModelRead("model.drawables.previewSourceTriangulation");
+                    return values.previewSourceTriangulation(Objects.requireNonNull(geometry, "geometry"));
+                }
+                @Override public void select(final List<dev.turboism.sdk.cubism.id.ArtMeshId> ids) {
+                    requireModelWrite("model.drawables.select");
+                    values.select(List.copyOf(Objects.requireNonNull(ids, "ids")));
+                }
                 @Override public dev.turboism.sdk.cubism.model.Drawable create(
                     final String name,
                     final dev.turboism.sdk.cubism.model.Part parent,
@@ -1766,6 +1836,17 @@ public final class CubismFacadeImpl implements CubismFacade {
                         index,
                         geometry
                     ));
+                }
+                @Override public dev.turboism.sdk.cubism.model.Drawable createWithSourceGeometry(
+                    final String name,
+                    final dev.turboism.sdk.cubism.model.Part parent,
+                    final int index,
+                    final dev.turboism.sdk.cubism.model.ArtMeshGeometry sourceGeometry,
+                    final List<dev.turboism.sdk.cubism.model.Point2> defaultPositions
+                ) {
+                    requireModelWrite("model.drawables.createWithSourceGeometry");
+                    return new PermissionCheckedDrawable(wrapperOwner, values.createWithSourceGeometry(
+                        name, unwrapPart(wrapperOwner, parent), index, sourceGeometry, defaultPositions));
                 }
                 @Override public void remove(
                     final dev.turboism.sdk.cubism.model.Drawable drawable
@@ -2180,6 +2261,122 @@ public final class CubismFacadeImpl implements CubismFacade {
             requireModelRead("artMesh.geometry");
             return delegate.geometry();
         }
+        @Override public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot authoringSnapshot() {
+            requireModelRead("artMesh.authoringSnapshot");
+            return delegate.authoringSnapshot();
+        }
+        @Override public dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot evaluationSnapshot() {
+            requireModelRead("artMesh.evaluationSnapshot");
+            return delegate.evaluationSnapshot();
+        }
+        @Override public dev.turboism.sdk.cubism.model.ArtMeshKeyform ordinaryKeyform(
+            final List<dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Coordinate> coordinates
+        ) {
+            requireModelRead("artMesh.ordinaryKeyform");
+            final var target = delegate.ordinaryKeyform(coordinates);
+            return new dev.turboism.sdk.cubism.model.ArtMeshKeyform() {
+                @Override public List<dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Coordinate> coordinates() {
+                    requireModelRead("artMesh.keyform.coordinates");
+                    return target.coordinates();
+                }
+                @Override public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form snapshot() {
+                    requireModelRead("artMesh.keyform.snapshot");
+                    return target.snapshot();
+                }
+                @Override public boolean defaultKeyform() {
+                    requireModelRead("artMesh.keyform.defaultKeyform");
+                    return target.defaultKeyform();
+                }
+                @Override public void setPositions(final List<dev.turboism.sdk.cubism.model.Point2> positions) {
+                    requireModelWrite("artMesh.keyform.setPositions");
+                    final var input = List.copyOf(positions);
+                    runSemantic(CubismOperation.SET_DRAWABLE_KEYFORM_POSITIONS,
+                        delegate.id().value() + ":" + target.snapshot().formGuid(), target::snapshot,
+                        () -> target.setPositions(input));
+                }
+                @Override public void setDrawOrder(final int drawOrder) {
+                    requireModelWrite("artMesh.keyform.setDrawOrder");
+                    if (drawOrder < 0 || drawOrder > 1000) {
+                        throw new IllegalArgumentException("keyform draw order must be between 0 and 1000");
+                    }
+                    runSemantic(CubismOperation.SET_DRAWABLE_KEYFORM_DRAW_ORDER,
+                        delegate.id().value() + ":" + target.snapshot().formGuid(), target::snapshot,
+                        () -> target.setDrawOrder(drawOrder));
+                }
+            };
+        }
+        @Override public void setOrdinaryKeyformPositions(
+            final dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
+            final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions> edits
+        ) {
+            requireModelWrite("artMesh.setOrdinaryKeyformPositions");
+            final var input = List.copyOf(edits);
+            runSemantic(CubismOperation.SET_DRAWABLE_KEYFORM_POSITIONS_BATCH, delegate.id().value(),
+                delegate::authoringSnapshot, () -> delegate.setOrdinaryKeyformPositions(expected, input));
+        }
+        @Override public void setOrdinaryKeyformDrawOrders(
+            final dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
+            final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder> edits
+        ) {
+            requireModelWrite("artMesh.setOrdinaryKeyformDrawOrders");
+            final var input = List.copyOf(edits);
+            runSemantic(CubismOperation.SET_DRAWABLE_KEYFORM_DRAW_ORDERS_BATCH, delegate.id().value(),
+                delegate::authoringSnapshot, () -> delegate.setOrdinaryKeyformDrawOrders(expected, input));
+        }
+        @Override public dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform morphKeyform(
+            final String parameterGuid, final float keyValue
+        ) {
+            requireModelRead("artMesh.morphKeyform");
+            return permissionCheckedMorphKeyform(delegate.morphKeyform(parameterGuid, keyValue));
+        }
+        @Override public dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform createMorphKeyform(
+            final String parameterGuid, final float keyValue
+        ) {
+            requireModelWrite("artMesh.createMorphKeyform");
+            if (Objects.requireNonNull(parameterGuid, "parameterGuid").isBlank()
+                || !Float.isFinite(keyValue) || keyValue <= 0f || keyValue > 1f) {
+                throw new IllegalArgumentException("a native parameter GUID and positive morph key are required");
+            }
+            final var created = new dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform[1];
+            runSemantic(CubismOperation.CREATE_DRAWABLE_MORPH_KEYFORM,
+                delegate.id().value() + ":" + parameterGuid + ":" + Float.toString(keyValue), delegate::authoringSnapshot,
+                () -> created[0] = delegate.createMorphKeyform(parameterGuid, keyValue));
+            return permissionCheckedMorphKeyform(Objects.requireNonNull(created[0], "created morph keyform"));
+        }
+        private dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform permissionCheckedMorphKeyform(
+            final dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform target
+        ) {
+            return new dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform() {
+                @Override public String parameterGuid() {
+                    requireModelRead("artMesh.morphKeyform.parameterGuid"); return target.parameterGuid();
+                }
+                @Override public float keyValue() {
+                    requireModelRead("artMesh.morphKeyform.keyValue"); return target.keyValue();
+                }
+                @Override public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form snapshot() {
+                    requireModelRead("artMesh.morphKeyform.snapshot"); return target.snapshot();
+                }
+                @Override public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form baseSnapshot() {
+                    requireModelRead("artMesh.morphKeyform.baseSnapshot"); return target.baseSnapshot();
+                }
+                @Override public void setPositions(final List<dev.turboism.sdk.cubism.model.Point2> positions) {
+                    requireModelWrite("artMesh.morphKeyform.setPositions");
+                    final var input = List.copyOf(positions);
+                    runSemantic(CubismOperation.SET_DRAWABLE_MORPH_KEYFORM_POSITIONS,
+                        delegate.id().value() + ":" + target.snapshot().formGuid(), target::snapshot,
+                        () -> target.setPositions(input));
+                }
+                @Override public void setDrawOrder(final int drawOrder) {
+                    requireModelWrite("artMesh.morphKeyform.setDrawOrder");
+                    if (drawOrder < 0 || drawOrder > 1000) {
+                        throw new IllegalArgumentException("keyform draw order must be between 0 and 1000");
+                    }
+                    runSemantic(CubismOperation.SET_DRAWABLE_MORPH_KEYFORM_DRAW_ORDER,
+                        delegate.id().value() + ":" + target.snapshot().formGuid(), target::snapshot,
+                        () -> target.setDrawOrder(drawOrder));
+                }
+            };
+        }
         @Override public void replaceGeometry(
             final dev.turboism.sdk.cubism.model.ArtMeshGeometry geometry
         ) {
@@ -2401,6 +2598,17 @@ public final class CubismFacadeImpl implements CubismFacade {
             this.warp = delegate;
         }
         @Override public dev.turboism.sdk.cubism.model.WarpGrid grid() { requireModelRead("warpDeformer.grid"); return warp.grid(); }
+        @Override public dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot authoringSnapshot() {
+            requireModelRead("warpDeformer.authoringSnapshot"); return warp.authoringSnapshot();
+        }
+        @Override public void setOrdinaryKeyformPositions(
+            final dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot expected,
+            final List<dev.turboism.sdk.cubism.model.WarpKeyformPositions> edits
+        ) {
+            requireModelWrite("warpDeformer.setOrdinaryKeyformPositions"); final var input = List.copyOf(edits);
+            runSemantic(CubismOperation.SET_WARP_KEYFORM_POSITIONS_BATCH, warp.id().value(),
+                warp::authoringSnapshot, () -> warp.setOrdinaryKeyformPositions(expected, input));
+        }
         @Override public void replaceGrid(final dev.turboism.sdk.cubism.model.WarpGrid grid) {
             requireModelWrite("warpDeformer.replaceGrid");
             runSemantic(
@@ -2431,6 +2639,15 @@ public final class CubismFacadeImpl implements CubismFacade {
                 rotation::baseAngle,
                 () -> editorObjectLifecycle.deformer().setBaseAngle(this, angle, rotation::setBaseAngle)
             );
+        }
+        @Override public dev.turboism.sdk.cubism.model.RotationAuthoringSnapshot authoringSnapshot() {
+            requireModelRead("rotationDeformer.authoringSnapshot"); return rotation.authoringSnapshot();
+        }
+        @Override public void setOrdinaryKeyformForms(dev.turboism.sdk.cubism.model.RotationAuthoringSnapshot expected,
+                List<dev.turboism.sdk.cubism.model.RotationKeyformForm> edits) {
+            requireModelWrite("rotationDeformer.setOrdinaryKeyformForms"); final var input = List.copyOf(edits);
+            runSemantic(CubismOperation.SET_ROTATION_KEYFORM_FORMS_BATCH, rotation.id().value(),
+                rotation::authoringSnapshot, () -> rotation.setOrdinaryKeyformForms(expected, input));
         }
         @Override public dev.turboism.sdk.cubism.model.RotationDeformerForm form() {
             requireModelRead("rotationDeformer.form");

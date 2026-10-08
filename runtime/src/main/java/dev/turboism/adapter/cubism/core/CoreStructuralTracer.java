@@ -68,7 +68,9 @@ final class CoreStructuralTracer implements AutoCloseable {
                         == VerifiedAccessException.FailureKind.RESOLUTION
                             ? CoreProviderFailure.Code.RESOLUTION_FAILED
                             : CoreProviderFailure.Code.INVOCATION_FAILED,
-                    "Verified Core structural selector failed safely."
+                    "Verified Core structural selector failed safely: "
+                        + exception.alias()
+                        + " (" + exception.failureKind().name() + ")."
                 );
             } catch (CoreStructuralValidationException
                      | IllegalArgumentException exception) {
@@ -84,6 +86,20 @@ final class CoreStructuralTracer implements AutoCloseable {
                         + exception
                 );
             }
+        } finally {
+            lifecycle.readLock().unlock();
+        }
+    }
+
+    /**
+     * Whether {@code model} is a receiver the bound Core call sites accept — i.e. an
+     * instance of the verified public {@code CubismModel} declaring class. Publish gates
+     * use it to refuse non-Core objects (for example the Editor's document {@code CModel}).
+     */
+    boolean acceptsCoreModel(final Object model) {
+        lifecycle.readLock().lock();
+        try {
+            return !closed && callSites.acceptsModel(model);
         } finally {
             lifecycle.readLock().unlock();
         }

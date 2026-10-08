@@ -53,6 +53,41 @@ class VerifiedTypedEditorCommandAdapterTest {
         assertEquals(0.0f, host.handler.lastDeltaY, "height unchanged means zero translation");
         assertEquals(1.0f, host.handler.lastScale);
         assertTrue(host.document.dirty);
+        assertEquals(1, host.modelSource.rebuildCount);
+        assertFalse(host.modelSource.temporaryInstancePresent, "deleted scale wrapper must not remain in live instances");
+    }
+
+    @Test
+    void canvasSettingRequiresVerifiedInstanceRebuildBeforeMutationOn5302() {
+        FakeHost host = new FakeHost();
+        var adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02", true,
+            "cubism.editor-model.model-source.update-instances"));
+        assertEquals(EditorCommandResult.Status.FAILED,
+            adapter.execute(new EditorCanvasSettingsRequest(1200, 1000)).status());
+        assertEquals(1000, host.canvas.width);
+        assertNull(host.editMode.lastEditLabel);
+        assertEquals(0, host.modelSource.rebuildCount);
+    }
+
+    @Test
+    void canvasSettingUsesTheSeparateVerifiedEditorModelResolver() {
+        FakeHost host = new FakeHost();
+        var menu = host.resolver("5.3.02", true, "cubism.editor-model.model-source.update-instances");
+        var adapter = new VerifiedEditorCommandAdapter(menu, host.resolver("5.3.02"));
+        assertEquals(EditorCommandResult.Status.EXECUTED,
+            adapter.execute(new EditorCanvasSettingsRequest(1200, 1000)).status());
+        assertFalse(host.modelSource.temporaryInstancePresent);
+        assertEquals(1, host.modelSource.rebuildCount);
+    }
+
+    @Test
+    void canvasSettingRejectsForeignVersionRebuildResolverBeforeMutation() {
+        FakeHost host = new FakeHost();
+        var adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"), host.resolver("5.2.03"));
+        assertEquals(EditorCommandResult.Status.FAILED,
+            adapter.execute(new EditorCanvasSettingsRequest(1200, 1000)).status());
+        assertEquals(1000, host.canvas.width);
+        assertNull(host.editMode.lastEditLabel);
     }
 
     @Test
@@ -530,6 +565,33 @@ class VerifiedTypedEditorCommandAdapterTest {
     }
 
     @Test
+    void saveCacheInspectionUsesTheSeparateModelResolver() {
+        FakeHost host = new FakeHost();
+        var contract = dev.turboism.mapping.verification.selector.EditorParameterInterpolationSelectorContract.REQUIRED_ALIASES;
+        String owner = FakeHost.FakeModelSource.class.getName().replace('.', '/');
+        var selectors = new ArrayList<StaticSelector>();
+        for (String alias : contract) {
+            selectors.add(alias.endsWith("extended-interpolation.class")
+                ? StaticSelector.classSelector(alias, owner)
+                : StaticSelector.method(alias, owner, "getEmpty", "()Ljava/util/List;", StaticSelector.ACCESS_PUBLIC));
+        }
+        for (String alias : List.of("model-source.all-art-meshes", "art-mesh-form.positions")) {
+            selectors.add(StaticSelector.method("cubism.editor-model." + alias, owner,
+                alias.startsWith("model-source") ? "getAllArtMeshes" : "getEmpty", "()Ljava/util/List;", StaticSelector.ACCESS_PUBLIC));
+        }
+        var modelResolver = TestVerifiedResolvers.create("5.3.02",
+            dev.turboism.mapping.verification.selector.EditorParameterInterpolationSelectorContract.ADAPTER_SLICE_ID,
+            Set.of(dev.turboism.mapping.verification.selector.EditorParameterInterpolationSelectorContract.CAPABILITY_ID),
+            selectors, FakeHost.class.getClassLoader());
+        var adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.02"), modelResolver);
+        var result = adapter.execute(new ResolvedEditorFileCommand(EditorFileCommand.SAVE_AS,
+            temporary.resolve("separate-model.cmo3"), EditorOverwritePolicy.REJECT_EXISTING));
+        assertEquals(EditorCommandResult.Status.EXECUTED, result.status());
+        assertEquals(1, host.modelSource.saveCacheReads,
+            "top-menu resolver cannot authorize or read model interpolation caches");
+    }
+
+    @Test
     void saveAsExecutesThroughTheModelingDocumentAndEnforcesOverwritePolicy() throws Exception {
         Path target = temporary.resolve("out.cmo3");
         FakeHost host = new FakeHost();
@@ -542,6 +604,7 @@ class VerifiedTypedEditorCommandAdapterTest {
 
         assertEquals(EditorCommandResult.Status.EXECUTED, result.status());
         assertEquals(target.toAbsolutePath().normalize().toFile(), host.document.lastSavedTo);
+        assertFalse(host.document.revealSavedFile, "typed SAVE_AS must not launch a file manager");
 
         Files.writeString(target, "existing");
         assertEquals(
@@ -575,6 +638,7 @@ class VerifiedTypedEditorCommandAdapterTest {
             "scene documents save through the animation content"
         );
         assertEquals(target.toAbsolutePath().normalize().toFile(), host.sceneDocument.lastSavedTo);
+        assertFalse(host.sceneDocument.revealSavedFile, "typed scene SAVE_AS must not launch a file manager");
 
         host.viewKind = "other";
         assertEquals(
@@ -782,6 +846,7 @@ class VerifiedTypedEditorCommandAdapterTest {
             selectors.add(StaticSelector.method("cubism.editor-command.canvas.begin-edit", editModeMain, "beginEdit", "(Ljava/lang/String;)L" + group + ";", StaticSelector.ACCESS_PUBLIC));
             selectors.add(StaticSelector.method("cubism.editor-command.canvas.canvas", source, "getCanvas", "()L" + canvas + ";", StaticSelector.ACCESS_PUBLIC));
             selectors.add(StaticSelector.method("cubism.editor-command.canvas.handler", source, "getHandler", "()L" + handler + ";", StaticSelector.ACCESS_PUBLIC));
+            selectors.add(StaticSelector.method("cubism.editor-model.model-source.update-instances", source, "updateModelInstances", "()V", StaticSelector.ACCESS_PUBLIC));
             selectors.add(StaticSelector.method("cubism.editor-command.canvas.pixel-width", canvas, "getPixelWidth", "()I", StaticSelector.ACCESS_PUBLIC));
             selectors.add(StaticSelector.method("cubism.editor-command.canvas.pixel-height", canvas, "getPixelHeight", "()I", StaticSelector.ACCESS_PUBLIC));
             selectors.add(StaticSelector.method("cubism.editor-command.canvas.set-pixel-width", canvas, "setPixelWidth", "(I)V", StaticSelector.ACCESS_PUBLIC));
@@ -876,6 +941,7 @@ class VerifiedTypedEditorCommandAdapterTest {
 
         final class FakeSceneDocument extends FakeView {
             File lastSavedTo;
+            boolean revealSavedFile;
             public FakeAnimationFileContent getAnimationContent() {
                 return new FakeAnimationFileContent(this);
             }
@@ -884,7 +950,8 @@ class VerifiedTypedEditorCommandAdapterTest {
         static final class FakeAnimationFileContent {
             private final FakeSceneDocument document;
             FakeAnimationFileContent(FakeSceneDocument document) { this.document = document; }
-            public boolean saveDocument(File file, boolean saveAs) {
+            public boolean saveDocument(File file, boolean revealSavedFile) {
+                document.revealSavedFile = revealSavedFile;
                 document.lastSavedTo = file;
                 return true;
             }
@@ -893,6 +960,7 @@ class VerifiedTypedEditorCommandAdapterTest {
         final class FakeModelingDocument {
             boolean dirty;
             File lastSavedTo;
+            boolean revealSavedFile;
             public FakeEditModeBase getCurrentEditMode() { return FakeHost.this.currentEditMode(); }
             public FakeModelSource getModelSource() { return FakeHost.this.modelSource; }
             public void updateLastModifiedTime() {
@@ -902,7 +970,8 @@ class VerifiedTypedEditorCommandAdapterTest {
                     throw new IllegalStateException("injected host failure at the dirty-mark step");
                 }
             }
-            public boolean saveDocument(File file, boolean saveAs) {
+            public boolean saveDocument(File file, boolean revealSavedFile) {
+                this.revealSavedFile = revealSavedFile;
                 lastSavedTo = file;
                 return true;
             }
@@ -930,6 +999,12 @@ class VerifiedTypedEditorCommandAdapterTest {
         }
 
         final class FakeModelSource {
+            int rebuildCount;
+            int saveCacheReads;
+            boolean temporaryInstancePresent;
+            public List<Object> getAllArtMeshes() { saveCacheReads++; return List.of(); }
+            public List<Object> getEmpty() { return List.of(); }
+            public void updateModelInstances() { rebuildCount++; temporaryInstancePresent=false; }
             public FakeCanvas getCanvas() { return FakeHost.this.canvas; }
             public FakeModelHandler getHandler() { return FakeHost.this.handler; }
         }
@@ -959,6 +1034,7 @@ class VerifiedTypedEditorCommandAdapterTest {
             float lastDeltaX;
             float lastDeltaY;
             public void a(FakeModel model, float scale, FakeGVector2 t, FakeGVector2 zero, FakeGroupUndo group) {
+                FakeHost.this.modelSource.temporaryInstancePresent=true;
                 lastScale = scale;
                 lastDeltaX = t.x;
                 lastDeltaY = t.y;

@@ -48,6 +48,11 @@ class EditorTextureSelectorContractTest {
                 EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
                 EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES
             ));
+            assertTrue(resolver.authorizesFeature(
+                EditorTextureSelectorContract.ADAPTER_SLICE_ID,
+                EditorTextureSelectorContract.REGISTER_BIND_CAPABILITY_ID,
+                EditorTextureSelectorContract.REGISTER_BIND_REQUIRED_ALIASES
+            ));
         } else {
             // 5.2.03 exposes only a confirmation-dialog raw-image removal path; the
             // selector is absent from the record and must not be required.
@@ -56,6 +61,11 @@ class EditorTextureSelectorContractTest {
                 EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
                 EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES
             ), "5.2 record must not authorize the 5.3.02-only raw image removal path");
+            assertTrue(!resolver.authorizesFeature(
+                EditorTextureSelectorContract.ADAPTER_SLICE_ID,
+                EditorTextureSelectorContract.REGISTER_BIND_CAPABILITY_ID,
+                EditorTextureSelectorContract.REGISTER_BIND_REQUIRED_ALIASES
+            ), "5.2 record must not authorize the 5.3.02-only register/bind path");
         }
     }
 

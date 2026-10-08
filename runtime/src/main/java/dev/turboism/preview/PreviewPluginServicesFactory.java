@@ -28,7 +28,6 @@ import dev.turboism.task.RuntimePluginTaskScheduler;
 import dev.turboism.ui.RuntimeUiScheduler;
 import dev.turboism.ui.UiHostStateSource;
 import dev.turboism.userfile.RuntimeUserFileAccessService;
-import dev.turboism.userfile.UserFileGrantSource;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -210,7 +209,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
                 dependencies, descriptor, pluginDisplayName(descriptor.name(), pluginLocalization),
                 paths, permissions, tasks, scope, evidence
             ),
-            userFiles(descriptor, permissions, tasks, scope, evidence),
+            userFiles(descriptor, paths, permissions, tasks, scope, evidence),
             hostReads(descriptor, permissions, tasks, scope),
             new dev.turboism.mcp.RuntimeMcpConnectionService(
                 descriptor.id(),
@@ -322,13 +321,25 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
 
     private RuntimeUserFileAccessService userFiles(
         final PluginDescriptor descriptor,
+        final PluginHomePaths paths,
         final Set<String> permissions,
         final RuntimePluginTaskScheduler tasks,
         final DisposableScope scope,
         final CleanupEvidenceCollector evidence
     ) {
+        // Validation probes retain their bounded noninteractive grant policy.
+        // Ordinary plugins obtain paths only through an explicit user choice.
+        final dev.turboism.userfile.UserFileGrantSource grants;
+        if (descriptor.id().startsWith("dev.turboism.validation.")) {
+            grants = ValidationFileGrants.source(descriptor.id(), paths);
+        } else {
+            final var chooser = new dev.turboism.userfile.SwingUserFileGrantSource();
+            scope.register(chooser);
+            grants = chooser;
+        }
         return new RuntimeUserFileAccessService(
-            descriptor.id(), permissions, UserFileGrantSource.unavailable(), tasks, scope,
+            descriptor.id(), permissions,
+            grants, tasks, scope,
             evidence, failureCollector
         );
     }

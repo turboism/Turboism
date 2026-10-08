@@ -14,6 +14,13 @@ import java.util.Optional;
 @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public interface TextureAtlasLayoutService {
 
+    /**
+     * Captures the active layout. On 5.3.02, an existing atlas in the active model
+     * is also available before the native atlas editor has first opened or
+     * after switching away from the document captured by that editor.
+     * This does not create an atlas or open a window. A captured background
+     * document is never substituted for the active document.
+     */
     Optional<TextureAtlasLayoutSnapshot> current();
 
     TextureAtlasLayoutApplyResult apply(

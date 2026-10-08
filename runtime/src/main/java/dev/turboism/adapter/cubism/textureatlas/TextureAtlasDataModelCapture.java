@@ -33,6 +33,10 @@ public final class TextureAtlasDataModelCapture implements AutoCloseable {
         return closed ? Optional.empty() : Optional.ofNullable(System.getProperties().get(key));
     }
 
+    boolean isClosed() {
+        return closed;
+    }
+
     @Override
     public void close() {
         closed = true;

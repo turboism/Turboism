@@ -217,7 +217,7 @@ final class HttpUpdateTransportTest {
             ExecutionException.class,
             () -> oversizedTransport.fetch(Optional.empty()).toCompletableFuture().get(2, TimeUnit.SECONDS)
         );
-        assertTrue(oversized.disconnected.get());
+        assertTrue(awaitTrue(oversized.disconnected), "rejection must asynchronously tear down the connection");
 
         final FakeConnection redirect = new FakeConnection(302, bytes("redirect-body"));
         final HttpUpdateTransport redirectTransport = transport(Duration.ofSeconds(1), redirect);
@@ -227,7 +227,31 @@ final class HttpUpdateTransportTest {
         assertEquals(302, response.statusCode());
         assertArrayEquals(bytes("redirect-body"), response.body());
         assertFalse(redirect.getInstanceFollowRedirects());
-        assertTrue(redirect.disconnected.get());
+        assertTrue(awaitTrue(redirect.disconnected), "response completion is not a teardown barrier");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void responseCompletionDoesNotWaitForConnectionTeardown(final boolean oversized) throws Exception {
+        final BlockingDisconnectConnection connection = new BlockingDisconnectConnection(
+            new ByteArrayInputStream(bytes("redirect-body")));
+        ((FakeConnection) connection).responseCode = oversized ? 200 : 302;
+        if (oversized) ((FakeConnection) connection).contentLength = (long) UpdateDiscoveryParser.MAX_BYTES + 1L;
+        try {
+            final var result = transport(Duration.ofSeconds(2), connection)
+                .fetch(Optional.empty()).toCompletableFuture();
+            if (oversized) {
+                assertThrows(ExecutionException.class, () -> result.get(2, TimeUnit.SECONDS));
+            } else {
+                assertEquals(302, result.get(2, TimeUnit.SECONDS).statusCode());
+                assertFalse(connection.getInstanceFollowRedirects());
+            }
+            assertTrue(connection.disconnectStarted.await(2, TimeUnit.SECONDS));
+            assertFalse(connection.disconnectCompleted.get(), "cleanup is still behind the test latch");
+        } finally {
+            connection.releaseDisconnect.countDown();
+        }
+        assertTrue(awaitTrue(connection.disconnectCompleted), "released cleanup must finish");
     }
 
     private static HttpUpdateTransport transport(final Duration deadline, final FakeConnection connection) {

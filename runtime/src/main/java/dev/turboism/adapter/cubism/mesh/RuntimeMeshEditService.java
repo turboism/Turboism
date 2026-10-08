@@ -300,11 +300,12 @@ public final class RuntimeMeshEditService implements MeshEditService {
                 if (!NativeMeshMirrorBridge.actionPackOwnsEditMode(actionPack, editMode)) {
                     return MeshEditResult.refused("the host mesh action pack is stale");
                 }
-                if (NativeMeshMirrorBridge.beginUndoGroup(actionPack, label) == null) {
+                final Object group = NativeMeshMirrorBridge.beginUndoGroup(actionPack, label);
+                if (group == null) {
                     return MeshEditResult.refused("the host refused an undo group");
                 }
                 started = true;
-                NativeMeshMirrorBridge.snapshotMeshesForUndo(actionPack, label);
+                NativeMeshMirrorBridge.snapshotMeshesForUndo(actionPack, label, group);
                 prepared.mutation.apply();
                 NativeMeshMirrorBridge.commitUndoGroup(actionPack);
                 started = false;
