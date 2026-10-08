@@ -155,8 +155,8 @@ public final class TurboismAgent {
                     }
                 }
             }
-            bootstrapThreadStarter.accept(
-                    () -> start(options, hookInstrumentation, attachmentMode, List.copyOf(premainInstalled), contributors));
+            bootstrapThreadStarter.accept(() ->
+                    start(options, hookInstrumentation, attachmentMode, List.copyOf(premainInstalled), contributors));
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             failStartSafely(failure);
