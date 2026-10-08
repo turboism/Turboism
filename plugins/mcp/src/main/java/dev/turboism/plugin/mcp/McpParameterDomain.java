@@ -14,6 +14,7 @@ import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
 import dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
 import dev.turboism.sdk.cubism.model.ParameterType;
+import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -53,7 +54,9 @@ final class McpParameterDomain {
                 throw new McpResourceCatalog.ResourceNotFound(uri);
             }
             return List.of(linked(
-                    entry("uri", uri), entry("mimeType", "application/json"), entry("text", Json.stringify(content))));
+                    entry("uri", uri),
+                    entry("mimeType", "application/json"),
+                    entry("text", McpJsonSupport.stringify(content))));
         });
     }
 
@@ -510,10 +513,11 @@ final class McpParameterDomain {
     }
 
     private static Map<String, Object> toolEnvelope(final Map<String, Object> output) {
-        final boolean error = !Boolean.TRUE.equals(output.get("ok"));
+        final Map<String, Object> safe = McpJsonSupport.encodable(output);
+        final boolean error = !Boolean.TRUE.equals(safe.get("ok"));
         return linked(
-                entry("content", List.of(linked(entry("type", "text"), entry("text", Json.stringify(output))))),
-                entry("structuredContent", output),
+                entry("content", List.of(linked(entry("type", "text"), entry("text", Json.stringify(safe))))),
+                entry("structuredContent", safe),
                 entry("isError", error));
     }
 

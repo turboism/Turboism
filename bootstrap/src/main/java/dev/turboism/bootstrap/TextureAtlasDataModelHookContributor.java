@@ -36,7 +36,7 @@ final class TextureAtlasDataModelHookContributor implements HookContributor {
                         host.classLoader(),
                         runtime.textureAtlasDataModelCapture());
         installer.install();
-        // runtime.info("bootstrap", id() + " installation=COMPLETE");
+        runtime.info("bootstrap", id() + " installation=COMPLETE");
         return installer;
     }
 }

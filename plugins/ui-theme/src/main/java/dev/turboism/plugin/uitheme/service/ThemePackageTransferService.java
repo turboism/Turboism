@@ -1,7 +1,7 @@
 package dev.turboism.plugin.uitheme.service;
 
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageArchive;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageData;
+import dev.turboism.plugin.uitheme.domain.ThemePackageArchive;
+import dev.turboism.plugin.uitheme.domain.ThemePackageData;
 import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.UserFileHandle;
 import dev.turboism.sdk.ui.UserFileLifetime;

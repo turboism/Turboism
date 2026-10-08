@@ -32,8 +32,8 @@ import dev.turboism.sdk.cubism.model.ParameterDefinitions;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Parts;
 import dev.turboism.sdk.cubism.model.RawTexture;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
+import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.workspace.WorkspaceId;
@@ -398,11 +398,6 @@ final class McpDiagnosticsDomainTest {
                     throw new IllegalStateException("No active Cubism model");
                 };
             }
-
-            @Override
-            public TransactionManager transactionManager() {
-                throw unavailable();
-            }
         };
     }
 
@@ -440,11 +435,6 @@ final class McpDiagnosticsDomainTest {
 
             @Override
             public CubismModelAccess model() {
-                throw failure;
-            }
-
-            @Override
-            public TransactionManager transactionManager() {
                 throw failure;
             }
         };
@@ -619,11 +609,6 @@ final class McpDiagnosticsDomainTest {
             @Override
             public CubismModelAccess model() {
                 return () -> model;
-            }
-
-            @Override
-            public TransactionManager transactionManager() {
-                throw unavailable();
             }
         };
     }
@@ -903,7 +888,8 @@ final class McpDiagnosticsDomainTest {
 
     private static Map<String, Object> payload(final McpResourceCatalog catalog, final String uri) {
         final Map<String, Object> content = catalog.read(uri).get(0);
-        return object(Json.parse(((String) content.get("text")).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        return object(
+                Json.parseObject(((String) content.get("text")).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
     }
 
     private static UnsupportedOperationException unavailable() {

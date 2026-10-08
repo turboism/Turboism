@@ -1,5 +1,6 @@
 package dev.turboism.shell;
 
+import dev.turboism.core.net.HttpLinks;
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.runtime.RuntimeLogReader;
@@ -51,6 +52,7 @@ final class CoreWindows implements AutoCloseable {
     private final SettingsContributionSource settingsContributions;
     private final CorePluginManagement plugins;
     private final CoreLogWindow logWindow;
+    private final KeybindingsWindow keybindingsWindow;
     private JDialog settingsDialog;
     private JDialog pluginsDialog;
     private JDialog pluginDetailsDialog;
@@ -79,12 +81,14 @@ final class CoreWindows implements AutoCloseable {
             final RuntimeSettingsService settings,
             final SettingsContributionSource settingsContributions,
             final CorePluginManagement plugins,
-            final RuntimeLogReader logs) {
+            final RuntimeLogReader logs,
+            final dev.turboism.internal.core.KeybindingService keybindings) {
         this.i18n = Objects.requireNonNull(i18n, "i18n");
         this.settings = Objects.requireNonNull(settings, "settings");
         this.settingsContributions = Objects.requireNonNull(settingsContributions, "settingsContributions");
         this.plugins = Objects.requireNonNull(plugins, "plugins");
         this.logWindow = new CoreLogWindow(i18n, logs);
+        this.keybindingsWindow = new KeybindingsWindow(i18n, keybindings);
     }
 
     void showSettings() {
@@ -107,6 +111,10 @@ final class CoreWindows implements AutoCloseable {
         logWindow.show();
     }
 
+    void showKeybindings() {
+        keybindingsWindow.show();
+    }
+
     void showAbout() {
         CoreDialogs.onEdt(() -> {
             if (aboutDialog == null) aboutDialog = createAboutDialog();
@@ -120,6 +128,7 @@ final class CoreWindows implements AutoCloseable {
         pluginDetailsExecutor.shutdownNow();
         CoreDialogs.onEdt(() -> {
             logWindow.close();
+            keybindingsWindow.close();
             final ActiveSettingsAction active = activeSettingsAction;
             activeSettingsAction = null;
             if (active != null) {
@@ -989,13 +998,7 @@ final class CoreWindows implements AutoCloseable {
     }
 
     static boolean httpLinkAllowed(final String value) {
-        try {
-            final URI uri = URI.create(value);
-            return ("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()))
-                    && uri.getHost() != null;
-        } catch (IllegalArgumentException invalid) {
-            return false;
-        }
+        return HttpLinks.isAllowed(value);
     }
 
     private static boolean openHttpLink(final String value) {

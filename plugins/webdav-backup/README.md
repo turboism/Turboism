@@ -62,11 +62,12 @@ No capabilities are declared in the plugin manifest.
 |---|---|---|
 | `turboism.config.plugin.read` | `application` | Reads the backup/webdav.cfg endpoint configuration. |
 | `turboism.event.subscribe` | `application` | Subscribes to BackupCompletedEvent to upload new backup artifacts. |
-| `turboism.cubism.backup.observe` | `application` | Observes privacy-safe Runtime backup completion facts; exact artifacts remain in the initiating command result. |
+| `turboism.cubism.backup.observe` | `application` | Observes backup completion facts and reads runtime-issued artifact bytes through the permission-gated `BackupArtifactHandle` surface; temporary artifacts are discarded through the same handle. |
 | `turboism.config.plugin.write` | `application` | Persists the WebDAV endpoint settings through the backup/webdav.cfg write path with readback confirmation. |
 | `turboism.action.register` | `application` | Registers the backup.webdav.settings.open action behind the Turboism menu item. |
 | `turboism.ui.menu.contribute` | `application` | Exposes the WebDAV backup settings dialog through the Turboism menu. |
 | `turboism.cubism.model.observe` | `application` | Observes model and animation save lifecycle to trigger save-triggered backups. |
+| `turboism.network.fetch` | `application` | Uploads backup artifacts to the user-configured WebDAV endpoint through the JDK HttpClient (MKCOL/PROPFIND/PUT/DELETE); redirects are never followed. |
 
 ## Privacy and data
 

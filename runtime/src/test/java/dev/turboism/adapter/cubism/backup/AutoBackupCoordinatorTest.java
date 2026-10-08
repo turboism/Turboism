@@ -13,6 +13,7 @@ import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
+import dev.turboism.sdk.cubism.backup.BackupArtifactHandle;
 import dev.turboism.sdk.cubism.backup.BackupRunResult;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupStatus;
@@ -42,13 +43,146 @@ class AutoBackupCoordinatorTest {
     Path temporary;
 
     @Test
+    void availabilityFollowsTheAdapterProbe() throws Exception {
+        final AutoBackupCoordinator safe =
+                new AutoBackupCoordinator(AutoBackupAdapter.safeMode(), ignored -> {}, Clock.systemUTC(), 60_000L);
+        assertFalse(safe.isAvailable(), "a coordinator over the safe-mode adapter must report unavailable");
+        safe.close();
+
+        final FakeHost host = new FakeHost();
+        final AutoBackupCoordinator connected = new AutoBackupCoordinator(
+                AutoBackupAdapter.connected(host.operations()), ignored -> {}, Clock.systemUTC(), 60_000L);
+        assertTrue(connected.isAvailable());
+        connected.close();
+        assertFalse(connected.isAvailable(), "a closed coordinator must report unavailable");
+    }
+
+    @Test
+    void aThrowingAvailabilityProbeReportsUnavailableInsteadOfThrowing() throws Exception {
+        final AutoBackupCoordinator service = new AutoBackupCoordinator(
+                stubAdapter(new IllegalStateException("host session teardown on the calling thread")),
+                ignored -> {},
+                Clock.systemUTC(),
+                60_000L);
+        try {
+            assertFalse(service.isAvailable(), "a throwing probe is an unavailable host, never an escaping failure");
+        } finally {
+            service.close();
+        }
+    }
+
+    @Test
+    void anInFlightAvailabilityProbeDoesNotBlockLifecycleOperations() throws Exception {
+        final CountDownLatch probeEntered = new CountDownLatch(1);
+        final CountDownLatch releaseProbe = new CountDownLatch(1);
+        final AutoBackupCoordinator service = new AutoBackupCoordinator(
+                new AutoBackupAdapter() {
+                    @Override
+                    public Snapshot settings() {
+                        return new Snapshot(false, 0, 0, null);
+                    }
+
+                    @Override
+                    public Snapshot applySettings(final Snapshot target) {
+                        return target;
+                    }
+
+                    @Override
+                    public List<Document> documents() {
+                        return List.of();
+                    }
+
+                    @Override
+                    public void triggerBackupNow() {}
+
+                    @Override
+                    public File saveDocumentFor(
+                            final File matchFile, final List<String> documentUids, final long timestampMillis) {
+                        return null;
+                    }
+
+                    @Override
+                    public boolean available() {
+                        probeEntered.countDown();
+                        try {
+                            releaseProbe.await();
+                        } catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
+                        }
+                        return true;
+                    }
+                },
+                ignored -> {},
+                Clock.systemUTC(),
+                60_000L);
+        try {
+            final Thread probe = new Thread(service::isAvailable, "test-availability-probe");
+            probe.start();
+            assertTrue(probeEntered.await(10L, TimeUnit.SECONDS));
+            // While the probe is in flight it must hold no lifecycle lock: a
+            // lifecycle call on another thread proceeds immediately.
+            final CountDownLatch submitted = new CountDownLatch(1);
+            final Thread caller = new Thread(() -> {
+                service.backupAfterSave(snapshot("model.cmo3"));
+                submitted.countDown();
+            });
+            caller.start();
+            assertTrue(
+                    submitted.await(10L, TimeUnit.SECONDS),
+                    "backupAfterSave must not wait behind an in-flight availability probe");
+            releaseProbe.countDown();
+            probe.join(10_000L);
+            caller.join(10_000L);
+        } finally {
+            releaseProbe.countDown();
+            service.close();
+        }
+    }
+
+    /** An adapter whose {@code available()} throws the given failure; all other ops are inert stubs. */
+    private static AutoBackupAdapter stubAdapter(final RuntimeException probeFailure) {
+        return new AutoBackupAdapter() {
+            @Override
+            public Snapshot settings() {
+                return new Snapshot(false, 0, 0, null);
+            }
+
+            @Override
+            public Snapshot applySettings(final Snapshot target) {
+                return target;
+            }
+
+            @Override
+            public List<Document> documents() {
+                return List.of();
+            }
+
+            @Override
+            public void triggerBackupNow() {}
+
+            @Override
+            public File saveDocumentFor(
+                    final File matchFile, final List<String> documentUids, final long timestampMillis) {
+                return null;
+            }
+
+            @Override
+            public boolean available() {
+                // Mirrors DynamicRuntimeHostAdapters.call: an outermost adapter
+                // call may run host-session teardown on the calling thread.
+                throw probeFailure;
+            }
+        };
+    }
+
+    @Test
     void unknownDeclarationWithMatchedSelectorsCanMutateSettingsAndProduceABackup() throws Exception {
         final FakeHost host = new FakeHost();
         final VerifiedMemberResolver resolver = host.resolver(true, "5.3.99");
         final AutoBackupCoordinator service = coordinator(resolver, 60_000L);
 
         final EditorAutoBackupSettings updated =
-                service.updateSettings(new EditorAutoBackupSettings(true, 3, 120, null));
+                service.updateSettings(new EditorAutoBackupSettings(true, 3, 120, java.util.Optional.empty()));
         final BackupRunResult backup = service.backupNow().toCompletableFuture().get(30, TimeUnit.SECONDS);
 
         assertEquals("5.3.99", resolver.cubismVersion());
@@ -57,8 +191,8 @@ class AutoBackupCoordinatorTest {
         assertEquals(120, host.manager.maxMB);
         assertEquals(1, host.attachCalls);
         assertEquals(1, host.updateCalls);
-        assertEquals(1, backup.newBackupFiles().size());
-        assertTrue(backup.newBackupFiles().get(0).length() > 0);
+        assertEquals(1, backup.artifacts().size());
+        assertTrue(backup.artifacts().get(0).sizeBytes() > 0);
         assertTrue(host.onEdt.get());
     }
 
@@ -69,7 +203,8 @@ class AutoBackupCoordinatorTest {
         final AutoBackupCoordinator service = coordinator(host.resolver(true, "5.3.99"), 60_000L);
 
         assertThrows(
-                RuntimeException.class, () -> service.updateSettings(new EditorAutoBackupSettings(false, 9, 80, null)));
+                RuntimeException.class,
+                () -> service.updateSettings(new EditorAutoBackupSettings(false, 9, 80, java.util.Optional.empty())));
 
         assertTrue(host.manager.enabled);
         assertEquals(5, host.manager.interval);
@@ -84,7 +219,7 @@ class AutoBackupCoordinatorTest {
         assertTrue(settings.enabled());
         assertEquals(5, settings.intervalMinutes());
         assertEquals(50, settings.maxMB());
-        assertEquals(host.backupDir().getPath(), settings.backupDir());
+        assertEquals(java.util.Optional.of(host.backupDir().getPath()), settings.backupDirDisplay());
         assertTrue(host.onEdt.get(), "host operations must run on the EDT");
     }
 
@@ -93,20 +228,23 @@ class AutoBackupCoordinatorTest {
         FakeHost host = new FakeHost();
         AutoBackupCoordinator service = coordinator(host, 60_000L);
         EditorAutoBackupSettings updated =
-                service.updateSettings(new EditorAutoBackupSettings(true, 3, 120, "ignored"));
+                service.updateSettings(new EditorAutoBackupSettings(true, 3, 120, java.util.Optional.of("ignored")));
         assertTrue(updated.enabled());
         assertEquals(3, updated.intervalMinutes());
         assertEquals(120, updated.maxMB());
         assertEquals(3, host.manager.interval);
         assertEquals(120, host.manager.maxMB);
-        assertEquals(host.backupDir().getPath(), updated.backupDir(), "backupDir is host-read-only");
+        assertEquals(
+                java.util.Optional.of(host.backupDir().getPath()),
+                updated.backupDirDisplay(),
+                "backupDir is host-read-only");
     }
 
     @Test
     void updateSettingsShortCircuitsIdenticalValuesWithoutSetterSideEffects() {
         FakeHost host = new FakeHost();
         AutoBackupCoordinator service = coordinator(host, 60_000L);
-        service.updateSettings(new EditorAutoBackupSettings(true, 5, 50, null));
+        service.updateSettings(new EditorAutoBackupSettings(true, 5, 50, java.util.Optional.empty()));
         assertEquals(0, host.manager.setCalls, "no setter side effects for an identical request");
     }
 
@@ -116,7 +254,8 @@ class AutoBackupCoordinatorTest {
         host.failOnSetInterval = true;
         AutoBackupCoordinator service = coordinator(host, 60_000L);
         assertThrows(
-                RuntimeException.class, () -> service.updateSettings(new EditorAutoBackupSettings(false, 9, 80, null)));
+                RuntimeException.class,
+                () -> service.updateSettings(new EditorAutoBackupSettings(false, 9, 80, java.util.Optional.empty())));
         assertTrue(host.manager.enabled, "enabled must be restored");
         assertEquals(5, host.manager.interval, "interval must be restored");
         assertEquals(50, host.manager.maxMB, "maxMB must be restored");
@@ -129,7 +268,8 @@ class AutoBackupCoordinatorTest {
         host.failOnRestoreInterval = true;
         AutoBackupCoordinator service = coordinator(host, 60_000L);
         assertThrows(
-                RuntimeException.class, () -> service.updateSettings(new EditorAutoBackupSettings(false, 9, 80, null)));
+                RuntimeException.class,
+                () -> service.updateSettings(new EditorAutoBackupSettings(false, 9, 80, java.util.Optional.empty())));
         assertFalse(host.manager.restoredVerified, "an unverified rollback must not be claimed");
     }
 
@@ -139,7 +279,8 @@ class AutoBackupCoordinatorTest {
         AutoBackupCoordinator service = coordinator(host.resolver(false), 60_000L);
         assertThrows(RuntimeException.class, service::settings);
         assertThrows(
-                RuntimeException.class, () -> service.updateSettings(new EditorAutoBackupSettings(true, 3, 120, null)));
+                RuntimeException.class,
+                () -> service.updateSettings(new EditorAutoBackupSettings(true, 3, 120, java.util.Optional.empty())));
         assertThrows(RuntimeException.class, service::statuses);
         CompletionStage<BackupRunResult> stage = service.backupNow();
         assertThrows(
@@ -176,11 +317,11 @@ class AutoBackupCoordinatorTest {
                 AutoBackupAdapter.connected(host.operations()), bus, Clock.systemUTC(), 60_000L);
 
         BackupRunResult event = service.backupNow().toCompletableFuture().get(30, TimeUnit.SECONDS);
-        assertEquals(1, event.newBackupFiles().size());
+        assertEquals(1, event.artifacts().size());
         assertTrue(
-                event.newBackupFiles().get(0).getName().startsWith("model_backup"),
+                event.artifacts().get(0).fileName().startsWith("model_backup"),
                 "artifact must match the <name>_backup<ts>.cmo3 pattern");
-        assertTrue(event.newBackupFiles().get(0).length() > 0);
+        assertTrue(event.artifacts().get(0).sizeBytes() > 0);
         assertTrue(
                 event.statuses().stream().anyMatch(status -> status.lastAutoBackupTimeMillis() > 1_000L),
                 "lastAutoBackupTime must advance after a completed backup");
@@ -194,7 +335,7 @@ class AutoBackupCoordinatorTest {
     void backupNowInvokesSyncTargetsWithTheNewFilesAndIsolatesTargetFailures() throws Exception {
         FakeHost host = new FakeHost();
         AutoBackupCoordinator service = coordinator(host, 60_000L);
-        List<File> received = new CopyOnWriteArrayList<>();
+        List<BackupArtifactHandle> received = new CopyOnWriteArrayList<>();
         Registration first = service.registerSyncTarget(files -> {
             received.addAll(files);
             throw new IllegalStateException("target exploded");
@@ -205,12 +346,12 @@ class AutoBackupCoordinatorTest {
         });
 
         BackupRunResult event = service.backupNow().toCompletableFuture().get(30, TimeUnit.SECONDS);
-        assertEquals(1, event.newBackupFiles().size(), "target failures must not corrupt the result");
+        assertEquals(1, event.artifacts().size(), "target failures must not corrupt the result");
         assertEquals(2, received.size(), "every registered target must still be invoked");
 
         first.close();
         BackupRunResult second = service.backupNow().toCompletableFuture().get(30, TimeUnit.SECONDS);
-        assertEquals(1, second.newBackupFiles().size(), "closed registrations are removed");
+        assertEquals(1, second.artifacts().size(), "closed registrations are removed");
     }
 
     @Test
@@ -413,7 +554,7 @@ class AutoBackupCoordinatorTest {
         RecordingEventSink bus = new RecordingEventSink();
         AutoBackupCoordinator service = new AutoBackupCoordinator(
                 AutoBackupAdapter.connected(host.operations()), bus, Clock.systemUTC(), 60_000L);
-        List<File> received = new CopyOnWriteArrayList<>();
+        List<BackupArtifactHandle> received = new CopyOnWriteArrayList<>();
         service.registerSyncTarget(files -> {
             received.addAll(files);
             throw new IllegalStateException("sync target exploded");
@@ -421,19 +562,17 @@ class AutoBackupCoordinatorTest {
         BackupRunResult event = service.backupAfterSave(snapshot("model.cmo3"))
                 .toCompletableFuture()
                 .get(30, TimeUnit.SECONDS);
-        assertEquals(1, event.newBackupFiles().size());
-        File artifact = event.newBackupFiles().get(0);
+        assertEquals(1, event.artifacts().size());
+        BackupArtifactHandle artifact = event.artifacts().get(0);
         assertTrue(
-                artifact.getName().startsWith("model_backup"),
+                artifact.fileName().startsWith("model_backup"),
                 "artifact must match the <name>_backup<ts>.cmo3 pattern");
-        assertTrue(artifact.getName().endsWith(".cmo3"));
-        assertTrue(artifact.length() > 0);
-        assertTrue(
-                artifact.getParentFile().getName().startsWith("turboism-backup-"),
-                "the save-triggered artifact must be a temporary file");
+        assertTrue(artifact.fileName().endsWith(".cmo3"));
+        assertTrue(artifact.sizeBytes() > 0);
+        assertTrue(artifact.temporary(), "the save-triggered artifact must be a temporary artifact");
         assertEquals(
                 FakeHost.FakeFileContent.sourceContent("model.cmo3"),
-                Files.readString(artifact.toPath()),
+                readHandle(artifact),
                 "the artifact must be a copy of the document file");
         assertEquals(1, bus.events.size(), "the completed event must be published");
         assertEquals(List.of(artifact), received, "sync targets must receive the new artifact");
@@ -454,7 +593,7 @@ class AutoBackupCoordinatorTest {
                 1,
                 first.toCompletableFuture()
                         .get(30, TimeUnit.SECONDS)
-                        .newBackupFiles()
+                        .artifacts()
                         .size(),
                 "one backup for saves inside the window");
         clock.advance(2_000L); // window expired
@@ -464,7 +603,7 @@ class AutoBackupCoordinatorTest {
                 1,
                 third.toCompletableFuture()
                         .get(30, TimeUnit.SECONDS)
-                        .newBackupFiles()
+                        .artifacts()
                         .size());
     }
 
@@ -476,11 +615,11 @@ class AutoBackupCoordinatorTest {
         BackupRunResult event = service.backupAfterSave(snapshot("game.cmo3"))
                 .toCompletableFuture()
                 .get(30, TimeUnit.SECONDS);
-        assertEquals(1, event.newBackupFiles().size());
-        assertTrue(event.newBackupFiles().get(0).getName().startsWith("game_backup"));
+        assertEquals(1, event.artifacts().size());
+        assertTrue(event.artifacts().get(0).fileName().startsWith("game_backup"));
         assertEquals(
                 FakeHost.FakeFileContent.sourceContent("game.cmo3"),
-                Files.readString(event.newBackupFiles().get(0).toPath()));
+                readHandle(event.artifacts().get(0)));
     }
 
     @Test
@@ -495,11 +634,11 @@ class AutoBackupCoordinatorTest {
         BackupRunResult event = service.backupAfterSave(snapshotWithUids("测试 混合模式.cmo3", List.of("uid-model-1")))
                 .toCompletableFuture()
                 .get(30, TimeUnit.SECONDS);
-        assertEquals(1, event.newBackupFiles().size());
-        assertTrue(event.newBackupFiles().get(0).getName().startsWith("fixture_backup"));
+        assertEquals(1, event.artifacts().size());
+        assertTrue(event.artifacts().get(0).fileName().startsWith("fixture_backup"));
         assertEquals(
                 FakeHost.FakeFileContent.sourceContent("fixture.cmo3"),
-                Files.readString(event.newBackupFiles().get(0).toPath()),
+                readHandle(event.artifacts().get(0)),
                 "the UID match must copy the selected pack content");
     }
 
@@ -517,11 +656,11 @@ class AutoBackupCoordinatorTest {
                         snapshotWithUids("renamed-anim.motion3.json", List.of("uid-scene-2")))
                 .toCompletableFuture()
                 .get(30, TimeUnit.SECONDS);
-        assertEquals(1, event.newBackupFiles().size());
-        assertTrue(event.newBackupFiles().get(0).getName().startsWith("anim.motion3_backup"));
+        assertEquals(1, event.artifacts().size());
+        assertTrue(event.artifacts().get(0).fileName().startsWith("anim.motion3_backup"));
         assertEquals(
                 FakeHost.FakeFileContent.sourceContent("anim.motion3.json"),
-                Files.readString(event.newBackupFiles().get(0).toPath()),
+                readHandle(event.artifacts().get(0)),
                 "a scene UID hit must copy the animation");
     }
 
@@ -535,10 +674,10 @@ class AutoBackupCoordinatorTest {
         BackupRunResult event = service.backupAfterSave(snapshotWithUids("model.cmo3", List.of("uid-other")))
                 .toCompletableFuture()
                 .get(30, TimeUnit.SECONDS);
-        assertEquals(1, event.newBackupFiles().size());
+        assertEquals(1, event.artifacts().size());
         assertEquals(
                 FakeHost.FakeFileContent.sourceContent("model.cmo3"),
-                Files.readString(event.newBackupFiles().get(0).toPath()),
+                readHandle(event.artifacts().get(0)),
                 "no UID hit must fall back to the name match");
     }
 
@@ -550,10 +689,10 @@ class AutoBackupCoordinatorTest {
         BackupRunResult event = service.backupAfterSave(snapshot("model.cmo3"))
                 .toCompletableFuture()
                 .get(30, TimeUnit.SECONDS);
-        assertEquals(1, event.newBackupFiles().size());
+        assertEquals(1, event.artifacts().size());
         assertEquals(
                 FakeHost.FakeFileContent.sourceContent("model.cmo3"),
-                Files.readString(event.newBackupFiles().get(0).toPath()),
+                readHandle(event.artifacts().get(0)),
                 "an empty UID list must use name matching");
     }
 
@@ -577,6 +716,74 @@ class AutoBackupCoordinatorTest {
                 java.util.concurrent.ExecutionException.class,
                 () -> stage.toCompletableFuture().get(30, TimeUnit.SECONDS));
         assertEquals(0, host.updateCalls, "no host mutation without a match");
+    }
+
+    @Test
+    void artifactsListsRegularFilesInTheHostBackupDirectoryAsHandles() throws Exception {
+        FakeHost host = new FakeHost();
+        AutoBackupCoordinator service = coordinator(host, 60_000L);
+        Files.writeString(host.backupDir.resolve("model_backup2026_08_08_1200.cmo3"), "artifact");
+        Files.writeString(host.backupDir.resolve("notes.txt"), "not-an-artifact");
+        Files.createDirectories(host.backupDir.resolve("nested"));
+
+        List<BackupArtifactHandle> artifacts = service.artifacts();
+
+        assertEquals(
+                List.of("model_backup2026_08_08_1200.cmo3", "notes.txt"),
+                artifacts.stream().map(BackupArtifactHandle::fileName).toList(),
+                "the listing must cover regular files only, sorted by name, never directories");
+        assertTrue(artifacts.stream().noneMatch(BackupArtifactHandle::temporary));
+        assertEquals("artifact", readHandle(artifacts.get(0)));
+        assertThrows(
+                IllegalStateException.class,
+                () -> artifacts.get(0).discard(),
+                "host-owned artifacts are never discardable through the handle");
+    }
+
+    @Test
+    void artifactsIsEmptyWhenTheHostExposesNoBackupDirectory() {
+        FakeHost host = new FakeHost();
+        host.manager.backupDir = null;
+        AutoBackupCoordinator service = coordinator(host, 60_000L);
+        assertTrue(service.artifacts().isEmpty());
+    }
+
+    @Test
+    void artifactsRequiresTheBackupObservePermission() {
+        FakeHost host = new FakeHost();
+        AutoBackupCoordinator service = new AutoBackupCoordinator(
+                AutoBackupAdapter.connected(host.operations()),
+                new RecordingEventSink(),
+                Clock.systemUTC(),
+                60_000L,
+                ignored -> {},
+                null,
+                dev.turboism.permissions.PermissionChecker.from(
+                        List.<dev.turboism.sdk.permission.PluginPermission>of()));
+        assertThrows(dev.turboism.sdk.permission.CubismPermissionException.class, service::artifacts);
+    }
+
+    @Test
+    void issuedHandlesEnforceThePluginGrantOnReadsAndDiscards() throws Exception {
+        FakeHost host = new FakeHost();
+        AutoBackupCoordinator service = new AutoBackupCoordinator(
+                AutoBackupAdapter.connected(host.operations()),
+                new RecordingEventSink(),
+                Clock.systemUTC(),
+                60_000L,
+                ignored -> {},
+                null,
+                dev.turboism.permissions.PermissionChecker.from(
+                        List.<dev.turboism.sdk.permission.PluginPermission>of()));
+        BackupRunResult result = service.backupNow().toCompletableFuture().get(30, TimeUnit.SECONDS);
+        assertEquals(1, result.artifacts().size(), "the command result is produced regardless");
+        assertThrows(
+                dev.turboism.sdk.permission.CubismPermissionException.class,
+                () -> result.artifacts().get(0).openStream());
+        assertThrows(
+                dev.turboism.sdk.permission.CubismPermissionException.class,
+                () -> result.artifacts().get(0).discard());
+        service.close();
     }
 
     // ---- helpers ----
@@ -609,6 +816,12 @@ class AutoBackupCoordinatorTest {
     private static ProjectContentSnapshot snapshotWithUids(final String name, final List<String> uids) {
         return new ProjectContentSnapshot(
                 "model:test", name, ProjectContentKind.MODEL, java.util.Optional.empty(), uids);
+    }
+
+    private static String readHandle(final BackupArtifactHandle handle) throws IOException {
+        try (var in = handle.openStream()) {
+            return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
     }
 
     private static final class MutableClock extends Clock {

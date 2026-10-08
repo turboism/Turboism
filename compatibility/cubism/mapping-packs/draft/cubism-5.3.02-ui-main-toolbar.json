@@ -17,7 +17,8 @@
         "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 0
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.app_ctrl_instance",
@@ -31,7 +32,8 @@
         "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
         "requiredAccessFlags": 9,
         "forbiddenAccessFlags": 0
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.app_ctrl_main_frame",
@@ -45,7 +47,8 @@
         "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.class.main_frame",
@@ -59,7 +62,8 @@
         "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 0
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.main_frame_view",
@@ -73,7 +77,8 @@
         "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.class.main_frame_view",
@@ -87,7 +92,8 @@
         "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 0
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.home_button",
@@ -101,7 +107,8 @@
         "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.class.widget",
@@ -115,7 +122,8 @@
         "ownerInternalName": "com/live2d/ui/CWidget",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 0
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.widget_parent",
@@ -129,7 +137,8 @@
         "ownerInternalName": "com/live2d/ui/CWidget",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.widget_name",
@@ -143,7 +152,8 @@
         "ownerInternalName": "com/live2d/ui/CWidget",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.widget_set_name",
@@ -157,7 +167,8 @@
         "ownerInternalName": "com/live2d/ui/CWidget",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.widget_set_tooltip",
@@ -171,7 +182,8 @@
         "ownerInternalName": "com/live2d/ui/CWidget",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.widget_set_pref_width",
@@ -185,7 +197,8 @@
         "ownerInternalName": "com/live2d/ui/CWidget",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.widget_set_pref_height",
@@ -199,7 +212,8 @@
         "ownerInternalName": "com/live2d/ui/CWidget",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.widget_revalidate",
@@ -213,7 +227,8 @@
         "ownerInternalName": "com/live2d/ui/CWidget",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.widget_repaint",
@@ -227,7 +242,8 @@
         "ownerInternalName": "com/live2d/ui/CWidget",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.class.container",
@@ -241,7 +257,8 @@
         "ownerInternalName": "com/live2d/ui/container/CContainer",
         "requiredAccessFlags": 1025,
         "forbiddenAccessFlags": 0
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.container_children",
@@ -255,7 +272,8 @@
         "ownerInternalName": "com/live2d/ui/container/CContainer",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.container_add",
@@ -269,7 +287,8 @@
         "ownerInternalName": "com/live2d/ui/container/CContainer",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.container_remove",
@@ -283,7 +302,8 @@
         "ownerInternalName": "com/live2d/ui/container/CContainer",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.class.icon_button",
@@ -297,7 +317,8 @@
         "ownerInternalName": "com/live2d/ui/control/CIconButton",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 0
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.constructor.icon_button",
@@ -311,7 +332,8 @@
         "ownerInternalName": "com/live2d/ui/control/CIconButton",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.icon_button_set_rollover",
@@ -325,7 +347,8 @@
         "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.class.icon",
@@ -339,7 +362,8 @@
         "ownerInternalName": "com/live2d/type/CIcon",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 0
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.constructor.icon",
@@ -353,7 +377,8 @@
         "ownerInternalName": "com/live2d/type/CIcon",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.field.main_container",
@@ -367,7 +392,8 @@
         "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.constructor.vbox",
@@ -381,7 +407,8 @@
         "ownerInternalName": "com/live2d/ui/container/CVBox",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
-      }
+      },
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.widget_jcomponent",
@@ -395,6 +422,511 @@
         "ownerInternalName": "com/live2d/ui/CWidget",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
+      },
+      "confidence": "high"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.field.mesh_tool_mode_instance",
+      "name": "cubism.ui-main-toolbar.mesh-tool-mode.instance",
+      "kind": "field",
+      "runtime": "INSTANCE",
+      "descriptor": "Lcom/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolMode_MeshEdit_Manual;",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolMode_MeshEdit_Manual",
+        "requiredAccessFlags": 25,
+        "forbiddenAccessFlags": 0
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.mesh-tool-mode.instance",
+        "recordMappingId": "cubism.mapping.v5_3_02.ui_main_toolbar.field.mesh_tool_mode_instance",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.mesh_tool_mode_tool_panel",
+      "name": "cubism.ui-main-toolbar.mesh-tool-mode.tool-panel",
+      "kind": "method",
+      "runtime": "getToolPanel",
+      "descriptor": "()Lcom/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit;",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolMode_MeshEdit_Manual",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.mesh-tool-mode.tool-panel",
+        "recordMappingId": "cubism.mapping.v5_3_02.ui_main_toolbar.method.mesh_tool_mode_tool_panel",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.mesh_tool_panel_arrow_button",
+      "name": "cubism.ui-main-toolbar.mesh-tool-panel.arrow-button",
+      "kind": "method",
+      "runtime": "getBtn_arrow",
+      "descriptor": "()Lcom/live2d/ui/control/CIconButton;",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.mesh-tool-panel.arrow-button",
+        "recordMappingId": "cubism.mapping.v5_3_02.ui_main_toolbar.method.mesh_tool_panel_arrow_button",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.method.mesh_tool_panel_panel",
+      "name": "cubism.ui-main-toolbar.mesh-tool-panel.panel",
+      "kind": "method",
+      "runtime": "getPanel",
+      "descriptor": "()Lcom/live2d/ui/container/CVBox;",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.mesh-tool-panel.panel",
+        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.method.mesh_tool_panel_panel",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.class.abstract_button",
+      "name": "cubism.ui-main-toolbar.abstract-button.class",
+      "kind": "class",
+      "runtime": "com/live2d/ui/control/CAbstractButton",
+      "descriptor": null,
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
+        "requiredAccessFlags": 1025,
+        "forbiddenAccessFlags": 0
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.abstract-button.class",
+        "recordMappingId": "cubism.mapping.v5_3_02.ui_main_toolbar.class.abstract_button",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "descriptor": "()Ljavax/swing/AbstractButton;",
+      "kind": "method",
+      "name": "cubism.ui-main-toolbar.abstract-button.get-jabstract-button",
+      "profile": "cubism-5.3.02",
+      "runtime": "getJAbstractButton",
+      "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_get_j_abstract_button",
+      "status": "DRAFT",
+      "x.verification": {
+        "forbiddenAccessFlags": 8,
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
+        "requiredAccessFlags": 17
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.abstract-button.get-jabstract-button",
+        "recordMappingId": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_get_j_abstract_button",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_set_selected",
+      "name": "cubism.ui-main-toolbar.abstract-button.set-selected",
+      "kind": "method",
+      "runtime": "setSelected",
+      "descriptor": "(Z)V",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.abstract-button.set-selected",
+        "recordMappingId": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_set_selected",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "descriptor": "(Lcom/live2d/type/CIcon;)V",
+      "kind": "method",
+      "name": "cubism.ui-main-toolbar.abstract-button.set-icon",
+      "profile": "cubism-5.3.02",
+      "runtime": "setIcon",
+      "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_set_icon",
+      "status": "DRAFT",
+      "x.verification": {
+        "forbiddenAccessFlags": 8,
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
+        "requiredAccessFlags": 17
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.abstract-button.set-icon",
+        "recordMappingId": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_set_icon",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "descriptor": "(Lcom/live2d/type/CIcon;)V",
+      "kind": "method",
+      "name": "cubism.ui-main-toolbar.abstract-button.set-pressed-icon",
+      "profile": "cubism-5.3.02",
+      "runtime": "setPressedIcon",
+      "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_set_pressed_icon",
+      "status": "DRAFT",
+      "x.verification": {
+        "forbiddenAccessFlags": 8,
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
+        "requiredAccessFlags": 17
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.abstract-button.set-pressed-icon",
+        "recordMappingId": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_set_pressed_icon",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "descriptor": "(Lcom/live2d/type/CIcon;)V",
+      "kind": "method",
+      "name": "cubism.ui-main-toolbar.abstract-button.set-selected-icon",
+      "profile": "cubism-5.3.02",
+      "runtime": "setSelectedIcon",
+      "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_set_selected_icon",
+      "status": "DRAFT",
+      "x.verification": {
+        "forbiddenAccessFlags": 8,
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
+        "requiredAccessFlags": 17
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.abstract-button.set-selected-icon",
+        "recordMappingId": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_set_selected_icon",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "descriptor": "(Lcom/live2d/type/CIcon;)V",
+      "kind": "method",
+      "name": "cubism.ui-main-toolbar.abstract-button.set-disabled-icon",
+      "profile": "cubism-5.3.02",
+      "runtime": "setDisabledIcon",
+      "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_set_disabled_icon",
+      "status": "DRAFT",
+      "x.verification": {
+        "forbiddenAccessFlags": 8,
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
+        "requiredAccessFlags": 17
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.abstract-button.set-disabled-icon",
+        "recordMappingId": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_set_disabled_icon",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "descriptor": "(Lcom/live2d/type/CIcon;)V",
+      "kind": "method",
+      "name": "cubism.ui-main-toolbar.abstract-button.set-disabled-selected-icon",
+      "profile": "cubism-5.3.02",
+      "runtime": "setDisabledSelectedIcon",
+      "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_set_disabled_selected_icon",
+      "status": "DRAFT",
+      "x.verification": {
+        "forbiddenAccessFlags": 8,
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
+        "requiredAccessFlags": 17
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.abstract-button.set-disabled-selected-icon",
+        "recordMappingId": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_set_disabled_selected_icon",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.class.slider",
+      "name": "cubism.ui-main-toolbar.slider.class",
+      "kind": "class",
+      "runtime": "com/live2d/ui/control/CSlider",
+      "descriptor": null,
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/control/CSlider",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.slider.class",
+        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.class.slider",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.constructor.slider",
+      "name": "cubism.ui-main-toolbar.slider.create",
+      "kind": "constructor",
+      "runtime": "<init>",
+      "descriptor": "(IIII)V",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/control/CSlider",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.slider.create",
+        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.constructor.slider",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_value",
+      "name": "cubism.ui-main-toolbar.slider.value",
+      "kind": "method",
+      "runtime": "getValue",
+      "descriptor": "()I",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/control/CSlider",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.slider.value",
+        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_value",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_set_value",
+      "name": "cubism.ui-main-toolbar.slider.set-value",
+      "kind": "method",
+      "runtime": "setValue",
+      "descriptor": "(I)V",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/control/CSlider",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.slider.set-value",
+        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_set_value",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_min",
+      "name": "cubism.ui-main-toolbar.slider.min",
+      "kind": "method",
+      "runtime": "getMin",
+      "descriptor": "()I",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/control/CSlider",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.slider.min",
+        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_min",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_set_min",
+      "name": "cubism.ui-main-toolbar.slider.set-min",
+      "kind": "method",
+      "runtime": "setMin",
+      "descriptor": "(I)V",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/control/CSlider",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.slider.set-min",
+        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_set_min",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_max",
+      "name": "cubism.ui-main-toolbar.slider.max",
+      "kind": "method",
+      "runtime": "getMax",
+      "descriptor": "()I",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/control/CSlider",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.slider.max",
+        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_max",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_set_max",
+      "name": "cubism.ui-main-toolbar.slider.set-max",
+      "kind": "method",
+      "runtime": "setMax",
+      "descriptor": "(I)V",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/control/CSlider",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.slider.set-max",
+        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_set_max",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_set_on_changed",
+      "name": "cubism.ui-main-toolbar.slider.set-on-changed",
+      "kind": "method",
+      "runtime": "setOnChanged",
+      "descriptor": "(Lkotlin/jvm/functions/Function1;)V",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/control/CSlider",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.review": {
+        "recordAlias": "cubism.ui-main-toolbar.slider.set-on-changed",
+        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_set_on_changed",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     }
   ]

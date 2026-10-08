@@ -1086,7 +1086,7 @@ def main() -> int:
         report.append("assertion.textureUndoRedoRestoration.status=PASS")
         report.append("assertion.textureDeletionScope.status=PASS")
 
-        hierarchy = await_resource(
+        await_resource(
             client,
             "turboism://active/model/hierarchy",
             lambda value: value.get("ok") is True,

@@ -57,6 +57,15 @@ final class JvmShims {
         return suppression != null && suppression.policy().safeMode();
     }
 
+    /**
+     * @return the startup policy the suppression shim loaded during install, or
+     *     {@code null} when the shim was never installed (test environments)
+     */
+    static dev.turboism.config.RuntimeStartupConfig startupPolicy() {
+        final StartupSuppressionInstaller.Installation suppression = STARTUP_SUPPRESSION.get();
+        return suppression == null ? null : suppression.policy();
+    }
+
     static void closeAll(final Consumer<String> warn) {
         close(STARTUP_SUPPRESSION.getAndSet(null), warn, "startup suppression");
         close(PIPE_IMPL_SHIM.getAndSet(null), warn, "pipe shim");

@@ -1,8 +1,8 @@
 package dev.turboism.plugin.uitheme.service;
 
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageArchive;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageCatalog;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageData;
+import dev.turboism.plugin.uitheme.domain.ThemePackageArchive;
+import dev.turboism.plugin.uitheme.domain.ThemePackageCatalog;
+import dev.turboism.plugin.uitheme.domain.ThemePackageData;
 import dev.turboism.sdk.storage.PluginStorage;
 import dev.turboism.sdk.storage.StorageEntryType;
 import dev.turboism.sdk.storage.StorageErrorCode;

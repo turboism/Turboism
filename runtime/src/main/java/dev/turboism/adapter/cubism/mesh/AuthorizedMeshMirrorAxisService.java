@@ -27,4 +27,9 @@ public final class AuthorizedMeshMirrorAxisService implements MeshMirrorAxisServ
         permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_WRITE, "cubism.mesh.mirror-axis.write");
         delegate.setCurrentAngleDegrees(angleDegrees);
     }
+
+    @Override
+    public boolean isAvailable() {
+        return delegate.isAvailable();
+    }
 }

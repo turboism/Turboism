@@ -8,7 +8,16 @@ import dev.turboism.sdk.cubism.id.ModelId;
 import java.util.List;
 import java.util.Optional;
 
-/** One Cubism model exposed as natural objects and methods. */
+/**
+ * One Cubism model exposed as natural objects and methods.
+ *
+ * <p>The object graph is the single recommended parameter read/write plane:
+ * {@link #parameters()} yields live {@link Parameter} objects whose {@link Parameter#getValue()} /
+ * {@link Parameter#setValue(float)} read and write the Editor authoring value. Immutable
+ * point-in-time views exist elsewhere — {@link dev.turboism.sdk.cubism.ParameterSnapshot} inside
+ * facade snapshots and {@link dev.turboism.sdk.cubism.core.OwnedParameter} inside the detached
+ * owned model — but none of them is a write handle.
+ */
 public interface CubismModel {
 
     /** Returns this model's stable identity when the model-read contract is admitted. */
@@ -42,7 +51,10 @@ public interface CubismModel {
         throw new UnsupportedOperationException("Cubism MOC metadata is unavailable.");
     }
 
-    /** Returns the model's parameter-definition document projection. */
+    /**
+     * Returns the model's parameter-definition document projection.
+     * @throws UnsupportedOperationException when the backend does not expose parameter definitions
+     */
     @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     default ParameterDefinitions parameterDefinitions() {
         throw new UnsupportedOperationException("Cubism parameter-definition access is unavailable.");
@@ -53,6 +65,7 @@ public interface CubismModel {
      *
      * <p>Read-only: instance creation and switching are Editor-internal operations with
      * no verified authoring/undo evidence, so no write projection is declared.</p>
+     * @throws UnsupportedOperationException when the backend does not expose model instances
      */
     default List<ModelInstance> modelInstances() {
         throw new UnsupportedOperationException("Cubism model-instance access is unavailable.");
@@ -60,6 +73,7 @@ public interface CubismModel {
 
     /**
      * Returns the Editor's current model instance, when one is selected.
+     * @throws UnsupportedOperationException when the backend does not expose model instances
      */
     default Optional<ModelInstance> currentModelInstance() {
         throw new UnsupportedOperationException("Cubism current-model-instance access is unavailable.");
@@ -67,17 +81,24 @@ public interface CubismModel {
 
     /**
      * Returns whether the Editor is currently editing the model source.
+     * @throws UnsupportedOperationException when the backend does not expose the editing state
      */
     default boolean modelEditing() {
         throw new UnsupportedOperationException("Cubism model-editing state is unavailable.");
     }
 
-    /** Returns the model's read-only physics settings document projection. */
+    /**
+     * Returns the model's read-only physics settings document projection.
+     * @throws UnsupportedOperationException when the backend does not expose the physics settings document
+     */
     default PhysicsSettings physicsSettings() {
         throw new UnsupportedOperationException("Cubism physics-settings document access is unavailable.");
     }
 
-    /** Returns the model's evaluated auto-Yure state. */
+    /**
+     * Returns the model's evaluated auto-Yure state.
+     * @throws UnsupportedOperationException when the backend does not expose auto-Yure evaluation
+     */
     default AutoYure autoYure() {
         throw new UnsupportedOperationException("Cubism auto-Yure evaluation access is unavailable.");
     }
@@ -90,6 +111,7 @@ public interface CubismModel {
      * Animation scene add/delete ({@code CAnimationFileContent.addScene /
      * deleteScene / setCurrentSceneDoc}) has no reviewed Undo registration in Cubism
      * 5.2.03, 5.3.02, or 5.3.03, so scene writes stay unavailable (fail closed).</p>
+     * @throws UnsupportedOperationException when the backend does not expose animation documents
      */
     default List<AnimationDocument> animationDocuments() {
         throw new UnsupportedOperationException("Cubism animation-document access is unavailable.");
@@ -101,6 +123,7 @@ public interface CubismModel {
      * <p>Reads expose the Editor's {@code CTextureManager} document state (raw
      * images, model image groups, texture atlases); writes are Editor-authoring
      * operations inside the native Undo envelope.</p>
+     * @throws UnsupportedOperationException when the backend does not expose the texture library
      */
     default ModelTextures textures() {
         throw new UnsupportedOperationException("Cubism texture-library access is unavailable.");
@@ -111,32 +134,50 @@ public interface CubismModel {
         return ModelStatisticsCalculator.calculate(this);
     }
 
-    /** Immutable PSD resource snapshots associated with this Editor model. */
+    /**
+     * Immutable PSD resource snapshots associated with this Editor model.
+     * @throws UnsupportedOperationException when the backend does not expose PSD snapshots
+     */
     default List<PsdClipMaskDocumentSnapshot> psdDocuments() {
         throw new UnsupportedOperationException("Cubism PSD snapshot access is unavailable.");
     }
 
-    /** Returns whether the Editor's default keyform is locked. */
+    /**
+     * Returns whether the Editor's default keyform is locked.
+     * @throws UnsupportedOperationException when the backend does not expose the default-keyform lock state
+     */
     default boolean defaultKeyformLocked() {
         throw new UnsupportedOperationException("Cubism default-keyform lock state is unavailable.");
     }
 
-    /** Changes whether the Editor's default keyform is locked. */
+    /**
+     * Changes whether the Editor's default keyform is locked.
+     * @throws UnsupportedOperationException when the backend does not support default-keyform lock editing
+     */
     default void setDefaultKeyformLocked(final boolean locked) {
         throw new UnsupportedOperationException("Cubism default-keyform lock editing is unavailable.");
     }
 
-    /** Returns the active Cubism Editor model editing level. */
+    /**
+     * Returns the active Cubism Editor model editing level.
+     * @throws UnsupportedOperationException when the backend does not expose the edit level
+     */
     default ModelEditLevel editLevel() {
         throw new UnsupportedOperationException("Cubism model edit-level state is unavailable.");
     }
 
-    /** Switches the active Cubism Editor model editing level. */
+    /**
+     * Switches the active Cubism Editor model editing level.
+     * @throws UnsupportedOperationException when the backend does not support edit-level switching
+     */
     default void setEditLevel(final ModelEditLevel level) {
         throw new UnsupportedOperationException("Cubism model edit-level switching is unavailable.");
     }
 
-    /** Returns the model's immutable canvas metrics. */
+    /**
+     * Returns the model's immutable canvas metrics.
+     * @throws UnsupportedOperationException when the backend does not expose canvas metrics
+     */
     @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     default Canvas canvas() {
         throw new UnsupportedOperationException("Cubism canvas access is unavailable.");
@@ -151,7 +192,12 @@ public interface CubismModel {
         throw new UnsupportedOperationException("Cubism model profile is unavailable.");
     }
 
-    /** Returns the model's parameter collection. */
+    /**
+     * Returns the model's parameter collection.
+     *
+     * <p>This is the recommended read/write entry: {@code parameters().find(id).setValue(v)}
+     * performs a single validated, undoable Editor write.
+     */
     Parameters parameters();
 
     /**
@@ -188,7 +234,10 @@ public interface CubismModel {
     /** Returns the model's drawable (ArtMesh) collection. */
     Drawables drawables();
 
-    /** Applies one conditional clip-mask replacement batch as one Editor edit. */
+    /**
+     * Applies one conditional clip-mask replacement batch as one Editor edit.
+     * @throws UnsupportedOperationException when the backend does not support clip-mask authoring replacement
+     */
     default void replaceArtMeshClipMasks(final java.util.List<ClipMaskReplacement> replacements) {
         throw new UnsupportedOperationException("Cubism clip-mask authoring replacement is unavailable.");
     }

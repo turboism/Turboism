@@ -27,5 +27,12 @@
  * dev.turboism.sdk.cubism.edit.EditUnavailableException} or another {@link
  * dev.turboism.sdk.cubism.edit.EditSessionException} subtype rather than guessing at editor
  * internals.
+ *
+ * <p>The whole package is {@link dev.turboism.sdk.Incubating}: it backs the external-application
+ * editing protocol and is not yet covered by the stable API compatibility surface. Ordinary
+ * parameter value writes do not need an edit session — use {@link
+ * dev.turboism.sdk.cubism.model.Parameter#setValue} instead, and {@link
+ * dev.turboism.sdk.cubism.CubismFacade#authoringTransactions()} to group several writes into one
+ * Editor Undo unit.
  */
 package dev.turboism.sdk.cubism.edit;

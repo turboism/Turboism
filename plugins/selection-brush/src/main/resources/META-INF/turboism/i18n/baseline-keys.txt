@@ -1,0 +1,4 @@
+mesh.selection-brush.label
+mesh.selection-brush.radius.label
+plugin.description
+plugin.name

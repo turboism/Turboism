@@ -1,6 +1,7 @@
 package dev.turboism.adapter.host;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -68,6 +69,43 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 class DynamicCubismModelAccessTest {
+
+    @Test
+    void stagedPsdNameAndContentStayBoundAcrossTheDynamicDelegate() {
+        final var calls = new ArrayList<List<Object>>();
+        final var admissions = new java.util.concurrent.atomic.AtomicInteger();
+        final var target = new dev.turboism.sdk.cubism.id.RawImageId("exact-raw");
+        final var stage = java.nio.file.Path.of("revision-123.psd");
+        final String sourceName = "外部 编辑.psd";
+        final var recording = new RecordingModel();
+        recording.textures = (dev.turboism.sdk.cubism.model.ModelTextures) java.lang.reflect.Proxy.newProxyInstance(
+                getClass().getClassLoader(),
+                new Class<?>[] {
+                    dev.turboism.sdk.cubism.model.ModelTextures.class,
+                    dev.turboism.core.runtime.psd.PsdReplaceHost.class
+                },
+                (proxy, method, args) -> {
+                    if (!"replaceWithStagedPsd".equals(method.getName())) {
+                        throw new AssertionError("unexpected texture operation: " + method.getName());
+                    }
+                    ((Runnable) args[3]).run();
+                    calls.add(List.of(args[0], args[1], args[2]));
+                    return dev.turboism.core.runtime.psd.PsdReplaceHost.Replacement.unavailable();
+                });
+        final var access = new DynamicCubismModelAccess();
+        access.connect(() -> recording);
+        final var host =
+                (dev.turboism.core.runtime.psd.PsdReplaceHost) access.active().textures();
+        host.replaceWithStagedPsd(target, stage, sourceName, admissions::incrementAndGet);
+        assertEquals(List.of(List.of(target, stage, sourceName)), calls);
+        assertEquals(1, admissions.get());
+        access.deactivate();
+        assertThrows(
+                IllegalStateException.class,
+                () -> host.replaceWithStagedPsd(target, stage, sourceName, admissions::incrementAndGet));
+        assertEquals(1, calls.size());
+        assertEquals(1, admissions.get());
+    }
 
     @Test
     void replacementInvalidatesModelCollectionsAndChildren() {
@@ -403,6 +441,7 @@ class DynamicCubismModelAccessTest {
         assertEquals("AnimA", sessionAnimations.get(0).animationName());
         final var sessionTextures = model.textures();
         assertEquals(recording.textures.rawImages(), sessionTextures.rawImages());
+        assertEquals(recording.textures.relations(), sessionTextures.relations());
         assertSame(
                 recording.partTargets,
                 model.parts().find(new PartId("PartReturned")).morphTargets());
@@ -417,6 +456,7 @@ class DynamicCubismModelAccessTest {
         assertThrows(IllegalStateException.class, model::animationDocuments);
         assertThrows(IllegalStateException.class, sessionAnimations.get(0)::animationName);
         assertThrows(IllegalStateException.class, model::textures);
+        assertThrows(IllegalStateException.class, sessionTextures::relations);
         assertThrows(
                 IllegalStateException.class,
                 () -> model.parts().find(new PartId("PartReturned")).morphTargets());
@@ -572,6 +612,20 @@ class DynamicCubismModelAccessTest {
         assertEquals(0, target.copyKeyframesFrom(sameGeneration, false));
         assertEquals(List.of("attr.copyKeyframesFrom"), calls);
         assertEquals(List.of(), foreignCalls);
+    }
+
+    @Test
+    void reportsAvailabilityOfTheCurrentDelegate() {
+        final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
+
+        assertFalse(access.isAvailable(), "a detached access reports unavailable");
+        assertFalse(UnavailableCubismModelAccess.INSTANCE.isAvailable(), "the fail-closed backing reports unavailable");
+
+        access.connect(modelAccess("model-a", 1.0F));
+        assertTrue(access.isAvailable(), "a connected access forwards the live delegate");
+
+        access.deactivate();
+        assertFalse(access.isAvailable(), "a deactivated access reports unavailable again");
     }
 
     private static CubismModel animationGraphModel(final List<String> calls) {
@@ -1465,7 +1519,7 @@ class DynamicCubismModelAccessTest {
             return List.of(animation);
         }
 
-        final dev.turboism.sdk.cubism.model.ModelTextures textures = emptyTextures();
+        dev.turboism.sdk.cubism.model.ModelTextures textures = emptyTextures();
 
         @Override
         public dev.turboism.sdk.cubism.model.ModelTextures textures() {

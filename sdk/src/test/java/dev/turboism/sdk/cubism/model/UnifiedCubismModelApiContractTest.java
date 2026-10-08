@@ -22,7 +22,6 @@ import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -462,13 +461,6 @@ class UnifiedCubismModelApiContractTest {
         @Override
         public CubismModelAccess model() {
             return () -> model;
-        }
-
-        @Override
-        public TransactionManager transactionManager() {
-            return (context, documentId) -> {
-                throw new UnsupportedOperationException();
-            };
         }
     }
 }

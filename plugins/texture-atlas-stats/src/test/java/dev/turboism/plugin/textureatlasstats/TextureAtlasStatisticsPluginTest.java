@@ -15,7 +15,6 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasSummary;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -165,11 +164,6 @@ class TextureAtlasStatisticsPluginTest {
                 @Override
                 public boolean isHostPresent() {
                     return false;
-                }
-
-                @Override
-                public TransactionManager transactionManager() {
-                    throw unused();
                 }
 
                 @Override

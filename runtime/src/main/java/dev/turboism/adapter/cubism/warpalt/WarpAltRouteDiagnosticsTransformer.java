@@ -124,7 +124,8 @@ public final class WarpAltRouteDiagnosticsTransformer implements ClassFileTransf
             return writer.toByteArray();
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
-            failure.printStackTrace();
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                    "warp-alt-mirror", "route diagnostics transform failed", failure);
             return null;
         }
     }

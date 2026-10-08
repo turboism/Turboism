@@ -368,6 +368,8 @@ sourceSets.named("headlessProbe") {
 
 val headlessProbeHome = layout.buildDirectory.dir("headless-probe/home")
 
+val headlessClasspathStamp = layout.buildDirectory.file("verification-stamps/checkHeadlessRuntimeClasspath.stamp")
+
 val checkHeadlessRuntimeClasspath by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "Loads and closes a real external plugin with framework shell classes " +
@@ -377,15 +379,25 @@ val checkHeadlessRuntimeClasspath by tasks.registering(JavaExec::class) {
         configurations.runtimeClasspath.get()
     mainClass.set("dev.turboism.preview.HeadlessRuntimeProbeMain")
     jvmArgs("-Djava.awt.headless=true")
+    // The probe verdict is a pure function of the classpath above; the stamp gives
+    // Gradle a persistent output so a passing run is not repeated unchanged.
+    outputs.file(headlessClasspathStamp)
     doFirst {
         val home = headlessProbeHome.get().asFile
         home.deleteRecursively()
         home.mkdirs()
         args(home.absolutePath)
     }
+    doLast {
+        headlessClasspathStamp.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText("ok\n")
+        }
+    }
 }
 
 dependencies {
+    testImplementation(project(":plugins:selection-brush"))
     implementation(project(":sdk"))
     // Internal management contracts shared with the framework shell.
     // The runtime never depends on :plugins:* modules.

@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.command;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.command.EditorCanvasSettingsRequest;
@@ -24,10 +25,66 @@ import dev.turboism.sdk.ui.UserFileMode;
 import java.time.Clock;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 class RuntimeEditorCommandServiceTest {
+    @Test
+    void availabilityFollowsTheAdapterProbeAndScope() {
+        final RuntimeEditorCommandService unavailable =
+                new RuntimeEditorCommandService(EditorCommandAdapter.unavailable(), gate(List.of()));
+        assertFalse(unavailable.isAvailable());
+
+        final RuntimeEditorCommandService live =
+                new RuntimeEditorCommandService(adapter(new AtomicInteger()), gate(List.of()));
+        assertTrue(live.isAvailable());
+
+        final AtomicBoolean scopeActive = new AtomicBoolean(true);
+        final RuntimeEditorCommandService scoped = new RuntimeEditorCommandService(
+                adapter(new AtomicInteger()),
+                gate(List.of()),
+                EditorFileCommandResolver.unavailable(),
+                scopeActive::get);
+        assertTrue(scoped.isAvailable());
+        scopeActive.set(false);
+        assertFalse(scoped.isAvailable(), "a sealed plugin scope must report the service unavailable");
+    }
+
+    @Test
+    void aThrowingAvailabilityProbeReportsUnavailableInsteadOfThrowing() {
+        final EditorCommandAdapter probeThrows = new EditorCommandAdapter() {
+            @Override
+            public Set<EditorCommand> available() {
+                return Set.of();
+            }
+
+            @Override
+            public EditorCommandResult execute(final EditorCommand command) {
+                return new EditorCommandResult(EditorCommandResult.Status.UNAVAILABLE, command.id());
+            }
+
+            @Override
+            public EditorCommandResult execute(final ResolvedEditorFileCommand command) {
+                return new EditorCommandResult(EditorCommandResult.Status.UNAVAILABLE, command.commandId());
+            }
+
+            @Override
+            public EditorCommandResult execute(final EditorParameterizedRequest command) {
+                return new EditorCommandResult(EditorCommandResult.Status.UNAVAILABLE, command.commandId());
+            }
+
+            @Override
+            public boolean isAvailable() {
+                // A delegate mid-teardown can throw here; the service contract
+                // is total, so the throw must become "unavailable".
+                throw new IllegalStateException("host command surface teardown");
+            }
+        };
+        final RuntimeEditorCommandService service = new RuntimeEditorCommandService(probeThrows, gate(List.of()));
+        assertFalse(service.isAvailable(), "a throwing probe is an unavailable host, never an escaping failure");
+    }
+
     @Test
     void deniesBeforeInvokingTheHostAdapter() {
         AtomicInteger calls = new AtomicInteger();

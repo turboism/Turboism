@@ -3,17 +3,16 @@ package dev.turboism.plugin.mcp;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import dev.turboism.protocol.json.StrictJson;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
+import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.ui.UiScheduler;
@@ -100,36 +99,31 @@ final class McpHttpServer implements AutoCloseable {
             final PluginLogger logger = context.logger();
             stage.enter("context.modelObjects()");
             final ModelObjectService modelObjects = context.modelObjects();
-            stage.enter("context.parameterQuery()");
-            final ParameterQueryService parameterQuery = context.parameterQuery();
             stage.enter("context.modelHierarchyQuery()");
             final ModelHierarchyQueryService hierarchyQuery = context.modelHierarchyQuery();
             stage.enter("context.selectionQuery()");
             final SelectionQueryService selectionQuery = context.selectionQuery();
             stage.enter("context.cubismRead()");
             final CubismReadCapabilityService read = context.cubismRead();
-            stage.enter("context.services().get(CubismClipMaskService.class)");
-            final CubismClipMaskService clipMasks = java.util.Optional.ofNullable(
-                            context.services().get(CubismClipMaskService.class))
-                    .orElseGet(CubismClipMaskService::unavailable);
+            stage.enter("context.services().find(CubismClipMaskService.class)");
+            final CubismClipMaskService clipMasks =
+                    context.services().find(CubismClipMaskService.class).orElseGet(CubismClipMaskService::unavailable);
             stage.enter("context.cubism()");
             final CubismFacade cubism = context.cubism();
             stage.enter("context.cubism().history()");
             final CubismHistory history = cubism.history();
-            stage.enter("context.services().get(WorkspaceService.class)");
-            final WorkspaceService workspace = java.util.Optional.ofNullable(
-                            context.services().get(WorkspaceService.class))
-                    .orElseGet(WorkspaceService::unavailable);
-            stage.enter("context.services().get(WorkspaceLayoutService.class)");
-            final WorkspaceLayoutService workspaceLayout = java.util.Optional.ofNullable(
-                            context.services().get(WorkspaceLayoutService.class))
+            stage.enter("context.services().find(WorkspaceService.class)");
+            final WorkspaceService workspace =
+                    context.services().find(WorkspaceService.class).orElseGet(WorkspaceService::unavailable);
+            stage.enter("context.services().find(WorkspaceLayoutService.class)");
+            final WorkspaceLayoutService workspaceLayout = context.services()
+                    .find(WorkspaceLayoutService.class)
                     .orElseGet(WorkspaceLayoutService::unavailable);
             stage.enter("context.diagnostics()");
             final DiagnosticReport diagnostics = context.diagnostics();
-            stage.enter("context.services().get(EditorCommandService.class)");
-            final EditorCommandService editorCommands = java.util.Optional.ofNullable(
-                            context.services().get(EditorCommandService.class))
-                    .orElseGet(EditorCommandService::unavailable);
+            stage.enter("context.services().find(EditorCommandService.class)");
+            final EditorCommandService editorCommands =
+                    context.services().find(EditorCommandService.class).orElseGet(EditorCommandService::unavailable);
             stage.enter("context.uiScheduler()");
             final UiScheduler uiScheduler = context.uiScheduler();
             stage.enter("context.paths().stateDir()");
@@ -143,7 +137,6 @@ final class McpHttpServer implements AutoCloseable {
                     new Dependencies(
                             logger,
                             modelObjects,
-                            parameterQuery,
                             hierarchyQuery,
                             selectionQuery,
                             read,
@@ -195,7 +188,7 @@ final class McpHttpServer implements AutoCloseable {
             final McpExecutionBridge execution = new McpExecutionBridge(checked.uiScheduler());
             final McpTools legacyTools = new McpTools(
                     checked.modelObjects(),
-                    checked.parameterQuery(),
+                    checked.cubism(),
                     checked.hierarchyQuery(),
                     checked.selectionQuery(),
                     checked.read(),
@@ -391,7 +384,7 @@ final class McpHttpServer implements AutoCloseable {
             }
             final Object request;
             try {
-                request = StrictJson.parse(body);
+                request = Json.parseObject(body);
             } catch (IllegalArgumentException failure) {
                 sendJson(exchange, 200, McpProtocol.parseError(failure.getMessage()));
                 return;
@@ -493,7 +486,7 @@ final class McpHttpServer implements AutoCloseable {
         content.put("protocolVersion", McpProtocol.VERSION);
         content.put("pid", ProcessHandle.current().pid());
         content.put("startedAt", Instant.now().toString());
-        final byte[] bytes = StrictJson.bytes(content);
+        final byte[] bytes = Json.bytes(content);
         final Path temporary = createSecuredTemporary(directory);
         try {
             Files.write(temporary, bytes);
@@ -670,8 +663,9 @@ final class McpHttpServer implements AutoCloseable {
         return name instanceof String text && !text.isBlank() ? text : "unknown client";
     }
 
-    private static void sendJson(final HttpExchange exchange, final int status, final Object body) throws IOException {
-        final byte[] bytes = StrictJson.bytes(body);
+    private static void sendJson(final HttpExchange exchange, final int status, final Map<String, ?> body)
+            throws IOException {
+        final byte[] bytes = Json.bytes(body);
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
         exchange.sendResponseHeaders(status, bytes.length);
         exchange.getResponseBody().write(bytes);
@@ -775,7 +769,6 @@ final class McpHttpServer implements AutoCloseable {
     record Dependencies(
             PluginLogger logger,
             ModelObjectService modelObjects,
-            ParameterQueryService parameterQuery,
             ModelHierarchyQueryService hierarchyQuery,
             SelectionQueryService selectionQuery,
             CubismReadCapabilityService read,
@@ -793,7 +786,6 @@ final class McpHttpServer implements AutoCloseable {
         Dependencies(
                 final PluginLogger logger,
                 final ModelObjectService modelObjects,
-                final ParameterQueryService parameterQuery,
                 final ModelHierarchyQueryService hierarchyQuery,
                 final SelectionQueryService selectionQuery,
                 final CubismReadCapabilityService read,
@@ -805,7 +797,6 @@ final class McpHttpServer implements AutoCloseable {
             this(
                     logger,
                     modelObjects,
-                    parameterQuery,
                     hierarchyQuery,
                     selectionQuery,
                     read,
@@ -862,18 +853,12 @@ final class McpHttpServer implements AutoCloseable {
                 public boolean isHostPresent() {
                     return false;
                 }
-
-                @Override
-                public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-                    throw new UnsupportedOperationException("Cubism is unavailable");
-                }
             };
         }
 
         Dependencies {
             logger = Objects.requireNonNull(logger, "logger");
             modelObjects = Objects.requireNonNull(modelObjects, "modelObjects");
-            parameterQuery = Objects.requireNonNull(parameterQuery, "parameterQuery");
             hierarchyQuery = Objects.requireNonNull(hierarchyQuery, "hierarchyQuery");
             selectionQuery = Objects.requireNonNull(selectionQuery, "selectionQuery");
             read = Objects.requireNonNull(read, "read");

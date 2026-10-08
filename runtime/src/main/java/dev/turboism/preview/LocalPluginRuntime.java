@@ -7,6 +7,7 @@ import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
+import dev.turboism.core.lifecycle.PluginAdmissionView;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.plugin.PluginRuntime;
 import dev.turboism.core.runtime.RuntimeScheduler;
@@ -54,6 +55,12 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private final RetainedPluginGenerations retention;
     /** Composition-supplied shell factory; {@code null} is the supported headless mode. */
     private final dev.turboism.internal.core.ShellAdmission shellAdmission;
+    /**
+     * Global keyboard shortcut authority: intercepts the host AWT key dispatch for plugin
+     * action bindings and native-shortcut translations. Installed regardless of shell
+     * admission so headless runtimes keep honoring user bindings.
+     */
+    private final dev.turboism.keybinding.RuntimeKeybindingService keybindingService;
 
     private CoreShellRuntime coreShell;
     private List<LoadedPluginSummary> closedSummaries = List.of();
@@ -348,6 +355,11 @@ public final class LocalPluginRuntime implements AutoCloseable {
         this.lifecycleLane = resources.lifecycleLane();
         this.retention = resources.retention();
         this.shellAdmission = shellAdmission;
+        this.keybindingService = new dev.turboism.keybinding.RuntimeKeybindingService(
+                home.resolve("state").resolve("runtime").resolve("keybindings.properties"),
+                hostAccess.editorUiActionRouter(),
+                this::pluginDisplayName,
+                message -> log.warn("keybindings", message));
         this.log = log;
         this.parameterLifecycle = java.util.Objects.requireNonNull(parameterLifecycle, "parameterLifecycle");
         this.partLifecycle = java.util.Objects.requireNonNull(partLifecycle, "partLifecycle");
@@ -392,6 +404,12 @@ public final class LocalPluginRuntime implements AutoCloseable {
      */
     public synchronized LoadReport loadAll() {
         ensureCanStart();
+        try {
+            keybindingService.load();
+            keybindingService.install();
+        } catch (RuntimeException failure) {
+            log.warn("keybindings", "Keybinding service startup failed safely: " + failure);
+        }
         if (shellAdmission != null) {
             try {
                 coreShell = CoreShellRuntime.start(
@@ -410,7 +428,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
                                 pluginManagement,
                                 dev.turboism.ui.panel.NativePanelTabFloatingBridge::toggle,
                                 log,
-                                updateService),
+                                updateService,
+                                keybindingService),
                         lifecyclePolicy,
                         lifecycleLane,
                         retention,
@@ -466,6 +485,11 @@ public final class LocalPluginRuntime implements AutoCloseable {
         if (cleanup == null) {
             cleanup = new dev.turboism.cleanup.RetryableCleanup(
                     "Local plugin runtime cleanup failed",
+                    () -> {
+                        // Stop intercepting host key dispatch first so later teardown steps
+                        // cannot be raced by shortcut-triggered plugin work.
+                        keybindingService.close();
+                    },
                     () -> {
                         // Immediate non-blocking fence of every live plugin before any close
                         // wait: even a closeAll that dies mid-sequence leaves no plugin able
@@ -524,6 +548,37 @@ public final class LocalPluginRuntime implements AutoCloseable {
         if (closed.get()) {
             throw new IllegalStateException("LocalPluginRuntime is closed");
         }
+    }
+
+    /**
+     * Display names for keybinding rows. {@code pluginManagement.plugins()} enumerates the
+     * plugins directory and parses every JAR manifest, so results are cached and only
+     * refreshed when an unknown owner id appears (a newly enabled plugin's actions).
+     */
+    private volatile List<dev.turboism.internal.core.CorePluginManagement.PluginInfo> pluginNameCache = List.of();
+
+    private String pluginDisplayName(final String pluginId) {
+        final String cached = pluginDisplayName(pluginNameCache, pluginId);
+        if (cached != null) {
+            return cached;
+        }
+        try {
+            pluginNameCache = List.copyOf(pluginManagement.plugins());
+        } catch (RuntimeException unavailable) {
+            return pluginId;
+        }
+        final String resolved = pluginDisplayName(pluginNameCache, pluginId);
+        return resolved == null ? pluginId : resolved;
+    }
+
+    private static String pluginDisplayName(
+            final List<dev.turboism.internal.core.CorePluginManagement.PluginInfo> infos, final String pluginId) {
+        for (dev.turboism.internal.core.CorePluginManagement.PluginInfo info : infos) {
+            if (info.id().equals(pluginId)) {
+                return info.name();
+            }
+        }
+        return null;
     }
 
     private List<LoadedPluginSummary> currentSummaries() {
@@ -621,7 +676,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
             String scopeCleanupState,
             String classloaderCleanupState,
             List<PluginSummaryFailure> failures,
-            CleanupEvidenceCollector.Snapshot cleanupEvidence) {
+            CleanupEvidenceCollector.Snapshot cleanupEvidence)
+            implements PluginAdmissionView {
         public LoadedPluginSummary {
             capabilities = List.copyOf(capabilities);
             permissionIds = List.copyOf(permissionIds);

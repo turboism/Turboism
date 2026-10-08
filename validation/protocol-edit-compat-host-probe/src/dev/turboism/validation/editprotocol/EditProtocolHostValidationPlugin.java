@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import dev.turboism.sdk.cubism.command.EditorCommandService;
 
 /**
  * Task-local probe that makes the external protocol client run unattended.
@@ -196,7 +197,7 @@ public final class EditProtocolHostValidationPlugin implements TurboismPlugin {
         while (enabled && System.currentTimeMillis() < deadline) {
             attempts++;
             try {
-                final var result = context.editorCommands().execute(
+                final var result = context.services().find(EditorCommandService.class).orElse(EditorCommandService.unavailable()).execute(
                     new EditorExternalAppSettingsRequest(EXTERNAL_APP_PORT, false));
                 record("service.attempt=" + attempts + " status=" + result.status());
                 if (result.executed()) {

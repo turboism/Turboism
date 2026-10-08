@@ -31,6 +31,7 @@ import dev.turboism.sdk.cubism.RenderStatusSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.Parameter;
@@ -52,8 +53,10 @@ import dev.turboism.sdk.task.PluginTaskScheduler;
 import dev.turboism.sdk.task.TaskSubmission;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.FileChooserRequest;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.UserFileAccessService;
+import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry;
@@ -186,13 +189,22 @@ class CorePluginContextDescriptorPermissionsTest {
         assertThrows(CubismPermissionException.class, () -> context.eventBus().publish(new TestEvent("test")));
         assertThrows(
                 CubismPermissionException.class,
-                () -> context.mainToolbar().contribute(mainToolbarContribution("test", "label", "icon")));
+                () -> context.services()
+                        .find(MainToolbarRegistry.class)
+                        .orElse(MainToolbarRegistry.unavailable())
+                        .contribute(mainToolbarContribution("test", "label", "icon")));
         assertThrows(
                 CubismPermissionException.class,
-                () -> context.paletteToolbar().contribute(paletteToolbarContribution("test", "label", "icon")));
+                () -> context.services()
+                        .find(PaletteToolbarRegistry.class)
+                        .orElse(PaletteToolbarRegistry.unavailable())
+                        .contribute(paletteToolbarContribution("test", "label", "icon")));
         assertThrows(
                 CubismPermissionException.class,
-                () -> context.contextMenu().contribute(contextMenuContribution("test", "label")));
+                () -> context.services()
+                        .find(ContextMenuRegistry.class)
+                        .orElse(ContextMenuRegistry.unavailable())
+                        .contribute(contextMenuContribution("test", "label")));
         assertThrows(CubismPermissionException.class, () -> context.config().readScope("test/config.json"));
         assertThrows(
                 CubismPermissionException.class,
@@ -211,11 +223,18 @@ class CorePluginContextDescriptorPermissionsTest {
             Registration action = context.actions().register("test.action", actionDefinition("test.action", "Test"));
             Registration menu = context.menus().contribute(menuContribution("Test", "test.action", 1));
             Registration subscription = context.eventBus().subscribe(TurboismEvent.class, e -> {});
-            Registration mainToolbar =
-                    context.mainToolbar().contribute(mainToolbarContribution("test", "label", "icon"));
-            Registration paletteToolbar =
-                    context.paletteToolbar().contribute(paletteToolbarContribution("test", "label", "icon"));
-            Registration contextMenu = context.contextMenu().contribute(contextMenuContribution("test", "label"));
+            Registration mainToolbar = context.services()
+                    .find(MainToolbarRegistry.class)
+                    .orElse(MainToolbarRegistry.unavailable())
+                    .contribute(mainToolbarContribution("test", "label", "icon"));
+            Registration paletteToolbar = context.services()
+                    .find(PaletteToolbarRegistry.class)
+                    .orElse(PaletteToolbarRegistry.unavailable())
+                    .contribute(paletteToolbarContribution("test", "label", "icon"));
+            Registration contextMenu = context.services()
+                    .find(ContextMenuRegistry.class)
+                    .orElse(ContextMenuRegistry.unavailable())
+                    .contribute(contextMenuContribution("test", "label"));
             Registration configReadScope = context.config().readScope("test/config.json");
             Registration configWriteScope = context.config().writeScope("test/config.json");
             context.config().writeString("test/config.json", "key", "value");
@@ -325,8 +344,16 @@ class CorePluginContextDescriptorPermissionsTest {
                 RuntimeHostAdapters.safeMode(),
                 localization);
 
-        localized.mainToolbar().contribute(mainToolbarContribution("main", "main.label", "icon"));
-        localized.paletteToolbar().contribute(paletteToolbarContribution("palette", "palette.label", "icon"));
+        localized
+                .services()
+                .find(MainToolbarRegistry.class)
+                .orElse(MainToolbarRegistry.unavailable())
+                .contribute(mainToolbarContribution("main", "main.label", "icon"));
+        localized
+                .services()
+                .find(PaletteToolbarRegistry.class)
+                .orElse(PaletteToolbarRegistry.unavailable())
+                .contribute(paletteToolbarContribution("palette", "palette.label", "icon"));
 
         assertTrue(localizedSink.updated.await(1, TimeUnit.SECONDS));
         assertEquals(List.of("Localized main"), localizedSink.mainLabels);
@@ -344,8 +371,14 @@ class CorePluginContextDescriptorPermissionsTest {
                 dependencies(dataDir, descriptor, ignored -> {}, rawScheduler, rawMain, rawPalette),
                 RuntimeHostAdapters.safeMode());
 
-        raw.mainToolbar().contribute(mainToolbarContribution("main", "main.label", "icon"));
-        raw.paletteToolbar().contribute(paletteToolbarContribution("palette", "palette.label", "icon"));
+        raw.services()
+                .find(MainToolbarRegistry.class)
+                .orElse(MainToolbarRegistry.unavailable())
+                .contribute(mainToolbarContribution("main", "main.label", "icon"));
+        raw.services()
+                .find(PaletteToolbarRegistry.class)
+                .orElse(PaletteToolbarRegistry.unavailable())
+                .contribute(paletteToolbarContribution("palette", "palette.label", "icon"));
 
         assertTrue(rawSink.updated.await(1, TimeUnit.SECONDS));
         assertEquals(List.of("main.label"), rawSink.mainLabels);
@@ -390,11 +423,20 @@ class CorePluginContextDescriptorPermissionsTest {
                 ignored -> {},
                 adapters(host));
 
-        context.uiHost().openDialog(new DialogRequest("dialog", "Dialog", "Body"));
-        assertTrue(context.uiHost().confirmDialog(new DialogRequest("confirm", "Confirm", "Proceed?")));
+        context.services()
+                .find(UiHostCapabilityService.class)
+                .orElse(UiHostCapabilityService.unavailable())
+                .openDialog(new DialogRequest("dialog", "Dialog", "Body"));
+        assertTrue(context.services()
+                .find(UiHostCapabilityService.class)
+                .orElse(UiHostCapabilityService.unavailable())
+                .confirmDialog(new DialogRequest("confirm", "Confirm", "Proceed?")));
         assertEquals(
                 Optional.of("imports/params.csv"),
-                context.uiHost().requestFile(new FileChooserRequest("file", "File", List.of("csv"))));
+                context.services()
+                        .find(UiHostCapabilityService.class)
+                        .orElse(UiHostCapabilityService.unavailable())
+                        .requestFile(new FileChooserRequest("file", "File", List.of("csv"))));
 
         assertEquals(1, host.dialogCount);
     }
@@ -408,9 +450,17 @@ class CorePluginContextDescriptorPermissionsTest {
                 ignored -> {},
                 RuntimeHostAdapters.safeMode());
 
-        context.meshMirrorAxis().setCurrentAngleDegrees(225.0f);
+        context.services()
+                .find(MeshMirrorAxisService.class)
+                .orElse(MeshMirrorAxisService.unavailable())
+                .setCurrentAngleDegrees(225.0f);
 
-        assertEquals(-135.0f, context.meshMirrorAxis().currentAngleDegrees());
+        assertEquals(
+                -135.0f,
+                context.services()
+                        .find(MeshMirrorAxisService.class)
+                        .orElse(MeshMirrorAxisService.unavailable())
+                        .currentAngleDegrees());
     }
 
     private static CubismModelAccess fixedModelAccess() {

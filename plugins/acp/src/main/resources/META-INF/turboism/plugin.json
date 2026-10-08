@@ -1,0 +1,88 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.plugin.acp",
+  "name": "Turboism ACP",
+  "version": "0.1.0",
+  "description": "ACP v1 Agent and Settings windows that connect a user-installed ACP-compatible agent to the authenticated Turboism MCP server.",
+  "entrypoints": [
+    "dev.turboism.plugin.acp.TurboismAcpPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": ["icons/"],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["en", "ja", "ko", "zh-Hans", "zh-Hant"]
+  },
+  "dependencies": [
+    {
+      "id": "dev.turboism.plugin.mcp",
+      "version": "[0.1.0,0.2.0)",
+      "type": "required",
+      "ordering": "after",
+      "reason": "Requires the authenticated Turboism MCP endpoint before creating an ACP session."
+    }
+  ],
+  "permissions": [
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Registers the action that opens the Agent window."
+    },
+    {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Adds a direct Agent Settings entry to the Turboism menu so agent setup is available before an ACP connection."
+    },
+    {
+      "id": "turboism.ui.toolbar.main.contribute",
+      "scope": "application",
+      "reason": "Adds the Agent button immediately beside the Turboism Home toolbar entry."
+    },
+    {
+      "id": "turboism.config.plugin.read",
+      "scope": "application",
+      "reason": "Restores the selected agent, optional custom command, active durable session identifier, and user-authored initial instructions."
+    },
+    {
+      "id": "turboism.config.plugin.write",
+      "scope": "application",
+      "reason": "Persists the selected agent, optional custom command, session state, and user-authored initial instructions; agent credentials and MCP authorization are never stored."
+    },
+    {
+      "id": "turboism.file.read",
+      "scope": "application",
+      "reason": "Detects user-installed agent executables on PATH and common per-user install directories."
+    },
+    {
+      "id": "turboism.process.run",
+      "scope": "application",
+      "reason": "Starts and supervises the user-selected ACP agent executable as a subprocess, and opens explicitly requested agent sign-in terminals."
+    },
+    {
+      "id": "turboism.mcp.connection.read",
+      "scope": "application",
+      "reason": "Reads the current authenticated loopback MCP endpoint through the runtime's non-persistent connection boundary."
+    }
+  ],
+  "capabilities": [
+    "automation.agent.acp",
+    "mcp.client",
+    "ui.window"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  },
+  "tags": [
+    "automation",
+    "acp",
+    "agent"
+  ],
+  "category": "integration"
+}

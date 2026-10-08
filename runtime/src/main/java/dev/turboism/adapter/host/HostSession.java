@@ -85,6 +85,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             new dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService();
     private final dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService meshEditUiService =
             new dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService();
+    private final dev.turboism.adapter.cubism.mesh.MeshToolCoordinator meshToolCoordinator =
+            new dev.turboism.adapter.cubism.mesh.MeshToolCoordinator();
+    private final dev.turboism.adapter.cubism.modeling.ModelingToolCoordinator modelingToolCoordinator =
+            new dev.turboism.adapter.cubism.modeling.ModelingToolCoordinator();
     private final RuntimeEditorUiHostLifecycle editorUiLifecycle = new RuntimeEditorUiHostLifecycle();
     private final dev.turboism.sdk.cubism.history.CubismHistory history =
             new dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider(
@@ -198,7 +202,9 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 slice -> new dev.turboism.mapping.verification.VerifiedWorkspaceControlResolverFactory()
                         .create(slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()),
                 VerifiedHostAdapterConnector.productionCoreBackendFactory(),
-                Objects.requireNonNull(effectiveLocale, "effectiveLocale"));
+                Objects.requireNonNull(effectiveLocale, "effectiveLocale"),
+                meshToolCoordinator,
+                modelingToolCoordinator);
         dynamic.onOutermostAdapterCallComplete(this::completeDeferredClose);
         registerProjectContentCleanup();
     }
@@ -592,6 +598,17 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return editorUiContributions;
     }
 
+    /** Returns the host-owned ordinary modeling tool coordinator. */
+    @Override
+    public dev.turboism.adapter.cubism.modeling.ModelingToolCoordinator modelingToolCoordinator() {
+        return modelingToolCoordinator;
+    }
+
+    /** Returns this host session's owner of temporary mesh-tool activations. */
+    public dev.turboism.adapter.cubism.mesh.MeshToolCoordinator meshToolCoordinator() {
+        return meshToolCoordinator;
+    }
+
     @Override
     public RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation() {
         return embeddedPanelActivation;
@@ -822,6 +839,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 physicsEditorCoordinator,
                 meshMirrorAxisService,
                 meshEditUiService,
+                meshToolCoordinator,
+                modelingToolCoordinator,
                 editorUiLifecycle,
                 editorUiContributions,
                 embeddedPanelActivation,
@@ -880,6 +899,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             parameterLifecycle.close();
             meshEditUiService.resetSession();
             meshMirrorAxisService.resetSession();
+            modelingToolCoordinator.close();
+            meshToolCoordinator.close();
             editorUiPluginResources.close();
             editorUiActionRouter.close();
             embeddedPanelActivation.close();
@@ -931,6 +952,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         nativeEditIngress.deactivate();
         meshEditUiService.resetSession();
         meshMirrorAxisService.resetSession();
+        modelingToolCoordinator.disconnect();
+        meshToolCoordinator.endSession();
         activeConnectionKey = null;
         paletteSurfaceCoordinator.clearParameterRowsResolver();
         if (activeConnection != null && activeConnection.workspaceProvider() != null) {

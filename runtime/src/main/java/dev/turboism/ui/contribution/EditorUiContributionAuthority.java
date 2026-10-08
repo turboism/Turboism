@@ -234,7 +234,7 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
         // remove -> provider -> put sequence at a time, and any request arriving while a pass
         // is in flight only arms `pending` and returns — the active reconciler folds it into
         // its next pass. Blocking here would deadlock against providers that dispatch to the
-        // EDT synchronously (invokeAndWait): a calling thread parked on a family lock while
+        // EDT synchronously (EdtDispatch.call): a calling thread parked on a family lock while
         // waiting for the EDT would deadlock with an EDT-side contribute() for the same
         // family. The state monitor only ever guards the two flags, so no lock is held while
         // provider code runs.

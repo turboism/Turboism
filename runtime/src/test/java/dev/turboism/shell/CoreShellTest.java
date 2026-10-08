@@ -140,7 +140,8 @@ class CoreShellTest {
                         "Plugins/Settings:turboism.core.settings.open:10",
                         "Plugins/Plugin Management:turboism.core.plugins.open:11",
                         "Plugins/Logs:turboism.core.logs.open:12",
-                        "Plugins/About:turboism.core.about.open:13"),
+                        "Plugins/Keybindings:turboism.core.keybindings.open:13",
+                        "Plugins/About:turboism.core.about.open:14"),
                 context.menus().contributions().stream()
                         .map(value -> value.menuPath() + ":" + value.actionId() + ":" + value.order())
                         .toList());
@@ -683,7 +684,8 @@ class CoreShellTest {
                 plugins(),
                 ShellServices.FloatingPanelActions.unavailable(),
                 dev.turboism.sdk.runtime.RuntimeLogReader.unavailable(),
-                updates));
+                updates,
+                dev.turboism.internal.core.KeybindingService.unavailable()));
     }
 
     /** Scripted update service used to drive core UI behaviour without any network access. */
@@ -950,19 +952,26 @@ class CoreShellTest {
             return menus;
         }
 
-        @Override
-        public RecordingMainToolbarRegistry mainToolbar() {
+        RecordingMainToolbarRegistry mainToolbar() {
             return mainToolbar;
         }
 
-        @Override
-        public ContextMenuRegistry contextMenu() {
+        ContextMenuRegistry contextMenu() {
             return contextMenu;
         }
 
-        @Override
-        public RecordingUiHost uiHost() {
+        RecordingUiHost uiHost() {
             return uiHost;
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .install(dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.class, mainToolbar)
+                    .install(ContextMenuRegistry.class, contextMenu)
+                    .install(dev.turboism.sdk.ui.UiHostCapabilityService.class, uiHost)
+                    .install(dev.turboism.sdk.runtime.RuntimeSettingsService.class, runtimeSettings)
+                    .build();
         }
 
         @Override
@@ -980,6 +989,7 @@ class CoreShellTest {
                         case "main-toolbar.plugins-menu.label" -> "Plugin Management";
                         case "context-menu.panel-tab.float" -> "Float";
                         case "main-toolbar.logs-menu.label" -> "Logs";
+                        case "main-toolbar.keybindings-menu.label" -> "Keybindings";
                         case "main-toolbar.about-menu.label" -> "About";
                         default -> key;
                     };
@@ -996,6 +1006,7 @@ class CoreShellTest {
                             || key.equals("main-toolbar.plugins-menu.label")
                             || key.equals("context-menu.panel-tab.float")
                             || key.equals("main-toolbar.logs-menu.label")
+                            || key.equals("main-toolbar.keybindings-menu.label")
                             || key.equals("main-toolbar.about-menu.label");
                 }
             };
@@ -1006,30 +1017,28 @@ class CoreShellTest {
             return null;
         }
 
-        @Override
-        public dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings() {
-            return new dev.turboism.sdk.runtime.RuntimeSettingsService() {
-                private dev.turboism.sdk.runtime.RuntimeSettings settings =
-                        new dev.turboism.sdk.runtime.RuntimeSettings(false, "INFO", false, false, false);
+        private final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings =
+                new dev.turboism.sdk.runtime.RuntimeSettingsService() {
+                    private dev.turboism.sdk.runtime.RuntimeSettings settings =
+                            new dev.turboism.sdk.runtime.RuntimeSettings(false, "INFO", false, false, false);
 
-                @Override
-                public dev.turboism.sdk.runtime.RuntimeSettings read() {
-                    return settings;
-                }
+                    @Override
+                    public dev.turboism.sdk.runtime.RuntimeSettings read() {
+                        return settings;
+                    }
 
-                @Override
-                public dev.turboism.sdk.runtime.RuntimeSettings save(
-                        final dev.turboism.sdk.runtime.RuntimeSettings value) {
-                    settings = value;
-                    return settings;
-                }
+                    @Override
+                    public dev.turboism.sdk.runtime.RuntimeSettings save(
+                            final dev.turboism.sdk.runtime.RuntimeSettings value) {
+                        settings = value;
+                        return settings;
+                    }
 
-                @Override
-                public DockCleanupResult cleanEmptyDocks() {
-                    return new DockCleanupResult("Empty dock cleanup completed.");
-                }
-            };
-        }
+                    @Override
+                    public DockCleanupResult cleanEmptyDocks() {
+                        return new DockCleanupResult("Empty dock cleanup completed.");
+                    }
+                };
 
         private UiScheduler uiScheduler;
         private final List<Runnable> delayed = new ArrayList<>();

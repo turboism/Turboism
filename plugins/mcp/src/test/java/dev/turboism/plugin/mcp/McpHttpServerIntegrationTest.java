@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.protocol.json.StrictJson;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
@@ -25,9 +24,7 @@ import dev.turboism.sdk.cubism.RenderStatusSnapshot;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
-import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
-import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.ModelObjectCreateRequest;
 import dev.turboism.sdk.cubism.model.ModelObjectDeletePolicy;
 import dev.turboism.sdk.cubism.model.ModelObjectDescriptor;
@@ -40,12 +37,11 @@ import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRe
 import dev.turboism.sdk.cubism.service.query.HierarchyNode;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchy;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterSummary;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.mcp.McpConnectionService;
 import dev.turboism.sdk.mcp.McpHttpConnection;
 import dev.turboism.sdk.menu.MenuRegistry;
@@ -56,8 +52,6 @@ import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.UiScheduler;
-import dev.turboism.sdk.ui.workspace.WorkspaceService;
-import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -105,14 +99,14 @@ final class McpHttpServerIntegrationTest {
                 McpHttpServer.start(dependencies(new CapturingLogger(), new MutableObjects(), new FakeReadServices()));
         try {
             final Map<String, Object> connection =
-                    object(StrictJson.parse(Files.readAllBytes(server.connectionFile())));
+                    object(Json.parseObject(Files.readAllBytes(server.connectionFile())));
             assertFalse(connection.containsKey("authorization"));
 
             final HttpRequest request = HttpRequest.newBuilder(server.endpoint())
                     .timeout(Duration.ofSeconds(10))
                     .header("Accept", "application/json, text/event-stream")
                     .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofByteArray(StrictJson.bytes(Map.of(
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(Json.bytes(Map.of(
                             "jsonrpc",
                             "2.0",
                             "id",
@@ -146,7 +140,7 @@ final class McpHttpServerIntegrationTest {
         try {
             assertEquals("127.0.0.1", server.endpoint().getHost());
             assertTrue(Files.isRegularFile(connectionFile));
-            final Map<String, Object> connection = object(StrictJson.parse(Files.readAllBytes(connectionFile)));
+            final Map<String, Object> connection = object(Json.parseObject(Files.readAllBytes(connectionFile)));
             assertEquals(server.endpoint().toString(), connection.get("endpoint"));
             assertFalse(connection.containsKey("authorization"));
             assertEquals(McpProtocol.VERSION, connection.get("protocolVersion"));
@@ -361,7 +355,7 @@ final class McpHttpServerIntegrationTest {
                                     Map.of("operation", "rename", "kind", "part", "id", "PartHead", "name", "Changed"),
                                     7)));
             assertEquals(200, response.statusCode());
-            final Map<String, Object> body = object(StrictJson.parse(response.body()));
+            final Map<String, Object> body = object(Json.parseObject(response.body()));
             assertEquals(-32602L, integer(object(body.get("error")).get("code")));
             assertEquals("Head", objects.find(ModelObjectKind.PART, "PartHead").name());
         }
@@ -405,7 +399,7 @@ final class McpHttpServerIntegrationTest {
                                                     "name",
                                                     "Changed"))))));
             assertEquals(200, response.statusCode());
-            final Map<String, Object> body = object(StrictJson.parse(response.body()));
+            final Map<String, Object> body = object(Json.parseObject(response.body()));
             assertEquals(-32600L, integer(object(body.get("error")).get("code")));
             assertEquals("Head", objects.find(ModelObjectKind.PART, "PartHead").name());
         }
@@ -562,7 +556,7 @@ final class McpHttpServerIntegrationTest {
             assertEquals(
                     "application/json; charset=utf-8",
                     response.headers().firstValue("Content-Type").orElse(null));
-            final Map<String, Object> envelope = object(StrictJson.parse(response.body()));
+            final Map<String, Object> envelope = object(Json.parseObject(response.body()));
             assertEquals(null, envelope.get("id"));
             final Map<String, Object> error = object(envelope.get("error"));
             assertEquals(-32022L, integer(error.get("code")));
@@ -597,7 +591,7 @@ final class McpHttpServerIntegrationTest {
                                     "capabilities", Map.of(),
                                     "clientInfo", Map.of("name", "invalid-test", "version", "1"))));
             assertEquals(200, initialize.statusCode());
-            assertTrue(object(Json.parse(initialize.body())).containsKey("error"));
+            assertTrue(object(Json.parseObject(initialize.body())).containsKey("error"));
             assertTrue(initialize.headers().firstValue("MCP-Session-Id").isEmpty());
         } finally {
             server.close();
@@ -1302,7 +1296,7 @@ final class McpHttpServerIntegrationTest {
                 .timeout(Duration.ofSeconds(10))
                 .header("Accept", "application/json, text/event-stream")
                 .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofByteArray(StrictJson.bytes(body)));
+                .POST(HttpRequest.BodyPublishers.ofByteArray(Json.bytes(body)));
         if (origin != null) builder.header("Origin", origin);
         if (protocolVersion != null) {
             builder.header("MCP-Protocol-Version", protocolVersion);
@@ -1321,13 +1315,13 @@ final class McpHttpServerIntegrationTest {
                 .header("Authorization", authorization)
                 .header("MCP-Protocol-Version", McpProtocol.VERSION)
                 .header("MCP-Session-Id", sessionId)
-                .POST(HttpRequest.BodyPublishers.ofByteArray(StrictJson.bytes(body)))
+                .POST(HttpRequest.BodyPublishers.ofByteArray(Json.bytes(body)))
                 .build();
         return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofByteArray());
     }
 
     private static Map<String, Object> result(final HttpResponse<byte[]> response) {
-        final Map<String, Object> envelope = object(StrictJson.parse(response.body()));
+        final Map<String, Object> envelope = object(Json.parseObject(response.body()));
         assertFalse(envelope.containsKey("error"), () -> new String(response.body(), StandardCharsets.UTF_8));
         return object(envelope.get("result"));
     }
@@ -1341,7 +1335,7 @@ final class McpHttpServerIntegrationTest {
     private static Map<String, Object> resourceJson(final HttpResponse<byte[]> response) {
         final Map<String, Object> read = result(response);
         final Map<String, Object> content = object(array(read.get("contents")).get(0));
-        return object(Json.parse(((String) content.get("text")).getBytes(StandardCharsets.UTF_8)));
+        return object(Json.parseObject(((String) content.get("text")).getBytes(StandardCharsets.UTF_8)));
     }
 
     private static UiScheduler immediateUi() {
@@ -1395,7 +1389,6 @@ final class McpHttpServerIntegrationTest {
         return new McpHttpServer.Dependencies(
                 logger,
                 objects,
-                reads.parameters,
                 reads.hierarchy,
                 reads.selection,
                 reads.read,
@@ -1448,19 +1441,20 @@ final class McpHttpServerIntegrationTest {
                     case "logger" -> logger;
                     case "paths" -> paths;
                     case "modelObjects" -> objects;
-                    case "parameterQuery" -> reads.parameters;
                     case "modelHierarchyQuery" -> reads.hierarchy;
                     case "selectionQuery" -> reads.selection;
                     case "cubismRead" -> reads.read;
-                    case "cubismClipMasks" -> reads.clipMasks;
-                    case "services" -> dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy);
+                    case "services" ->
+                        dev.turboism.sdk.plugin.PluginServices.builder()
+                                .install(
+                                        dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.class,
+                                        reads.clipMasks)
+                                .install(dev.turboism.sdk.mcp.McpConnectionService.class, connections)
+                                .fallback(dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy))
+                                .build();
                     case "cubism" -> McpHttpServer.Dependencies.unavailableCubism();
-                    case "workspace" -> WorkspaceService.unavailable();
-                    case "workspaceLayout" -> WorkspaceLayoutService.unavailable();
                     case "diagnostics" -> McpHttpServer.Dependencies.emptyDiagnostics();
-                    case "editorCommands" -> EditorCommandService.unavailable();
                     case "uiScheduler" -> immediateUi();
-                    case "mcpConnections" -> connections;
                     case "actions" -> ui;
                     case "menus" -> ui;
                     case "localization" -> ui.localization;
@@ -1474,34 +1468,10 @@ final class McpHttpServerIntegrationTest {
     }
 
     static final class FakeReadServices {
-        final FakeParameterQuery parameters = new FakeParameterQuery();
         final FakeHierarchyQuery hierarchy = new FakeHierarchyQuery();
         final FakeSelectionQuery selection = new FakeSelectionQuery();
         final FakeRead read = new FakeRead();
         final FakeClipMasks clipMasks = new FakeClipMasks();
-    }
-
-    static final class FakeParameterQuery implements ParameterQueryService {
-        private final LinkedHashMap<String, ParameterSummary> values = new LinkedHashMap<>();
-
-        void put(final ParameterSummary value) {
-            values.put(value.id().value(), value);
-        }
-
-        @Override
-        public Optional<ParameterSummary> findById(final ParameterId id) {
-            return Optional.ofNullable(values.get(id.value()));
-        }
-
-        @Override
-        public List<ParameterSummary> listAll() {
-            return List.copyOf(values.values());
-        }
-
-        @Override
-        public boolean exists(final ParameterId id) {
-            return values.containsKey(id.value());
-        }
     }
 
     static final class FakeHierarchyQuery implements ModelHierarchyQueryService {

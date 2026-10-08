@@ -41,7 +41,7 @@ public final class FpsLifecycleAcceptance {
         boolean passed = false;
         try {
             check(result, "activeModelPresent", !modelId.isBlank() && !"missing".equals(modelId));
-            final PerformanceProbeService stats = context.performanceStats();
+            final PerformanceProbeService stats = context.services().find(PerformanceProbeService.class).orElse(PerformanceProbeService.unavailable());
             await(() -> number(observer, "count") >= 3, "observer-started");
             check(result, "observerStarted", true);
             final AtomicLong fastCount = new AtomicLong();

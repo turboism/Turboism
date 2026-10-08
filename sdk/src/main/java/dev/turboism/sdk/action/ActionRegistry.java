@@ -31,6 +31,16 @@ public interface ActionRegistry {
         Consumer<ActionContext> handler();
 
         /**
+         * Returns the action's declared default keyboard shortcut in canonical
+         * {@code "Ctrl+Shift+S"}-style text, or {@link Optional#empty()} when the action
+         * ships unbound. The runtime keybinding service may bind or rebind it; the user
+         * always wins over this declared default.
+         */
+        default Optional<String> defaultShortcut() {
+            return Optional.empty();
+        }
+
+        /**
          * Returns an action with the given identity, display label and handler.
          *
          * @param id action identity matching the {@code register} id
@@ -39,6 +49,24 @@ public interface ActionRegistry {
          */
         static Action of(final String id, final String label, final Consumer<ActionContext> handler) {
             return new SimpleAction(id, label, handler);
+        }
+
+        /**
+         * Returns an action with the given identity, display label, declared default
+         * shortcut and handler.
+         *
+         * @param id action identity matching the {@code register} id
+         * @param label display text
+         * @param defaultShortcut declared default shortcut text such as {@code "Ctrl+Alt+K"},
+         *     or {@code null}/blank for none
+         * @param handler invoked with the invocation context on trigger
+         */
+        static Action of(
+                final String id,
+                final String label,
+                final String defaultShortcut,
+                final Consumer<ActionContext> handler) {
+            return new ShortcutAction(id, label, defaultShortcut, handler);
         }
     }
 
@@ -55,6 +83,28 @@ public interface ActionRegistry {
             Objects.requireNonNull(id, "id");
             Objects.requireNonNull(label, "label");
             Objects.requireNonNull(handler, "handler");
+        }
+    }
+
+    /**
+     * Value-style {@link Action} implementation carrying a declared default shortcut.
+     *
+     * @param id action identity
+     * @param label display text
+     * @param shortcut declared default shortcut text; blank means unbound
+     * @param handler invoked with the invocation context on trigger
+     */
+    record ShortcutAction(String id, String label, String shortcut, Consumer<ActionContext> handler) implements Action {
+        public ShortcutAction {
+            Objects.requireNonNull(id, "id");
+            Objects.requireNonNull(label, "label");
+            Objects.requireNonNull(handler, "handler");
+            shortcut = shortcut == null ? "" : shortcut;
+        }
+
+        @Override
+        public Optional<String> defaultShortcut() {
+            return shortcut.isBlank() ? Optional.empty() : Optional.of(shortcut);
         }
     }
 

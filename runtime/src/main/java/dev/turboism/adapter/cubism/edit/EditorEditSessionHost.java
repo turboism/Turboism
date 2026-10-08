@@ -119,9 +119,12 @@ public interface EditorEditSessionHost {
     void refreshAfterSession(EditorAuthoringTransactionCoordinator.Binding binding);
 
     /**
-     * Runs work on the host UI thread with bounded synchronous waiting. A caller already on the
+     * Runs work on the host UI thread with a bounded acceptance wait. A caller already on the
      * host thread runs inline; otherwise the task is dispatched and the caller waits a bounded
-     * time — a timeout raises {@link EditSessionException}, never a hung plugin thread.
+     * time for the host thread to start it — a timeout or interrupt raises
+     * {@link EditSessionException} and guarantees the queued task will not run. Once the task
+     * has started it is always awaited to completion, so a reported dispatch failure can never
+     * mask a host mutation that still executes.
      */
     <T> T dispatch(String label, HostTask<T> task) throws EditSessionException;
 

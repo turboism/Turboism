@@ -318,38 +318,35 @@ public final class ParameterPlugin implements CubismPlugin {
         if (service.isAvailable()) {
             return service;
         }
-        {
-            return new PluginLocalization() {
-                @Override
-                public java.util.Locale locale() {
-                    return java.util.Locale.ENGLISH;
-                }
+        return new PluginLocalization() {
+            @Override
+            public java.util.Locale locale() {
+                return java.util.Locale.ENGLISH;
+            }
 
-                @Override
-                public String text(final String key) {
-                    return switch (key) {
-                        case "parameter.csv.export" -> "Export Parameters CSV";
-                        case "parameter.csv.import" -> "Import Parameters CSV";
-                        case "parameter.bindings.invert" -> "Invert Bindings";
-                        case "parameter.bindings.transfer" -> "Transfer Bindings";
-                        case "parameter.menu" -> "Parameter Tools";
-                        case "parameter.bindings.transfer.confirm" ->
-                            "Transfer selected object bindings from {0} to {1}?";
-                        case "parameter.bindings.transfer.invert.confirm" -> "Invert the transferred bindings?";
-                        default -> key;
-                    };
-                }
+            @Override
+            public String text(final String key) {
+                return switch (key) {
+                    case "parameter.csv.export" -> "Export Parameters CSV";
+                    case "parameter.csv.import" -> "Import Parameters CSV";
+                    case "parameter.bindings.invert" -> "Invert Bindings";
+                    case "parameter.bindings.transfer" -> "Transfer Bindings";
+                    case "parameter.menu" -> "Parameter Tools";
+                    case "parameter.bindings.transfer.confirm" -> "Transfer selected object bindings from {0} to {1}?";
+                    case "parameter.bindings.transfer.invert.confirm" -> "Invert the transferred bindings?";
+                    default -> key;
+                };
+            }
 
-                @Override
-                public String format(final String key, final Object... arguments) {
-                    return java.text.MessageFormat.format(text(key), arguments);
-                }
+            @Override
+            public String format(final String key, final Object... arguments) {
+                return java.text.MessageFormat.format(text(key), arguments);
+            }
 
-                @Override
-                public boolean contains(final String key) {
-                    return true;
-                }
-            };
-        }
+            @Override
+            public boolean contains(final String key) {
+                return true;
+            }
+        };
     }
 }

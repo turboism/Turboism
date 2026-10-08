@@ -31,6 +31,23 @@ import socket
 SCHEMA = 1
 TERMINAL = frozenset({"succeeded", "failed", "cancelled", "timed_out", "blocked"})
 ACTIVE = frozenset({"starting", "running", "cleaning", "recovering", "quarantined"})
+READ_ONLY_CONNECT_TIMEOUT_SECONDS = 0.0
+_READ_LOCK_RESULT_CODES = frozenset({
+    getattr(sqlite3, "SQLITE_BUSY", 5),
+    getattr(sqlite3, "SQLITE_LOCKED", 6),
+    getattr(sqlite3, "SQLITE_PROTOCOL", 15),
+})
+_READ_LOCK_MESSAGES = frozenset({
+    "database is busy",
+    "database is locked",
+    "database schema is locked",
+    "database table is locked",
+    "locking protocol",
+})
+# An administrative registration is terminal for scheduling but is never a
+# verification outcome; TERMINAL stays limited to validated terminal states.
+ADMINISTRATIVE_STATE = "abandoned"
+ADMINISTRATIVE = frozenset({ADMINISTRATIVE_STATE})
 
 
 class QueueError(RuntimeError):
@@ -324,7 +341,7 @@ class Store:
             row = db.execute("SELECT * FROM jobs WHERE job_id=?", (job_id,)).fetchone()
             if row is None:
                 raise QueueError("unknown job id")
-            if row["state"] not in TERMINAL and not row["cancel_requested"]:
+            if row["state"] not in TERMINAL | ADMINISTRATIVE and not row["cancel_requested"]:
                 state = "cancelled" if row["state"] == "queued" else row["state"]
                 db.execute("UPDATE jobs SET state=?,cancel_requested=1,updated_at=? WHERE job_id=?",
                            (state, time.time(), job_id))
@@ -399,6 +416,59 @@ class Store:
             return [{**dict(row), "payload": json.loads(row["payload"])} for row in rows]
 
 
+def _read_only_database_uri(database: Path) -> str:
+    path = Path(database).absolute()
+    if path.is_symlink():
+        raise QueueError("queue database must not be a symlink")
+    try:
+        info = path.stat()
+    except FileNotFoundError as failure:
+        raise QueueError("queue database does not exist") from failure
+    except OSError as failure:
+        raise QueueError("cannot inspect queue database") from failure
+    if not stat.S_ISREG(info.st_mode):
+        raise QueueError("queue database must be a regular file")
+    return path.as_uri() + "?mode=ro"
+
+
+@contextlib.contextmanager
+def read_only_connection(database: Path, *, connect=sqlite3.connect) -> Iterator[sqlite3.Connection]:
+    """Open an existing queue database without running queue initialization."""
+    uri = _read_only_database_uri(database)
+    db = None
+    try:
+        db = connect(uri, uri=True, timeout=READ_ONLY_CONNECT_TIMEOUT_SECONDS,
+                     isolation_level=None)
+        db.row_factory = sqlite3.Row
+        db.execute("PRAGMA query_only=ON")
+        yield db
+    finally:
+        if db is not None:
+            db.close()
+
+
+def read_only_job(database: Path, job_id: str, *, connect=sqlite3.connect) -> dict[str, Any]:
+    """Read one job for a client waiter; never create or initialize its database."""
+    with read_only_connection(database, connect=connect) as db:
+        version = db.execute("SELECT version FROM metadata").fetchone()
+        if version is None or version[0] != SCHEMA:
+            raise QueueError("unsupported queue schema; migration required")
+        row = db.execute("SELECT * FROM jobs WHERE job_id=?", (job_id,)).fetchone()
+        if row is None:
+            raise QueueError("unknown job id")
+        return dict(row)
+
+
+def is_retryable_read_error(error: BaseException) -> bool:
+    """Recognize only SQLite's explicit transient lock/protocol outcomes."""
+    if not isinstance(error, sqlite3.Error):
+        return False
+    code = getattr(error, "sqlite_errorcode", None)
+    if isinstance(code, int):
+        return (code & 0xFF) in _READ_LOCK_RESULT_CODES
+    return str(error).strip().casefold() in _READ_LOCK_MESSAGES
+
+
 INPUT_FLAGS = frozenset({"--bundle-root", "--agent", "--home-config", "--fixture-local",
     "--fixture-host", "--fixture-remote", "--remote-pre-launch", "--remote-post-launch",
     "--remote-pre-cleanup"})
@@ -412,7 +482,8 @@ VALUE_FLAGS = frozenset({"--name", "--version", "--fixture-sha256", "--fixture-n
     "--agent-host-class", "--ready-timeout", "--result-timeout", "--exit-timeout",
     "--poll-seconds", "--golden-prefix", "--host-root", "--remote-root", "--display",
     "--proton-wrapper", "--proton-runner", "--graphics-device", "--local-evidence-dir", "--transport",
-    "--remote-pre-launch-arg", "--aux-agent-before-main", "--client-python"})
+    "--remote-pre-launch-arg", "--aux-agent-before-main", "--client-python",
+    "--editor-window-niri", "--editor-window-python"})
 
 # Job-local Linux launch environment: only reviewed Mesa/Proton debug names may
 # be snapshotted into a prepared job. The snapshotted Runner re-validates the
@@ -442,6 +513,12 @@ REVIEWED_PRE_LAUNCH_HOOKS = {
         frozenset({"--remote-pre-launch-arg"}),
         "host-locale environment-language hook requires its language argument",
     ),
+    # 025 external-edit probe: appends a .psd -> notepad.exe open verb to the
+    # task-scoped cloned prefix's system.reg only; takes no extra flags.
+    "external-psd-edit-psd-association-pre-launch.sh": (
+        frozenset(),
+        "external-psd-edit association hook needs no extra flags",
+    ),
     # The restart-phase hook copies restart-state/ into state/ and rebinds
     # stagedJar inside pending.json; the staged plugin-management state must
     # arrive as a declared --home-dir input, so the flag is part of the
@@ -457,6 +534,40 @@ REVIEWED_PRE_LAUNCH_HOOKS = {
         "pointer hook requires its reviewed background/args-only task-id protocol",
     ),
 }
+
+# Standard-library-only Linux /proc reader. No checkout-relative imports, subprocesses,
+# signals, or external data dependencies; writes one exclusive task evidence report.
+EXTERNAL_PSD_RSS_HOOK = Path("validation/external-psd-edit-host-probe/rss.py")
+
+
+def require_external_psd_rss_protocol(argv: list[str]) -> None:
+    options: dict[str, str] = {}
+    jvm: dict[str, str] = {}
+    index = 0
+    while index < len(argv):
+        flag = argv[index]
+        index += 1
+        if flag in BOOLEAN_FLAGS:
+            options[flag] = "true"
+            continue
+        if flag not in INPUT_FLAGS | COMPOSITE_FLAGS | VALUE_FLAGS or index >= len(argv):
+            raise QueueError("invalid RSS hook runner protocol")
+        value = argv[index]
+        index += 1
+        options[flag] = value
+        if flag == "--jvm-option" and value.startswith("-D"):
+            key, _, setting = value[2:].partition("=")
+            jvm[key] = setting
+    expected = {"phase": "pipeline", "contentProfile": "f1", "cycles": "10", "performance": "1"}
+    if (options.get("--name") != "external-psd-edit-pipeline"
+            or options.get("--version") != "5302"
+            or options.get("--result-file") !=
+                "state/dev.turboism.validation.externalpsd/external-psd-edit-result.properties"
+            or any(jvm.get("turboism.validation.externalpsd." + key) != value
+                   for key, value in expected.items())
+            or any(flag in options for flag in ("--trigger", "--remote-pre-launch-arg",
+                "--remote-pre-launch-background", "--remote-pre-launch-args-only"))):
+        raise QueueError("RSS hook requires the reviewed synchronous F1 ten-cycle pipeline protocol")
 
 
 def file_digest(path: Path) -> str:
@@ -728,6 +839,23 @@ class PreparedStore:
                 item for item in (memory_dependency, mcp_dependency, edit_protocol_dependency)
                 if item is not None
             ]
+            if "--focus-editor-window" in argv:
+                if not (tool_dir / "focus-cubism-validation-window.py").is_file():
+                    raise QueueError("missing canonical editor window helper")
+                for flag, installed in (("--editor-window-niri", shutil.which("niri")),
+                                        ("--editor-window-python", sys.executable)):
+                    if not installed or flag not in argv or argv.count(flag) != 1:
+                        raise QueueError("window helper requires exact installed dependencies")
+                    position = argv.index(flag)
+                    if position + 1 >= len(argv):
+                        raise QueueError("window helper dependency path is missing")
+                    actual = Path(argv[position + 1]).resolve()
+                    if actual != Path(installed).resolve() or not actual.is_file():
+                        raise QueueError("window helper dependency must match the preparing host")
+                    host_dependencies.append({"option": flag, "path": str(actual),
+                                              "sha256": runtime_digest(actual)})
+            elif "--editor-window-niri" in argv or "--editor-window-python" in argv:
+                raise QueueError("window helper dependencies require --focus-editor-window")
             index = 0
             while index < len(argv):
                 flag = argv[index]
@@ -739,6 +867,8 @@ class PreparedStore:
                     raise QueueError(f"unsupported normalized runner option: {flag}")
                 value = argv[index + 1]
                 index += 2
+                if flag in {"--editor-window-niri", "--editor-window-python"}:
+                    value = next(item["path"] for item in host_dependencies if item["option"] == flag)
                 if flag == "--transport" and value != "local":
                     raise QueueError("only local host execution is supported")
                 if flag == "--graphics-device" and value not in {"inherit", "nvidia"}:
@@ -778,7 +908,12 @@ class PreparedStore:
                             and memory_dependency is not None
                             and source == source_root / "scripts/test/start-task-memory-observer.sh"
                         )
-                        if not memory_hook:
+                        # 025 external-edit RSS observer is a reviewed post-launch hook.
+                        rss_hook = (flag == "--remote-post-launch"
+                                    and source == source_root / EXTERNAL_PSD_RSS_HOOK)
+                        if rss_hook:
+                            require_external_psd_rss_protocol(argv)
+                        elif not memory_hook:
                             final_nmt_hook = (flag == "--remote-pre-cleanup"
                                               and source.name == "capture-direct-nmt-launcher.py"
                                               and source.parent == source_root / "scripts/preview")
@@ -1397,6 +1532,9 @@ def recover(store: Store, job_id: str, reason: str | None = None) -> dict[str, A
     report: dict[str, Any] = {"safe": False, "jobId": job_id, "state": job["state"]}
     if reason is not None and not reason.strip():
         raise QueueError("recovery confirmation requires an operator reason")
+    if job["state"] in ADMINISTRATIVE:
+        return {**report, "safe": False, "disposition": "ABANDONED_UNVERIFIED",
+                "reason": "administrative disposition is not a verification result"}
     if job["state"] not in ACTIVE:
         return {**report, "safe": True, "reason": "job is already terminal or not started"}
     try:

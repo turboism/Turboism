@@ -55,8 +55,10 @@ public final class MainToolbarVerificationManifest {
 
     public static final String ADAPTER_SLICE_ID = "${record:cubism-5.2.03-ui-main-toolbar.json:adapterSliceId}";
     public static final String CAPABILITY_ID = "cubism.editor-ui.main-toolbar";
-    public static final Set<String> CAPABILITY_IDS = Set.of(CAPABILITY_ID);
-    public static final Set<String> REQUIRED_ALIASES = Set.of(
+    public static final Set<String> CAPABILITY_IDS = Set.of(CAPABILITY_ID,
+        dev.turboism.ui.mesh.MeshToolbarSelectorContract.CAPABILITY_ID);
+    public static final Set<String> REQUIRED_ALIASES = java.util.stream.Stream.concat(
+        dev.turboism.ui.mesh.MeshToolbarSelectorContract.REQUIRED_ALIASES.stream(), Set.of(
         "cubism.ui-main-toolbar.app-controller.class",
         "cubism.ui-main-toolbar.app-controller.instance",
         "cubism.ui-main-toolbar.app-controller.main-frame",
@@ -85,7 +87,7 @@ public final class MainToolbarVerificationManifest {
         "cubism.ui-main-toolbar.icon-button.set-rollover-icon",
         "cubism.ui-main-toolbar.icon.class",
         "cubism.ui-main-toolbar.icon.create"
-    );
+    ).stream()).collect(java.util.stream.Collectors.toUnmodifiableSet());
 
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(
         final HostArtifactDigest artifact
