@@ -1,1 +1,5 @@
-{"plugins":[],"schemaVersion":1}
+{
+  "_comment": "Git-reviewed manifest selecting first-party :plugins:* modules eligible for independent Plugin Directory publication. Entries are validated by scripts/release/prepare-market-release.py (project/channel/cubismVersions/repository/support, ASCII-sorted, unique). Empty until a first-party plugin is approved for store publication; installer/archive bundling is governed separately by packaging/release-plugins.txt.",
+  "schemaVersion": 1,
+  "plugins": []
+}

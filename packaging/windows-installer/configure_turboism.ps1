@@ -749,13 +749,7 @@ function Invoke-InstallerPluginSelection {
     }
 
     $retired = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
-    foreach ($id in @(
-        "dev.turboism.plugin.logfilter",
-        "dev.turboism.plugin.clipmask",
-        "dev.turboism.plugin.perfopt",
-        "dev.turboism.plugin.renderopt",
-        "dev.turboism.plugin.backup"
-    )) { [void]$retired.Add($id) }
+    foreach ($id in Get-TurboismRetiredPluginIds) { [void]$retired.Add($id) }
     $desiredSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
     foreach ($id in $existing) {
         if (-not $bundledSet.Contains($id) -and -not $retired.Contains($id)) {

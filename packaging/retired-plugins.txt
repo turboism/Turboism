@@ -1,0 +1,5 @@
+dev.turboism.plugin.backup
+dev.turboism.plugin.clipmask
+dev.turboism.plugin.logfilter
+dev.turboism.plugin.perfopt
+dev.turboism.plugin.renderopt
