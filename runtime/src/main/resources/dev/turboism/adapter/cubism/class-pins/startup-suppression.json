@@ -1,7 +1,71 @@
 {
+  "5.0.00": {
+    "com/live2d/cubism/CEAppCtrl": "e58c890c5101f050e739c16ba6cff2ef5cd69cda515ab3233a640237374b141e",
+    "com/live2d/cubism/CECubismEditorApp": "5c6443c41995df237e97d57f4f682bdb0c75af62ed051a3ba67c71d3671982c8"
+  },
+  "5.0.01": {
+    "com/live2d/cubism/CEAppCtrl": "6ad91cda7bd6f9409fc5f4fde54112252156ec2e4e03d4feb0e0eefd8a5695a3",
+    "com/live2d/cubism/CECubismEditorApp": "5c6443c41995df237e97d57f4f682bdb0c75af62ed051a3ba67c71d3671982c8"
+  },
+  "5.0.02": {
+    "com/live2d/cubism/CEAppCtrl": "6ad91cda7bd6f9409fc5f4fde54112252156ec2e4e03d4feb0e0eefd8a5695a3",
+    "com/live2d/cubism/CECubismEditorApp": "5c6443c41995df237e97d57f4f682bdb0c75af62ed051a3ba67c71d3671982c8"
+  },
+  "5.0.03": {
+    "com/live2d/cubism/CEAppCtrl": "2dfaab2fc9950d04d53f98586a584637b9ac5f4057c03d5da6314c114f45a043",
+    "com/live2d/cubism/CECubismEditorApp": "2d7809d1346368d48b8f258f70200f2a5cad18ff40aa237d3503fdd2183d5789"
+  },
+  "5.0.04": {
+    "com/live2d/cubism/CEAppCtrl": "2dfaab2fc9950d04d53f98586a584637b9ac5f4057c03d5da6314c114f45a043",
+    "com/live2d/cubism/CECubismEditorApp": "2d7809d1346368d48b8f258f70200f2a5cad18ff40aa237d3503fdd2183d5789"
+  },
+  "5.0.05": {
+    "com/live2d/cubism/CEAppCtrl": "23500d18d7fa2365f7ab4a5a1c4a2d71d9eaa7c224ede589108606c033471b3e",
+    "com/live2d/cubism/CECubismEditorApp": "2e8c7333ca179d2d8272a2bd428bf0d5b96af29271cc3bec582ec39420999c5e"
+  },
+  "5.0.06": {
+    "com/live2d/cubism/CEAppCtrl": "ce468eff3353bdf2c10922ce733f4a54c29a821697f60491144968b037312b97",
+    "com/live2d/cubism/CECubismEditorApp": "38cd51f3f5009724181f895c2cdba5815c51b7f72bf179dd65fd01dfe6a6cc9f"
+  },
+  "5.1.00": {
+    "com/live2d/cubism/CEAppCtrl": "a1431fd525ac28b3100474ca5b74553ed9d3f5fe626f78793df907dbddc081aa",
+    "com/live2d/cubism/CECubismEditorApp": "cbebc349b2142f45db0dfbd00d5daf742379a891bb5754686617dece94233ba8"
+  },
+  "5.1.01": {
+    "com/live2d/cubism/CEAppCtrl": "50db9960aaaa273047bca1da649481f3347def316616c4b8e734a088e5c4bacc",
+    "com/live2d/cubism/CECubismEditorApp": "c9cef1afdb916e13c2651c03a72c47f856341bf8e2c2393e30dd3b550eaa0319"
+  },
+  "5.1.02": {
+    "com/live2d/cubism/CEAppCtrl": "9019de407e7e4be318595f0a6de930ffba247675ceda63c9538fa6e942244403",
+    "com/live2d/cubism/CECubismEditorApp": "c5e472afe01c27a8addb744f13b99a5d217cd4bf75ab575cd6b1b85c99420a15"
+  },
+  "5.1.03": {
+    "com/live2d/cubism/CEAppCtrl": "9019de407e7e4be318595f0a6de930ffba247675ceda63c9538fa6e942244403",
+    "com/live2d/cubism/CECubismEditorApp": "c5e472afe01c27a8addb744f13b99a5d217cd4bf75ab575cd6b1b85c99420a15"
+  },
+  "5.2.00": {
+    "com/live2d/cubism/CEAppCtrl": "20afc4869994c5d7656bba2dc4cad6e71e7c3bb864c79e1b0442c3c300f8ee36",
+    "com/live2d/cubism/CECubismEditorApp": "864dd2f505e43eb04f77748f36879373fd23ad32e7b70246869928129e2c3408"
+  },
+  "5.2.01": {
+    "com/live2d/cubism/CEAppCtrl": "20afc4869994c5d7656bba2dc4cad6e71e7c3bb864c79e1b0442c3c300f8ee36",
+    "com/live2d/cubism/CECubismEditorApp": "864dd2f505e43eb04f77748f36879373fd23ad32e7b70246869928129e2c3408"
+  },
+  "5.2.02": {
+    "com/live2d/cubism/CEAppCtrl": "20afc4869994c5d7656bba2dc4cad6e71e7c3bb864c79e1b0442c3c300f8ee36",
+    "com/live2d/cubism/CECubismEditorApp": "864dd2f505e43eb04f77748f36879373fd23ad32e7b70246869928129e2c3408"
+  },
   "5.2.03": {
     "com/live2d/cubism/CECubismEditorApp": "864dd2f505e43eb04f77748f36879373fd23ad32e7b70246869928129e2c3408",
     "com/live2d/cubism/CEAppCtrl": "6762f7d5bb593648f54cc8cf834e71d788fa8b0c7c5621ee1827a30ac18980f7"
+  },
+  "5.3.00": {
+    "com/live2d/cubism/CEAppCtrl": "0417b77e27acdee6e6aa5a91f579344bcae4984b6ee7d42d6078ceef3e640f48",
+    "com/live2d/cubism/CECubismEditorApp": "87cf7868689efdf6bd438fc434dd6b7d2cc2b789d2538b80f71b56b08e5b134f"
+  },
+  "5.3.01": {
+    "com/live2d/cubism/CEAppCtrl": "0417b77e27acdee6e6aa5a91f579344bcae4984b6ee7d42d6078ceef3e640f48",
+    "com/live2d/cubism/CECubismEditorApp": "87cf7868689efdf6bd438fc434dd6b7d2cc2b789d2538b80f71b56b08e5b134f"
   },
   "5.3.02": {
     "com/live2d/cubism/CECubismEditorApp": "87cf7868689efdf6bd438fc434dd6b7d2cc2b789d2538b80f71b56b08e5b134f",
@@ -10,5 +74,9 @@
   "5.3.03": {
     "com/live2d/cubism/CECubismEditorApp": "ef1fd0a837de1f3c3140b4b7a5a36b7fd499ae7fca2a9c7f2170849564009a15",
     "com/live2d/cubism/CEAppCtrl": "a4613396fdf86de9b9ba6ca9950b2bf7748dd7ae5f8d85ea142968331bca2b2e"
+  },
+  "5.3.04": {
+    "com/live2d/cubism/CEAppCtrl": "12b497f212923c2991940ac9704a87756b6ad4be5ce7521d77a2a55497e099c2",
+    "com/live2d/cubism/CECubismEditorApp": "bb9fa76d6e0b49159f566c330b764835c372d0b6b32ab6a3ef31730b4b3dca49"
   }
 }

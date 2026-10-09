@@ -80,12 +80,10 @@ final class StartupSuppressionTransformer {
                                     return;
                                 }
                                 if (policy.skipStartupInformation()
-                                        && matches(
-                                                opcode,
-                                                owner,
-                                                invokedName,
-                                                invokedDescriptor,
-                                                profile.informationCall())) {
+                                        && profile.informationCall()
+                                                .filter(selector -> matches(
+                                                        opcode, owner, invokedName, invokedDescriptor, selector))
+                                                .isPresent()) {
                                     super.visitInsn(Opcodes.POP);
                                     return;
                                 }
@@ -153,7 +151,8 @@ final class StartupSuppressionTransformer {
                                                 owner,
                                                 invokedName,
                                                 invokedDescriptor,
-                                                profile.informationCall())) {
+                                                profile.informationCall()
+                                                        .orElse(StartupSuppressionProfile.INFORMATION_CALL))) {
                                             counts.informationCalls++;
                                         }
                                     }
@@ -171,8 +170,9 @@ final class StartupSuppressionTransformer {
         if (policy.skipStartupUpdateCheck() && counts.updateCalls != 1) {
             throw rejected("startup update invocation cardinality was not exactly one");
         }
-        if (policy.skipStartupInformation() && counts.informationCalls != 1) {
-            throw rejected("startup information invocation cardinality was not exactly one");
+        if (policy.skipStartupInformation()
+                && counts.informationCalls != (profile.informationCall().isPresent() ? 1 : 0)) {
+            throw rejected("startup information invocation cardinality was not the reviewed count");
         }
         if (policy.skipStartupSplash() && counts.splashMethods != 1) {
             throw rejected("Splash method cardinality was not exactly one");

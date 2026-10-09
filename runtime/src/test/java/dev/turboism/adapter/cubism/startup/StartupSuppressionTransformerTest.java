@@ -55,6 +55,41 @@ class StartupSuppressionTransformerTest {
                 () -> transformer.transformClass(fixtureApplicationWithoutInformationCall()));
     }
 
+    @Test
+    void suppressesTheLegacySplashFactoryWhenNoInformationCallExists() throws Exception {
+        final StartupSuppressionProfile profile = StartupSuppressionProfile.forArtifact(
+                        ReviewedHostArtifacts.CUBISM_5_0_00)
+                .orElseThrow();
+        final StartupSuppressionTransformer transformer =
+                new StartupSuppressionTransformer(profile, new RuntimeStartupConfig(false, true, true, true));
+
+        final byte[] transformed = transformer.transformClass(legacyApplication());
+        final FixtureLoader loader = new FixtureLoader();
+        loader.define("com.live2d.ui.window.Y", emptyClass("com/live2d/ui/window/Y"));
+        final Class<?> controller = loader.define("com.live2d.cubism.CEAppCtrl", controllerClass());
+        final Class<?> application = loader.define("com.live2d.cubism.CECubismEditorApp", transformed);
+        final Object app = application.getConstructor().newInstance();
+
+        application.getMethod("a", String[].class).invoke(app, (Object) new String[0]);
+        assertEquals(0, controller.getField("updateChecks").getInt(null));
+        final Method splash = application.getDeclaredMethod("c");
+        splash.setAccessible(true);
+        assertNull(splash.invoke(app));
+    }
+
+    @Test
+    void rejectsAReviewed50xClassStillDeclaringAnInformationInvocation() {
+        final StartupSuppressionProfile profile = StartupSuppressionProfile.forArtifact(
+                        ReviewedHostArtifacts.CUBISM_5_0_00)
+                .orElseThrow();
+        final StartupSuppressionTransformer transformer =
+                new StartupSuppressionTransformer(profile, new RuntimeStartupConfig(false, true, true, true));
+
+        assertThrows(
+                StartupSuppressionTransformer.TransformationRejectedException.class,
+                () -> transformer.transformClass(legacyApplicationWithInformationCall()));
+    }
+
     private static byte[] fixtureApplication() {
         return applicationClass(true);
     }
@@ -67,7 +102,20 @@ class StartupSuppressionTransformerTest {
         return applicationClass(false);
     }
 
+    private static byte[] legacyApplication() {
+        return applicationClass(false, "c", "com/live2d/ui/window/Y");
+    }
+
+    private static byte[] legacyApplicationWithInformationCall() {
+        return applicationClass(true, "c", "com/live2d/ui/window/Y");
+    }
+
     private static byte[] applicationClass(final boolean includeInformation) {
+        return applicationClass(includeInformation, "e", "com/live2d/ui/window/V");
+    }
+
+    private static byte[] applicationClass(
+            final boolean includeInformation, final String splashName, final String splashReturn) {
         final String owner = "com/live2d/cubism/CECubismEditorApp";
         final String controller = "com/live2d/cubism/CEAppCtrl";
         final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
@@ -100,11 +148,11 @@ class StartupSuppressionTransformerTest {
         method.visitMaxs(0, 0);
         method.visitEnd();
 
-        method = writer.visitMethod(Opcodes.ACC_PRIVATE, "e", "()Lcom/live2d/ui/window/V;", null, null);
+        method = writer.visitMethod(Opcodes.ACC_PRIVATE, splashName, "()L" + splashReturn + ";", null, null);
         method.visitCode();
-        method.visitTypeInsn(Opcodes.NEW, "com/live2d/ui/window/V");
+        method.visitTypeInsn(Opcodes.NEW, splashReturn);
         method.visitInsn(Opcodes.DUP);
-        method.visitMethodInsn(Opcodes.INVOKESPECIAL, "com/live2d/ui/window/V", "<init>", "()V", false);
+        method.visitMethodInsn(Opcodes.INVOKESPECIAL, splashReturn, "<init>", "()V", false);
         method.visitInsn(Opcodes.ARETURN);
         method.visitMaxs(0, 0);
         method.visitEnd();
