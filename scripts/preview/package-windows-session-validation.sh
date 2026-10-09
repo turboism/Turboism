@@ -12,6 +12,24 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
+
+# Rebuild every shipped artifact before copying so a stale jar can never be
+# packaged next to a newer agent (same reason as package-windows-mcp-validation.sh).
+TURBOISM_WORKTREE_ID="$worktree_id" "$repo_root/gradlew" --console=plain \
+  previewBundle :plugins:clipmask-viewer:jar :sdk:jar
+TURBOISM_WORKTREE_ID="$worktree_id" bash "$repo_root/validation/session-coordinator/build.sh"
+TURBOISM_WORKTREE_ID="$worktree_id" bash "$repo_root/validation/texture-relations-host-probe/build.sh"
+TURBOISM_WORKTREE_ID="$worktree_id" bash "$repo_root/validation/texture-relations-host-probe/build.sh" --export-observation-session
+TURBOISM_WORKTREE_ID="$worktree_id" bash "$repo_root/validation/status-bar-host-probe/build.sh"
+TURBOISM_WORKTREE_ID="$worktree_id" bash "$repo_root/validation/clipmask-viewer-host-probe/build.sh"
+TURBOISM_WORKTREE_ID="$worktree_id" bash "$repo_root/validation/separate-save-path-host-probe/build.sh"
+# The mcp probe embeds the pinned Haru.moc3 fixture; rebuild it only when that
+# fixture is configured, otherwise keep the existing artifact (the
+# embedded-fixture check below still runs).
+if [ -n "${TURBOISM_VALIDATION_MOC_FIXTURE:-}" ]; then
+  TURBOISM_WORKTREE_ID="$worktree_id" bash "$repo_root/validation/mcp-host-probe/build.sh"
+fi
+
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-session-validation}"
 preview_root="$repo_root/build/preview/$worktree_id"
 clipmask_jars=("$repo_root"/build/worktree/"$worktree_id"/clipmask-viewer/libs/clipmask-viewer-*.jar)

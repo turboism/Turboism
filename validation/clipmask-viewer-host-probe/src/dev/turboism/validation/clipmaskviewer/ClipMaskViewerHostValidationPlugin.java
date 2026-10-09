@@ -17,7 +17,16 @@ import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 
+import javax.swing.AbstractButton;
+import javax.swing.JLabel;
 import javax.swing.SwingUtilities;
+import java.awt.Component;
+import java.awt.Container;
+import java.awt.Dialog;
+import java.awt.Window;
+import java.io.File;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -54,6 +63,19 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
     private static final long MODEL_WAIT_WARN_MILLIS = 60_000L;
     private static final long MODEL_WAIT_WARN_2_MILLIS = 150_000L;
     private static final long EDT_TIMEOUT_MILLIS = 5_000L;
+    // The launch-time fixture open dies silently when the host's "created with
+    // a newer version" warning modal returns a close/cancel answer before the
+    // task-local assistant clicks Load: UUSerialize.deserializeFromFile then
+    // returns null and the loader reports "File load interrupted", leaving no
+    // active document. The probe self-answers that one fixture gate while
+    // waiting and re-issues the host open command when the load has gone quiet
+    // (no modal dialog left), bounded by REOPEN_MAX_ATTEMPTS.
+    private static final String FIXTURE_PATH_PROPERTY = "turboism.validation.fixturePath";
+    private static final String NEWER_MODEL_MARKER = "newer version";
+    private static final String NEWER_MODEL_ACCEPT = "Load";
+    private static final long REOPEN_AFTER_MILLIS = 60_000L;
+    private static final long REOPEN_MIN_INTERVAL_MILLIS = 60_000L;
+    private static final int REOPEN_MAX_ATTEMPTS = 2;
     // Cap the per-record assertions at 20 records to keep the result file bounded.
     private static final int RECORD_SAMPLE_MAX = 20;
 
@@ -84,6 +106,9 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
 
     private boolean warnedAt60s;
     private boolean warnedAt150s;
+    private int reopenAttempts = 0;
+    private long lastReopenAt = 0L;
+    private boolean fixturePathLogged = false;
 
     @Override
     public void init(final PluginContext context) {
@@ -122,6 +147,7 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
             ? Long.MAX_VALUE
             : System.currentTimeMillis() + FLAG_TIMEOUT_MILLIS;
         while (System.currentTimeMillis() < deadline) {
+            answerNewerModelWarning();
             if (Files.isRegularFile(flag)) {
                 runMatrix();
                 return;
@@ -178,6 +204,7 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
             + " drawableMaskCount=" + drawableMaskCount
             + " referencedMasks=" + referencedMaskCount
             + " pureMasks=" + pureMaskCount
+            + " reopenAttempts=" + reopenAttempts
             + " assertions=" + assertions.size()
             + " durationMillis=" + ((System.nanoTime() - startedNanos) / 1_000_000L));
         try {
@@ -207,6 +234,8 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
                 lastFailure = exception;
             }
             final long elapsed = System.currentTimeMillis() - started;
+            answerNewerModelWarning();
+            maybeReopenFixture(elapsed);
             if (elapsed >= MODEL_WAIT_WARN_MILLIS && !warnedAt60s) {
                 warnedAt60s = true;
                 logger.warn("CLIPMASK_VIEWER_MODEL_WAIT elapsedMs=" + elapsed
@@ -221,6 +250,147 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
         throw new IllegalStateException(
             "No active model with drawables was observed within " + MODEL_AWAIT_MAX_MILLIS + " ms",
             lastFailure);
+    }
+
+    // ------------------------------------------------------------------
+    // Fixture open recovery (task-local host reflection, best effort)
+    // ------------------------------------------------------------------
+
+    /**
+     * Confirms the host's "file was created with a newer version" warning when
+     * it gates the fixture open. The task-local startup assistant performs the
+     * same reviewed click; this copy keeps the probe from stalling when that
+     * answer raced a closing dialog or the assisted variant is absent. Only a
+     * showing dialog whose labels mention the newer-version load gate and
+     * that offers the reviewed "Load" button is clicked — every other dialog
+     * is left for the assistant or the operator.
+     */
+    private void answerNewerModelWarning() {
+        try {
+            final Boolean answered = onHostThread(() -> {
+                for (final Window window : Window.getWindows()) {
+                    if (!(window instanceof Dialog dialog) || !dialog.isShowing()) {
+                        continue;
+                    }
+                    if (!collectText(dialog).contains(NEWER_MODEL_MARKER)) {
+                        continue;
+                    }
+                    final AbstractButton load = findButton(dialog, NEWER_MODEL_ACCEPT);
+                    if (load == null) {
+                        continue;
+                    }
+                    load.doClick();
+                    return Boolean.TRUE;
+                }
+                return Boolean.FALSE;
+            });
+            if (Boolean.TRUE.equals(answered)) {
+                logger.info("CLIPMASK_VIEWER_NEWER_MODEL_CONFIRMED");
+            }
+        } catch (Exception ignored) {
+            // Best effort: the flag/model waits still bound the total time.
+        }
+    }
+
+    /**
+     * Re-issues the host document open when the launch-time load died with no
+     * active document: no modal dialog is showing (neither the load progress
+     * nor an unanswered gate) and nothing became the active model past
+     * {@link #REOPEN_AFTER_MILLIS}. The call is the same
+     * {@code CEAppCtrl.command_open(File, boolean)} entry the runner's
+     * command-line fixture argument and the runtime's openFile map to; the
+     * async=true path is the normal host load flow.
+     */
+    private void maybeReopenFixture(final long elapsed) {
+        final long now = System.currentTimeMillis();
+        if (reopenAttempts >= REOPEN_MAX_ATTEMPTS || elapsed < REOPEN_AFTER_MILLIS
+                || now - lastReopenAt < REOPEN_MIN_INTERVAL_MILLIS) {
+            return;
+        }
+        final String fixturePath = System.getProperty(FIXTURE_PATH_PROPERTY);
+        if (fixturePath == null || fixturePath.isBlank()) {
+            if (!fixturePathLogged) {
+                fixturePathLogged = true;
+                logger.info("CLIPMASK_VIEWER_REOPEN_SKIPPED missing " + FIXTURE_PATH_PROPERTY);
+            }
+            return;
+        }
+        try {
+            if (Boolean.TRUE.equals(
+                    onHostThread(ClipMaskViewerHostValidationPlugin::modalDialogShowing))) {
+                return;
+            }
+            reopenAttempts++;
+            lastReopenAt = now;
+            onHostThread(() -> {
+                final Class<?> appClass = Class.forName("com.live2d.cubism.CEAppCtrl");
+                Object app;
+                try {
+                    app = appClass.getDeclaredMethod("access$get_instance$cp").invoke(null);
+                } catch (NoSuchMethodException missingAccessor) {
+                    final Field instance = appClass.getDeclaredField("_instance");
+                    instance.setAccessible(true);
+                    app = instance.get(null);
+                }
+                if (app == null) {
+                    return null;
+                }
+                final Method open =
+                    appClass.getDeclaredMethod("command_open", File.class, boolean.class);
+                open.invoke(app, new File(fixturePath), true);
+                return null;
+            });
+            logger.info("CLIPMASK_VIEWER_REOPEN attempt=" + reopenAttempts);
+        } catch (Exception failure) {
+            logger.warn("CLIPMASK_VIEWER_REOPEN_FAILED attempt=" + reopenAttempts
+                + " failure=" + singleLine(failure));
+        }
+    }
+
+    private static boolean modalDialogShowing() {
+        for (final Window window : Window.getWindows()) {
+            if (window instanceof Dialog dialog && dialog.isModal() && dialog.isShowing()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String collectText(final Component component) {
+        final StringBuilder builder = new StringBuilder();
+        collectText(component, builder);
+        return builder.toString();
+    }
+
+    private static void collectText(final Component component, final StringBuilder builder) {
+        if (component instanceof JLabel label && label.getText() != null) {
+            builder.append(label.getText()).append(' ');
+        }
+        if (component instanceof AbstractButton button && button.getText() != null) {
+            builder.append(button.getText()).append(' ');
+        }
+        if (component instanceof Container container) {
+            for (final Component child : container.getComponents()) {
+                collectText(child, builder);
+            }
+        }
+    }
+
+    private static AbstractButton findButton(final Component component, final String text) {
+        if (component instanceof AbstractButton button
+                && button.isShowing() && button.isEnabled()
+                && text.equalsIgnoreCase(button.getText())) {
+            return button;
+        }
+        if (component instanceof Container container) {
+            for (final Component child : container.getComponents()) {
+                final AbstractButton found = findButton(child, text);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
     }
 
     private void recordIdentity(final CubismModel model) throws Exception {
@@ -682,7 +852,8 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
                 .append("recordCount=").append(recordCount).append('\n')
                 .append("maskRelationships=").append(maskRelationships).append('\n')
                 .append("referencedMaskCount=").append(referencedMaskCount).append('\n')
-                .append("pureMaskCount=").append(pureMaskCount).append('\n');
+                .append("pureMaskCount=").append(pureMaskCount).append('\n')
+                .append("reopenAttempts=").append(reopenAttempts).append('\n');
             for (String sampleLine : sampleLines) {
                 report.append(sampleLine).append('\n');
             }
