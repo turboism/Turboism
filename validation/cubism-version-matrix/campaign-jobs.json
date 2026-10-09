@@ -11085,6 +11085,111 @@
     "evidenceDir": "host-locale/5201-cov3-retry3/queue-8a796c277a3d4d27b5dafdbe642bd8c5/evidence"
    },
    "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "startup-suppression",
+   "version": "5000",
+   "variant": "assisted",
+   "jobId": "bff2d721-efe4-4f67-a5cc-ea6c9f5b7ce9",
+   "requestKey": "confirm-r1-startup-suppression_5000",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-85881cf1ab9c4c988a9dfb24be5716bc",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "startup-suppression/5000-confirm-r1/queue-85881cf1ab9c4c988a9dfb24be5716bc/evidence"
+   },
+   "triage": {
+    "category": "UNKNOWN",
+    "ruleId": null,
+    "signature": "java.lang.IllegalArgumentException: unsupported Cubism Core profile: N.N.N"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "startup-suppression",
+   "version": "5003",
+   "variant": "assisted",
+   "jobId": "464e42bc-94e4-4b4e-9f71-b37a53725d0f",
+   "requestKey": "confirm-r1-startup-suppression_5003",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-da69c4591b4e4cb194a8501867e5e7c4",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "startup-suppression/5003-confirm-r1/queue-da69c4591b4e4cb194a8501867e5e7c4/evidence"
+   },
+   "triage": {
+    "category": "UNKNOWN",
+    "ruleId": null,
+    "signature": "java.lang.IllegalArgumentException: unsupported Cubism Core profile: N.N.N"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "startup-suppression",
+   "version": "5103",
+   "variant": "assisted",
+   "jobId": "528fe970-2bd5-46f8-a465-98e4e4cb9e98",
+   "requestKey": "confirm-r1-startup-suppression_5103",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-9482fdc7c4b0412cb59de07e1a8918b5",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "startup-suppression/5103-confirm-r1/queue-9482fdc7c4b0412cb59de07e1a8918b5/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "mcp",
+   "version": "5304",
+   "variant": "standard",
+   "jobId": "68b8a79a-4799-4937-80e3-8a88ac31542f",
+   "requestKey": "confirm-r1-mcp_5304",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-53e05f47363e46849e8fd6805b401a8b",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "mcp/5304-confirm-r1/queue-53e05f47363e46849e8fd6805b401a8b/evidence"
+   },
+   "triage": {
+    "category": "NO_EVIDENCE",
+    "ruleId": "no-evidence",
+    "signature": null
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "mcp",
+   "version": "5202",
+   "variant": "standard",
+   "jobId": "5f56c32e-7217-44e5-b403-8db61063bb32",
+   "requestKey": "confirm-r1-mcp_5202",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-99fb0e19883c4ecc9e55e84d403ae4a9",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "mcp/5202-confirm-r1/queue-99fb0e19883c4ecc9e55e84d403ae4a9/evidence"
+   },
+   "triage": {
+    "category": "UNKNOWN",
+    "ruleId": null,
+    "signature": "java.lang.IllegalArgumentException: unsupported Cubism Core profile: N.N.N"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
   }
  ]
 }
