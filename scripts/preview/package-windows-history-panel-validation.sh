@@ -6,6 +6,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
 worktree_id="${TURBOISM_WORKTREE_ID:-$(scripts/dev/worktree-id.sh)}"
+
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-history-panel-validation}"
 agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
 panel_jars=("$repo_root"/build/worktree/"$worktree_id"/history-panel/libs/history-panel-*-$worktree_id.jar)
@@ -32,6 +33,28 @@ launcher="$repo_root/scripts/preview/launch-cubism-history-validation.ps1"
 }
 panel_jar="${panel_jars[0]}"
 [ -f "$test_classes/$probe_class_dir/$seed_class.class" ] || { printf 'error: seed class missing\n' >&2; exit 1; }
+
+# Freshness guard: every shipped artifact must be newer than the sources it was
+# built from, so a stale jar can never be packaged next to a newer agent (same
+# reason as package-windows-mcp-validation.sh). The package*HostValidation
+# Gradle tasks already rebuild via dependsOn; this guard covers direct script
+# invocations without forcing a build (scripts/test fixture packages rely on it).
+check_freshness() {
+  local artifact="$1" source_root="$2" stale
+  stale="$(find "$source_root" -type f -newer "$artifact" -print -quit 2>/dev/null)"
+  if [ -n "$stale" ]; then
+    printf 'error: %s is older than source %s; rebuild before packaging\n' "$artifact" "$stale" >&2
+    printf 'run: ./gradlew previewBundle :plugins:history-panel:jar :testing:integration-tests:testClasses\n' >&2
+    exit 1
+  fi
+}
+check_freshness "$agent_jar" "$repo_root/sdk/src"
+check_freshness "$agent_jar" "$repo_root/runtime/src"
+check_freshness "$agent_jar" "$repo_root/bootstrap/src"
+check_freshness "$panel_jar" "$repo_root/plugins/history-panel/src"
+check_freshness "$panel_jar" "$repo_root/sdk/src"
+check_freshness "$test_classes/$probe_class_dir/$probe_class.class" "$repo_root/testing/integration-tests/src"
+check_freshness "$test_classes/$probe_class_dir/$seed_class.class" "$repo_root/testing/integration-tests/src"
 
 rm -rf "$bundle_root"
 mkdir -p "$bundle_root/plugins" "$bundle_root/logs" "$bundle_root/state"

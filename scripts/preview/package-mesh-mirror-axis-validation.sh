@@ -7,6 +7,12 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
 worktree_id="${TURBOISM_WORKTREE_ID:-main}"
+
+# Rebuild every shipped artifact before copying so a stale jar can never be
+# packaged next to a newer agent (same reason as package-windows-mcp-validation.sh).
+TURBOISM_WORKTREE_ID="$worktree_id" "$repo_root/gradlew" --console=plain \
+  previewBundle :plugins:mesh-edit-mirror-axis-enhance:jar :testing:integration-tests:testClasses
+
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/mesh-mirror-axis-validation}"
 agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
 mesh_enhance_jar="$repo_root/build/worktree/$worktree_id/mesh-edit-mirror-axis-enhance/libs/mesh-edit-mirror-axis-enhance-0.1.0-SNAPSHOT-$worktree_id.jar"
