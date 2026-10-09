@@ -433,15 +433,20 @@ def build_parser(default_manifest: Path) -> argparse.ArgumentParser:
     recover.add_argument("--reason")
     abandon = commands.add_parser(
         "abandon",
-        help="inspect or register the administrative disposition of one cross-boot orphan attempt",
-        description="Administrative registration of a verified cross-boot orphan only. "
+        help="inspect or register the administrative disposition of cross-boot orphan attempts",
+        description="Administrative registration of verified cross-boot orphans only. "
                     "Inspection is strictly read-only. Confirmation needs separate operator "
-                    "authorization, an already-idle host and a stopped worker; it never starts "
-                    "or stops processes, never updates the host row and is not a verification "
-                    "result. Approval of this tool is not approval to run it on a live queue.")
+                    "authorization and a stopped worker; it never starts or stops processes "
+                    "and is not a verification result. The single-job --confirm requires an "
+                    "already-idle host and never updates the host row. --confirm-all-cross-boot "
+                    "exists only for the reboot-orphan deadlock: when the quarantined host "
+                    "marker and every live queue record are verified cross-boot orphans, one "
+                    "transaction registers them all abandoned and returns the host row to "
+                    "idle. Approval of this tool is not approval to run it on a live queue.")
     mode = abandon.add_mutually_exclusive_group(required=True)
     mode.add_argument("--inspect", dest="inspect_job", metavar="JOB_ID")
     mode.add_argument("--confirm", dest="confirm_job", metavar="JOB_ID")
+    mode.add_argument("--confirm-all-cross-boot", dest="confirm_release_job", metavar="JOB_ID")
     abandon.add_argument("--approval", metavar="DIGEST")
     abandon.add_argument("--reason")
     abandon.add_argument("--json", action="store_true")
