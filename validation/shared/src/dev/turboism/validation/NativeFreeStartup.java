@@ -67,6 +67,22 @@ public final class NativeFreeStartup {
                 && text.contains("Save failed. Please try again meeting the restrictions.")) {
             return "FREE_MULTIPLY_COLOR_SAVE_FAILURE_ACKNOWLEDGED";
         }
+        // CUBI-1476: any FREE save-restriction notice (atlas count, per-object
+        // parameter bound, deformer/part limits, ...) ends with the same fixed
+        // suffix and offers only OK; acknowledging never alters the already
+        // rejected save. Listed after the feature-specific rules above so they
+        // keep their own evidence labels.
+        if (("Information Dialog Box".equals(title) || "Information".equals(title))
+                && "OK".equals(button) && text != null
+                && text.contains("Save failed. Please try again meeting the restrictions.")) {
+            return "FREE_SAVE_RESTRICTION_ACKNOWLEDGED";
+        }
+        // CUBI-1477: the same restriction family on the native export path.
+        if (("Information Dialog Box".equals(title) || "Information".equals(title))
+                && "OK".equals(button) && text != null
+                && text.contains("Export failed. Please try again meeting the restrictions.")) {
+            return "FREE_EXPORT_RESTRICTION_ACKNOWLEDGED";
+        }
         if (("Information Dialog Box".equals(title) || "Information".equals(title))
                 && text != null && "OK".equals(button)
                 && text.contains("FREE version - The max number of Parameters allowed per object: 2")
