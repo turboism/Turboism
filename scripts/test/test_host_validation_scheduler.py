@@ -7,7 +7,9 @@ import contextlib
 import io
 import json
 from pathlib import Path
+import re
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -148,6 +150,141 @@ class HostValidationSchedulerTest(unittest.TestCase):
         saved = scheduler.render_command(self.request("psd-export-observation:5304@saved-only-assisted"), self.manifest)
         self.assertIn("-Dturboism.validation.textures.exportSaveOnly=true", saved)
         self.assertIn("-Dturboism.validation.textures.startFree=true", saved)
+
+    # A wrapper that intentionally lets variant args override a pinned runner
+    # option names the overridable names in a comment of this shape; without it
+    # a name declared by both sides reaches the runner twice and fails argument
+    # validation (the session-standard prepare failure on every -assisted run).
+    CONDITIONAL_RUNNER_ARGS = re.compile(r"^\s*#\s*conditional-runner-args:\s*(\S.*?)\s*$")
+    PIN_PATTERNS = (
+        ("--linux-env", re.compile(r"--linux-env\s+['\"]?([A-Za-z_][A-Za-z0-9_]*)=")),
+        ("--windows-env", re.compile(r"--windows-env\s+['\"]?([A-Za-z_][A-Za-z0-9_]*)=")),
+        ("-D property", re.compile(r"--jvm-option\s+['\"]?-D([^\s='\"{}]+)=")),
+    )
+
+    def _wrapper_pins_and_conditionals(self, task: scheduler.Task) -> tuple[set, set]:
+        """(kind, name) literals the wrapper hands the runner, and the names it
+        marks variant-overridable via `# conditional-runner-args: ...`."""
+        source = (self.manifest.root / task.command).read_text(encoding="utf-8")
+        conditional: set[str] = set()
+        code_lines: list[str] = []
+        for line in source.splitlines():
+            marker = self.CONDITIONAL_RUNNER_ARGS.match(line)
+            if marker:
+                conditional.update(marker.group(1).split())
+                continue
+            if line.lstrip().startswith("#"):
+                continue
+            code_lines.append(line)
+        pinned: set[tuple[str, str]] = set()
+        code = "\n".join(code_lines)
+        for kind, pattern in self.PIN_PATTERNS:
+            for match in pattern.finditer(code):
+                pinned.add((kind, match.group(1)))
+        return pinned, {name[2:] if name.startswith("-D") else name for name in conditional}
+
+    @staticmethod
+    def _declared_options(argv: list[str]) -> list[tuple[str, str]]:
+        """(kind, name) entries declared by an expanded argument template."""
+        declared: list[tuple[str, str]] = []
+        previous = None
+        for token in argv:
+            if previous in ("--linux-env", "--windows-env"):
+                match = re.match(r"([A-Za-z_][A-Za-z0-9_]*)=", token)
+                if match:
+                    declared.append((previous, match.group(1)))
+            elif previous == "--jvm-option":
+                match = re.match(r"-D([^\s='\"{}]+)=", token)
+                if match:
+                    declared.append(("-D property", match.group(1)))
+            previous = token
+        return declared
+
+    def test_no_runner_option_name_repeats_in_expanded_argv(self) -> None:
+        """Statically expand the final runner argv — the wrapper's pinned
+        literals plus the selected variant's args — for every task x variant
+        and assert no --linux-env/--windows-env name or -D property repeats.
+        The runner fails repeated environment names at argument validation and
+        a repeated -D property shadows silently; both belong in this gate."""
+        problems: list[str] = []
+        for task in self.manifest.tasks.values():
+            pinned, conditional = self._wrapper_pins_and_conditionals(task)
+            templates = (
+                [(None, task.arguments)]
+                if task.arguments is not None
+                else sorted(task.variants.items())
+            )
+            for variant, template in templates:
+                spec = task.name + ("@" + variant if variant else "")
+                argv = [arg.format(version="5304", runLabel="check") for arg in template]
+                seen: set[tuple[str, str]] = set()
+                for kind, option in self._declared_options(argv):
+                    if (kind, option) in seen:
+                        problems.append(f"{spec}: repeats {kind} name {option} within its own args")
+                    elif (kind, option) in pinned and option not in conditional:
+                        problems.append(
+                            f"{spec}: declares {kind} {option} which {Path(task.command).name} "
+                            "also pins unconditionally; the runner rejects the repeated name "
+                            "(mark it `# conditional-runner-args:` or drop one declaration)"
+                        )
+                    seen.add((kind, option))
+        self.assertEqual([], problems)
+
+    def test_runner_seam_versions_match_reviewed_lifecycle_coverage(self) -> None:
+        """The runner resolves mesaGlThread on for versions it marks
+        uniform_seam_reviewed; the runtime admits the deferred GL error check
+        on exactly the generations the uniform-location lifecycle pin table
+        covers (DeferredGlErrorCheckTarget binds admission to that predicate).
+        Replay the runner's own version dispatch so a drift between the two
+        tables fails before a host slot is burned."""
+        runner_source = (PREVIEW / "run-cubism-host-validation.sh").read_text(encoding="utf-8")
+        seam = runner_source.index("uniform_seam_reviewed")
+        case_start = runner_source.rindex('case "$version" in', 0, seam)
+        depth = 0
+        case_end = None
+        offset = case_start
+        for line in runner_source[case_start:].splitlines(keepends=True):
+            depth += len(re.findall(r"\bcase\b", line)) - len(re.findall(r"\besac\b", line))
+            offset += len(line)
+            if depth == 0:
+                case_end = offset
+                break
+        self.assertIsNotNone(case_end, "version dispatch case block has no closing esac")
+        dispatch = runner_source[case_start:case_end]
+
+        seam_reviewed = set()
+        for version in REVIEWED_VERSIONS:
+            result = subprocess.run(
+                ["bash", "-c",
+                 'version="$1"; fail() { exit 42; }\n' + dispatch +
+                 '\nprintf "SEAM=%s\\n" "${uniform_seam_reviewed:-unset}"',
+                 "_", version],
+                text=True, capture_output=True)
+            self.assertEqual(0, result.returncode, f"version {version}: {result.stderr.strip()}")
+            if "SEAM=1" in result.stdout:
+                seam_reviewed.add(version)
+
+        pins_path = (
+            ROOT / "runtime/src/main/resources/dev/turboism/adapter/cubism"
+            "/class-pins/uniform-location-lifecycle.json"
+        )
+        pin_versions = {
+            key.replace(".", "") for key in json.loads(pins_path.read_text(encoding="utf-8"))
+        }
+        self.assertEqual(
+            pin_versions,
+            seam_reviewed,
+            "runner uniform_seam_reviewed drifted from the reviewed lifecycle pin table",
+        )
+        target_source = (
+            ROOT / "runtime/src/main/java/dev/turboism/adapter/cubism/optimization"
+            "/deferred/DeferredGlErrorCheckTarget.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "supportedEditorVersion",
+            target_source,
+            "deferred-GL admission must stay bound to the seam coverage predicate",
+        )
 
     def test_non_mcp_startup_assistance_is_explicit_and_snapshotted(self) -> None:
         for name in ("parameter-batch-transfer", "animation-timeline", "workspace"):
