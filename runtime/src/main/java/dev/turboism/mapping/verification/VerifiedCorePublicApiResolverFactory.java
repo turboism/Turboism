@@ -11,12 +11,12 @@ public final class VerifiedCorePublicApiResolverFactory implements SliceResolver
     /**
      * Resolves the reviewed Core profile from the exact Core artifact digest.
      *
-     * <p>Editor release labels are deliberately not consulted: Cubism Editor 5.3.03 continues to
-     * select the existing 5.3.02 Core profile when its paired {@code Live2DCubismCore.jar} has that
-     * exact reviewed digest.</p>
+     * <p>Editor release labels are deliberately not consulted: Cubism Editors 5.3.00, 5.3.01
+     * and 5.3.03 continue to select the 5.3.02 Core profile when their paired
+     * {@code Live2DCubismCore.jar} has that exact reviewed digest.</p>
      *
      * @param verifiedArtifact exact Cubism Core artifact
-     * @return {@code "5.1.03"}, {@code "5.2.03"}, {@code "5.3.02"}, or {@code "5.3.04"}
+     * @return the reviewed profile of the byte-identical Core artifact
      * @throws IOException when the artifact cannot be read
      * @throws IllegalArgumentException when the digest is not reviewed
      */
@@ -49,7 +49,7 @@ public final class VerifiedCorePublicApiResolverFactory implements SliceResolver
      * any check, so naming the wrong profile for an artifact fails rather than
      * admitting it.
      *
-     * @param profile Cubism Core profile, {@code "5.1.03"}, {@code "5.2.03"}, {@code "5.3.02"}, or {@code "5.3.04"}
+     * @param profile Cubism Core profile of a reviewed Core artifact digest
      * @param reviewedRecord path to the reviewed verification record JSON
      * @param verifiedArtifact path to the host jar being admitted
      * @param hostClassLoader loader the verified members will be resolved

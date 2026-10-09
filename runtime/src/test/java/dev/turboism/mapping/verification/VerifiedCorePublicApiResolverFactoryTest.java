@@ -32,26 +32,27 @@ class VerifiedCorePublicApiResolverFactoryTest {
             final var slice = resolveHost(version).slice("core-model-read");
             assertTrue(slice.admitted(), version + ": " + slice.detail());
             final var contract = slice.contract().orElseThrow();
-            assertTrue(contract.compatible());
-            assertEquals("5.1.03", contract.sourceVersion());
+            assertEquals(version, contract.sourceVersion());
             assertEquals(version, contract.declaredVersion());
             assertEquals(java.util.Set.of("cubism.core.owned-moc.read"), contract.capabilities());
             final Path artifact = coreArtifact(version);
             assertEquals(HostArtifactDigest.from(artifact), contract.probedArtifact());
             try (URLClassLoader loader = loader(artifact)) {
-                final var resolver = factory.createCompatible(record("5.1.03"), artifact, loader, contract);
-                assertEquals("5.1.03", resolver.admittedCubismVersion());
+                final var resolver = contract.compatible()
+                        ? factory.createCompatible(record(version), artifact, loader, contract)
+                        : factory.create(record(version), artifact, loader);
+                assertEquals(version, resolver.admittedCubismVersion());
                 assertTrue(resolver.authorizesFeature(
                         "adapter.core-model.readonly",
                         "cubism.core.owned-moc.read",
                         dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.requiredAliasesFor(
-                                        "5.1.03")
+                                        version)
                                 .orElseThrow()));
                 org.junit.jupiter.api.Assertions.assertFalse(resolver.authorizesFeature(
                         "adapter.core-model.readonly",
                         "cubism.geometry.read",
                         dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.requiredAliasesFor(
-                                        "5.1.03")
+                                        version)
                                 .orElseThrow()));
             }
         }
@@ -64,8 +65,9 @@ class VerifiedCorePublicApiResolverFactoryTest {
             final var slice = resolveHost(version).slice("core-model-read");
             assertTrue(slice.admitted(), version + ": " + slice.detail());
             final var contract = slice.contract().orElseThrow();
-            final String profile =
-                    version.startsWith("5.2.") ? "5.2.03" : version.equals("5.3.04") ? "5.3.04" : "5.3.02";
+            // 5.3.00/5.3.01/5.3.03 ship the byte-identical 5.3.02 Core jar, so their
+            // slices bind the shared 5.3.02 record instead of a per-version profile.
+            final String profile = version.startsWith("5.3.0") && !"5.3.04".equals(version) ? "5.3.02" : version;
             assertEquals(profile, contract.sourceVersion(), version + ": " + slice.detail());
             final Path artifact = coreArtifact(version);
             try (URLClassLoader loader = loader(artifact)) {
@@ -101,10 +103,16 @@ class VerifiedCorePublicApiResolverFactoryTest {
 
     @Test
     void admitsPinnedCoreArtifactsForAllSupportedProfiles() throws Exception {
-        assertAdmitted("5.1.03", "5.1.03");
-        assertAdmitted("5.2.03", "5.2.03");
-        assertAdmitted("5.3.02", "5.3.02");
-        assertAdmitted("5.3.04", "5.3.04");
+        for (final String version : java.util.List.of(
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.02", "5.3.04")) {
+            assertAdmitted(version, version);
+        }
+        // The 5.3.00/5.3.01/5.3.03 Core jars are byte-identical to 5.3.02's and
+        // resolve to the shared 5.3.02 profile instead of a distinct one.
+        for (final String version : java.util.List.of("5.3.00", "5.3.01", "5.3.03")) {
+            assertEquals("5.3.02", factory.profileForArtifact(coreArtifact(version)));
+        }
     }
 
     @Test
@@ -164,7 +172,7 @@ class VerifiedCorePublicApiResolverFactoryTest {
                             .orElseThrow(),
                     dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.requiredAliasesFor(profile)
                             .orElseThrow()));
-            if ("5.1.03".equals(profile)) {
+            if (profile.startsWith("5.0.") || profile.startsWith("5.1.")) {
                 org.junit.jupiter.api.Assertions.assertFalse(resolver.authorizesFeature(
                         "adapter.core-model.readonly",
                         "cubism.geometry.read",

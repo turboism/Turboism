@@ -195,8 +195,13 @@ public final class CorePublicApiProviderFactory {
 
         @Override
         public dev.turboism.sdk.cubism.core.CoreCapabilities capabilities() {
-            return new dev.turboism.sdk.cubism.core.CoreCapabilities(
-                    ("5.3.02".equals(artifactProfile) || "5.3.04".equals(artifactProfile)), true, true);
+            // Parameter repeats are a 5.3-generation Core surface: the flag follows the
+            // profile's reviewed selector set rather than a hand-maintained version list,
+            // so shared-jar profiles (5.3.00-5.3.03) report the same truth as 5.3.02.
+            final boolean parameterRepeat = CorePublicApiSelectorContract.requiredAliasesFor(artifactProfile)
+                    .map(aliases -> aliases.contains(CorePublicApiSelectorContract.PARAMETERS_GET_REPEATS))
+                    .orElse(false);
+            return new dev.turboism.sdk.cubism.core.CoreCapabilities(parameterRepeat, true, true);
         }
 
         @Override
