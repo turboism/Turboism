@@ -1,6 +1,6 @@
 {
  "schemaVersion": 1,
- "description": "Ordered root-cause rules for host_validation_triage.py. The first rule whose 'when' clauses all match wins (clauses are AND-ed); unmatched jobs are UNKNOWN and emit their signature so this table can be extended. Clause keys: state/terminalState/validationStatus/resultStatus (exact values, case-insensitive), exceptionClass/message/frame (regex on the first exception block and its caused-by chain), marker (regex on *_RESULT / *_FAILURE / TIMED_OUT / UNAVAILABLE log markers), console (regex on cubism-console.txt ERROR exception heads), failureText (regex on result-properties failure.N, unexpectedFailure actuals, per-assertion actuals and failure-marker log lines). FREE-license startup markers (START_FREE_SELECTED, FREE_PARAMETER_LIMIT_ACKNOWLEDGED, FREE_WELCOME_CONFIRMED) are emitted by the NativeStartupAssistanceAgent on every installation and are never treated as failure evidence.",
+ "description": "Ordered root-cause rules for host_validation_triage.py. The first rule whose 'when' clauses all match wins (clauses are AND-ed); unmatched jobs are UNKNOWN and emit their signature so this table can be extended. Clause keys: state/terminalState/validationStatus/resultStatus/terminalPassed (exact values, case-insensitive), exceptionClass/message/frame (regex on the first exception block and its caused-by chain), marker (regex on *_RESULT / *_FAILURE / TIMED_OUT / UNAVAILABLE log markers), console (regex on cubism-console.txt ERROR exception heads), failureText (regex on result-properties failure.N, unexpectedFailure actuals, per-assertion actuals and failure-marker log lines). Jobs with no usable evidence at all (reclaimed by retention, or a log that ended before any verdict) are classified NO_EVIDENCE in code, not by a rule here. FREE-license startup markers (START_FREE_SELECTED, FREE_PARAMETER_LIMIT_ACKNOWLEDGED, FREE_WELCOME_CONFIRMED) are emitted by the NativeStartupAssistanceAgent on every installation and are never treated as failure evidence.",
  "nonFailureMarkers": [
   "START_FREE_SELECTED",
   "FREE_WELCOME_CONFIRMED",
@@ -90,6 +90,12 @@
    "advice": "probe reported the capability UNAVAILABLE; record the boundary"
   },
   {
+   "id": "capability-backup-artifact-absent",
+   "category": "CAPABILITY_BOUNDARY",
+   "when": {"failureText": "backupNow failed|auto-backup completion timeout|auto-backup backup directory is unavailable"},
+   "advice": "native auto-backup produced no artifact and never advanced lastAutoBackupTime inside the poll window on this host/profile (AutoBackupCoordinator completion-timeout throw site, ~runtime/.../AutoBackupCoordinator.java:445-555). The probe exercised the host's own backupNow() the same way it does on passing versions, so the absence is a host-side capability boundary on this version/license profile, not a probe defect — record the boundary instead of retrying"
+  },
+  {
    "id": "infra-edt-dispatch",
    "category": "INFRA_RETRYABLE",
    "when": {"exceptionClass": "EdtDispatchException"},
@@ -148,6 +154,18 @@
    "category": "INFRA_RETRYABLE",
    "when": {"marker": "TIMED_OUT|NETWORK_UNAVAILABLE"},
    "advice": "a scheduler lane or external dependency timed out; retry"
+  },
+  {
+   "id": "verdict-pass-then-fail",
+   "category": "UNKNOWN",
+   "when": {"state": ["failed"], "terminalPassed": [true]},
+   "advice": "probe recorded a PASS verdict but the run still failed post-verdict; inspect wrapper/exit evidence manually"
+  },
+  {
+   "id": "verdict-pass-then-fail-props",
+   "category": "UNKNOWN",
+   "when": {"state": ["failed"], "resultStatus": ["PASS"]},
+   "advice": "probe recorded a PASS verdict but the run still failed post-verdict; inspect wrapper/exit evidence manually"
   },
   {
    "id": "verdict-contradiction",
