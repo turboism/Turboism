@@ -101,6 +101,19 @@ class StaticGateTest(unittest.TestCase):
             gates.fixture_path_for("clipmask-viewer", "5304",
                                    {"TURBOISM_HOST_VALIDATION_FIXTURE_5303": "/shared.cmo3"}))
 
+    def test_session_fixture_prefers_clipmask_override(self):
+        environment = {
+            "TURBOISM_HOST_VALIDATION_FIXTURE_5303": "/shared.cmo3",
+            "TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK": "/mask-bearing.cmo3",
+        }
+        self.assertEqual(
+            "/mask-bearing.cmo3",
+            gates.fixture_path_for("session-standard", "5304", environment))
+        self.assertEqual(
+            "/shared.cmo3",
+            gates.fixture_path_for("session-standard", "5304",
+                                   {"TURBOISM_HOST_VALIDATION_FIXTURE_5303": "/shared.cmo3"}))
+
     def test_newer_fixture_without_assisted_variant_only_notes(self):
         environment = self._fixture_environment()
         request, outcome = self.evaluate("boundingbox-warp-mirror:5000@analyse", environment)
