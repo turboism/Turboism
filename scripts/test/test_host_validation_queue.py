@@ -907,8 +907,14 @@ class PreparedStoreTest(unittest.TestCase):
         for name in ("run-cubism-host-validation.sh", "host-validation-env.sh", "host-validation-transport.sh",
                      "archive-cubism-host-evidence.sh", "fps-resize-driver.sh",
                      "host_validation.py", "host_validation_queue.py", "host_validation_retention.py",
+                     "host_validation_static_gates.py",
                      "host_validation_containment.py", "host_validation_evidence.py"):
             queue.copy_verified(tools / name, self.preview / name)
+        # The enqueue path now runs the bundle-linkage gate, which parses the
+        # declared jars; the synthetic agent/aux input must be a real zip.
+        import zipfile
+        with zipfile.ZipFile(self.input, "w"):
+            pass
         fixture = self.base / "fixture.cmo3"
         fixture.write_bytes(b"test fixture, never opened by a host")
         prepared_dir = self.base / "request"
