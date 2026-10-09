@@ -23,7 +23,8 @@
     "cubism-5.3.02-ui-main-toolbar",
     "cubism-5.3.02-ui-status-bar",
     "cubism-5.3.02-ui-top-menu",
-    "cubism-5.3.02-workspace-control"
+    "cubism-5.3.02-workspace-control",
+    "cubism-5.3.02-startup-suppression"
   ],
   "status": "DRAFT",
   "source": "legacy-inventory",
