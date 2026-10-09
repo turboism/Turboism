@@ -233,6 +233,13 @@ python3 scripts/preview/host_validation.py abandon --confirm JOB_ID \
   reports stable blockers and emits `approvalDigest` only when every condition
   holds (cross-boot identity, no final verdict, host already idle and unowned,
   worker stopped, no queued/current/unknown/external activity).
+- An `abandoned` row is administrative, not activity: sibling jobs already
+  registered this way are excluded from the active/unknown scan as long as
+  their unique `operator-abandoned` audit still binds the row (a missing or
+  contradictory audit remains a blocker). Re-deriving a stored audit's
+  preserved evidence is the stricter replay bar only; kernel device numbers
+  are reassigned at every boot, so audit re-verification binds the queue
+  root's durable inode and ignores volatile `st_dev` members.
 - `--confirm` rechecks everything under the existing
   worker → storage → admission lock order and commits one row update plus one
   `operator-abandoned` audit event atomically. An identical retry replays the
@@ -249,13 +256,48 @@ python3 scripts/preview/host_validation.py abandon --confirm JOB_ID \
   running work finish normally, and review each fresh digest/reason before
   confirmation. Do not switch a running checkout or release host ownership.
 - `abandoned` is an administrative marker, not a verification result:
-  `verificationAccepted` stays `false`, the host row is never touched, evidence
-  is preserved byte-for-byte, and retention protects the job, task, prefix,
-  logs and referenced prepared inputs permanently (`adopt`/`unpin`/expiry
-  cannot release them). `recover`, `complete` and `durable_outcome` still
-  reject it as an unverified disposition.
+  `verificationAccepted` stays `false`, evidence is preserved byte-for-byte,
+  and retention protects the job, task, prefix, logs and referenced prepared
+  inputs permanently (`adopt`/`unpin`/expiry cannot release them). `recover`,
+  `complete` and `durable_outcome` still reject it as an unverified
+  disposition. The single-job `--confirm` never updates the host row.
 - Real-queue use, service drain and any exact-host calibration remain separate
   operator gates; nothing here starts or stops workers or services.
+
+#### Releasing a cross-boot orphan quarantine
+
+A host reboot can orphan every in-flight attempt: a fresh worker's reconcile
+then quarantines each of them and leaves the host row itself `quarantined` on
+one orphan's marker. The single-job path cannot resolve that deadlock because
+it requires an already-idle host. When the host row is quarantined,
+`--inspect` additionally reports a `hostRelease` evaluation. It offers a
+separate `approvalDigest` only when the quarantine is *entirely* orphan-caused:
+the host marker names a verified cross-boot orphan, every other live queue
+record is itself a verified cross-boot orphan or an audited
+administrative/terminal row, the worker is stopped, and there are no queued
+jobs, no live recorded identities and no external Cubism sessions. A same-boot
+attempt, a consumable final verdict, queued work, a live worker, an external
+session, or a marker pointing at anything else all keep it refused.
+
+```bash
+python3 scripts/preview/host_validation.py abandon --inspect JOB_ID --json
+# review hostRelease.jobs and hostRelease.approvalDigest
+python3 scripts/preview/host_validation.py abandon --confirm-all-cross-boot JOB_ID \
+  --approval HOST_RELEASE_DIGEST --reason 'Reboot orphaned all attempts; reviewed' --json
+```
+
+- `JOB_ID` must be one of the verified cross-boot orphans the release covers;
+  the digest binds the host row and the complete orphan set, so a changed set
+  invalidates it.
+- `--confirm-all-cross-boot` revalidates under the same lock order and commits
+  one transaction: each orphan's row becomes `abandoned` with its own
+  `operator-abandoned` audit event, and the host row returns to `idle` with
+  one `operator-host-released` audit recording the previous state, marker job
+  and reason. An identical retry replays the committed receipt read-only.
+- This is the only path that ever writes the host row back to `idle`; it is
+  not evidence relaxation — no verdict is manufactured, `recover`'s
+  requirements are unchanged, and a same-boot quarantine can never be
+  released this way.
 
 ## Agent rollout
 

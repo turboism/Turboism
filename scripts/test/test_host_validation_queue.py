@@ -23,6 +23,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "preview"))
 import host_validation_queue as queue
 import host_validation_disposition as disposition
+import host_validation_retention as retention
 import host_validation as cli
 
 
@@ -1968,6 +1969,234 @@ class OrphanDispositionTest(StoreFixture, unittest.TestCase):
             self.assertEqual(75, disposition.cli(conflict, root=self.root))
         refusal = json.loads(output.getvalue())
         self.assertIn("CONFLICTING_CONFIRMATION", {b["code"] for b in refusal["blockers"]})
+
+    def quarantined_orphans(self, count, boot=None):
+        """Cross-boot orphans that a fresh worker reconciled to quarantined;
+        the last one's marker owns the host row, exactly like a reboot."""
+        orphans = [self.orphan(boot=boot) for _ in range(count)]
+        for job, _, _ in orphans:
+            self.store.quarantine(job["job_id"], "no durable final supervisor verdict")
+        return orphans
+
+    def confirm_release(self, job_id, approval, reason="reviewed cross-boot orphans", busy=None):
+        return disposition.confirm_release(self.root, job_id, approval, reason,
+                                           busy=busy or (lambda: []))
+
+    def release_report(self, job_id, busy=None):
+        report = self.inspect(job_id, busy=busy)
+        self.assertIn("hostRelease", report)
+        return report["hostRelease"]
+
+    def test_disposed_row_whose_evidence_drifted_still_counts_as_administrative(self) -> None:
+        # A bound audit remains an administrative fact even when its preserved
+        # evidence can no longer re-verify (collection, boot-changed device
+        # numbers); only the stricter replay path keeps the old bar.
+        first, directory, _ = self.orphan()
+        self.confirm(first["job_id"], self.inspect(first["job_id"])["approvalDigest"])
+        (directory / "evidence/final-hashes.properties").write_text("drifted=1\n")
+        snapshot = retention.Snapshot(self.root)
+        row = snapshot.jobs(first["job_id"])[0]
+        self.assertIsNotNone(disposition._bound_audit(snapshot, row))
+        with self.assertRaises(disposition.Rejected):
+            disposition._verify_audit(snapshot, row)
+        second, _, _ = self.orphan()
+        report = self.inspect(second["job_id"])
+        self.assertTrue(report["canConfirm"], report)
+
+    def test_release_recovers_reboot_quarantine_deadlock(self) -> None:
+        # The real incident: two earlier dispositions (one whose preserved
+        # evidence has since drifted beyond replay verification) plus three
+        # quarantined cross-boot orphans, the last owning the host marker.
+        earlier_rows = []
+        for _ in range(2):
+            earlier, earlier_dir, _ = self.orphan()
+            self.confirm(earlier["job_id"], self.inspect(earlier["job_id"])["approvalDigest"])
+            earlier_rows.append((earlier, earlier_dir))
+        (earlier_rows[0][1] / "evidence/final-hashes.properties").write_text("drifted=1\n")
+        orphans = self.quarantined_orphans(3)
+        host = self.store.host()
+        self.assertEqual("quarantined", host["state"])
+        self.assertEqual(orphans[2][0]["job_id"], host["job_id"])
+        report = self.inspect(orphans[0][0]["job_id"])
+        # The single-job path keeps its contract: it never touches the host row.
+        self.assertFalse(report["canConfirm"])
+        self.assertIn("HOST_NOT_UNOWNED_IDLE", {b["code"] for b in report["blockers"]})
+        release = report["hostRelease"]
+        self.assertTrue(release["canConfirm"], release)
+        self.assertEqual({o[0]["job_id"] for o in orphans}, set(release["jobs"]))
+        approval = release["approvalDigest"]
+        before = queue.tree_inventory(self.root)
+        receipt = self.confirm_release(orphans[0][0]["job_id"], approval)
+        self.assertFalse(receipt["replayed"])
+        self.assertEqual("operator-host-released", receipt["operation"])
+        self.assertEqual("idle", receipt["toState"])
+        self.assertEqual("quarantined", receipt["previousState"])
+        self.assertEqual(orphans[2][0]["job_id"], receipt["previousJobId"])
+        self.assertEqual(3, len(receipt["receipts"]))
+        self.assertFalse(receipt["verificationAccepted"])
+        self.assertEqual({"state": "idle", "job_id": None},
+                         {k: self.store.host()[k] for k in ("state", "job_id")})
+        for job, _, _ in orphans:
+            row = self.store.jobs(job["job_id"])[0]
+            self.assertEqual("abandoned", row["state"])
+            self.assertEqual("reviewed cross-boot orphans", row["reason"])
+        audits = [e for e in self.store.events() if e["kind"] == "operator-abandoned"]
+        self.assertEqual(5, len(audits))
+        released = [e for e in self.store.events() if e["kind"] == "operator-host-released"]
+        self.assertEqual(1, len(released))
+        self.assertEqual(approval, released[0]["payload"]["approvalDigest"])
+        changed = {k for k, v in queue.tree_inventory(self.root).items()
+                   if before.get(k) != v}
+        self.assertLessEqual(set(changed),
+                             {"queue.sqlite3", "queue.sqlite3-wal", "queue.sqlite3-shm"})
+        # The released host admits new work again.
+        submitted = self.job("after-release")
+        self.assertEqual(submitted["job_id"], self.store.claim()["job_id"])
+
+    def test_release_replay_is_read_only_and_conflicts_refuse(self) -> None:
+        orphans = self.quarantined_orphans(2)
+        approval = self.release_report(orphans[0][0]["job_id"])["approvalDigest"]
+        receipt = self.confirm_release(orphans[0][0]["job_id"], approval)
+        before = queue.tree_inventory(self.root)
+        replayed = self.confirm_release(orphans[1][0]["job_id"], approval)
+        self.assertTrue(replayed["replayed"])
+        self.assertEqual(receipt["recordedAt"], replayed["recordedAt"])
+        self.assertEqual(2, len(replayed["receipts"]))
+        self.assertEqual(before, queue.tree_inventory(self.root))
+        with self.assertRaises(disposition.Rejected) as caught:
+            self.confirm_release(orphans[0][0]["job_id"], approval, "a different reason")
+        self.assertIn("CONFLICTING_CONFIRMATION",
+                      {b["code"] for b in caught.exception.report["blockers"]})
+        with self.assertRaises(disposition.Rejected):
+            self.confirm_release(orphans[0][0]["job_id"], "0" * 64)
+        events = [e for e in self.store.events() if e["kind"] == "operator-host-released"]
+        self.assertEqual(1, len(events))
+
+    def test_release_refuses_same_boot_member(self) -> None:
+        orphans = self.quarantined_orphans(2)
+        self.orphan(boot=queue.process_identity(os.getpid())["bootId"])
+        release = self.release_report(orphans[0][0]["job_id"])
+        self.assertFalse(release["canConfirm"])
+        self.assertNotIn("approvalDigest", release)
+        self.assertIn("CURRENT_OR_UNKNOWN_ACTIVITY",
+                      {b["code"] for b in release["blockers"]})
+        with self.assertRaises(disposition.Rejected):
+            self.confirm_release(orphans[0][0]["job_id"], "0" * 64)
+        self.assertEqual("quarantined", self.store.host()["state"])
+
+    def test_release_refuses_when_host_marker_is_not_an_orphan(self) -> None:
+        orphans = self.quarantined_orphans(1)
+        marker, _, _ = self.orphan(boot=queue.process_identity(os.getpid())["bootId"])
+        with self.store.transaction() as db:
+            db.execute("UPDATE host SET job_id=? WHERE singleton=1", (marker["job_id"],))
+        release = self.release_report(orphans[0][0]["job_id"])
+        self.assertFalse(release["canConfirm"])
+        self.assertIn("HOST_QUARANTINE_NOT_ORPHAN",
+                      {b["code"] for b in release["blockers"]})
+        self.assertIn("CURRENT_OR_UNKNOWN_ACTIVITY",
+                      {b["code"] for b in release["blockers"]})
+
+    def test_release_refuses_queued_work_worker_and_external_sessions(self) -> None:
+        orphans = self.quarantined_orphans(2)
+        queued = self.job("queued-work")
+        release = self.release_report(orphans[0][0]["job_id"])
+        self.assertFalse(release["canConfirm"])
+        self.assertIn(queued["job_id"],
+                      next(b["detail"] for b in release["blockers"]
+                           if b["code"] == "CURRENT_OR_UNKNOWN_ACTIVITY"))
+        with self.store.transaction() as db:
+            db.execute("DELETE FROM jobs WHERE job_id=?", (queued["job_id"],))
+        queue.atomic_json(self.root / "worker.json", queue.process_identity(os.getpid()))
+        release = self.release_report(orphans[0][0]["job_id"])
+        self.assertIn("WORKER_ACTIVE_OR_LOCKED", {b["code"] for b in release["blockers"]})
+        (self.root / "worker.json").unlink()
+        release = self.release_report(orphans[0][0]["job_id"], busy=lambda: [4321])
+        self.assertIn("CURRENT_OR_UNKNOWN_ACTIVITY", {b["code"] for b in release["blockers"]})
+        release = self.release_report(orphans[0][0]["job_id"])
+        self.assertTrue(release["canConfirm"], release)
+
+    def test_release_refuses_member_with_consumable_final_verdict(self) -> None:
+        # A quarantined job that still carries a consumable verdict belongs to
+        # recover's evidence path, never to administrative release.
+        orphans = self.quarantined_orphans(2)
+        job, directory, _ = orphans[1]
+        (directory / "outcome.json").write_text(queue.canonical_json(
+            {"schemaVersion": 1, "jobId": job["job_id"], "attemptId": job["attempt_id"],
+             "runId": job["run_id"], "preparedDigest": self.prepared,
+             "cleanup": "unknown", "terminalState": "failed"}))
+        release = self.release_report(orphans[0][0]["job_id"])
+        self.assertFalse(release["canConfirm"])
+        self.assertIn("CURRENT_OR_UNKNOWN_ACTIVITY",
+                      {b["code"] for b in release["blockers"]})
+
+    def test_release_confirm_needs_exact_digest_and_member_anchor(self) -> None:
+        orphans = self.quarantined_orphans(2)
+        terminal, _, _ = self.orphan()
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET state='failed' WHERE job_id=?", (terminal["job_id"],))
+        approval = self.release_report(orphans[0][0]["job_id"])["approvalDigest"]
+        with self.assertRaises(queue.QueueError):
+            self.confirm_release(orphans[0][0]["job_id"], "f" * 63)
+        with self.assertRaises(disposition.Rejected) as caught:
+            self.confirm_release(orphans[0][0]["job_id"], "0" * 64)
+        self.assertIn("SNAPSHOT_CHANGED", {b["code"] for b in caught.exception.report["blockers"]})
+        with self.assertRaises(disposition.Rejected) as caught:
+            self.confirm_release(terminal["job_id"], approval)
+        self.assertIn("IDENTITY_INVALID", {b["code"] for b in caught.exception.report["blockers"]})
+        self.assertEqual("quarantined", self.store.host()["state"])
+        self.assertEqual([], [e for e in self.store.events()
+                              if e["kind"] == "operator-host-released"])
+        self.assertEqual("quarantined", self.store.jobs(orphans[0][0]["job_id"])[0]["state"])
+
+    def test_release_confirm_lock_contention_never_writes(self) -> None:
+        orphans = self.quarantined_orphans(2)
+        approval = self.release_report(orphans[0][0]["job_id"])["approvalDigest"]
+        for name in ("worker.lock", "admission.lock"):
+            with queue.FileLock(self.root / name):
+                with self.assertRaises(queue.QueueBusy):
+                    self.confirm_release(orphans[0][0]["job_id"], approval)
+        with queue.storage_lock(self.root):
+            with self.assertRaises(queue.QueueBusy):
+                self.confirm_release(orphans[0][0]["job_id"], approval)
+        self.assertEqual("quarantined", self.store.host()["state"])
+        self.assertEqual("quarantined", self.store.jobs(orphans[0][0]["job_id"])[0]["state"])
+
+    def test_release_never_offered_while_host_is_not_quarantined(self) -> None:
+        job, _, _ = self.orphan()
+        report = self.inspect(job["job_id"])
+        self.assertNotIn("hostRelease", report)
+
+    @mock.patch.object(queue, "external_sessions", new=lambda: [])
+    def test_cli_release_confirm_contract_and_exit_codes(self) -> None:
+        orphans = self.quarantined_orphans(2)
+        parser = cli.build_parser(Path("unused"))
+        inspect_args = parser.parse_args(["abandon", "--inspect", orphans[0][0]["job_id"], "--json"])
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(0, disposition.cli(inspect_args, root=self.root))
+        report = json.loads(output.getvalue())
+        self.assertFalse(report["canConfirm"])
+        approval = report["hostRelease"]["approvalDigest"]
+        args = parser.parse_args(["abandon", "--confirm-all-cross-boot",
+                                  orphans[0][0]["job_id"], "--reason", "x"])
+        self.assertEqual(2, disposition.cli(args, root=self.root))
+        args = parser.parse_args(["abandon", "--confirm-all-cross-boot",
+                                  orphans[0][0]["job_id"], "--approval", approval,
+                                  "--reason", "reviewed reboot orphans"])
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(0, disposition.cli(args, root=self.root))
+        receipt = json.loads(output.getvalue())
+        self.assertEqual("operator-host-released", receipt["operation"])
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(0, disposition.cli(args, root=self.root))
+        self.assertTrue(json.loads(output.getvalue())["replayed"])
+        for argv in (["abandon", "--confirm", "x", "--confirm-all-cross-boot", "y"],
+                     ["abandon", "--inspect", "x", "--confirm-all-cross-boot", "y"]):
+            with self.subTest(argv=argv), self.assertRaises(SystemExit):
+                parser.parse_args(argv)
+        single = parser.parse_args(["abandon", "--confirm", orphans[1][0]["job_id"],
+                                    "--approval", approval, "--reason", "reviewed"])
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(75, disposition.cli(single, root=self.root))
 
     def test_consumers_treat_abandoned_as_unverified_terminal(self) -> None:
         job, _, _ = self.orphan()

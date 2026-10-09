@@ -4,8 +4,13 @@ Inspection never constructs the writable Store, never creates shared queue
 state and keeps its only copy inside a private temporary directory.
 Confirmation revalidates every eligibility and execution condition inside the
 existing worker -> storage -> admission coordination and commits the target
-row plus one audit event in a single transaction. It never updates the host
-row, never writes evidence files and never marks verification accepted.
+row plus one audit event in a single transaction. The single-job mode never
+updates the host row. The all-cross-boot mode exists for the deadlock where a
+machine reboot orphaned every active attempt and the host marker itself is
+quarantined: only when the marker and every live queue record are verified
+cross-boot orphans does one transaction register them all abandoned and return
+the host row to idle. Neither mode writes evidence files or marks verification
+accepted.
 """
 from __future__ import annotations
 
@@ -31,6 +36,7 @@ from host_validation_evidence import checked_path, layout
 
 SCHEMA_VERSION = 1
 EVENT_KIND = "operator-abandoned"
+RELEASE_KIND = "operator-host-released"
 DISPOSITION = "ABANDONED_UNVERIFIED"
 PRESERVATION = "unverified-indefinite"
 MAX_REASON = 2048
@@ -327,12 +333,16 @@ def _disposition_digests(view: Any, job_id: str,
 def _approval_facts(view: Any, job: dict[str, Any], current_boot: str,
                     historical_boot: str, closure: dict[str, Any],
                     exclude: frozenset = frozenset(),
-                    host: dict[str, Any] | None = None) -> dict[str, Any]:
+                    host: dict[str, Any] | None = None,
+                    root_identity: Any = None) -> dict[str, Any]:
     """Stable approval inputs only; volatile observation times are excluded.
-    `host` is the host fact bound at approval time, not the live row."""
+    `host` is the host fact bound at approval time, not the live row.
+    `root_identity` re-derives a stored audit's digest with the identity the
+    approval saw; kernel device numbers are reassigned at every boot, so the
+    live value would never match a prior boot's audit."""
     host_row = view.host_row if host is None else host
     return {"schemaVersion": SCHEMA_VERSION, "operation": EVENT_KIND,
-            "rootIdentity": view.identity,
+            "rootIdentity": view.identity if root_identity is None else root_identity,
             "target": {"jobId": job["job_id"], "attemptId": job["attempt_id"],
                        "runId": job["run_id"], "requestKey": job["request_key"],
                        "preparedId": job["prepared_id"], "digest": job["digest"],
@@ -389,8 +399,11 @@ def _evaluate(view: Any, job: dict[str, Any], current_boot: str, *,
         if row["job_id"] == job["job_id"]:
             continue
         if row["state"] in queue.ADMINISTRATIVE:
+            # A row bound to its unique disposition audit is administrative,
+            # never activity; evidence re-derivation is the stricter replay
+            # bar, and cannot outlive evidence retention or boot boundaries.
             try:
-                _verify_audit(view, row)
+                _bound_audit(view, row)
             except Rejected:
                 unverifiable.append(row["job_id"])
             continue
@@ -479,7 +492,99 @@ def inspect(root: Path, job_id: str, *, busy: Any = None) -> dict[str, Any]:
                             "coordination locks are missing or unsafe: " + ",".join(missing)))
     evaluation = _evaluate(snapshot, job, current_boot, busy=busy)
     observation.update(evaluation["observation"])
-    return _report(snapshot, job, current_boot, evaluation, extra, observation)
+    report = _report(snapshot, job, current_boot, evaluation, extra, observation)
+    if snapshot.host_row["state"] == "quarantined":
+        # A quarantined host marker can deadlock single-job disposition when
+        # the marker itself names a cross-boot orphan; surface the audited
+        # all-cross-boot release as a separately digested candidate.
+        report["hostRelease"] = _evaluate_release(
+            snapshot, current_boot, busy=busy, worker=worker, missing=missing)["report"]
+    return report
+
+
+def _evaluate_release(view: Any, current_boot: str, *,
+                      busy: Any, worker: str, missing: list[str]) -> dict[str, Any]:
+    """Host-scoped classification for the cross-boot release: the quarantined
+    marker may be lifted only when it names a verified cross-boot orphan, every
+    other live queue record is itself a verified cross-boot orphan or an
+    audited administrative/terminal row, and nothing else can still be active.
+    """
+    host = view.host_row
+    blockers: list[dict[str, str]] = []
+    orphans: list[dict[str, Any]] = []
+    audited = {row["job_id"] for row in view.event_rows if row["kind"] == EVENT_KIND}
+    unverifiable: list[str] = []
+    for row in view.job_rows:
+        if row["state"] in queue.ADMINISTRATIVE:
+            try:
+                _bound_audit(view, row)
+            except Rejected:
+                unverifiable.append(row["job_id"])
+            continue
+        if row["state"] in queue.TERMINAL:
+            if row["job_id"] in audited:
+                unverifiable.append(row["job_id"])
+            continue
+        if row["state"] == "queued":
+            unverifiable.append(row["job_id"])
+            continue
+        assessment = _assess(view, row, current_boot)
+        if assessment["blockers"]:
+            unverifiable.append(row["job_id"])
+        else:
+            orphans.append({"job": row, "assessment": assessment})
+    if unverifiable:
+        blockers.append(_block("CURRENT_OR_UNKNOWN_ACTIVITY",
+                               "queued or unverifiable active records: "
+                               + ",".join(sorted(unverifiable))))
+    if host["state"] != "quarantined" or not host["job_id"]:
+        blockers.append(_block("HOST_QUARANTINE_NOT_ORPHAN",
+                               f"host is {host['state']} with job_id={host['job_id']}"))
+    elif host["job_id"] not in {orphan["job"]["job_id"] for orphan in orphans}:
+        blockers.append(_block(
+            "HOST_QUARANTINE_NOT_ORPHAN",
+            f"host marker job {host['job_id']} is not a verified cross-boot orphan"))
+    if worker != "offline":
+        blockers.append(_block("WORKER_ACTIVE_OR_LOCKED", f"worker is {worker}"))
+    if missing:
+        blockers.append(_block("WORKER_ACTIVE_OR_LOCKED",
+                               "coordination locks are missing or unsafe: " + ",".join(missing)))
+    try:
+        externals = busy()
+    except (queue.QueueError, OSError) as failure:
+        externals = []
+        blockers.append(_block("CURRENT_OR_UNKNOWN_ACTIVITY",
+                               f"cannot inspect host processes: {failure}"))
+    if externals:
+        blockers.append(_block("CURRENT_OR_UNKNOWN_ACTIVITY",
+                               "external host session(s): " + ",".join(map(str, externals))))
+    report = {"operation": RELEASE_KIND, "canConfirm": False,
+              "blockers": blockers,
+              "jobs": [orphan["job"]["job_id"] for orphan in orphans],
+              "host": {"state": host["state"], "jobId": host["job_id"],
+                       "reason": host["reason"]},
+              "worker": worker, "externalSessions": externals,
+              "verificationAccepted": False}
+    if not blockers:
+        report["canConfirm"] = True
+        report["approvalDigest"] = queue.digest_json(
+            _release_facts(view, orphans, current_boot))
+    return {"report": report, "orphans": orphans}
+
+
+def _release_facts(view: Any, orphans: list[dict[str, Any]],
+                   current_boot: str) -> dict[str, Any]:
+    """Stable approval inputs for one all-cross-boot release; the quarantined
+    host row and every orphan's single-disposition facts are bound together."""
+    host = view.host_row
+    return {"schemaVersion": SCHEMA_VERSION, "operation": RELEASE_KIND,
+            "rootIdentity": view.identity, "currentBootId": current_boot,
+            "host": {"state": host["state"], "jobId": host["job_id"],
+                     "reason": host["reason"]},
+            "orphans": [_approval_facts(view, orphan["job"], current_boot,
+                                        orphan["assessment"]["historicalBootId"],
+                                        orphan["assessment"]["closure"])
+                        for orphan in orphans]}
 
 
 AUDIT_KEYS = frozenset({
@@ -488,6 +593,11 @@ AUDIT_KEYS = frozenset({
     "toState", "operatorUid", "recordedAt", "reason", "approvalDigest",
     "historicalBootId", "currentBootId", "rootIdentity", "evidenceInventory",
     "preservation", "verificationAccepted"})
+
+RELEASE_AUDIT_KEYS = frozenset({
+    "schemaVersion", "operation", "jobIds", "previousState", "previousJobId",
+    "previousReason", "toState", "operatorUid", "recordedAt", "reason",
+    "approvalDigest", "currentBootId", "rootIdentity", "verificationAccepted"})
 
 
 def _number(value: Any) -> bool:
@@ -508,16 +618,28 @@ def _refusal(job_id: str, code: str, detail: str) -> Rejected:
                      "disposition": DISPOSITION, "verificationAccepted": False})
 
 
-def _verify_audit(view: Any, job: dict[str, Any]) -> dict[str, Any]:
-    """Strict read-only validation of the unique audit bound to an
-    administrative row.
+def _stable_inventory(value: Any) -> Any:
+    """Drop the volatile `device` member of metadata records. st_dev is a
+    kernel-assigned mount identifier that is reassigned across reboots and can
+    differ between mounts of one filesystem; the durable binding is the
+    (inode, type, size, sha256) tuple."""
+    if isinstance(value, dict):
+        return {key: _stable_inventory(item) for key, item in value.items() if key != "device"}
+    if isinstance(value, list):
+        return [_stable_inventory(item) for item in value]
+    return value
 
-    The stored audit is a fixed protocol record: every key must be present
-    with its exact type and immutable value, the live row must still agree,
-    and the preserved evidence must still recompute to the digest approved
-    under the then-required facts (host already idle and unowned, this
-    audit excluded). Used both for identical-request replay and before
-    admitting another job alongside an already-disposed record.
+
+def _bound_audit(view: Any, job: dict[str, Any]) -> dict[str, Any]:
+    """Structural validation of the unique audit bound to an administrative
+    row: the fixed protocol payload must still agree with the live row and
+    with this queue root's durable inode. This is the scan-level bar for
+    treating an `abandoned` row as administrative rather than activity; a row
+    without a bound audit is never admitted as a disposition fact.
+
+    st_dev is reassigned at every boot, so root identity binds the directory
+    inode only; evidence re-derivation remains the stricter replay bar in
+    _verify_audit.
     """
     def refuse(code: str, detail: str) -> Rejected:
         return _refusal(job["job_id"], code, detail)
@@ -565,8 +687,10 @@ def _verify_audit(view: Any, job: dict[str, Any]) -> dict[str, Any]:
         and (payload["previousUpdatedAt"] is None or _number(payload["previousUpdatedAt"]))
         and _valid_reason(payload["reason"])
         and isinstance(payload["evidenceInventory"], dict)
-        and isinstance(payload["rootIdentity"], list)
-        and payload["rootIdentity"] == list(view.identity)
+        and type(payload["rootIdentity"]) is list
+        and len(payload["rootIdentity"]) == 2
+        and all(type(part) is int for part in payload["rootIdentity"])
+        and payload["rootIdentity"][1] == view.identity[1]
     )
     if not valid:
         raise refuse("IDENTITY_INVALID", "administrative audit fails protocol validation")
@@ -578,6 +702,22 @@ def _verify_audit(view: Any, job: dict[str, Any]) -> dict[str, Any]:
              and job["updated_at"] == payload["recordedAt"])
     if not bound:
         raise refuse("IDENTITY_INVALID", "administrative row disagrees with its audit")
+    return payload, audits[0]
+
+
+def _verify_audit(view: Any, job: dict[str, Any]) -> dict[str, Any]:
+    """Strict read-only validation of the unique audit bound to an
+    administrative row.
+
+    Beyond _bound_audit's structural binding, the preserved evidence must
+    still recompute to the inventory recorded at confirmation (modulo volatile
+    kernel device numbers) and the digest must re-derive from the approved
+    facts (host already idle and unowned, this audit excluded). Used for
+    identical-request replay.
+    """
+    def refuse(code: str, detail: str) -> Rejected:
+        return _refusal(job["job_id"], code, detail)
+    payload, audit = _bound_audit(view, job)
     try:
         supervisor = _identity(json.loads(job["identity_json"] or "null"), "supervisor")
         descriptor = retention.describe(view, job["prepared_id"])
@@ -586,14 +726,17 @@ def _verify_audit(view: Any, job: dict[str, Any]) -> dict[str, Any]:
             _FinalVerdictPresent, _SnapshotDrift) as failure:
         raise refuse("IDENTITY_INVALID",
                      f"preserved evidence can no longer be verified: {failure}")
-    if closure != payload["evidenceInventory"]:
+    if _stable_inventory(closure) != _stable_inventory(payload["evidenceInventory"]):
         raise refuse("IDENTITY_INVALID", "audit inventory no longer matches preserved evidence")
     as_approved = {**job, "state": payload["fromState"], "reason": payload["previousReason"],
                    "updated_at": payload["previousUpdatedAt"]}
+    # The approved digest covered the stored inventory verbatim; the live
+    # closure was just proven equal to it modulo volatile device numbers.
     facts = _approval_facts(view, as_approved, payload["currentBootId"],
-                            payload["historicalBootId"], closure,
-                            exclude=frozenset({audits[0]["event_id"]}),
-                            host=APPROVED_HOST)
+                            payload["historicalBootId"], payload["evidenceInventory"],
+                            exclude=frozenset({audit["event_id"]}),
+                            host=APPROVED_HOST,
+                            root_identity=payload["rootIdentity"])
     if queue.digest_json(facts) != payload["approvalDigest"]:
         raise refuse("IDENTITY_INVALID", "audit digest no longer re-derives from stable facts")
     return payload
@@ -798,19 +941,244 @@ def confirm(root: Path, job_id: str, approval: str, reason: Any, *, busy: Any = 
         return {**payload, "replayed": False}
 
 
+def _refusal_release(job_id: str, code: str, detail: str,
+                     host_release: dict[str, Any] | None = None) -> Rejected:
+    report = {"schemaVersion": SCHEMA_VERSION, "jobId": job_id,
+              "operation": RELEASE_KIND,
+              "blockers": [_block(code, detail)],
+              "verificationAccepted": False}
+    if host_release is not None:
+        report["hostRelease"] = host_release
+    return Rejected(report)
+
+
+def _replay_release(view: Any, job: dict[str, Any],
+                    approval: str, reason: str) -> dict[str, Any]:
+    """Read-only replay of an identical committed all-cross-boot release; the
+    stored release event plus the still-bound job audits are the receipt."""
+    candidates = []
+    for row in view.event_rows:
+        if row["kind"] != RELEASE_KIND:
+            continue
+        try:
+            payload = json.loads(row["payload"])
+        except (ValueError, TypeError):
+            continue
+        if isinstance(payload, dict) and payload.get("approvalDigest") == approval:
+            candidates.append(payload)
+    if len(candidates) != 1:
+        raise _refusal_release(job["job_id"], "IDENTITY_INVALID",
+                               "administrative row lacks a unique matching release audit")
+    payload = candidates[0]
+    valid = (
+        set(payload) == RELEASE_AUDIT_KEYS
+        and type(payload["schemaVersion"]) is int
+        and payload["schemaVersion"] == SCHEMA_VERSION
+        and payload["operation"] == RELEASE_KIND
+        and payload["previousState"] == "quarantined"
+        and type(payload["previousJobId"]) is str
+        and JOB_ID.fullmatch(payload["previousJobId"]) is not None
+        and type(payload["previousReason"]) is str
+        and payload["toState"] == "idle"
+        and type(payload["operatorUid"]) is int
+        and payload["operatorUid"] == os.getuid()
+        and _number(payload["recordedAt"])
+        and _valid_reason(payload["reason"])
+        and APPROVAL.fullmatch(payload["approvalDigest"]) is not None
+        and type(payload["currentBootId"]) is str
+        and JOB_ID.fullmatch(payload["currentBootId"]) is not None
+        and type(payload["rootIdentity"]) is list
+        and len(payload["rootIdentity"]) == 2
+        and all(type(part) is int for part in payload["rootIdentity"])
+        and payload["rootIdentity"][1] == view.identity[1]
+        and payload["verificationAccepted"] is False
+        and type(payload["jobIds"]) is list
+        and payload["jobIds"]
+        and len(payload["jobIds"]) == len(set(payload["jobIds"]))
+        and all(type(member) is str and JOB_ID.fullmatch(member) is not None
+                for member in payload["jobIds"])
+    )
+    if not valid:
+        raise _refusal_release(job["job_id"], "IDENTITY_INVALID",
+                               "release audit fails protocol validation")
+    if job["job_id"] not in payload["jobIds"]:
+        raise _refusal_release(job["job_id"], "CONFLICTING_CONFIRMATION",
+                               "request conflicts with the committed release")
+    if payload["reason"] != reason:
+        raise _refusal_release(job["job_id"], "CONFLICTING_CONFIRMATION",
+                               "request conflicts with the committed release")
+    if view.host_row["state"] != "idle" or view.host_row["job_id"] is not None:
+        raise _refusal_release(job["job_id"], "IDENTITY_INVALID",
+                               "release audit disagrees with the live host row")
+    rows = {row["job_id"]: row for row in view.job_rows}
+    receipts = []
+    for member in payload["jobIds"]:
+        row = rows.get(member)
+        if row is None or row["state"] not in queue.ADMINISTRATIVE:
+            raise _refusal_release(job["job_id"], "IDENTITY_INVALID",
+                                   f"released job {member} is not administratively closed")
+        audit = _bound_audit(view, row)[0]
+        if audit["approvalDigest"] != approval:
+            raise _refusal_release(job["job_id"], "IDENTITY_INVALID",
+                                   f"released job {member} carries a different approval")
+        receipts.append(audit)
+    return {**payload, "receipts": receipts, "replayed": True}
+
+
+def confirm_release(root: Path, job_id: str, approval: str, reason: Any,
+                    *, busy: Any = None) -> dict[str, Any]:
+    """Atomically register every verified cross-boot orphan as abandoned and
+    release the host quarantine their markers caused, in one transaction."""
+    busy = queue.external_sessions if busy is None else busy
+    normalized = _normalize_reason(reason)
+    if not isinstance(approval, str) or not APPROVAL.fullmatch(approval):
+        raise queue.QueueError("approval must be the exact digest from the reviewed report")
+    snapshot = retention.Snapshot(root)
+    rows = snapshot.jobs(job_id)
+    if not rows:
+        raise queue.QueueError("unknown job id")
+    job = rows[0]
+    if job["state"] in queue.ADMINISTRATIVE:
+        return _replay_release(snapshot, job, approval, normalized)
+    preview = inspect(root, job_id, busy=busy)
+    release = preview.get("hostRelease")
+    if release is None:
+        preview.setdefault("blockers", []).append(_block(
+            "HOST_QUARANTINE_NOT_ORPHAN",
+            "host is not quarantined by a cross-boot orphan"))
+        preview["canConfirm"] = False
+        raise Rejected(preview)
+    if not release["canConfirm"]:
+        preview["canConfirm"] = False
+        raise Rejected(preview)
+    if release["approvalDigest"] != approval:
+        raise _refusal_release(job_id, "SNAPSHOT_CHANGED",
+                               "approval does not match current facts", release)
+    if _locks_missing(root):
+        raise _refusal_release(job_id, "WORKER_ACTIVE_OR_LOCKED",
+                               "coordination locks are missing", release)
+    # Lock order: worker -> storage(exclusive) -> admission -> transaction.
+    # Disposition never recreates a vanished coordination file.
+    with _existing_lock(root / "worker.lock") as worker_fd, \
+            _existing_lock(root / "storage.lock") as storage_fd, \
+            _existing_lock(root / "admission.lock") as admission_fd:
+        held = ((root / "worker.lock", worker_fd), (root / "storage.lock", storage_fd),
+                (root / "admission.lock", admission_fd))
+        db = _open_existing(root)
+        try:
+            db.execute("BEGIN IMMEDIATE")
+            try:
+                live = _LiveView(root, db)
+                row = live.jobs(job_id)[0]
+                if row["state"] in queue.ADMINISTRATIVE:
+                    db.execute("ROLLBACK")
+                    return _replay_release(live, row, approval, normalized)
+                _verify_held(held)
+                current_boot = _current_boot()
+                outcome = _evaluate_release(live, current_boot, busy=busy,
+                                            worker=_worker_status(root),
+                                            missing=_locks_missing(root))
+                release = outcome["report"]
+                if not release["canConfirm"]:
+                    raise _refusal_release(job_id, "CURRENT_OR_UNKNOWN_ACTIVITY",
+                                           "release conditions changed before commit",
+                                           release)
+                if release["approvalDigest"] != approval:
+                    raise _refusal_release(job_id, "SNAPSHOT_CHANGED",
+                                           "approved facts changed before commit", release)
+                if job_id not in release["jobs"]:
+                    raise _refusal_release(job_id, "IDENTITY_INVALID",
+                                           "job is not one of the verified cross-boot orphans",
+                                           release)
+                recorded_at = time.time()
+                receipts = []
+                for orphan in outcome["orphans"]:
+                    target, assessment = orphan["job"], orphan["assessment"]
+                    payload = {"schemaVersion": SCHEMA_VERSION, "disposition": DISPOSITION,
+                               "jobId": target["job_id"], "attemptId": target["attempt_id"],
+                               "runId": target["run_id"], "preparedDigest": target["digest"],
+                               "fromState": target["state"], "previousReason": target["reason"],
+                               "previousUpdatedAt": target["updated_at"],
+                               "toState": queue.ADMINISTRATIVE_STATE,
+                               "operatorUid": os.getuid(), "recordedAt": recorded_at,
+                               "reason": normalized, "approvalDigest": approval,
+                               "historicalBootId": assessment["historicalBootId"],
+                               "currentBootId": current_boot, "rootIdentity": live.identity,
+                               "evidenceInventory": assessment["closure"],
+                               "preservation": PRESERVATION, "verificationAccepted": False}
+                    updated = db.execute(
+                        "UPDATE jobs SET state=?,reason=?,updated_at=? WHERE job_id=? AND state=?",
+                        (queue.ADMINISTRATIVE_STATE, normalized, recorded_at,
+                         target["job_id"], target["state"]))
+                    if updated.rowcount != 1:
+                        raise queue.QueueError("target changed during disposition")
+                    db.execute(
+                        "INSERT INTO events(job_id,kind,payload,created_at) VALUES(?,?,?,?)",
+                        (target["job_id"], EVENT_KIND,
+                         queue.canonical_json(payload), recorded_at))
+                    receipts.append(payload)
+                host = live.host_row
+                released = db.execute(
+                    "UPDATE host SET state='idle',job_id=NULL,reason='' WHERE singleton=1 "
+                    "AND state='quarantined' AND job_id=?",
+                    (host["job_id"],))
+                if released.rowcount != 1:
+                    raise queue.QueueError("host marker changed during release")
+                release_payload = {
+                    "schemaVersion": SCHEMA_VERSION, "operation": RELEASE_KIND,
+                    "jobIds": [receipt["jobId"] for receipt in receipts],
+                    "previousState": host["state"], "previousJobId": host["job_id"],
+                    "previousReason": host["reason"], "toState": "idle",
+                    "operatorUid": os.getuid(), "recordedAt": recorded_at,
+                    "reason": normalized, "approvalDigest": approval,
+                    "currentBootId": current_boot, "rootIdentity": live.identity,
+                    "verificationAccepted": False}
+                db.execute("INSERT INTO events(job_id,kind,payload,created_at) VALUES(?,?,?,?)",
+                           (host["job_id"], RELEASE_KIND,
+                            queue.canonical_json(release_payload), recorded_at))
+                _verify_held(held)
+                db.execute("COMMIT")
+            except BaseException:
+                if db.in_transaction:
+                    db.execute("ROLLBACK")
+                raise
+        finally:
+            db.close()
+        return {**release_payload, "receipts": receipts, "replayed": False}
+
+
 def cli(args: Any, *, root: Path | None = None) -> int:
     root = queue.account_root() if root is None else root
-    job_id = args.inspect_job or args.confirm_job
+    release_job = getattr(args, "confirm_release_job", None)
+    job_id = args.inspect_job or args.confirm_job or release_job
     if job_id is None or not JOB_ID.fullmatch(job_id):
         print("host-validation: abandon requires one exact job id", file=sys.stderr)
         return 2
     if args.inspect_job is not None:
         if args.approval is not None or args.reason is not None:
-            print("host-validation: --approval/--reason are only valid with --confirm", file=sys.stderr)
+            print("host-validation: --approval/--reason are only valid with a --confirm mode",
+                  file=sys.stderr)
             return 2
         report = inspect(root, job_id)
         print(json.dumps(report, ensure_ascii=False, sort_keys=True), flush=True)
-        return 0 if report["canConfirm"] else 75
+        release = report.get("hostRelease") or {}
+        return 0 if report["canConfirm"] or release.get("canConfirm") else 75
+    if release_job is not None:
+        if not isinstance(args.approval, str) or not APPROVAL.fullmatch(args.approval) \
+                or args.reason is None:
+            print("host-validation: --confirm-all-cross-boot requires --approval DIGEST "
+                  "and --reason", file=sys.stderr)
+            return 2
+        try:
+            receipt = confirm_release(root, job_id, args.approval, args.reason)
+        except Rejected as refusal:
+            print(json.dumps(refusal.report, ensure_ascii=False, sort_keys=True), flush=True)
+            return 75
+        except (queue.QueueError, sqlite3.Error, OSError, ValueError, KeyError, TypeError) as failure:
+            print(f"host-validation: {failure}", file=sys.stderr)
+            return 75
+        print(json.dumps(receipt, ensure_ascii=False, sort_keys=True), flush=True)
+        return 0
     if not isinstance(args.approval, str) or not APPROVAL.fullmatch(args.approval) or args.reason is None:
         print("host-validation: --confirm requires --approval DIGEST and --reason", file=sys.stderr)
         return 2
