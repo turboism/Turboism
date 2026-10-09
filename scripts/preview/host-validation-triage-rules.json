@@ -1,0 +1,159 @@
+{
+ "schemaVersion": 1,
+ "description": "Ordered root-cause rules for host_validation_triage.py. The first rule whose 'when' clauses all match wins (clauses are AND-ed); unmatched jobs are UNKNOWN and emit their signature so this table can be extended. Clause keys: state/terminalState/validationStatus/resultStatus (exact values, case-insensitive), exceptionClass/message/frame (regex on the first exception block and its caused-by chain), marker (regex on *_RESULT / *_FAILURE / TIMED_OUT / UNAVAILABLE log markers), console (regex on cubism-console.txt ERROR exception heads), failureText (regex on result-properties failure.N, unexpectedFailure actuals, per-assertion actuals and failure-marker log lines). FREE-license startup markers (START_FREE_SELECTED, FREE_PARAMETER_LIMIT_ACKNOWLEDGED, FREE_WELCOME_CONFIRMED) are emitted by the NativeStartupAssistanceAgent on every installation and are never treated as failure evidence.",
+ "nonFailureMarkers": [
+  "START_FREE_SELECTED",
+  "FREE_WELCOME_CONFIRMED",
+  "FREE_PARAMETER_LIMIT_ACKNOWLEDGED",
+  "NEWER_MODEL_OPEN_CONFIRMED",
+  "UPDATE_PAGE_CANCELLED",
+  "JOCL is not available",
+  "JogampRuntimeException"
+ ],
+ "rules": [
+  {
+   "id": "terminal-pass",
+   "category": "PASS",
+   "when": {"state": ["succeeded"], "validationStatus": ["PASS"]},
+   "advice": "verdict recorded; no action"
+  },
+  {
+   "id": "admission-manifest-record",
+   "category": "ADMISSION_STATIC",
+   "when": {"message": "verification record fields do not match the reviewed manifest|record selectors do not match the runtime-owned manifest"},
+   "advice": "verification records are out of sync with the reviewed manifest; fix the records and re-run offline precheck instead of retrying"
+  },
+  {
+   "id": "admission-runtime-evidence",
+   "category": "ADMISSION_STATIC",
+   "when": {"message": "Verified Cubism Core runtime admission failed|EVIDENCE_REJECTED|VERSION_MISMATCH|host admission failed before plugin loading"},
+   "advice": "host admission rejected verified evidence; refresh the verification records, do not blind-retry"
+  },
+  {
+   "id": "admission-access-plan",
+   "category": "ADMISSION_STATIC",
+   "when": {"exceptionClass": "VerifiedAccessException"},
+   "advice": "verified selector is not invocable or absent from the access plan; correct the selector records"
+  },
+  {
+   "id": "probe-missing-member",
+   "category": "PROBE_DRIFT",
+   "when": {"failureText": "NoSuchMethodException|NoSuchMethodError|NoSuchFieldException|NoSuchFieldError|ClassNotFoundException|NoClassDefFoundError"},
+   "advice": "probe references a host member that does not exist on this version; update the probe or its member mapping"
+  },
+  {
+   "id": "probe-missing-member-exception",
+   "category": "PROBE_DRIFT",
+   "when": {"exceptionClass": "NoSuchMethod|NoSuchField|ClassNotFound|NoClassDefFound"},
+   "advice": "probe references a host member that does not exist on this version; update the probe or its member mapping"
+  },
+  {
+   "id": "probe-expectation-mismatch",
+   "category": "PROBE_DRIFT",
+   "when": {"marker": "VALIDATION_FAILURE [^\\n]*expected="},
+   "advice": "probe expectation no longer matches observed host behaviour; review the probe mapping for this version"
+  },
+  {
+   "id": "probe-version-allowlist",
+   "category": "PROBE_DRIFT",
+   "when": {"message": "hostVersion must be|unknown mi3d mode|probe does not support"},
+   "advice": "probe allowlist does not cover this host version or mode; extend the probe"
+  },
+  {
+   "id": "capability-parameter-write",
+   "category": "CAPABILITY_BOUNDARY",
+   "when": {"failureText": "Parameter\\.setValue|setParameterValue"},
+   "advice": "host refuses parameter writes under the current license/profile; this is a capability boundary, not a defect to retry"
+  },
+  {
+   "id": "capability-parameter-write-exception",
+   "category": "CAPABILITY_BOUNDARY",
+   "when": {"message": "Parameter\\.setValue|setParameterValue|Parameter value editing is unavailable"},
+   "advice": "host refuses parameter writes under the current license/profile; this is a capability boundary, not a defect to retry"
+  },
+  {
+   "id": "capability-profile-unavailable",
+   "category": "CAPABILITY_BOUNDARY",
+   "when": {"exceptionClass": "UnsupportedOperationException|ExecutionException", "message": "is unavailable|unavailable in the access plan|unavailable on this profile"},
+   "advice": "capability not exposed on this host/profile; record the boundary"
+  },
+  {
+   "id": "capability-result-unavailable",
+   "category": "CAPABILITY_BOUNDARY",
+   "when": {"resultStatus": ["UNAVAILABLE"]},
+   "advice": "probe reported the capability UNAVAILABLE; record the boundary"
+  },
+  {
+   "id": "capability-marker-unavailable",
+   "category": "CAPABILITY_BOUNDARY",
+   "when": {"marker": "status=UNAVAILABLE|probe=UNAVAILABLE"},
+   "advice": "probe reported the capability UNAVAILABLE; record the boundary"
+  },
+  {
+   "id": "infra-edt-dispatch",
+   "category": "INFRA_RETRYABLE",
+   "when": {"exceptionClass": "EdtDispatchException"},
+   "advice": "EDT did not accept dispatch within the bound; transient host scheduling pressure, retry is appropriate"
+  },
+  {
+   "id": "infra-edt-message",
+   "category": "INFRA_RETRYABLE",
+   "when": {"message": "not accepted by the EDT|EDT operation timed out|waiting for EDT acceptance|host binding is no longer active"},
+   "advice": "EDT did not accept dispatch within the bound; transient host scheduling pressure, retry is appropriate"
+  },
+  {
+   "id": "infra-model-ready-timeout",
+   "category": "INFRA_RETRYABLE",
+   "when": {"message": "No active model with drawables was observed within"},
+   "advice": "model did not become ready inside the observation window; transient load, retry"
+  },
+  {
+   "id": "infra-host-execution-timeout",
+   "category": "INFRA_RETRYABLE",
+   "when": {"message": "timed out before host execution|MCP startup failed"},
+   "advice": "host-side execution timed out; retry under lower host load"
+  },
+  {
+   "id": "infra-timeout-exception",
+   "category": "INFRA_RETRYABLE",
+   "when": {"exceptionClass": "TimeoutException|ExecutionFailure"},
+   "advice": "host-side execution timed out; retry under lower host load"
+  },
+  {
+   "id": "infra-model-wait-timeout",
+   "category": "INFRA_RETRYABLE",
+   "when": {"marker": "MODEL_TIMEOUT|MODEL_WAIT|PROBE_FLAG_TIMEOUT|READY_TIMEOUT"},
+   "advice": "the host model/probe never became ready inside the wait window; transient readiness stall, retry"
+  },
+  {
+   "id": "infra-foreign-modal",
+   "category": "INFRA_RETRYABLE",
+   "when": {"message": "Refusing to guess through a modal not owned by the selected host"},
+   "advice": "an unowned (WebKit/system) modal blocked the probe; retry with a clean desktop"
+  },
+  {
+   "id": "infra-connection-window",
+   "category": "INFRA_RETRYABLE",
+   "when": {"message": "Host adapter connection failed|CONNECTION_FAILED"},
+   "advice": "host adapter connect failed inside the connection window; retry"
+  },
+  {
+   "id": "infra-queue-timeout",
+   "category": "INFRA_RETRYABLE",
+   "when": {"state": ["timed_out"]},
+   "advice": "job exceeded its queue timeout; retry with a fresh window"
+  },
+  {
+   "id": "infra-marker-timeout",
+   "category": "INFRA_RETRYABLE",
+   "when": {"marker": "TIMED_OUT|NETWORK_UNAVAILABLE"},
+   "advice": "a scheduler lane or external dependency timed out; retry"
+  },
+  {
+   "id": "verdict-contradiction",
+   "category": "UNKNOWN",
+   "when": {"state": ["succeeded"], "validationStatus": ["FAIL", "BLOCKED"]},
+   "advice": "queue state and recorded verdict disagree; inspect evidence manually"
+  }
+ ]
+}
