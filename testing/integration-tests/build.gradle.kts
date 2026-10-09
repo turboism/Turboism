@@ -30,23 +30,28 @@ tasks.named<ProcessResources>("processTestResources") {
 
 tasks.test {
     dependsOn(":plugins:project-inspector:jar")
+    dependsOn(":plugins:mcp:jar")
     systemProperty("projectRoot", rootProject.projectDir.absolutePath)
     systemProperty("sdkBuildDir", project(":sdk").buildDir.absolutePath)
     systemProperty("projectInspectorBuildDir", project(":plugins:project-inspector").buildDir.absolutePath)
+    systemProperty("mcpBuildDir", project(":plugins:mcp").buildDir.absolutePath)
 }
 
 tasks.register<Test>("previewPluginRuntimeTest") {
     group = "verification"
     description = "Runs real local plugin loading and preview failure-report integration tests."
     dependsOn(":plugins:project-inspector:jar")
+    dependsOn(":plugins:mcp:jar")
     testClassesDirs = sourceSets.test.get().output.classesDirs
     classpath = sourceSets.test.get().runtimeClasspath
     useJUnitPlatform()
     maxParallelForks = 1
     systemProperty("java.awt.headless", "true")
     systemProperty("projectInspectorBuildDir", project(":plugins:project-inspector").buildDir.absolutePath)
+    systemProperty("mcpBuildDir", project(":plugins:mcp").buildDir.absolutePath)
     filter {
         includeTestsMatching("dev.turboism.tests.preview.LocalPluginRuntimeIntegrationTest")
+        includeTestsMatching("dev.turboism.tests.preview.McpPluginRuntimeIntegrationTest")
         includeTestsMatching("dev.turboism.preview.LocalPluginRuntimeFailureReportIntegrationTest")
         isFailOnNoMatchingTests = true
     }
