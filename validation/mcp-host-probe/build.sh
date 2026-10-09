@@ -21,6 +21,7 @@ trap 'rm -rf "$out"' EXIT
 helper_root="testing/integration-tests/src/test/java/dev/turboism/tests/plugin"
 javac --release 17 -cp "$sdk_jar" -d "$out" \
   "validation/shared/src/dev/turboism/validation/NativeFreeStartup.java" \
+  "validation/shared/src/dev/turboism/validation/SessionGate.java" \
   "$helper_root/WindowsHistoryNativeUiHostClose.java" \
   "$helper_root/McpValidationHostClose.java" \
   "$helper_root/McpTexturePersistenceProbe.java" \

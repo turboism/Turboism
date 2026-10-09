@@ -91,12 +91,29 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
     }
 
     private void awaitResult() {
+        if (dev.turboism.validation.SessionGate.enabled()
+                && dev.turboism.validation.SessionGate.awaitTurn(
+                    context.paths().stateDir(), logger::info) == null) {
+            return;
+        }
         if (Boolean.getBoolean("turboism.validation.ownedMocOnly")) {
             if (!awaitTaskDocument()) {
                 CoreOwnedMocProbe.notStarted(context, validationStateRoot(), "Task fixture readiness failed or timed out");
+                if (dev.turboism.validation.SessionGate.enabled()) {
+                    dev.turboism.validation.SessionGate.complete(context.paths().stateDir(), "FAIL");
+                }
                 return;
             }
-            if (!CoreOwnedMocProbe.run(context, validationStateRoot())) return;
+            if (!CoreOwnedMocProbe.run(context, validationStateRoot())) {
+                if (dev.turboism.validation.SessionGate.enabled()) {
+                    dev.turboism.validation.SessionGate.complete(context.paths().stateDir(), "FAIL");
+                }
+                return;
+            }
+            if (dev.turboism.validation.SessionGate.enabled()) {
+                dev.turboism.validation.SessionGate.complete(context.paths().stateDir(), "PASS");
+                return;
+            }
             requestAutomatedHostClose("core-owned-moc-result.properties");
             return;
         }

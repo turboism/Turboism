@@ -279,6 +279,42 @@ class TriageFixture(unittest.TestCase):
         self.assertEqual(record["category"], "UNKNOWN")
         self.assertEqual(record["ruleId"], "verdict-pass-then-fail")
 
+    def test_session_steps_map_back_to_task_specs(self):
+        add_job(self.tmp, job_id="j-sess", request_key="cov3-session-5304",
+                state="succeeded", spec="session-standard:5304@standard",
+                outcome={"terminalState": "succeeded", "validationStatus": "PASS"})
+        result_dir = self.tmp / "jobs" / "j-sess" / "evidence" / "result"
+        result_dir.mkdir(parents=True, exist_ok=True)
+        (result_dir / "session-result.properties").write_text(
+            "status=PASS\n"
+            "steps=2\n"
+            "step.0.name=texture-relations\n"
+            "step.0.spec=texture-relations\:5304@standard\n"
+            "step.0.status=PASS\n"
+            "step.1.name=core-owned-moc\n"
+            "step.1.spec=core-owned-moc\:5304\n"
+            "step.1.status=NOT_RUN\n",
+            encoding="utf-8")
+        row = triage.iter_rows(self.db, job_ids=["j-sess"])[0]
+        steps = triage.session_steps(row, jobs_root=self.jobs_root,
+                                     prepared_root=self.prepared_root,
+                                     validation_root=None)
+        self.assertEqual([s["task"] for s in steps],
+                         ["texture-relations", "core-owned-moc"])
+        self.assertEqual(steps[0]["version"], "5304")
+        self.assertEqual(steps[0]["variant"], "standard")
+        self.assertIsNone(steps[1]["variant"])
+        self.assertEqual(steps[1]["status"], "NOT_RUN")
+
+    def test_non_session_job_has_no_steps(self):
+        add_job(self.tmp, job_id="j-plain", request_key="r-plain",
+                state="succeeded", spec="backup:5200",
+                outcome={"terminalState": "succeeded", "validationStatus": "PASS"})
+        row = triage.iter_rows(self.db, job_ids=["j-plain"])[0]
+        self.assertEqual(triage.session_steps(
+            row, jobs_root=self.jobs_root, prepared_root=self.prepared_root,
+            validation_root=None), [])
+
     def test_normalize_message(self):
         text = ("No active model observed within 240000 ms at "
                 "Z:\\home\\rain\\x\\queue-0123456789abcdef0123456789abcdef "

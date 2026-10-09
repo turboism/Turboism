@@ -81,10 +81,18 @@ public final class SeparateSavePathHostValidationPlugin implements TurboismPlugi
     }
 
     private void runWhenHostReady() {
+        if (dev.turboism.validation.SessionGate.enabled()
+                && dev.turboism.validation.SessionGate.awaitTurn(stateDir, logger::info) == null) {
+            return;
+        }
         final List<String> failures = new ArrayList<>();
         if (!awaitHostReady(failures)) {
             logger.warn("SEPARATE_SAVE_PATH_RESULT status=FAIL phase=readiness");
             writeResult(false, failures);
+            if (dev.turboism.validation.SessionGate.enabled()) {
+                dev.turboism.validation.SessionGate.complete(stateDir, "FAIL");
+                return;
+            }
             Runtime.getRuntime().halt(2);
             return;
         }
@@ -99,6 +107,10 @@ public final class SeparateSavePathHostValidationPlugin implements TurboismPlugi
         }
         System.out.flush();
         System.err.flush();
+        if (dev.turboism.validation.SessionGate.enabled()) {
+            dev.turboism.validation.SessionGate.complete(stateDir, pass ? "PASS" : "FAIL");
+            return;
+        }
         // halt (not exit): skips shutdown hooks that can hang under Wine once
         // the probe has written its terminal result.
         Runtime.getRuntime().halt(pass ? 0 : 2);

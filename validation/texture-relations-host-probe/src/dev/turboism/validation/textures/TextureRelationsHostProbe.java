@@ -25,7 +25,8 @@ public final class TextureRelationsHostProbe implements TurboismPlugin {
     @Override public void enable() {
         final String runId = System.getProperty("turboism.validation.textures.runId", "");
         if (runId.isBlank()) throw new IllegalStateException("Task-scoped runId is required");
-        if (Boolean.getBoolean("turboism.validation.textures.startFree")) {
+        if (!dev.turboism.validation.SessionGate.enabled()
+                && Boolean.getBoolean("turboism.validation.textures.startFree")) {
             startupHelper = new Thread(() -> {
                 while (!stopped) {
                     try {
@@ -60,6 +61,11 @@ public final class TextureRelationsHostProbe implements TurboismPlugin {
     @Override public void shutdown() { disable(); }
 
     private void run(final String runId) {
+        if (dev.turboism.validation.SessionGate.enabled()
+                && dev.turboism.validation.SessionGate.awaitTurn(context.paths().stateDir(),
+                    message -> context.logger().info(message)) == null) {
+            return;
+        }
         final Properties result = new Properties();
         final boolean exportObservation = Boolean.getBoolean("turboism.validation.textures.exportObservation");
         result.setProperty("schemaVersion", "1");
@@ -152,6 +158,11 @@ public final class TextureRelationsHostProbe implements TurboismPlugin {
             Files.move(dir.resolve("relations-result.pending"), dir.resolve("relations-result.properties"),
                 StandardCopyOption.REPLACE_EXISTING);
             context.logger().info("TEXTURE_RELATIONS_SMOKE_RESULT status=" + result.getProperty("status"));
+            if (dev.turboism.validation.SessionGate.enabled()) {
+                dev.turboism.validation.SessionGate.complete(
+                    context.paths().stateDir(), result.getProperty("status"));
+                return;
+            }
             // Only this explicitly enabled test process is exited; no model was changed or saved.
             Runtime.getRuntime().exit("PASS".equals(result.getProperty("status")) ? 0 : 2);
         } catch (Exception error) {

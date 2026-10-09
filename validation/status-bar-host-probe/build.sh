@@ -26,6 +26,7 @@ out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 
 javac --release 17 -cp "$sdk_jar" -d "$out" \
+  "validation/shared/src/dev/turboism/validation/SessionGate.java" \
   "$src/dev/turboism/validation/statusbar/StatusBarHostValidationPlugin.java"
 cp -r "$src/META-INF" "$out/"
 
