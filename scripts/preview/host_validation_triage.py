@@ -12,6 +12,12 @@ a human can extend the table. FREE-license startup markers
 (START_FREE / FREE_PARAMETER_LIMIT) appear on every installation and are never
 failure evidence.
 
+On top of the per-job rules an aggregate pass marks SYSTEMIC: when one task
+produces the same failure signature on four or more distinct versions and no
+job for that task ever recorded PASS, retrying the identical signature cannot
+help, so those records are reclassified SYSTEMIC and left out of
+--retry-plan.
+
 This tool only reads the queue database and run evidence. It never submits,
 cancels or retries jobs.
 """
@@ -26,8 +32,12 @@ from typing import Any
 
 import host_validation_queue as queue
 
-CATEGORIES = ("PASS", "INFRA_RETRYABLE", "ADMISSION_STATIC", "CAPABILITY_BOUNDARY",
-              "PROBE_DRIFT", "NO_EVIDENCE", "UNKNOWN")
+CATEGORIES = ("PASS", "SYSTEMIC", "INFRA_RETRYABLE", "ADMISSION_STATIC",
+              "CAPABILITY_BOUNDARY", "PROBE_DRIFT", "FIXTURE_UNSUITABLE",
+              "NO_EVIDENCE", "UNKNOWN")
+# A task/signature seen failing on at least this many distinct versions with
+# no PASS anywhere is systemic, not transient.
+SYSTEMIC_MIN_VERSIONS = 4
 TERMINAL_STATES = frozenset({"succeeded", "failed", "cancelled", "timed_out",
                              "blocked", "abandoned"})
 JOB_SELECT = ("sequence,job_id,request_key,prepared_id,digest,state,reason,"
@@ -465,20 +475,56 @@ def retry_plan(records: list[dict[str, Any]], all_records: list[dict[str, Any]])
     }
 
 
+def signature_label(record: dict[str, Any]) -> str:
+    signature = record["signature"]
+    if signature:
+        return f"{signature['class']}: {signature['message']} @ {signature['frame'] or '-'}"
+    if record["evidence"]["failureMarkers"]:
+        return record["evidence"]["failureMarkers"][0]
+    if record["evidence"]["propFailures"]:
+        return record["evidence"]["propFailures"][0]
+    if record["evidence"]["consoleMarkers"]:
+        return "console: " + record["evidence"]["consoleMarkers"][0]
+    return f"<no signature; state={record['state']}>"
+
+
+def apply_systemic(records: list[dict[str, Any]], universe: list[dict[str, Any]]) -> None:
+    """Reclassify records as SYSTEMIC in place when one task keeps producing
+    the identical failure signature across versions: the same signature on at
+    least SYSTEMIC_MIN_VERSIONS distinct versions, and no PASS for that task
+    anywhere in ``universe``. Retrying a cross-version-identical failure
+    cannot change the outcome, so SYSTEMIC records are excluded from
+    --retry-plan. The original per-job category is kept in ``underlying``."""
+    tasks_with_pass = {record["task"] for record in universe
+                       if record["category"] == "PASS" and record["task"]}
+    versions_by_signature: dict[tuple[str, str], set[str]] = {}
+    for record in universe:
+        if record["category"] in ("PASS", "NO_EVIDENCE"):
+            continue
+        task, version = record["task"], record["version"]
+        if not task or not version:
+            continue
+        key = (task, signature_label(record))
+        versions_by_signature.setdefault(key, set()).add(version)
+    for record in records:
+        task = record["task"]
+        if record["category"] == "PASS" or not task or task in tasks_with_pass:
+            continue
+        versions = versions_by_signature.get((task, signature_label(record)), set())
+        if len(versions) < SYSTEMIC_MIN_VERSIONS:
+            continue
+        record["underlying"] = record["category"]
+        record["category"] = "SYSTEMIC"
+        record["notes"] = record.get("notes", []) + [
+            f"same signature failed on {len(versions)} versions "
+            f"({', '.join(sorted(versions))}) with no PASS for this task; "
+            "excluded from retry plans"]
+
+
 def summarize(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     groups: dict[tuple[str, str], dict[str, Any]] = {}
     for record in records:
-        signature = record["signature"]
-        if signature:
-            label = f"{signature['class']}: {signature['message']} @ {signature['frame'] or '-'}"
-        elif record["evidence"]["failureMarkers"]:
-            label = record["evidence"]["failureMarkers"][0]
-        elif record["evidence"]["propFailures"]:
-            label = record["evidence"]["propFailures"][0]
-        elif record["evidence"]["consoleMarkers"]:
-            label = "console: " + record["evidence"]["consoleMarkers"][0]
-        else:
-            label = f"<no signature; state={record['state']}>"
+        label = signature_label(record)
         key = (record["category"], label)
         group = groups.setdefault(key, {"category": record["category"], "signature": label,
                                         "ruleId": record["ruleId"], "count": 0, "jobs": []})
@@ -543,8 +589,10 @@ def main(argv: list[str] | None = None) -> int:
                            for row in all_rows]
         else:
             all_records = records
+        apply_systemic(records, all_records)
         print(json.dumps(retry_plan(records, all_records), indent=1))
         return 0
+    apply_systemic(records, records)
     if args.json:
         print(json.dumps(records, indent=1, ensure_ascii=False))
         return 0
