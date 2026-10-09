@@ -238,6 +238,18 @@ val corePublicApiProviderTest by tasks.registering(Test::class) {
     }
 }
 
+val admissionPreflightTest by tasks.registering(Test::class) {
+    group = "verification"
+    description = "Offline admission preflight: replays the production manifest-record gate for every reviewed record x generated manifest without a host artifact."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching("dev.turboism.mapping.verification.*AdmissionPreflight*")
+        isFailOnNoMatchingTests = true
+    }
+}
+
 val legacyCubismEvidenceTest by tasks.registering(Test::class) {
     group = "host verification"
     description = "Runs tests that require separately supplied licensed Cubism binary evidence."
