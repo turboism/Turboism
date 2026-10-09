@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -84,18 +86,30 @@ class CorePublicApiProviderFactoryTest {
 
     @Test
     void mapsReviewedRecordVersionsToExactCoreRuntimeTuples() {
-        assertEquals(
-                new CoreRuntimeVersion(5, 0, 256),
-                CoreVersionExpectation.reviewedProfile("5.2.03").exactVersion());
-        assertEquals(
-                new CoreRuntimeVersion(6, 0, 257),
-                CoreVersionExpectation.reviewedProfile("5.3.02").exactVersion());
-        assertEquals(
-                new CoreRuntimeVersion(6, 0, 513),
-                CoreVersionExpectation.reviewedProfile("5.3.04").exactVersion());
+        // Every reviewed Cubism version resolves the tuple its live host reported
+        // during the recorded owned-MOC/core-acquisition runs.
+        final Map<String, CoreRuntimeVersion> observed = new java.util.LinkedHashMap<>();
+        for (final String version : List.of(
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03")) {
+            observed.put(version, new CoreRuntimeVersion(5, 0, 0));
+        }
+        for (final String version : List.of("5.2.00", "5.2.01", "5.2.02", "5.2.03")) {
+            observed.put(version, new CoreRuntimeVersion(5, 0, 256));
+        }
+        for (final String version : List.of("5.3.00", "5.3.01", "5.3.02", "5.3.03")) {
+            observed.put(version, new CoreRuntimeVersion(6, 0, 257));
+        }
+        observed.put("5.3.04", new CoreRuntimeVersion(6, 0, 513));
+        assertEquals(20, observed.size());
+        observed.forEach((version, tuple) -> assertEquals(
+                tuple,
+                CoreVersionExpectation.reviewedProfile(version).exactVersion(),
+                version + ": reviewed Core tuple drifted from the host-observed evidence"));
         assertTrue(CoreVersionExpectation.reviewedProfile("5.3.04").matches(new CoreRuntimeVersion(6, 0, 513)));
         assertFalse(CoreVersionExpectation.reviewedProfile("5.3.04").matches(new CoreRuntimeVersion(6, 0, 257)));
         assertFalse(CoreVersionExpectation.reviewedProfile("5.3.02").matches(new CoreRuntimeVersion(6, 0, 513)));
+        assertThrows(IllegalArgumentException.class, () -> CoreVersionExpectation.reviewedProfile("5.4"));
     }
 
     @Test
