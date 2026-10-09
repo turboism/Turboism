@@ -9,6 +9,7 @@
     "cubism-5.0.01-clipmask",
     "cubism-5.0.01-editor-model-read",
     "cubism-5.0.01-ui-bounding-box-overlay",
+    "cubism-5.0.01-ui-control-appearance",
     "cubism-5.0.01-workspace-control",
     "cubism-5.0.01-ui-status-bar",
     "cubism-5.0.01-performance-render-scene",
