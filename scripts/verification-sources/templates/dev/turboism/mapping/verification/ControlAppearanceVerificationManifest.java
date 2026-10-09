@@ -57,6 +57,105 @@ public final class ControlAppearanceVerificationManifest {
     );
 
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(final HostArtifactDigest artifact) {
+        if (ReviewedHostArtifacts.CUBISM_5_0_00.equals(artifact)) {
+            return manifest(
+                "${record:cubism-5.0.00-ui-control-appearance.json:verificationId}",
+                "${record:cubism-5.0.00-ui-control-appearance.json:sha256}",
+                ReviewedHostArtifacts.CUBISM_5_0_00_VERSION, "${record:cubism-5.0.00-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_0_00.size(),
+                ReviewedHostArtifacts.CUBISM_5_0_00.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_0_01.equals(artifact)) {
+            return manifest(
+                "${record:cubism-5.0.01-ui-control-appearance.json:verificationId}",
+                "${record:cubism-5.0.01-ui-control-appearance.json:sha256}",
+                ReviewedHostArtifacts.CUBISM_5_0_01_VERSION, "${record:cubism-5.0.01-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_0_01.size(),
+                ReviewedHostArtifacts.CUBISM_5_0_01.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_0_02.equals(artifact)) {
+            return manifest(
+                "${record:cubism-5.0.02-ui-control-appearance.json:verificationId}",
+                "${record:cubism-5.0.02-ui-control-appearance.json:sha256}",
+                ReviewedHostArtifacts.CUBISM_5_0_02_VERSION, "${record:cubism-5.0.02-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_0_02.size(),
+                ReviewedHostArtifacts.CUBISM_5_0_02.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_0_03.equals(artifact)) {
+            return manifest(
+                "${record:cubism-5.0.03-ui-control-appearance.json:verificationId}",
+                "${record:cubism-5.0.03-ui-control-appearance.json:sha256}",
+                ReviewedHostArtifacts.CUBISM_5_0_03_VERSION, "${record:cubism-5.0.03-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_0_03.size(),
+                ReviewedHostArtifacts.CUBISM_5_0_03.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_0_04.equals(artifact)) {
+            return manifest(
+                "${record:cubism-5.0.04-ui-control-appearance.json:verificationId}",
+                "${record:cubism-5.0.04-ui-control-appearance.json:sha256}",
+                ReviewedHostArtifacts.CUBISM_5_0_04_VERSION, "${record:cubism-5.0.04-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_0_04.size(),
+                ReviewedHostArtifacts.CUBISM_5_0_04.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_0_05.equals(artifact)) {
+            return manifest(
+                "${record:cubism-5.0.05-ui-control-appearance.json:verificationId}",
+                "${record:cubism-5.0.05-ui-control-appearance.json:sha256}",
+                ReviewedHostArtifacts.CUBISM_5_0_05_VERSION, "${record:cubism-5.0.05-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_0_05.size(),
+                ReviewedHostArtifacts.CUBISM_5_0_05.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_0_06.equals(artifact)) {
+            return manifest(
+                "${record:cubism-5.0.06-ui-control-appearance.json:verificationId}",
+                "${record:cubism-5.0.06-ui-control-appearance.json:sha256}",
+                ReviewedHostArtifacts.CUBISM_5_0_06_VERSION, "${record:cubism-5.0.06-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_0_06.size(),
+                ReviewedHostArtifacts.CUBISM_5_0_06.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_1_00.equals(artifact)) {
+            return manifest(
+                "${record:cubism-5.1.00-ui-control-appearance.json:verificationId}",
+                "${record:cubism-5.1.00-ui-control-appearance.json:sha256}",
+                ReviewedHostArtifacts.CUBISM_5_1_00_VERSION, "${record:cubism-5.1.00-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_1_00.size(),
+                ReviewedHostArtifacts.CUBISM_5_1_00.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_1_01.equals(artifact)) {
+            return manifest(
+                "${record:cubism-5.1.01-ui-control-appearance.json:verificationId}",
+                "${record:cubism-5.1.01-ui-control-appearance.json:sha256}",
+                ReviewedHostArtifacts.CUBISM_5_1_01_VERSION, "${record:cubism-5.1.01-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_1_01.size(),
+                ReviewedHostArtifacts.CUBISM_5_1_01.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_1_02.equals(artifact)) {
+            return manifest(
+                "${record:cubism-5.1.02-ui-control-appearance.json:verificationId}",
+                "${record:cubism-5.1.02-ui-control-appearance.json:sha256}",
+                ReviewedHostArtifacts.CUBISM_5_1_02_VERSION, "${record:cubism-5.1.02-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_1_02.size(),
+                ReviewedHostArtifacts.CUBISM_5_1_02.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_1_03.equals(artifact)) {
+            return manifest(
+                "${record:cubism-5.1.03-ui-control-appearance.json:verificationId}",
+                "${record:cubism-5.1.03-ui-control-appearance.json:sha256}",
+                ReviewedHostArtifacts.CUBISM_5_1_03_VERSION, "${record:cubism-5.1.03-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_1_03.size(),
+                ReviewedHostArtifacts.CUBISM_5_1_03.sha256()
+            );
+        }
         if (ReviewedHostArtifacts.CUBISM_5_2_00.equals(artifact)) {
             return manifest(
                 "${record:cubism-5.2.00-ui-control-appearance.json:verificationId}",
