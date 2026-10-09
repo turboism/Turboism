@@ -5,6 +5,8 @@
   "START_FREE_SELECTED",
   "FREE_WELCOME_CONFIRMED",
   "FREE_PARAMETER_LIMIT_ACKNOWLEDGED",
+ "FREE_SAVE_RESTRICTION_ACKNOWLEDGED",
+ "FREE_EXPORT_RESTRICTION_ACKNOWLEDGED",
   "NEWER_MODEL_OPEN_CONFIRMED",
   "UPDATE_PAGE_CANCELLED",
   "JOCL is not available",
@@ -88,6 +90,12 @@
    "category": "CAPABILITY_BOUNDARY",
    "when": {"marker": "status=UNAVAILABLE|probe=UNAVAILABLE"},
    "advice": "probe reported the capability UNAVAILABLE; record the boundary"
+  },
+  {
+   "id": "capability-free-save-restriction",
+   "category": "CAPABILITY_BOUNDARY",
+   "when": {"message": "Native save rejected"},
+   "advice": "the FREE-started host's saveDocument gate rejected a document exceeding FREE-edition limits (modal 'Save failed. Please try again meeting the restrictions.' acknowledged by the audited prompt responder); the save cannot succeed under this license profile — record the boundary or exercise the free-fixture variant instead of retrying"
   },
   {
    "id": "fixture-no-clip-mask-records",

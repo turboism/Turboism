@@ -148,6 +148,12 @@ def fixture_path_for(task_name: str, version: str, environment: dict[str, str]) 
         override = environment.get("TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK")
         if override:
             return override
+    if task_name == "session-standard":
+        # One launch carries the clipmask-viewer step, so the session prefers
+        # the same mask-bearing override (run-cubism-host-validation-session.sh).
+        override = environment.get("TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK")
+        if override:
+            return override
     return (
         environment.get(f"TURBOISM_HOST_VALIDATION_FIXTURE_{version}")
         or environment.get("TURBOISM_HOST_VALIDATION_FIXTURE_5303")
