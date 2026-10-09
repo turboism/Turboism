@@ -16,7 +16,7 @@ class GeneratedCoreSelectorContractTest {
     @Test
     void generatedContractBindsTheExactProfileSets() {
         assertEquals(
-                "68eef67f5ecf825930878129b6880af124cafc2d7df7975c974dc153c55b9793",
+                "f9c50859eba16158f16510b15c9d012a2c61b2b55af612125317c8f8d1750edb",
                 CorePublicApiSelectorContract.SELECTOR_ROSTER_SHA256);
         assertEquals(9, CorePublicApiSelectorContract.VERSION_PROBE_ALIASES.size());
         assertEquals(44, CorePublicApiSelectorContract.COMMON_STRUCTURAL_ALIASES.size());
@@ -81,6 +81,16 @@ class GeneratedCoreSelectorContractTest {
         assertEquals(
                 CorePublicApiSelectorContract.requiredAliasesFor("5.3.02"),
                 CorePublicApiSelectorContract.requiredAliasesFor("5.3.04"));
+        // The byte-identical 5.3.00-5.3.03 Core carries the same reviewed selector shape.
+        assertEquals(
+                CorePublicApiSelectorContract.requiredAliasesFor("5.3.02"),
+                CorePublicApiSelectorContract.requiredAliasesFor("5.3.00"));
+        assertEquals(
+                CorePublicApiSelectorContract.requiredAliasesFor("5.3.02"),
+                CorePublicApiSelectorContract.requiredAliasesFor("5.3.01"));
+        assertEquals(
+                CorePublicApiSelectorContract.requiredAliasesFor("5.3.02"),
+                CorePublicApiSelectorContract.requiredAliasesFor("5.3.03"));
         assertEquals(
                 "cubism-core-public-5.3.04",
                 CorePublicApiSelectorContract.providerIdFor("5.3.04").orElseThrow());
