@@ -14,6 +14,23 @@ agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
 # by the packagePsdClipMaskHostValidation Gradle task; no glob/version scanning.
 plugin_jar="${PSD_CLIP_MASK_PLUGIN_JAR:-}"
 test_classes="$repo_root/build/worktree/$worktree_id/integration-tests/classes/java/test"
+
+# Rebuild every shipped artifact before copying so a stale jar can never be
+# packaged next to a newer agent (same reason as package-windows-mcp-validation.sh).
+# When the Gradle Exec task exports PSD_CLIP_MASK_PLUGIN_JAR the build already
+# ran; without it, build here and bind the sole produced jar (still no
+# ambiguity: anything but exactly one match refuses).
+if [ -z "$plugin_jar" ]; then
+  TURBOISM_WORKTREE_ID="$worktree_id" "$repo_root/gradlew" --console=plain \
+    previewBundle :plugins:psd-clip-mask-import:jar :testing:integration-tests:testClasses
+  candidates=("$repo_root"/build/worktree/"$worktree_id"/psd-clip-mask-import/libs/psd-clip-mask-import-*-"$worktree_id".jar)
+  if [ "${#candidates[@]}" -ne 1 ] || [ ! -f "${candidates[0]}" ]; then
+    printf 'error: expected exactly one psd-clip-mask-import plugin jar under build/worktree/%s/psd-clip-mask-import/libs/; found %d\n' \
+      "$worktree_id" "${#candidates[@]}" >&2
+    exit 1
+  fi
+  plugin_jar="${candidates[0]}"
+fi
 probe_class_rel="dev/turboism/tests/plugin/WindowsPsdClipMaskValidationProbe.class"
 probe_class_dir_rel="dev/turboism/tests/plugin"
 probe_descriptor="$repo_root/scripts/preview/windows-psd-clip-mask-validation-plugin.json"

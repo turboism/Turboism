@@ -63,6 +63,20 @@ java.lang.IllegalStateException: RUNTIME_CONFIG_INVALID
 \tat java.base/java.lang.Thread.run(Unknown Source)
 """
 
+MODEL_WAIT_LOG = """\
+2026-10-10T10:46:42Z [WARN] [dev.turboism.validation.clipmask-viewer] CLIPMASK_VIEWER_MODEL_WAIT elapsedMs=60027 lastFailure=java.lang.IllegalStateException
+2026-10-10T10:50:42Z [ERROR] [dev.turboism.validation.clipmask-viewer] CLIPMASK_VIEWER_MATRIX_FAILED java.lang.IllegalStateException: No active model with drawables was observed within 240000 ms
+java.lang.IllegalStateException: No active model with drawables was observed within 240000 ms
+\tat dev.turboism.validation.clipmaskviewer.ClipMaskViewerHostValidationPlugin.awaitActiveModel(ClipMaskViewerHostValidationPlugin.java:250)
+\tat dev.turboism.validation.clipmaskviewer.ClipMaskViewerHostValidationPlugin.runMatrix(ClipMaskViewerHostValidationPlugin.java:140)
+\tat java.base/java.lang.Thread.run(Unknown Source)
+2026-10-10T10:50:45Z [INFO] [dev.turboism.validation.clipmask-viewer] CLIPMASK_VIEWER_MATRIX_RESULT status=FAIL
+"""
+
+CLIPMASK_BLOCKED_LOG = """\
+2026-10-10T09:00:42Z [INFO] [dev.turboism.validation.clipmask-viewer] CLIPMASK_VIEWER_MATRIX_RESULT status=BLOCKED modelId=41f72ac0-bd7f-4431-8011-be1ee7131e8a meshCount=16 recordCount=0
+"""
+
 
 def make_root(tmp: Path) -> tuple[Path, Path, Path]:
     (tmp / "jobs").mkdir()
@@ -314,6 +328,84 @@ class TriageFixture(unittest.TestCase):
         self.assertEqual(triage.session_steps(
             row, jobs_root=self.jobs_root, prepared_root=self.prepared_root,
             validation_root=None), [])
+
+    def _records(self) -> list:
+        rows = triage.iter_rows(self.db, terminal_only=True)
+        return [triage.triage_row(row, self.rules, jobs_root=self.jobs_root,
+                                  prepared_root=self.prepared_root,
+                                  validation_root=None) for row in rows]
+
+    def test_systemic_signature_across_versions(self):
+        for index, version in enumerate(("5000", "5100", "5101", "5200")):
+            add_job(self.tmp, job_id=f"j-sys-{index}",
+                    request_key=f"r-cmv-{version}", state="failed",
+                    spec=f"clipmask-viewer:{version}@assisted",
+                    outcome={"terminalState": "failed", "validationStatus": "FAIL"},
+                    log=MODEL_WAIT_LOG)
+        records = self._records()
+        triage.apply_systemic(records, records)
+        for record in records:
+            self.assertEqual(record["category"], "SYSTEMIC")
+            self.assertEqual(record["underlying"], "INFRA_RETRYABLE")
+        plan = triage.retry_plan(records, records)
+        self.assertEqual(plan["specs"], [])
+
+    def test_systemic_needs_no_task_pass(self):
+        for index, version in enumerate(("5000", "5100", "5101", "5200")):
+            add_job(self.tmp, job_id=f"j-sys-{index}",
+                    request_key=f"r-cmv-{version}", state="failed",
+                    spec=f"clipmask-viewer:{version}@assisted",
+                    outcome={"terminalState": "failed", "validationStatus": "FAIL"},
+                    log=MODEL_WAIT_LOG)
+        add_job(self.tmp, job_id="j-pass-5302", request_key="r-cmv-5302",
+                state="succeeded", spec="clipmask-viewer:5302@assisted",
+                outcome={"terminalState": "succeeded", "validationStatus": "PASS"})
+        records = self._records()
+        triage.apply_systemic(records, records)
+        self.assertTrue(all(record["category"] != "SYSTEMIC" for record in records))
+        plan = triage.retry_plan(records, records)
+        self.assertNotEqual(plan["specs"], [])
+
+    def test_systemic_threshold_not_met(self):
+        for index, version in enumerate(("5000", "5100", "5101")):
+            add_job(self.tmp, job_id=f"j-few-{index}",
+                    request_key=f"r-few-{version}", state="failed",
+                    spec=f"clipmask-viewer:{version}@assisted",
+                    outcome={"terminalState": "failed", "validationStatus": "FAIL"},
+                    log=MODEL_WAIT_LOG)
+        records = self._records()
+        triage.apply_systemic(records, records)
+        self.assertTrue(all(record["category"] == "INFRA_RETRYABLE"
+                            for record in records))
+        plan = triage.retry_plan(records, records)
+        self.assertEqual(len(plan["specs"]), 3)
+
+    def test_systemic_requires_same_signature(self):
+        for index, version in enumerate(("5000", "5100", "5101")):
+            add_job(self.tmp, job_id=f"j-mix-{index}",
+                    request_key=f"r-mix-{version}", state="failed",
+                    spec=f"clipmask-viewer:{version}@assisted",
+                    outcome={"terminalState": "failed", "validationStatus": "FAIL"},
+                    log=MODEL_WAIT_LOG)
+        add_job(self.tmp, job_id="j-mix-3", request_key="r-mix-5200",
+                state="failed", spec="clipmask-viewer:5200@assisted",
+                outcome={"terminalState": "failed", "validationStatus": "FAIL"},
+                log=UNKNOWN_LOG)
+        records = self._records()
+        triage.apply_systemic(records, records)
+        categories = {record["version"]: record["category"] for record in records}
+        self.assertEqual(categories["5200"], "UNKNOWN")
+        self.assertTrue(all(categories[v] == "INFRA_RETRYABLE"
+                            for v in ("5000", "5100", "5101")))
+
+    def test_clipmask_blocked_is_fixture_unsuitable(self):
+        add_job(self.tmp, job_id="j-blk", request_key="r-cmv-5000",
+                state="failed", spec="clipmask-viewer:5000@assisted",
+                outcome={"terminalState": "failed", "validationStatus": "BLOCKED"},
+                log=CLIPMASK_BLOCKED_LOG)
+        record = self.classify("j-blk")
+        self.assertEqual(record["category"], "FIXTURE_UNSUITABLE")
+        self.assertEqual(record["ruleId"], "fixture-no-clip-mask-records")
 
     def test_normalize_message(self):
         text = ("No active model observed within 240000 ms at "
