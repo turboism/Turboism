@@ -50,6 +50,7 @@ exec bash "$runner" \
   --jvm-option '-Dturboism.validation.exitOnComplete=true' \
   --jvm-option "-Dturboism.validation.hostVersion=$version" \
   --jvm-option '-Dturboism.validation.runId={TASK_ID}' \
+  --jvm-option '-Dturboism.validation.fixturePath={FIXTURE}' \
   --ready-marker 'CLIPMASK_VIEWER_PROBE_READY' \
   --ready-marker 'ClipMaskViewerPlugin enabled' \
   --ready-marker 'Plugin load complete' \
