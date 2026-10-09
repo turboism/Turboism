@@ -88,6 +88,10 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
     }
 
     private void runWhenHostReady() {
+        if (dev.turboism.validation.SessionGate.enabled()
+                && dev.turboism.validation.SessionGate.awaitTurn(stateDir, logger::info) == null) {
+            return;
+        }
         final String mode = System.getProperty(MODE_PROPERTY, "manager");
         final Optional<String> modelId = awaitVerifiedModel();
         if (modelId.isEmpty()) {
@@ -97,6 +101,10 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
                 + " timeoutMillis=" + DOCUMENT_READY_TIMEOUT_MILLIS);
             logger.warn("STATUS_BAR_MATRIX_RESULT status=FAIL"
                 + " phase=readiness hostActive=false documentSignal=false modelReady=false");
+            if (dev.turboism.validation.SessionGate.enabled()) {
+                dev.turboism.validation.SessionGate.complete(stateDir, "FAIL");
+                return;
+            }
             Runtime.getRuntime().halt(2);
             return;
         }
@@ -188,7 +196,11 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
             failures.add("modelId changed: " + beforeModelId + " -> " + afterModelId);
         }
 
-        if ("manager".equals(mode)) {
+        if (dev.turboism.validation.SessionGate.enabled()) {
+            // The runtime must stay loaded for the remaining session steps; the
+            // standalone unload matrix is meaningless (and destructive) here.
+            logger.info("STATUS_BAR_MATRIX_SESSION_MODE unloadMatrix=skipped");
+        } else if ("manager".equals(mode)) {
             runManagerUnload(failures);
         } else if ("process-exit".equals(mode)) {
             leaveLiveStatusForProcessExit(failures);
@@ -217,6 +229,10 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
             Thread.sleep(PASS_SETTLE_MILLIS);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
+        }
+        if (dev.turboism.validation.SessionGate.enabled()) {
+            dev.turboism.validation.SessionGate.complete(stateDir, pass ? "PASS" : "FAIL");
+            return;
         }
         Runtime.getRuntime().exit(pass ? 0 : 2);
     }
