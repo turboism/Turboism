@@ -55,8 +55,10 @@ import cubism_reachability_clusters as rc  # noqa: E402  (cp/bytecode primitives
 
 ROOT = Path(__file__).resolve().parents[2]
 LIVE2D_PREFIX = "com/live2d/"
-MODEL_CACHE_DIR = Path("/tmp/cubism-symbol-models")
-MAP_CACHE_DIR = Path("/tmp/cubism-symbol-maps")
+# Parsed models and pair maps cache under build/ (gitignored): /tmp proved
+# lossy — it is a tmpfs here and a reboot wiped hours of map computation.
+MODEL_CACHE_DIR = ROOT / "build/symbol-map-cache/models"
+MAP_CACHE_DIR = ROOT / "build/symbol-map-cache/maps"
 
 # Resolution gates: a candidate pair is resolved only when the top score
 # clears RESOLVE_MIN and beats the runner-up by RESOLVE_MARGIN.
@@ -787,9 +789,24 @@ def _match_members(pm: PairMap, modelA: JarModel, modelB: JarModel) -> None:
     for a_name, b_name in pm.classes.items():
         a, b = modelA.classes[a_name], modelB.classes[b_name]
 
+        def ref_names(mi):
+            """Readable member names this method references — field getters
+            and delegates are identical modulo obfuscation, so the referenced
+            name is often the only surviving fingerprint (e.g. a one-line
+            ``return this.toolBtn_openHomeDialog`` accessor)."""
+            out = set()
+            for _o, n, _d in mi.fieldrefs:
+                if not is_obfuscated_member(n):
+                    out.add(("f", n))
+            for _o, n, _d, _op in mi.invokes:
+                if not is_obfuscated_member(n):
+                    out.add(("m", n))
+            return out
+
         def resolve_pool(pool_a, pool_b, kind):
             for (n, d), mi in pool_a.items():
                 src_rd = rewrite_desc_source(d, pm.classes)
+                a_refs = ref_names(mi) if kind == "m" else frozenset()
                 scored = []
                 n_desc_eq = 0
                 for (tn, td), tmi in pool_b.items():
@@ -804,6 +821,11 @@ def _match_members(pm: PairMap, modelA: JarModel, modelB: JarModel) -> None:
                     ops_eq = bool(
                         kind == "m" and mi.opsig and mi.opsig == tmi.opsig
                     )
+                    ref_eq = (
+                        _jaccard(a_refs, ref_names(tmi))
+                        if kind == "m" and a_refs
+                        else 0.0
+                    )
                     name_eq = n == tn
                     name_pts = 1.0 if (name_eq and not is_obfuscated_member(n)) else (
                         0.4 if name_eq else 0.0
@@ -817,6 +839,7 @@ def _match_members(pm: PairMap, modelA: JarModel, modelB: JarModel) -> None:
                         0.45 * desc_eq
                         + 0.25 * (code_eq or const_eq)
                         + 0.15 * ops_eq
+                        + 0.20 * ref_eq
                         + 0.10 * name_pts
                         + 0.05 * (mi.access == tmi.access)
                     )
@@ -854,7 +877,7 @@ def pair_map(from_version: str, to_version: str) -> PairMap:
         return _PAIRMAPS[key]
     MAP_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     ref = cubism_ref_dir()
-    cache = MAP_CACHE_DIR / f"{from_version}_to_{to_version}-{_model_cache_key(from_version, ref)[:12]}-{_model_cache_key(to_version, ref)[:12]}.pkl"
+    cache = MAP_CACHE_DIR / f"{from_version}_to_{to_version}-v2-{_model_cache_key(from_version, ref)[:12]}-{_model_cache_key(to_version, ref)[:12]}.pkl"
     pm = None
     if cache.exists():
         try:
