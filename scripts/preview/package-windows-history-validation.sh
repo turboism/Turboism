@@ -5,6 +5,12 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
 worktree_id="${TURBOISM_WORKTREE_ID:-$(scripts/dev/worktree-id.sh)}"
+
+# Rebuild every shipped artifact before copying so a stale jar can never be
+# packaged next to a newer agent (same reason as package-windows-mcp-validation.sh).
+TURBOISM_WORKTREE_ID="$worktree_id" "$repo_root/gradlew" --console=plain \
+  previewBundle :testing:integration-tests:testClasses
+
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-history-validation}"
 agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
 test_classes="$repo_root/build/worktree/$worktree_id/integration-tests/classes/java/test"
