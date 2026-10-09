@@ -151,9 +151,11 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
 
     /** Returns whether an Editor artifact has a reviewed lifecycle mapping. */
     public static boolean supportedEditor(HostArtifactDigest editor) {
-        return ReviewedHostArtifacts.CUBISM_5_2_03.equals(editor)
-                || ReviewedHostArtifacts.CUBISM_5_3_02.equals(editor)
-                || ReviewedHostArtifacts.CUBISM_5_3_03.equals(editor);
+        // Digest and declared-version admission cover the same reviewed
+        // generations; deriving one from the other keeps them from drifting.
+        return ReviewedHostArtifacts.cubismVersionOf(editor)
+                .map(UniformLocationLifecycleTransformer::supportedEditorVersion)
+                .orElse(false);
     }
 
     /** Returns whether a declared Editor version has a reviewed lifecycle mapping. */
