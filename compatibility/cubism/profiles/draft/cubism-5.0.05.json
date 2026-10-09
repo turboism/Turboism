@@ -11,7 +11,8 @@
     "cubism-5.0.05-ui-bounding-box-overlay",
     "cubism-5.0.05-workspace-control",
     "cubism-5.0.05-ui-status-bar",
-    "cubism-5.0.05-performance-render-scene"
+    "cubism-5.0.05-performance-render-scene",
+    "cubism-5.0.05-core-model-read"
   ],
   "status": "DRAFT",
   "source": "legacy-inventory",
