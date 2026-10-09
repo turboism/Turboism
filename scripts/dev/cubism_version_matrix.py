@@ -2005,16 +2005,26 @@ def load_symbol_resolver(module_path: Path | None = None):
     path = module_path or Path(__file__).resolve().parent / "cubism_symbol_map.py"
     if not path.is_file():
         return None
-    try:
-        spec = importlib.util.spec_from_file_location("cubism_symbol_map", path)
-        module = importlib.util.module_from_spec(spec)
-        # exec_module resolves dataclass internals through sys.modules on
-        # Python 3.12+; without registration the import fails and the hook is
-        # silently reported absent.
-        sys.modules[spec.name] = module
-        spec.loader.exec_module(module)
-    except (Exception, SystemExit):
-        return None
+    # Name the spec after the file stem, not a fixed "cubism_symbol_map":
+    # test stubs loaded through this hook would otherwise overwrite the real
+    # module's sys.modules entry — which exec_module needs for dataclasses on
+    # Python 3.12+, and which pickle consults for its pair-map caches — and
+    # silently break any later resolve() in the same process.
+    spec = importlib.util.spec_from_file_location(path.stem, path)
+    existing = sys.modules.get(spec.name)
+    if existing is not None and getattr(existing, "__file__", None) == str(path):
+        # Already loaded from the same file: reuse it. A second exec would
+        # create a distinct module object under the same name, and pickled
+        # models/pair-maps check class identity through sys.modules.
+        module = existing
+    else:
+        try:
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[spec.name] = module
+            spec.loader.exec_module(module)
+        except (Exception, SystemExit):
+            sys.modules.pop(spec.name, None)
+            return None
     resolve = getattr(module, "resolve", None)
     return resolve if callable(resolve) else None
 

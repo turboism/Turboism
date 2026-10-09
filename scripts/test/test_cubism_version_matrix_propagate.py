@@ -333,7 +333,10 @@ class PropagationTest(unittest.TestCase):
         )
 
     def test_symbol_map_candidate_rescues_obfuscated_member(self):
-        module = self.root / "cubism_symbol_map.py"
+        # The stub must not masquerade as the real module name: it would
+        # clobber sys.modules["cubism_symbol_map"] for the rest of the
+        # process (pair-map caches unpickle against that name).
+        module = self.root / "symbol_map_stub.py"
         module.write_text(
             "def resolve(selector, from_version, to_version):\n"
             "    if selector['memberName'] == 'render':\n"
