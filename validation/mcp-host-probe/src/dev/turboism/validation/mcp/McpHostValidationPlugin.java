@@ -35,7 +35,12 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
     public void enable() {
         if (watcher != null) return;
         enabled = true;
-        if (Boolean.getBoolean("turboism.validation.startFree")) {
+        // The audited responder must run for every standalone variant: the native
+        // save path also reaches the FREE save-restriction dialog without startFree
+        // (observed: unassisted 5.3.04 run wedged inside saveDocument's modal
+        // showMessageDialog). Inside a session the coordinator owns prompt
+        // assistance, so this loop stays off to keep one audited responder.
+        if (!Boolean.getBoolean("turboism.validation.session")) {
             startupHelper = new Thread(this::assistStartup, "turboism-mcp-native-prompts");
             startupHelper.setDaemon(true);
             startupHelper.start();
