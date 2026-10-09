@@ -130,6 +130,10 @@ FREE_LIMIT_EXCEEDED_FIXTURES = {
 FIXTURE_DOC_VERSION: dict[str, str] = {
     # 测试 混合模式.cmo3 — dialog reports "Cubism 5.2.3"
     "57c4854b70f7d5d305b1974f9dc1792cdd7bed616f05621f535b47019d33fbe4": "5.2.03",
+    # clipmask-viewer task fixture (2980dc8c revision of 测试 混合模式.cmo3):
+    # loads on exact 5.2.03 and 5.3.04 hosts with no newer-file dialog, so its
+    # document version is at most 5.2.03; recorded as the safe ceiling.
+    "2980dc8c695b13eeb54e37c02832edf80607979f2cc721ea9ca7b671f8bbac10": "5.2.03",
 }
 
 
@@ -138,6 +142,10 @@ def fixture_path_for(task_name: str, version: str, environment: dict[str, str]) 
     plus the task-specific overrides used by runners."""
     if task_name == "parameter-batch-transfer" and version == "5302":
         override = environment.get("TURBOISM_HOST_VALIDATION_FIXTURE_PBT_5302")
+        if override:
+            return override
+    if task_name == "clipmask-viewer":
+        override = environment.get("TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK")
         if override:
             return override
     return (
