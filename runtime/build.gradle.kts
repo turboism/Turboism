@@ -100,18 +100,9 @@ val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
         rootProject.file(
             "compatibility/cubism/core-api/policy/cubism-core-selector-policy.json"
         ),
-        rootProject.file(
-            "compatibility/cubism/mapping-packs/draft/cubism-5.1.03-core-model-read.json"
-        ),
-        rootProject.file(
-            "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-core-model-read.json"
-        ),
-        rootProject.file(
-            "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
-        ),
-        rootProject.file(
-            "compatibility/cubism/mapping-packs/draft/cubism-5.3.04-core-model-read.json"
-        )
+        fileTree(
+            rootProject.file("compatibility/cubism/mapping-packs/draft")
+        ) { include("cubism-*-core-model-read.json") }
     )
     outputs.file(generatedCoreSelectorContractFile)
     doFirst {
@@ -129,32 +120,22 @@ val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
                 logger.lifecycle("removing stale generated ${it.relativeTo(root)}")
                 it.delete()
             }
+        val packs = rootProject.file("compatibility/cubism/mapping-packs/draft")
+            .listFiles { f -> f.name.matches(Regex("cubism-\\d+\\.\\d+\\.\\d+-core-model-read\\.json")) }
+            .sorted()
+            .flatMap { pack -> listOf("--pack", pack.absolutePath) }
         commandLine(
-            "python3",
-            rootProject.file("scripts/cubism_core_selector_policy.py"),
-            "render-java",
-            "--policy",
-            rootProject.file(
-                "compatibility/cubism/core-api/policy/cubism-core-selector-policy.json"
-            ),
-            "--output",
-            output,
-            "--pack",
-            rootProject.file(
-                "compatibility/cubism/mapping-packs/draft/cubism-5.1.03-core-model-read.json"
-            ),
-            "--pack",
-            rootProject.file(
-                "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-core-model-read.json"
-            ),
-            "--pack",
-            rootProject.file(
-                "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
-            ),
-            "--pack",
-            rootProject.file(
-                "compatibility/cubism/mapping-packs/draft/cubism-5.3.04-core-model-read.json"
-            )
+            listOf(
+                "python3",
+                rootProject.file("scripts/cubism_core_selector_policy.py").absolutePath,
+                "render-java",
+                "--policy",
+                rootProject.file(
+                    "compatibility/cubism/core-api/policy/cubism-core-selector-policy.json"
+                ).absolutePath,
+                "--output",
+                output.absolutePath
+            ) + packs
         )
     }
 }
