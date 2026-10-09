@@ -356,6 +356,52 @@ def triage_row(row: dict[str, Any], rules: dict[str, Any], *, jobs_root: Path,
     }
 
 
+def session_steps(row: dict[str, Any], jobs_root: Path,
+                  prepared_root: Path, validation_root: Path | None) -> list[dict[str, Any]]:
+    """Per-step records for a multi-probe session job.
+
+    The coordinator plugin writes the aggregate
+    state/session/session-result.properties listing every step's name, original
+    task spec and terminal status; the runner copies it into evidence/result/.
+    Falls back to the still-mounted task home when job evidence was reclaimed.
+    An empty list means the row is not a completed session job.
+    """
+    job_evidence, run_evidence = evidence_directories(row, jobs_root, validation_root)
+    text = _read_text(job_evidence / "result" / "session-result.properties")
+    if not text and run_evidence:
+        text = _read_text(run_evidence / "result" / "session-result.properties")
+    if not text:
+        details = (row.get("outcome") or {}).get("details") or {}
+        task_dir = details.get("taskDir")
+        if task_dir:
+            text = _read_text(
+                Path(task_dir) / "turboism-home" / "state" / "session"
+                / "session-result.properties")
+    if not text:
+        return []
+    props = parse_properties(text)
+    try:
+        count = int(props.get("steps", "0"))
+    except ValueError:
+        return []
+    steps = []
+    for index in range(count):
+        # java.util.Properties.store escapes ':' in values written by the coordinator.
+        spec = (props.get(f"step.{index}.spec") or "").replace("\\:", ":")
+        match = TASK_SPEC.match(spec)
+        steps.append({
+            "name": (props.get(f"step.{index}.name") or f"step{index}").replace("\\:", ":"),
+            "spec": spec,
+            "task": match.group("task") if match else None,
+            "version": match.group("version") if match else None,
+            "variant": match.group("variant") if match else None,
+            "status": props.get(f"step.{index}.status") or "UNKNOWN",
+            "durationMillis": props.get(f"step.{index}.durationMillis"),
+            "result": props.get(f"step.{index}.result"),
+        })
+    return steps
+
+
 def load_outcome(row: dict[str, Any]) -> dict[str, Any]:
     raw = row.get("evidence_json")
     if not raw:

@@ -99,6 +99,49 @@ class SyncFixture(unittest.TestCase):
         again = json.loads(self.ledger_path.read_text())["jobs"]
         self.assertEqual(jobs, again)
 
+    def test_session_job_expands_to_per_step_entries(self):
+        self.write_ledger([])
+        add_job(self.tmp, job_id="j-s", request_key="cov3-session-5304",
+                state="succeeded", spec="session-standard:5304@standard",
+                outcome={"terminalState": "succeeded", "validationStatus": "PASS",
+                         "runId": "queue-" + "b" * 32, "runnerExitCode": 0,
+                         "cleanup": "safe",
+                         "details": {"taskDir": TASK_DIR,
+                                     "evidenceDir": TASK_DIR + "/evidence"}})
+        result_dir = self.tmp / "jobs" / "j-s" / "evidence" / "result"
+        result_dir.mkdir(parents=True, exist_ok=True)
+        (result_dir / "session-result.properties").write_text(
+            "status=PASS\n"
+            "steps=2\n"
+            "step.0.name=texture-relations\n"
+            "step.0.spec=texture-relations\:5304@standard\n"
+            "step.0.status=PASS\n"
+            "step.0.durationMillis=12000\n"
+            "step.1.name=core-owned-moc\n"
+            "step.1.spec=core-owned-moc\:5304\n"
+            "step.1.status=FAIL\n"
+            "step.1.durationMillis=9000\n",
+            encoding="utf-8")
+        self.assertEqual(self.run_sync("--all-terminal"), 0)
+        jobs = json.loads(self.ledger_path.read_text())["jobs"]
+        self.assertEqual(len(jobs), 2)
+        first, second = jobs
+        self.assertEqual(first["task"], "texture-relations")
+        self.assertEqual(first["version"], "5304")
+        self.assertEqual(first["variant"], "standard")
+        self.assertEqual(first["viaSession"], "j-s")
+        self.assertEqual(first["requestKey"], "cov3-session-5304#texture-relations")
+        self.assertEqual(first["result"]["validationStatus"], "PASS")
+        self.assertEqual(first["result"]["stepDurationMillis"], "12000")
+        self.assertEqual(second["task"], "core-owned-moc")
+        self.assertIsNone(second["variant"])
+        self.assertEqual(second["result"]["validationStatus"], "FAIL")
+        self.assertEqual(second["viaSession"], "j-s")
+        # Re-sync is idempotent on the per-step request keys.
+        self.assertEqual(self.run_sync("--all-terminal"), 0)
+        again = json.loads(self.ledger_path.read_text())["jobs"]
+        self.assertEqual(jobs, again)
+
     def test_no_absolute_paths_leak(self):
         self.write_ledger([])
         add_job(self.tmp, job_id="j-2", request_key="k-2", state="timed_out",

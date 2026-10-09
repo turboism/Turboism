@@ -2866,6 +2866,53 @@
           "-Dturboism.validation.textures.exportSaveOnly=true"
         ]
       }
+    },
+    "session-standard": {
+      "description": "One Cubism launch runs every read-only group-S probe in sequence via the session coordinator plugin; per-step results map back to their original task specs.",
+      "command": "scripts/preview/run-cubism-host-validation-session.sh",
+      "versions": [
+          "5000",
+          "5001",
+          "5002",
+          "5003",
+          "5004",
+          "5005",
+          "5006",
+          "5100",
+          "5101",
+          "5102",
+          "5103",
+          "5200",
+          "5201",
+          "5202",
+          "5203",
+          "5300",
+          "5301",
+          "5302",
+          "5303",
+          "5304"
+      ],
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      },
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "standard-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.session.startFree=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      }
     }
   }
 }

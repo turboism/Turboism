@@ -1,0 +1,52 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.validation.session",
+  "name": "Multi-probe Session Coordinator",
+  "version": "0.0.0",
+  "description": "Task-local coordinator that runs several validation probes inside one exact-host Cubism launch, archiving per-step results and one aggregate session verdict.",
+  "entrypoints": [
+    "dev.turboism.validation.session.SessionCoordinatorPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["base"]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads the active document presence for per-step session health checks only."
+    },
+    {
+      "id": "turboism.file.read",
+      "scope": "application",
+      "reason": "Reads the session plan and each step's terminal result file under the task home."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Writes per-step trigger flags, archived step results and the aggregate session verdict under the task home."
+    }
+  ],
+  "capabilities": [
+    "validation.session.coordinator"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  },
+  "category": "analysis",
+  "tags": [
+    "validation",
+    "session"
+  ]
+}
