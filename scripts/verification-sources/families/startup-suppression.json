@@ -1,33 +1,33 @@
 {
-    "format": "turboism.verification-source-family/v1",
-    "family": "startup-suppression",
-    "records": [
-        "cubism-5.0.00-startup-suppression.json",
-        "cubism-5.0.01-startup-suppression.json",
-        "cubism-5.0.02-startup-suppression.json",
-        "cubism-5.0.03-startup-suppression.json",
-        "cubism-5.0.04-startup-suppression.json",
-        "cubism-5.0.05-startup-suppression.json",
-        "cubism-5.0.06-startup-suppression.json",
-        "cubism-5.1.00-startup-suppression.json",
-        "cubism-5.1.01-startup-suppression.json",
-        "cubism-5.1.02-startup-suppression.json",
-        "cubism-5.1.03-startup-suppression.json",
-        "cubism-5.2.00-startup-suppression.json",
-        "cubism-5.2.01-startup-suppression.json",
-        "cubism-5.2.02-startup-suppression.json",
-        "cubism-5.2.03-startup-suppression.json",
-        "cubism-5.3.00-startup-suppression.json",
-        "cubism-5.3.01-startup-suppression.json",
-        "cubism-5.3.02-startup-suppression.json",
-        "cubism-5.3.03-startup-suppression.json",
-        "cubism-5.3.04-startup-suppression.json"
-    ],
-    "files": [
-        "dev/turboism/mapping/verification/StartupSuppressionVerificationManifest.java"
-    ],
-    "coverage": true,
-    "packs": [],
-    "extraLiterals": [],
-    "coverageSources": []
+ "format": "turboism.verification-source-family/v1",
+ "family": "startup-suppression",
+ "records": [
+  "cubism-5.0.00-startup-suppression.json",
+  "cubism-5.0.01-startup-suppression.json",
+  "cubism-5.0.02-startup-suppression.json",
+  "cubism-5.0.03-startup-suppression.json",
+  "cubism-5.0.04-startup-suppression.json",
+  "cubism-5.0.05-startup-suppression.json",
+  "cubism-5.0.06-startup-suppression.json",
+  "cubism-5.1.00-startup-suppression.json",
+  "cubism-5.1.01-startup-suppression.json",
+  "cubism-5.1.02-startup-suppression.json",
+  "cubism-5.1.03-startup-suppression.json",
+  "cubism-5.2.00-startup-suppression.json",
+  "cubism-5.2.01-startup-suppression.json",
+  "cubism-5.2.02-startup-suppression.json",
+  "cubism-5.2.03-startup-suppression.json",
+  "cubism-5.3.00-startup-suppression.json",
+  "cubism-5.3.01-startup-suppression.json",
+  "cubism-5.3.02-startup-suppression.json",
+  "cubism-5.3.03-startup-suppression.json",
+  "cubism-5.3.04-startup-suppression.json"
+ ],
+ "files": [
+  "dev/turboism/mapping/verification/StartupSuppressionVerificationManifest.java"
+ ],
+ "coverage": true,
+ "packs": [],
+ "extraLiterals": [],
+ "coverageSources": []
 }
