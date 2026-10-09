@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.deferred;
 
+import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationLifecycleTransformer;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.util.List;
@@ -13,7 +14,8 @@ import java.util.Optional;
  * <p>The obfuscated shader error-check helper {@code shader/A.a(GL,String,Z)}
  * (named {@code shader/y.a} on Cubism 5.2.03) calls {@code GL.glGetError} once
  * per invocation on every supported artifact — reviewed against the official
- * JARs. The deferred path replaces that per-call query with a frame-scoped
+ * JARs at bytecode offset 16 on 5.3.00–5.3.04. The deferred path replaces that
+ * per-call query with a frame-scoped
  * checkpoint and performs one real {@code glGetError} at the frame boundary
  * reported by {@code SGFramework/g.render3d(Lcom/live2d/graphics3d/a;)V}.
  * Both method bodies are shape-verified against the artifact's reference
@@ -45,24 +47,32 @@ public record DeferredGlErrorCheckTarget(
         Objects.requireNonNull(frameOwner, "frameOwner");
     }
 
-    private static final DeferredGlErrorCheckTarget CUBISM_5203 = new DeferredGlErrorCheckTarget(
-            ReviewedHostArtifacts.CUBISM_5_2_03, "5.2.03", ERROR_OWNER_5203, FRAME_OWNER);
-    private static final DeferredGlErrorCheckTarget CUBISM_5302 =
-            new DeferredGlErrorCheckTarget(ReviewedHostArtifacts.CUBISM_5_3_02, "5.3.02", ERROR_OWNER, FRAME_OWNER);
-    private static final DeferredGlErrorCheckTarget CUBISM_5303 =
-            new DeferredGlErrorCheckTarget(ReviewedHostArtifacts.CUBISM_5_3_03, "5.3.03", ERROR_OWNER, FRAME_OWNER);
-
-    /** The reviewed target pair for a host artifact digest, or empty when unsupported. */
+    /**
+     * The reviewed target pair for a host artifact digest, or empty when
+     * unsupported. Admission follows the uniform-location lifecycle seam: the
+     * deferred checkpoint composes with that hook's rewrites, so every reviewed
+     * generation whose lifecycle owners are pinned (
+     * {@link UniformLocationLifecycleTransformer#supportedEditorVersion}) is
+     * admitted and no other reviewed generation is. The per-artifact
+     * {@code ReviewedMethodShape} gates still verify both bodies — plus the
+     * probe-derived composed shape when the upstream transform is installed —
+     * against the artifact's own reference bytes before any rewrite.
+     */
     public static Optional<DeferredGlErrorCheckTarget> of(final HostArtifactDigest digest) {
         Objects.requireNonNull(digest, "digest");
-        if (CUBISM_5203.digest().equals(digest)) return Optional.of(CUBISM_5203);
-        if (CUBISM_5302.digest().equals(digest)) return Optional.of(CUBISM_5302);
-        if (CUBISM_5303.digest().equals(digest)) return Optional.of(CUBISM_5303);
-        return Optional.empty();
+        return ReviewedHostArtifacts.cubismVersionOf(digest)
+                .filter(UniformLocationLifecycleTransformer::supportedEditorVersion)
+                .map(version -> new DeferredGlErrorCheckTarget(
+                        digest,
+                        version,
+                        UniformLocationLifecycleTransformer.Role.ERROR.ownerForVersion(version),
+                        UniformLocationLifecycleTransformer.Role.FRAME.ownerForVersion(version)));
     }
 
     /** Every reviewed target, oldest supported version first. */
     public static List<DeferredGlErrorCheckTarget> all() {
-        return List.of(CUBISM_5203, CUBISM_5302, CUBISM_5303);
+        return ReviewedHostArtifacts.all().stream()
+                .flatMap(artifact -> of(artifact).stream())
+                .toList();
     }
 }
