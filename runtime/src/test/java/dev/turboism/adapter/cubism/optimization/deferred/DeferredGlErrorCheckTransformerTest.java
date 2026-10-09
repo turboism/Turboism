@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.InvocationTargetException;
@@ -319,7 +320,8 @@ class DeferredGlErrorCheckTransformerTest {
                     ARTIFACT,
                     errorReference,
                     frameReference,
-                    DeferredGlErrorCheckTarget.all().get(2));
+                    DeferredGlErrorCheckTarget.of(ReviewedHostArtifacts.CUBISM_5_3_03)
+                            .orElseThrow());
         }
 
         int runError() throws Exception {
