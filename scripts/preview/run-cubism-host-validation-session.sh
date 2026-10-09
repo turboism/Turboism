@@ -31,7 +31,20 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   shift
 fi
 
-turboism_select_fixture "$version" || exit 2
+if [ -n "${TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK:-}" ]; then
+  # The session is a single-fixture single-launch superset of the standalone
+  # tasks: its clipmask-viewer step needs the mask-bearing revision of the
+  # shared fixture family (the shared fixture carries zero clip-mask records
+  # and the step terminates BLOCKED). Every other session step is read-only
+  # against the same document, so the task-scoped override is preferred
+  # whenever it is configured, mirroring run-clipmask-viewer-host-validation.sh.
+  fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK"
+  fixture_sha256="${TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK_SHA256:-}"
+  [ -n "$fixture_sha256" ] \
+    || { echo "error: TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK set but TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK_SHA256 missing" >&2; exit 2; }
+else
+  turboism_select_fixture "$version" || exit 2
+fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
