@@ -103,6 +103,64 @@ def build_entry(row: dict[str, Any], record: dict[str, Any]) -> dict[str, Any]:
     return entry
 
 
+def step_result_object(row: dict[str, Any], step: dict[str, Any]) -> dict[str, Any]:
+    """Per-step result: the step's own verdict over the session job's lifecycle."""
+    result = result_object(row)
+    if row["state"] in FINAL_STATES:
+        result["validationStatus"] = step["status"]
+    return result
+
+
+def step_request_key(row: dict[str, Any], step: dict[str, Any]) -> str:
+    return f"{row['request_key']}#{step['name']}"
+
+
+def build_step_entry(row: dict[str, Any], record: dict[str, Any],
+                     step: dict[str, Any]) -> dict[str, Any]:
+    """One ledger row per session step, recorded under the step's original
+    task spec with viaSession pointing back at the session job."""
+    entry: dict[str, Any] = {
+        "task": step["task"] or row["request_key"],
+        "version": step["version"],
+        "variant": step["variant"],
+        "jobId": row["job_id"],
+        "requestKey": step_request_key(row, step),
+        "viaSession": row["job_id"],
+        "status": "FINAL" if row["state"] in FINAL_STATES else "CANCELLED",
+        "result": step_result_object(row, step),
+    }
+    if step.get("durationMillis") is not None:
+        entry["result"]["stepDurationMillis"] = step["durationMillis"]
+    if (row["state"] in FINAL_STATES and step["status"] != "PASS"
+            and record["category"] != "PASS"):
+        entry["triage"] = triage_object(record)
+    entry["scope"] = SCOPE
+    return entry
+
+
+def merge_step_entry(entry: dict[str, Any], row: dict[str, Any],
+                     record: dict[str, Any], step: dict[str, Any]) -> bool:
+    """Refresh a session-step entry in place; returns True when changed."""
+    changed = False
+    status = "FINAL" if row["state"] in FINAL_STATES else "CANCELLED"
+    if entry.get("status") != status:
+        entry["status"] = status
+        changed = True
+    result = step_result_object(row, step)
+    existing = entry.get("result")
+    if isinstance(existing, dict):
+        for key, value in result.items():
+            if key == "evidenceDir" and existing.get("evidenceDir"):
+                continue
+            if existing.get(key) != value:
+                existing[key] = value
+                changed = True
+    elif entry.get("result") != result:
+        entry["result"] = result
+        changed = True
+    return changed
+
+
 def triage_object(record: dict[str, Any]) -> dict[str, Any]:
     signature = record.get("signature")
     return {
@@ -150,12 +208,29 @@ def merge_entry(entry: dict[str, Any], row: dict[str, Any],
 
 
 def sync(ledger: dict[str, Any], rows: list[dict[str, Any]],
-         records: dict[str, dict[str, Any]]) -> dict[str, int]:
+         records: dict[str, dict[str, Any]],
+         *, jobs_root: Path | None = None,
+         prepared_root: Path | None = None) -> dict[str, int]:
     by_job = {entry.get("jobId"): entry for entry in ledger["jobs"] if entry.get("jobId")}
     by_key = {entry.get("requestKey"): entry for entry in ledger["jobs"] if entry.get("requestKey")}
     stats = {"added": 0, "updated": 0, "unchanged": 0, "skipped": 0}
     for row in rows:
         record = records[row["job_id"]]
+        steps = (triage.session_steps(
+            row, jobs_root=jobs_root, prepared_root=prepared_root,
+            validation_root=None) if jobs_root is not None else [])
+        if steps:
+            # A session job maps back to one ledger row per probe step.
+            for step in steps:
+                entry = by_key.get(step_request_key(row, step))
+                if entry is None:
+                    ledger["jobs"].append(build_step_entry(row, record, step))
+                    stats["added"] += 1
+                elif merge_step_entry(entry, row, record, step):
+                    stats["updated"] += 1
+                else:
+                    stats["unchanged"] += 1
+            continue
         entry = by_job.get(row["job_id"]) or by_key.get(row["request_key"])
         if entry is None:
             ledger["jobs"].append(build_entry(row, record))
@@ -201,7 +276,8 @@ def main(argv: list[str] | None = None) -> int:
         validation_root=None) for row in rows}
     ledger = load_ledger(ledger_path)
     before = json.dumps(ledger, indent=1, ensure_ascii=False)
-    stats = sync(ledger, rows, records)
+    stats = sync(ledger, rows, records,
+                 jobs_root=jobs_root, prepared_root=prepared_root)
     after = json.dumps(ledger, indent=1, ensure_ascii=False)
     if args.dry_run:
         for line in difflib.unified_diff(before.splitlines(), after.splitlines(),
