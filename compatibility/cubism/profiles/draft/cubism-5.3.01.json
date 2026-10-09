@@ -18,8 +18,9 @@
     "cubism-5.3.01-autobackup",
     "cubism-5.3.01-performance-render-scene",
     "cubism-5.3.01-protected-export",
-    "cubism-5.3.01-core-model-read"
-  ],
+    "cubism-5.3.01-core-model-read",
+    "cubism-5.3.01-startup-suppression",
+    "cubism-5.3.02-core-model-read"  ],
   "status": "DRAFT",
   "source": "legacy-inventory",
   "verifiedBy": "none",

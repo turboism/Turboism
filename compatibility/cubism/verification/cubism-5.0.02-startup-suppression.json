@@ -1,0 +1,85 @@
+{
+  "format": "turboism.static.verification.record",
+  "schemaVersion": 1,
+  "verificationId": "cubism-5.0.02.startup-suppression.static",
+  "adapterSliceId": "adapter.cubism.startup-suppression",
+  "capabilityIds": [
+    "cubism.startup.suppression"
+  ],
+  "capabilityConditions": {
+    "cubism.startup.suppression": [
+      "declaredGeneration"
+    ]
+  },
+  "cubismVersion": "5.0.02",
+  "profileId": "cubism-5.0.02",
+  "artifact": {
+    "name": "Live2D_Cubism.jar",
+    "size": 36100830,
+    "sha256": "39e73c8238acba5270422a6e0f228c66a733177d009c710721381285ab0af072"
+  },
+  "evidenceType": "JAR_METADATA",
+  "evidencePath": "compatibility/cubism/verification/cubism-5.0.02-startup-suppression.json",
+  "owner": "bootstrap-startup-suppression-hook",
+  "status": "VERIFIED_STATIC",
+  "verifiedBy": "turboism-startup-suppression-static-verifier",
+  "verifiedAt": "2026-10-09T00:00:00Z",
+  "safeMode": "Startup suppression stays disabled with bounded premain diagnostics when the exact artifact, declared reviewed release, pinned class bytes, or the selector cardinality contract does not match; a partial startup rewrite is never installed.",
+  "selectors": [
+    {
+      "mappingId": "cubism.mapping.v5_0_02.startup_suppression.class.app",
+      "alias": "cubism.startup-suppression.app.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/CECubismEditorApp",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_0_02.startup_suppression.method.startup",
+      "alias": "cubism.startup-suppression.app.startup",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/CECubismEditorApp",
+      "memberName": "a",
+      "descriptor": "([Ljava/lang/String;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_0_02.startup_suppression.method.splash_factory",
+      "alias": "cubism.startup-suppression.app.splash-factory",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/CECubismEditorApp",
+      "memberName": "c",
+      "descriptor": "()Lcom/live2d/ui/window/Y;",
+      "requiredAccessFlags": 2,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_0_02.startup_suppression.class.app_ctrl",
+      "alias": "cubism.startup-suppression.app-controller.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_0_02.startup_suppression.method.update_check",
+      "alias": "cubism.startup-suppression.app-controller.update-check",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+      "memberName": "command_checkUpdate",
+      "descriptor": "()V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    }
+  ]
+}

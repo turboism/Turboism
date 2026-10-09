@@ -2,15 +2,17 @@
 
 Exact-host verification that the premain startup suppression (skip splash /
 skip update check / skip information) is genuinely effective on official
-Cubism 5.2.03 and 5.3.02 installations.
+Cubism installations of every reviewed generation (5.0.00–5.3.04).
 
 The suppression is applied by `StartupSuppressionInstaller` during premain,
 before any plugin loads, so the probe plugin verifies the observable result
 of the transformation:
 
-- `CECubismEditorApp.e()` (the private splash factory) returns `null` — the
-  transformed body is `ACONST_NULL; ARETURN`; an untransformed body would
-  create and show the native splash window;
+- the private splash factory (`CECubismEditorApp.c()` on 5.0.00–5.0.02,
+  `e()` on later generations, the unique zero-argument method returning a
+  `com.live2d.ui.window` type) returns `null` — the transformed body is
+  `ACONST_NULL; ARETURN`; an untransformed body would create and show the
+  native splash window;
 - the startup entry `CECubismEditorApp.a(String[])` still exists — the class
   was transformed in place, not replaced;
 - the preview runtime report reached MATCHED/READY/RUNNING, proving the host

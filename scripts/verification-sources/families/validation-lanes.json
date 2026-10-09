@@ -6,7 +6,6 @@
   "dev/turboism/mapping/verification/NativeControlAppearancePersistenceVerificationManifest.java",
   "dev/turboism/mapping/verification/ParameterLifecycleVerificationManifest.java",
   "dev/turboism/mapping/verification/ProjectLifecycleVerificationManifest.java",
-  "dev/turboism/mapping/verification/StartupSuppressionVerificationManifest.java",
   "dev/turboism/mapping/verification/TextureAtlasVerificationManifest.java"
  ],
  "records": [],
