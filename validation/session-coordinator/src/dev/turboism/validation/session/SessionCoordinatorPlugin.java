@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * result file, archives per-step evidence and runs a health check (modal dialog
  * scan + active document still present) between steps. The aggregate verdict is
  * written to {@code state/session/session-result.properties}; afterwards the
- * coordinator exits the host process itself — this is the same bounded exit the
+ * coordinator exits the host process itself -- this is the same bounded exit the
  * standalone probes already perform after publishing their terminal evidence.
  *
  * <p>The plugin stays inert unless {@code -Dturboism.validation.session=true} and a
