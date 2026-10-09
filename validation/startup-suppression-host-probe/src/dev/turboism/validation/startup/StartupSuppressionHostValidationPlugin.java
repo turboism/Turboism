@@ -19,9 +19,12 @@ import java.util.Optional;
  * transformation:
  *
  * <ul>
- *   <li>the splash factory {@code CECubismEditorApp.e()} returns {@code null}
- *       (the transformed body is {@code ACONST_NULL; ARETURN}); an
- *       untransformed body would create and show the native splash window;</li>
+ *   <li>the splash factory — the unique zero-argument method returning a
+ *       {@code com.live2d.ui.window.*} type, obfuscated as
+ *       {@code CECubismEditorApp.e()} on 5.0.03+ and {@code c()} on
+ *       5.0.00–5.0.02 — returns {@code null} (the transformed body is
+ *       {@code ACONST_NULL; ARETURN}); an untransformed body would create
+ *       and show the native splash window;</li>
  *   <li>the startup entry {@code CECubismEditorApp.a(String[])} still exists
  *       (the class was transformed in place, not replaced);</li>
  *   <li>no visible {@code com.live2d.ui.window} splash window remains in the
@@ -45,7 +48,7 @@ public final class StartupSuppressionHostValidationPlugin implements TurboismPlu
     private static final String RESULT = "startup-suppression-result.properties";
     private static final String HOST_APP = "com.live2d.cubism.CECubismEditorApp";
     private static final String HOST_APP_INSTANCE_FIELD = "a";
-    private static final String SPLASH_METHOD = "e";
+    private static final String SPLASH_WINDOW_PACKAGE = "com.live2d.ui.window.";
     private static final String STARTUP_METHOD = "a";
     private static final long CLASS_READY_TIMEOUT_MILLIS = 180_000L;
     private static final long REPORT_READY_TIMEOUT_MILLIS = 180_000L;
@@ -147,15 +150,19 @@ public final class StartupSuppressionHostValidationPlugin implements TurboismPlu
     }
 
     /**
-     * Invokes the private splash factory {@code e()} on the singleton. With
-     * suppression active the transformed body returns null immediately;
-     * without suppression the original body creates and shows the native
-     * splash window and returns a non-null window object.
+     * Invokes the private splash factory on the singleton. The factory is the
+     * unique zero-argument method whose return type lives in
+     * {@code com.live2d.ui.window}; its obfuscated name is {@code e()} on
+     * 5.0.03 and later, {@code c()} on 5.0.00–5.0.02, so the probe resolves it
+     * by signature instead of by name. With suppression active the
+     * transformed body returns null immediately; without suppression the
+     * original body creates and shows the native splash window and returns a
+     * non-null window object.
      */
     private String assertSplashSuppressed(final Class<?> application, final List<String> failures) {
         try {
             final Object instance = application.getField(HOST_APP_INSTANCE_FIELD).get(null);
-            final Method splash = application.getDeclaredMethod(SPLASH_METHOD);
+            final Method splash = splashFactory(application);
             splash.setAccessible(true);
             final Object result = splash.invoke(instance);
             final String actual = result == null ? "null" : result.getClass().getName();
@@ -168,6 +175,31 @@ public final class StartupSuppressionHostValidationPlugin implements TurboismPlu
             failures.add("splash-suppressed invocation failed: " + detail);
             return "invocation-failed";
         }
+    }
+
+    /**
+     * Finds the splash factory by signature: the single zero-argument method
+     * returning a {@code com.live2d.ui.window.*} type. Every reviewed and
+     * derived host artifact (5.0.00–5.3.04) carries exactly one candidate;
+     * zero or multiple candidates fail closed with NoSuchMethodException.
+     */
+    private static Method splashFactory(final Class<?> application) throws NoSuchMethodException {
+        Method found = null;
+        for (final Method method : application.getDeclaredMethods()) {
+            if (method.getParameterCount() == 0
+                    && method.getReturnType().getName().startsWith(SPLASH_WINDOW_PACKAGE)) {
+                if (found != null) {
+                    throw new NoSuchMethodException(
+                        "multiple zero-arg " + SPLASH_WINDOW_PACKAGE + "* factories on " + HOST_APP);
+                }
+                found = method;
+            }
+        }
+        if (found == null) {
+            throw new NoSuchMethodException(
+                "no zero-arg " + SPLASH_WINDOW_PACKAGE + "* factory on " + HOST_APP);
+        }
+        return found;
     }
 
     private void assertStartupMethodPresent(final Class<?> application, final List<String> failures) {
