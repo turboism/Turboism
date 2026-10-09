@@ -330,7 +330,11 @@ def prepare_request(request: Request, manifest: Manifest, store: queue.Store,
         path = Path(directory) / "runner-request.json"
         if not path.is_file():
             raise SchedulerError("wrapper does not support preparation; update this checkout before submitting")
-        return queue.PreparedStore(store).capture(json.loads(path.read_text()), manifest.root,
+        payload = json.loads(path.read_text())
+        import host_validation_static_gates as static_gates
+        for note in static_gates.check_bundle_linkage(payload.get("argv") or [], request.spec):
+            print(f"host-validation: {request.spec}: {note}", file=sys.stderr)
+        return queue.PreparedStore(store).capture(payload, manifest.root,
             request.spec, resources=sorted(request.task.resources))
 
 
@@ -505,6 +509,10 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"{index}. {request.spec} {state}")
                     for note in notes:
                         print("   " + note)
+                    if request.task.runnable:
+                        for note in static_gates.plan_bundle_notes(
+                                render_command(request, manifest)[2:], manifest.root, environment):
+                            print("   " + note)
                     if covered:
                         print(f"   covered-by-equivalent={covered}")
                     if request.task.runnable:
@@ -515,13 +523,24 @@ def main(argv: list[str] | None = None) -> int:
             if not gated:
                 return 3  # Every spec was refused by a static gate; nothing enqueued.
             store = queue.Store()
-            prepared = [prepare_request(request, manifest, store, environment) for request, _, _ in gated]
+            prepared: list[dict[str, Any]] = []
+            accepted: list[tuple[Request, tuple[str, ...], str | None]] = []
+            for entry in gated:
+                try:
+                    prepared.append(prepare_request(entry[0], manifest, store, environment))
+                except static_gates.StaticGateRefusal as refusal:
+                    emit({"schemaVersion": 1, "spec": entry[0].spec, "skipped": refusal.skip,
+                          "reason": refusal.reason, "detail": refusal.detail})
+                    continue
+                accepted.append(entry)
+            if not prepared:
+                return 3  # Every spec was refused by a static gate; nothing enqueued.
             if args.command == "prepare":
                 emit({"schemaVersion": 1, "preparedId": prepared[0]["digest"],
-                      **({"coveredByEquivalent": gated[0][2]} if gated[0][2] else {})})
+                      **({"coveredByEquivalent": accepted[0][2]} if accepted[0][2] else {})})
                 return 0
             jobs = [store.submit(item["digest"], item["digest"], str(uuid.uuid4())) for item in prepared]
-            for (_, _, covered), job in zip(gated, jobs):
+            for (_, _, covered), job in zip(accepted, jobs):
                 emit({"schemaVersion": 1, "job": job,
                       **({"coveredByEquivalent": covered} if covered else {})})
             queue.wake(store)
@@ -534,6 +553,14 @@ def main(argv: list[str] | None = None) -> int:
         store = queue.Store()
         if args.command == "_enqueue-runner":
             request = json.loads(Path(args.request).read_text())
+            import host_validation_static_gates as static_gates
+            try:
+                for note in static_gates.check_bundle_linkage(request.get("argv") or [], "direct-runner"):
+                    print(f"host-validation: {note}", file=sys.stderr)
+            except static_gates.StaticGateRefusal as refusal:
+                emit({"schemaVersion": 1, "spec": "direct-runner", "skipped": refusal.skip,
+                      "reason": refusal.reason, "detail": refusal.detail})
+                return 3
             prepared = queue.PreparedStore(store).capture(request, root, "direct-runner")
             job = store.submit(prepared["digest"], prepared["digest"], str(uuid.uuid4()))
             emit({"schemaVersion": 1, "job": job})
@@ -542,6 +569,17 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "submit":
             prior = [job for job in store.jobs() if job["request_key"] == args.request_id]
             prepared = {"digest": args.prepared} if prior else queue.PreparedStore(store).load(args.prepared)
+            import host_validation_static_gates as static_gates
+            descriptor = queue.PreparedStore(store).load(args.prepared)
+            try:
+                for note in static_gates.check_bundle_linkage(
+                        descriptor.get("argv") or [], descriptor.get("taskSpec") or args.prepared,
+                        input_root=store.root / "prepared" / args.prepared):
+                    print(f"host-validation: {note}", file=sys.stderr)
+            except static_gates.StaticGateRefusal as refusal:
+                emit({"schemaVersion": 1, "preparedId": args.prepared, "skipped": refusal.skip,
+                      "reason": refusal.reason, "detail": refusal.detail})
+                return 3
             job = store.submit(args.prepared, prepared["digest"], args.request_id, args.timeout_seconds)
             queue.wake(store)
             covered = None

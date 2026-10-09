@@ -90,6 +90,12 @@
    "advice": "probe reported the capability UNAVAILABLE; record the boundary"
   },
   {
+   "id": "fixture-no-clip-mask-records",
+   "category": "FIXTURE_UNSUITABLE",
+   "when": {"marker": "CLIPMASK_VIEWER_MATRIX_RESULT status=BLOCKED"},
+   "advice": "the fixture loaded but contains no clip-mask relationships (fixture.clipMasks BLOCKED); rerun with a mask-bearing fixture instead of retrying"
+  },
+  {
    "id": "capability-backup-artifact-absent",
    "category": "CAPABILITY_BOUNDARY",
    "when": {"failureText": "backupNow failed|auto-backup completion timeout|auto-backup backup directory is unavailable"},
