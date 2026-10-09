@@ -190,7 +190,9 @@ class TriageFixture(unittest.TestCase):
                 outcome={"terminalState": "failed", "validationStatus": "FAIL"},
                 log=FREE_MARKERS_LOG)
         record = self.classify("j-free-fail")
-        self.assertEqual(record["category"], "UNKNOWN")
+        # FREE markers must never become failure evidence: with nothing else
+        # present the job is NO_EVIDENCE, not an UNKNOWN failure.
+        self.assertEqual(record["category"], "NO_EVIDENCE")
         self.assertFalse(record["evidence"]["failureMarkers"])
 
     def test_queue_timeout_is_infra(self):
@@ -226,6 +228,56 @@ class TriageFixture(unittest.TestCase):
                                      validation_root=None) for r in rows]
         plan = triage.retry_plan(records, records)
         self.assertEqual(plan["specs"], ["theme:5201"])
+
+    def test_backupnow_artifact_absence_is_capability_boundary(self):
+        log = ("2026-10-09T03:22:07Z [INFO] [dev.turboism.validation.backup] "
+               "BACKUP_DIRTIED parameter=ParamAngleX after=-30.0\n"
+               "2026-10-09T03:23:08Z [WARN] [dev.turboism.validation.backup] "
+               "auto-backup backupNow:failed java.lang.IllegalStateException\n"
+               "2026-10-09T03:23:08Z [WARN] [dev.turboism.validation.backup] "
+               "BACKUP_VALIDATION_FAILURE backupNow failed: IllegalStateException\n"
+               "2026-10-09T03:23:08Z [INFO] [dev.turboism.validation.backup] "
+               "BACKUP_VALIDATION_RESULT status=FAIL hostVersion=5.2.00 failures=1\n")
+        add_job(self.tmp, job_id="j-bn", request_key="cov3-retry3-backup_5200",
+                state="failed", spec="backup:5200",
+                outcome={"terminalState": "failed", "validationStatus": "FAIL"},
+                log=log)
+        record = self.classify("j-bn")
+        self.assertEqual(record["category"], "CAPABILITY_BOUNDARY")
+        self.assertEqual(record["ruleId"], "capability-backup-artifact-absent")
+
+    def test_no_evidence_reclaimed(self):
+        # No turboism.log anywhere: nothing to attribute.
+        add_job(self.tmp, job_id="j-gone", request_key="r-gone", state="failed",
+                spec="theme:5100",
+                outcome={"terminalState": "failed", "validationStatus": "FAIL"})
+        record = self.classify("j-gone")
+        self.assertEqual(record["category"], "NO_EVIDENCE")
+        self.assertIn("reclaimed", record["notes"][0])
+
+    def test_no_evidence_truncated_log(self):
+        # Log exists but ends mid-bootstrap with no verdict signal.
+        add_job(self.tmp, job_id="j-trunc", request_key="r-trunc", state="failed",
+                spec="backup:5201",
+                outcome={"terminalState": "failed", "validationStatus": "FAIL"},
+                log=FREE_MARKERS_LOG +
+                "2026-10-09T03:24:03Z [INFO] [bootstrap] hook installed\n")
+        record = self.classify("j-trunc")
+        self.assertEqual(record["category"], "NO_EVIDENCE")
+        self.assertIn("verdict signal", record["notes"][0])
+
+    def test_verdict_pass_then_fail_is_unknown_not_no_evidence(self):
+        add_job(self.tmp, job_id="j-pvf", request_key="r-pvf", state="failed",
+                spec="backup:5300",
+                outcome={"terminalState": "failed", "validationStatus": "FAIL",
+                         "details": {"postContainmentChecks": {
+                             "terminalResult": {"mode": "file", "passed": True,
+                                                "failureMarkers": []}}}},
+                log="2026-10-09T03:36:07Z [INFO] [dev.turboism.validation.backup] "
+                    "BACKUP_VALIDATION_RESULT status=PASS failures=0\n")
+        record = self.classify("j-pvf")
+        self.assertEqual(record["category"], "UNKNOWN")
+        self.assertEqual(record["ruleId"], "verdict-pass-then-fail")
 
     def test_normalize_message(self):
         text = ("No active model observed within 240000 ms at "
