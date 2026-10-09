@@ -125,6 +125,111 @@ final class VerificationManifestAdmissionPreflightTest {
         }
     }
 
+    /**
+     * Replays the Core-slice admission chain offline for every reviewed version:
+     * {@code VerifiedHostAdapterConnector.coreMaterial} resolves the bound record's
+     * version through {@code CoreVersionExpectation.reviewedProfile}, then
+     * {@code CorePublicApiProviderFactory.admit} requires the generated selector
+     * contract's per-profile provider id, capability ids and required-alias set —
+     * which must equal the record's own declared surface exactly, because
+     * {@code VerifiedAccessPlan.authorizes} is an equality gate. Digest-unique
+     * records must additionally resolve through
+     * {@code CorePublicApiVerificationManifest.profileFor} for the exact-artifact
+     * path; byte-identical Core jars (5.3.00-5.3.03) share the 5.3.02 profile.
+     * This is the check that would have caught the four-profile Core tables
+     * rejecting the other sixteen reviewed versions before plugin loading.
+     */
+    @Test
+    void everyReviewedVersionResolvesACoreProfileEndToEnd() throws Exception {
+        final Map<String, Loaded> byVerificationId = loadRecords();
+        final Map<String, Loaded> coreRecords = new LinkedHashMap<>();
+        for (final Loaded loaded : byVerificationId.values()) {
+            if ("adapter.core-model.readonly".equals(loaded.record().adapterSliceId())) {
+                coreRecords.put(loaded.record().cubismVersion(), loaded);
+            }
+        }
+        assertEquals(
+                ReviewedHostArtifacts.reviewedCubismVersions(),
+                coreRecords.keySet(),
+                "every reviewed Cubism version must carry a core-model-read record");
+        final List<String> failures = new ArrayList<>();
+        final Map<HostArtifactDigest, List<String>> digestVersions = new LinkedHashMap<>();
+        for (final Loaded loaded : coreRecords.values()) {
+            final HostArtifactDigest digest = new HostArtifactDigest(
+                    loaded.record().artifact().size(),
+                    loaded.record().artifact().sha256());
+            digestVersions
+                    .computeIfAbsent(digest, key -> new ArrayList<>())
+                    .add(loaded.record().cubismVersion());
+        }
+        for (final Map.Entry<String, Loaded> entry : coreRecords.entrySet()) {
+            final String version = entry.getKey();
+            final Loaded loaded = entry.getValue();
+            final StaticVerificationRecord record = loaded.record();
+            final String label = version + " x core-model-read";
+            try {
+                dev.turboism.adapter.cubism.core.CoreVersionExpectation.reviewedProfile(version);
+            } catch (final IllegalArgumentException failure) {
+                failures.add(label + ": CoreVersionExpectation.reviewedProfile rejected the version: "
+                        + failure.getMessage());
+            }
+            try {
+                if (!record.verificationId().equals(CorePublicApiTrustRoots.verificationId(version))) {
+                    failures.add(label + ": trust-root verificationId drifted from the record");
+                }
+            } catch (final IllegalArgumentException failure) {
+                failures.add(label + ": CorePublicApiTrustRoots.verificationId rejected the version: "
+                        + failure.getMessage());
+            }
+            final var providerId =
+                    dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.providerIdFor(version);
+            final var capabilityIds =
+                    dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.capabilityIdsFor(version);
+            final var requiredAliases =
+                    dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.requiredAliasesFor(
+                            version);
+            if (providerId.isEmpty() || capabilityIds.isEmpty() || requiredAliases.isEmpty()) {
+                failures.add(label + ": generated selector contract has no profile for the version");
+            } else {
+                if (!capabilityIds.orElseThrow().equals(Set.copyOf(record.capabilityIds()))) {
+                    failures.add(label + ": contract capability ids " + capabilityIds.orElseThrow()
+                            + " differ from the record's " + record.capabilityIds());
+                }
+                if (!requiredAliases.orElseThrow().equals(selectorAliases(record))) {
+                    failures.add(label + ": contract required aliases differ from the record selectors (missing "
+                            + difference(requiredAliases.orElseThrow(), selectorAliases(record)) + ", extra "
+                            + difference(selectorAliases(record), requiredAliases.orElseThrow()) + ")");
+                }
+            }
+            final HostArtifactDigest digest = new HostArtifactDigest(
+                    record.artifact().size(), record.artifact().sha256());
+            final List<String> sameDigest = digestVersions.get(digest);
+            try {
+                final String profile = CorePublicApiVerificationManifest.profileFor(digest);
+                // Byte-identical Core jars share one digest-keyed manifest entry: a
+                // unique digest must resolve its own version, a shared digest must
+                // resolve one of the versions carrying these exact Core bytes.
+                if (sameDigest.size() == 1 && !version.equals(profile)) {
+                    failures.add(label + ": unique Core digest resolved to profile " + profile);
+                }
+                if (!sameDigest.contains(profile)) {
+                    failures.add(label + ": digest resolved to profile " + profile
+                            + " outside its shared Core jar group " + sameDigest);
+                    continue;
+                }
+                workflow.requireReviewedRecord(
+                        coreRecords.get(profile).path(), CorePublicApiVerificationManifest.require(profile));
+            } catch (final IllegalArgumentException | IOException failure) {
+                failures.add(
+                        label + ": Core artifact digest does not resolve a reviewed profile: " + failure.getMessage());
+            }
+        }
+        if (!failures.isEmpty()) {
+            fail("core admission preflight found " + failures.size() + " mismatch(es):\n  - "
+                    + String.join("\n  - ", failures));
+        }
+    }
+
     @Test
     void recordMissingManifestCapabilityFailsLikeTheMeshToolbarRegression() throws Exception {
         // Hermetic replay of the pre-7ade4e071 wall: the ui-main-toolbar records

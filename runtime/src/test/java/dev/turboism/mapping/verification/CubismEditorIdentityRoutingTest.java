@@ -17,7 +17,7 @@ class CubismEditorIdentityRoutingTest {
         assertManifest(
                 EditorModelVerificationManifest.forArtifact(artifact),
                 "cubism-5.3.03.editor-model.static",
-                "8b4d407970b539afd51923ecbd48aa7da47c0cb076f02ffffbe3f391804ea447",
+                "ba3d1c7c4d593d78ab2cb46bf3af96fc3f9c6f264df84b1035d466ad44da51aa",
                 EditorModelVerificationManifest.ADAPTER_SLICE_ID,
                 EditorModelVerificationManifest.cubism5303Capabilities(),
                 EditorModelVerificationManifest.cubism5303StaticAliases());
@@ -33,9 +33,13 @@ class CubismEditorIdentityRoutingTest {
     @Test
     void identificationOpensFullRuntimeWithoutCreatingASeparateCoreProfile() {
         org.junit.jupiter.api.Assertions.assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> dev.turboism.adapter.cubism.core.CoreVersionExpectation.reviewedProfile("5.3.03"));
+        // 5.3.03 ships the byte-identical 5.3.02 Core jar, so its Core expectation is
+        // the shared reviewed tuple — not a new profile — and the digest-keyed
+        // manifest still refuses a named "5.3.03" profile.
+        org.junit.jupiter.api.Assertions.assertEquals(
+                new dev.turboism.adapter.cubism.core.CoreRuntimeVersion(6, 0, 257),
+                dev.turboism.adapter.cubism.core.CoreVersionExpectation.reviewedProfile("5.3.03")
+                        .exactVersion());
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new VerifiedCorePublicApiResolverFactory()
