@@ -25,7 +25,17 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   shift
 fi
 
-turboism_select_fixture "$version" || exit 2
+if [ -n "${TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK:-}" ]; then
+  # Task-scoped mask-bearing fixture: the versioned fixtures may carry no
+  # clip-mask relationships (the probe then terminates BLOCKED), so this task
+  # prefers a dedicated fixture when one is configured.
+  fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK"
+  fixture_sha256="${TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK_SHA256:-}"
+  [ -n "$fixture_sha256" ] \
+    || { echo "error: TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK set but TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK_SHA256 missing" >&2; exit 2; }
+else
+  turboism_select_fixture "$version" || exit 2
+fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
