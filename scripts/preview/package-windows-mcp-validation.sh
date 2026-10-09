@@ -6,6 +6,15 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
+
+# The bundle mixes the agent and plugin jars; rebuild every shipped artifact so a
+# stale jar can never be packaged next to a newer agent. A plugin jar compiled
+# against an older SDK generation links fine at classload time and then dies with
+# NoSuchMethodError the first time enable() calls a removed PluginContext method.
+TURBOISM_WORKTREE_ID="$worktree_id" "$repo_root/gradlew" --console=plain \
+  previewBundle :plugins:mcp:jar :sdk:jar
+TURBOISM_WORKTREE_ID="$worktree_id" bash "$repo_root/validation/mcp-host-probe/build.sh"
+
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-mcp-validation}"
 preview_root="$repo_root/build/preview/$worktree_id"
 mcp_jars=("$repo_root"/build/worktree/"$worktree_id"/mcp/libs/mcp-*.jar)
