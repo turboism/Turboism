@@ -137,6 +137,25 @@ for spec in "${plugins[@]}"; do
   plugin_args+=(--plugin "$spec")
 done
 
+# Every -assisted variant across the manifest pins the combined Mesa/deferred
+# option off itself; the session's pinned-off baseline is appended only for
+# names the forwarded args do not declare, so a declaring variant cannot
+# collide with the default at the runner's duplicate-name validation.
+# conditional-runner-args: mesa_glthread turboism.optimization.mesaGlThread
+mesa_env_declared=0
+mesa_jvm_declared=0
+option_name=''
+for arg in "$@"; do
+  case "$option_name" in
+    --linux-env) [[ "$arg" == mesa_glthread=* ]] && mesa_env_declared=1 ;;
+    --jvm-option) [[ "$arg" == -Dturboism.optimization.mesaGlThread=* ]] && mesa_jvm_declared=1 ;;
+  esac
+  option_name="$arg"
+done
+session_mesa_defaults=()
+[ "$mesa_jvm_declared" = 1 ] || session_mesa_defaults+=(--jvm-option '-Dturboism.optimization.mesaGlThread=false')
+[ "$mesa_env_declared" = 1 ] || session_mesa_defaults+=(--linux-env 'mesa_glthread=false')
+
 exec bash "$runner" \
   --name session-standard --version "$version" --run-label "$run_label" \
   --bundle-root "$bundle_root" --agent "$bundle_root/turboism-agent.jar" \
@@ -152,8 +171,7 @@ exec bash "$runner" \
   --jvm-option "-Dturboism.validation.expectedCoreVersion=$core_tuple" \
   --jvm-option '-Dturboism.validation.fixture={FIXTURE}' \
   --jvm-option '-Dturboism.validation.separateSavePath.expectEnabled=false' \
-  --jvm-option '-Dturboism.optimization.mesaGlThread=false' \
-  --linux-env 'mesa_glthread=false' \
+  "${session_mesa_defaults[@]}" \
   --ready-marker 'SESSION_BEGIN' \
   --result-file 'state/session/session-result.properties' \
   --result-pass-line 'status=PASS' --result-fail-line 'status=FAIL' \
