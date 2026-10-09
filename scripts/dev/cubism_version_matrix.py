@@ -1922,12 +1922,15 @@ def wire() -> None:
 
 
 def shared_core_profile(version: str) -> str | None:
-    """A target inherits a reviewed core profile only when its
+    """A target carries its own propagated core pack when one exists.
+    Otherwise it inherits a reviewed core profile only when its
     ``Live2DCubismCore.jar`` is byte-identical (``profileForArtifact`` binds
     by exact digest). The native runtime tuple stays unobserved for distinct
     jars, so they receive no core pack reference."""
+    if (PACK_DIR / f"cubism-{version}-core-model-read.json").is_file():
+        return f"cubism-{version}-core-model-read"
     sha = artifact_facts(version, "Live2DCubismCore.jar")["sha256"]
-    for reviewed in ("5.2.03", "5.3.02", "5.3.04"):
+    for reviewed in ("5.1.03", "5.2.03", "5.3.02", "5.3.04"):
         if artifact_facts(reviewed, "Live2DCubismCore.jar")["sha256"] == sha:
             return f"cubism-{reviewed}-core-model-read"
     return None
@@ -2092,7 +2095,13 @@ def propagated_record(
     # Empty contract table: every capability is unlisted, so derive_record
     # keeps them only when the whole selector set verifies — which is exactly
     # the propagation precondition (full=True).
-    return derive_record(effective, {s["alias"] for s in selectors}, True, to_version, family, {}, {})
+    record = derive_record(
+        effective, {s["alias"] for s in selectors}, True, to_version, family, {}, {}
+    )
+    # derive_record pins the default editor jar; core slices verified against
+    # source["artifact"]["name"], so the record must pin that artifact.
+    record["artifact"] = artifact_facts(to_version, source["artifact"]["name"])
+    return record
 
 
 def merge_record(existing: dict, propagated: dict):
@@ -2249,12 +2258,12 @@ def propagate_family(
         )
         propagated = propagated_record(source, resolved, version, family)
         if existing is not None:
-            if existing.get("artifact") != artifact_facts(version):
+            if existing.get("artifact") != artifact_facts(version, jar_name):
                 entry["conflicts"].append(
                     {
                         "kind": "artifact-drift",
                         "existing": existing.get("artifact"),
-                        "measured": artifact_facts(version),
+                        "measured": artifact_facts(version, jar_name),
                     }
                 )
                 entry["outcome"] = "conflict"

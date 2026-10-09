@@ -112,7 +112,9 @@
     "ui.object-context-menu.contribute",
     "cubism.editor-model.selection.read",
     "cubism.mesh-tool.session",
-    "cubism.modeling-tool.selection-brush"
+    "cubism.modeling-tool.selection-brush",
+    "cubism.editor-model.part-inspector.id-write",
+    "cubism.editor-model.part-opacity.read"
   ],
   "cubismVersion": "5.3.02",
   "profileId": "cubism-5.3.02",
@@ -10963,6 +10965,105 @@
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.keyform_grid_keyforms_on_grid",
+      "alias": "cubism.editor-model.keyform-grid.keyforms-on-grid",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "memberName": "getKeyformsOnGrid",
+      "descriptor": "()Ljava/util/List;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.keyform_on_grid_form_guid",
+      "alias": "cubism.editor-model.keyform-on-grid.form-guid",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformOnGrid",
+      "memberName": "b",
+      "descriptor": "()Lcom/live2d/type/CFormGuid;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_model.method.layer-selector-map_get",
+      "alias": "cubism.editor-model.layer-selector-map.get",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/inputFilter/CLayerSelectorMap",
+      "memberName": "get",
+      "descriptor": "(Lcom/live2d/type/CLayeredImageGuid;)Ljava/util/List;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_model.method.part_parts_opacity",
+      "alias": "cubism.editor-model.part.parts-opacity",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPart",
+      "memberName": "getPartsOpacity",
+      "descriptor": "()F",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_model.method.texture-undo_force-redo",
+      "alias": "cubism.editor-model.texture-undo.force-redo",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/undo/ACSimpleUndoable",
+      "memberName": "forceRedo",
+      "descriptor": "()Lcom/live2d/undo/ACSimpleUndoable;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_model.constructor.texture-undo_layer-input_create",
+      "alias": "cubism.editor-model.texture-undo.layer-input.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/model/texture/TextureManagerHandler$UndoAddOrRemove_LayerInput",
+      "memberName": "<init>",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/extension/textureInput/inputFilter/CLayerSelectorMap;Lcom/live2d/type/CLayeredImageGuid;Ljava/util/List;Z)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_model.constructor.texture-undo_raw-image_create",
+      "alias": "cubism.editor-model.texture-undo.raw-image.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/model/texture/TextureManagerHandler$UndoAddOrRemove_RawImage",
+      "memberName": "<init>",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/CModelSource;Lcom/live2d/cubism/doc/resources/CLayeredImage;IZ)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.undo_local_simple_factory_create",
+      "alias": "cubism.editor-model.undo.local-simple-factory-create",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/undo/UUUndo",
+      "memberName": "a",
+      "descriptor": "(Ljava/lang/String;ZLkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;)Lcom/live2d/undo/ACUndoable;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.field.undo_local_simple_factory_instance",
+      "alias": "cubism.editor-model.undo.local-simple-factory-instance",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/undo/UUUndo",
+      "memberName": "a",
+      "descriptor": "Lcom/live2d/undo/UUUndo;",
+      "requiredAccessFlags": 25,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
     }
   ],
   "capabilityConditions": {
@@ -11293,6 +11394,12 @@
     "cubism.modeling-tool.selection-brush": [
       "hook:mesh-tool-session",
       "hook:modeling-tool-lifecycle"
+    ],
+    "cubism.editor-model.part-inspector.id-write": [
+      "declaredGeneration"
+    ],
+    "cubism.editor-model.part-opacity.read": [
+      "structure"
     ]
   }
 }

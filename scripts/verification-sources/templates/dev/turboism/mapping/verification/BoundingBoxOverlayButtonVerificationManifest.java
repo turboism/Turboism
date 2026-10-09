@@ -87,7 +87,6 @@ public final class BoundingBoxOverlayButtonVerificationManifest {
             case "${record:cubism-5.3.04-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5304;
             // </version-matrix:bb-cases>
 
-
             case "${record:cubism-5.2.03-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_52;
             case "${record:cubism-5.3.02-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5302;
             case "${record:cubism-5.3.03-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5303;
