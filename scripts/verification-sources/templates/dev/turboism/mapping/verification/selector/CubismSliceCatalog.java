@@ -351,6 +351,96 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.04-clipmask.json:adapterSliceId}",
         "${record:cubism-5.3.04-clipmask.json:profileId}"
     );
+    private static final Candidate C_CORE_MODEL_READ_5_0_00 = new Candidate(
+        "core-model-read",
+        "${record:cubism-5.0.00-core-model-read.json:cubismVersion}",
+        "cubism-5.0.00-core-model-read.json",
+        "${record:cubism-5.0.00-core-model-read.json:sha256}",
+        "${record:cubism-5.0.00-core-model-read.json:verificationId}",
+        "${record:cubism-5.0.00-core-model-read.json:adapterSliceId}",
+        "${record:cubism-5.0.00-core-model-read.json:profileId}"
+    );
+    private static final Candidate C_CORE_MODEL_READ_5_0_01 = new Candidate(
+        "core-model-read",
+        "${record:cubism-5.0.01-core-model-read.json:cubismVersion}",
+        "cubism-5.0.01-core-model-read.json",
+        "${record:cubism-5.0.01-core-model-read.json:sha256}",
+        "${record:cubism-5.0.01-core-model-read.json:verificationId}",
+        "${record:cubism-5.0.01-core-model-read.json:adapterSliceId}",
+        "${record:cubism-5.0.01-core-model-read.json:profileId}"
+    );
+    private static final Candidate C_CORE_MODEL_READ_5_0_02 = new Candidate(
+        "core-model-read",
+        "${record:cubism-5.0.02-core-model-read.json:cubismVersion}",
+        "cubism-5.0.02-core-model-read.json",
+        "${record:cubism-5.0.02-core-model-read.json:sha256}",
+        "${record:cubism-5.0.02-core-model-read.json:verificationId}",
+        "${record:cubism-5.0.02-core-model-read.json:adapterSliceId}",
+        "${record:cubism-5.0.02-core-model-read.json:profileId}"
+    );
+    private static final Candidate C_CORE_MODEL_READ_5_0_03 = new Candidate(
+        "core-model-read",
+        "${record:cubism-5.0.03-core-model-read.json:cubismVersion}",
+        "cubism-5.0.03-core-model-read.json",
+        "${record:cubism-5.0.03-core-model-read.json:sha256}",
+        "${record:cubism-5.0.03-core-model-read.json:verificationId}",
+        "${record:cubism-5.0.03-core-model-read.json:adapterSliceId}",
+        "${record:cubism-5.0.03-core-model-read.json:profileId}"
+    );
+    private static final Candidate C_CORE_MODEL_READ_5_0_04 = new Candidate(
+        "core-model-read",
+        "${record:cubism-5.0.04-core-model-read.json:cubismVersion}",
+        "cubism-5.0.04-core-model-read.json",
+        "${record:cubism-5.0.04-core-model-read.json:sha256}",
+        "${record:cubism-5.0.04-core-model-read.json:verificationId}",
+        "${record:cubism-5.0.04-core-model-read.json:adapterSliceId}",
+        "${record:cubism-5.0.04-core-model-read.json:profileId}"
+    );
+    private static final Candidate C_CORE_MODEL_READ_5_0_05 = new Candidate(
+        "core-model-read",
+        "${record:cubism-5.0.05-core-model-read.json:cubismVersion}",
+        "cubism-5.0.05-core-model-read.json",
+        "${record:cubism-5.0.05-core-model-read.json:sha256}",
+        "${record:cubism-5.0.05-core-model-read.json:verificationId}",
+        "${record:cubism-5.0.05-core-model-read.json:adapterSliceId}",
+        "${record:cubism-5.0.05-core-model-read.json:profileId}"
+    );
+    private static final Candidate C_CORE_MODEL_READ_5_0_06 = new Candidate(
+        "core-model-read",
+        "${record:cubism-5.0.06-core-model-read.json:cubismVersion}",
+        "cubism-5.0.06-core-model-read.json",
+        "${record:cubism-5.0.06-core-model-read.json:sha256}",
+        "${record:cubism-5.0.06-core-model-read.json:verificationId}",
+        "${record:cubism-5.0.06-core-model-read.json:adapterSliceId}",
+        "${record:cubism-5.0.06-core-model-read.json:profileId}"
+    );
+    private static final Candidate C_CORE_MODEL_READ_5_1_00 = new Candidate(
+        "core-model-read",
+        "${record:cubism-5.1.00-core-model-read.json:cubismVersion}",
+        "cubism-5.1.00-core-model-read.json",
+        "${record:cubism-5.1.00-core-model-read.json:sha256}",
+        "${record:cubism-5.1.00-core-model-read.json:verificationId}",
+        "${record:cubism-5.1.00-core-model-read.json:adapterSliceId}",
+        "${record:cubism-5.1.00-core-model-read.json:profileId}"
+    );
+    private static final Candidate C_CORE_MODEL_READ_5_1_01 = new Candidate(
+        "core-model-read",
+        "${record:cubism-5.1.01-core-model-read.json:cubismVersion}",
+        "cubism-5.1.01-core-model-read.json",
+        "${record:cubism-5.1.01-core-model-read.json:sha256}",
+        "${record:cubism-5.1.01-core-model-read.json:verificationId}",
+        "${record:cubism-5.1.01-core-model-read.json:adapterSliceId}",
+        "${record:cubism-5.1.01-core-model-read.json:profileId}"
+    );
+    private static final Candidate C_CORE_MODEL_READ_5_1_02 = new Candidate(
+        "core-model-read",
+        "${record:cubism-5.1.02-core-model-read.json:cubismVersion}",
+        "cubism-5.1.02-core-model-read.json",
+        "${record:cubism-5.1.02-core-model-read.json:sha256}",
+        "${record:cubism-5.1.02-core-model-read.json:verificationId}",
+        "${record:cubism-5.1.02-core-model-read.json:adapterSliceId}",
+        "${record:cubism-5.1.02-core-model-read.json:profileId}"
+    );
     private static final Candidate C_CORE_MODEL_READ_5_1_03 = new Candidate(
         "core-model-read",
         "${record:cubism-5.1.03-core-model-read.json:cubismVersion}",
@@ -359,6 +449,33 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.1.03-core-model-read.json:verificationId}",
         "${record:cubism-5.1.03-core-model-read.json:adapterSliceId}",
         "${record:cubism-5.1.03-core-model-read.json:profileId}"
+    );
+    private static final Candidate C_CORE_MODEL_READ_5_2_00 = new Candidate(
+        "core-model-read",
+        "${record:cubism-5.2.00-core-model-read.json:cubismVersion}",
+        "cubism-5.2.00-core-model-read.json",
+        "${record:cubism-5.2.00-core-model-read.json:sha256}",
+        "${record:cubism-5.2.00-core-model-read.json:verificationId}",
+        "${record:cubism-5.2.00-core-model-read.json:adapterSliceId}",
+        "${record:cubism-5.2.00-core-model-read.json:profileId}"
+    );
+    private static final Candidate C_CORE_MODEL_READ_5_2_01 = new Candidate(
+        "core-model-read",
+        "${record:cubism-5.2.01-core-model-read.json:cubismVersion}",
+        "cubism-5.2.01-core-model-read.json",
+        "${record:cubism-5.2.01-core-model-read.json:sha256}",
+        "${record:cubism-5.2.01-core-model-read.json:verificationId}",
+        "${record:cubism-5.2.01-core-model-read.json:adapterSliceId}",
+        "${record:cubism-5.2.01-core-model-read.json:profileId}"
+    );
+    private static final Candidate C_CORE_MODEL_READ_5_2_02 = new Candidate(
+        "core-model-read",
+        "${record:cubism-5.2.02-core-model-read.json:cubismVersion}",
+        "cubism-5.2.02-core-model-read.json",
+        "${record:cubism-5.2.02-core-model-read.json:sha256}",
+        "${record:cubism-5.2.02-core-model-read.json:verificationId}",
+        "${record:cubism-5.2.02-core-model-read.json:adapterSliceId}",
+        "${record:cubism-5.2.02-core-model-read.json:profileId}"
     );
     private static final Candidate C_CORE_MODEL_READ_5_2_03 = new Candidate(
         "core-model-read",
@@ -369,6 +486,24 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.2.03-core-model-read.json:adapterSliceId}",
         "${record:cubism-5.2.03-core-model-read.json:profileId}"
     );
+    private static final Candidate C_CORE_MODEL_READ_5_3_00 = new Candidate(
+        "core-model-read",
+        "${record:cubism-5.3.00-core-model-read.json:cubismVersion}",
+        "cubism-5.3.00-core-model-read.json",
+        "${record:cubism-5.3.00-core-model-read.json:sha256}",
+        "${record:cubism-5.3.00-core-model-read.json:verificationId}",
+        "${record:cubism-5.3.00-core-model-read.json:adapterSliceId}",
+        "${record:cubism-5.3.00-core-model-read.json:profileId}"
+    );
+    private static final Candidate C_CORE_MODEL_READ_5_3_01 = new Candidate(
+        "core-model-read",
+        "${record:cubism-5.3.01-core-model-read.json:cubismVersion}",
+        "cubism-5.3.01-core-model-read.json",
+        "${record:cubism-5.3.01-core-model-read.json:sha256}",
+        "${record:cubism-5.3.01-core-model-read.json:verificationId}",
+        "${record:cubism-5.3.01-core-model-read.json:adapterSliceId}",
+        "${record:cubism-5.3.01-core-model-read.json:profileId}"
+    );
     private static final Candidate C_CORE_MODEL_READ_5_3_02 = new Candidate(
         "core-model-read",
         "${record:cubism-5.3.02-core-model-read.json:cubismVersion}",
@@ -377,6 +512,15 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.02-core-model-read.json:verificationId}",
         "${record:cubism-5.3.02-core-model-read.json:adapterSliceId}",
         "${record:cubism-5.3.02-core-model-read.json:profileId}"
+    );
+    private static final Candidate C_CORE_MODEL_READ_5_3_03 = new Candidate(
+        "core-model-read",
+        "${record:cubism-5.3.03-core-model-read.json:cubismVersion}",
+        "cubism-5.3.03-core-model-read.json",
+        "${record:cubism-5.3.03-core-model-read.json:sha256}",
+        "${record:cubism-5.3.03-core-model-read.json:verificationId}",
+        "${record:cubism-5.3.03-core-model-read.json:adapterSliceId}",
+        "${record:cubism-5.3.03-core-model-read.json:profileId}"
     );
     private static final Candidate C_CORE_MODEL_READ_5_3_04 = new Candidate(
         "core-model-read",
@@ -1904,9 +2048,25 @@ public final class CubismSliceCatalog {
     };
 
     private static final Candidate[] CANDIDATES_CORE_MODEL_READ = {
+        C_CORE_MODEL_READ_5_0_00,
+        C_CORE_MODEL_READ_5_0_01,
+        C_CORE_MODEL_READ_5_0_02,
+        C_CORE_MODEL_READ_5_0_03,
+        C_CORE_MODEL_READ_5_0_04,
+        C_CORE_MODEL_READ_5_0_05,
+        C_CORE_MODEL_READ_5_0_06,
+        C_CORE_MODEL_READ_5_1_00,
+        C_CORE_MODEL_READ_5_1_01,
+        C_CORE_MODEL_READ_5_1_02,
         C_CORE_MODEL_READ_5_1_03,
+        C_CORE_MODEL_READ_5_2_00,
+        C_CORE_MODEL_READ_5_2_01,
+        C_CORE_MODEL_READ_5_2_02,
         C_CORE_MODEL_READ_5_2_03,
+        C_CORE_MODEL_READ_5_3_00,
+        C_CORE_MODEL_READ_5_3_01,
         C_CORE_MODEL_READ_5_3_02,
+        C_CORE_MODEL_READ_5_3_03,
         C_CORE_MODEL_READ_5_3_04
     };
 

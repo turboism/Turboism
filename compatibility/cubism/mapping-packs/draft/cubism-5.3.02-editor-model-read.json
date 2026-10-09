@@ -20880,6 +20880,218 @@
         "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
         "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
       }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.keyform_grid_keyforms_on_grid",
+      "kind": "method",
+      "owner": "editor-model-parameter-binding",
+      "name": "cubism.editor-model.keyform-grid.keyforms-on-grid",
+      "runtime": "getKeyformsOnGrid",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "descriptor": "()Ljava/util/List;",
+      "intermediary": "",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.keyform-grid.keyforms-on-grid",
+        "recordMappingId": "cubism.mapping.v5_3_03.editor_model.method.keyform_grid_keyforms_on_grid",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "5.3.02 and 5.3.03 exact classfile parity plus exact 5.3.03 classfile verification"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.keyform_on_grid_form_guid",
+      "kind": "method",
+      "owner": "editor-model-parameter-binding",
+      "name": "cubism.editor-model.keyform-on-grid.form-guid",
+      "runtime": "b",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformOnGrid",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "descriptor": "()Lcom/live2d/type/CFormGuid;",
+      "intermediary": "",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.keyform-on-grid.form-guid",
+        "recordMappingId": "cubism.mapping.v5_3_03.editor_model.method.keyform_on_grid_form_guid",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "5.3.02 and 5.3.03 exact classfile parity plus exact 5.3.03 classfile verification"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.layer-selector-map_get",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.layer-selector-map.get",
+      "runtime": "get",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "intermediary": "",
+      "descriptor": "(Lcom/live2d/type/CLayeredImageGuid;)Ljava/util/List;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/inputFilter/CLayerSelectorMap",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.part_parts_opacity",
+      "kind": "method",
+      "owner": "editor-model-part-opacity",
+      "name": "cubism.editor-model.part.parts-opacity",
+      "runtime": "getPartsOpacity",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPart",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "descriptor": "()F"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.texture-undo_force-redo",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.texture-undo.force-redo",
+      "runtime": "forceRedo",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/undo/ACSimpleUndoable;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/ACSimpleUndoable",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.constructor.texture-undo_layer-input_create",
+      "kind": "constructor",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.texture-undo.layer-input.create",
+      "runtime": "<init>",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "intermediary": "",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/extension/textureInput/inputFilter/CLayerSelectorMap;Lcom/live2d/type/CLayeredImageGuid;Ljava/util/List;Z)V",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/texture/TextureManagerHandler$UndoAddOrRemove_LayerInput",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.constructor.texture-undo_raw-image_create",
+      "kind": "constructor",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.texture-undo.raw-image.create",
+      "runtime": "<init>",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "intermediary": "",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/CModelSource;Lcom/live2d/cubism/doc/resources/CLayeredImage;IZ)V",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/texture/TextureManagerHandler$UndoAddOrRemove_RawImage",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.method.undo_local_simple_factory_create",
+      "kind": "method",
+      "owner": "editor-model-default-keyform-lock-write",
+      "name": "cubism.editor-model.undo.local-simple-factory-create",
+      "runtime": "a",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "intermediary": "",
+      "descriptor": "(Ljava/lang/String;ZLkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;)Lcom/live2d/undo/ACUndoable;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/UUUndo",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "x.review": {
+        "recordAlias": "cubism.editor-model.undo.local-simple-factory-create",
+        "recordMappingId": "cubism.mapping.v5_3_03.editor_model.method.undo_local_simple_factory_create",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact all-version UUUndo classfile verification after default-keyform lock SimpleUndo replay failure"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.editor_model.field.undo_local_simple_factory_instance",
+      "kind": "field",
+      "owner": "editor-model-default-keyform-lock-write",
+      "name": "cubism.editor-model.undo.local-simple-factory-instance",
+      "runtime": "a",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "intermediary": "",
+      "descriptor": "Lcom/live2d/undo/UUUndo;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/UUUndo",
+        "requiredAccessFlags": 25,
+        "forbiddenAccessFlags": 0
+      },
+      "x.review": {
+        "recordAlias": "cubism.editor-model.undo.local-simple-factory-instance",
+        "recordMappingId": "cubism.mapping.v5_3_03.editor_model.field.undo_local_simple_factory_instance",
+        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "provenance": "exact all-version UUUndo classfile verification after default-keyform lock SimpleUndo replay failure"
+      }
     }
   ],
   "metadata": {
@@ -20891,8 +21103,8 @@
       "main": "b8c09b5a",
       "entryUnionCount": 696
     },
-    "selectorCount": 985,
-    "capabilityCount": 109,
+    "selectorCount": 994,
+    "capabilityCount": 111,
     "capabilityIds": [
       "cubism.editor-history.move",
       "cubism.editor-history.read",
@@ -21002,9 +21214,11 @@
       "ui.object-context-menu.contribute",
       "cubism.editor-model.selection.read",
       "cubism.mesh-tool.session",
-      "cubism.modeling-tool.selection-brush"
+      "cubism.modeling-tool.selection-brush",
+      "cubism.editor-model.part-inspector.id-write",
+      "cubism.editor-model.part-opacity.read"
     ],
-    "verificationRecordSha256": "c1bab7d6584668a7c9a47aa5e22b7c6c63007f45041e51dc32982a8444089171",
+    "verificationRecordSha256": "7857cb3cb5bd3405b2986dc6e1fb8840cf3b6e810b985a90743c7536a92cb840",
     "artifactName": "Live2D_Cubism.jar",
     "artifactSize": 41922739,
     "profileId": "cubism-5.3.02",
