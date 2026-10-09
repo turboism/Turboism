@@ -98,9 +98,27 @@ bash scripts/preview/run-clipmask-viewer-host-validation.sh 5302 dry1 --dry-run
 ```
 
 Never pass the original fixture; the runner copies it and verifies the source
-hash before and after (`--require-fixture-unchanged`). If the default fixture
-turns out to have no clip-mask relationships, override it through runner
-options, e.g.
+hash before and after (`--require-fixture-unchanged`).
+
+## Task-scoped fixture
+
+The versioned fixtures under `TURBOISM_HOST_VALIDATION_FIXTURE_<ver>` are
+shared across tasks and may carry no clip-mask relationships; the probe then
+terminates `BLOCKED` on `fixture.clipMasks`. This task prefers a dedicated
+mask-bearing fixture: set `TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK` and
+`TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK_SHA256` in the ignored `.env` (see
+`.env.example`). When set, the wrapper uses it for every supported version;
+unset, it falls back to `turboism_select_fixture <version>`.
+
+The confirmed mask-bearing fixture is a locally authored revision of the test
+model (SHA-256 `2980dc8c…`, pinned in `scripts/preview/host-validation-env.sh`):
+on the exact host it reports 21 ArtMeshes, 2 masked drawables and 3 clip-mask
+records, and it loads on Cubism 5.2.03 and 5.3.04 without the newer-file
+dialog, so its document version ceiling is recorded in `FIXTURE_DOC_VERSION`
+(`scripts/preview/host_validation_static_gates.py`) for assisted routing of
+older targets. The file stays a local `.env` path and is never committed.
+
+A one-off runner-level override remains possible:
 `bash scripts/preview/run-clipmask-viewer-host-validation.sh 5302 r2 \
-  --fixture-remote "$TURBOISM_HOST_VALIDATION_FIXTURE_5302" \
-  --fixture-sha256 029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c`.
+  --fixture-remote /path/to/mask-bearing.cmo3 \
+  --fixture-sha256 <64 lowercase hex>`.
