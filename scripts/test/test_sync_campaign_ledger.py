@@ -114,11 +114,11 @@ class SyncFixture(unittest.TestCase):
             "status=PASS\n"
             "steps=2\n"
             "step.0.name=texture-relations\n"
-            "step.0.spec=texture-relations\:5304@standard\n"
+            "step.0.spec=texture-relations\\:5304@standard\n"
             "step.0.status=PASS\n"
             "step.0.durationMillis=12000\n"
             "step.1.name=core-owned-moc\n"
-            "step.1.spec=core-owned-moc\:5304\n"
+            "step.1.spec=core-owned-moc\\:5304\n"
             "step.1.status=FAIL\n"
             "step.1.durationMillis=9000\n",
             encoding="utf-8")

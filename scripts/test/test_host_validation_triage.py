@@ -303,10 +303,10 @@ class TriageFixture(unittest.TestCase):
             "status=PASS\n"
             "steps=2\n"
             "step.0.name=texture-relations\n"
-            "step.0.spec=texture-relations\:5304@standard\n"
+            "step.0.spec=texture-relations\\:5304@standard\n"
             "step.0.status=PASS\n"
             "step.1.name=core-owned-moc\n"
-            "step.1.spec=core-owned-moc\:5304\n"
+            "step.1.spec=core-owned-moc\\:5304\n"
             "step.1.status=NOT_RUN\n",
             encoding="utf-8")
         row = triage.iter_rows(self.db, job_ids=["j-sess"])[0]
