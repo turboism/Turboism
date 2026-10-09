@@ -117,7 +117,7 @@ final class McpHttpServer implements AutoCloseable {
             stage.enter("context.cubism()");
             final CubismFacade cubism = context.cubism();
             stage.enter("context.cubism().history()");
-            final CubismHistory history = cubism.history();
+            final CubismHistory history = optionalHistory(cubism);
             stage.enter("context.services().find(WorkspaceService.class)");
             final WorkspaceService workspace =
                     context.services().find(WorkspaceService.class).orElseGet(WorkspaceService::unavailable);
@@ -718,6 +718,15 @@ final class McpHttpServer implements AutoCloseable {
 
         String stage() {
             return stage;
+        }
+    }
+
+    /** Exact-version absence of the history capability must not prevent read-only MCP startup. */
+    static CubismHistory optionalHistory(final CubismFacade cubism) {
+        try {
+            return cubism.history();
+        } catch (CubismEditorApiUnavailableException unavailable) {
+            return CubismHistory.unavailable();
         }
     }
 
