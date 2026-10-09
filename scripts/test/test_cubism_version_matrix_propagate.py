@@ -389,6 +389,16 @@ class PropagationTest(unittest.TestCase):
         self.assertEqual("unchanged", second["results"][0]["outcome"])
         self.assertEqual([], second["filesWritten"])
 
+    def test_real_symbol_map_module_loads_as_hook(self):
+        # The committed scripts/dev/cubism_symbol_map.py must load through the
+        # default module path — an unregistered sys.modules entry breaks its
+        # dataclasses on Python 3.12+ and silently disables the hook.
+        resolver = MATRIX.load_symbol_resolver()
+        self.assertTrue(callable(resolver))
+        self.assertEqual(
+            "cubism_symbol_map", resolver.__module__
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

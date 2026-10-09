@@ -2005,6 +2005,10 @@ def load_symbol_resolver(module_path: Path | None = None):
     try:
         spec = importlib.util.spec_from_file_location("cubism_symbol_map", path)
         module = importlib.util.module_from_spec(spec)
+        # exec_module resolves dataclass internals through sys.modules on
+        # Python 3.12+; without registration the import fails and the hook is
+        # silently reported absent.
+        sys.modules[spec.name] = module
         spec.loader.exec_module(module)
     except (Exception, SystemExit):
         return None
@@ -2325,7 +2329,10 @@ def propagate_family(
     }
 
 
-def matrix_cell(jar_for, family: str, sources: list[tuple[str, dict]], version: str) -> dict:
+def matrix_cell(
+    jar_for, family: str, sources: list[tuple[str, dict]], version: str,
+    resolver=None,
+) -> dict:
     """One family x version cell of the propagation matrix.
 
     verified: a committed record exists and every selector verifies.
@@ -2369,19 +2376,34 @@ def matrix_cell(jar_for, family: str, sources: list[tuple[str, dict]], version: 
         return {"status": "no-artifact"}
     best = None
     for source_version, source in sources:
-        failures = [
-            s["alias"]
-            for s in source["selectors"]
-            if verify_selector(jar, s) != "VERIFIED_STATIC"
-        ]
+        failures = []
+        rescued = 0
+        for s in source["selectors"]:
+            _used, status, via = verify_propagated(
+                jar, s, source_version, version, resolver
+            )
+            if status != "VERIFIED_STATIC":
+                failures.append(
+                    {"alias": s["alias"], "status": status, "via": via}
+                )
+            elif via == "symbol-map":
+                rescued += 1
         if not failures:
-            return {"status": "propagatable", "from": source_version}
+            return {
+                "status": "propagatable",
+                "from": source_version,
+                "symbolMapRescued": rescued,
+            }
         if best is None or len(failures) < len(best["failures"]):
-            best = {"from": source_version, "failures": failures}
-    return {"status": "blocked", "from": best["from"], "failures": best["failures"]}
+            best = {
+                "from": source_version,
+                "failures": failures,
+                "symbolMapRescued": rescued,
+            }
+    return {"status": "blocked", **best}
 
 
-def propagation_matrix() -> dict:
+def propagation_matrix(resolver=None) -> dict:
     """Read-only family x version adaptation board."""
     families = load_source_records()
     rows: dict[str, dict[str, dict]] = {family: {} for family in families}
@@ -2395,7 +2417,9 @@ def propagation_matrix() -> dict:
             return jars[name]
 
         for family, sources in sorted(families.items()):
-            rows[family][version] = matrix_cell(jar_for, family, sources, version)
+            rows[family][version] = matrix_cell(
+                jar_for, family, sources, version, resolver
+            )
     return rows
 
 
@@ -2467,10 +2491,17 @@ def propagate_main(argv: list[str]) -> int:
         action="store_true",
         help="read-only family x version propagation matrix",
     )
+    parser.add_argument(
+        "--no-symbol-map",
+        action="store_true",
+        help="disable the optional cubism_symbol_map.resolve hook",
+    )
     args = parser.parse_args(argv)
 
     if args.all_families:
-        rows = propagation_matrix()
+        rows = propagation_matrix(
+            None if args.no_symbol_map else load_symbol_resolver()
+        )
         print_matrix(rows)
         PROPAGATE_REPORT_DIR.mkdir(parents=True, exist_ok=True)
         report_path = PROPAGATE_REPORT_DIR / "matrix.json"
@@ -2487,7 +2518,7 @@ def propagate_main(argv: list[str]) -> int:
         for version in targets:
             if not re.fullmatch(r"\d+\.\d+\.\d+", version):
                 parser.error(f"bad version {version!r}")
-    resolver = load_symbol_resolver()
+    resolver = None if args.no_symbol_map else load_symbol_resolver()
     report = propagate_family(
         args.family, args.from_version, targets, args.write, resolver
     )
