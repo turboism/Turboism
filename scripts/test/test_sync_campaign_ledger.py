@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "preview"))
 import sync_campaign_ledger as ledger_sync
 import host_validation_triage as triage

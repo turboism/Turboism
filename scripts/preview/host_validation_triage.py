@@ -27,7 +27,7 @@ from typing import Any
 import host_validation_queue as queue
 
 CATEGORIES = ("PASS", "INFRA_RETRYABLE", "ADMISSION_STATIC", "CAPABILITY_BOUNDARY",
-              "PROBE_DRIFT", "UNKNOWN")
+              "PROBE_DRIFT", "NO_EVIDENCE", "UNKNOWN")
 TERMINAL_STATES = frozenset({"succeeded", "failed", "cancelled", "timed_out",
                              "blocked", "abandoned"})
 JOB_SELECT = ("sequence,job_id,request_key,prepared_id,digest,state,reason,"
@@ -227,7 +227,8 @@ def _regex_match(pattern: str, texts: list[str]) -> bool:
 
 
 def rule_matches(when: dict[str, Any], features: dict[str, Any]) -> bool:
-    for clause in ("state", "terminalState", "validationStatus", "resultStatus"):
+    for clause in ("state", "terminalState", "validationStatus", "resultStatus",
+                   "terminalPassed"):
         if clause in when and not _value_match([features[clause]], when[clause]):
             return False
     signature = features["signature"] or {"class": "", "message": "", "frame": "", "causes": []}
@@ -295,6 +296,7 @@ def triage_row(row: dict[str, Any], rules: dict[str, Any], *, jobs_root: Path,
         "terminalState": outcome.get("terminalState") or row["state"],
         "validationStatus": outcome.get("validationStatus"),
         "resultStatus": props["status"],
+        "terminalPassed": terminal.get("passed"),
         "signature": signature,
         "markers": markers["failures"] + markers["results"],
         "consoleMarkers": console_markers,
@@ -307,12 +309,26 @@ def triage_row(row: dict[str, Any], rules: dict[str, Any], *, jobs_root: Path,
             advice = rule.get("advice", "")
             break
     notes = []
-    if not log_text and row["state"] in {"failed", "timed_out"}:
+    no_signal = (not signature and not markers["failures"] and not markers["results"]
+                 and not console_markers and not props["failures"]
+                 and props["status"] is None and terminal.get("passed") is not True)
+    if category == "UNKNOWN" and no_signal and row["state"] in {"failed", "timed_out"}:
+        category, rule_id = "NO_EVIDENCE", "no-evidence"
+        advice = ("no failure evidence anywhere; re-run the spec to regenerate "
+                  "evidence before attributing a cause")
+        if not log_text:
+            notes.append("no turboism.log in job-dir or run-dir evidence "
+                         "(retention may have reclaimed it)")
+        else:
+            notes.append("turboism.log ends without any verdict signal "
+                         "(host exited before producing a verdict)")
+    if not log_text and row["state"] in {"failed", "timed_out"} and category != "NO_EVIDENCE":
         notes.append("no turboism.log in job-dir or run-dir evidence "
                      "(retention may have reclaimed it)")
     if row["state"] in {"cancelled", "abandoned"} and category == "UNKNOWN":
         notes.append(f"job {row['state']} before a verdict; no failure evidence expected")
-    if signature is None and not markers["failures"] and row["state"] == "failed" and log_text:
+    if (signature is None and not markers["failures"] and category == "UNKNOWN"
+            and row["state"] == "failed" and log_text):
         notes.append("failed without an exception block or probe failure marker")
     spec = job_spec(row, prepared_root)
     return {
