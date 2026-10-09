@@ -325,9 +325,6 @@ class CubismFacadeImplTest {
                             ignored -> {},
                             Clock.systemUTC()),
                     new dev.turboism.adapter.cubism.ImmutableSnapshotFactory(),
-                    (context, document) -> {
-                        throw new UnsupportedOperationException();
-                    },
                     backend.modelAccess(),
                     backend.coreRuntimeInfo(),
                     new dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator(),

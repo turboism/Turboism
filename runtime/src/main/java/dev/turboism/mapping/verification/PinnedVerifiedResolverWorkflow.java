@@ -33,12 +33,7 @@ final class PinnedVerifiedResolverWorkflow {
         Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         Objects.requireNonNull(manifest, "manifest");
 
-        final StaticVerificationRecordLoader.LoadedRecord loaded = loader.load(reviewedRecord);
-        if (!loaded.sha256().equals(manifest.recordSha256())) {
-            throw new IllegalArgumentException("verification record is not the reviewed trust-root record");
-        }
-        final StaticVerificationRecord record = loaded.record();
-        requireManifestRecord(record, manifest);
+        final StaticVerificationRecord record = requireReviewedRecord(reviewedRecord, manifest);
         final HostArtifactDigest before = HostArtifactDigest.from(verifiedArtifact);
         if (before.size() != manifest.artifactSize() || !before.sha256().equals(manifest.artifactSha256())) {
             throw new IllegalArgumentException("host artifact is not the reviewed Cubism artifact");
@@ -117,6 +112,24 @@ final class PinnedVerifiedResolverWorkflow {
                         .map(StaticSelector::alias)
                         .collect(java.util.stream.Collectors.toSet()));
         return new VerifiedMemberResolver(accessPlan, hostClassLoader);
+    }
+
+    /**
+     * Loads the reviewed record and proves it is the exact trust-root record the
+     * manifest pins: the record bytes must hash to {@code manifest.recordSha256()}
+     * and every pinned field must match. This is the artifact-independent half of
+     * {@link #create}; offline admission preflights call it directly so a record
+     * that drifts from its reviewed manifest fails before any host launch.
+     */
+    StaticVerificationRecord requireReviewedRecord(final Path reviewedRecord, final Manifest manifest)
+            throws IOException {
+        final StaticVerificationRecordLoader.LoadedRecord loaded = loader.load(reviewedRecord);
+        if (!loaded.sha256().equals(manifest.recordSha256())) {
+            throw new IllegalArgumentException("verification record is not the reviewed trust-root record");
+        }
+        final StaticVerificationRecord record = loaded.record();
+        requireManifestRecord(record, manifest);
+        return record;
     }
 
     private static void requireManifestRecord(final StaticVerificationRecord record, final Manifest manifest) {

@@ -271,13 +271,13 @@ def method_edges(cp, code: bytes):
         if op == 0xC4:  # wide
             i += 6 if code[i] == 0x84 else 2
             continue
-        l = LDC_OPS.get(op)
-        if l:
-            idx = code[i] if l == 1 else u2(code, i)
+        ldc_len = LDC_OPS.get(op)
+        if ldc_len:
+            idx = code[i] if ldc_len == 1 else u2(code, i)
             cn = cp_cname(cp, idx)
             if cn and cn.startswith(LIVE2D_PREFIX):
                 cls.append(cn)
-            i += l
+            i += ldc_len
             continue
         if op in REF_OPS:
             idx = u2(code, i)
