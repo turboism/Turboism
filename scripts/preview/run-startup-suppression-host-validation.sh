@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 # Thin wrapper for exact-host validation of Turboism startup suppression
-# (skip splash / skip update check / skip information) on Cubism 5.3.02 and
-# 5.2.03. Uses the generic runner only; never launches Cubism's java.exe.
+# (skip splash / skip update check / skip information) on every reviewed
+# Cubism generation (5.0.00–5.3.04). Uses the generic runner only; never
+# launches Cubism's java.exe.
 #
 # Usage:
-#   run-startup-suppression-host-validation.sh <5302|5203> [run-label] [generic-runner-options...]
+#   run-startup-suppression-host-validation.sh <version> [run-label] [generic-runner-options...]
 set -euo pipefail
 
 # Machine-specific fixture paths come from the ignored repository `.env`.
 # shellcheck source=host-validation-env.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
-version="${1:?usage: run-startup-suppression-host-validation.sh <5302|5203> [run-label] [options...]}"
+version="${1:?usage: run-startup-suppression-host-validation.sh <version> [run-label] [options...]}"
 run_label="${2:-r1}"
 shift 2 2>/dev/null || shift 1 2>/dev/null || true
 
