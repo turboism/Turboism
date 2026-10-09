@@ -113,10 +113,21 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
 
     private void runWhenFlagged() {
         final Path flag = stateDir.resolve(FLAG);
-        final long deadline = System.currentTimeMillis() + FLAG_TIMEOUT_MILLIS;
+        final boolean session = dev.turboism.validation.SessionGate.enabled();
+        final Path finished = session ? dev.turboism.validation.SessionGate.finishedFlag(stateDir) : null;
+        // A session runs many steps: the flag arrives only when this step's turn
+        // comes, so there is no wait deadline — the coordinator's finished flag
+        // is the only way out besides the flag itself.
+        final long deadline = session
+            ? Long.MAX_VALUE
+            : System.currentTimeMillis() + FLAG_TIMEOUT_MILLIS;
         while (System.currentTimeMillis() < deadline) {
             if (Files.isRegularFile(flag)) {
                 runMatrix();
+                return;
+            }
+            if (finished != null && Files.isRegularFile(finished)) {
+                logger.info("CLIPMASK_VIEWER_PROBE_SESSION_ENDED_WITHOUT_TURN flag=" + flag);
                 return;
             }
             try {
@@ -127,6 +138,10 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
             }
         }
         logger.warn("CLIPMASK_VIEWER_PROBE_FLAG_TIMEOUT flag=" + flag);
+        if (session) {
+            dev.turboism.validation.SessionGate.complete(stateDir, "FAIL");
+            return;
+        }
         Runtime.getRuntime().halt(2);
     }
 
@@ -169,6 +184,10 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
             Thread.sleep(3_000L);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
+        }
+        if (dev.turboism.validation.SessionGate.enabled()) {
+            dev.turboism.validation.SessionGate.complete(stateDir, terminal);
+            return;
         }
         Runtime.getRuntime().exit(0);
     }

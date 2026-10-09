@@ -62,6 +62,7 @@ class HostValidationSchedulerTest(unittest.TestCase):
             "selection-brush",
             "selection-lag",
             "separate-save-path",
+            "session-standard",
             "startup-suppression",
             "status-bar",
             "theme",
