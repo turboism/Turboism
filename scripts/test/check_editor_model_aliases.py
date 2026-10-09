@@ -110,6 +110,10 @@ def record_aliases(root: Path) -> tuple[set[str], dict[str, set[str]]]:
     capabilities this runtime does not consume. Only its four additive, invoked aliases extend the
     exact-use admission held by the 5.2.03/5.3.02 records. The subset is fixed here so adding an
     arbitrary selector to any record cannot silently widen runtime admission.
+
+    Static propagation later verified the four additive aliases on the exact 5.2.03 and
+    5.3.02 artifacts, so they may now also appear in the base records; the consumed-admission
+    invariant this checker enforces (admission equals actual use) is unaffected either way.
     """
     union: set[str] = set()
     per_record: dict[str, set[str]] = {}
@@ -125,12 +129,6 @@ def record_aliases(root: Path) -> tuple[set[str], dict[str, set[str]]]:
         raise ValueError(
             "5.3.03 reviewed record lacks required additive aliases: "
             + ", ".join(sorted(missing))
-        )
-    unexpected_base = ADDITIVE_ALIASES & union
-    if unexpected_base:
-        raise ValueError(
-            "5.3.03-only aliases unexpectedly appear in older records: "
-            + ", ".join(sorted(unexpected_base))
         )
     per_record[Path(ADDITIVE_RECORD).name + " (admitted subset)"] = set(ADDITIVE_ALIASES)
     union |= ADDITIVE_ALIASES

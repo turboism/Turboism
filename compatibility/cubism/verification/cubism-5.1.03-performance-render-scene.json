@@ -31,6 +31,39 @@
       "requiredAccessFlags": 20,
       "forbiddenAccessFlags": 0,
       "status": "VERIFIED_STATIC"
+    },
+    {
+      "alias": "cubism.performance.modeling-pre-render-update",
+      "descriptor": "(Lcom/live2d/graphics3d/a;)V",
+      "forbiddenAccessFlags": 0,
+      "kind": "method",
+      "mappingId": "cubism.mapping.v5_3_03.performance.modeling_pre_render_update",
+      "memberName": "a",
+      "ownerInternalName": "com/live2d/cubism/view/context/K",
+      "requiredAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "alias": "cubism.performance.reinit-model-instance",
+      "descriptor": "()V",
+      "forbiddenAccessFlags": 0,
+      "kind": "method",
+      "mappingId": "cubism.mapping.v5_3_03.performance.reinit_model_instance",
+      "memberName": "reinitModelInstance_exe",
+      "ownerInternalName": "com/live2d/cubism/doc/model/CModel",
+      "requiredAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "alias": "cubism.performance.update-model-instances",
+      "descriptor": "()V",
+      "forbiddenAccessFlags": 0,
+      "kind": "method",
+      "mappingId": "cubism.mapping.v5_3_03.performance.update_model_instances",
+      "memberName": "updateModelInstances",
+      "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+      "requiredAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
     }
   ],
   "capabilityConditions": {
