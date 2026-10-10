@@ -158,6 +158,12 @@ def merge_step_entry(entry: dict[str, Any], row: dict[str, Any],
     elif entry.get("result") != result:
         entry["result"] = result
         changed = True
+    if (row["state"] in FINAL_STATES and step["status"] != "PASS"
+            and record["category"] != "PASS"):
+        triage = triage_object(record)
+        if entry.get("triage") != triage:
+            entry["triage"] = triage
+            changed = True
     return changed
 
 
