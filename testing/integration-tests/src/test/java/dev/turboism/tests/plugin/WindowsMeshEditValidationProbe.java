@@ -836,6 +836,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         final Path ready = context.paths().stateDir().resolve("editor-window-ready.properties");
         final String runId = System.getProperty("turboism.validation.runId", "");
         final long deadline = System.nanoTime() + 30_000_000_000L;
+        String lastRejection = "";
         while (System.nanoTime() < deadline) {
             if (Files.isRegularFile(ready)
                     && System.currentTimeMillis()
@@ -867,36 +868,67 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                         return new RobotCoordinateCandidates(nativeOrigin, awt, origin);
                     });
                     try {
-                        return calibrateRobotWithMoves(component, candidates.nativeOrigin(), candidates.nativeBounds());
+                        return calibrateRobotWithMoves(
+                                component,
+                                candidates.nativeOrigin(),
+                                candidates.nativeBounds(),
+                                new Point(
+                                        (int) candidates.nativeBounds().getCenterX(),
+                                        candidates.nativeBounds().y + 30));
                     } catch (IllegalStateException nativeFailure) {
                         context.logger()
                                 .info("Robot native coordinate candidate rejected: " + nativeFailure.getMessage());
-                        return calibrateRobotWithMoves(component, candidates.compositorOrigin(), actual);
+                        try {
+                            // The compositor rectangle is the client area; the client-drawn
+                            // title bar sits above it.
+                            return calibrateRobotWithMoves(
+                                    component,
+                                    candidates.compositorOrigin(),
+                                    actual,
+                                    new Point((int) actual.getCenterX(), Math.max(1, actual.y - 15)));
+                        } catch (IllegalStateException compositorFailure) {
+                            lastRejection = compositorFailure.getMessage();
+                            context.logger()
+                                    .info("Robot compositor coordinate candidate rejected: " + lastRejection);
+                        }
                     }
                 }
             }
             Thread.sleep(100L);
         }
-        throw new IllegalStateException("task editor did not report stable focused compositor bounds");
+        throw new IllegalStateException("task editor did not report stable focused compositor bounds"
+                + (lastRejection.isEmpty() ? "" : " (last calibration rejection: " + lastRejection + ")"));
     }
 
     private record RobotCoordinateCandidates(Point nativeOrigin, Rectangle nativeBounds, Point compositorOrigin) {}
 
     private Point calibrateRobotWithMoves(
-            final JComponent component, final Point estimate, final Rectangle actualWindow) throws Exception {
+            final JComponent component,
+            final Point estimate,
+            final Rectangle actualWindow,
+            final Point activationPoint) throws Exception {
         final var size = onEdt(component::getSize);
         if (size.width < 12 || size.height < 12) throw new IllegalStateException("Robot target component is too small");
         final var robot = new java.awt.Robot();
+        activateTaskWindow(robot, activationPoint);
         final Point firstScreen = new Point(estimate.x + size.width / 2, estimate.y + size.height / 2);
         if (!actualWindow.contains(firstScreen))
             throw new IllegalStateException("Robot calibration point is outside the task window");
         final Point firstLocal = robotMovementReceipt(robot, component, firstScreen);
-        final Point origin = robotOriginFromMovement(firstScreen, firstLocal);
+        Point origin = robotOriginFromMovement(firstScreen, firstLocal);
         final Point requestedLocal = new Point(size.width / 3, size.height / 3);
-        final Point secondScreen = new Point(origin.x + requestedLocal.x, origin.y + requestedLocal.y);
+        Point secondScreen = new Point(origin.x + requestedLocal.x, origin.y + requestedLocal.y);
         if (!actualWindow.contains(secondScreen))
             throw new IllegalStateException("Robot verification point is outside the task window");
-        final Point secondLocal = robotMovementReceipt(robot, component, secondScreen);
+        Point secondLocal = robotMovementReceipt(robot, component, secondScreen);
+        for (int attempt = 0; attempt < 3 && !requestedLocal.equals(secondLocal); attempt++) {
+            // Any delivered event is an exact anchor: re-derive the origin and try again.
+            origin = robotOriginFromMovement(secondScreen, secondLocal);
+            secondScreen = new Point(origin.x + requestedLocal.x, origin.y + requestedLocal.y);
+            if (!actualWindow.contains(secondScreen))
+                throw new IllegalStateException("Robot verification point is outside the task window");
+            secondLocal = robotMovementReceipt(robot, component, secondScreen);
+        }
         if (!requestedLocal.equals(secondLocal)) {
             throw new IllegalStateException(
                     "Robot coordinate verification differs: requested=" + requestedLocal + " delivered=" + secondLocal);
@@ -908,10 +940,29 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         return origin;
     }
 
+    /**
+     * Wine-hosted windows may ignore input while unactivated: the selection-lag
+     * probe proved that one press+release on the window title bar activates the
+     * Wine window before Robot input lands.
+     */
+    private static void activateTaskWindow(final java.awt.Robot robot, final Point titleBar) {
+        robot.mouseMove(titleBar.x, titleBar.y);
+        robot.delay(150);
+        robot.mousePress(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+        robot.delay(50);
+        robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+        robot.delay(300);
+    }
+
     static Point robotOriginFromMovement(final Point requestedScreen, final Point deliveredLocal) {
         return new Point(requestedScreen.x - deliveredLocal.x, requestedScreen.y - deliveredLocal.y);
     }
 
+    /**
+     * Moves the pointer and reports the delivered position in component coordinates.
+     * Every motion event owned by the task window counts — even one landing outside
+     * the component still pins the exact AWT-to-screen offset the calibration needs.
+     */
     private static Point robotMovementReceipt(
             final java.awt.Robot robot, final JComponent component, final Point screen) throws Exception {
         final AtomicReference<Point> delivered = new AtomicReference<>();
@@ -921,10 +972,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                     && mouse.getID() == MouseEvent.MOUSE_MOVED
                     && mouse.getSource() instanceof Component source
                     && SwingUtilities.getWindowAncestor(source) == targetWindow) {
-                final Point local = SwingUtilities.convertPoint(source, mouse.getPoint(), component);
-                if (local.x >= 0 && local.y >= 0 && local.x < component.getWidth() && local.y < component.getHeight()) {
-                    delivered.set(local);
-                }
+                delivered.set(SwingUtilities.convertPoint(source, mouse.getPoint(), component));
             }
         };
         onEdt(() -> {

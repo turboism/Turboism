@@ -149,12 +149,16 @@ class McpHostValidationClientTest(unittest.TestCase):
         self.assertLessEqual(selected[2], 1.0)
         self.assertNotEqual(selected[1], selected[2])
 
-    def test_mcp_runner_accepts_all_three_reviewed_editor_versions(self) -> None:
+    def test_mcp_runner_accepts_every_reviewed_editor_version(self) -> None:
         text = (REPO_ROOT / "scripts" / "preview" / "run-mcp-host-validation.sh") \
             .read_text(encoding="utf-8")
-        self.assertIn("<5203|5302|5303>", text)
+        reviewed = ["5000", "5001", "5002", "5003", "5004", "5005", "5006",
+                    "5100", "5101", "5102", "5103",
+                    "5200", "5201", "5202", "5203",
+                    "5300", "5301", "5302", "5303", "5304"]
+        self.assertIn("|".join(reviewed) + ")", text)
         manifest = json.loads((REPO_ROOT / "scripts/preview/host-validation-tasks.json").read_text())
-        self.assertEqual(["5203", "5302", "5303"], manifest["tasks"]["mcp"]["versions"])
+        self.assertEqual(reviewed, manifest["tasks"]["mcp"]["versions"])
         self.assertIn('turboism_select_fixture "$version"', text)
         self.assertIn("--require-fixture-unchanged", text)
         self.assertIn("--client-python", text)

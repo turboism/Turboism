@@ -6,6 +6,8 @@
 # fixture, verifies direction labels against the committed grid, descendant canvas
 # preservation, the atomic native Undo/Redo pair, NO_CHANGE, and fail-closed
 # rejection — while the production plugin and its overlay contribution stay loaded.
+# The authorized warp-deformer-alt-symmetry consumer plugin is also staged so the
+# warp-alt-mirror hook binds and the warp-mirror capability stays admitted.
 #
 # Usage:
 #   run-boundingbox-warp-mirror-host-validation.sh [5303] [run-label] [runner-options...]
@@ -40,6 +42,11 @@ worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scri
 agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
 probe_jar="$repo_root/build/boundingbox-warp-mirror-host-validation-probe.jar"
 plugin_jar="$(find "$repo_root/build/worktree/$worktree_id/boundingbox-warp-mirror/libs/" -name 'boundingbox-warp-mirror-*.jar' 2>/dev/null | head -1)"
+# The cubism.editor-model.warp-mirror capability is conditioned on the
+# warp-alt-mirror runtime hook, which binds only while its one authorized
+# consumer plugin is loaded; without it every warpMirror() call reports
+# BLOCKED UNAVAILABLE.
+consumer_jar="$(find "$repo_root/build/worktree/$worktree_id/warp-deformer-alt-symmetry/libs/" -name 'warp-deformer-alt-symmetry-*.jar' 2>/dev/null | head -1)"
 runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
 
 if [ ! -f "$agent_jar" ]; then
@@ -54,6 +61,10 @@ if [ -z "$plugin_jar" ] || [ ! -f "$plugin_jar" ]; then
   echo "error: production plugin jar not found under build/worktree/$worktree_id/boundingbox-warp-mirror/libs/; build :plugins:boundingbox-warp-mirror:jar first" >&2
   exit 1
 fi
+if [ -z "$consumer_jar" ] || [ ! -f "$consumer_jar" ]; then
+  echo "error: warp-alt-mirror consumer plugin jar not found under build/worktree/$worktree_id/warp-deformer-alt-symmetry/libs/; build :plugins:warp-deformer-alt-symmetry:jar first" >&2
+  exit 1
+fi
 
 exec bash "$runner" \
   --name boundingbox-warp-mirror \
@@ -63,6 +74,7 @@ exec bash "$runner" \
   --agent "$agent_jar" \
   --plugin "$probe_jar:boundingbox-warp-mirror-host-validation-probe.jar" \
   --plugin "$plugin_jar:boundingbox-warp-mirror.jar" \
+  --plugin "$consumer_jar:warp-deformer-alt-symmetry.jar" \
   --fixture-remote "$fixture_src" \
   --fixture-sha256 "$fixture_sha256" \
   --require-fixture-unchanged \
