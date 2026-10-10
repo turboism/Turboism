@@ -256,6 +256,9 @@ def rule_matches(when: dict[str, Any], features: dict[str, Any]) -> bool:
         return False
     if "failureText" in when and not _regex_match(when["failureText"], features["failureTexts"]):
         return False
+    if "evidenceProperty" in when \
+            and not _regex_match(when["evidenceProperty"], features["evidenceProperties"]):
+        return False
     return True
 
 
@@ -301,6 +304,14 @@ def triage_row(row: dict[str, Any], rules: dict[str, Any], *, jobs_root: Path,
     failure_texts = (markers["failures"] + props["failures"]
                      + props["unexpectedFailures"]
                      + [value for name, value in props["assertionStatuses"].items()])
+    evidence_props: dict[str, str] = {}
+    for directory in (job_evidence, run_evidence):
+        if directory is None:
+            continue
+        for name in ("deferred-check.properties", "launch-diagnostics.properties"):
+            candidate = directory / name
+            if candidate.is_file():
+                evidence_props.update(parse_properties(_read_text(candidate)))
     features = {
         "state": row["state"],
         "terminalState": outcome.get("terminalState") or row["state"],
@@ -311,6 +322,8 @@ def triage_row(row: dict[str, Any], rules: dict[str, Any], *, jobs_root: Path,
         "markers": markers["failures"] + markers["results"],
         "consoleMarkers": console_markers,
         "failureTexts": failure_texts,
+        "evidenceProperties": [f"{key}={value}"
+                               for key, value in sorted(evidence_props.items())],
     }
     category, rule_id, advice = "UNKNOWN", None, "no rule matched; extend host-validation-triage-rules.json"
     for rule in rules["rules"]:
@@ -361,6 +374,7 @@ def triage_row(row: dict[str, Any], rules: dict[str, Any], *, jobs_root: Path,
             "propFailures": props["failures"],
             "unexpectedFailures": props["unexpectedFailures"],
             "assertionStatuses": props["assertionStatuses"],
+            "properties": evidence_props,
         },
         "notes": notes,
     }
