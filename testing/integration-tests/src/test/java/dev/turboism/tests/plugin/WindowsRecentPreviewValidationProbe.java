@@ -322,6 +322,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             return null;
         });
         recoverSaveFocus(target);
+        dirtyDocumentForSave();
         final String savePath = triggerMenuSave(fixture, baselineModifiedMillis, baselineSize);
         final long deadline = System.nanoTime() + SAVED_EVENT_DEADLINE_MILLIS * 1_000_000L;
         boolean fileModified = false;
@@ -389,17 +390,45 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     }
 
     /**
+     * Marks the task-owned document dirty through a single validated SDK
+     * parameter write so the host's save command has real work: on an
+     * unmodified document the native save can be a no-op (or a disabled row),
+     * which produced savedEvent=false on every earlier run. A write failure is
+     * diagnostic-only — the menu path is still exercised so the failure stays
+     * attributable.
+     */
+    private void dirtyDocumentForSave() {
+        try {
+            final dev.turboism.sdk.cubism.model.Parameter parameter =
+                    context.cubism().model().active().parameters().all().stream()
+                            .findFirst()
+                            .orElse(null);
+            if (parameter == null) {
+                context.logger().info("Recent preview save dirtyWrite=skipped reason=no-parameter");
+                return;
+            }
+            parameter.setValue(parameter.getValue() + 0.001f);
+            context.logger().info("Recent preview save dirtyWrite=ok");
+        } catch (Exception failure) {
+            context.logger().info("Recent preview save dirtyWrite=failed reason="
+                    + failure.getClass().getSimpleName() + ":" + String.valueOf(failure.getMessage()));
+        }
+    }
+
+    /**
      * Triggers a save through the host File menu (the real command_save path):
      * the File menu is opened with a real click (keyboard Alt+Enter fallback),
      * then the save item is located structurally — Ctrl+S accelerator first,
      * localized label second — and clicked through the real popup. The earlier
      * blind Down+Enter row walk could only ever activate the first enabled row
      * (Enter fires the highlighted item and closes the popup), so the save row
-     * was never reached on any run. A newly appeared dialog (e.g. the "Save
-     * As..." chooser) is dismissed with Escape once. When the menu or the save
-     * item stays unreachable, falls back to the legacy Ctrl+S path once.
-     * Returns the path used via saveMenuPath ("menu", "ctrls", or "none");
-     * never logs paths.
+     * was never reached on any run. Menu-open is detected by the popup itself,
+     * not by a successful item match, and the visible item rows are logged so a
+     * drifted save row is evidence rather than a silent retry loop. A newly
+     * appeared dialog (e.g. the "Save As..." chooser) is dismissed with Escape
+     * once. When the menu or the save item stays unreachable, falls back to the
+     * legacy Ctrl+S path once. Returns the path used via saveMenuPath ("menu",
+     * "ctrls", or "none"); never logs paths.
      */
     private String triggerMenuSave(final Path fixture, final long baselineModifiedMillis, final long baselineSize)
             throws Exception {
@@ -419,7 +448,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             }
             final long menuDeadline = System.nanoTime() + MENU_OPEN_POLL_MILLIS * 1_000_000L;
             while (System.nanoTime() < menuDeadline) {
-                menuOpened = onEdt(this::saveMenuItemPoint) != null;
+                menuOpened = onEdt(WindowsRecentPreviewValidationProbe::anyPopupShowing);
                 if (menuOpened) break;
                 robot.waitForIdle();
                 Thread.sleep(100L);
@@ -439,6 +468,8 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         try {
             savePoint = awaitMenuPoint(robot, this::saveMenuItemPoint, SUBMENU_DEADLINE_MILLIS);
         } catch (IllegalStateException unreachable) {
+            context.logger()
+                    .info("Recent preview save menu items: " + onEdt(this::menuItemDescriptors));
             pressEscape(robot);
             pressCtrlSBackground();
             return saveMenuPath(false, true);
@@ -506,6 +537,47 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     /** Popup windows are Swing popup containers whose class name contains "Popup". */
     static boolean isPopupWindow(final boolean showing, final String className) {
         return showing && className != null && className.contains("Popup");
+    }
+
+    /** Any Swing popup window currently showing — the menu is open. */
+    static boolean anyPopupShowing() {
+        for (Window window : Window.getWindows()) {
+            if (isPopupWindow(window.isShowing(), window.getClass().getName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Bounded "text|accelerator|enabled|class" descriptors for every showing
+     * menu item, logged when the save row cannot be located so the actual menu
+     * shape is preserved as evidence.
+     */
+    private String menuItemDescriptors() {
+        final List<String> descriptors = new java.util.ArrayList<>();
+        for (Window window : Window.getWindows()) {
+            collectMenuItemDescriptors(window, descriptors);
+        }
+        if (descriptors.size() > 60) {
+            return descriptors.subList(0, 60).toString() + " ...(" + (descriptors.size() - 60) + " more)";
+        }
+        return descriptors.toString();
+    }
+
+    private static void collectMenuItemDescriptors(final Component root, final List<String> out) {
+        if (root instanceof JMenuItem item && item.isShowing()) {
+            final KeyStroke accelerator = item.getAccelerator();
+            out.add("[text=" + Objects.toString(item.getText(), "")
+                    + " accel=" + (accelerator == null ? "none" : accelerator.toString())
+                    + " enabled=" + item.isEnabled()
+                    + " class=" + item.getClass().getSimpleName() + "]");
+        }
+        if (root instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                collectMenuItemDescriptors(child, out);
+            }
+        }
     }
 
     // --- phase (d): production plugin cache -------------------------------------
