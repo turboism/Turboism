@@ -692,6 +692,74 @@ def case_ratchet_still_enforces_other_rules(root: Path) -> None:
     assert "reviewed host digest restated" in result.stdout
 
 
+def case_startup_dialog_forked_responder(root: Path) -> None:
+    """License/warning answering outside NativeFreeStartup must fail."""
+    write(
+        root,
+        "validation/probe/src/dev/turboism/validation/probe/ForkedResponder.java",
+        "package dev.turboism.validation.probe;\n\n/** Doc. */\npublic final class ForkedResponder {\n"
+        '    void click() {\n        if ("newer version".equals(text)) load.doClick();\n    }\n}\n',
+    )
+    result = run(root, "startup-dialogs")
+    assert result.returncode == 1, "a forked prompt responder must fail"
+    assert "outside NativeFreeStartup" in result.stdout
+    assert "ForkedResponder.java" in result.stdout
+
+
+def case_startup_dialog_actuation_variants(root: Path) -> None:
+    """Synthetic keys, Robot, option-pane setValue, dispatch and dispose all count."""
+    for index, primitive in enumerate(
+        ("keyPress(0)", "pane.setValue(option)", "new Robot()", "dispatchEvent(event)", "dialog.dispose()")
+    ):
+        write(
+            root,
+            f"validation/probe/src/dev/turboism/validation/probe/Fork{index}.java",
+            f"package dev.turboism.validation.probe;\n\n/** Doc. */\npublic final class Fork{index} {{\n"
+            f'    String marker() {{ return "Start as FREE version"; }}\n'
+            f"    void act() {{ {primitive}; }}\n}}\n",
+        )
+    result = run(root, "startup-dialogs")
+    assert result.returncode == 1, "every actuation variant must fail"
+    assert result.stdout.count("outside NativeFreeStartup") == 5
+
+
+def case_startup_dialog_markers_or_clicks_alone_pass(root: Path) -> None:
+    """Prompt fixture text without clicks, and clicks without prompt markers, pass."""
+    write(
+        root,
+        "validation/probe/selfcheck/dev/turboism/validation/probe/SelfCheck.java",
+        "package dev.turboism.validation.probe;\n\nfinal class SelfCheck {\n"
+        '    static final String TEXT = "Start as FREE version" + "Trial license will expire";\n}\n',
+    )
+    write(
+        root,
+        "validation/probe/src/dev/turboism/validation/probe/Unrelated.java",
+        "package dev.turboism.validation.probe;\n\n/** Doc. */\npublic final class Unrelated {\n"
+        "    void click() { button.doClick(); }\n}\n",
+    )
+    result = run(root, "startup-dialogs")
+    assert result.returncode == 0, f"markers-only and clicks-only must pass, got:\n{result.stdout}"
+
+
+def case_startup_dialog_exemptions(root: Path) -> None:
+    """The responder itself and the documented close-path exception pass."""
+    write(
+        root,
+        "validation/shared/src/dev/turboism/validation/NativeFreeStartup.java",
+        "package dev.turboism.validation;\n\n/** Doc. */\npublic final class NativeFreeStartup {\n"
+        '    void click() {\n        if ("newer version".equals(text)) load.doClick();\n    }\n}\n',
+    )
+    write(
+        root,
+        "testing/integration-tests/src/test/java/dev/turboism/tests/plugin/WindowsHistoryNativeUiHostClose.java",
+        "package dev.turboism.tests.plugin;\n\nfinal class WindowsHistoryNativeUiHostClose {\n"
+        '    String marker() { return "News and Release Notes"; }\n'
+        "    void act() { button.doClick(); }\n}\n",
+    )
+    result = run(root, "startup-dialogs")
+    assert result.returncode == 0, f"exempt implementations must pass, got:\n{result.stdout}"
+
+
 CASES = (
     case_clean_baseline,
     case_undocumented_type,
@@ -728,6 +796,10 @@ CASES = (
     case_ratchet_holds_when_backlog_matches,
     case_ratchet_demands_lowering_when_backlog_shrinks,
     case_ratchet_still_enforces_other_rules,
+    case_startup_dialog_forked_responder,
+    case_startup_dialog_actuation_variants,
+    case_startup_dialog_markers_or_clicks_alone_pass,
+    case_startup_dialog_exemptions,
 )
 
 
