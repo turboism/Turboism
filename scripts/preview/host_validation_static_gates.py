@@ -7,8 +7,9 @@ L0 gates — evaluated in prepare before a job reaches the queue:
 - Admission: tasks that write through gated capability slices need
   VERIFIED_STATIC evidence in compatibility/cubism/verification/ records.
   Missing evidence == the runtime admission wall will refuse; skip early.
-- License: runtime-observed FREE installations cancel fixtures that exceed
-  the per-object parameter limit; skip early instead of burning a host slot.
+- License: runtime-observed FREE-locked installations cancel fixtures that
+  exceed the per-object parameter limit; skip early instead of burning a
+  host slot. (Unreachable today — see INSTALL_LICENSE_TIER below.)
 - Fixture routing: the shared .cmo3 fixtures are authored by a specific
   editor version. Older editors block on the native "newer file" dialog;
   route to the task's assisted variant (NativeStartupAssistanceAgent) which
@@ -106,11 +107,14 @@ def load_verified_capabilities(version: str) -> tuple[set[str], str | None]:
 # ---------------------------------------------------------------------------
 # License observations (NOT a gate).
 #
-# Every install runs in FREE-start mode: the startup assistance agent selects
-# "Start as FREE version" whenever the license dialog appears, on ALL versions
-# including ones where parameter-batch-transfer passes fully. The native
-# "FREE version - max parameters per object: 2" dialog is acknowledged and the
-# model still loads — it is a convenience-limit notice, not a load rejection.
+# Every install runs with startup assistance in PRO-trial-preferred mode: the
+# user authorized selecting "Start PRO Version Free Trial" whenever the
+# license dialog offers it, on ALL versions including ones where
+# parameter-batch-transfer passes fully, with "Start as FREE version" kept
+# only as the fallback when no trial entry exists. The native
+# "FREE version - max parameters per object: 2" dialog (reachable only on a
+# FREE-locked install) is acknowledged and the model still loads — it is a
+# convenience-limit notice, not a load rejection.
 # The earlier FAIL_LICENSE classification (5100/5200/5300 PBT, 5300/5301
 # timeline) was re-attributed to `Runtime-owned shell failed to start`, an
 # infra failure. The tables stay as documentation; nothing refuses on them.
@@ -799,9 +803,11 @@ def evaluate(request: Any, request_type: Any, manifest: Any,
 
     doc_version, digest = fixture_doc_version(fixture_path_for(task.name, version, environment))
     if INSTALL_LICENSE_TIER.get(version) == "free" and digest in FREE_LIMIT_EXCEEDED_FIXTURES:
-        # Currently unreachable: no install is proven FREE-locked, and the
-        # FREE parameter limit is a non-blocking notice. Kept so a genuinely
-        # observed FREE-locked install can be refused by adding it to the table.
+        # Currently unreachable: every install starts the user-authorized PRO
+        # trial (FREE is only the dialog fallback), no install is proven
+        # FREE-locked, and the FREE parameter limit is a non-blocking notice.
+        # Kept so a genuinely observed FREE-locked install can be refused by
+        # adding it to the table.
         raise StaticGateRefusal(
             "SKIP_LICENSE",
             "license",

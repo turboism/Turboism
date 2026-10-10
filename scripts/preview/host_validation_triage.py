@@ -8,9 +8,10 @@ verdicts and the durable outcome.
 An ordered rule table in host-validation-triage-rules.json maps evidence to
 categories (INFRA_RETRYABLE, ADMISSION_STATIC, CAPABILITY_BOUNDARY,
 PROBE_DRIFT, PASS); unmatched jobs are UNKNOWN and report their signature so
-a human can extend the table. FREE-license startup markers
-(START_FREE / FREE_PARAMETER_LIMIT) appear on every installation and are never
-failure evidence.
+a human can extend the table. License startup markers
+(START_PRO_TRIAL / PRO_TRIAL_ACTIVATED / START_FREE / FREE_PARAMETER_LIMIT)
+appear on every installation — the user-authorized PRO trial start is
+preferred over the FREE fallback — and are never failure evidence.
 
 On top of the per-job rules an aggregate pass marks SYSTEMIC: when one task
 produces the same failure signature on four or more distinct versions and no
