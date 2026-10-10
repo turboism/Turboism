@@ -12603,8 +12603,8 @@
     "evidenceDir": "workspace/5000-rep-r1/queue-757b945aa3c4429998a685c823622034/evidence"
    },
    "triage": {
-    "category": "UNKNOWN",
-    "ruleId": null,
+    "category": "CAPABILITY_BOUNDARY",
+    "ruleId": "capability-workspace-layout-provider-absent",
     "signature": null
    },
    "scope": "cov3 queue-synced terminal evidence"
@@ -12625,8 +12625,8 @@
     "evidenceDir": "workspace/5006-rep-r1/queue-df152cf232c540f4bc89ad3596ba00df/evidence"
    },
    "triage": {
-    "category": "UNKNOWN",
-    "ruleId": null,
+    "category": "CAPABILITY_BOUNDARY",
+    "ruleId": "capability-workspace-layout-provider-absent",
     "signature": null
    },
    "scope": "cov3 queue-synced terminal evidence"
@@ -14387,8 +14387,8 @@
     "stepDurationMillis": "2005"
    },
    "triage": {
-    "category": "UNKNOWN",
-    "ruleId": "verdict-pass-then-fail-props",
+    "category": "CAPABILITY_BOUNDARY",
+    "ruleId": "capability-session-psd-export-saved-unverified",
     "signature": null
    },
    "scope": "cov3 queue-synced terminal evidence"
@@ -14487,8 +14487,8 @@
     "stepDurationMillis": "2004"
    },
    "triage": {
-    "category": "UNKNOWN",
-    "ruleId": "verdict-pass-then-fail-props",
+    "category": "CAPABILITY_BOUNDARY",
+    "ruleId": "capability-session-psd-export-saved-unverified",
     "signature": null
    },
    "scope": "cov3 queue-synced terminal evidence"
@@ -14622,8 +14622,8 @@
     "evidenceDir": "workspace/5000-pro-r1/queue-a46cec5493a0408993a1c2b8820b92e0/evidence"
    },
    "triage": {
-    "category": "UNKNOWN",
-    "ruleId": null,
+    "category": "CAPABILITY_BOUNDARY",
+    "ruleId": "capability-workspace-layout-provider-absent",
     "signature": null
    },
    "scope": "cov3 queue-synced terminal evidence"
@@ -14644,8 +14644,8 @@
     "evidenceDir": "workspace/5006-pro-r1/queue-bd8a040ece2f44e7b40109859c1d1c6e/evidence"
    },
    "triage": {
-    "category": "UNKNOWN",
-    "ruleId": null,
+    "category": "CAPABILITY_BOUNDARY",
+    "ruleId": "capability-workspace-layout-provider-absent",
     "signature": null
    },
    "scope": "cov3 queue-synced terminal evidence"
@@ -14703,6 +14703,269 @@
     "category": "INFRA_RETRYABLE",
     "ruleId": "infra-timeout-exception",
     "signature": "java.lang.IllegalStateException: Shell startup exceeded PT30S"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "atlas",
+   "version": "5203",
+   "variant": "geometry-100-new-assisted-gl",
+   "jobId": "8a7a26e2-8c41-4a7b-89a2-3a654415f3d6",
+   "requestKey": "drift-r1-atlas-5203",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-cb039b5451fe4cd3bda41dcf2850a68b",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "atlas/5203-drift-r1-geometry-100-new-parallel-false/queue-cb039b5451fe4cd3bda41dcf2850a68b/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "update-check",
+   "version": "5300",
+   "variant": "safe-assisted",
+   "jobId": "bce619d9-b3ab-4250-abf3-cd6306801193",
+   "requestKey": "drift-r1-update-check-5300-safe",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-717a036ac6a549f8b2da1a974dd165d7",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "update-check/5300-drift-r1-safe/queue-717a036ac6a549f8b2da1a974dd165d7/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "protected-export",
+   "version": "5100",
+   "variant": "dialog-assisted",
+   "jobId": "b7d77508-5bdb-43be-9f1f-a5e50953bf97",
+   "requestKey": "drift-r1-protected-export-5100-dialog",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-094cf40633ce4f79b8b0fa0c800727ce",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "protected-export/5100-drift-r1/queue-094cf40633ce4f79b8b0fa0c800727ce/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "protected-export",
+   "version": "5103",
+   "variant": "dialog-assisted",
+   "jobId": "b4c5045c-9315-4e4a-9af9-d1bb6ec2c858",
+   "requestKey": "drift-r1-pe-5103",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-9319641b6ac64844af182e159594a8bc",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "protected-export/5103-drift-r1/queue-9319641b6ac64844af182e159594a8bc/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "protected-export",
+   "version": "5200",
+   "variant": "dialog-assisted",
+   "jobId": "5b063b35-ea73-42fa-b45e-b98b17272b9f",
+   "requestKey": "drift-r1-pe-5200",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-1e003df00c7744bb80c3bcd9439b12a9",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "protected-export/5200-drift-r1/queue-1e003df00c7744bb80c3bcd9439b12a9/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "mcp",
+   "version": "5000",
+   "variant": "standard",
+   "jobId": "828ebd66-533c-4d33-bb03-1ad5558802db",
+   "requestKey": "drift-r2-mcp-5000",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-04c0a76a316c4b518b04b1d36e3057a9",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "mcp/5000-drift-r1/queue-04c0a76a316c4b518b04b1d36e3057a9/evidence"
+   },
+   "triage": {
+    "category": "CAPABILITY_BOUNDARY",
+    "ruleId": "capability-authoring-transactions-unavailable",
+    "signature": "dev.turboism.plugin.mcp.McpExecutionBridge$ExecutionFailure: MCP operation timed out before host execution"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "mcp",
+   "version": "5006",
+   "variant": "standard",
+   "jobId": "494f11ca-14fe-4099-9264-7b3ff87e85f8",
+   "requestKey": "drift-r1-mcp-5006",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-43cd435d2dec417dbbe3720d93f1c047",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "mcp/5006-drift-r1/queue-43cd435d2dec417dbbe3720d93f1c047/evidence"
+   },
+   "triage": {
+    "category": "CAPABILITY_BOUNDARY",
+    "ruleId": "capability-authoring-transactions-unavailable",
+    "signature": "dev.turboism.plugin.mcp.McpExecutionBridge$ExecutionFailure: MCP operation timed out before host execution"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "mcp",
+   "version": "5100",
+   "variant": "standard",
+   "jobId": "d0406859-b363-4246-9b92-d79c4b75a0bd",
+   "requestKey": "drift-r1-mcp-5100",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-dece101a7e2c476d9a8a6c8492331a78",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "mcp/5100-drift-r1/queue-dece101a7e2c476d9a8a6c8492331a78/evidence"
+   },
+   "triage": {
+    "category": "CAPABILITY_BOUNDARY",
+    "ruleId": "capability-authoring-transactions-unavailable",
+    "signature": "dev.turboism.plugin.mcp.McpExecutionBridge$ExecutionFailure: MCP operation timed out before host execution"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "mcp",
+   "version": "5103",
+   "variant": "standard",
+   "jobId": "d311c279-b809-43f7-8797-7c4bf1980002",
+   "requestKey": "drift-r1-mcp-5103",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-49d3338b1c7c4b5f9e442b8b29d4c3f9",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "mcp/5103-drift-r1/queue-49d3338b1c7c4b5f9e442b8b29d4c3f9/evidence"
+   },
+   "triage": {
+    "category": "CAPABILITY_BOUNDARY",
+    "ruleId": "capability-authoring-transactions-unavailable",
+    "signature": "dev.turboism.plugin.mcp.McpExecutionBridge$ExecutionFailure: MCP operation timed out before host execution"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "mcp",
+   "version": "5200",
+   "variant": "standard",
+   "jobId": "b013427e-c1d8-4d1d-8c76-ade0c708f8f4",
+   "requestKey": "drift-r1-mcp-5200",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-5c0d6a2410e440f29b078b623d811bc3",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "mcp/5200-drift-r1/queue-5c0d6a2410e440f29b078b623d811bc3/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "mcp",
+   "version": "5203",
+   "variant": "standard",
+   "jobId": "d796bdc0-95ba-42ae-aea8-0f5dfbea362b",
+   "requestKey": "drift-r1-mcp-5203",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-a9d12f2307384f42a953af0a6fee2baf",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "mcp/5203-drift-r1/queue-a9d12f2307384f42a953af0a6fee2baf/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "mcp",
+   "version": "5300",
+   "variant": "standard",
+   "jobId": "43fb3828-01cc-44fc-90e8-1788f287f70a",
+   "requestKey": "drift-r1-mcp-5300",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-3e55a9c3ec5944b29643a84dc9a9172d",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "mcp/5300-drift-r1/queue-3e55a9c3ec5944b29643a84dc9a9172d/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "mcp",
+   "version": "5304",
+   "variant": "standard",
+   "jobId": "8f5dcd53-1da3-4d2c-a0ee-f7a7074fd87d",
+   "requestKey": "drift-r1-mcp-5304",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-4631b2061fb74e5d9da868cbb05a0727",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "mcp/5304-drift-r1/queue-4631b2061fb74e5d9da868cbb05a0727/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "recent-preview",
+   "version": "5203",
+   "variant": "assisted",
+   "jobId": "6d3d9541-0ae9-4904-af63-14a4d53580d3",
+   "requestKey": "drift-r14-recent-preview-5203",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-f6b600d33b69429f86adc95adf3bed58",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "recent-preview/5203-drift-r1/queue-f6b600d33b69429f86adc95adf3bed58/evidence"
+   },
+   "triage": {
+    "category": "UNKNOWN",
+    "ruleId": null,
+    "signature": null
    },
    "scope": "cov3 queue-synced terminal evidence"
   }
