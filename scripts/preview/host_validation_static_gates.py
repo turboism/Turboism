@@ -165,6 +165,13 @@ def fixture_path_for(task_name: str, version: str, environment: dict[str, str]) 
         override = environment.get("TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK")
         if override:
             return override
+    if task_name == "mcp":
+        # The standard variant prefers the task-scoped Glue-bearing fixture
+        # (run-mcp-host-validation.sh); the free-fixture variant stays on the
+        # versioned selection, which resolves to the same document version.
+        override = environment.get("TURBOISM_HOST_VALIDATION_FIXTURE_MCP")
+        if override:
+            return override
     return (
         environment.get(f"TURBOISM_HOST_VALIDATION_FIXTURE_{version}")
         or environment.get("TURBOISM_HOST_VALIDATION_FIXTURE_5303")
