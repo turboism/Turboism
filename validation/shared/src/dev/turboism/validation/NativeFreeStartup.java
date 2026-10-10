@@ -60,7 +60,7 @@ public final class NativeFreeStartup {
             Collections.synchronizedMap(new WeakHashMap<>());
     /** The active-trial welcome expiry phrase, with the day count as data. */
     private static final java.util.regex.Pattern TRIAL_EXPIRY_DAYS =
-            java.util.regex.Pattern.compile("Trial (license|period) will expire in \\d+ day\\(s\\)");
+            java.util.regex.Pattern.compile("Trial (license|period) will expire in [1-9]\\d* day\\(s\\)");
 
     private NativeFreeStartup() {}
 
