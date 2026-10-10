@@ -11,6 +11,7 @@ import java.awt.event.KeyEvent;
 import java.awt.event.WindowEvent;
 import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -22,6 +23,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
+import javax.swing.AbstractButton;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -636,7 +638,7 @@ final class WindowsHistoryNativeUiHostClose {
             for (final Window window : Window.getWindows()) {
                 if (!(window instanceof Dialog dialog)
                         || !dialog.isVisible()
-                        || (!dialog.isModal() && window != active)) {
+                        || (!dialog.isModal() && (window != active || isHomeNewsWindow(dialog)))) {
                     continue;
                 }
                 if (isOwnedBy(window, hostWindow)) {
@@ -647,6 +649,35 @@ final class WindowsHistoryNativeUiHostClose {
             }
             return new DialogScan(List.copyOf(owned), List.copyOf(foreign));
         });
+    }
+
+    /**
+     * The non-modal "Home" news window Cubism opens at startup when News and
+     * Release Notes were updated. It never carries a close decision, so a
+     * focused instance must not register as an unowned dialog blocking the
+     * host close; the startup prompt responder closes the window itself.
+     * Runs on the EDT.
+     */
+    private static boolean isHomeNewsWindow(final Dialog dialog) {
+        if (!"Home".equals(dialog.getTitle())) return false;
+        boolean news = false;
+        boolean version = false;
+        final List<Component> pending = new ArrayList<>();
+        pending.add(dialog);
+        for (int index = 0; index < pending.size() && index < 200; index++) {
+            final Component component = pending.get(index);
+            final String text = component instanceof AbstractButton button
+                    ? button.getText()
+                    : component instanceof JLabel label ? label.getText() : null;
+            if (text != null) {
+                if (text.contains("News and Release Notes")) news = true;
+                if (text.contains("A new version is available.")) version = true;
+            }
+            if (component instanceof Container container && pending.size() < 200) {
+                pending.addAll(Arrays.asList(container.getComponents()));
+            }
+        }
+        return news && version;
     }
 
     private static String windowDescription(final Window window) {
