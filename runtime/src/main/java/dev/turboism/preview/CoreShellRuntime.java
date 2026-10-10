@@ -55,6 +55,7 @@ final class CoreShellRuntime implements AutoCloseable {
     static final Duration SHELL_EDT_PROBE_BOUND = Duration.ofSeconds(5);
     /** System property overriding the total EDT-readiness wait admitted before shell startup. */
     static final String SHELL_EDT_WAIT_PROPERTY = "turboism.preview.shellStartupEdtWaitSeconds";
+
     static final Duration DEFAULT_SHELL_EDT_WAIT = Duration.ofMinutes(3);
 
     private CoreShellRuntime(
