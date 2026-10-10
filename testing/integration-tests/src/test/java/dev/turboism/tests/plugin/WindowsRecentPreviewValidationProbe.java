@@ -448,7 +448,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             }
             final long menuDeadline = System.nanoTime() + MENU_OPEN_POLL_MILLIS * 1_000_000L;
             while (System.nanoTime() < menuDeadline) {
-                menuOpened = onEdt(WindowsRecentPreviewValidationProbe::anyPopupShowing);
+                menuOpened = onEdt(() -> fileMenuPopupShowing(host));
                 if (menuOpened) break;
                 robot.waitForIdle();
                 Thread.sleep(100L);
@@ -502,17 +502,44 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         return null;
     }
 
+    /** The File menu's popup is showing — the menu is genuinely open. */
+    private static boolean fileMenuPopupShowing(final Window host) {
+        final JMenuBar bar = findComponent(host, JMenuBar.class);
+        if (bar == null) return false;
+        for (int index = 0; index < bar.getMenuCount(); index++) {
+            final JMenu menu = bar.getMenu(index);
+            if (menu != null && FILE_LABELS.contains(normalizeLabel(menu.getText()))) {
+                return menu.isPopupMenuVisible();
+            }
+        }
+        return false;
+    }
+
     private static JMenuItem findSaveMenuItem(final Component root) {
         if (root instanceof JMenuItem item && item.isShowing() && isSaveMenuItem(item)) {
             return item;
         }
-        if (root instanceof Container container) {
-            for (Component child : container.getComponents()) {
-                final JMenuItem found = findSaveMenuItem(child);
-                if (found != null) return found;
-            }
+        for (Component child : menuChildren(root)) {
+            final JMenuItem found = findSaveMenuItem(child);
+            if (found != null) return found;
         }
         return null;
+    }
+
+    /**
+     * Children worth walking for menu traversal: a JMenu's popup contents are
+     * not reachable through Container.getComponents(), so both surfaces are
+     * enumerated.
+     */
+    private static List<Component> menuChildren(final Component root) {
+        final List<Component> children = new java.util.ArrayList<>();
+        if (root instanceof JMenu menu) {
+            children.addAll(java.util.Arrays.asList(menu.getPopupMenu().getComponents()));
+        }
+        if (root instanceof Container container) {
+            children.addAll(java.util.Arrays.asList(container.getComponents()));
+        }
+        return children;
     }
 
     /**
@@ -573,10 +600,8 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                     + " enabled=" + item.isEnabled()
                     + " class=" + item.getClass().getSimpleName() + "]");
         }
-        if (root instanceof Container container) {
-            for (Component child : container.getComponents()) {
-                collectMenuItemDescriptors(child, out);
-            }
+        for (Component child : menuChildren(root)) {
+            collectMenuItemDescriptors(child, out);
         }
     }
 
