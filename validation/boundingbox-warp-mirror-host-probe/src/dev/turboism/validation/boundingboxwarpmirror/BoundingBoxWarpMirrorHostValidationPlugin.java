@@ -93,6 +93,7 @@ public final class BoundingBoxWarpMirrorHostValidationPlugin implements CubismPl
 
     private static final long MODEL_READY_TIMEOUT_MILLIS = 240_000L;
     private static final long MODEL_READY_STEP_MILLIS = 1_000L;
+    private static final long WARP_MIRROR_BIND_TIMEOUT_MILLIS = 30_000L;
     private static final long SETTLE_MILLIS = 1_500L;
     private static final float POINT_EPSILON = 0.001f;
 
@@ -178,7 +179,7 @@ public final class BoundingBoxWarpMirrorHostValidationPlugin implements CubismPl
             final CubismModel model = context.cubism().model().active();
             final List<WarpDeformer> warps = model.warpDeformers().all();
             report.put("warpDeformerCount", Integer.toString(warps.size()));
-            final WarpDeformer target = selectTarget(warps, report);
+            final WarpDeformer target = awaitWarpMirrorTarget(warps, report);
             if (target == null) {
                 failures.add("no Warp deformer accepted LEFT_TO_RIGHT (see scan.* entries)");
             } else {
@@ -239,6 +240,53 @@ public final class BoundingBoxWarpMirrorHostValidationPlugin implements CubismPl
         failures.add("model readiness timeout after " + attempts + " attempts");
         logger.warn("WARP_MIRROR_MODEL_READY_TIMEOUT attempts=" + attempts);
         return false;
+    }
+
+    /**
+     * The warp-mirror capability only becomes callable after the authorized
+     * warp-alt-mirror consumer plugin finishes enabling and its runtime hook binds —
+     * after plugin contexts already exist. A scan that runs inside that window sees the
+     * still-deferred signature (every apply BLOCKED UNAVAILABLE), so keep rescanning
+     * while UNAVAILABLE is the only observed apply outcome. Any other outcome proves the
+     * capability is bound and whatever the scan reports is the honest fixture answer.
+     */
+    private WarpDeformer awaitWarpMirrorTarget(final List<WarpDeformer> warps, final Report report) {
+        final long deadline = System.currentTimeMillis() + WARP_MIRROR_BIND_TIMEOUT_MILLIS;
+        int attempts = 0;
+        for (;;) {
+            attempts++;
+            final WarpDeformer target = selectTarget(warps, report);
+            if (target != null || stopped || !allApplyOutcomesUnavailable(report)
+                    || System.currentTimeMillis() >= deadline) {
+                report.put("warpMirrorBindAttempts", Integer.toString(attempts));
+                if (attempts > 1) logger.info("WARP_MIRROR_BIND_WAIT attempts=" + attempts);
+                return target;
+            }
+            sleep(MODEL_READY_STEP_MILLIS);
+        }
+    }
+
+    /**
+     * True only when at least one apply attempt was recorded and every apply outcome is
+     * the deferred-binding {@code BLOCKED UNAVAILABLE} signature. SKIP/UNREADABLE entries
+     * carry no binding signal; APPLIED, NO_CHANGE, THREW, or any other blocker means the
+     * capability is already bound.
+     */
+    static boolean allApplyOutcomesUnavailable(final Report report) {
+        boolean saw = false;
+        for (int index = 0; index < report.keys.size(); index++) {
+            if (!report.keys.get(index).startsWith("scan.")) continue;
+            final String value = report.values.get(index);
+            if (value.startsWith("BLOCKED")) {
+                if (!value.equals("BLOCKED UNAVAILABLE")) return false;
+                saw = true;
+            } else if (value.startsWith("APPLIED")
+                    || value.startsWith("NO_CHANGE")
+                    || value.startsWith("THREW")) {
+                return false;
+            }
+        }
+        return saw;
     }
 
     /**

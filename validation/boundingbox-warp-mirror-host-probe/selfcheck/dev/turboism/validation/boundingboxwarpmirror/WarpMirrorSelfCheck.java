@@ -36,6 +36,25 @@ public final class WarpMirrorSelfCheck {
         // reflection of the source side), never a false pass.
         assertCheck(verify(horizontalBefore, horizontalBefore, WarpMirrorDirection.LEFT_TO_RIGHT), false);
 
+        // Deferred-binding wait: retry only while every apply outcome is the
+        // still-pending signature; any bound-service outcome stops the wait.
+        final var report = new BoundingBoxWarpMirrorHostValidationPlugin.Report();
+        report.put("scan.Warp", "BLOCKED UNAVAILABLE");
+        report.put("scan.Warp4", "SKIP degenerate-grid");
+        report.put("scan.Warp2.noPreserve", "BLOCKED UNAVAILABLE");
+        if (!BoundingBoxWarpMirrorHostValidationPlugin.allApplyOutcomesUnavailable(report)) {
+            throw new IllegalStateException("deferred-binding scan signature not recognized");
+        }
+        report.put("scan.Warp3", "BLOCKED NO_PAIR");
+        if (BoundingBoxWarpMirrorHostValidationPlugin.allApplyOutcomesUnavailable(report)) {
+            throw new IllegalStateException("bound-service blocker must stop the wait");
+        }
+        final var untouched = new BoundingBoxWarpMirrorHostValidationPlugin.Report();
+        untouched.put("scan.Warp", "UNREADABLE IllegalStateException");
+        if (BoundingBoxWarpMirrorHostValidationPlugin.allApplyOutcomesUnavailable(untouched)) {
+            throw new IllegalStateException("no apply attempt means nothing to wait for");
+        }
+
         System.out.println("WarpMirrorSelfCheck: OK");
     }
 
