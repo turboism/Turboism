@@ -82,11 +82,54 @@ class StaticGateTest(unittest.TestCase):
                 self.assertTrue(outcome.routed)
                 self.assertTrue(any("fixture-version-routing" in n for n in outcome.notes))
 
-    def test_fixture_at_or_below_target_keeps_variant(self):
+    def test_fixture_at_or_below_target_still_routes_to_assisted(self):
         environment = self._fixture_environment()
         request, outcome = self.evaluate("clipmask-viewer:5304", environment)
+        self.assertEqual("assisted", request.variant)
+        self.assertTrue(outcome.routed)
+        self.assertTrue(
+            any("startup-assistance-default" in n for n in outcome.notes))
+
+    def test_default_startup_assistance_prefers_gl_preserving_variant(self):
+        environment = self._fixture_environment()
+        for spec, assisted in (
+            ("fps:5304", "default-assisted-gl"),
+            ("fps:5304@zgc", "zgc-assisted-gl"),
+            ("model-update-skip:5304", "on-assisted-gl"),
+            ("selection-lag:5304@default", "default-assisted-gl"),
+            ("parameter:5304@perf-observe", "perf-observe-assisted-gl"),
+            ("atlas:5304", "geometry-100-new-assisted-gl"),
+            ("protected-export:5203", "dialog-assisted"),
+            ("boundingbox-warp-mirror:5203", "analyse-assisted"),
+            ("update-check:5304@safe", "safe-assisted"),
+        ):
+            with self.subTest(spec=spec):
+                request, outcome = self.evaluate(spec, environment)
+                self.assertEqual(assisted, request.variant)
+                self.assertTrue(outcome.routed)
+
+    def test_no_startup_assistance_keeps_requested_variant(self):
+        environment = self._fixture_environment()
+        request, outcome = gates.evaluate(
+            self.request("clipmask-viewer:5304"), scheduler.Request,
+            self.manifest, environment, startup_assistance=False)
         self.assertEqual("standard", request.variant)
         self.assertFalse(outcome.routed)
+        # The deliberate unassisted path also skips fixture-version routing.
+        request, outcome = gates.evaluate(
+            self.request("psd-clip-mask:5000@matrix"), scheduler.Request,
+            self.manifest, environment, startup_assistance=False)
+        self.assertEqual("matrix", request.variant)
+        self.assertFalse(outcome.routed)
+
+    def test_self_responding_tasks_need_no_assisted_variant(self):
+        environment = self._fixture_environment()
+        for spec in ("mcp:5000", "core-owned-moc:5000"):
+            with self.subTest(spec=spec):
+                request, outcome = self.evaluate(spec, environment)
+                self.assertFalse(outcome.routed)
+                self.assertFalse(
+                    any("no assisted variant" in n for n in outcome.notes))
 
     def test_clipmask_task_fixture_overrides_versioned_fixture(self):
         environment = {
@@ -116,8 +159,8 @@ class StaticGateTest(unittest.TestCase):
 
     def test_newer_fixture_without_assisted_variant_only_notes(self):
         environment = self._fixture_environment()
-        request, outcome = self.evaluate("boundingbox-warp-mirror:5000@analyse", environment)
-        self.assertEqual("analyse", request.variant)
+        request, outcome = self.evaluate("dialog-automation:5000", environment)
+        self.assertIsNone(request.variant)
         self.assertFalse(outcome.routed)
         self.assertTrue(any("no assisted variant" in n for n in outcome.notes))
 

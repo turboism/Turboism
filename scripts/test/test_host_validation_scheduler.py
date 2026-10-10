@@ -314,15 +314,21 @@ class HostValidationSchedulerTest(unittest.TestCase):
     def test_atlas_has_fixed_preliminary_cases_and_exact_version(self) -> None:
         task = self.manifest.tasks["atlas"]
         self.assertEqual({"host-slot": 1, "display-input": 1, "performance-host": 1}, task.resources)
-        self.assertEqual({f"geometry-{count}-{implementation}" for count in (100, 500, 1000, 2500)
-                          for implementation in ("native", "new")} |
-                         {f"ui-{dataset}-{count}-{implementation}" for dataset in ("circle", "geometry")
-                          for count in (100, 500, 1000, 2500)
-                          for implementation in ("native", "new")} |
-                         {f"ui-{dataset}-{count}-polygon" for dataset in ("circle", "geometry")
-                          for count in (100, 500, 1000)} |
-                         {f"ui-{dataset}-{count}-new-parallel" for dataset in ("circle", "geometry")
-                          for count in (100, 500)}, set(task.variants))
+        base_variants = (
+            {f"geometry-{count}-{implementation}" for count in (100, 500, 1000, 2500)
+             for implementation in ("native", "new")} |
+            {f"ui-{dataset}-{count}-{implementation}" for dataset in ("circle", "geometry")
+             for count in (100, 500, 1000, 2500)
+             for implementation in ("native", "new")} |
+            {f"ui-{dataset}-{count}-polygon" for dataset in ("circle", "geometry")
+             for count in (100, 500, 1000)} |
+            {f"ui-{dataset}-{count}-new-parallel" for dataset in ("circle", "geometry")
+             for count in (100, 500)})
+        # Atlas measures layout timing: assisted-gl keeps mesaGlThread on so
+        # default startup-assistance routing cannot change the measurement.
+        self.assertEqual(
+            base_variants | {f"{variant}-assisted-gl" for variant in base_variants},
+            set(task.variants))
         self.assertEqual("geometry-100-new", self.request("atlas:5303").variant)
         for spec in ("atlas:9999", "atlas:5303@geometry-2500-both",
                      "atlas:5303@geometry-2499-new", "atlas:5303@geometry-100-both",
@@ -411,6 +417,30 @@ class HostValidationSchedulerTest(unittest.TestCase):
         with contextlib.redirect_stderr(errors):
             self.assertEqual(2, scheduler.main(["run", "dialog-automation:5302"]))
         self.assertIn("cannot run blocked tasks", errors.getvalue())
+
+    def test_plan_reports_default_startup_assistance_routing(self) -> None:
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), \
+             mock.patch.object(scheduler.queue, "Store", side_effect=AssertionError("plan touched queue")), \
+             mock.patch.object(scheduler.subprocess, "run", side_effect=AssertionError("plan executed a process")):
+            self.assertEqual(0, scheduler.main([
+                "plan", "workspace:5302", "--run-label", "offline",
+            ]))
+        rendered = output.getvalue()
+        self.assertIn("workspace:5302@assisted", rendered)
+        self.assertIn("startup-assistance-default", rendered)
+
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), \
+             mock.patch.object(scheduler.queue, "Store", side_effect=AssertionError("plan touched queue")), \
+             mock.patch.object(scheduler.subprocess, "run", side_effect=AssertionError("plan executed a process")):
+            self.assertEqual(0, scheduler.main([
+                "plan", "workspace:5302", "--run-label", "offline",
+                "--no-startup-assistance",
+            ]))
+        rendered = output.getvalue()
+        self.assertIn("workspace:5302@standard", rendered)
+        self.assertNotIn("startup-assistance-default", rendered)
 
     def test_manifest_rejects_unknown_resources_and_unsafe_commands(self) -> None:
         source = json.loads(self.manifest_path.read_text(encoding="utf-8"))
