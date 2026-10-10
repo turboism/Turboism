@@ -2,6 +2,12 @@ plugins {
     `java-library`
 }
 
+// The audited native startup responder is validation tooling shared as source;
+// host probes packaged from the test classes need it on their classpath.
+sourceSets.test {
+    java.srcDir(rootProject.file("validation/shared/src"))
+}
+
 dependencies {
     testImplementation(project(":runtime"))
     testImplementation(project(":sdk"))

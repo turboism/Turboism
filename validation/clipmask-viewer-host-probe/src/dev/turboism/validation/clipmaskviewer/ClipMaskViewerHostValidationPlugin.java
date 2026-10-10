@@ -17,11 +17,7 @@ import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 
-import javax.swing.AbstractButton;
-import javax.swing.JLabel;
 import javax.swing.SwingUtilities;
-import java.awt.Component;
-import java.awt.Container;
 import java.awt.Dialog;
 import java.awt.Window;
 import java.io.File;
@@ -67,12 +63,10 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
     // a newer version" warning modal returns a close/cancel answer before the
     // task-local assistant clicks Load: UUSerialize.deserializeFromFile then
     // returns null and the loader reports "File load interrupted", leaving no
-    // active document. The probe self-answers that one fixture gate while
+    // active document. The probe re-runs the shared audited responder while
     // waiting and re-issues the host open command when the load has gone quiet
     // (no modal dialog left), bounded by REOPEN_MAX_ATTEMPTS.
     private static final String FIXTURE_PATH_PROPERTY = "turboism.validation.fixturePath";
-    private static final String NEWER_MODEL_MARKER = "newer version";
-    private static final String NEWER_MODEL_ACCEPT = "Load";
     private static final long REOPEN_AFTER_MILLIS = 60_000L;
     private static final long REOPEN_MIN_INTERVAL_MILLIS = 60_000L;
     private static final int REOPEN_MAX_ATTEMPTS = 2;
@@ -257,35 +251,20 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
     // ------------------------------------------------------------------
 
     /**
-     * Confirms the host's "file was created with a newer version" warning when
-     * it gates the fixture open. The task-local startup assistant performs the
-     * same reviewed click; this copy keeps the probe from stalling when that
-     * answer raced a closing dialog or the assisted variant is absent. Only a
-     * showing dialog whose labels mention the newer-version load gate and
-     * that offers the reviewed "Load" button is clicked — every other dialog
-     * is left for the assistant or the operator.
+     * Re-runs the shared audited startup responder while the probe waits for
+     * the fixture open. The task-local startup assistant performs the same
+     * reviewed answers; this keeps the probe from stalling when that answer
+     * raced a closing dialog or the assisted variant is absent. All prompt
+     * identification and answering lives in
+     * {@link dev.turboism.validation.NativeFreeStartup} — the probe never
+     * clicks a dialog control itself.
      */
     private void answerNewerModelWarning() {
         try {
-            final Boolean answered = onHostThread(() -> {
-                for (final Window window : Window.getWindows()) {
-                    if (!(window instanceof Dialog dialog) || !dialog.isShowing()) {
-                        continue;
-                    }
-                    if (!collectText(dialog).contains(NEWER_MODEL_MARKER)) {
-                        continue;
-                    }
-                    final AbstractButton load = findButton(dialog, NEWER_MODEL_ACCEPT);
-                    if (load == null) {
-                        continue;
-                    }
-                    load.doClick();
-                    return Boolean.TRUE;
-                }
-                return Boolean.FALSE;
-            });
-            if (Boolean.TRUE.equals(answered)) {
-                logger.info("CLIPMASK_VIEWER_NEWER_MODEL_CONFIRMED");
+            final String action =
+                    onHostThread(dev.turboism.validation.NativeFreeStartup::select);
+            if (action != null) {
+                logger.info("CLIPMASK_VIEWER_" + action);
             }
         } catch (Exception ignored) {
             // Best effort: the flag/model waits still bound the total time.
@@ -354,43 +333,6 @@ public final class ClipMaskViewerHostValidationPlugin implements TurboismPlugin 
             }
         }
         return false;
-    }
-
-    private static String collectText(final Component component) {
-        final StringBuilder builder = new StringBuilder();
-        collectText(component, builder);
-        return builder.toString();
-    }
-
-    private static void collectText(final Component component, final StringBuilder builder) {
-        if (component instanceof JLabel label && label.getText() != null) {
-            builder.append(label.getText()).append(' ');
-        }
-        if (component instanceof AbstractButton button && button.getText() != null) {
-            builder.append(button.getText()).append(' ');
-        }
-        if (component instanceof Container container) {
-            for (final Component child : container.getComponents()) {
-                collectText(child, builder);
-            }
-        }
-    }
-
-    private static AbstractButton findButton(final Component component, final String text) {
-        if (component instanceof AbstractButton button
-                && button.isShowing() && button.isEnabled()
-                && text.equalsIgnoreCase(button.getText())) {
-            return button;
-        }
-        if (component instanceof Container container) {
-            for (final Component child : container.getComponents()) {
-                final AbstractButton found = findButton(child, text);
-                if (found != null) {
-                    return found;
-                }
-            }
-        }
-        return null;
     }
 
     private void recordIdentity(final CubismModel model) throws Exception {

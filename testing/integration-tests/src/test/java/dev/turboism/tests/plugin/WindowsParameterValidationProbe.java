@@ -2710,25 +2710,18 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         final List<Component> buttons = new java.util.ArrayList<>();
         collectDialogSurface(dialog, text, buttons);
         final String body = text.toString();
-        final boolean versionWarning = body.contains("保存") || body.contains("newer version") || body.contains("破損");
+        final String dialogTitle = dialog instanceof Dialog d ? d.getTitle() : dialog.getName();
         String action = "ignored";
-        if (versionWarning) {
-            final Component load = buttons.stream()
-                    .filter(b -> b.isEnabled() && b.isVisible())
-                    .filter(b -> {
-                        final String label = clickLabel(b);
-                        return label.contains("加载")
-                                || label.contains("ロード")
-                                || label.equalsIgnoreCase("Load")
-                                || label.contains("開く")
-                                || label.equalsIgnoreCase("Open");
-                    })
-                    .findFirst()
-                    .orElse(null);
-            if (load != null) {
-                clickComponent(load);
-                action = "accepted-version-warning";
-            }
+        // The newer-file gate is answered only by the shared audited responder.
+        // The local copy that once lived here searched for a "Load"-like label
+        // and, when the label was unrecognized, let the same dialog fall
+        // through to the discard branch below — a No/否 button there is how
+        // the gate got cancelled. Dispatching NativeFreeStartup keeps detection
+        // and answering in one place; action stays non-"ignored" so the
+        // discard path can never reach this dialog.
+        if (dev.turboism.validation.NativeFreeStartup.isNewerModelPrompt(dialogTitle, body)) {
+            answerStartupPromptsOnEdt();
+            action = "delegated-version-warning";
         }
         if ("ignored".equals(action)) {
             final List<Component> enabled =
@@ -2774,11 +2767,25 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             }
         }
         final String summary = body.length() > 160 ? body.substring(0, 160) : body;
-        final String title = dialog instanceof Dialog d ? d.getTitle() : dialog.getName();
         final String modal = dialog instanceof Dialog d ? String.valueOf(d.isModal()) : "n/a";
-        return " modal=\"" + title + "\" class=" + dialog.getClass().getName()
+        return " modal=\"" + dialogTitle + "\" class=" + dialog.getClass().getName()
                 + " modal=" + modal + " buttons=" + buttons.size()
                 + " action=" + action + " text=" + summary.replace('\n', ' ');
+    }
+
+    /**
+     * Dispatches the shared audited startup responder on the EDT. Posting keeps
+     * this off-EDT scan non-blocking; the queued runnable still runs inside a
+     * showing modal's own pump, and every prompt answer is decided by
+     * {@code NativeFreeStartup} rather than by this probe.
+     */
+    private static void answerStartupPromptsOnEdt() {
+        SwingUtilities.invokeLater(() -> {
+            try {
+                dev.turboism.validation.NativeFreeStartup.select();
+            } catch (Throwable ignored) {
+            }
+        });
     }
 
     /**
