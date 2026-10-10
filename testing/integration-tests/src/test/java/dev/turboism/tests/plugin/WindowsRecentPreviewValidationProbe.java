@@ -762,14 +762,40 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
 
     // --- pure helpers (unit-tested) ---------------------------------------------------
 
+    /**
+     * The same reviewed host-close mapping as {@link WindowsHistoryNativeUiHostClose}:
+     * focused Robot Alt+F4 is the verified 5302 route, while every other admitted exact
+     * host accepts the synthetic task-window close event.
+     */
     static HostCloseRoute hostCloseRoute(final String hostVersion) {
         if (hostVersion == null) {
-            throw new IllegalArgumentException("turboism.validation.hostVersion must be 5203 or 5302");
+            throw new IllegalArgumentException(
+                    "turboism.validation.hostVersion must be an exact installed version code");
         }
         return switch (hostVersion) {
-            case "5203" -> HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
+            case "5000",
+                    "5001",
+                    "5002",
+                    "5003",
+                    "5004",
+                    "5005",
+                    "5006",
+                    "5100",
+                    "5101",
+                    "5102",
+                    "5103",
+                    "5200",
+                    "5201",
+                    "5202",
+                    "5203",
+                    "5300",
+                    "5301",
+                    "5303",
+                    "5304" -> HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
             case "5302" -> HostCloseRoute.ROBOT_ALT_F4;
-            default -> throw new IllegalArgumentException("turboism.validation.hostVersion must be 5203 or 5302");
+            default ->
+                throw new IllegalArgumentException(
+                        "turboism.validation.hostVersion must be an exact installed version code: " + hostVersion);
         };
     }
 

@@ -625,6 +625,60 @@ class PreparedStoreTest(unittest.TestCase):
             with self.subTest(value=value), self.assertRaisesRegex(queue.QueueError, "requires exact SDK"):
                 self.prepared.capture(shadowed, self.source, "mcp:5302@free-fixture")
 
+    def edit_protocol_request(self, version="5304"):
+        client = self.source / "validation/protocol-edit-compat-host-probe/client/protocol_edit_host_probe.py"
+        client.parent.mkdir(parents=True, exist_ok=True)
+        client.write_text("# reviewed stdlib client fixture, never executed\n")
+        return {"schemaVersion": 1, "environment": {}, "argv": [
+            "--name", "edit-protocol", "--version", version, "--agent", str(self.input),
+            "--client-script", str(client) + ":protocol-edit-host-probe.py",
+            "--client-python", str(Path(sys.executable).resolve()),
+            "--result-file", "state/edit-protocol-host-validation-result.properties",
+            "--require-fixture-unchanged"]}
+
+    def edit_protocol_assisted_options(self):
+        agent = self.base / "native-startup-assistance-agent.jar"
+        agent.write_bytes(b"aux agent fixture")
+        return ["--aux-agent", str(agent) + ":native-startup-assistance-agent.jar",
+                "--jvm-option", "-Dturboism.validation.startupAssistance=true",
+                "--jvm-option", "-Dturboism.optimization.mesaGlThread=false",
+                "--linux-env", "mesa_glthread=false"]
+
+    def test_edit_protocol_client_accepts_every_manifest_variant(self):
+        """Every declared edit-protocol variant must pass dependency admission:
+        the queue froze rep-r1 specs because the reviewer only knew the bare spec."""
+        manifest_path = Path(__file__).resolve().parents[2] / "scripts/preview/host-validation-tasks.json"
+        tasks = json.loads(manifest_path.read_text())["tasks"]
+        variants = sorted(tasks["edit-protocol"]["variants"])
+        self.assertEqual({"assisted", "standard"}, set(variants))
+        for version in ("5203", "5300", "5304"):
+            request = self.edit_protocol_request(version)
+            self.prepared.capture(request, self.source, "edit-protocol:" + version)
+            for variant in variants:
+                request = self.edit_protocol_request(version)
+                if variant == "assisted":
+                    request["argv"] += self.edit_protocol_assisted_options()
+                with self.subTest(version=version, variant=variant):
+                    self.prepared.capture(request, self.source, "edit-protocol:" + version + "@" + variant)
+        with self.assertRaises(queue.QueueError):
+            self.prepared.capture(self.edit_protocol_request(), self.source, "edit-protocol:5304@unknown")
+
+    def test_edit_protocol_assisted_requires_exact_aux_inventory(self):
+        request = self.edit_protocol_request()
+        with self.assertRaisesRegex(queue.QueueError, "assisted variant"):
+            self.prepared.capture(request, self.source, "edit-protocol:5304@assisted")
+        broken = self.edit_protocol_request()
+        broken["argv"] += self.edit_protocol_assisted_options()
+        broken["argv"][broken["argv"].index("--jvm-option") + 1] = "-Dturboism.validation.startupAssistance=false"
+        with self.assertRaisesRegex(queue.QueueError, "assisted variant"):
+            self.prepared.capture(broken, self.source, "edit-protocol:5304@assisted")
+        wrong_aux = self.edit_protocol_request()
+        wrong_aux["argv"] += self.edit_protocol_assisted_options()
+        index = wrong_aux["argv"].index("--aux-agent")
+        wrong_aux["argv"][index + 1] = str(self.input) + ":other-agent.jar"
+        with self.assertRaisesRegex(queue.QueueError, "assisted variant"):
+            self.prepared.capture(wrong_aux, self.source, "edit-protocol:5304@assisted")
+
     def test_mcp_missing_duplicate_substituted_or_cross_task_inputs_are_rejected(self):
         original = self.mcp_request()["argv"]
         cases = []
