@@ -83,6 +83,17 @@ class WindowsRecentPreviewValidationProbeTest {
     }
 
     @Test
+    void savedModelNameFollowsTheConfiguredFixtureName() {
+        final String taskFixture = "queue-abc4b54fe3484f8796def6c46321b06f.cmo3";
+        assertTrue(WindowsRecentPreviewValidationProbe.matchesFixtureName(taskFixture, taskFixture));
+        assertTrue(WindowsRecentPreviewValidationProbe.matchesFixtureName(
+                "queue-abc4b54fe3484f8796def6c46321b06f", taskFixture));
+        assertFalse(WindowsRecentPreviewValidationProbe.matchesFixtureName("fixture.cmo3", taskFixture));
+        assertTrue(WindowsRecentPreviewValidationProbe.matchesFixtureName("fixture.cmo3", ""));
+        assertTrue(WindowsRecentPreviewValidationProbe.matchesFixtureName("fixture.cmo3", null));
+    }
+
+    @Test
     void saveOutcomeMappingDistinguishesHookFromKeyboardProblems() {
         assertNull(WindowsRecentPreviewValidationProbe.saveFailurePhase(true, false));
         assertNull(WindowsRecentPreviewValidationProbe.saveFailurePhase(true, true));
