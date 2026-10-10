@@ -147,10 +147,15 @@ window. It handles only an unambiguous save-confirmation dialog owned by that wi
 that fixture. Unknown/foreign dialogs fail closed. There is no `System.exit` or process-kill
 fallback in the probe. It is packaged only in the validation bundle, not in production plugins.
 
-With `-Dturboism.validation.startFree=true`, the task JVM also handles the exact English
-FREE startup/welcome dialogs, the newer-model warning (Load or Yes), and the update download
-prompt (Cancel). Actions and observed prompt text are logged. Unrelated confirmations are
-left untouched; this assistance does not grant a PRO or trial license.
+With `-Dturboism.validation.startFree=true`, the task JVM also handles the license
+startup dialog — the user-authorized "Start PRO Version Free Trial" entry is
+preferred, "Start as FREE version" is the fallback — plus the "Would you like
+to start the Trial?" Yes confirmation, the activation-success notice, the
+FREE startup/welcome dialogs, the newer-model warning
+(Load or Yes), and the update download prompt (Cancel). Actions and observed
+prompt text are logged. Unrelated confirmations are left untouched; purchase,
+activation-key and cancel entries are never clicked and no license keys are
+entered.
 The exact FREE parameter-limit information is acknowledged with OK and logged; its cancelled
 operation is not relabeled as successful. The helper has a separate lifecycle-bound thread so
 texture save/reopen waits do not prevent it from handling these known modal prompts on the EDT.
