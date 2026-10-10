@@ -104,16 +104,38 @@ inputs/timeout returns the same job; conflicting reuse is rejected. Submission
 succeeds durably even while the worker is offline. A successful submit is **not**
 a verification PASS. Interrupting a client/waiter does not cancel its job.
 
-The `wait` client uses a dedicated read-only query against the existing queue database:
-the connection URI is `mode=ro`, `PRAGMA query_only=ON` is set, and no `Store`
-initialization or synchronous/journal setup runs on this path. Only explicit SQLite
-`BUSY`, `LOCKED`, or `PROTOCOL` outcomes are retried, at most three reconnects with
-bounded backoff, and never past the caller's wait deadline. Unknown jobs, unsupported
+The `wait` and `events` clients use a dedicated read-only query against the existing
+queue database: the connection URI is `mode=ro`, `PRAGMA query_only=ON` is set, and
+no `Store` initialization or synchronous/journal setup runs on this path. Only
+explicit SQLite `BUSY`, `LOCKED`, or `PROTOCOL` outcomes are retried with bounded
+backoff, and never past the caller's wait deadline. Unknown jobs, unsupported
 schemas, corrupt databases, permission errors, and other failures stop immediately.
 Retry exhaustion reports an infrastructure wait failure; it never invents a terminal
-result, submits or cancels a job, or advances an A→B validation gate. The shared
-`Store` connection remains in use for submit, status, events, cancel, worker, and
-supervisor paths; this read-only change does not alter their retry behavior.
+result, submits or cancels a job, or advances an A→B validation gate.
+
+`status` goes further: it never opens the live database at all. Like
+`abandon --inspect` and `gc plan`, it reads a private copied snapshot of the
+database+WAL, so an observer cannot create, modify, or lock live `-shm`/`-wal`
+files and cannot race supervisor persistence.
+
+**Do not open the live `queue.sqlite3` directly — not even with `mode=ro`.**
+Every unmanaged connection participates in the shared WAL wal-index: a
+short-lived `sqlite3`/`mode=ro` client racing the last writer's checkpoint can
+force the `-shm`/`-wal` pair to be unlinked and rebuilt underneath other
+connections, which is what produced transient `SQLITE_PROTOCOL`
+("locking protocol") crashes that killed two running supervisors and
+quarantined the host. Use `status --json`, `events`, `wait`, `recover --inspect`,
+`abandon --inspect`, or `gc plan` instead; they are the reviewed observation
+surfaces. Writers (`Store`, supervisor cancel polls, verdict persistence,
+claim/acknowledge/quarantine) retry explicit transient lock outcomes with
+bounded backoff, and each `Store` holds an idle wal-index anchor so its
+operation connections do not churn the `-shm`/`-wal` pair.
+
+The supervisor's final verdict is also durable before it is persisted:
+`jobs/<id>/outcome.json` (or `evidence/lifecycle-result.json`) is written
+atomically on disk before the database update, so a verdict that could not be
+committed is consumed by the next reconcile instead of quarantining a proven
+attempt. An unproven attempt still quarantines fail-closed.
 
 `run TASK...` is a convenience prepare+submit+wait client. Direct updated wrappers
 use the same queue, not another lock. The worker consumes the prepared Runner

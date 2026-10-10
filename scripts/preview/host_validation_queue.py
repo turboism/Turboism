@@ -202,6 +202,17 @@ class Store:
         self._profiles: dict[str, tuple[str | None, list[str] | None, int]] = {}
         self.xvfb_processes: dict[str, subprocess.Popen] = {}
         self._claim_notes: set[tuple[str | None, str]] = set()
+        self._anchor: sqlite3.Connection | None = None
+        retry_transient_lock(self._initialize)
+        # An idle query_only connection keeps this Store a wal-index client for
+        # its lifetime. Without an anchor the last closing operation connection
+        # checkpoints, unlinks and later rebuilds -shm/-wal between short-lived
+        # calls; racing that churn is what produced transient SQLITE_PROTOCOL
+        # ("locking protocol") failures for other connections that had mapped
+        # or were mapping the previous wal-index.
+        self._anchor = retry_transient_lock(self._open_anchor)
+
+    def _initialize(self) -> None:
         with self.connection() as db:
             db.execute("PRAGMA journal_mode=WAL")
             db.executescript("""
@@ -240,6 +251,27 @@ class Store:
                 db.execute("PRAGMA user_version=2")
             if db.execute("SELECT version FROM metadata").fetchone()[0] != SCHEMA:
                 raise QueueError("unsupported queue schema; migration required")
+
+    def _open_anchor(self) -> sqlite3.Connection:
+        db = sqlite3.connect(self.database, timeout=30, isolation_level=None)
+        try:
+            db.execute("PRAGMA query_only=ON")
+            db.execute("SELECT 1 FROM sqlite_master LIMIT 1").fetchone()
+        except BaseException:
+            db.close()
+            raise
+        return db
+
+    def close(self) -> None:
+        if self._anchor is not None:
+            self._anchor.close()
+            self._anchor = None
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:
+            pass
 
     @contextlib.contextmanager
     def connection(self) -> Iterator[sqlite3.Connection]:
@@ -317,8 +349,8 @@ class Store:
         for attempt in range(attempts):
             try:
                 return self.jobs(job_id)
-            except sqlite3.OperationalError as failure:
-                if "locked" not in str(failure) or attempt == attempts - 1:
+            except sqlite3.Error as failure:
+                if not is_retryable_read_error(failure) or attempt == attempts - 1:
                     raise
                 time.sleep(min(30.0, 5.0 * (attempt + 1)))
 
@@ -585,6 +617,27 @@ class Store:
                                    (canonical_json(metadata), job_id))
             self.event(db, job_id, state, evidence=evidence)
 
+    def complete_retry(self, job_id: str, state: str, evidence: dict[str, Any],
+                       *, recovery_reason: str | None = None, attempts: int = 6) -> None:
+        """Persist the final verdict through transient SQLite lock outcomes.
+
+        The durable verdict already lives in the attempt directory; this only
+        has to survive bounded shm/lock churn. A COMMIT that reported a lock
+        error may still have landed, so a retried nonterminal-attempt refusal
+        re-reads the row and accepts an identical recorded verdict instead of
+        treating its own committed write as a validation failure."""
+        def commit() -> None:
+            try:
+                self.complete(job_id, state, evidence, recovery_reason=recovery_reason)
+            except QueueError as failure:
+                if str(failure) != "completion requires a nonterminal attempt":
+                    raise
+                row = self.jobs(job_id)[0]
+                if row["state"] == state and json.loads(row["evidence_json"] or "null") == evidence:
+                    return
+                raise
+        retry_transient_lock(commit, attempts=attempts)
+
     def events(self, after: int = 0, job_id: str | None = None) -> list[dict[str, Any]]:
         with self.connection() as db:
             rows = db.execute("""SELECT * FROM events WHERE event_id>? AND (? IS NULL OR job_id=?)
@@ -643,6 +696,20 @@ def is_retryable_read_error(error: BaseException) -> bool:
     if isinstance(code, int):
         return (code & 0xFF) in _READ_LOCK_RESULT_CODES
     return str(error).strip().casefold() in _READ_LOCK_MESSAGES
+
+
+def retry_transient_lock(operation, *, attempts: int = 6, base_seconds: float = 0.05,
+                         cap_seconds: float = 2.0):
+    """Bounded exponential backoff for SQLite's explicit transient lock
+    outcomes (BUSY/LOCKED/PROTOCOL, e.g. "locking protocol" from wal-index
+    churn). Everything else, and a still-locked final attempt, raises."""
+    for attempt in range(attempts):
+        try:
+            return operation()
+        except sqlite3.Error as failure:
+            if not is_retryable_read_error(failure) or attempt == attempts - 1:
+                raise
+            time.sleep(min(cap_seconds, base_seconds * (2 ** attempt)))
 
 
 INPUT_FLAGS = frozenset({"--bundle-root", "--agent", "--home-config", "--fixture-local",
@@ -1410,8 +1477,10 @@ class RunnerBackend:
         if job.get("display") and job["display"] != ":0" and "--display" not in command:
             command = [*command, "--display", job["display"]]
             injected_display = job["display"]
-            with store.transaction() as db:
-                Store.event(db, job["job_id"], "display-injected", display=injected_display)
+            def record_display() -> None:
+                with store.transaction() as db:
+                    Store.event(db, job["job_id"], "display-injected", display=injected_display)
+            retry_transient_lock(record_display)
         injected_code = {"BASH_ENV", "ENV", "PYTHONPATH", "PYTHONHOME", "LD_PRELOAD", "LD_LIBRARY_PATH",
                          "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS", "CLASSPATH", "SHELLOPTS", "BASHOPTS"}
         environment = {key: value for key, value in os.environ.items()
@@ -1508,9 +1577,9 @@ def supervised_attempt(root: Path, job: dict[str, Any], backend: Any, admission_
     parent_socket.close()
     os.close(worker_fd)
     child_socket.settimeout(10)
-    store = Store(root)
     directory = private_directory(root / "jobs" / job["job_id"])
     try:
+        store = Store(root)
         child_socket.sendall(canonical_json(process_identity(os.getpid())).encode())
         if child_socket.recv(1) != b"A":
             return
@@ -1556,7 +1625,7 @@ class Worker:
                     terminate_process(process)
                 else:
                     terminate_xvfb(xvfb_pid, job["display"])
-                self.store.release_display(job["job_id"])
+                retry_transient_lock(lambda: self.store.release_display(job["job_id"]))
             if job["state"] not in RUNNING | {"quarantined"}:
                 continue
             if job["state"] in RUNNING and job["identity_json"] \
@@ -1568,13 +1637,14 @@ class Worker:
                     terminate_process(process)
                 else:
                     terminate_xvfb(xvfb_pid, job["display"])
-                self.store.release_display(job["job_id"])
+                retry_transient_lock(lambda: self.store.release_display(job["job_id"]))
             directory = self.store.root / "jobs" / job["job_id"]
             if job["state"] != "quarantined" or (directory / "outcome.json").is_file() or (directory / "evidence/lifecycle-result.json").is_file():
                 try:
                     self.finish(job)
-                except (OSError, ValueError, KeyError, TypeError, QueueError):
-                    pass  # finish() already quarantined; keep scanning siblings.
+                except (OSError, ValueError, KeyError, TypeError, QueueError, sqlite3.Error):
+                    pass  # finish() already quarantined, or a durable verdict
+                    # still awaits a writable database; keep scanning siblings.
 
     def finish(self, job: dict[str, Any]) -> None:
         directory = self.store.root / "jobs" / job["job_id"]
@@ -1588,9 +1658,15 @@ class Worker:
                 raise QueueError("runner still active")
             # Unknown external sessions are handled by the next idle dispatch
             # check; they are not evidence that this contained attempt leaked.
-            self.store.complete(job["job_id"], evidence["terminalState"], evidence)
+            self.store.complete_retry(job["job_id"], evidence["terminalState"], evidence)
+        except sqlite3.Error:
+            # The durable verdict stays in the attempt directory; a transient
+            # persistence failure must not quarantine a proven attempt. The
+            # next reconcile pass consumes the same durable verdict.
+            raise
         except (OSError, ValueError, KeyError, TypeError, QueueError) as failure:
-            self.store.quarantine(job["job_id"], str(failure))
+            reason = str(failure)
+            retry_transient_lock(lambda: self.store.quarantine(job["job_id"], reason))
 
     def _worker_status(self, running: dict[int, dict[str, Any]], max_slots: int) -> None:
         atomic_json(self.store.root / "worker.json", {**process_identity(os.getpid()),
@@ -1611,7 +1687,7 @@ class Worker:
             return stop is not None and stop.is_set()
 
         with FileLock(self.store.root / "worker.lock") as worker_lock:
-            self.reconcile()
+            retry_transient_lock(self.reconcile)
             socket_path = self.store.root / "wake.sock"
             if socket_path.exists() or socket_path.is_symlink():
                 if not stat.S_ISSOCK(socket_path.lstat().st_mode):
@@ -1631,12 +1707,13 @@ class Worker:
                             if not attempt["process"].is_alive():
                                 self.reap(attempt)
                                 del running[pid]
-                        self.reconcile()
-                        foreign = list(self.backend.busy(self.store.active_run_ids()))
-                        host = self.store.host()
+                        retry_transient_lock(self.reconcile)
+                        foreign = list(self.backend.busy(
+                            retry_transient_lock(self.store.active_run_ids)))
+                        host = retry_transient_lock(self.store.host)
                         if host["state"] in {"idle", "external-busy"}:
-                            self.store.external_busy(foreign)
-                            host = self.store.host()
+                            retry_transient_lock(lambda: self.store.external_busy(foreign))
+                            host = retry_transient_lock(self.store.host)
                         if (host["state"] in {"idle", "owned"} and not foreign and not stopped()
                                 and len(running) < max_slots
                                 and (max_jobs is None or count < max_jobs)):
@@ -1658,14 +1735,15 @@ class Worker:
                                                 check_space(self.store.root)
                                             except QueueError:
                                                 break
-                                        job = self.store.claim()
+                                        job = retry_transient_lock(self.store.claim)
                                         if job is None:
                                             break
                                         try:
                                             attempt = self.spawn(job, gate, worker_lock.fd)
                                         except BaseException as failure:
-                                            self.store.quarantine(
-                                                job["job_id"], f"attempt interrupted: {failure}")
+                                            reason = f"attempt interrupted: {failure}"
+                                            retry_transient_lock(lambda: self.store.quarantine(
+                                                job["job_id"], reason))
                                             break
                                         running[attempt["process"].pid] = attempt
                                         count += 1
@@ -1710,7 +1788,8 @@ class Worker:
             identity = json.loads(parent.recv(4096))
             if identity != process_identity(process.pid):
                 raise QueueError("child handshake identity mismatch")
-            self.store.acknowledge(job["job_id"], job["attempt_id"], identity)
+            retry_transient_lock(lambda: self.store.acknowledge(
+                job["job_id"], job["attempt_id"], identity))
             parent.sendall(b"A")
         except BaseException:
             parent.close()
@@ -1735,22 +1814,30 @@ class Worker:
         xvfb = self.store.xvfb_processes.pop(job["job_id"], None)
         if xvfb is not None:
             terminate_process(xvfb)
-        row = self.store.jobs(job["job_id"])[0]
+        try:
+            row = retry_transient_lock(lambda: self.store.jobs(job["job_id"])[0])
+        except sqlite3.Error:
+            row = job  # Claim-time row; finish()/reconcile re-read anyway.
         if xvfb is None and row["xvfb_pid"] is not None:
             terminate_xvfb(row["xvfb_pid"], row["display"])
         try:
             self.finish(row)
-        except (OSError, ValueError, KeyError, TypeError, QueueError):
-            pass  # finish() quarantines internally; reaping must continue.
-        self.store.release_display(job["job_id"])
+        except (OSError, ValueError, KeyError, TypeError, QueueError, sqlite3.Error):
+            pass  # finish() quarantines internally, or a durable verdict still
+            # awaits a writable database; reaping must continue.
+        try:
+            retry_transient_lock(lambda: self.store.release_display(job["job_id"]))
+        except sqlite3.Error:
+            pass  # Stale display fields are retried by the next reconcile pass.
         attempt["admission"].close()
         if attempt["admission_path"] is not None:
             attempt["admission_path"].unlink(missing_ok=True)
 
 
-def worker_online(store: Store) -> bool:
+def worker_online(store: Store | Path) -> bool:
+    root = store if isinstance(store, Path) else store.root
     try:
-        record = json.loads((store.root / "worker.json").read_text())
+        record = json.loads((root / "worker.json").read_text())
         if not isinstance(record, dict):
             return False
         identity = {key: value for key, value in record.items() if key != "slots"}
@@ -1995,9 +2082,9 @@ def recover(store: Store, job_id: str, reason: str | None = None) -> dict[str, A
                     raise QueueError("supervisor became active during recovery")
                 if fresh["xvfb_pid"] is not None:
                     terminate_xvfb(fresh["xvfb_pid"], fresh["display"])
-                store.complete(job_id, evidence["terminalState"], evidence, recovery_reason=reason)
-                store.release_display(job_id)
+                store.complete_retry(job_id, evidence["terminalState"], evidence, recovery_reason=reason)
+                retry_transient_lock(lambda: store.release_display(job_id))
                 wake(store)
-    except (OSError, ValueError, KeyError, TypeError, QueueError) as failure:
+    except (OSError, ValueError, KeyError, TypeError, QueueError, sqlite3.Error) as failure:
         report.update(safe=False, reason=str(failure))
     return report

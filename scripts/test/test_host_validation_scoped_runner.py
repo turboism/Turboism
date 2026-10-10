@@ -24,6 +24,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "preview"))
 import host_validation_queue as queue
 
 
+FAKE_XVFB_CODE = (
+    "import ctypes,sys,time;"
+    "ctypes.CDLL(None).prctl(15, sys.argv[1].encode());"  # PR_SET_NAME -> comm
+    "time.sleep(60)")
+
+
+def fake_xvfb(sink, display):
+    """A harmless stand-in whose comm/cmdline look like an Xvfb on `display`."""
+    process = subprocess.Popen([sys.executable, "-c", FAKE_XVFB_CODE, "Xvfb", display])
+    sink.append(process)
+    return process
+
+
 @unittest.skipUnless(sys.platform.startswith("linux"), "BLOCKED: scoped Runner requires Linux")
 class ScopedRunnerIntegrationTest(unittest.TestCase):
     def test_real_admission_scope_and_finalizer_fail_before_poisoned_host_launch(self):
@@ -51,10 +64,33 @@ class ScopedRunnerIntegrationTest(unittest.TestCase):
             with self.subTest(deferred=deferred):
                 self.scenario(timeout=False, deferred=deferred, mesa=False)
 
+    @staticmethod
+    def _kill_spawned(spawned) -> None:
+        for process in spawned:
+            if process.poll() is None:
+                process.kill()
+                process.wait(5)
+
     def scenario(self, *, timeout, cancel=False, deferred=None, mesa=False):
         parent = pwd.getpwuid(os.getuid()).pw_dir
         with tempfile.TemporaryDirectory(prefix=".tq-test-", dir=parent) as temporary:
             root = Path(temporary)
+            # The display pool is host-global state, not store-scoped: leaked
+            # Xvfb servers or a full :10-:29 range must not decide whether a
+            # slotted claim succeeds. Isolate it like the slot contract tests.
+            spawned_xvfb: list[subprocess.Popen] = []
+            sockets = root / "x11-sockets"
+            sockets.mkdir()
+            patches = [
+                mock.patch.object(queue, "xvfb_available", return_value=True),
+                mock.patch.object(queue, "spawn_xvfb",
+                                  side_effect=lambda display: fake_xvfb(spawned_xvfb, display)),
+                mock.patch.object(queue, "X11_SOCKET_DIR", str(sockets)),
+            ]
+            for patcher in patches:
+                self.addCleanup(patcher.stop)
+                patcher.start()
+            self.addCleanup(self._kill_spawned, spawned_xvfb)
             store = queue.Store(root / "queue")
             source = root / "source"
             preview = source / "scripts/preview"

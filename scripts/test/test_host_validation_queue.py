@@ -9,6 +9,7 @@ import io
 import multiprocessing
 import os
 from pathlib import Path
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -343,6 +344,87 @@ class QueueStoreTest(StoreFixture, unittest.TestCase):
         self.assertIn("123", self.store.host()["reason"])
         self.store.external_busy([])
         self.assertIsNotNone(self.store.claim())
+
+
+class TransientLockTest(StoreFixture, unittest.TestCase):
+    """Transient SQLite lock outcomes (BUSY/LOCKED/PROTOCOL) must not kill a
+    supervisor, quarantine a proven attempt, or strand a durable verdict."""
+
+    def test_supervisor_read_retry_tolerates_locking_protocol(self) -> None:
+        job = self.job("request")
+        original = self.store.jobs
+        calls = 0
+        def flaky(job_id=None):
+            nonlocal calls
+            calls += 1
+            if calls <= 2:
+                raise sqlite3.OperationalError("locking protocol")
+            return original(job_id)
+        with mock.patch.object(self.store, "jobs", side_effect=flaky), \
+                mock.patch.object(queue.time, "sleep"):
+            rows = self.store.jobs_retry(job["job_id"])
+        self.assertEqual(3, calls)
+        self.assertEqual(job["job_id"], rows[0]["job_id"])
+
+    def test_verdict_write_retries_transient_protocol_error(self) -> None:
+        self.job("request")
+        job = self.store.claim()
+        directory = self.root / "jobs" / job["job_id"]
+        directory.mkdir(parents=True)
+        evidence = {**self.evidence(job), "terminalState": "succeeded"}
+        queue.atomic_json(directory / "outcome.json", evidence)
+        original = self.store.complete
+        calls = 0
+        def flaky(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls <= 2:
+                raise sqlite3.OperationalError("locking protocol")
+            return original(*args, **kwargs)
+        with mock.patch.object(self.store, "complete", side_effect=flaky):
+            queue.Worker(self.store, IsolatedBackend()).finish(job)
+        self.assertEqual(3, calls)
+        row = self.store.jobs(job["job_id"])[0]
+        self.assertEqual("succeeded", row["state"])
+        self.assertEqual(evidence, json.loads(row["evidence_json"]))
+        self.assertEqual("idle", self.store.host()["state"])
+
+    def test_lock_outage_defers_durable_verdict_instead_of_quarantining(self) -> None:
+        self.job("request")
+        job = self.store.claim()
+        directory = self.root / "jobs" / job["job_id"]
+        directory.mkdir(parents=True)
+        queue.atomic_json(directory / "outcome.json", {**self.evidence(job), "terminalState": "succeeded"})
+        worker = queue.Worker(self.store, IsolatedBackend())
+        with mock.patch.object(self.store, "complete",
+                               side_effect=sqlite3.OperationalError("locking protocol")):
+            worker.reconcile()
+        # The attempt keeps its durable verdict and stays schedulable; it is
+        # neither quarantined nor fabricated into a terminal outcome.
+        row = self.store.jobs(job["job_id"])[0]
+        self.assertEqual("starting", row["state"])
+        self.assertEqual("owned", self.store.host()["state"])
+        worker.reconcile()  # Lock cleared: the same durable verdict is committed.
+        row = self.store.jobs(job["job_id"])[0]
+        self.assertEqual("succeeded", row["state"])
+        self.assertEqual("idle", self.store.host()["state"])
+
+    def test_status_reads_a_private_snapshot_without_writable_store(self) -> None:
+        job = self.job("status-check")
+        with mock.patch.object(queue, "account_root", return_value=self.root), \
+                mock.patch.object(queue, "Store", side_effect=AssertionError("Store must not be built")), \
+                contextlib.redirect_stdout(io.StringIO()) as output, \
+                contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(0, cli.main(["status", "--json"]))
+            report = json.loads(output.getvalue().strip().splitlines()[-1])
+            self.assertEqual("idle", report["host"]["state"])
+            self.assertEqual(job["job_id"], report["jobs"][0]["job_id"])
+            self.assertFalse(report["workerOnline"])
+            output.truncate(0); output.seek(0)
+            self.assertEqual(0, cli.main(["status", job["job_id"], "--json"]))
+            report = json.loads(output.getvalue().strip().splitlines()[-1])
+            self.assertEqual(job["job_id"], report["jobs"][0]["job_id"])
+            self.assertEqual(2, cli.main(["status", "missing-job", "--json"]))
 
 
 class PreparedStoreTest(unittest.TestCase):
