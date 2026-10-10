@@ -39,6 +39,16 @@
       "reason": "Observes the recent-preview popup contribution surface during manual validation."
     },
     {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads the active document parameters during manual validation."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Writes a single parameter delta during manual validation so the native save command has real work."
+    },
+    {
       "id": "turboism.file.write",
       "scope": "application",
       "reason": "Atomically writes probe PNG evidence and result properties into plugin-confined state."
