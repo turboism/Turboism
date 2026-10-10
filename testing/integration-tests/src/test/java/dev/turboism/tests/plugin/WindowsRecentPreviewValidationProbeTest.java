@@ -139,6 +139,34 @@ class WindowsRecentPreviewValidationProbeTest {
     }
 
     @Test
+    void saveMenuItemMatchesCtrlSAcceleratorOrExactLabel() {
+        final javax.swing.JMenuItem accelerated = new javax.swing.JMenuItem("任意");
+        accelerated.setAccelerator(
+                javax.swing.KeyStroke.getKeyStroke(
+                        java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        assertTrue(WindowsRecentPreviewValidationProbe.isSaveMenuItem(accelerated));
+
+        assertTrue(WindowsRecentPreviewValidationProbe.isSaveMenuItem(new javax.swing.JMenuItem("保存")));
+        assertTrue(WindowsRecentPreviewValidationProbe.isSaveMenuItem(new javax.swing.JMenuItem("Save")));
+        assertTrue(WindowsRecentPreviewValidationProbe.isSaveMenuItem(new javax.swing.JMenuItem("保存…")));
+        assertFalse(WindowsRecentPreviewValidationProbe.isSaveMenuItem(new javax.swing.JMenuItem("另存为…")));
+        assertFalse(WindowsRecentPreviewValidationProbe.isSaveMenuItem(new javax.swing.JMenuItem("Save As...")));
+        assertFalse(WindowsRecentPreviewValidationProbe.isSaveMenuItem(new javax.swing.JMenuItem("すべて保存")));
+        assertFalse(WindowsRecentPreviewValidationProbe.isSaveMenuItem(new javax.swing.JMenu("保存")));
+        final javax.swing.JMenuItem saveAsKey = new javax.swing.JMenuItem("另存为…");
+        saveAsKey.setAccelerator(
+                javax.swing.KeyStroke.getKeyStroke(
+                        java.awt.event.KeyEvent.VK_S,
+                        java.awt.event.InputEvent.CTRL_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
+        assertFalse(WindowsRecentPreviewValidationProbe.isSaveMenuItem(saveAsKey));
+        final javax.swing.JMenuItem altKey = new javax.swing.JMenuItem("任意");
+        altKey.setAccelerator(
+                javax.swing.KeyStroke.getKeyStroke(
+                        java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.ALT_DOWN_MASK));
+        assertFalse(WindowsRecentPreviewValidationProbe.isSaveMenuItem(altKey));
+    }
+
+    @Test
     void fileModifiedSinceTracksTimeAndSizeBaselines(@TempDir Path dir) throws Exception {
         final Path file = dir.resolve("fixture.cmo3");
         Files.writeString(file, "v1");
