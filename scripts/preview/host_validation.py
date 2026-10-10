@@ -410,6 +410,9 @@ def build_parser(default_manifest: Path) -> argparse.ArgumentParser:
         command.add_argument("--run-label", default="r1")
         command.add_argument("--full-matrix", action="store_true",
             help="disable cluster-equivalence coverage annotations")
+        command.add_argument("--no-startup-assistance", action="store_true",
+            help="keep the requested variant instead of rerouting to the "
+                 "task's startup-assistance (audited prompt responder) variant")
     submit = commands.add_parser("submit")
     submit.add_argument("--prepared", required=True)
     submit.add_argument("--request-id", required=True)
@@ -494,11 +497,16 @@ def main(argv: list[str] | None = None) -> int:
             for spec in args.tasks:
                 request = parse_request(spec, args.run_label, manifest)
                 try:
-                    request, outcome = static_gates.evaluate(request, Request, manifest, environment)
+                    request, outcome = static_gates.evaluate(
+                        request, Request, manifest, environment,
+                        startup_assistance=not args.no_startup_assistance)
                 except static_gates.StaticGateRefusal as refusal:
                     emit({"schemaVersion": 1, "spec": request.spec, "skipped": refusal.skip,
                           "reason": refusal.reason, "detail": refusal.detail})
                     continue
+                if args.command != "plan":
+                    for note in outcome.notes:
+                        print(f"host-validation: {request.spec}: {note}", file=sys.stderr)
                 covered = None if args.full_matrix else static_gates.covered_by_equivalent(
                     request.task.name, request.version, families)
                 gated.append((request, outcome.notes, covered))

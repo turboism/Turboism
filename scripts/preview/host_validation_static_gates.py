@@ -10,10 +10,17 @@ L0 gates — evaluated in prepare before a job reaches the queue:
 - License: runtime-observed FREE-locked installations cancel fixtures that
   exceed the per-object parameter limit; skip early instead of burning a
   host slot. (Unreachable today — see INSTALL_LICENSE_TIER below.)
-- Fixture routing: the shared .cmo3 fixtures are authored by a specific
-  editor version. Older editors block on the native "newer file" dialog;
-  route to the task's assisted variant (NativeStartupAssistanceAgent) which
-  confirms that dialog.
+- Startup-assistance routing: every spec whose task declares an assisted
+  variant is rerouted to it (startup-assistance-default), because license /
+  trial / update / newer-file / Home-news dialogs otherwise block an
+  unattended launch on any version, not only on older-than-fixture editors.
+  The older rule still applies and is reported separately: when the shared
+  .cmo3 fixture's authoring document version exceeds the target editor, the
+  note reads fixture-version-routing. Assisted variants answer the native
+  "newer file" dialog via NativeStartupAssistanceAgent (jar form) or the
+  task probe's audited prompt responder (startFree form). Pass
+  --no-startup-assistance to keep the requested variant for deliberate
+  unassisted-path runs.
 - Bundle linkage: every dev/turboism member referenced by --plugin/--aux-agent
   jars must resolve inside the bundle (agent jar + same-bundle jars), so a
   mixed-generation bundle is refused before queueing instead of dying with
@@ -179,11 +186,26 @@ def _semver_tuple(version: str) -> tuple[int, ...]:
     return tuple(int(part) for part in version.split("."))
 
 
+# Tasks whose own probe/wrapper runs the audited prompt responder on every
+# variant: the mcp-host-validation probe enables its NativeFreeStartup loop
+# for every standalone variant, and the owned-moc wrapper pins its startFree
+# option unconditionally. They need no -assisted variant and emit no "no
+# assisted variant" warning when a newer fixture would route other tasks.
+SELF_RESPONDING_STARTUP_TASKS = frozenset({"mcp", "core-owned-moc"})
+
+
 def assisted_variant(task: Any, current: str | None) -> str | None:
-    """The variant carrying NativeStartupAssistanceAgent for this request:
-    prefer the <current>-assisted counterpart, else a single assisted variant."""
-    if current and f"{current}-assisted" in task.variants:
-        return f"{current}-assisted"
+    """The variant carrying startup assistance for this request. Prefer the
+    <current>-assisted-gl counterpart (assistance + measurement-preserving
+    glthread pins, offered by performance/measurement variants), then
+    <current>-assisted, then a literal 'assisted' variant, then the only
+    assisted variant when the task declares exactly one."""
+    if current:
+        for candidate in (f"{current}-assisted-gl", f"{current}-assisted"):
+            if candidate in task.variants:
+                return candidate
+    if "assisted" in task.variants:
+        return "assisted"
     candidates = [name for name in task.variants if "assisted" in name]
     return candidates[0] if len(candidates) == 1 else None
 
@@ -795,9 +817,12 @@ class GateOutcome:
 
 
 def evaluate(request: Any, request_type: Any, manifest: Any,
-             environment: dict[str, str]) -> tuple[Any, GateOutcome]:
+             environment: dict[str, str],
+             startup_assistance: bool = True) -> tuple[Any, GateOutcome]:
     """Apply L0 gates. Returns (request, outcome); request may be rerouted to
-    an assisted variant. Raises StaticGateRefusal for admission/license."""
+    an assisted variant. Raises StaticGateRefusal for admission/license.
+    startup_assistance=False (--no-startup-assistance) skips every assisted
+    reroute so the requested variant runs the deliberately unassisted path."""
     task, version = request.task, request.version
     notes: list[str] = []
 
@@ -828,16 +853,26 @@ def evaluate(request: Any, request_type: Any, manifest: Any,
             f"on Cubism {dotted(version)}; the runtime admission wall will refuse this write path",
         )
     routed = False
-    if doc_version and _semver_tuple(doc_version) > _semver_tuple(dotted(version)):
+    newer_fixture = bool(
+        doc_version and _semver_tuple(doc_version) > _semver_tuple(dotted(version)))
+    if startup_assistance:
         assisted = assisted_variant(task, request.variant)
         if assisted and request.variant != assisted:
             request = request_type(task, version, assisted, request.run_label)
             routed = True
-            notes.append(
-                f"fixture-version-routing: fixture document {doc_version} > target "
-                f"{dotted(version)}; routed to @{assisted} (NativeStartupAssistanceAgent)"
-            )
-        elif not assisted:
+            if newer_fixture:
+                notes.append(
+                    f"fixture-version-routing: fixture document {doc_version} > target "
+                    f"{dotted(version)}; routed to @{assisted} (NativeStartupAssistanceAgent)"
+                )
+            else:
+                notes.append(
+                    f"startup-assistance-default: routed to @{assisted}; the audited "
+                    "startup dialog responder runs by default "
+                    "(--no-startup-assistance exercises the unassisted path)"
+                )
+        elif newer_fixture and not assisted \
+                and task.name not in SELF_RESPONDING_STARTUP_TASKS:
             notes.append(
                 f"fixture-version-routing: fixture document {doc_version} > target "
                 f"{dotted(version)} but no assisted variant exists; the native "
