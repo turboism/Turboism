@@ -5,6 +5,8 @@ import dev.turboism.internal.core.ShellAdmission;
 import dev.turboism.internal.core.ShellHandle;
 import dev.turboism.internal.core.ShellServices;
 import dev.turboism.sdk.plugin.DisposableScope;
+import dev.turboism.ui.host.EdtDispatch;
+import dev.turboism.ui.host.EdtDispatchException;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -44,6 +46,16 @@ final class CoreShellRuntime implements AutoCloseable {
     private final PreviewLog log;
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final ShellLoad state;
+
+    /**
+     * Per-probe acceptance bound while waiting for the host event queue before shell startup.
+     * It stays deliberately below {@link EdtDispatch}'s circuit-breaker trip bound so a busy
+     * startup EDT only delays the shell, never degrades unrelated dispatches.
+     */
+    static final Duration SHELL_EDT_PROBE_BOUND = Duration.ofSeconds(5);
+    /** System property overriding the total EDT-readiness wait admitted before shell startup. */
+    static final String SHELL_EDT_WAIT_PROPERTY = "turboism.preview.shellStartupEdtWaitSeconds";
+    static final Duration DEFAULT_SHELL_EDT_WAIT = Duration.ofMinutes(3);
 
     private CoreShellRuntime(
             final ShellHandle shell,
@@ -89,6 +101,7 @@ final class CoreShellRuntime implements AutoCloseable {
             final PreviewLog log)
             throws Exception {
         final ShellLoad state = new ShellLoad();
+        awaitHostEventQueue(log);
         final PluginLifecycleLease lease = new PluginLifecycleLease(ShellManifest.ID);
         final PluginLifecycleLane.Invocation<CoreShellRuntime> invocation =
                 lane.submit(ShellManifest.ID, "load", () -> {
@@ -132,6 +145,62 @@ final class CoreShellRuntime implements AutoCloseable {
                         "Shell startup exceeded " + policy.loadTimeout(),
                         new TimeoutException("shell lifecycle deadline expired"));
             }
+        }
+    }
+
+    /**
+     * Bounded wait for the host event queue to accept work before the lifecycle lane starts.
+     * Adapter admission can pass while the host is still pumping a startup task — a
+     * command-line document load or first-run shader compilation can occupy the EDT for tens
+     * of seconds. The lane deadline exists to bound the shell's own lifecycle work, not to
+     * expire while every dispatch queues behind host startup, so contention is waited out
+     * here and {@link PluginLifecyclePolicy#loadTimeout} keeps measuring only the shell. When
+     * the queue stays saturated past the wait budget the lane is still entered and the legacy
+     * deadline behavior applies.
+     */
+    private static void awaitHostEventQueue(final PreviewLog log) {
+        final Duration budget = shellEdtWaitBudget();
+        if (budget.isZero()) {
+            return;
+        }
+        final long deadline = System.nanoTime() + budget.toNanos();
+        boolean announced = false;
+        while (true) {
+            try {
+                EdtDispatch.call("shell-startup-edt-probe", SHELL_EDT_PROBE_BOUND, () -> null);
+                if (announced) {
+                    log.info(ShellManifest.ID, "Shell startup: host event queue accepted work");
+                }
+                return;
+            } catch (EdtDispatchException rejected) {
+                if (rejected.reason() == EdtDispatchException.Reason.INTERRUPTED) {
+                    return;
+                }
+                if (!announced) {
+                    announced = true;
+                    log.info(ShellManifest.ID, "Shell startup: waiting for the host event queue");
+                }
+                if (System.nanoTime() >= deadline) {
+                    log.warn(
+                            ShellManifest.ID,
+                            "Shell startup: host event queue still busy after " + budget + "; proceeding");
+                    return;
+                }
+            }
+        }
+    }
+
+    /** Resolves the EDT-readiness wait budget; a non-positive override disables the wait. */
+    static Duration shellEdtWaitBudget() {
+        final String override = System.getProperty(SHELL_EDT_WAIT_PROPERTY, "").trim();
+        if (override.isEmpty()) {
+            return DEFAULT_SHELL_EDT_WAIT;
+        }
+        try {
+            final long seconds = Long.parseLong(override);
+            return seconds <= 0 ? Duration.ZERO : Duration.ofSeconds(seconds);
+        } catch (NumberFormatException invalid) {
+            return DEFAULT_SHELL_EDT_WAIT;
         }
     }
 

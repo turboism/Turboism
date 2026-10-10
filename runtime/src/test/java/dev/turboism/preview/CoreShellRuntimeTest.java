@@ -58,6 +58,40 @@ class CoreShellRuntimeTest {
     }
 
     @Test
+    void shellEdtWaitBudget_defaultsWhenPropertyAbsent() {
+        final String previous = System.getProperty(CoreShellRuntime.SHELL_EDT_WAIT_PROPERTY);
+        System.clearProperty(CoreShellRuntime.SHELL_EDT_WAIT_PROPERTY);
+        try {
+            assertEquals(CoreShellRuntime.DEFAULT_SHELL_EDT_WAIT, CoreShellRuntime.shellEdtWaitBudget());
+        } finally {
+            restoreProperty(CoreShellRuntime.SHELL_EDT_WAIT_PROPERTY, previous);
+        }
+    }
+
+    @Test
+    void shellEdtWaitBudget_parsesOverrideAndDisablesOnNonPositive() {
+        final String previous = System.getProperty(CoreShellRuntime.SHELL_EDT_WAIT_PROPERTY);
+        try {
+            System.setProperty(CoreShellRuntime.SHELL_EDT_WAIT_PROPERTY, "90");
+            assertEquals(Duration.ofSeconds(90), CoreShellRuntime.shellEdtWaitBudget());
+            System.setProperty(CoreShellRuntime.SHELL_EDT_WAIT_PROPERTY, "0");
+            assertEquals(Duration.ZERO, CoreShellRuntime.shellEdtWaitBudget());
+            System.setProperty(CoreShellRuntime.SHELL_EDT_WAIT_PROPERTY, "bogus");
+            assertEquals(CoreShellRuntime.DEFAULT_SHELL_EDT_WAIT, CoreShellRuntime.shellEdtWaitBudget());
+        } finally {
+            restoreProperty(CoreShellRuntime.SHELL_EDT_WAIT_PROPERTY, previous);
+        }
+    }
+
+    private static void restoreProperty(final String name, final String value) {
+        if (value == null) {
+            System.clearProperty(name);
+        } else {
+            System.setProperty(name, value);
+        }
+    }
+
+    @Test
     void cleanupDefersPluginTeardownUntilAdmittedSdkCallDrains() throws Exception {
         final CountDownLatch entered = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
