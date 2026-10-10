@@ -109,6 +109,18 @@
    "advice": "the FREE-started host's saveDocument gate rejected a document exceeding FREE-edition limits (modal 'Save failed. Please try again meeting the restrictions.' acknowledged by the audited prompt responder); the save cannot succeed under this license profile — record the boundary or exercise the free-fixture variant instead of retrying"
   },
   {
+   "id": "capability-workspace-layout-provider-absent",
+   "category": "CAPABILITY_BOUNDARY",
+   "when": {"failureText": "workspace\\.(layout\\.)?provider\\.unavailable"},
+   "advice": "the host exposes no workspace layout provider on this version (5.0.x): the matrix proves typed UNAVAILABLE handling and every emitted assertion passed, so the verdict reflects an absent host capability, not probe drift — record the boundary"
+  },
+  {
+   "id": "capability-session-psd-export-saved-unverified",
+   "category": "CAPABILITY_BOUNDARY",
+   "when": {"failureText": "psd-export-observation:\\d{4}@\\S+=FAIL \\(SAVED_UNVERIFIED\\)"},
+   "advice": "the session's psd-export-observation step produced a readable native export that was saved but cannot be structurally verified without a runtime-issued edit handle — a documented SDK gap on this host, not probe drift; record the boundary"
+  },
+  {
    "id": "fixture-no-clip-mask-records",
    "category": "FIXTURE_UNSUITABLE",
    "when": {"marker": "CLIPMASK_VIEWER_MATRIX_RESULT status=BLOCKED"},
