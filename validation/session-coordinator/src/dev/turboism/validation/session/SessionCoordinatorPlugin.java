@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public final class SessionCoordinatorPlugin implements TurboismPlugin {
     private static final String PLAN = "plan.json";
+    /** Audited prompt responder is on unless this is explicitly {@code false}. */
     private static final String START_FREE_PROPERTY = "turboism.validation.session.startFree";
     private static final long POLL_MILLIS = 1_000L;
     private static final long SETTLE_MILLIS = 3_000L;
@@ -90,13 +91,20 @@ public final class SessionCoordinatorPlugin implements TurboismPlugin {
         }
         logger.info("SESSION_PLAN session=" + plan.session()
                 + " hostVersion=" + plan.hostVersion() + " steps=" + plan.steps().size());
-        if (Boolean.getBoolean(START_FREE_PROPERTY)) {
+        // The coordinator is the session's single audited prompt responder:
+        // session-flagged step probes keep their own responders off precisely
+        // because the coordinator owns this coverage, so an unassisted launch
+        // leaves nobody to clear startup dialogs that hold the fixture open.
+        // Explicit -Dturboism.validation.session.startFree=false opts out for
+        // runs that deliberately measure the unassisted path.
+        if (!"false".equalsIgnoreCase(System.getProperty(START_FREE_PROPERTY))) {
             startupHelper = new Thread(this::assistStartup, "session-startup-assistance");
             startupHelper.setDaemon(true);
             startupHelper.start();
         }
         if (!awaitHostReady(plan)) {
             logger.warn("SESSION_STARTUP_TIMEOUT");
+            logDialogObservation("SESSION_STARTUP_DIALOGS ");
             logger.info("SESSION_END status=FAIL exitCode=2");
             SessionRunner.abortAll(home, plan,
                     "host never reached a usable document", logger::info);
@@ -177,14 +185,33 @@ public final class SessionCoordinatorPlugin implements TurboismPlugin {
         return verdict.get();
     }
 
+    /** Bounded best-effort read of the visible native prompts for abort evidence. */
+    private void logDialogObservation(final String prefix) {
+        try {
+            final AtomicReference<String> observation = new AtomicReference<>("");
+            SwingUtilities.invokeAndWait(() -> observation.set(NativeFreeStartup.describeDialogs()));
+            logger.warn(prefix + observation.get());
+        } catch (Exception failure) {
+            logger.warn(prefix + "observation failed: " + failure);
+        }
+    }
+
     private void assistStartup() {
+        String lastObservation = "";
         while (!stopped) {
             try {
+                final AtomicReference<String> observation = new AtomicReference<>(lastObservation);
                 SwingUtilities.invokeAndWait(() -> {
                     if (stopped) return;
+                    final String current = NativeFreeStartup.describeDialogs();
+                    if (!current.equals(observation.get())) {
+                        observation.set(current);
+                        logger.info("SESSION_DIALOG_OBSERVATION " + current);
+                    }
                     final String action = NativeFreeStartup.select();
                     if (action != null) logger.info("SESSION_" + action);
                 });
+                lastObservation = observation.get();
                 Thread.sleep(500L);
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();

@@ -136,6 +136,7 @@ assert data['task.0.comm'] == 'CubismEditor5.exe', data
 # Execute the actual post-readiness evidence block with local log fixtures.
 # installation=COMPLETE alone must never be interpreted as deferred=ACTIVE.
 import shlex
+import time
 start = source.index('# When the combined mesaGlThread option is effective on,')
 end = source.index('\nif [ -n "$trigger_path" ]; then', start)
 activation = source[start:end]
@@ -150,15 +151,37 @@ for index, (line, expected) in enumerate([
     log = output / 'runtime.log'
     log.write_text(line + '\n')
     script = ('set -euo pipefail\nmesa_gl_thread=1\n'
+              + 'ready_timeout=2\npoll_seconds=1\nready_markers=()\n'
               + 'evidence_dir=' + shlex.quote(str(output)) + '\n'
               + 'latest_runtime_log() { printf "%s" ' + shlex.quote(str(log)) + '; }\n'
               + 'runtime_log_contains() { grep -Fq -- "$2" "$1"; }\n'
+              + 'remote_process_alive() { return 0; }\n'
               + 'log() { printf "%s\\n" "$*"; }\n'
               + 'fail() { printf "%s\\n" "$*" >&2; exit 1; }\n' + activation)
     result = subprocess.run(['bash', '-c', script], capture_output=True, text=True)
     assert result.returncode == (0 if expected == 'active' else 1), result.stderr
     assert props(output / 'deferred-check.properties')['deferredCheck'] == expected
     assert ('refusing validation workload' in result.stderr) == (expected != 'active'), result.stderr
+
+# A dead wrapper must end the marker wait immediately as host-exited even
+# though every declared ready marker is still absent from the runtime log.
+output = tmp / 'activation-dead'
+output.mkdir()
+log = output / 'runtime.log'
+log.write_text('unrelated bootstrap line\n')
+script = ('set -euo pipefail\nmesa_gl_thread=1\n'
+          + 'ready_timeout=60\npoll_seconds=1\nready_markers=(NEVER_WRITTEN)\n'
+          + 'evidence_dir=' + shlex.quote(str(output)) + '\n'
+          + 'latest_runtime_log() { printf "%s" ' + shlex.quote(str(log)) + '; }\n'
+          + 'runtime_log_contains() { grep -Fq -- "$2" "$1"; }\n'
+          + 'remote_process_alive() { return 1; }\n'
+          + 'log() { printf "%s\\n" "$*"; }\n'
+          + 'fail() { printf "%s\\n" "$*" >&2; exit 1; }\n' + activation)
+started = time.monotonic()
+result = subprocess.run(['bash', '-c', script], capture_output=True, text=True)
+assert result.returncode == 1, result.stderr
+assert time.monotonic() - started < 15, result.stderr
+assert props(output / 'deferred-check.properties')['deferredCheck'] == 'host-exited'
 
 print('PASS: java evidence collector task binding, java-family match, gl thread scan, diagnostics')
 PY
