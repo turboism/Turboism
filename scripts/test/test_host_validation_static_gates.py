@@ -144,6 +144,19 @@ class StaticGateTest(unittest.TestCase):
             gates.fixture_path_for("clipmask-viewer", "5304",
                                    {"TURBOISM_HOST_VALIDATION_FIXTURE_5303": "/shared.cmo3"}))
 
+    def test_mcp_task_fixture_overrides_versioned_fixture(self):
+        environment = {
+            "TURBOISM_HOST_VALIDATION_FIXTURE_5303": "/shared.cmo3",
+            "TURBOISM_HOST_VALIDATION_FIXTURE_MCP": "/glue-bearing.cmo3",
+        }
+        self.assertEqual(
+            "/glue-bearing.cmo3",
+            gates.fixture_path_for("mcp", "5304", environment))
+        self.assertEqual(
+            "/shared.cmo3",
+            gates.fixture_path_for("mcp", "5304",
+                                   {"TURBOISM_HOST_VALIDATION_FIXTURE_5303": "/shared.cmo3"}))
+
     def test_session_fixture_prefers_clipmask_override(self):
         environment = {
             "TURBOISM_HOST_VALIDATION_FIXTURE_5303": "/shared.cmo3",

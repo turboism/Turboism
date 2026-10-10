@@ -23,7 +23,25 @@ fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$repo_root/scripts/preview/host-validation-env.sh"
-turboism_select_fixture "$version"
+case " $* " in
+  *freeFixture=true*)
+    # The free-fixture variant deliberately exercises the shared fixture's
+    # FREE-limit preparation; keep it on the versioned selection.
+    turboism_select_fixture "$version"
+    ;;
+  *)
+    if [ -n "${TURBOISM_HOST_VALIDATION_FIXTURE_MCP:-}" ]; then
+      # Task-scoped Glue-bearing fixture: the shared versioned fixture may
+      # carry no Glue relation, which fails the glue authoring assertions.
+      fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_MCP"
+      fixture_sha256="${TURBOISM_HOST_VALIDATION_FIXTURE_MCP_SHA256:-}"
+      [ -n "$fixture_sha256" ] \
+        || { echo "error: TURBOISM_HOST_VALIDATION_FIXTURE_MCP set but TURBOISM_HOST_VALIDATION_FIXTURE_MCP_SHA256 missing" >&2; exit 2; }
+    else
+      turboism_select_fixture "$version"
+    fi
+    ;;
+esac
 client_python="$(python3 -I -c 'import pathlib, sys; print(pathlib.Path(sys.executable).resolve())')"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
 bundle_root="$repo_root/build/manual-test/$worktree_id/windows-mcp-validation"
