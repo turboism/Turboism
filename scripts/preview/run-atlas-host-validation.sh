@@ -5,7 +5,7 @@
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$root/scripts/preview/host-validation-env.sh"
-[[ $# -ge 3 && "$1" =~ ^(5203|5302|5303)$ ]] || { echo 'usage: atlas <5203|5302|5303> run-label {ui-}{circle,geometry}-{100,500,1000,2500}-{native,new,polygon} [--prepare-dir DIR|--dry-run]' >&2; exit 2; }
+[[ $# -ge 3 && "$1" =~ ^(5203|5302|5303)$ ]] || { echo 'usage: atlas <5203|5302|5303> run-label {ui-}{circle,geometry}-{100,500,1000,2500}-{native,new,polygon} [--prepare-dir DIR|--dry-run|runner option forwards]' >&2; exit 2; }
 version="$1"; label="$2"; variant="$3"; shift 3
 parallel=false
 case "$variant" in
@@ -52,12 +52,20 @@ layout_deadline=1800
 if [[ "$ui_timing" == true && "$variant" == ui-geometry-1000-native ]]; then
   result_timeout=2700; layout_deadline=2700
 fi
-# No fixture/Agent/JVM/hook overrides through this capability wrapper.
+# No fixture/Agent/hook overrides through this capability wrapper; the
+# startup-assistance runner flags (--aux-agent/--jvm-option/--linux-env/
+# --windows-env) forward verbatim so -assisted variants can stage the audited
+# prompt responder.
 extra=()
-if [[ $# == 2 && "$1" == --prepare-dir ]]; then extra=(--prepare-dir "$2")
-elif [[ $# == 1 && "$1" == --dry-run ]]; then extra=(--dry-run)
-elif [[ $# != 0 ]]; then echo 'Unsupported Atlas wrapper options' >&2; exit 2
-fi
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --prepare-dir|--aux-agent|--jvm-option|--linux-env|--windows-env)
+      [[ $# -ge 2 ]] || { echo 'Unsupported Atlas wrapper options' >&2; exit 2; }
+      extra+=("$1" "$2"); shift 2 ;;
+    --dry-run) extra+=(--dry-run); shift ;;
+    *) echo 'Unsupported Atlas wrapper options' >&2; exit 2 ;;
+  esac
+done
 id="$(bash "$root/scripts/dev/worktree-id.sh")"
 bundle="$root/build/preview/$id"
 agent="$bundle/turboism-agent.jar"
