@@ -294,7 +294,8 @@ tasks.register<Exec>("checkCodeQuality") {
     group = "verification"
     description =
         "Rejects new undocumented public API, duplicated reviewed host digests, version-encoding " +
-            "type names, and retired governance tokens in machine assets."
+            "type names, retired governance tokens in machine assets, and startup/warning " +
+            "dialog handling that bypasses NativeFreeStartup."
     workingDir(rootDir)
     inputs.files("scripts/test/check_code_quality.py")
     inputs.files(fileTree("scripts/test/java") { include("**/*.java") })
@@ -316,15 +317,22 @@ tasks.register<Exec>("checkCodeQuality") {
         "build.gradle.kts",
         "settings.gradle.kts"
     )
+    // The startup-dialogs rule scans the validation/testing/probe sources for
+    // license and warning answering that bypasses NativeFreeStartup.
+    inputs.files(
+        fileTree("validation") { include("**/*.java") },
+        fileTree("testing") { include("**/*.java") },
+        fileTree("sdk/src") { include("**/*.java") }
+    )
     val selectedRules = providers.gradleProperty("turboismCodeQualityRules")
     val strict = providers.gradleProperty("turboismCodeQualityStrict")
-    inputs.property("turboismCodeQualityRules", selectedRules.orElse("javadoc,digests,naming,assets,edt-dispatch,controlchars"))
+    inputs.property("turboismCodeQualityRules", selectedRules.orElse("javadoc,digests,naming,assets,edt-dispatch,controlchars,startup-dialogs"))
     inputs.property("turboismCodeQualityStrict", strict.orElse("false"))
     inputs.property("turboismCodeQualityJavaHome", codeQualityJavaHome)
     verificationStamp()
     doFirst {
         environment("TURBOISM_QUALITY_JAVA_HOME", codeQualityJavaHome.get())
-        val rules = selectedRules.getOrElse("javadoc,digests,naming,assets,edt-dispatch,controlchars")
+        val rules = selectedRules.getOrElse("javadoc,digests,naming,assets,edt-dispatch,controlchars,startup-dialogs")
         val command = mutableListOf(
             "python3", "scripts/test/check_code_quality.py", rootDir.absolutePath,
             "--rules", rules
