@@ -169,9 +169,12 @@ def parse_properties(text: str) -> dict[str, str]:
 
 def result_properties(*directories: tuple[Path | None, str]) -> dict[str, Any]:
     merged: dict[str, str] = {}
+    state_dirs: list[Path] = []
     for directory, pattern in directories:
         if directory is None or not directory.is_dir():
             continue
+        if directory.name == "state":
+            state_dirs.append(directory)
         for path in sorted(directory.glob(pattern)):
             merged.update(parse_properties(_read_text(path)))
     assertions = sorted(
@@ -181,11 +184,62 @@ def result_properties(*directories: tuple[Path | None, str]) -> dict[str, Any]:
         "status": merged.get("status") or merged.get("terminal"),
         "failures": [value for key, value in sorted(merged.items())
                      if re.fullmatch(r"failure\.\d+", key)],
+        "decodedErrors": [
+            decode_probe_value(value) for key, value in sorted(merged.items())
+            if re.fullmatch(r"error(?:\.\d+)?", key)],
+        "stepVerdicts": step_verdicts(merged, state_dirs),
         "unexpectedFailures": [
             merged[f"{name}.actual"] for name in assertions
             if name.endswith("unexpectedFailure") and f"{name}.actual" in merged],
         "assertionStatuses": {name: merged[f"{name}.status"] for name in assertions},
     }
+
+
+def decode_probe_value(value: str) -> str:
+    """Probe properties Base64-encode host-derived text; a value that does not
+    decode cleanly is returned unchanged."""
+    import base64
+    try:
+        return base64.b64decode(value, validate=True).decode("utf-8")
+    except Exception:
+        return value
+
+
+STEP_DIAGNOSTIC_STATUS = re.compile(r"status\\?=([^;\s]+)")
+
+
+def step_verdicts(merged: dict[str, str], state_dirs: list[Path]) -> list[str]:
+    """Composite "<spec>=<status>" evidence for each non-PASS session step,
+    annotated with the step file's own diagnostic status token (e.g.
+    SAVED_UNVERIFIED) when the step's result file is still readable."""
+    verdicts = []
+    indices = sorted({
+        int(match.group(1)) for key in merged
+        for match in [re.fullmatch(r"step\.(\d+)\.\w+", key)] if match})
+    for index in indices:
+        spec = (merged.get(f"step.{index}.spec") or "").replace("\\:", ":")
+        status = merged.get(f"step.{index}.status") or ""
+        if not spec or status in ("", "PASS"):
+            continue
+        verdicts.append(f"{spec}={status}" + step_diagnostic(merged, index, state_dirs))
+    return verdicts
+
+
+def step_diagnostic(merged: dict[str, str], index: int,
+                    state_dirs: list[Path]) -> str:
+    relative = merged.get(f"step.{index}.result")
+    if not relative:
+        return ""
+    for state_dir in state_dirs:
+        path = state_dir.parent / relative.replace("\\:", ":")
+        if not path.is_file():
+            continue
+        diagnostic = parse_properties(_read_text(path)).get("export.diagnostic", "")
+        found = STEP_DIAGNOSTIC_STATUS.search(diagnostic)
+        if found:
+            return f" ({found.group(1)})"
+        return ""
+    return ""
 
 
 def evidence_directories(row: dict[str, Any], jobs_root: Path,
@@ -302,8 +356,8 @@ def triage_row(row: dict[str, Any], rules: dict[str, Any], *, jobs_root: Path,
          "**/*result*.properties"),
     )
     signature = extract_signature(log_text)
-    failure_texts = (markers["failures"] + props["failures"]
-                     + props["unexpectedFailures"]
+    failure_texts = (markers["failures"] + props["failures"] + props["decodedErrors"]
+                     + props["stepVerdicts"] + props["unexpectedFailures"]
                      + [value for name, value in props["assertionStatuses"].items()])
     evidence_props: dict[str, str] = {}
     for directory in (job_evidence, run_evidence):
