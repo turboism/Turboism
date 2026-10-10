@@ -48,8 +48,8 @@ esac
 # canvas hint, so there is no Swing label to predict here; only the build the hint must name.
 # These are the deployed values the wrapper was reviewed with; a newer release must be re-pinned
 # deliberately, and a stale pin is expected to fail loudly rather than pass quietly.
-published_version="${TURBOISM_UPDATE_CHECK_PUBLISHED_VERSION:-0.43.11}"
-published_build="${TURBOISM_UPDATE_CHECK_PUBLISHED_BUILD:-7}"
+published_version="${TURBOISM_UPDATE_CHECK_PUBLISHED_VERSION:-0.44.0}"
+published_build="${TURBOISM_UPDATE_CHECK_PUBLISHED_BUILD:-9}"
 
 turboism_select_fixture "$version" || exit 2
 
@@ -147,6 +147,11 @@ common_args=(
   --result-file 'state/dev.turboism.validation.updatecheck/update-check-result.txt'
   --result-pass-line 'status=PASS'
   --result-fail-line 'status=FAIL'
+  # Without a ready marker the runner skips the readiness wait entirely and the
+  # deferred-GL gate fires before the agent can log deferred=ACTIVE (unknown ->
+  # refuse). The exerciser READY line lands after the verified host is present,
+  # by which time premain hook markers are already in the runtime log.
+  --ready-marker 'UPDATE_CHECK_EXERCISER_READY'
   --ready-timeout 360
   --result-timeout "$result_timeout"
   --exit-timeout "$exit_timeout"

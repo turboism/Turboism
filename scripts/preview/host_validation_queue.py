@@ -1025,8 +1025,22 @@ def edit_protocol_client_dependency(argv: list[str], source_root: Path, task_spe
             or versions[0] not in {
                 "5000", "5001", "5002", "5003", "5004", "5005", "5006", "5100", "5101", "5102",
                 "5103", "5200", "5201", "5202", "5203", "5300", "5301", "5302", "5303", "5304"}
-            or task_spec not in {"direct-runner", "edit-protocol:" + versions[0]}):
+            or task_spec not in {"direct-runner", "edit-protocol:" + versions[0],
+                                 "edit-protocol:" + versions[0] + "@standard",
+                                 "edit-protocol:" + versions[0] + "@assisted"}):
         raise QueueError("custom client requires reviewed dependency inventory for the exact edit-protocol task")
+    if task_spec.endswith("@assisted"):
+        aux = options.get("--aux-agent", [])
+        jvm = options.get("--jvm-option", [])
+        required_jvm = {
+            "-Dturboism.validation.startupAssistance=true",
+            "-Dturboism.optimization.mesaGlThread=false",
+        }
+        if (len(aux) != 1 or not aux[0].endswith(":native-startup-assistance-agent.jar")
+                or any([option for option in jvm if option.startswith(value.split("=", 1)[0] + "=")] != [value]
+                        for value in required_jvm)
+                or options.get("--linux-env") != ["mesa_glthread=false"]):
+            raise QueueError("assisted variant requires the exact startup-assistance inventory")
     client = (source_root / "validation/protocol-edit-compat-host-probe"
               / "client/protocol_edit_host_probe.py")
     expected = {

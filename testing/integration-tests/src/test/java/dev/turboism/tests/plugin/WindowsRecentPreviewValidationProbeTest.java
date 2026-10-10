@@ -42,7 +42,10 @@ class WindowsRecentPreviewValidationProbeTest {
         assertEquals(
                 WindowsRecentPreviewValidationProbe.HostCloseRoute.ROBOT_ALT_F4,
                 WindowsRecentPreviewValidationProbe.hostCloseRoute("5302"));
-        assertThrows(IllegalArgumentException.class, () -> WindowsRecentPreviewValidationProbe.hostCloseRoute("5100"));
+        assertEquals(
+                WindowsRecentPreviewValidationProbe.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
+                WindowsRecentPreviewValidationProbe.hostCloseRoute("5100"));
+        assertThrows(IllegalArgumentException.class, () -> WindowsRecentPreviewValidationProbe.hostCloseRoute("5400"));
         assertThrows(IllegalArgumentException.class, () -> WindowsRecentPreviewValidationProbe.hostCloseRoute(null));
     }
 
