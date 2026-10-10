@@ -68,11 +68,17 @@ cp "$repo_root/scripts/preview/README-parameter-validation.md" "$bundle_root/REA
 
 probe_tmp="$(mktemp -d "$repo_root/build/.parameter-probe.XXXXXX")"
 trap 'rm -rf "$probe_tmp" "${peer_tmp:-}"' EXIT
-mkdir -p "$probe_tmp/$probe_class_dir_rel" "$probe_tmp/META-INF/turboism/i18n"
+mkdir -p "$probe_tmp/$probe_class_dir_rel" "$probe_tmp/dev/turboism/validation" \
+  "$probe_tmp/META-INF/turboism/i18n"
 find "$test_classes/$probe_class_dir_rel" -maxdepth 1 -type f \
   \( -name 'WindowsParameterValidationProbe.class' \
      -o -name 'WindowsParameterValidationProbe$*.class' \) \
   -exec cp {} "$probe_tmp/$probe_class_dir_rel/" \;
+# The probe delegates startup/warning answers to the shared audited responder;
+# ship it inside the probe jar so the plugin classloader resolves it.
+find "$test_classes/dev/turboism/validation" -maxdepth 1 -type f \
+  -name 'NativeFreeStartup*.class' \
+  -exec cp {} "$probe_tmp/dev/turboism/validation/" \;
 cp "$probe_descriptor" "$probe_tmp/META-INF/turboism/plugin.json"
 # PluginJarContract requires the declared i18n base-name catalog inside the jar.
 printf '# Parameter validation probe: no localized messages.\n' \
@@ -85,12 +91,21 @@ printf '# Parameter validation probe: no localized messages.\n' \
          -o -name 'WindowsParameterValidationProbe$*.class' \) \
       -printf '%p\n' | LC_ALL=C sort
   )
+  mapfile -t startup_classes < <(
+    find "dev/turboism/validation" -maxdepth 1 -type f \
+      -name 'NativeFreeStartup*.class' -printf '%p\n' | LC_ALL=C sort
+  )
   [ "${#probe_classes[@]}" -gt 1 ] || {
     printf 'error: validation probe nested classes were not packaged\n' >&2
     exit 1
   }
+  [ "${#startup_classes[@]}" -ge 1 ] || {
+    printf 'error: audited startup responder class was not packaged\n' >&2
+    exit 1
+  }
   jar --create --file "$bundle_root/plugins/parameter-validation-probe.jar" \
     "${probe_classes[@]}" \
+    "${startup_classes[@]}" \
     META-INF/turboism/plugin.json \
     META-INF/turboism/i18n/messages.properties
 )
