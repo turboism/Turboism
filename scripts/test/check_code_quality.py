@@ -23,6 +23,12 @@ Six rules, all fail-closed:
 6. No literal C0 control character (bytes other than ``\\t``, ``\\n``, ``\\r``) appears in a
    scanned source file. A raw control byte in a string literal is invisible in review and
    diffs; spell it as an escape sequence instead.
+7. Every license/startup/version-warning answer goes through
+   ``dev.turboism.validation.NativeFreeStartup``: a forked responder once left the
+   user-authorized PRO trial confirm unanswered and cancelled the newer-file gate, so any
+   source that both names an audited startup prompt and carries a UI actuation primitive
+   (doClick, option-pane setValue, synthetic keys, Robot, window dispatch, dispose) is
+   rejected unless it is the responder itself or a documented exception.
 
 Usage: check_code_quality.py [repo-root] [--rules RULE[,RULE...]] [--report]
 """
@@ -114,7 +120,43 @@ GRANDFATHERED_ASSETS = (
 # Utf8PluginCatalog) do not start with 5 and stay legal.
 CUBISM_VERSION_TOKEN = re.compile(r"(?<!\d)5\d{1,3}(?!\d)")
 
-ALL_RULES = ("javadoc", "digests", "naming", "assets", "edt-dispatch", "controlchars")
+ALL_RULES = (
+    "javadoc", "digests", "naming", "assets", "edt-dispatch", "controlchars", "startup-dialogs"
+)
+
+# License/startup/version-warning answering has exactly one audited implementation,
+# dev.turboism.validation.NativeFreeStartup. A file is suspect only when it both names an
+# audited prompt and carries a UI actuation primitive: holding prompt fixture text (self
+# checks, triage fixtures) or clicking unrelated dialogs stays legal. The signature phrases
+# are taken from the observed native prompts; the actuation set covers every way a responder
+# could press or dismiss a control (button click, option-pane value, synthetic keys, Robot,
+# event dispatch, window dispose).
+STARTUP_DIALOG_SCAN_ROOTS = (
+    "validation",
+    "testing",
+    PLUGIN_ROOT,
+    "runtime/src",
+    "sdk/src",
+    "bootstrap/src",
+    "buildSrc",
+)
+STARTUP_DIALOG_SIGNATURE = re.compile(
+    r"Start as FREE version|Start PRO Version|newer version|"
+    r"new version has been released|News and Release Notes|"
+    r"limited period of 42 days|Trial license will expire|"
+    r"Parameters allowed per object|meeting the restrictions"
+)
+STARTUP_DIALOG_ACTUATION = re.compile(
+    r"\bdoClick\b|\.setValue\(|keyPress|keyRelease|VK_ENTER|VK_ESCAPE|"
+    r"\bRobot\b|dispatchEvent|\.dispose\(\)|setVisible\(false\)"
+)
+STARTUP_DIALOG_EXEMPT = (
+    # The single audited responder itself.
+    "validation/shared/src/dev/turboism/validation/NativeFreeStartup.java",
+    # Close-path discard responder: the news markers only identify the Home window it must
+    # ignore while closing the host; its clicks answer task-owned save prompts at close.
+    "testing/integration-tests/src/test/java/dev/turboism/tests/plugin/WindowsHistoryNativeUiHostClose.java",
+)
 
 # Tab, LF and CR are the only control bytes legitimate in text sources; the rest must be
 # written as escape sequences so they stay visible in review.
@@ -294,6 +336,27 @@ def check_edt_dispatch(root: Path) -> list[str]:
     return failures
 
 
+def check_startup_dialogs(root: Path) -> list[str]:
+    failures = []
+    for relative in STARTUP_DIALOG_SCAN_ROOTS:
+        for source in java_sources(root, relative):
+            relative_path = source.relative_to(root).as_posix()
+            if relative_path in STARTUP_DIALOG_EXEMPT:
+                continue
+            text = source.read_text(encoding="utf-8")
+            signature = STARTUP_DIALOG_SIGNATURE.search(text)
+            if not signature:
+                continue
+            actuation = STARTUP_DIALOG_ACTUATION.search(text)
+            if actuation:
+                failures.append(
+                    "startup/warning prompt handled outside NativeFreeStartup "
+                    f"(signature={signature.group()!r}, actuation={actuation.group()!r}): "
+                    f"{relative_path}"
+                )
+    return failures
+
+
 def check_controlchars(root: Path) -> list[str]:
     candidates = [
         source
@@ -327,6 +390,7 @@ CHECKS = {
     "assets": check_assets,
     "edt-dispatch": check_edt_dispatch,
     "controlchars": check_controlchars,
+    "startup-dialogs": check_startup_dialogs,
 }
 
 
