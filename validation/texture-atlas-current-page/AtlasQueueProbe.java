@@ -95,11 +95,27 @@ public final class AtlasQueueProbe {
         require(ready, "Fixture/timer readiness timeout");
         click("编辑纹理集...", false, false);
         click("自动排版...", true, false);
-        // The algorithm combo is the only selector whose options carry a plugin label;
-        // rotation/lock/scale/kernel combos added by polygon-capable algorithms do not.
-        List<String[]> combos = tree().stream().filter(row -> row[1].contains("JComboBox")
-            && row[2].equals("true/true") && (row[3].contains("MaxRects-BSSF") || row[3].contains("Dalsoo"))).toList();
-        require(combos.size() == 1, "Expected one algorithm selector");
+        // The algorithm selector is contributed at dialog construction from the live
+        // plugin registry: a dialog opened before plugin registration completes stays
+        // native-only and never gains the combo, so close it and reopen until the
+        // selector for this run's implementation appears. The dialog is rebuilt on
+        // every open, so a fresh construction picks up the completed registry.
+        String pluginLabel = implementation.equals("new") ? "MaxRects-BSSF"
+            : implementation.equals("polygon") ? "Dalsoo" : "";
+        List<String[]> combos = List.of();
+        long selectorDeadline = System.nanoTime() + Duration.ofSeconds(90).toNanos();
+        while (System.nanoTime() < selectorDeadline) {
+            awaitLayoutDialog();
+            combos = algorithmSelectors();
+            if (combos.size() == 1
+                && (pluginLabel.isEmpty() || combos.get(0)[3].contains(pluginLabel))) break;
+            click("Cancel", true, true);
+            Thread.sleep(500);
+            click("自动排版...", true, false);
+        }
+        require(combos.size() == 1
+            && (pluginLabel.isEmpty() || combos.get(0)[3].contains(pluginLabel)),
+            "Expected one algorithm selector");
         String[] combo = combos.get(0);
         String options = combo[3].split("; options=\\[", 2)[1];
         options = options.substring(0, options.length() - 1);
@@ -202,6 +218,23 @@ public final class AtlasQueueProbe {
             Path path = evidence.resolve(name);
             if (Files.exists(path)) throw new IllegalStateException(Files.readString(path));
         }
+    }
+
+    private static void awaitLayoutDialog() throws Exception {
+        long deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos();
+        while (System.nanoTime() < deadline) {
+            if (tree().stream().anyMatch(row -> row[3].equals("自动排版"))) return;
+            Thread.sleep(250);
+        }
+        throw new IllegalStateException("Automatic layout dialog did not open");
+    }
+
+    // The algorithm combo is the only selector whose options carry a plugin label;
+    // rotation/lock/scale/kernel combos added by polygon-capable algorithms do not.
+    private static List<String[]> algorithmSelectors() throws Exception {
+        return tree().stream().filter(row -> row[1].contains("JComboBox")
+            && row[2].equals("true/true")
+            && (row[3].contains("MaxRects-BSSF") || row[3].contains("Dalsoo"))).toList();
     }
 
     private static void request(String value) throws Exception {
