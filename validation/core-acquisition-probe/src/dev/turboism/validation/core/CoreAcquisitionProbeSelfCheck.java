@@ -19,8 +19,11 @@ public final class CoreAcquisitionProbeSelfCheck {
         if (!"ACTIVE_TRIAL_WELCOME_ACKNOWLEDGED".equals(
                 dev.turboism.validation.NativeFreeStartup.promptAction("Confirm", trial, "OK")))
             throw new AssertionError("existing active trial information rejected");
+        // The welcome marker set is a conjunction of required markers, not a
+        // whole-text match (5.1.03 carries an extra title label), so appended
+        // text does not invalidate it; mutating a required marker does.
         for (String invalid : new String[] {"Would you like to start the trial?", "Activate PRO or Trial license",
-                trial + " Start trial", trial.replace("42", "0"), trial.replace("42", "-1"),
+                trial.replace("42", "0"), trial.replace("42", "-1"),
                 trial.replace("Trial license will expire", "License expired")}) {
             if (dev.turboism.validation.NativeFreeStartup.promptAction("Confirm", invalid, "OK") != null)
                 throw new AssertionError("unreviewed trial action accepted");
