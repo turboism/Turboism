@@ -70,23 +70,14 @@ public final class ProtectedExportHostProbeAgent {
     private static final String DIALOG_OWNER = "com.live2d.cubism.doc.model.exporter.e";
     private static final String STATE_PATH = "state/dev.turboism.validation.protectedexport";
     private static final String RESULT_NAME = "host-validation-result.properties";
-    // Action classes on the native window buttons, verified against the dialog
-    // tree dumps and button-action bytecode of every admitted build. On 5.3.x the
-    // "OK" button carries com.live2d.ui.window.A (actionPerformed calls y.i(),
-    // which sets the accept flag returned by y.f()) and "Cancel" carries
-    // com.live2d.ui.window.z (y.h(), the dismiss path). On 5.2.03 the window A/z
-    // classes are Kotlin Function1 lifecycle lambdas, not actions; the button
-    // actions are com.live2d.ui.window.C (y.k(), which sets the accept flag
-    // returned by y.f()) and com.live2d.ui.window.B (y.j(), the dismiss path).
-    // Matching by action class rather than label is locale-stable.
-    private static final String CONFIRM_ACTION_5_3 = "com.live2d.ui.window.A";
-    private static final String CANCEL_ACTION_5_3 = "com.live2d.ui.window.z";
-    private static final String CONFIRM_ACTION_5_2 = "com.live2d.ui.window.C";
-    private static final String CANCEL_ACTION_5_2 = "com.live2d.ui.window.B";
+    // The native confirm/cancel pair is located structurally — see
+    // actionButtonRow — because the obfuscated action-class names differ
+    // between generations (window.C/B on 5.1.x/5.2.x, window.A/z on 5.3.x)
+    // while the button-row layout is identical on every reviewed build.
     /**
      * Swing peer of the native {@code CVBox} options list, verified identical on
      * every reviewed build (5.2.03, 5.3.02, 5.3.03). Keyed by exact host version
-     * like the button actions so a renamed peer on a future build fails loudly
+     * so a renamed peer on a future build fails loudly
      * instead of being smoothed over.
      */
     private static final String OPTIONS_PEER_5_3 = "com.live2d.ui.swingImpl.u";
@@ -325,7 +316,7 @@ public final class ProtectedExportHostProbeAgent {
         }
         evidence.put("checkedUnpinnableInjected",
             Boolean.toString(injection != null && !injection.injected.isEmpty()));
-        final AbstractButton confirm = findButton(settings, confirmAction());
+        final AbstractButton confirm = confirmButton(settings);
         if (confirm == null) {
             evidence.fail("CHECKED_CONFIRM_BUTTON_MISSING");
             dismiss(settings);
@@ -390,7 +381,7 @@ public final class ProtectedExportHostProbeAgent {
             evidence.fail("CANCEL_SETTINGS_DIALOG_NOT_OBSERVED");
             return;
         }
-        final AbstractButton cancel = findButton(settings, cancelAction());
+        final AbstractButton cancel = cancelButton(settings);
         if (cancel == null) {
             evidence.put("cancelButtonDriven", "false");
             dismiss(settings);
@@ -677,7 +668,7 @@ public final class ProtectedExportHostProbeAgent {
             } catch (Throwable failure) {
                 evidence.put(prefix + "optionCheckFailure", text(failure));
             }
-            final AbstractButton outerConfirm = findButton(outer, confirmAction());
+            final AbstractButton outerConfirm = confirmButton(outer);
             if (outerConfirm == null) {
                 evidence.fail("EXP_OUTER_CONFIRM_MISSING");
                 dismiss(outer);
@@ -745,7 +736,7 @@ public final class ProtectedExportHostProbeAgent {
                 evidence.put(prefix + "postCheckboxModified",
                     String.valueOf(baselineModified));
             }
-            final AbstractButton innerConfirm = findButton(inner, confirmAction());
+            final AbstractButton innerConfirm = confirmButton(inner);
             if (innerConfirm == null) {
                 evidence.fail("EXP_INNER_CONFIRM_MISSING");
                 dismiss(inner);
@@ -1250,7 +1241,7 @@ public final class ProtectedExportHostProbeAgent {
                 }
                 continue;
             }
-            final AbstractButton confirm = findButton(dialog, confirmAction());
+            final AbstractButton confirm = confirmButton(dialog);
             final AbstractButton click =
                 confirm != null ? confirm : firstButton(dialog);
             if (click != null) {
@@ -1524,7 +1515,7 @@ public final class ProtectedExportHostProbeAgent {
                 return null;
             });
             evidence.put(prefix + "optionChecked", "true");
-            final AbstractButton outerConfirm = findButton(outer, confirmAction());
+            final AbstractButton outerConfirm = confirmButton(outer);
             if (outerConfirm == null) {
                 evidence.fail("REJ_OUTER_CONFIRM_MISSING");
                 dismiss(outer);
@@ -2656,7 +2647,7 @@ public final class ProtectedExportHostProbeAgent {
             inspectSettingsDialog(outer, stateDir, evidence, "natOuter");
             evidence.put(prefix + "injectedCheckBoxCount",
                 Integer.toString(injectedCheckBoxes(outer).size()));
-            final AbstractButton confirm = findButton(outer, confirmAction());
+            final AbstractButton confirm = confirmButton(outer);
             if (confirm == null) {
                 evidence.fail("NAT_CONFIRM_MISSING");
                 dismiss(outer);
@@ -4226,11 +4217,11 @@ public final class ProtectedExportHostProbeAgent {
         );
         evidence.put(
             phase + "ConfirmButtonPresent",
-            Boolean.toString(findButton(dialog, confirmAction()) != null)
+            Boolean.toString(confirmButton(dialog) != null)
         );
         evidence.put(
             phase + "CancelButtonPresent",
-            Boolean.toString(findButton(dialog, cancelAction()) != null)
+            Boolean.toString(cancelButton(dialog) != null)
         );
         mountEvidence(dialog, injected, evidence, phase);
         dumpTree(stateDir.resolve("dialog-tree-settings-" + phase + ".txt"), dialog);
@@ -4398,7 +4389,7 @@ public final class ProtectedExportHostProbeAgent {
     }
 
     private static void confirmUnchecked(final JDialog dialog, final Evidence evidence) {
-        final AbstractButton confirm = findButton(dialog, confirmAction());
+        final AbstractButton confirm = confirmButton(dialog);
         if (confirm == null) {
             evidence.put("confirmClicked", "false");
             dismiss(dialog);
@@ -4465,7 +4456,7 @@ public final class ProtectedExportHostProbeAgent {
 
     private static void dismiss(final java.awt.Dialog dialog) {
         try {
-            final AbstractButton cancel = findButton(dialog, cancelAction());
+            final AbstractButton cancel = cancelButton(dialog);
             if (cancel != null) {
                 onEdt(() -> {
                     cancel.doClick(0);
@@ -4711,30 +4702,47 @@ public final class ProtectedExportHostProbeAgent {
         return null;
     }
 
-    private static AbstractButton findButton(final Container root, final String actionClass) {
-        return findButtonByAction(root, actionClass::equals);
+    /**
+     * The export-settings family lays its affirmative button first and its
+     * dismissive button last as enabled, action-bearing siblings inside one
+     * row container. The obfuscated action-class names drift between builds
+     * (5.1.x/5.2.x wire {@code window.C}/{@code B}, 5.3.x wire
+     * {@code window.A}/{@code z}), so the pair is identified by position
+     * inside the row — never by symbol name or host version.
+     */
+    static List<AbstractButton> actionButtonRow(final Container root) {
+        List<AbstractButton> row = List.of();
+        for (Component component : allComponents(root)) {
+            if (!(component instanceof Container container)) {
+                continue;
+            }
+            final List<AbstractButton> owned = new ArrayList<>();
+            for (Component child : container.getComponents()) {
+                if (child instanceof AbstractButton button
+                        && button.isEnabled() && button.getAction() != null) {
+                    owned.add(button);
+                }
+            }
+            if (owned.size() > row.size()) {
+                row = owned;
+            }
+        }
+        return row;
     }
 
-    private static String confirmAction() {
-        return confirmAction(hostVersion());
+    static AbstractButton confirmButton(final Container root) {
+        final List<AbstractButton> row = actionButtonRow(root);
+        return row.size() >= 2 ? row.get(0) : null;
     }
 
-    private static String cancelAction() {
-        return cancelAction(hostVersion());
+    static AbstractButton cancelButton(final Container root) {
+        final List<AbstractButton> row = actionButtonRow(root);
+        return row.size() >= 2 ? row.get(row.size() - 1) : null;
     }
 
     /** The runner publishes the probed build as {@code turboism.validation.hostVersion}. */
     private static String hostVersion() {
         return System.getProperty("turboism.validation.hostVersion", "");
-    }
-
-    /** Exact-version dispatch: only the reviewed 5.2.03 build uses the C/B actions. */
-    static String confirmAction(final String hostVersion) {
-        return "5203".equals(hostVersion) ? CONFIRM_ACTION_5_2 : CONFIRM_ACTION_5_3;
-    }
-
-    static String cancelAction(final String hostVersion) {
-        return "5203".equals(hostVersion) ? CANCEL_ACTION_5_2 : CANCEL_ACTION_5_3;
     }
 
     /**
@@ -4772,19 +4780,6 @@ public final class ProtectedExportHostProbeAgent {
             }
         }
         return labeled;
-    }
-
-    static AbstractButton findButtonByAction(
-        final Container root,
-        final java.util.function.Predicate<String> actionClassName
-    ) {
-        for (Component component : allComponents(root)) {
-            if (component instanceof AbstractButton button && button.getAction() != null
-                && actionClassName.test(button.getAction().getClass().getName())) {
-                return button;
-            }
-        }
-        return null;
     }
 
     static List<Component> allComponents(final Component root) {

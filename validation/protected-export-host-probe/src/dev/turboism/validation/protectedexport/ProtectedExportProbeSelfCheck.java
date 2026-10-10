@@ -23,8 +23,7 @@ public final class ProtectedExportProbeSelfCheck {
 
     public static void main(final String[] args) {
         exactClassIsolatesTheInjectedCheckBox();
-        actionClassIdentifiesTheRightButton();
-        actionClassesDispatchOnExactHostVersion();
+        buttonRowIdentifiesConfirmAndCancel();
         optionsPeerDispatchesOnExactHostVersion();
         nativeLeafIsolatesTheHostCheckBox();
         traversalTerminatesOnCyclesAndDepth();
@@ -53,80 +52,56 @@ public final class ProtectedExportProbeSelfCheck {
         );
     }
 
-    /** Confirm/cancel are told apart by the action class the native window installs on the button. */
-    private static void actionClassIdentifiesTheRightButton() {
+    /**
+     * Confirm/cancel are told apart by position inside the native button row:
+     * the enabled, action-bearing buttons sharing one row container, where the
+     * affirmative button is first and the dismissive button is last. The rule
+     * must ignore disabled or action-less buttons and must not manufacture a
+     * pair from a lone button.
+     */
+    private static void buttonRowIdentifiesConfirmAndCancel() {
         final JPanel root = new JPanel();
+        final JPanel row = new JPanel();
         final JButton confirm = new JButton("OK");
         confirm.setAction(new ConfirmAction());
         final JButton cancel = new JButton("Cancel");
         cancel.setAction(new CancelAction());
         final JButton actionless = new JButton("Decorative");
-        root.add(confirm);
-        root.add(cancel);
+        final JButton disabled = new JButton("Browse");
+        disabled.setAction(new ConfirmAction());
+        disabled.setEnabled(false);
+        row.add(confirm);
+        row.add(cancel);
         root.add(actionless);
+        root.add(disabled);
+        root.add(row);
 
         require(
-            ProtectedExportHostProbeAgent.findButtonByAction(
-                root, name -> name.equals(ConfirmAction.class.getName())
-            ) == confirm,
-            "action-class lookup did not return the confirm button"
+            ProtectedExportHostProbeAgent.confirmButton(root) == confirm,
+            "button-row lookup did not return the confirm button"
         );
         require(
-            ProtectedExportHostProbeAgent.findButtonByAction(
-                root, name -> name.equals(CancelAction.class.getName())
-            ) == cancel,
-            "action-class lookup did not return the cancel button"
+            ProtectedExportHostProbeAgent.cancelButton(root) == cancel,
+            "button-row lookup did not return the cancel button"
         );
-        // The production class names must not match anything here: a false positive would make the
-        // probe click an unrelated button on the real host.
+
+        final JPanel lone = new JPanel();
+        final JButton single = new JButton("OK");
+        single.setAction(new ConfirmAction());
+        lone.add(single);
         require(
-            ProtectedExportHostProbeAgent.findButtonByAction(
-                root, name -> name.equals("com.live2d.ui.window.z")
-            ) == null,
-            "production confirm class name matched a synthetic button"
+            ProtectedExportHostProbeAgent.confirmButton(lone) == null,
+            "a single action button must not be treated as the pair's confirm"
         );
         require(
-            ProtectedExportHostProbeAgent.findButtonByAction(
-                root, name -> name.equals("com.live2d.ui.window.A")
-            ) == null,
-            "production cancel class name matched a synthetic button"
+            ProtectedExportHostProbeAgent.cancelButton(lone) == null,
+            "a single action button must not be treated as the pair's cancel"
         );
     }
 
     /**
-     * The 5.2.03 window wires confirm/cancel through the {@code C}/{@code B} actions while
-     * every reviewed 5.3.x build uses {@code A}/{@code z}. Dispatch must be exact-version —
-     * an unknown or missing version property resolves to the 5.3.x classes, never to a
-     * heuristic mix.
-     */
-    private static void actionClassesDispatchOnExactHostVersion() {
-        require(
-            "com.live2d.ui.window.C".equals(
-                ProtectedExportHostProbeAgent.confirmAction("5203")),
-            "5.2.03 confirm action must be window.C"
-        );
-        require(
-            "com.live2d.ui.window.B".equals(
-                ProtectedExportHostProbeAgent.cancelAction("5203")),
-            "5.2.03 cancel action must be window.B"
-        );
-        for (final String version : new String[] {"5302", "5303", "", "9999"}) {
-            require(
-                "com.live2d.ui.window.A".equals(
-                    ProtectedExportHostProbeAgent.confirmAction(version)),
-                "confirm action for " + version + " must be window.A"
-            );
-            require(
-                "com.live2d.ui.window.z".equals(
-                    ProtectedExportHostProbeAgent.cancelAction(version)),
-                "cancel action for " + version + " must be window.z"
-            );
-        }
-    }
-
-    /**
-     * The mount-parent pin is an exact-version dispatch like the button actions:
-     * today every reviewed build resolves to {@code com.live2d.ui.swingImpl.u}.
+     * The mount-parent pin is an exact-version dispatch: today every reviewed
+     * build resolves to {@code com.live2d.ui.swingImpl.u}.
      */
     private static void optionsPeerDispatchesOnExactHostVersion() {
         for (final String version : new String[] {"5203", "5302", "5303", "", "9999"}) {
