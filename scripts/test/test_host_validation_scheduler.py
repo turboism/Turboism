@@ -230,6 +230,19 @@ class HostValidationSchedulerTest(unittest.TestCase):
                     seen.add((kind, option))
         self.assertEqual([], problems)
 
+    def test_update_check_runner_waits_for_agent_readiness_before_the_deferred_gl_gate(self) -> None:
+        """update-check passes mesaGlThread=true in its current/new/demo variants, so the
+        runner refuses the workload when the deferred GL error check marker is missing.
+        Without a --ready-marker the readiness wait is skipped entirely and the gate
+        fires seconds after launch, before the agent can log deferred=ACTIVE — the
+        deterministic failure the wl-r1/r2 runs hit. Assert the runner declares a
+        readiness marker (the variant args themselves carry no marker)."""
+        task = self.manifest.tasks["update-check"]
+        script = (self.manifest.root / task.command).read_text(encoding="utf-8")
+        self.assertIn("--ready-marker", script,
+                      "update-check runner must wait on a readiness marker before the "
+                      "deferred GL gate; mesa-on variants cannot pass otherwise")
+
     def test_runner_seam_versions_match_reviewed_lifecycle_coverage(self) -> None:
         """The runner resolves mesaGlThread on for versions it marks
         uniform_seam_reviewed; the runtime admits the deferred GL error check

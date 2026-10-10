@@ -69,6 +69,20 @@ def parse():
 INDEX_MD = "# Contracts\n\n- `profiles/draft/` — catalogues for 5.2.03, 5.3.02, and 5.3.03.\n"
 
 
+def close_route_probe(cases: tuple[str, ...]) -> str:
+    arms = "\n".join(f'            case "{code}" -> HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;' for code in cases)
+    return (
+        "class Probe {\n"
+        "    static HostCloseRoute hostCloseRoute(final String hostVersion) {\n"
+        "        return switch (hostVersion) {\n"
+        f"{arms}\n"
+        '            default -> throw new IllegalArgumentException("bad");\n'
+        "        };\n"
+        "    }\n"
+        "}\n"
+    )
+
+
 def write_tree(root: Path, versions: tuple[str, ...] = VERSIONS) -> None:
     def put(relative: str, text: str) -> None:
         path = root / relative
@@ -222,6 +236,30 @@ class VersionSetCompletenessTest(unittest.TestCase):
             (root / CHECK.AVAILABILITY_POLICY).unlink()
             with self.assertRaises(CHECK.CompletenessError):
                 violations(root)
+
+    def test_probe_close_route_drift_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_tree(root)
+            probe = root / CHECK.PROBE_CLOSE_ROUTES[0]
+            probe.parent.mkdir(parents=True, exist_ok=True)
+            probe.write_text(close_route_probe(("5203", "5302")), encoding="utf-8")
+            failures = violations(root)
+            self.assertTrue(
+                any("hostCloseRoute" in failure and "5.3.03" in failure for failure in failures),
+                failures,
+            )
+
+    def test_probe_close_route_matching_set_passes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_tree(root)
+            probe = root / CHECK.PROBE_CLOSE_ROUTES[0]
+            probe.parent.mkdir(parents=True, exist_ok=True)
+            probe.write_text(
+                close_route_probe(("5203", "5302", "5303")), encoding="utf-8"
+            )
+            self.assertEqual([], violations(root))
 
     def test_unadmitted_class_pin_version_fails(self):
         with tempfile.TemporaryDirectory() as directory:

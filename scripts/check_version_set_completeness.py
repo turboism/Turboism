@@ -16,6 +16,8 @@ restates the admitted exact versions must carry the identical set:
 - ``scripts/preview/host_validation.py`` supported-version whitelist
 - ``class-pins/*.json`` version keys (subset rule: a hook may pin only the
   versions it supports, but may never name an unadmitted version)
+- integration-test probe ``hostCloseRoute`` switch arms (a probe that forgets
+  an admitted version throws instead of closing the real host)
 
 Usage: check_version_set_completeness.py [repo-root]
 """
@@ -47,6 +49,25 @@ INDEX_MD = Path("compatibility/cubism/index.md")
 CLASS_PINS_DIR = Path(
     "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins"
 )
+PROBE_CLOSE_ROUTES = (
+    Path(
+        "testing/integration-tests/src/test/java/dev/turboism/tests/plugin/"
+        "WindowsParameterValidationProbe.java"
+    ),
+    Path(
+        "testing/integration-tests/src/test/java/dev/turboism/tests/plugin/"
+        "WindowsRecentPreviewValidationProbe.java"
+    ),
+    Path(
+        "testing/integration-tests/src/test/java/dev/turboism/tests/plugin/"
+        "WindowsHistoryNativeUiHostClose.java"
+    ),
+)
+CLOSE_ROUTE_SWITCH = re.compile(
+    r"hostCloseRoute\(final String hostVersion\).*?switch \(hostVersion\) \{(.*?)\};",
+    re.DOTALL,
+)
+COMPACT_LITERAL = re.compile(r'"(5\d{3})"')
 
 DOTTED = re.compile(r"^5\.\d{1,2}\.\d{2}$")
 COMPACT = re.compile(r"^5\d{3}$")
@@ -237,6 +258,23 @@ def class_pin_tables(root: Path) -> tuple[set[str], list[str]]:
     return versions, problems
 
 
+def probe_close_routes(root: Path) -> dict[str, set[str]]:
+    """Compact version codes admitted by each probe's hostCloseRoute switch."""
+    routes: dict[str, set[str]] = {}
+    for relative in PROBE_CLOSE_ROUTES:
+        try:
+            text = _read(root, relative)
+        except CompletenessError:
+            continue  # Minimal fixture roots legitimately lack probe sources.
+        match = CLOSE_ROUTE_SWITCH.search(text)
+        if match is None:
+            raise CompletenessError(f"{relative}: hostCloseRoute switch not found")
+        routes[f"{relative} hostCloseRoute versions"] = {
+            compact_to_dotted(token) for token in COMPACT_LITERAL.findall(match.group(1))
+        }
+    return routes
+
+
 def collect(root: Path) -> tuple[dict[str, set[str]], list[str]]:
     canonical, problems = reviewed_host_artifacts(root)
     tasks, task_problems = host_validation_tasks(root)
@@ -255,6 +293,7 @@ def collect(root: Path) -> tuple[dict[str, set[str]], list[str]]:
         "compatibility/cubism/index.md": index_md(root),
         "host_validation.py supported versions": host_validation_py(root),
         "class-pins/*.json version keys (subset)": pins,
+        **probe_close_routes(root),
     }
     return sites, problems
 
