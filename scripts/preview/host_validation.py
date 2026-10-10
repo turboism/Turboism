@@ -550,6 +550,48 @@ def main(argv: list[str] | None = None) -> int:
             if args.timeout_seconds is not None and args.timeout_seconds < 1:
                 raise SchedulerError("wait timeout must be positive")
             return wait_job(queue.account_root() / "queue.sqlite3", args.job, args.timeout_seconds)
+        if args.command == "status":
+            # Read-only observation never constructs the writable Store and
+            # never touches live -shm/-wal: a private copied snapshot, like
+            # abandon --inspect and gc plan.
+            import host_validation_retention as retention
+            root = queue.account_root()
+            snapshot = retention.Snapshot(root)
+            jobs = snapshot.jobs(args.job)
+            if args.job is not None and not jobs:
+                raise queue.QueueError("unknown job id")
+            try:
+                worker = json.loads((root / "worker.json").read_text())
+            except (OSError, ValueError):
+                worker = None
+            emit({"schemaVersion": 1, "host": dict(snapshot.host_row), "jobs": jobs,
+                  "slots": worker.get("slots") if isinstance(worker, dict) else None,
+                  "workerOnline": queue.worker_online(root)})
+            return 0
+        if args.command == "events":
+            if args.after < 0:
+                raise SchedulerError("event cursor must be nonnegative")
+            # The same bounded read-only client query as `wait`; never a Store.
+            database = queue.account_root() / "queue.sqlite3"
+            while True:
+                def read_events() -> list[dict[str, Any]]:
+                    with queue.read_only_connection(database) as db:
+                        version = db.execute("SELECT version FROM metadata").fetchone()
+                        if version is None or version[0] != queue.SCHEMA:
+                            raise queue.QueueError("unsupported queue schema; migration required")
+                        rows = db.execute("""SELECT * FROM events WHERE event_id>?
+                            AND (? IS NULL OR job_id=?) ORDER BY event_id LIMIT 1000""",
+                            (args.after, args.job, args.job)).fetchall()
+                        return [{**dict(row), "payload": json.loads(row["payload"])}
+                                for row in rows]
+                events = queue.retry_transient_lock(read_events)
+                for event in events:
+                    emit({"schemaVersion": 1, **event})
+                    args.after = event["event_id"]
+                if not args.follow and len(events) < 1000:
+                    return 0
+                if not events:
+                    time.sleep(0.2)
         store = queue.Store()
         if args.command == "_enqueue-runner":
             request = json.loads(Path(args.request).read_text())
@@ -593,31 +635,10 @@ def main(argv: list[str] | None = None) -> int:
             emit({"schemaVersion": 1, "job": job, "workerOnline": queue.worker_online(store),
                   **({"coveredByEquivalent": covered} if covered else {})})
             return 0
-        if args.command == "status":
-            try:
-                worker = json.loads((store.root / "worker.json").read_text())
-            except (OSError, ValueError):
-                worker = None
-            emit({"schemaVersion": 1, "host": store.host(), "jobs": store.jobs(args.job),
-                  "slots": worker.get("slots") if isinstance(worker, dict) else None,
-                  "workerOnline": queue.worker_online(store)})
-            return 0
         if args.command == "cancel":
             emit({"schemaVersion": 1, "job": store.cancel(args.job)})
             queue.wake(store)
             return 0
-        if args.command == "events":
-            if args.after < 0:
-                raise SchedulerError("event cursor must be nonnegative")
-            while True:
-                events = store.events(args.after, args.job)
-                for event in events:
-                    emit({"schemaVersion": 1, **event})
-                    args.after = event["event_id"]
-                if not args.follow and len(events) < 1000:
-                    return 0
-                if not events:
-                    time.sleep(0.2)
         if args.command == "recover":
             if args.confirm and (args.reason is None or not args.reason.strip()):
                 raise queue.QueueError("recover --confirm requires a nonempty --reason")
