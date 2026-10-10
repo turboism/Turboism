@@ -19,6 +19,7 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Robot;
 import java.awt.Window;
+import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
@@ -48,6 +49,7 @@ import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 
 /**
@@ -75,9 +77,8 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private static final long MENU_OPEN_SETTLE_MILLIS = 300L;
     private static final long MENU_OPEN_RETRY_GAP_MILLIS = 500L;
     private static final int MENU_OPEN_ATTEMPTS = 4;
-    private static final long ROW_DOWN_SETTLE_MILLIS = 400L;
+    private static final Set<String> SAVE_LABELS = Set.of("save", "保存", "上書き保存", "저장");
     private static final long ROW_SETTLE_MILLIS = 1_500L;
-    private static final int SAVE_ROWS = 8;
 
     private static final Pattern WINDOWS_DRIVE_PREFIX = Pattern.compile("(?m)^[A-Za-z]:[/\\\\]");
     private static final Pattern WINDOWS_UNC_PREFIX = Pattern.compile("(?m)^\\\\{2}");
@@ -388,76 +389,118 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     }
 
     /**
-     * Triggers a save through the host File menu (the real command_save path),
-     * not the Ctrl+S accelerator, using pure keyboard navigation (no
-     * coordinates): Alt activates the menu bar, Enter opens the first menu,
-     * then rows 1..SAVE_ROWS are walked with Down+Enter until the saved event
-     * or a fixture modification is observed. A newly appeared dialog (e.g. the
-     * "Save As..." chooser) is dismissed with Escape before continuing. When no
-     * popup opens after MENU_OPEN_ATTEMPTS tries, falls back to the legacy
-     * Ctrl+S path once. Returns the path used via saveMenuPath ("menu",
-     * "ctrls", or "none"). Logs menuOpened/attempts and per-row outcomes;
+     * Triggers a save through the host File menu (the real command_save path):
+     * the File menu is opened with a real click (keyboard Alt+Enter fallback),
+     * then the save item is located structurally — Ctrl+S accelerator first,
+     * localized label second — and clicked through the real popup. The earlier
+     * blind Down+Enter row walk could only ever activate the first enabled row
+     * (Enter fires the highlighted item and closes the popup), so the save row
+     * was never reached on any run. A newly appeared dialog (e.g. the "Save
+     * As..." chooser) is dismissed with Escape once. When the menu or the save
+     * item stays unreachable, falls back to the legacy Ctrl+S path once.
+     * Returns the path used via saveMenuPath ("menu", "ctrls", or "none");
      * never logs paths.
      */
     private String triggerMenuSave(final Path fixture, final long baselineModifiedMillis, final long baselineSize)
             throws Exception {
         final Robot robot = new Robot();
+        final Window host = onEdt(() -> selectHostWindow(Window.getWindows()));
         boolean menuOpened = false;
         int attempts = 0;
-        for (int attempt = 1; attempt <= MENU_OPEN_ATTEMPTS; attempt++) {
+        for (int attempt = 1; attempt <= MENU_OPEN_ATTEMPTS && !menuOpened; attempt++) {
             attempts++;
-            pressKey(robot, KeyEvent.VK_ALT);
-            robot.delay((int) MENU_OPEN_SETTLE_MILLIS);
-            pressKey(robot, KeyEvent.VK_ENTER);
+            final Point fileMenu = onEdt(() -> fileMenuPoint(host));
+            if (fileMenu != null) {
+                clickAt(robot, fileMenu);
+            } else {
+                pressKey(robot, KeyEvent.VK_ALT);
+                robot.delay((int) MENU_OPEN_SETTLE_MILLIS);
+                pressKey(robot, KeyEvent.VK_ENTER);
+            }
             final long menuDeadline = System.nanoTime() + MENU_OPEN_POLL_MILLIS * 1_000_000L;
             while (System.nanoTime() < menuDeadline) {
-                menuOpened = onEdt(this::findPopupWindow) != null;
+                menuOpened = onEdt(this::saveMenuItemPoint) != null;
                 if (menuOpened) break;
                 robot.waitForIdle();
                 Thread.sleep(100L);
             }
-            if (menuOpened || attempt == MENU_OPEN_ATTEMPTS) break;
-            robot.delay((int) MENU_OPEN_RETRY_GAP_MILLIS);
+            if (!menuOpened) {
+                pressEscape(robot);
+                robot.waitForIdle();
+                robot.delay((int) MENU_OPEN_RETRY_GAP_MILLIS);
+            }
         }
         context.logger().info("Recent preview save menuOpened=" + menuOpened + " attempts=" + attempts);
         if (!menuOpened) {
             pressCtrlSBackground();
             return saveMenuPath(false, true);
         }
-        final AtomicReference<Set<String>> dialogsBefore =
-                new AtomicReference<>(onEdt(() -> visibleDialogKeys(Window.getWindows())));
-        for (int row = 1; row <= SAVE_ROWS; row++) {
-            pressKey(robot, KeyEvent.VK_DOWN);
-            robot.delay((int) ROW_DOWN_SETTLE_MILLIS);
-            pressKey(robot, KeyEvent.VK_ENTER);
-            final long rowDeadline = System.nanoTime() + ROW_SETTLE_MILLIS * 1_000_000L;
-            boolean saved = false;
-            boolean modified = false;
-            while (System.nanoTime() < rowDeadline) {
-                saved = savedContentName.get() != null;
-                modified = fileModifiedSince(fixture, baselineModifiedMillis, baselineSize);
-                if (saved || modified) break;
-                Thread.sleep(100L);
-            }
-            final boolean newDialog = onEdt(() -> hasNewVisibleDialog(Window.getWindows(), dialogsBefore.get()));
-            context.logger()
-                    .info("Recent preview menu save row=" + row + " savedEvent=" + saved + " fileModified=" + modified);
-            if (saved || modified) break;
+        final Point savePoint;
+        try {
+            savePoint = awaitMenuPoint(robot, this::saveMenuItemPoint, SUBMENU_DEADLINE_MILLIS);
+        } catch (IllegalStateException unreachable) {
+            pressEscape(robot);
+            pressCtrlSBackground();
+            return saveMenuPath(false, true);
+        }
+        final Set<String> dialogsBefore = onEdt(() -> visibleDialogKeys(Window.getWindows()));
+        clickAt(robot, savePoint);
+        final long dialogDeadline = System.nanoTime() + ROW_SETTLE_MILLIS * 1_000_000L;
+        while (System.nanoTime() < dialogDeadline) {
+            final boolean saved = savedContentName.get() != null;
+            final boolean modified = fileModifiedSince(fixture, baselineModifiedMillis, baselineSize);
+            final boolean newDialog = onEdt(() -> hasNewVisibleDialog(Window.getWindows(), dialogsBefore));
+            if (saved || modified || !newDialog) break;
             if (shouldCloseDialog(saved, modified, newDialog)) {
                 pressEscape(robot);
-                robot.waitForIdle();
-                dialogsBefore.set(onEdt(() -> visibleDialogKeys(Window.getWindows())));
+                break;
             }
+            Thread.sleep(100L);
         }
         return saveMenuPath(true, false);
     }
 
-    /** First showing popup window (Swing menu popups are "Popup" windows). */
-    private Window findPopupWindow() {
-        for (final Window window : Window.getWindows()) {
-            if (isPopupWindow(window.isShowing(), window.getClass().getName())) return window;
+    /** Screen center of the showing File-menu save item, or null when absent. */
+    private Point saveMenuItemPoint() {
+        for (Window window : Window.getWindows()) {
+            final JMenuItem item = findSaveMenuItem(window);
+            if (item != null && item.isShowing()) {
+                return centerOf(item);
+            }
         }
         return null;
+    }
+
+    private static JMenuItem findSaveMenuItem(final Component root) {
+        if (root instanceof JMenuItem item && item.isShowing() && isSaveMenuItem(item)) {
+            return item;
+        }
+        if (root instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                final JMenuItem found = findSaveMenuItem(child);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The File-menu "Save" command: identified by its Ctrl+S accelerator
+     * (locale-independent), falling back to an exact normalized label so the
+     * check does not collide with "Save As..." entries.
+     */
+    static boolean isSaveMenuItem(final JMenuItem item) {
+        if (item instanceof JMenu) return false;
+        final KeyStroke accelerator = item.getAccelerator();
+        if (accelerator != null
+                && accelerator.getKeyCode() == KeyEvent.VK_S
+                && (accelerator.getModifiers() & InputEvent.CTRL_DOWN_MASK) != 0
+                && (accelerator.getModifiers()
+                                & (InputEvent.SHIFT_DOWN_MASK | InputEvent.ALT_DOWN_MASK))
+                        == 0) {
+            return true;
+        }
+        return SAVE_LABELS.contains(normalizeLabel(item.getText()));
     }
 
     /** Popup windows are Swing popup containers whose class name contains "Popup". */
