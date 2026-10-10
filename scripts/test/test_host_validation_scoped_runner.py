@@ -43,6 +43,9 @@ class ScopedRunnerIntegrationTest(unittest.TestCase):
     def test_mesa_with_active_deferred_allows_trigger_client_and_pass(self):
         self.scenario(timeout=False, deferred="ACTIVE", mesa=True)
 
+    def test_mesa_awaits_late_deferred_marker_without_ready_marker(self):
+        self.scenario(timeout=False, deferred="DELAYED_ACTIVE", mesa=True)
+
     def test_mesa_off_does_not_require_deferred_activation(self):
         for deferred in ("INACTIVE", "MISSING"):
             with self.subTest(deferred=deferred):
@@ -108,9 +111,20 @@ class ScopedRunnerIntegrationTest(unittest.TestCase):
                     "home = Path(sys.argv[1])\n"
                     "assert (home / 'state/trigger').is_file(), 'client ran before trigger'\n"
                     "(home / 'state/client-ran').write_text('ran\\n')\n")
-                marker_line = ("" if deferred == "MISSING" else
+                delayed = deferred == "DELAYED_ACTIVE"
+                marker_line = ("" if deferred in ("MISSING", "DELAYED_ACTIVE") else
                                "TURBOISM_DEFERRED_GL_ERROR_CHECK installation=COMPLETE" if deferred == "COMPLETE" else
                                "TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=" + deferred)
+                initial_log = marker_line + chr(10) + 'TEST_READY' + chr(10)
+                delayed_append = (
+                    "import threading\n"
+                    "def _delayed():\n"
+                    "    time.sleep(3)\n"
+                    "    target = home / 'logs/runtime/test.log'\n"
+                    "    target.write_text(target.read_text()"
+                    " + 'TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=ACTIVE\\n')\n"
+                    "threading.Thread(target=_delayed, daemon=True).start()\n"
+                    ) if delayed else ""
                 poison.write_text(
                     f"#!{sys.executable}\nfrom pathlib import Path\nimport os, time\n"
                     "task = Path(os.environ['TURBOISM_HOST_VALIDATION_TASK_DIR'])\n"
@@ -119,7 +133,8 @@ class ScopedRunnerIntegrationTest(unittest.TestCase):
                     f"Path({str(marker)!r}).write_text('synthetic launcher only')\n"
                     # A preexisting PASS cannot override failed runtime admission.
                     "(home / 'state/mcp-host-validation.properties').write_text('status=PASS\\n')\n"
-                    f"(home / 'logs/runtime/test.log').write_text({(marker_line + chr(10) + 'TEST_READY' + chr(10))!r})\n"
+                    f"(home / 'logs/runtime/test.log').write_text({initial_log!r})\n"
+                    + delayed_append +
                     "deadline = time.monotonic() + 30\n"
                     "while not (home / 'state/client-ran').exists() and time.monotonic() < deadline:\n"
                     "    time.sleep(0.01)\n")
@@ -142,7 +157,9 @@ class ScopedRunnerIntegrationTest(unittest.TestCase):
                 command += ["--client-script", str(client) + ":mcp-host-validation-client.py",
                             "--client-python", str(Path(sys.executable).resolve()),
                             "--require-fixture-unchanged", "--trigger", "state/trigger",
-                            "--ready-marker", "TEST_READY", "--poll-seconds", "1"]
+                            "--poll-seconds", "1"]
+                if deferred != "DELAYED_ACTIVE":
+                    command += ["--ready-marker", "TEST_READY"]
                 task_spec = "mcp:5302"
             prepared_result = subprocess.run(command, env=environment, capture_output=True, text=True)
             self.assertEqual(0, prepared_result.returncode, prepared_result.stderr)
@@ -184,7 +201,7 @@ class ScopedRunnerIntegrationTest(unittest.TestCase):
                 preliminary = json.loads(lifecycle.read_text())
                 task = Path(preliminary["details"]["taskDir"])
                 home = task / "turboism-home"
-                admitted = not mesa or deferred == "ACTIVE"
+                admitted = not mesa or deferred in ("ACTIVE", "DELAYED_ACTIVE")
                 observed = {
                     "mesa": mesa, "deferred": deferred, "terminalState": result["terminalState"],
                     "trigger": (home / "state/trigger").exists(),
@@ -211,7 +228,8 @@ class ScopedRunnerIntegrationTest(unittest.TestCase):
                 if mesa:
                     properties = dict(line.split("=", 1) for line in
                                       (evidence / "deferred-check.properties").read_text().splitlines())
-                    state = deferred.lower() if deferred in ("ACTIVE", "INACTIVE") else "unknown"
+                    state = (deferred.lower() if deferred in ("ACTIVE", "INACTIVE")
+                             else "active" if deferred == "DELAYED_ACTIVE" else "unknown")
                     self.assertEqual(state, properties["deferredCheck"])
                     if not admitted:
                         self.assertIn("refusing validation workload", log)

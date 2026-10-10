@@ -260,6 +260,61 @@ class TriageFixture(unittest.TestCase):
         self.assertEqual(record["category"], "CAPABILITY_BOUNDARY")
         self.assertEqual(record["ruleId"], "capability-backup-artifact-absent")
 
+    def test_deferred_check_unobserved_is_infra(self):
+        # Runner refused before Java produced a runtime log: evidence-only
+        # classification beats NO_EVIDENCE.
+        add_job(self.tmp, job_id="j-def", request_key="rep-r1-core-acquisition_5304",
+                state="failed", spec="core-acquisition:5304@standard",
+                outcome={"terminalState": "failed", "validationStatus": "FAIL"})
+        (self.jobs_root / "j-def" / "evidence" / "deferred-check.properties").write_text(
+            "schemaVersion=1\nmesaGlThreadEffective=1\ndeferredCheck=unknown\n",
+            encoding="utf-8")
+        (self.jobs_root / "j-def" / "evidence" / "launch-diagnostics.properties").write_text(
+            "schemaVersion=1\nwrapperExit=ABSENT\nruntimeLogPresent=0\n",
+            encoding="utf-8")
+        record = self.classify("j-def")
+        self.assertEqual(record["category"], "INFRA_RETRYABLE")
+        self.assertEqual(record["ruleId"], "infra-deferred-check-unobserved")
+        self.assertEqual(record["evidence"]["properties"]["deferredCheck"], "unknown")
+
+    def test_deferred_check_inactive_is_admission(self):
+        add_job(self.tmp, job_id="j-din", request_key="r-deferred-inactive",
+                state="failed", spec="core-acquisition:5203@standard",
+                outcome={"terminalState": "failed", "validationStatus": "FAIL"})
+        (self.jobs_root / "j-din" / "evidence" / "deferred-check.properties").write_text(
+            "schemaVersion=1\nmesaGlThreadEffective=1\ndeferredCheck=inactive\n",
+            encoding="utf-8")
+        record = self.classify("j-din")
+        self.assertEqual(record["category"], "ADMISSION_STATIC")
+        self.assertEqual(record["ruleId"], "admission-deferred-check-inactive")
+
+    def test_model_await_timeout_variant_is_infra(self):
+        log = ("2026-10-10T04:27:39Z [ERROR] [dev.turboism.validation.selection-lag] "
+               "SELECTION_LAG_PROBE_FAILED java.lang.IllegalStateException: "
+               "No active model with drawables within 240000 ms\n"
+               "java.lang.IllegalStateException: No active model with drawables within 240000 ms\n"
+               "\tat dev.turboism.validation.selectionlag.SelectionLagProbePlugin.awaitActiveModel(SelectionLagProbePlugin.java:224)\n"
+               "\tat java.base/java.lang.Thread.run(Unknown Source)\n")
+        add_job(self.tmp, job_id="j-mdl", request_key="rep-r1-selection-lag_5304",
+                state="failed", spec="selection-lag:5304@default",
+                outcome={"terminalState": "failed", "validationStatus": "FAIL"},
+                log=log)
+        record = self.classify("j-mdl")
+        self.assertEqual(record["category"], "INFRA_RETRYABLE")
+        self.assertEqual(record["ruleId"], "infra-model-ready-timeout")
+
+    def test_session_startup_timeout_is_infra(self):
+        log = ("2026-10-10T05:00:52Z [WARN] [dev.turboism.validation.session] SESSION_STARTUP_TIMEOUT\n"
+               "2026-10-10T05:00:52Z [INFO] [dev.turboism.validation.session] SESSION_END status=FAIL exitCode=2\n"
+               "2026-10-10T05:00:52Z [INFO] [dev.turboism.validation.session] SESSION_RESULT status=FAIL steps=5\n")
+        add_job(self.tmp, job_id="j-ssto", request_key="rep-r1-session-standard_5304",
+                state="failed", spec="session-standard:5304@standard",
+                outcome={"terminalState": "failed", "validationStatus": "FAIL"},
+                log=log)
+        record = self.classify("j-ssto")
+        self.assertEqual(record["category"], "INFRA_RETRYABLE")
+        self.assertEqual(record["ruleId"], "infra-marker-timeout")
+
     def test_no_evidence_reclaimed(self):
         # No turboism.log anywhere: nothing to attribute.
         add_job(self.tmp, job_id="j-gone", request_key="r-gone", state="failed",

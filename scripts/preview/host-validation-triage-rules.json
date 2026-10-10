@@ -1,6 +1,6 @@
 {
  "schemaVersion": 1,
- "description": "Ordered root-cause rules for host_validation_triage.py. The first rule whose 'when' clauses all match wins (clauses are AND-ed); unmatched jobs are UNKNOWN and emit their signature so this table can be extended. Clause keys: state/terminalState/validationStatus/resultStatus/terminalPassed (exact values, case-insensitive), exceptionClass/message/frame (regex on the first exception block and its caused-by chain), marker (regex on *_RESULT / *_FAILURE / TIMED_OUT / UNAVAILABLE log markers), console (regex on cubism-console.txt ERROR exception heads), failureText (regex on result-properties failure.N, unexpectedFailure actuals, per-assertion actuals and failure-marker log lines). Jobs with no usable evidence at all (reclaimed by retention, or a log that ended before any verdict) are classified NO_EVIDENCE in code, not by a rule here. FREE-license startup markers (START_FREE_SELECTED, FREE_PARAMETER_LIMIT_ACKNOWLEDGED, FREE_WELCOME_CONFIRMED) are emitted by the NativeStartupAssistanceAgent on every installation and are never treated as failure evidence.",
+ "description": "Ordered root-cause rules for host_validation_triage.py. The first rule whose 'when' clauses all match wins (clauses are AND-ed); unmatched jobs are UNKNOWN and emit their signature so this table can be extended. Clause keys: state/terminalState/validationStatus/resultStatus/terminalPassed (exact values, case-insensitive), exceptionClass/message/frame (regex on the first exception block and its caused-by chain), marker (regex on *_RESULT / *_FAILURE / TIMED_OUT / UNAVAILABLE log markers), console (regex on cubism-console.txt ERROR exception heads), failureText (regex on result-properties failure.N, unexpectedFailure actuals, per-assertion actuals and failure-marker log lines), evidenceProperty (regex on 'key=value' lines from the runner's evidence properties files: deferred-check.properties, launch-diagnostics.properties). Jobs with no usable evidence at all (reclaimed by retention, or a log that ended before any verdict) are classified NO_EVIDENCE in code, not by a rule here. FREE-license startup markers (START_FREE_SELECTED, FREE_PARAMETER_LIMIT_ACKNOWLEDGED, FREE_WELCOME_CONFIRMED) are emitted by the NativeStartupAssistanceAgent on every installation and are never treated as failure evidence.",
  "nonFailureMarkers": [
   "START_FREE_SELECTED",
   "FREE_WELCOME_CONFIRMED",
@@ -36,6 +36,12 @@
    "category": "ADMISSION_STATIC",
    "when": {"exceptionClass": "VerifiedAccessException"},
    "advice": "verified selector is not invocable or absent from the access plan; correct the selector records"
+  },
+  {
+   "id": "admission-deferred-check-inactive",
+   "category": "ADMISSION_STATIC",
+   "when": {"evidenceProperty": "^deferredCheck=inactive$"},
+   "advice": "the runtime admitted the deferred GL error check INACTIVE while mesaGlThread was effective on, so the combined option is unreachable under this run configuration; fix the option/hook wiring instead of retrying"
   },
   {
    "id": "probe-missing-member",
@@ -124,8 +130,8 @@
   {
    "id": "infra-model-ready-timeout",
    "category": "INFRA_RETRYABLE",
-   "when": {"message": "No active model with drawables was observed within"},
-   "advice": "model did not become ready inside the observation window; transient load, retry"
+   "when": {"message": "No active model with drawables"},
+   "advice": "model did not become ready inside the observation window; on unassisted 5.3.x startups the command-line document open can wedge behind native startup UI, so prefer the task's -assisted variant or retry"
   },
   {
    "id": "infra-host-execution-timeout",
@@ -164,10 +170,22 @@
    "advice": "job exceeded its queue timeout; retry with a fresh window"
   },
   {
+   "id": "infra-deferred-check-unobserved",
+   "category": "INFRA_RETRYABLE",
+   "when": {"evidenceProperty": "^deferredCheck=(unknown|host-exited)$"},
+   "advice": "the host produced no runtime log marker within the readiness budget while mesaGlThread was effective on, so the launch never reached Java-side startup; launch-side diagnostics (generated launchers, proton wrapper output, wrapper exit) are in evidence — retry may catch a transient launcher stall"
+  },
+  {
+   "id": "infra-update-check-readiness",
+   "category": "INFRA_RETRYABLE",
+   "when": {"marker": "UPDATE_CHECK_EXERCISER_RESULT status=FAIL phase=readiness"},
+   "advice": "the update-check exerciser never observed a ready runtime/model; on unassisted 5.3.x startups the document open can wedge behind native startup UI — prefer the -assisted variant or retry"
+  },
+  {
    "id": "infra-marker-timeout",
    "category": "INFRA_RETRYABLE",
-   "when": {"marker": "TIMED_OUT|NETWORK_UNAVAILABLE"},
-   "advice": "a scheduler lane or external dependency timed out; retry"
+   "when": {"marker": "TIMED_OUT|TIMEOUT|NETWORK_UNAVAILABLE"},
+   "advice": "a scheduler lane, readiness wait or external dependency timed out; retry"
   },
   {
    "id": "verdict-pass-then-fail",

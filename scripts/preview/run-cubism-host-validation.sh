@@ -330,6 +330,7 @@ remote_pre_cleanup=''
 remote_pre_launch_background=0
 remote_pre_launch_args_only=0
 remote_pre_launch_args=()
+deferred_check_state='not-evaluated'
 fixture_host=''
 fixture_local=''
 fixture_sha256=''
@@ -1922,6 +1923,33 @@ verify_staged_artifacts() {
   fi
 }
 
+collect_launch_diagnostics() {
+  # Self-contained launch-side attribution for runs that failed before Java
+  # produced a runtime log: the generated launchers, the Proton wrapper's own
+  # log (wine/cmd output can end up only there), the wrapper exit state and a
+  # summary properties file the triage rules can classify on.
+  local wrapper_log='' wrapper_exit_value
+  [ ! -f "$task_dir/launch.bat" ] || cp -- "$task_dir/launch.bat" "$evidence_dir/launch.bat" 2>/dev/null || true
+  [ ! -f "$task_dir/launch.sh" ] || cp -- "$task_dir/launch.sh" "$evidence_dir/launch.sh" 2>/dev/null || true
+  if [ -f "$evidence_dir/launcher.out" ]; then
+    wrapper_log="$(sed -n 's/^Log: //p' "$evidence_dir/launcher.out" | head -n 1)"
+    if [ -n "$wrapper_log" ] && [ -f "$wrapper_log" ]; then
+      cp -- "$wrapper_log" "$evidence_dir/proton-wrapper.log" 2>/dev/null || true
+    fi
+  fi
+  wrapper_exit_value="$(cat "$evidence_dir/wrapper.exit" 2>/dev/null || true)"
+  {
+    printf 'schemaVersion=1\n'
+    printf 'wrapperExit=%s\n' "${wrapper_exit_value:-ABSENT}"
+    printf 'launcherOutBytes=%s\n' "$(stat -c %s "$evidence_dir/launcher.out" 2>/dev/null || printf '0')"
+    printf 'cubismConsolePresent=%s\n' "$([ -s "$evidence_dir/cubism-console.txt" ] && printf '1' || printf '0')"
+    printf 'runtimeLogPresent=%s\n' "$([ -f "$evidence_dir/turboism.log" ] && printf '1' || printf '0')"
+    printf 'deferredCheck=%s\n' "$deferred_check_state"
+    printf 'mesaGlThreadEffective=%s\n' "$mesa_gl_thread"
+    printf 'protonWrapperLog=%s\n' "${wrapper_log:-ABSENT}"
+  } > "$evidence_dir/launch-diagnostics.properties"
+}
+
 collect_evidence() {
   [ "$evidence_collected" = 0 ] || return 0
   evidence_collected=1
@@ -1929,6 +1957,7 @@ collect_evidence() {
   local_prepare_directory "$evidence_dir"
   runtime_log="$(latest_runtime_log || true)"
   [ -z "$runtime_log" ] || cp -- "$runtime_log" "$evidence_dir/turboism.log" 2>/dev/null || true
+  collect_launch_diagnostics
   [ ! -f "$home_dir/state/plugin-load-report.json" ] \
     || cp -- "$home_dir/state/plugin-load-report.json" "$evidence_dir/" || true
   [ ! -f "$home_dir/state/preview-runtime-report.json" ] \
@@ -2460,16 +2489,35 @@ capture_java_gl_evidence ready
 # The runtime log marker is authoritative: missing/absent markers are written
 # to evidence and rejected before any trigger/client/result processing. The
 # existing EXIT trap and contained supervisor retain evidence and clean up.
+# Tasks without --ready-marker reach this gate milliseconds after launch, so
+# the marker is awaited inside the readiness budget instead of being read
+# once; once every declared ready marker is visible the bootstrap line the
+# gate needs can never appear later and the wait ends early. A wrapper that
+# dies first still fails fast with the launch diagnostics the EXIT trap keeps.
 if [ "$mesa_gl_thread" = 1 ]; then
-  log_file="$(latest_runtime_log || true)"
   deferred_check_state=unknown
-  if [ -n "$log_file" ]; then
-    if runtime_log_contains "$log_file" 'TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=ACTIVE'; then
-      deferred_check_state=active
-    elif runtime_log_contains "$log_file" 'TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=INACTIVE'; then
-      deferred_check_state=inactive
+  deadline=$((SECONDS + ready_timeout))
+  while [ "$SECONDS" -lt "$deadline" ]; do
+    log_file="$(latest_runtime_log || true)"
+    if [ -n "$log_file" ]; then
+      if runtime_log_contains "$log_file" 'TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=ACTIVE'; then
+        deferred_check_state=active
+        break
+      elif runtime_log_contains "$log_file" 'TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=INACTIVE'; then
+        deferred_check_state=inactive
+        break
+      fi
+      if [ "${#ready_markers[@]}" -gt 0 ]; then
+        ready_seen=1
+        for marker in "${ready_markers[@]}"; do
+          runtime_log_contains "$log_file" "$marker" || { ready_seen=0; break; }
+        done
+        [ "$ready_seen" = 0 ] || break
+      fi
     fi
-  fi
+    remote_process_alive || { deferred_check_state=host-exited; break; }
+    sleep "$poll_seconds"
+  done
   printf 'schemaVersion=1\nmesaGlThreadEffective=%s\ndeferredCheck=%s\n' \
     "$mesa_gl_thread" "$deferred_check_state" \
     > "$evidence_dir/deferred-check.properties"
