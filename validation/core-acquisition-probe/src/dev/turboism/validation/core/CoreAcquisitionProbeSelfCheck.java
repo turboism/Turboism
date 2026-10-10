@@ -28,7 +28,11 @@ public final class CoreAcquisitionProbeSelfCheck {
         if (dev.turboism.validation.NativeFreeStartup.promptAction("Start", trial, "OK") != null
                 || dev.turboism.validation.NativeFreeStartup.promptAction("Confirm", trial, "Start trial") != null)
             throw new AssertionError("trial activation button/title accepted");
-        for (String button : new String[] {"Load", "Yes", "Yes(Y)"}) {
+        // Every reviewed accept label for the newer-file gate (Load/Cancel,
+        // OK/Cancel, Open/Cancel, Yes/No and their mnemonic/localized twins)
+        // is confirmed; the cancel side is never answered.
+        for (String button : new String[] {"Load", "Yes", "Yes(Y)", "OK", "Open",
+                "加载", "打开", "确定", "ロード", "開く", "はい", "是"}) {
             if (!"NEWER_MODEL_OPEN_CONFIRMED".equals(
                     dev.turboism.validation.NativeFreeStartup.promptAction("Warning", newer, button)))
                 throw new AssertionError("newer model confirmation rejected");
@@ -82,6 +86,42 @@ public final class CoreAcquisitionProbeSelfCheck {
         }
         if (CoreAcquisitionProbeAgent.isFreeStartupButton("Other", "Start as FREE version"))
             throw new AssertionError("unrelated dialog accepted");
+        // The reviewing user authorized the PRO trial entry: it wins whenever
+        // offered, the FREE entry is the fallback, and purchase, activation-key
+        // or cancel entries are never selected.
+        final java.util.List<String> licenseButtons = java.util.List.of("", "Cancel",
+                "Activate PRO or Trial license", "Purchase PRO license",
+                "Start PRO Version Free Trial", "Start as FREE version");
+        if (!"Start PRO Version Free Trial".equals(dev.turboism.validation.NativeFreeStartup
+                .preferredStartButton("Start", licenseButtons)))
+            throw new AssertionError("PRO trial entry not preferred");
+        if (!"Start as FREE version".equals(dev.turboism.validation.NativeFreeStartup
+                .preferredStartButton("Start", java.util.List.of("Cancel", "Purchase PRO license",
+                        "Start as FREE version"))))
+            throw new AssertionError("FREE fallback rejected");
+        if (dev.turboism.validation.NativeFreeStartup.preferredStartButton("Start",
+                java.util.List.of("Cancel", "Activate PRO or Trial license",
+                        "Purchase PRO license")) != null)
+            throw new AssertionError("unapproved license action accepted");
+        if (!dev.turboism.validation.NativeFreeStartup.isProTrialConfirm(null,
+                "The Trial for the PRO version is available for a limited period of 42 days. "
+                        + "Would you like to start the Trial?"))
+            throw new AssertionError("trial start confirmation rejected");
+        if (dev.turboism.validation.NativeFreeStartup.isProTrialConfirm("Confirm",
+                "License activation successful"))
+            throw new AssertionError("activation notice matched the trial confirmation");
+        if (!dev.turboism.validation.NativeFreeStartup.isProTrialActivation("Confirm",
+                "The PRO trial license was activated successfully.", java.util.List.of("OK")))
+            throw new AssertionError("trial activation confirmation rejected");
+        if (!dev.turboism.validation.NativeFreeStartup.isProTrialActivation("Confirm",
+                "License activation successful", java.util.List.of("OK")))
+            throw new AssertionError("native activation success notice rejected");
+        if (dev.turboism.validation.NativeFreeStartup.isProTrialActivation("Confirm",
+                "The PRO trial license was activated successfully.",
+                java.util.List.of("OK", "Cancel"))
+                || dev.turboism.validation.NativeFreeStartup.isProTrialActivation("Confirm",
+                        trial, java.util.List.of("OK")))
+            throw new AssertionError("non-activation trial prompt accepted");
         if (!CoreAcquisitionProbeAgent.isFreeWelcome("Confirm",
                 "<html>Welcome!<br>Start as FREE version with limited functions</html>"))
             throw new AssertionError("FREE welcome rejected");

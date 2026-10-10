@@ -38,20 +38,43 @@ public final class NativeStartupAssistanceAgent {
         result.setProperty("status", "OBSERVATION_ONLY");
         int actions = 0;
         String last = "";
+        final java.util.concurrent.Semaphore scanDone = new java.util.concurrent.Semaphore(0);
+        final java.util.concurrent.atomic.AtomicBoolean scanInFlight = new java.util.concurrent.atomic.AtomicBoolean();
+        // The result slots live for the whole loop: a scan runnable that
+        // completes after its pass timed out writes here, and the next pass
+        // consumes the result instead of dropping an answer whose evidence
+        // (and retry chance) would otherwise vanish with the timed-out pass.
+        final AtomicReference<String> observation = new AtomicReference<>();
+        final AtomicReference<String> action = new AtomicReference<>();
         try {
             while (System.nanoTime() < deadline && !Thread.currentThread().isInterrupted()) {
-                final AtomicReference<String> observation = new AtomicReference<>();
-                final AtomicReference<String> action = new AtomicReference<>();
-                SwingUtilities.invokeAndWait(() -> {
-                    observation.set(NativeFreeStartup.describeDialogs());
-                    action.set(NativeFreeStartup.select());
-                });
-                if (!observation.get().equals(last)) {
-                    last = observation.get();
+                // A native modal pump can delay queued EDT work indefinitely;
+                // bound the wait so a wedged pass surfaces as evidence instead
+                // of a silent stall.
+                if (scanInFlight.compareAndSet(false, true)) {
+                    SwingUtilities.invokeLater(() -> {
+                        try {
+                            observation.set(NativeFreeStartup.describeDialogs());
+                            action.set(NativeFreeStartup.select());
+                        } finally {
+                            scanDone.release();
+                            scanInFlight.set(false);
+                        }
+                    });
+                }
+                if (!scanDone.tryAcquire(15, java.util.concurrent.TimeUnit.SECONDS)) {
+                    System.out.println("TASK_STARTUP_STALLED EDT scan did not complete within 15s");
+                    continue;
+                }
+                final String observed = observation.getAndSet(null);
+                final String acted = action.getAndSet(null);
+                if (observed == null) continue;
+                if (!observed.equals(last)) {
+                    last = observed;
                     System.out.println("TASK_STARTUP_DIALOG " + last);
                 }
-                if (action.get() != null) {
-                    result.setProperty("action." + ++actions, action.get());
+                if (acted != null) {
+                    result.setProperty("action." + ++actions, acted);
                     result.setProperty("observedLicenseMode",
                         System.getProperty("turboism.validation.observedLicenseMode", "NOT_OBSERVED"));
                     final Path state = home.resolve("state");
@@ -62,7 +85,7 @@ public final class NativeStartupAssistanceAgent {
                     }
                     Files.move(pending, state.resolve("native-startup-assistance.properties"),
                         StandardCopyOption.REPLACE_EXISTING);
-                    System.out.println("TASK_STARTUP_ACTION " + action.get());
+                    System.out.println("TASK_STARTUP_ACTION " + acted);
                 }
                 Thread.sleep(500L);
             }
