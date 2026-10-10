@@ -153,6 +153,15 @@ public final class NativeStartupAssistanceAgentTest {
                 + "the trial version.<br></html>";
         if (!NativeFreeStartup.isActiveTrialWelcome("Confirm", activeWelcome))
             throw new AssertionError("active-trial welcome with caption label rejected");
+        // 5.0.00 phrases the OS caution as "might cause to terminate trial
+        // mode" — the signature must not hinge on the newer "may terminate
+        // the trial version" wording (observed: mcp:5000 left unanswered).
+        final String activeWelcome5000 = "Confirm <html><h3>Live2D Cubism Editor</h3>Welcome!<br>"
+                + "Trial license will expire in 32 day(s)<br><br>Please note that "
+                + "initializing/updating your OS during trial period<br>might cause to "
+                + "terminate trial mode.<br></html>";
+        if (!NativeFreeStartup.isActiveTrialWelcome("Confirm", activeWelcome5000))
+            throw new AssertionError("5.0.00 active-trial welcome wording rejected");
         if (NativeFreeStartup.isActiveTrialWelcome("Confirm",
                         "The free trial for the PRO version is available for a limited period of 42 days.")
                 || NativeFreeStartup.isActiveTrialWelcome("Warning", activeWelcome)

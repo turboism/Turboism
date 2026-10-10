@@ -373,16 +373,18 @@ public final class NativeFreeStartup {
      * active trial. The dialog may carry extra header labels (e.g. a
      * "Confirm" caption label) alongside the message, so the signature is a
      * conjunction of markers rather than a whole-text match: the greeting,
-     * the day-count expiry phrase and the OS-update caution. The
-     * trial-start confirm and the FREE welcome share none of that exact
-     * wording.
+     * the day-count expiry phrase and the termination caution. The caution
+     * wording itself drifts across versions ("may terminate the trial
+     * version" on 5.1.x+, "might cause to terminate trial mode" on 5.0.00),
+     * so only the shared stem is required. The trial-start confirm and the
+     * FREE welcome share none of that exact wording.
      */
     public static boolean isActiveTrialWelcome(final String title, final String text) {
         if (!"Confirm".equals(title) || text == null) return false;
         final String plain = text.replaceAll("<[^>]*>", " ").replaceAll("\\s+", " ").trim();
         return plain.contains("Welcome!")
                 && TRIAL_EXPIRY_DAYS.matcher(plain).find()
-                && plain.contains("may terminate the trial version");
+                && plain.contains("terminate");
     }
 
     /** Known native warning; user explicitly authorized opening the task fixture. */

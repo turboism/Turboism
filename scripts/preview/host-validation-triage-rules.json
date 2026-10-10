@@ -133,6 +133,12 @@
    "advice": "native auto-backup produced no artifact and never advanced lastAutoBackupTime inside the poll window on this host/profile (AutoBackupCoordinator completion-timeout throw site, ~runtime/.../AutoBackupCoordinator.java:445-555). The probe exercised the host's own backupNow() the same way it does on passing versions, so the absence is a host-side capability boundary on this version/license profile, not a probe defect — record the boundary instead of retrying"
   },
   {
+   "id": "capability-authoring-transactions-unavailable",
+   "category": "CAPABILITY_BOUNDARY",
+   "when": {"failureText": "cubism\\.authoring\\.transactions\\.unavailable"},
+   "advice": "the runtime installs no verified authoring-transaction backend on this host version (5.0.x/5.1.x), so turboism.transaction.execute returns typed UNAVAILABLE while every other emitted assertion passes — a documented capability boundary, not probe drift; record the boundary instead of retrying"
+  },
+  {
    "id": "infra-edt-dispatch",
    "category": "INFRA_RETRYABLE",
    "when": {"exceptionClass": "EdtDispatchException"},
