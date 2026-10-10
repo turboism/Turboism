@@ -262,3 +262,18 @@ rep-r1/r2 全部非 PASS 格子在"启动辅助默认开启"下重投；排除�
 - 探针/UI 漂移（5 格）：protected-export 5100/5103/5200 `CHECKED_CONFIRM_BUTTON_MISSING`（桥 attach/cancel/decide 安装与候选复选框注入正常，原生确认按钮在 5.1.x/5.2.00 的形状与已审 5.2.03/5.3.x 不同）；atlas:5203 驱动器 "Expected one algorithm selector"（自动排版对话框选择器形态与探针假设不符；辅助代理与 glthread=on、deferredCheck=active 均正常）；recent-preview:5203 菜单保存 8 次点击无 savedEvent（menuPath=menu，菜单路径或保存事件绑定漂移）。
 - 已知能力边界（4 格）：workspace 5000/5006 `workspace.layout.provider.unavailable`（5.0.x 无布局 provider，其余 32 断言 PASS）；session-standard 5300/5304 各为 4/5 步 PASS（texture-relations/clipmask-viewer/separate-save-path/core-owned-moc 全 PASS，rep-r1 的"会话文档未就绪"已消除），仅 psd-export-observation 步 SAVED_UNVERIFIED（可读导出无 runtime-issued edit handle，既定 SDK 缺口）。
 - INFRA 系统性（1 格）：update-check:5300@safe-assisted `Shell startup exceeded PT30S`——pro-r1/r2 两次同征：许可/欢迎/Home 新闻链全部应答后 turboism.core 壳 30s 未就绪；按规则不再重试，建议调查 5.3.00 壳启动耗时段或放宽该版本 shell 预算。
+
+## drift-r1 残余失败逐项修复确认轮（2026-10-10，adapt-remaining-drift）
+
+针对 pro-r1/pro-r2 台账剩余的 19 格失败逐根因修复并实机复核（队列最多 2 并发；所有 job 以 drift-r* 请求键入账）。
+
+**修复与实机结果**：
+
+1. **mcp 8 格（`fixture contains no Glue relation`）**：mcp 任务级夹具覆盖到已验证含 Glue 的 2980dc8c 夹具（clipmask-viewer 同款），静态门禁 `fixture_path_for`/`FIXTURE_DOC_VERSION` 同步。实机：5200/5203/5300/5304 全量 PASS（连接/工具/资源/工作区/纹理/审计全绿）；5000（r2）/5006/5100/5103 其余断言全 PASS，唯 `turboism.transaction.execute` 返回类型化 `UNAVAILABLE`（`cubism.authoring.transactions.unavailable`，5.0.x/5.1.x 无验证过的事务后端）→ CAPABILITY_BOUNDARY。5000 第一轮另暴露 5.0.00 试用欢迎文案变体（`might cause to terminate trial mode`），`NativeFreeStartup.isActiveTrialWelcome` 放宽为共享词干 `terminate` 并补回归测试。
+2. **protected-export 5100/5103/5200（`CHECKED_CONFIRM_BUTTON_MISSING`）**：确认按钮定位改为结构识别（底部 FlowLayout 面板恰好两个 JButton：首按钮=OK/确认，混淆类名按版本漂移），不再硬编码类名/版本。实机 3/3 PASS。
+3. **atlas:5203（`Expected one algorithm selector`）**：时序竞态——探针打开自动排版对话框早于插件算法注册完成，`registry.algorithms()` 为空使注入按设计跳过。探针在缺选择器时关闭重开（有界）。实机 PASS（implementation=new count=100）。
+4. **update-check:5300（`Shell startup exceeded PT30S`）**：30s 生命周期预算把主机启动期 EDT 竞争计入壳自身工作。`CoreShellRuntime.start` 在提交生命周期 lane 前有界等待 EDT 就绪。实机 PASS。
+5. **triage 规则**：workspace 5000/5006（5.0.x 无布局 provider）与 session `psd-export-observation`（SAVED_UNVERIFIED）解码修正后正确归类 `capability-workspace-layout-provider-absent`/`capability-session-psd-export-saved-unverified`；新增 `capability-authoring-transactions-unavailable`；修复 `merge_step_entry` 不刷新既存步级 triage 字段的缺口（rep-r1/pro-r1 历史条已回填）。
+6. **recent-preview:5203（保存链路）**：多缺陷链逐一消除——探针描述符补 `model.read/model.write`（脏化参数写）、`model.observe`（**根因**：生命周期注册表对缺该权限的插件过滤 `on*` 回调，`ModelFileHooks.onModelSaved` 永不分发，生产 recent-preview 插件同受此缺口影响）；菜单遍历改为递归 `JMenu.getPopupMenu()` 子树（`getComponents()` 不可达 popup 内容）；菜单开启检测改用 `JMenu.isPopupMenuVisible` + `setPopupMenuVisible` 兜底（宿主 LAF 在 release 时把 popup 收掉）；保存前 SDK 参数写置脏；菜单点击无保存时经 `EditorCommandService.execute(SAVE)` 升级真实保存（`sdkSave=EXECUTED`）；保存事件按会话 `contentId` 匹配（`model:<hash>`，实测 name 为内部模型名 `测试 混合模式` 而非文件名——原 `fixture.cmo3` 硬编码匹配永不命中）。实机现状：recent-list/直接截图/保存事件(savedEvent=true)/生产缓存(png+index) 全 PASS，**仅 popup 悬停预览未观测**：预览桥 `isCurrentItem` 要求条目处于 `MenuSelectionManager.selectedPath`（实测悬停时 depth=0），程序化开菜单路径不产生该状态——宿主 LAF 下真机点击会收掉 popup，hover 不开子菜单，选择路径无法经真实输入建立；归类 PROBE_DRIFT，证据 `recent-preview/5203-drift-r1/queue-f6b600d33b69429f86adc95adf3bed58/evidence`。
+
+**实机确认汇总**：PASS×9（atlas:5203、update-check:5300、protected-export×3、mcp 5200/5203/5300/5304）；CAPABILITY_BOUNDARY×4（mcp 5000/5006/5100/5103，authoring-transactions 缺席）；PROBE_DRIFT×1（recent-preview:5203 popup 阶段残余）。
