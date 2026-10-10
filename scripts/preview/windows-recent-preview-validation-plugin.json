@@ -49,6 +49,11 @@
       "reason": "Writes a single parameter delta during manual validation so the native save command has real work."
     },
     {
+      "id": "turboism.cubism.model.observe",
+      "scope": "application",
+      "reason": "Receives typed ModelFileHooks.onModelSaved callbacks during manual validation; without it the lifecycle registry filters on* callbacks out."
+    },
+    {
       "id": "turboism.file.write",
       "scope": "application",
       "reason": "Atomically writes probe PNG evidence and result properties into plugin-confined state."

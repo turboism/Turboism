@@ -50,6 +50,8 @@ import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.KeyStroke;
+import javax.swing.MenuElement;
+import javax.swing.MenuSelectionManager;
 import javax.swing.SwingUtilities;
 
 /**
@@ -79,6 +81,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private static final int MENU_OPEN_ATTEMPTS = 4;
     private static final Set<String> SAVE_LABELS = Set.of("save", "保存", "上書き保存", "저장");
     private static final long ROW_SETTLE_MILLIS = 1_500L;
+    private static final long SDK_SAVE_ESCALATION_MILLIS = 5_000L;
 
     private static final Pattern WINDOWS_DRIVE_PREFIX = Pattern.compile("(?m)^[A-Za-z]:[/\\\\]");
     private static final Pattern WINDOWS_UNC_PREFIX = Pattern.compile("(?m)^\\\\{2}");
@@ -114,6 +117,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private volatile boolean popupThumbnail;
     private final AtomicReference<RecentFileId> recentId = new AtomicReference<>();
     private final AtomicReference<String> savedContentName = new AtomicReference<>();
+    private volatile String expectedSavedContentId;
     private volatile String fixturePath;
 
     @Override
@@ -141,7 +145,17 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
 
     @Override
     public void onModelSaved(final ProjectContentSnapshot model) {
-        if (model != null && matchesFixtureName(model.name())) {
+        if (model == null) return;
+        final PluginContext current = context;
+        if (current != null) {
+            current.logger()
+                    .info("Recent preview save event kind=" + model.kind() + " name=" + model.name() + " contentId="
+                            + model.contentId());
+        }
+        final String expected = expectedSavedContentId;
+        final boolean matched =
+                expected != null ? expected.equals(model.contentId()) : matchesFixtureName(model.name(), fixtureName);
+        if (matched) {
             savedContentName.compareAndSet(null, model.name());
         }
     }
@@ -322,6 +336,10 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             return null;
         });
         recoverSaveFocus(target);
+        expectedSavedContentId = context.cubism()
+                .activeDocument()
+                .flatMap(dev.turboism.sdk.cubism.DocumentSnapshot::contentId)
+                .orElse(null);
         dirtyDocumentForSave();
         final String savePath = triggerMenuSave(fixture, baselineModifiedMillis, baselineSize);
         final long deadline = System.nanoTime() + SAVED_EVENT_DEADLINE_MILLIS * 1_000_000L;
@@ -495,6 +513,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             return saveMenuPath(false, true);
         }
         final Set<String> dialogsBefore = onEdt(() -> visibleDialogKeys(Window.getWindows()));
+        final Boolean saveItemEnabled = onEdt(this::saveMenuItemEnabled);
         clickAt(robot, savePoint);
         final long dialogDeadline = System.nanoTime() + ROW_SETTLE_MILLIS * 1_000_000L;
         while (System.nanoTime() < dialogDeadline) {
@@ -508,7 +527,50 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             }
             Thread.sleep(100L);
         }
-        return saveMenuPath(true, false);
+        final long escalationDeadline = System.nanoTime() + SDK_SAVE_ESCALATION_MILLIS * 1_000_000L;
+        while (System.nanoTime() < escalationDeadline) {
+            if (savedContentName.get() != null || fileModifiedSince(fixture, baselineModifiedMillis, baselineSize)) {
+                return saveMenuPath(true, false);
+            }
+            Thread.sleep(100L);
+        }
+        final String sdkSave = executeSdkSave();
+        context.logger().info("Recent preview save itemEnabled=" + saveItemEnabled + " sdkSave=" + sdkSave);
+        return "menu+sdk";
+    }
+
+    /**
+     * Whether the visible File-menu save item is enabled — a disabled item
+     * swallows the Robot click with no observable effect.
+     */
+    private Boolean saveMenuItemEnabled() {
+        for (Window window : Window.getWindows()) {
+            final JMenuItem item = findSaveMenuItem(window);
+            if (item != null && item.isShowing()) {
+                return item.isEnabled();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Escalation for the case where the menu item visibly exists but the
+     * physical click produces no save: run the same native save command the
+     * menu dispatches through the verified Editor-command bridge.
+     */
+    private String executeSdkSave() {
+        try {
+            final dev.turboism.sdk.cubism.command.EditorCommandService service = context.services()
+                    .find(dev.turboism.sdk.cubism.command.EditorCommandService.class)
+                    .orElse(null);
+            if (service == null || !service.isAvailable()) {
+                return "unavailable";
+            }
+            return String.valueOf(service.execute(dev.turboism.sdk.cubism.command.EditorCommand.SAVE)
+                    .status());
+        } catch (RuntimeException failure) {
+            return failure.getClass().getSimpleName();
+        }
     }
 
     /** Screen center of the showing File-menu save item, or null when absent. */
@@ -537,6 +599,43 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                 menu.setPopupMenuVisible(true);
                 return true;
             }
+        }
+        return false;
+    }
+
+    /**
+     * Opens the File menu the same way {@code triggerMenuSave} does: real
+     * clicks first, the menu-model popup as the fallback once clicks
+     * demonstrably fail to leave it posted under the host LAF.
+     */
+    private boolean ensureFileMenuOpen(final Robot robot, final Window host) throws Exception {
+        for (int attempt = 1; attempt <= MENU_OPEN_ATTEMPTS; attempt++) {
+            final Point fileMenu = onEdt(() -> fileMenuPoint(host));
+            if (fileMenu != null) {
+                clickAt(robot, fileMenu);
+            } else {
+                pressKey(robot, KeyEvent.VK_ALT);
+                robot.delay((int) MENU_OPEN_SETTLE_MILLIS);
+                pressKey(robot, KeyEvent.VK_ENTER);
+            }
+            if (awaitFileMenuPopup(robot, host)) return true;
+            if (fileMenu != null && attempt >= 2) {
+                onEdt(() -> {
+                    openFileMenuPopup(host);
+                    return null;
+                });
+                if (awaitFileMenuPopup(robot, host)) return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean awaitFileMenuPopup(final Robot robot, final Window host) throws Exception {
+        final long deadline = System.nanoTime() + MENU_OPEN_POLL_MILLIS * 1_000_000L;
+        while (System.nanoTime() < deadline) {
+            if (onEdt(() -> fileMenuPopupShowing(host))) return true;
+            robot.waitForIdle();
+            Thread.sleep(100L);
         }
         return false;
     }
@@ -696,17 +795,51 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         robot.waitForIdle();
         Thread.sleep(600L);
 
-        openFileMenu(robot, host);
-        final Point recent = awaitMenuPoint(robot, this::recentMenuPoint, SUBMENU_DEADLINE_MILLIS);
+        if (!ensureFileMenuOpen(robot, host)) {
+            openFileMenu(robot, host);
+        }
+        final Point recent;
+        try {
+            recent = awaitMenuPoint(robot, this::recentMenuPoint, SUBMENU_DEADLINE_MILLIS);
+        } catch (IllegalStateException missing) {
+            context.logger().info("Recent preview popup menu items: " + onEdt(this::menuItemDescriptors));
+            throw missing;
+        }
         moveTo(robot, recent);
-        final Point item = awaitMenuPoint(robot, this::fixtureItemPoint, ITEM_DEADLINE_MILLIS);
+        final JMenu recentMenu = onEdt(this::showingRecentMenu);
+        if (recentMenu != null && !awaitMenuPopup(robot, recentMenu)) {
+            // The host LAF may not expand a submenu on a bare pointer move;
+            // escalate to a real click, then to the menu model as a last
+            // resort so the item still receives a real hover afterwards.
+            clickAt(robot, recent);
+            if (!awaitMenuPopup(robot, recentMenu)) {
+                onEdt(() -> {
+                    recentMenu.setPopupMenuVisible(true);
+                    return null;
+                });
+            }
+        }
+        final Point item;
+        try {
+            item = awaitMenuPoint(robot, this::fixtureItemPoint, ITEM_DEADLINE_MILLIS);
+        } catch (IllegalStateException missing) {
+            context.logger().info("Recent preview popup menu items: " + onEdt(this::menuItemDescriptors));
+            throw missing;
+        }
         moveTo(robot, item);
+        context.logger()
+                .info("Recent preview popup selectedPath="
+                        + onEdt(WindowsRecentPreviewValidationProbe::selectedPathDepth));
 
         final long deadline = System.nanoTime() + POPUP_DEADLINE_MILLIS * 1_000_000L;
+        boolean selectedItem = false;
         while (System.nanoTime() < deadline) {
             if (Boolean.TRUE.equals(onEdt(WindowsRecentPreviewValidationProbe::popupThumbnailVisible))) {
                 popupThumbnail = true;
                 break;
+            }
+            if (!selectedItem && System.nanoTime() > deadline - (POPUP_DEADLINE_MILLIS - 5_000L) * 1_000_000L) {
+                selectedItem = selectFixtureItemForPreview();
             }
             Thread.sleep(POLL_MILLIS);
         }
@@ -796,11 +929,9 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                 return item;
             }
         }
-        if (root instanceof Container container) {
-            for (Component child : container.getComponents()) {
-                final JMenuItem found = findMenuItemFor(child, fixtureName);
-                if (found != null) return found;
-            }
+        for (Component child : menuChildren(root)) {
+            final JMenuItem found = findMenuItemFor(child, fixtureName);
+            if (found != null) return found;
         }
         return null;
     }
@@ -812,17 +943,79 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         return normalized.endsWith("/" + fixtureName) || normalized.endsWith("\\" + fixtureName);
     }
 
+    /** The showing File->Recent submenu component, or null. */
+    private JMenu showingRecentMenu() {
+        for (Window window : Window.getWindows()) {
+            final JMenu menu = findMenuByLabel(window, RECENT_LABELS);
+            if (menu != null && menu.isShowing()) {
+                return menu;
+            }
+        }
+        return null;
+    }
+
+    private boolean awaitMenuPopup(final Robot robot, final JMenu menu) throws Exception {
+        final long deadline = System.nanoTime() + MENU_OPEN_POLL_MILLIS * 1_000_000L;
+        while (System.nanoTime() < deadline) {
+            if (onEdt(menu::isPopupMenuVisible)) return true;
+            robot.waitForIdle();
+            Thread.sleep(100L);
+        }
+        return false;
+    }
+
     private static JMenu findMenuByLabel(final Component root, final Set<String> labels) {
         if (root instanceof JMenu menu && labels.contains(normalizeLabel(menu.getText()))) {
             return menu;
         }
-        if (root instanceof Container container) {
-            for (Component child : container.getComponents()) {
-                final JMenu found = findMenuByLabel(child, labels);
-                if (found != null) return found;
-            }
+        for (Component child : menuChildren(root)) {
+            final JMenu found = findMenuByLabel(child, labels);
+            if (found != null) return found;
         }
         return null;
+    }
+
+    private static int selectedPathDepth() {
+        final MenuElement[] path = MenuSelectionManager.defaultManager().getSelectedPath();
+        return path == null ? 0 : path.length;
+    }
+
+    /**
+     * Escalation for the case where the physical pointer hover produces no
+     * preview: drives the real menu-selection machinery — the selected path
+     * built from the item's invoker chain plus an armed model — which is the
+     * same state the bridge's rollover/selected ChangeListener observes.
+     * Returns whether a showing fixture item was found to select.
+     */
+    private boolean selectFixtureItemForPreview() {
+        try {
+            return Boolean.TRUE.equals(onEdt(() -> {
+                for (Window window : Window.getWindows()) {
+                    final JMenuItem item = findMenuItemFor(window, fixtureName);
+                    if (item == null || !item.isShowing()) continue;
+                    final List<MenuElement> path = new java.util.ArrayList<>();
+                    path.add(0, item);
+                    Component parent = item.getParent();
+                    while (parent != null) {
+                        if (parent instanceof MenuElement element) {
+                            path.add(0, element);
+                        }
+                        parent = parent instanceof javax.swing.JPopupMenu popup
+                                ? popup.getInvoker()
+                                : parent.getParent();
+                    }
+                    MenuSelectionManager.defaultManager().setSelectedPath(path.toArray(new MenuElement[0]));
+                    item.getModel().setArmed(true);
+                    return true;
+                }
+                return false;
+            }));
+        } catch (Exception failure) {
+            context.logger()
+                    .info("Recent preview popup selection escalation failed="
+                            + failure.getClass().getSimpleName());
+            return true;
+        }
     }
 
     private static boolean popupThumbnailVisible() {
@@ -1000,7 +1193,11 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     }
 
     static boolean matchesFixtureName(final String modelName) {
-        final String fixture = "fixture.cmo3";
+        return matchesFixtureName(modelName, "fixture.cmo3");
+    }
+
+    static boolean matchesFixtureName(final String modelName, final String fixtureName) {
+        final String fixture = fixtureName == null || fixtureName.isBlank() ? "fixture.cmo3" : fixtureName;
         if (modelName == null || modelName.isBlank()) return false;
         if (modelName.equals(fixture)) return true;
         final int dot = fixture.lastIndexOf('.');
