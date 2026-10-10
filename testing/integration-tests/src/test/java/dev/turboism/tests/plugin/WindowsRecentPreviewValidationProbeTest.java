@@ -141,9 +141,8 @@ class WindowsRecentPreviewValidationProbeTest {
     @Test
     void saveMenuItemMatchesCtrlSAcceleratorOrExactLabel() {
         final javax.swing.JMenuItem accelerated = new javax.swing.JMenuItem("任意");
-        accelerated.setAccelerator(
-                javax.swing.KeyStroke.getKeyStroke(
-                        java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        accelerated.setAccelerator(javax.swing.KeyStroke.getKeyStroke(
+                java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.CTRL_DOWN_MASK));
         assertTrue(WindowsRecentPreviewValidationProbe.isSaveMenuItem(accelerated));
 
         assertTrue(WindowsRecentPreviewValidationProbe.isSaveMenuItem(new javax.swing.JMenuItem("保存")));
@@ -154,15 +153,13 @@ class WindowsRecentPreviewValidationProbeTest {
         assertFalse(WindowsRecentPreviewValidationProbe.isSaveMenuItem(new javax.swing.JMenuItem("すべて保存")));
         assertFalse(WindowsRecentPreviewValidationProbe.isSaveMenuItem(new javax.swing.JMenu("保存")));
         final javax.swing.JMenuItem saveAsKey = new javax.swing.JMenuItem("另存为…");
-        saveAsKey.setAccelerator(
-                javax.swing.KeyStroke.getKeyStroke(
-                        java.awt.event.KeyEvent.VK_S,
-                        java.awt.event.InputEvent.CTRL_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
+        saveAsKey.setAccelerator(javax.swing.KeyStroke.getKeyStroke(
+                java.awt.event.KeyEvent.VK_S,
+                java.awt.event.InputEvent.CTRL_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
         assertFalse(WindowsRecentPreviewValidationProbe.isSaveMenuItem(saveAsKey));
         final javax.swing.JMenuItem altKey = new javax.swing.JMenuItem("任意");
-        altKey.setAccelerator(
-                javax.swing.KeyStroke.getKeyStroke(
-                        java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.ALT_DOWN_MASK));
+        altKey.setAccelerator(javax.swing.KeyStroke.getKeyStroke(
+                java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.ALT_DOWN_MASK));
         assertFalse(WindowsRecentPreviewValidationProbe.isSaveMenuItem(altKey));
     }
 

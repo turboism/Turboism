@@ -410,8 +410,9 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             parameter.setValue(parameter.getValue() + 0.001f);
             context.logger().info("Recent preview save dirtyWrite=ok");
         } catch (Exception failure) {
-            context.logger().info("Recent preview save dirtyWrite=failed reason="
-                    + failure.getClass().getSimpleName() + ":" + String.valueOf(failure.getMessage()));
+            context.logger()
+                    .info("Recent preview save dirtyWrite=failed reason="
+                            + failure.getClass().getSimpleName() + ":" + String.valueOf(failure.getMessage()));
         }
     }
 
@@ -477,8 +478,9 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                 robot.delay((int) MENU_OPEN_RETRY_GAP_MILLIS);
             }
         }
-        context.logger().info("Recent preview save menuOpened=" + menuOpened + " attempts=" + attempts
-                + " menuPoint=" + (clickedMenu ? "found" : "missing"));
+        context.logger()
+                .info("Recent preview save menuOpened=" + menuOpened + " attempts=" + attempts + " menuPoint="
+                        + (clickedMenu ? "found" : "missing"));
         if (!menuOpened) {
             pressCtrlSBackground();
             return saveMenuPath(false, true);
@@ -487,8 +489,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         try {
             savePoint = awaitMenuPoint(robot, this::saveMenuItemPoint, SUBMENU_DEADLINE_MILLIS);
         } catch (IllegalStateException unreachable) {
-            context.logger()
-                    .info("Recent preview save menu items: " + onEdt(this::menuItemDescriptors));
+            context.logger().info("Recent preview save menu items: " + onEdt(this::menuItemDescriptors));
             pressEscape(robot);
             pressCtrlSBackground();
             return saveMenuPath(false, true);
@@ -591,9 +592,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         if (accelerator != null
                 && accelerator.getKeyCode() == KeyEvent.VK_S
                 && (accelerator.getModifiers() & InputEvent.CTRL_DOWN_MASK) != 0
-                && (accelerator.getModifiers()
-                                & (InputEvent.SHIFT_DOWN_MASK | InputEvent.ALT_DOWN_MASK))
-                        == 0) {
+                && (accelerator.getModifiers() & (InputEvent.SHIFT_DOWN_MASK | InputEvent.ALT_DOWN_MASK)) == 0) {
             return true;
         }
         return SAVE_LABELS.contains(normalizeLabel(item.getText()));
