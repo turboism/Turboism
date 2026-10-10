@@ -575,35 +575,28 @@ class WindowsParameterValidationProbeTest {
         // The shared close helper is the reviewed statement: only 5302 requires the
         // Robot Alt+F4 route; any admitted version a probe's whitelist forgets becomes
         // an IllegalArgumentException instead of a close attempt on the real host.
-        for (final String version :
-                new String[] {
-                    "5000", "5001", "5002", "5003", "5004", "5005", "5006",
-                    "5100", "5101", "5102", "5103",
-                    "5200", "5201", "5202", "5203",
-                    "5300", "5301", "5302", "5303", "5304"
-                }) {
+        for (final String version : new String[] {
+            "5000", "5001", "5002", "5003", "5004", "5005", "5006", "5100", "5101", "5102", "5103", "5200", "5201",
+            "5202", "5203", "5300", "5301", "5302", "5303", "5304"
+        }) {
             assertEquals(
                     WindowsHistoryNativeUiHostClose.hostCloseRoute(version)
-                            == WindowsHistoryNativeUiHostClose.HostCloseRoute.ROBOT_ALT_F4
+                                    == WindowsHistoryNativeUiHostClose.HostCloseRoute.ROBOT_ALT_F4
                             ? WindowsParameterValidationProbe.HostCloseRoute.ROBOT_ALT_F4
                             : WindowsParameterValidationProbe.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
                     WindowsParameterValidationProbe.hostCloseRoute(version),
                     "route for " + version);
             assertEquals(
                     WindowsHistoryNativeUiHostClose.hostCloseRoute(version)
-                            == WindowsHistoryNativeUiHostClose.HostCloseRoute.ROBOT_ALT_F4
+                                    == WindowsHistoryNativeUiHostClose.HostCloseRoute.ROBOT_ALT_F4
                             ? WindowsRecentPreviewValidationProbe.HostCloseRoute.ROBOT_ALT_F4
                             : WindowsRecentPreviewValidationProbe.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
                     WindowsRecentPreviewValidationProbe.hostCloseRoute(version),
                     "recent-preview route for " + version);
         }
-        assertThrows(
-                IllegalArgumentException.class, () -> WindowsParameterValidationProbe.hostCloseRoute("5400"));
-        assertThrows(
-                IllegalArgumentException.class, () -> WindowsParameterValidationProbe.hostCloseRoute(null));
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> WindowsRecentPreviewValidationProbe.hostCloseRoute("5400"));
+        assertThrows(IllegalArgumentException.class, () -> WindowsParameterValidationProbe.hostCloseRoute("5400"));
+        assertThrows(IllegalArgumentException.class, () -> WindowsParameterValidationProbe.hostCloseRoute(null));
+        assertThrows(IllegalArgumentException.class, () -> WindowsRecentPreviewValidationProbe.hostCloseRoute("5400"));
     }
 
     @Test
