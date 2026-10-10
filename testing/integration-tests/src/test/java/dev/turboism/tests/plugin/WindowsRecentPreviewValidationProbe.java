@@ -436,11 +436,13 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         final Window host = onEdt(() -> selectHostWindow(Window.getWindows()));
         boolean menuOpened = false;
         int attempts = 0;
+        boolean clickedMenu = false;
         for (int attempt = 1; attempt <= MENU_OPEN_ATTEMPTS && !menuOpened; attempt++) {
             attempts++;
             final Point fileMenu = onEdt(() -> fileMenuPoint(host));
             if (fileMenu != null) {
                 clickAt(robot, fileMenu);
+                clickedMenu = true;
             } else {
                 pressKey(robot, KeyEvent.VK_ALT);
                 robot.delay((int) MENU_OPEN_SETTLE_MILLIS);
@@ -453,13 +455,30 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                 robot.waitForIdle();
                 Thread.sleep(100L);
             }
+            if (!menuOpened && fileMenu != null && attempt >= 2) {
+                // The host LAF toggles the popup closed on release; open it
+                // through the menu model so the save item can still receive a
+                // real click. Only after robot clicks demonstrably fail.
+                onEdt(() -> {
+                    openFileMenuPopup(host);
+                    return null;
+                });
+                final long programmaticDeadline = System.nanoTime() + MENU_OPEN_POLL_MILLIS * 1_000_000L;
+                while (System.nanoTime() < programmaticDeadline) {
+                    menuOpened = onEdt(() -> fileMenuPopupShowing(host));
+                    if (menuOpened) break;
+                    robot.waitForIdle();
+                    Thread.sleep(100L);
+                }
+            }
             if (!menuOpened) {
                 pressEscape(robot);
                 robot.waitForIdle();
                 robot.delay((int) MENU_OPEN_RETRY_GAP_MILLIS);
             }
         }
-        context.logger().info("Recent preview save menuOpened=" + menuOpened + " attempts=" + attempts);
+        context.logger().info("Recent preview save menuOpened=" + menuOpened + " attempts=" + attempts
+                + " menuPoint=" + (clickedMenu ? "found" : "missing"));
         if (!menuOpened) {
             pressCtrlSBackground();
             return saveMenuPath(false, true);
@@ -500,6 +519,25 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             }
         }
         return null;
+    }
+
+    /**
+     * Opens the File menu's popup through the menu model. Used when real
+     * clicks fail to leave the popup posted — under the host LAF a release on
+     * the menu title can toggle the popup back closed. The save item itself
+     * is still activated by a real mouse click afterwards.
+     */
+    private static boolean openFileMenuPopup(final Window host) {
+        final JMenuBar bar = findComponent(host, JMenuBar.class);
+        if (bar == null) return false;
+        for (int index = 0; index < bar.getMenuCount(); index++) {
+            final JMenu menu = bar.getMenu(index);
+            if (menu != null && FILE_LABELS.contains(normalizeLabel(menu.getText()))) {
+                menu.setPopupMenuVisible(true);
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The File menu's popup is showing — the menu is genuinely open. */
