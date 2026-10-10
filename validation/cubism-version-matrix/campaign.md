@@ -225,3 +225,15 @@ L0/L1 prepare期静态门禁与字节码等价簇接入调度器（scripts/previ
 8. **残余 INFRA**：update-check:5200@safe-assisted 两轮均 `infra-edt-dispatch`（EDT 1000ms 未接受工作区布局操作），按规则不再重试；记录为已知瞬态。
 
 待 PRO 试用辅助合入后需重跑项：所有 CAPABILITY_BOUNDARY 保存/导出受限项（mcp 5100/5300/5304、recent-preview 5203）、以及因 FREE 弹窗路径相关的加载中断项可按新行为复测；同时重建 `validation/shared/build-startup-assistance.sh` 并刷新依赖它的 bundle。
+
+## stall-r1 停滞归因与修复确认轮（2026-10-10，adapt-53-open-stall）
+
+针对 rep-r1 失败根因分组第 2、3 项实机复核。
+
+**根因 #2（启动期 Java 未出现，NO_EVIDENCE×7）实为 runner 门禁缺陷，非宿主问题**：`run-cubism-host-validation.sh` 的 deferred-GL-check 门禁在 launch 后单次读取 runtime log；无 `--ready-marker` 的任务（atlas、core-acquisition、protected-export 等）在 ~50ms 内即被判 `deferredCheck=unknown` 而 fail，此时 protonfixes 尚未完成、java.exe 从未获得启动机会（launcher.out 仍只有 shorin wrapper 的 protonfixes 输出；java-process.ready.properties javaProcessCount=0 是截断瞬间的采样而非真实"Java 未出现"）。修复：门禁在 readiness 预算内轮询 marker，全部声明 ready-marker 已满足（bootstrap 行不可能再出现）或 wrapper 已死（host-exited）时提前结束；判定语义不变。同时 `collect_evidence` 新增 `collect_launch_diagnostics`：固定输出 launch-diagnostics.properties（wrapperExit/launcherOutBytes/runtimeLogPresent/deferredCheck/protonWrapperLog）并复制 launch.bat/launch.sh 与 Proton wrapper 自身日志。triage 新增 evidenceProperty 从句，`deferredCheck=unknown|host-exited`→INFRA_RETRYABLE、`inactive`→ADMISSION_STATIC，该 7 格不再落 NO_EVIDENCE。
+
+**根因 #2（5.3.x 文档打开停滞）确认为"无人应答的启动弹窗"，已修复并实机验证**：rep-r1 的 `session-standard:5300/5304@standard` 与 standalone 未辅助变体（animation-timeline/selection-lag/workspace/update-check@非assisted）共同的结构性差异是会话/启动全程没有任何 audited prompt responder——会话步探针明确将自己的 responder 关断（mcp-host-probe 注释"session 由 coordinator 独掌"），而 coordinator 的辅助线程又门控于 `session.startFree=true`，`standard` 变体不传该属性。5.3.x 启动链 Start→FREE 参数上限模态框在无人点击 OK 时持有命令行打开请求，activeDocument 永不成立（600s 全步 NOT_RUN）。修复：SessionCoordinatorPlugin 默认运行审计 responder（显式 `-D...startFree=false` 可关）、循环记录 `SESSION_DIALOG_OBSERVATION`、启动超时中止时落 `SESSION_STARTUP_DIALOGS` 证据。
+
+**stall-r1 实机结果**：`session-standard:5304@standard`（job 3a62ee23，runId queue-738cb750…，证据 ~/TurboismValidation/session-standard/5304-stall-r1/）：`SESSION_DIALOG_OBSERVATION` 证实 Start 模态框与 `FREE version - The max number of Parameters allowed per object: 2` 参数上限模态框真实出现并被应答（`SESSION_START_FREE_SELECTED`→`SESSION_FREE_WELCOME_CONFIRMED`→`SESSION_FREE_PARAMETER_LIMIT_ACKNOWLEDGED`），`SESSION_HOST_READY` 于 ~5s 达成（rep-r1 同 spec 为 600s 超时）；5 步中 4 步 PASS（texture-relations/clipmask-viewer/separate-save-path/core-owned-moc），仅 psd-export-observation FAIL——与 rep-r1 fix 轮 `standard-assisted` 已知 5.3.04 边界一致。新增证据文件全部落盘（launch-diagnostics.properties、launch.bat、launch.sh、proton-wrapper.log）。
+
+**本轮工具链事件（与本改动无关，记录为已知缺口）**：后续两 job（session-standard:5300、animation-timeline:5304@assisted）的 supervisor 在运行中同时崩溃于 sqlite `locking protocol`（supervisor-error.json），无 outcome → `durable_outcome` 判 "no durable final supervisor verdict" → 队列 quarantine（NATIVE-PERFORMANCE-EXPERIMENTS.md 已载此形态无自愈路径）；按规程未做 recover/abandon，5300 同型修复以 5304 证据类推，待队列恢复后可补跑。`scripts/test/test_cubism_host_validation_interactive.py` 在干净基线同样 9 项失败（runner 无 `--interactive`，测试-特性错配），与本次改动无关。
