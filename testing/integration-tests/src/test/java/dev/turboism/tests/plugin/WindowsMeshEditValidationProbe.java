@@ -888,8 +888,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                                     new Point((int) actual.getCenterX(), Math.max(1, actual.y - 15)));
                         } catch (IllegalStateException compositorFailure) {
                             lastRejection = compositorFailure.getMessage();
-                            context.logger()
-                                    .info("Robot compositor coordinate candidate rejected: " + lastRejection);
+                            context.logger().info("Robot compositor coordinate candidate rejected: " + lastRejection);
                         }
                     }
                 }
@@ -903,10 +902,8 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     private record RobotCoordinateCandidates(Point nativeOrigin, Rectangle nativeBounds, Point compositorOrigin) {}
 
     private Point calibrateRobotWithMoves(
-            final JComponent component,
-            final Point estimate,
-            final Rectangle actualWindow,
-            final Point activationPoint) throws Exception {
+            final JComponent component, final Point estimate, final Rectangle actualWindow, final Point activationPoint)
+            throws Exception {
         final var size = onEdt(component::getSize);
         if (size.width < 12 || size.height < 12) throw new IllegalStateException("Robot target component is too small");
         final var robot = new java.awt.Robot();
