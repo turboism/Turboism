@@ -171,3 +171,57 @@ L0/L1 prepare期静态门禁与字节码等价簇接入调度器（scripts/previ
 勘误（许可归因修正）：cov-r1 ③ FAIL_LICENSE 分层与 L0 许可门禁表均建立在错误的许可模型上。复核 console 证据后确认：①所有安装均为 FREE-start——startup assistance agent 在许可对话框出现时一律选择 "Start as FREE version"（含 PBT 全过的 5201/5304 run）；②FREE "每对象2参数上限"对话框是确认后模型仍继续加载的便利性限制提示，不是加载拒绝；③cov-r1 中 5100/5200/5300 PBT 与 5300/5301 时间线的实际失败原因是 `Runtime-owned shell failed to start`（turboism 运行时基础设施边界，可重试），非许可取消；④backup 5100-5103/5200-5202 实机 FAIL 中 5.1.x 的真实原因是 "dirty via Parameter.setValue failed: IllegalStateException"——即 editor-model.write 准入墙（与静态门禁一致，backup 已加入该能力门），5202 另含 `Cubism host admission failed before plugin loading` 基础设施失败。许可门禁已降级为非阻塞（INSTALL_LICENSE_TIER 清空、拒绝路径保留备用），被误跳/误取消的 14 项 spec 已以 cov3-relicense 重投，infra 失败的 PBT 5200/5300、timeline 5300/5301、clipmask-viewer 5304 以 cov3-retry 重投。
 
 离线准入预检落地（adapt-admission-preflight 分支）：实机 `Cubism host admission failed before plugin loading`（7ade4e071 修复的 ui.mesh-toolbar.contribute 记录缺口）本可由记录 JSON + 生成 manifest 确定性算出。新增 `VerificationManifestAdmissionPreflightTest`（runtime 测试源集）：对全部 190 份 pinned 记录 × 12 个生成 *VerificationManifest 复用生产链路——`PinnedVerifiedResolverWorkflow` 新抽出的 `requireReviewedRecord`（schema + 记录字节 sha pin + 字段全等，含 capabilityIds）、`forArtifact` 产物绑定与 `VerifiedAccessPlan` 的 authorizes/authorizesFeatureSet 别名能力覆盖判定；双向覆盖断言：manifest pin 必须有对应记录文件、记录必须被某 manifest 认领或登记为不走该路径（core-model-read / performance-render-scene）。失败报告形如 `版本 × manifest × 失配字段`。换入 7ade4e071^ 的 cubism-5.2.01-ui-main-toolbar.json 实测报 `5.2.01 x MainToolbarVerificationManifest: verification record fields do not match the reviewed manifest [fields: capabilityIds (missing [ui.mesh-toolbar.contribute])]`，与历史异常一致。入口：`./gradlew :runtime:admissionPreflightTest`（亦接入 devCheck 与常规 :runtime:test）。后续任何实机 host-validation 任务提交前必须先跑该预检，不再需要靠实机发现此类确定性失配。
+
+## rep-r1 代表版本实机确认轮（2026-10-10，mundane-stingray 集成快照）
+
+按"能力族 × 版本代际代表"而非全量矩阵执行：每代取两个代表（5.0.x→5000/5006、5.1.x→5100/5103、5.2.x→5200/5203、5.3.x→5300/5304），perf 族仅 5203/5304，六个只读步骤族（texture-relations、psd-export-observation、status-bar、clipmask-viewer、separate-save-path、core-owned-moc）并入 session-standard 每代表版本一次。计划 117 个 spec，其中 13 个在 prepare/submit 门禁被静态拒绝（backup/parameter/parameter-batch-transfer 在 5.0/5.1 缺 cubism.editor-model.write 的 VERIFIED_STATIC 证据 → SKIP_STATIC admission；edit-protocol 三个版本 admission 白名单不含 @standard 变体形式），104 个 job 实际入队。去重依据为 2026-10-09 18:00（本地）后队列内同代码 PASS（startup-suppression 5000/5103、workspace 5300、session-standard 5203）。rep-r2 对 7 个 INFRA_RETRYABLE 各重投一次，6 个转 PASS，update-check:5200@safe-assisted 仍 FAIL（infra-edt-dispatch）。
+
+终态：63 PASS / 48 FAIL（含 rep-r2 修正后），全部 cleanup=safe、无 quarantine、无 recover confirm。
+
+### 任务 × 代际结果矩阵（P=PASS，B=许可/能力边界，F=失败，-=未覆盖）
+
+| 任务 | 5.0.x | 5.1.x | 5.2.x | 5.3.x |
+|---|---|---|---|---|
+| mcp | F(新版夹具加载中断) | F(5100 保存边界,5103 加载中断) | F(5200 加载中断,5203 夹具无Glue) | B(保存受限,两版) |
+| atlas | - | - | F(启动无Java) | - |
+| backup | -(门禁跳过) | -(门禁跳过) | P(5200备份功能失败为边界,5203 P) | P(r2后两版) |
+| boundingbox-warp-mirror | - | - | F(5203无Warp接受LEFT_TO_RIGHT) | - |
+| clipmask-viewer | P(会话) | P(会话) | P(会话) | F(会话文档未就绪) |
+| core-acquisition | F(加载中断) | P | F(5203启动无Java) | F(启动无Java) |
+| core-owned-moc | P(会话) | P(会话) | P(会话) | F(会话文档未就绪) |
+| edit | - | - | P(5203) | P(5304;5300文档中途NPE) |
+| edit-protocol | - | - | -(admission门禁) | -(admission门禁) |
+| fps | - | - | P(5203) | P(5304 r2) |
+| host-locale | P | P | P | P |
+| incremental-update | - | - | P(5203) | - |
+| model-update-skip | - | - | P(5203) | - |
+| parameter | -(门禁跳过) | -(门禁跳过) | P(5203,5200探针版本白名单F) | F(探针版本白名单) |
+| parameter-batch-transfer | -(门禁跳过) | -(门禁跳过) | P(r2 5200,5203) | P |
+| protected-export | - | F(加载中断/文档未就绪) | F(5200文档未就绪,5203启动无Java) | F(启动无Java) |
+| psd-clip-mask | P | P | P | P |
+| psd-export-observation | - | - | - | F(会话文档未就绪) |
+| recent-preview | - | - | F(5203保存阶段受限) | - |
+| selection-brush | - | - | F(5203 Robot校准未送达) | - |
+| selection-lag | - | - | P(5203) | F(5304模型未激活) |
+| separate-save-path | P(会话) | P(会话) | P(会话) | F(会话文档未就绪) |
+| session-standard | P | P | P | F(5300/5304文档未就绪) |
+| startup-suppression | P | P | P | P |
+| status-bar | -(会话仅5203覆盖) | - | P(会话5203) | - |
+| texture-relations | P(会话) | P(会话) | P(会话) | F(会话文档未就绪) |
+| theme | P | P | P | P |
+| update-check | P(safe) | P(5103;5100加载中断) | P(5203;5200 edt-dispatch F) | F(就绪条件未达) |
+| warp-deformer-alt-symmetry | - | - | P(5203) | - |
+| workspace | F(布局provider缺) | P(5100 r2,5103) | P(5203;5200就绪超时) | F(5304就绪超时;5300去重) |
+
+### 失败根因分组与建议修复点（不改代码，仅记录）
+
+1. **共享夹具为 5.2.03 文档，低于该版的宿主走"较新文件"确认弹窗路径且加载常被中断**（File load interrupted / MODEL_DOCUMENT_NOT_READY）：mcp 5000/5006/5103/5200、core-acquisition 5000/5006、protected-export 5100/5103/5200、update-check 5100。同版本他任务有 PASS，确认为竞态而非硬边界。建议：按代际配备匹配文档版本的夹具（TURBOISM_HOST_VALIDATION_FIXTURE_<ver> 覆盖），或审查 `dev.turboism.validation.NativeFreeStartup.select()`/`NativeStartupAssistanceAgent.assist()` 在 Progress modal 竞态下的 Load 点击时序。
+2. **文档打开停滞（无任何弹窗记录、模型 240s 内未激活）**：session-standard 5300/5304（"host never reached a usable document"，六个步骤族 5.3.x 全部 NOT_RUN）、animation-timeline 5300/5304、selection-lag 5304、workspace 5200/5304、update-check 5300/5304（readiness 需活动模型）。建议查 `run-cubism-host-validation.sh` 文档打开投递路径在 5.3.x 上的可靠性及就绪超时。
+3. **启动期 Java 未出现（javaProcessCount=0、无 console）**：atlas 5203、core-acquisition 5203/5300/5304、protected-export 5203/5300/5304。Proton cmd 已拉起但 java.exe 未被观察到，证据缺 turboism.log/cubism-console。建议 runner 在 Java 未出现时仍收集 launch.bat/Proton 输出；倾向 infra 瞬态，可择期重跑。
+4. **PROBE_DRIFT**：`WindowsParameterValidationProbe.hostCloseRoute`（testing/integration-tests/.../WindowsParameterValidationProbe.java:946）版本白名单仅 {5203,5302,5303}，parameter matrix 在 5200/5300/5304 必抛 IllegalArgumentException —— 按代际补路由或限制任务版本集合；boundingbox-warp-mirror:5203 全部 Warp "BLOCKED UNAVAILABLE" 无 LEFT_TO_RIGHT 接受者（夹具/探针漂移，查 probe scan 准入条件与夹具 Warp 拓扑）；selection-brush:5203 "Robot calibration move was not delivered to the task view"（Xvfb 输入投递/焦点路径）。
+5. **CAPABILITY_BOUNDARY（预期）**：mcp 5100/5300/5304 与 recent-preview 5203 保存被原生拒绝——FREE 安装边界；待 PRO 试用辅助代理合入后重跑。mcp:5203 "fixture contains no Glue relation"——共享夹具无 Glue，应换用带 Glue 的夹具（campaign 已知 2980dc8c）。backup:5200 backupNow IllegalStateException——5.2.00 原生备份能力边界。workspace 5000/5006 `workspace.layout.provider.unavailable`——5.0.x 无布局 provider，能力缺席。
+6. **ADMISSION_STATIC（门禁，未绕过）**：backup/parameter/parameter-batch-transfer 在 5.0.x/5.1.x 缺 `cubism.editor-model.write` 的 VERIFIED_STATIC 证据（prepare 期 SKIP_STATIC，共 10 spec）；edit-protocol 三版本 admission 白名单缺 `"edit-protocol:<ver>@standard"` 形式（`host_validation_queue.py` `edit_protocol_client_dependency` 与 mcp 白名单对比缺变体项）；update-check 默认 `current` 变体要求 bundle==0.43.11，本快照为 0.44.0-SNAPSHOT，改以 `@safe` 变体代表。
+7. **edit:5300**：会话中途 document 变 null（S4/S6 多处 NullPointerException，history UNAVAILABLE），5203/5304 PASS——疑似文档生命周期不稳，建议核对 edit 会话在 5.3.00 的 document 保持路径。
+8. **残余 INFRA**：update-check:5200@safe-assisted 两轮均 `infra-edt-dispatch`（EDT 1000ms 未接受工作区布局操作），按规则不再重试；记录为已知瞬态。
+
+待 PRO 试用辅助合入后需重跑项：所有 CAPABILITY_BOUNDARY 保存/导出受限项（mcp 5100/5300/5304、recent-preview 5203）、以及因 FREE 弹窗路径相关的加载中断项可按新行为复测；同时重建 `validation/shared/build-startup-assistance.sh` 并刷新依赖它的 bundle。
