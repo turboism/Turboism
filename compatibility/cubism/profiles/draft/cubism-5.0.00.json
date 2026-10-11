@@ -9,13 +9,14 @@
     "cubism-5.0.00-clipmask",
     "cubism-5.0.00-editor-model-read",
     "cubism-5.0.00-ui-main-toolbar",
+    "cubism-5.0.00-ui-embedded-panel",
     "cubism-5.0.00-ui-bounding-box-overlay",
     "cubism-5.0.00-ui-control-appearance",
     "cubism-5.0.00-workspace-control",
     "cubism-5.0.00-ui-status-bar",
     "cubism-5.0.00-performance-render-scene",
-    "cubism-5.0.00-core-model-read",
-    "cubism-5.0.00-startup-suppression"
+    "cubism-5.0.00-startup-suppression",
+    "cubism-5.0.00-core-model-read"
   ],
   "status": "DRAFT",
   "source": "legacy-inventory",

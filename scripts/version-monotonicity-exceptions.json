@@ -1,926 +1,723 @@
 {
-  "format": "turboism.version-monotonicity-exceptions/v1",
-  "comment": "Sanctioned upward-closure violations. Each entry suppresses exactly the listed missing items at the named site; when the repair lands the entry goes stale and fails the gate until removed. 'pending' names the worktree branch that owns the fix; 'evidence' documents why the set is deliberately not upward-closed.",
-  "exceptions": [
-    {
-      "kind": "verification-record",
-      "path": "compatibility/cubism/verification",
-      "site": "editor-model 5.3.01>5.3.02 aliases",
-      "missing": [
-        "cubism.editor-model.morph-target-set.create-undo",
-        "cubism.editor-model.morph-target-set.remove",
-        "cubism.editor-model.morph-target.set-parameter",
-        "cubism.editor-model.morph-target.set-parameter-and-key-value",
-        "cubism.editor-model.parameter-controllable-source.internal-set-parent",
-        "cubism.editor-model.parameter-group.guid",
-        "cubism.editor-model.part-source.remove-child",
-        "cubism.editor-model.part.id"
-      ],
-      "reason": "The 5.3.02 editor-model record drops the same eight morph-target/part selectors the 5.3.01 record carried.",
-      "evidence": "Deliberate exact-use truncation: records admit only the selectors the runtime slice actually consumes, and the >=5.3.02 editor-model generation does not consume these eight aliases. Backfilling them would assert unverified internal member names, so the regression is recorded as an explicit exception rather than papered over."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/ui/workspace/WorkspaceControlAdmission.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The three CUBISM_VERSION_* constants look like an admission set but are only slice-id dispatch keys.",
-      "evidence": "authorizes(resolver) admits every ReviewedHostArtifacts.reviewedCubismVersions() entry; the constants merely pick adapter-slice ids, so no reviewed version is refused."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/core/CorePublicApiProviderFactory.java",
-      "site": "5.2.03,5.3.02",
-      "missing": [
-        "5.3.03",
-        "5.3.04"
-      ],
-      "reason": "artifactProfile's case arms look like a version set.",
-      "evidence": "The switch is an identity mapping: 'default -> reviewedVersion' passes every admitted version through unchanged; the two case arms exist only as the single place a profile-id divergence would live."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorTextureReplacementDiagnostic.java",
-      "site": "5.3.02",
-      "missing": [
-        "5.3.03",
-        "5.3.04"
-      ],
-      "reason": "SUPPORTED_VERSION pins a single version.",
-      "evidence": "Property-gated validation diagnostic (turboism.validation.editorTextureReplaceDiagnostic) that was authored and reviewed against the exact 5.3.02 host; it is a diagnostic tool, not a capability admission set."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/mapping/verification/VerifiedEditorModelResolverFactory.java",
-      "site": "5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "A single-version CUBISM_5_3_03.equals(artifact) guard looks like admission.",
-      "evidence": "The guard only selects the optional 5.3.03 validation-candidate runtime scope (admits5303ValidationCandidate); every reviewed artifact still gets a resolver with a null extra scope."
-    },
-    {
-      "kind": "java-file",
-      "path": "bootstrap/src/main/java/dev/turboism/bootstrap/PerformanceFpsHookInstaller.java",
-      "site": "5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "fpsTargetsForVersion names 5.3.02/5.3.03 before its fallback.",
-      "evidence": "The final branch admits every ReviewedHostArtifacts.reviewedCubismVersions() entry and returns the generic cubism5203() targets; the two named arms are fast paths, not an admission set."
-    },
-    {
-      "kind": "java-file",
-      "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/FileChooserHistoryVerificationManifest.java",
-      "site": "5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The manifest names one exact version.",
-      "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane (admits5303ValidationCandidate); the lane runs one version by design."
-    },
-    {
-      "kind": "java-file",
-      "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/NativeControlAppearancePersistenceVerificationManifest.java",
-      "site": "5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The manifest names one exact version.",
-      "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane; the lane runs one version by design."
-    },
-    {
-      "kind": "java-file",
-      "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ParameterLifecycleVerificationManifest.java",
-      "site": "5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The manifest names one exact version.",
-      "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane; the lane runs one version by design."
-    },
-    {
-      "kind": "java-file",
-      "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/PerformanceFpsVerificationManifest.java",
-      "site": "5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The manifest names one exact version.",
-      "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane; the lane runs one version by design."
-    },
-    {
-      "kind": "java-file",
-      "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ProjectLifecycleVerificationManifest.java",
-      "site": "5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The manifest names one exact version.",
-      "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane; the lane runs one version by design."
-    },
-    {
-      "kind": "java-file",
-      "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/TextureAtlasVerificationManifest.java",
-      "site": "5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The manifest names one exact version.",
-      "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane; the lane runs one version by design."
-    },
-    {
-      "kind": "java-file",
-      "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorModelInstanceReadSelectorContract.java",
-      "site": "5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The contract names one exact record version constant.",
-      "evidence": "CUBISM_5_3_03_VERSION is a dispatch constant referencing the 5.3.03 record whose onion-skin shape the contract special-cases; version admission flows through the record itself, not this constant."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/PopupMeshUndoContract.java",
-      "site": "5.3.02",
-      "missing": [
-        "5.3.03",
-        "5.3.04"
-      ],
-      "reason": "The popup mesh undo contract binds obfuscated actionManager members recovered from the exact 5.3.02 artifact and is gated by that artifact's digest.",
-      "pending": "model-import-3d-version-adaptation: recover the corresponding obfuscated member names on the exact 5.3.03 and 5.3.04 artifacts, then extend ADMITTED or record bytecode evidence that the host lacks the popup mesh undo surface."
-    },
-    {
-      "kind": "java-set",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/shader/ShaderUniformTransformer.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "REVIEWED_CLASSES pins exact GShader class digests per host artifact; the 5.3.04 GShader bytes were not reviewed when model-import-3d landed.",
-      "pending": "model-import-3d-version-adaptation: digest the 5.3.04 GShader class and admit it under the matching REVIEWED_CLASSES entry (or record a new digest row if Live2D changed the bytes)."
-    },
-    {
-      "kind": "java-set",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/shader/ShaderUniformTransformer.java",
-      "site": "5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The shared CLASS_SHA256 digest row admits only the artifacts the shader uniform review actually hashed.",
-      "pending": "model-import-3d-version-adaptation: same as the sibling row \u2014 admit 5.3.04 once its GShader bytes are hashed and confirmed identical or pinned separately."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/VerifiedTextureAtlasLayoutProviderEngine.java",
-      "site": "5.3.02",
-      "missing": [
-        "5.3.03",
-        "5.3.04"
-      ],
-      "reason": "The 5.3.02-only branches (directBinding fallback and reinit-input route) encode a host quirk verified on the exact 5.3.02 artifact; whether 5.3.03+ shares the quirk was not reviewed.",
-      "pending": "model-import-3d-version-adaptation: on exact 5.3.03 and 5.3.04 artifacts confirm whether atlas authoring before the editor window opens needs the same directBinding/reinit-input route; widen the dispatch or record per-version evidence."
-    },
-    {
-      "kind": "verification-record",
-      "path": "compatibility/cubism/verification",
-      "site": "editor-model 5.3.03>5.3.04 capabilityIds",
-      "missing": [
-        "cubism.editor-model.art-mesh.evaluated-read",
-        "cubism.editor-model.art-mesh.morph-authoring",
-        "cubism.editor-model.art-mesh.parameter-interpolation.write",
-        "cubism.editor-model.moc-export.read",
-        "cubism.editor-model.render.read",
-        "cubism.editor-model.source-triangulation.read",
-        "cubism.editor-model.texture.register-bind"
-      ],
-      "reason": "The merged 5.3.03 editor-model record carries capabilityIds/aliases contributed by the model-import-3d work, verified on the exact 5.2.03/5.3.02/5.3.03 artifacts; the independently reviewed 5.3.04 record does not yet carry them.",
-      "pending": "model-import-3d-version-adaptation: propagate the new selectors and capabilities to the 5.3.04 record after exact-artifact review, or record bytecode evidence that the members are absent on 5.3.04."
-    },
-    {
-      "kind": "verification-record",
-      "path": "compatibility/cubism/verification",
-      "site": "editor-model 5.3.03>5.3.04 aliases",
-      "missing": [
-        "cubism.editor-model.art-mesh-source.set-texture",
-        "cubism.editor-model.art-mesh-source.set-texture-state",
-        "cubism.editor-model.art-mesh-source.texture-state",
-        "cubism.editor-model.art-mesh.calculated-form",
-        "cubism.editor-model.art-mesh.interpolated-form",
-        "cubism.editor-model.cached-image-param.companion",
-        "cubism.editor-model.cached-image-param.default",
-        "cubism.editor-model.cached-image.texture",
-        "cubism.editor-model.caffine.create",
-        "cubism.editor-model.const-value-connector.create",
-        "cubism.editor-model.coord-type.label",
-        "cubism.editor-model.drawable-form.coord-type",
-        "cubism.editor-model.editable-mesh-extension.class",
-        "cubism.editor-model.editable-mesh-extension.create",
-        "cubism.editor-model.editable-mesh-extension.locked",
-        "cubism.editor-model.editable-mesh-extension.mesh",
-        "cubism.editor-model.editable-mesh-extension.owner",
-        "cubism.editor-model.editable-mesh.create",
-        "cubism.editor-model.editable-mesh.gl-indices-default",
-        "cubism.editor-model.editable-mesh.init-by-indices",
-        "cubism.editor-model.empty-filter.create",
-        "cubism.editor-model.extended-interpolation.class",
-        "cubism.editor-model.extended-interpolation.create",
-        "cubism.editor-model.extended-interpolation.enabled",
-        "cubism.editor-model.extended-interpolation.forms",
-        "cubism.editor-model.extended-interpolation.grid",
-        "cubism.editor-model.extended-interpolation.owner",
-        "cubism.editor-model.extended-interpolation.setup-forms",
-        "cubism.editor-model.extended-interpolation.update-forms",
-        "cubism.editor-model.extended-type.ellipse",
-        "cubism.editor-model.extended-type.linear",
-        "cubism.editor-model.extended-type.sns-curve",
-        "cubism.editor-model.filter-instance.set-input",
-        "cubism.editor-model.filter-set.add-filter",
-        "cubism.editor-model.filter-set.connect-env-output",
-        "cubism.editor-model.filter-set.verify",
-        "cubism.editor-model.filter-value.create",
-        "cubism.editor-model.filter-value.id",
-        "cubism.editor-model.form.name",
-        "cubism.editor-model.form.notes",
-        "cubism.editor-model.group-undo.create",
-        "cubism.editor-model.image-color-type.int-argb",
-        "cubism.editor-model.image-resource.byte-data-bytes",
-        "cubism.editor-model.image-resource.create",
-        "cubism.editor-model.image-resource.height",
-        "cubism.editor-model.image-resource.image",
-        "cubism.editor-model.image-resource.loaded-bytes",
-        "cubism.editor-model.image-resource.loaded-count",
-        "cubism.editor-model.image-resource.width",
-        "cubism.editor-model.keyform-binding.extended-scale",
-        "cubism.editor-model.keyform-binding.extended-type",
-        "cubism.editor-model.keyform-binding.illegal-extended",
-        "cubism.editor-model.keyform-binding.insert-count",
-        "cubism.editor-model.keyform-binding.legacy-type",
-        "cubism.editor-model.keyform-binding.set-extended-scale",
-        "cubism.editor-model.keyform-binding.set-extended-type",
-        "cubism.editor-model.keyform-binding.set-insert-count",
-        "cubism.editor-model.keyform-grid-row.guid",
-        "cubism.editor-model.keyform-grid.rows",
-        "cubism.editor-model.layered-image-wrapper.create",
-        "cubism.editor-model.layered-image.create",
-        "cubism.editor-model.list-undo.create",
-        "cubism.editor-model.model-image-filter-env.companion",
-        "cubism.editor-model.model-image-filter-env.output-image",
-        "cubism.editor-model.model-image-filter-env.output-transform",
-        "cubism.editor-model.model-image-filter-env.set-current-image-guid",
-        "cubism.editor-model.model-image-group.add-linked-layered-image",
-        "cubism.editor-model.model-image-guid.create",
-        "cubism.editor-model.model-image.create",
-        "cubism.editor-model.model-image.input-filter",
-        "cubism.editor-model.model-source.get-rendered-image",
-        "cubism.editor-model.model.last-updated-parameter-set",
-        "cubism.editor-model.model.last-updated-time",
-        "cubism.editor-model.modeling-document.selector",
-        "cubism.editor-model.morph-authoring-utils.create-key",
-        "cubism.editor-model.morph-authoring-utils.instance",
-        "cubism.editor-model.morph-constraints.entries",
-        "cubism.editor-model.morph-target-set.can-add-key",
-        "cubism.editor-model.morph-target-set.constraints",
-        "cubism.editor-model.morph-target-set.owner",
-        "cubism.editor-model.morph-target.owner",
-        "cubism.editor-model.native-list.immutable",
-        "cubism.editor-model.official-export.export",
-        "cubism.editor-model.official-export.exporter-create",
-        "cubism.editor-model.official-export.exporter-settings",
-        "cubism.editor-model.official-export.format-530",
-        "cubism.editor-model.official-export.moc-bytes",
-        "cubism.editor-model.official-export.set-extend-edge",
-        "cubism.editor-model.official-export.set-format",
-        "cubism.editor-model.official-export.set-invisible-alias",
-        "cubism.editor-model.official-export.set-invisible-mesh",
-        "cubism.editor-model.official-export.set-invisible-part",
-        "cubism.editor-model.official-export.set-origin-x",
-        "cubism.editor-model.official-export.set-origin-y",
-        "cubism.editor-model.official-export.set-pixels-per-unit",
-        "cubism.editor-model.official-export.set-sketch-part",
-        "cubism.editor-model.official-export.settings-create",
-        "cubism.editor-model.official-export.texture-images",
-        "cubism.editor-model.parameter-controllable-source.add-extension",
-        "cubism.editor-model.parameter-controllable-source.extended-morph-set",
-        "cubism.editor-model.parameter-set.update-version",
-        "cubism.editor-model.parameter-source.snap-epsilon",
-        "cubism.editor-model.selector.replace-selected",
-        "cubism.editor-model.selector.selected",
-        "cubism.editor-model.texture-atlas-guid",
-        "cubism.editor-model.texture-input-extension.add-input",
-        "cubism.editor-model.texture-input-extension.create",
-        "cubism.editor-model.texture-input-extension.current-input",
-        "cubism.editor-model.texture-input-extension.inputs",
-        "cubism.editor-model.texture-input-extension.set-current-input",
-        "cubism.editor-model.texture-input-model-image.cached-image",
-        "cubism.editor-model.texture-input-model-image.create",
-        "cubism.editor-model.texture-state.model-image",
-        "cubism.editor-model.undo-add-remove-extension.create",
-        "cubism.editor-model.undo-add-remove-model-image-group.create",
-        "cubism.editor-model.undo-add-remove-model-image.create",
-        "cubism.editor-model.undo-add-remove-raw-image-wrapper.create",
-        "cubism.editor-model.undo.execute-undo",
-        "cubism.editor-model.uu-undo.instance",
-        "cubism.editor-model.uu-undo.local-simple-create",
-        "cubism.editor-model.verify-collector.create",
-        "cubism.editor-model.writable-image.class",
-        "cubism.editor-model.writable-image.flush",
-        "cubism.editor-model.writable-image.j-buffered-image",
-        "cubism.texture-atlas.texture-manager.reinit-input"
-      ],
-      "reason": "The merged 5.3.03 editor-model record carries capabilityIds/aliases contributed by the model-import-3d work, verified on the exact 5.2.03/5.3.02/5.3.03 artifacts; the independently reviewed 5.3.04 record does not yet carry them.",
-      "pending": "model-import-3d-version-adaptation: propagate the new selectors and capabilities to the 5.3.04 record after exact-artifact review, or record bytecode evidence that the members are absent on 5.3.04."
-    },
-    {
-      "kind": "host-validation-task",
-      "path": "scripts/preview/host-validation-tasks.json",
-      "site": "acp",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The task's host surface was only reviewed on the listed exact artifacts; scheduling it on higher patches would claim unreviewed coverage.",
-      "pending": "model-import-3d-version-adaptation: extend the task's versions list once the feature is reviewed on the newer exact artifacts."
-    },
-    {
-      "kind": "host-validation-task",
-      "path": "scripts/preview/host-validation-tasks.json",
-      "site": "model-import-3d",
-      "missing": [
-        "5.3.03",
-        "5.3.04"
-      ],
-      "reason": "The task's host surface was only reviewed on the listed exact artifacts; scheduling it on higher patches would claim unreviewed coverage.",
-      "pending": "model-import-3d-version-adaptation: extend the task's versions list once the feature is reviewed on the newer exact artifacts."
-    },
-    {
-      "kind": "host-validation-task",
-      "path": "scripts/preview/host-validation-tasks.json",
-      "site": "model-import-3d-user-entry",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The task's host surface was only reviewed on the listed exact artifacts; scheduling it on higher patches would claim unreviewed coverage.",
-      "pending": "model-import-3d-version-adaptation: extend the task's versions list once the feature is reviewed on the newer exact artifacts."
-    },
-    {
-      "kind": "host-validation-task",
-      "path": "scripts/preview/host-validation-tasks.json",
-      "site": "official-core",
-      "missing": [
-        "5.3.03",
-        "5.3.04"
-      ],
-      "reason": "The task's host surface was only reviewed on the listed exact artifacts; scheduling it on higher patches would claim unreviewed coverage.",
-      "pending": "model-import-3d-version-adaptation: extend the task's versions list once the feature is reviewed on the newer exact artifacts."
-    },
-    {
-      "kind": "host-validation-task",
-      "path": "scripts/preview/host-validation-tasks.json",
-      "site": "official-viewer",
-      "missing": [
-        "5.3.03",
-        "5.3.04"
-      ],
-      "reason": "The task's host surface was only reviewed on the listed exact artifacts; scheduling it on higher patches would claim unreviewed coverage.",
-      "pending": "model-import-3d-version-adaptation: extend the task's versions list once the feature is reviewed on the newer exact artifacts."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshKeyform.java",
-      "site": "5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshMorphKeyform.java",
-      "site": "5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshMorphKeyform.java",
-      "site": "5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismModel.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismModel.java",
-      "site": "5.3.02",
-      "missing": [
-        "5.3.03",
-        "5.3.04"
-      ],
-      "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java",
-      "site": "5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java",
-      "site": "5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java",
-      "site": "5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpDeformer.java",
-      "site": "5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpDeformer.java",
-      "site": "5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/command/NativeInterpolationSaveCache.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/command/VerifiedTypedEditorCommandOperations.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorArtMeshAuthoringReadAccess.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorArtMeshEvaluationReadAccess.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorArtMeshKeyformAccess.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorArtMeshMorphState.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorArtMeshParentSnapshot.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorDeformerParentEditAccess.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorMocExportAccess.java",
-      "site": "5.3.02",
-      "missing": [
-        "5.3.03",
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorObjectHierarchyEditAccess.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorParameterInterpolationAccess.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorRenderPixelsAccess.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorRotationAuthoringReadAccess.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorRotationKeyformAccess.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorSourceTriangulationAccess.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorWarpAuthoringReadAccess.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorWarpKeyformAccess.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/MeshInterpolationTransformer.java",
-      "site": "5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-set",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeMeshInterpolationBridge.java",
-      "site": "5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeMeshInterpolationBridge.java",
-      "site": "5.3.02",
-      "missing": [
-        "5.3.03",
-        "5.3.04"
-      ],
-      "reason": "The admission set names only the exact artifacts the feature was verified against.",
-      "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshAuthoringSnapshot.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshEvaluationSnapshot.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshKeyformDrawOrder.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshKeyformPositions.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshSourceTriangulation.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshTextureInput.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/AuthorizedImageContent.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismExportTexture.java",
-      "site": "5.3.02",
-      "missing": [
-        "5.3.03",
-        "5.3.04"
-      ],
-      "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismMocExport.java",
-      "site": "5.3.02",
-      "missing": [
-        "5.3.03",
-        "5.3.04"
-      ],
-      "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismMocExportSettings.java",
-      "site": "5.3.02",
-      "missing": [
-        "5.3.03",
-        "5.3.04"
-      ],
-      "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismRenderedPixels.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelImageBinding.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ParameterInterpolation.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/RotationAuthoringSnapshot.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/RotationKeyformForm.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpAuthoringSnapshot.java",
-      "site": "5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpKeyformPositions.java",
-      "site": "5.3.02,5.3.03",
-      "missing": [
-        "5.3.04"
-      ],
-      "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-      "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-    }
-  ]
+ "format": "turboism.version-monotonicity-exceptions/v1",
+ "comment": "Sanctioned upward-closure violations. Each entry suppresses exactly the listed missing items at the named site; when the repair lands the entry goes stale and fails the gate until removed. 'pending' names the worktree branch that owns the fix; 'evidence' documents why the set is deliberately not upward-closed.",
+ "exceptions": [
+  {
+   "kind": "verification-record",
+   "path": "compatibility/cubism/verification",
+   "site": "editor-model 5.3.01>5.3.02 aliases",
+   "missing": [
+    "cubism.editor-model.morph-target-set.create-undo",
+    "cubism.editor-model.morph-target-set.remove",
+    "cubism.editor-model.morph-target.set-parameter",
+    "cubism.editor-model.morph-target.set-parameter-and-key-value",
+    "cubism.editor-model.parameter-controllable-source.internal-set-parent",
+    "cubism.editor-model.parameter-group.guid",
+    "cubism.editor-model.part-source.remove-child",
+    "cubism.editor-model.part.id"
+   ],
+   "reason": "The 5.3.02 editor-model record drops the same eight morph-target/part selectors the 5.3.01 record carried.",
+   "evidence": "Deliberate exact-use truncation: records admit only the selectors the runtime slice actually consumes, and the >=5.3.02 editor-model generation does not consume these eight aliases. Backfilling them would assert unverified internal member names, so the regression is recorded as an explicit exception rather than papered over."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/ui/workspace/WorkspaceControlAdmission.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The three CUBISM_VERSION_* constants look like an admission set but are only slice-id dispatch keys.",
+   "evidence": "authorizes(resolver) admits every ReviewedHostArtifacts.reviewedCubismVersions() entry; the constants merely pick adapter-slice ids, so no reviewed version is refused."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/core/CorePublicApiProviderFactory.java",
+   "site": "5.2.03,5.3.02",
+   "missing": [
+    "5.3.03",
+    "5.3.04"
+   ],
+   "reason": "artifactProfile's case arms look like a version set.",
+   "evidence": "The switch is an identity mapping: 'default -> reviewedVersion' passes every admitted version through unchanged; the two case arms exist only as the single place a profile-id divergence would live."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorTextureReplacementDiagnostic.java",
+   "site": "5.3.02",
+   "missing": [
+    "5.3.03",
+    "5.3.04"
+   ],
+   "reason": "SUPPORTED_VERSION pins a single version.",
+   "evidence": "Property-gated validation diagnostic (turboism.validation.editorTextureReplaceDiagnostic) that was authored and reviewed against the exact 5.3.02 host; it is a diagnostic tool, not a capability admission set."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/mapping/verification/VerifiedEditorModelResolverFactory.java",
+   "site": "5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "A single-version CUBISM_5_3_03.equals(artifact) guard looks like admission.",
+   "evidence": "The guard only selects the optional 5.3.03 validation-candidate runtime scope (admits5303ValidationCandidate); every reviewed artifact still gets a resolver with a null extra scope."
+  },
+  {
+   "kind": "java-file",
+   "path": "bootstrap/src/main/java/dev/turboism/bootstrap/PerformanceFpsHookInstaller.java",
+   "site": "5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "fpsTargetsForVersion names 5.3.02/5.3.03 before its fallback.",
+   "evidence": "The final branch admits every ReviewedHostArtifacts.reviewedCubismVersions() entry and returns the generic cubism5203() targets; the two named arms are fast paths, not an admission set."
+  },
+  {
+   "kind": "java-file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/FileChooserHistoryVerificationManifest.java",
+   "site": "5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The manifest names one exact version.",
+   "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane (admits5303ValidationCandidate); the lane runs one version by design."
+  },
+  {
+   "kind": "java-file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/NativeControlAppearancePersistenceVerificationManifest.java",
+   "site": "5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The manifest names one exact version.",
+   "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane; the lane runs one version by design."
+  },
+  {
+   "kind": "java-file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ParameterLifecycleVerificationManifest.java",
+   "site": "5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The manifest names one exact version.",
+   "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane; the lane runs one version by design."
+  },
+  {
+   "kind": "java-file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/PerformanceFpsVerificationManifest.java",
+   "site": "5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The manifest names one exact version.",
+   "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane; the lane runs one version by design."
+  },
+  {
+   "kind": "java-file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ProjectLifecycleVerificationManifest.java",
+   "site": "5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The manifest names one exact version.",
+   "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane; the lane runs one version by design."
+  },
+  {
+   "kind": "java-file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/TextureAtlasVerificationManifest.java",
+   "site": "5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The manifest names one exact version.",
+   "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane; the lane runs one version by design."
+  },
+  {
+   "kind": "java-file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorModelInstanceReadSelectorContract.java",
+   "site": "5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The contract names one exact record version constant.",
+   "evidence": "CUBISM_5_3_03_VERSION is a dispatch constant referencing the 5.3.03 record whose onion-skin shape the contract special-cases; version admission flows through the record itself, not this constant."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/PopupMeshUndoContract.java",
+   "site": "5.3.02",
+   "missing": [
+    "5.3.03",
+    "5.3.04"
+   ],
+   "reason": "The popup mesh undo contract binds obfuscated actionManager members recovered from the exact 5.3.02 artifact and is gated by that artifact's digest.",
+   "pending": "model-import-3d-version-adaptation: recover the corresponding obfuscated member names on the exact 5.3.03 and 5.3.04 artifacts, then extend ADMITTED or record bytecode evidence that the host lacks the popup mesh undo surface."
+  },
+  {
+   "kind": "java-set",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/shader/ShaderUniformTransformer.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "REVIEWED_CLASSES pins exact GShader class digests per host artifact; the 5.3.04 GShader bytes were not reviewed when model-import-3d landed.",
+   "pending": "model-import-3d-version-adaptation: digest the 5.3.04 GShader class and admit it under the matching REVIEWED_CLASSES entry (or record a new digest row if Live2D changed the bytes)."
+  },
+  {
+   "kind": "java-set",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/shader/ShaderUniformTransformer.java",
+   "site": "5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The shared CLASS_SHA256 digest row admits only the artifacts the shader uniform review actually hashed.",
+   "pending": "model-import-3d-version-adaptation: same as the sibling row \u2014 admit 5.3.04 once its GShader bytes are hashed and confirmed identical or pinned separately."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/VerifiedTextureAtlasLayoutProviderEngine.java",
+   "site": "5.3.02",
+   "missing": [
+    "5.3.03",
+    "5.3.04"
+   ],
+   "reason": "The 5.3.02-only branches (directBinding fallback and reinit-input route) encode a host quirk verified on the exact 5.3.02 artifact; whether 5.3.03+ shares the quirk was not reviewed.",
+   "pending": "model-import-3d-version-adaptation: on exact 5.3.03 and 5.3.04 artifacts confirm whether atlas authoring before the editor window opens needs the same directBinding/reinit-input route; widen the dispatch or record per-version evidence."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshKeyform.java",
+   "site": "5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshMorphKeyform.java",
+   "site": "5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshMorphKeyform.java",
+   "site": "5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismModel.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismModel.java",
+   "site": "5.3.02",
+   "missing": [
+    "5.3.03",
+    "5.3.04"
+   ],
+   "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java",
+   "site": "5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java",
+   "site": "5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java",
+   "site": "5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpDeformer.java",
+   "site": "5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpDeformer.java",
+   "site": "5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/command/NativeInterpolationSaveCache.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/command/VerifiedTypedEditorCommandOperations.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorArtMeshAuthoringReadAccess.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorArtMeshEvaluationReadAccess.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorArtMeshKeyformAccess.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorArtMeshMorphState.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorArtMeshParentSnapshot.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorDeformerParentEditAccess.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorMocExportAccess.java",
+   "site": "5.3.02",
+   "missing": [
+    "5.3.03",
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorObjectHierarchyEditAccess.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorParameterInterpolationAccess.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorRenderPixelsAccess.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorRotationAuthoringReadAccess.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorRotationKeyformAccess.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorSourceTriangulationAccess.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorWarpAuthoringReadAccess.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorWarpKeyformAccess.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/MeshInterpolationTransformer.java",
+   "site": "5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-set",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeMeshInterpolationBridge.java",
+   "site": "5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeMeshInterpolationBridge.java",
+   "site": "5.3.02",
+   "missing": [
+    "5.3.03",
+    "5.3.04"
+   ],
+   "reason": "The admission set names only the exact artifacts the feature was verified against.",
+   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshAuthoringSnapshot.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshEvaluationSnapshot.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshKeyformDrawOrder.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshKeyformPositions.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshSourceTriangulation.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshTextureInput.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/AuthorizedImageContent.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismExportTexture.java",
+   "site": "5.3.02",
+   "missing": [
+    "5.3.03",
+    "5.3.04"
+   ],
+   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismMocExport.java",
+   "site": "5.3.02",
+   "missing": [
+    "5.3.03",
+    "5.3.04"
+   ],
+   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismMocExportSettings.java",
+   "site": "5.3.02",
+   "missing": [
+    "5.3.03",
+    "5.3.04"
+   ],
+   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismRenderedPixels.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelImageBinding.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ParameterInterpolation.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/RotationAuthoringSnapshot.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/RotationKeyformForm.java",
+   "site": "5.2.03,5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpAuthoringSnapshot.java",
+   "site": "5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  },
+  {
+   "kind": "java-annotation",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpKeyformPositions.java",
+   "site": "5.3.02,5.3.03",
+   "missing": [
+    "5.3.04"
+   ],
+   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
+   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
+  }
+ ]
 }

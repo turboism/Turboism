@@ -11,7 +11,7 @@
 | ケイパビリティグループ | 5.0.00 | 5.0.01 | 5.0.02 | 5.0.03 | 5.0.04 | 5.0.05 | 5.0.06 | 5.1.00 | 5.1.01 | 5.1.02 | 5.1.03 | 5.2.00 | 5.2.01 | 5.2.02 | 5.2.03 | 5.3.00 | 5.3.01 | 5.3.02 | 5.3.03 | 5.3.04 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | アニメーションとタイムライン | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| アートメッシュ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ◐ | ◐ | ✓ | ✓ | ◐ |
+| アートメッシュ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 自動揺れ読み取り | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 自動バックアップ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | クリッピングマスク | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -21,17 +21,17 @@
 | 編集セッション | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | エディタ UI サーフェス | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | ジオメトリ読み取り | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 編集履歴 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 編集履歴 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 統合ブリッジ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | メッシュツールセッション | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | メッシュツールバー贡献 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| その他のモデルサーフェス | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ◐ |
-| モデルインスタンス読み取り | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| その他のモデルサーフェス | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| モデルインスタンス読み取り | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | モデリングカスタムツール | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| オブジェクト階層 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| パラメータとバインド | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| オブジェクト階層 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| パラメータとバインド | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | パラメータキー編集 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| パラメータ構造編集 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| パラメータ構造編集 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | パーツとインスペクタ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | パーツ・オブジェクト編集 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | パフォーマンス統計 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -39,57 +39,35 @@
 | プラグイン UI サーフェス | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | プロジェクト読み取り | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 保護付きエクスポート | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| PSD raw 画像 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| PSD raw 画像 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 選択編集 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 起動抑制 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| テクスチャと raw 画像 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ◐ | ◐ | ✓ | ✓ | ◐ |
-| テクスチャアトラス | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| テクスチャと raw 画像 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| テクスチャアトラス | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 元に戻す復帰 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | ワープデフォーマミラー | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | ワークスペース | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 - `cubism.editor-model.animation-eval`: 検証済みレコードなし 5.0.00–5.1.03
 - `cubism.editor-model.animation-timeline.write`: 検証済みレコードなし 5.0.00–5.1.03
-- `cubism.editor-model.art-mesh.evaluated-read`: 検証済みレコードなし 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
-- `cubism.editor-model.art-mesh.morph-authoring`: 検証済みレコードなし 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
-- `cubism.editor-model.art-mesh.parameter-interpolation.write`: 検証済みレコードなし 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
+- `cubism.editor-model.art-mesh.evaluated-read`: 検証済みレコードなし 5.0.00–5.1.03
+- `cubism.editor-model.art-mesh.morph-authoring`: 検証済みレコードなし 5.0.00–5.1.03
+- `cubism.editor-model.art-mesh.parameter-interpolation.write`: 検証済みレコードなし 5.0.00–5.1.03
 - `cubism.editor-model.auto-yure.read`: 検証済みレコードなし 5.0.00–5.0.06
 - `cubism.autobackup.backup` (自動バックアップ作成): 検証済みレコードなし 5.0.00–5.0.06
 - `cubism.autobackup.settings`: 検証済みレコードなし 5.0.00–5.0.06
-- `cubism.editor-ui.embedded-panel` (埋め込みパネル docking): 検証済みレコードなし 5.0.00–5.0.06
 - `cubism.editor-ui.top-menu` (トップメニュー統合): 検証済みレコードなし 5.0.00–5.0.06
 - `cubism.geometry.read` (メッシュジオメトリ読み取り): 検証済みレコードなし 5.0.00–5.1.03
-- `cubism.editor-history.semantic-read` (履歴の意味的デコード): 検証済みレコードなし 5.0.00–5.1.03
 - `cubism.integration.edit-api-bridge.dispatch`: 検証済みレコードなし 5.0.00–5.1.01
 - `cubism.integration.external-app-settings.edit-toggle` (外部アプリ編集トグル): 検証済みレコードなし 5.0.00–5.0.06
-- `cubism.editor-model.default-keyform-lock.write`: 検証済みレコードなし 5.0.00–5.1.03
-- `cubism.editor-model.moc-export.read`: 検証済みレコードなし 5.0.00–5.3.01, 5.3.04
-- `cubism.editor-model.native-control-appearance.write`: 検証済みレコードなし 5.0.00–5.1.03
-- `cubism.editor-model.render.read`: 検証済みレコードなし 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
-- `cubism.editor-model.source-triangulation.read`: 検証済みレコードなし 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
-- `cubism.editor-model.write` (エディタモデル書き込み): 検証済みレコードなし 5.0.00–5.1.03
-- `cubism.editor-model.model-instance.read` (アクティブモデルインスタンス読み取り): 検証済みレコードなし 5.0.00–5.1.03
+- `cubism.editor-model.moc-export.read`: 検証済みレコードなし 5.0.00–5.2.03
+- `cubism.editor-model.render.read`: 検証済みレコードなし 5.0.00–5.1.03
+- `cubism.editor-model.source-triangulation.read`: 検証済みレコードなし 5.0.00–5.1.03
 - `cubism.modeling-tool.selection-brush` (モデリング選択ブラシ): 検証済みレコードなし 5.0.00–5.1.03
-- `cubism.editor-model.object-hierarchy.apply-deformer-to-children`: 検証済みレコードなし 5.0.00–5.1.03
-- `cubism.editor-model.parameter-combined.write`: 検証済みレコードなし 5.0.00–5.1.03
-- `cubism.editor-model.parameter-definition.write`: 検証済みレコードなし 5.0.00–5.1.03
-- `cubism.editor-model.parameter-structure.write` (パラメータ構造書き込み): 検証済みレコードなし 5.0.00–5.1.03
-- `cubism.editor-model.edit.parameter-structure.add-parameter`: 検証済みレコードなし 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.add-parameter-group`: 検証済みレコードなし 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.delete-parameter`: 検証済みレコードなし 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.delete-parameter-group`: 検証済みレコードなし 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.edit-parameter`: 検証済みレコードなし 5.0.00–5.1.03
-- `cubism.editor-model.edit.parameter-structure.edit-parameter-group`: 検証済みレコードなし 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.move-parameter`: 検証済みレコードなし 5.0.00–5.1.03
-- `cubism.editor-model.edit.parameter-structure.move-parameter-group`: 検証済みレコードなし 5.0.00–5.1.01
 - `cubism.editor-model.part-inspector.write`: 検証済みレコードなし 5.0.00–5.2.03
 - `cubism.editor-model.part-opacity.write`: 検証済みレコードなし 5.0.00–5.2.03
 - `cubism.protected-export.orchestration` (保護付きエクスポートオーケストレーション): 検証済みレコードなし 5.0.00–5.0.06
-- `cubism.editor-model.psd.raw-image.export`: 検証済みレコードなし 5.0.00–5.1.03
-- `cubism.editor-model.psd.raw-image.replace` (PSD raw 画像の置き換え): 検証済みレコードなし 5.0.00–5.1.03
-- `cubism.editor-model.texture.register-bind`: 検証済みレコードなし 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
-- `cubism.texture-atlas.auto-layout-hook`: 検証済みレコードなし 5.0.00–5.1.03
-- `cubism.texture-atlas.native-layout-invocation`: 検証済みレコードなし 5.0.00–5.1.03
+- `cubism.editor-model.texture.register-bind`: 検証済みレコードなし 5.0.00–5.1.03
 
 ## バージョン制約付き SDK サーフェス
 

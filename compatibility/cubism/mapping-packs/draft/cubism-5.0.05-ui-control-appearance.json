@@ -6,7 +6,7 @@
   "cubismVersion": "5.0.05",
   "entries": [
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.method.renderer",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.method.renderer",
       "name": "cubism.ui-control-appearance.deformer-label.renderer",
       "kind": "method",
       "runtime": "getTreeCellRendererComponent",
@@ -23,7 +23,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.method.source",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.method.source",
       "name": "cubism.ui-control-appearance.deformer-row.source",
       "kind": "method",
       "runtime": "a",
@@ -40,7 +40,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.class.class",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.class.class",
       "name": "cubism.ui-control-appearance.deformer-source.class",
       "kind": "class",
       "runtime": "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
@@ -56,7 +56,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.method.id",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.method.id",
       "name": "cubism.ui-control-appearance.deformer-source.id",
       "kind": "method",
       "runtime": "getId",
@@ -73,7 +73,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.deformer_control.method.renderer",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.deformer_control.method.renderer",
       "name": "cubism.ui-control-appearance.deformer-control.renderer",
       "kind": "method",
       "runtime": "getTableCellRendererComponent",
@@ -90,7 +90,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.field.outer",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.field.outer",
       "name": "cubism.ui-control-appearance.deformer-control.outer",
       "kind": "field",
       "runtime": "a",
@@ -107,7 +107,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.class.outer_class",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.class.outer_class",
       "name": "cubism.ui-control-appearance.deformer-control.outer-class",
       "kind": "class",
       "runtime": "com/live2d/cubism/view/palette/deformer/CDeformerTreeTable/e",
@@ -123,7 +123,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.method.tree",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.method.tree",
       "name": "cubism.ui-control-appearance.deformer-control.tree",
       "kind": "method",
       "runtime": "a",
@@ -140,7 +140,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.class.tree_class",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.class.tree_class",
       "name": "cubism.ui-control-appearance.deformer-control.tree-class",
       "kind": "class",
       "runtime": "com/live2d/ui/treeTable/g",
@@ -156,7 +156,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.class.single_class",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.class.single_class",
       "name": "cubism.ui-control-appearance.parameter.single-class",
       "kind": "class",
       "runtime": "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget",
@@ -172,7 +172,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.class.double_class",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.class.double_class",
       "name": "cubism.ui-control-appearance.parameter.double-class",
       "kind": "class",
       "runtime": "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
@@ -188,7 +188,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.class.folder_class",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.class.folder_class",
       "name": "cubism.ui-control-appearance.parameter.folder-class",
       "kind": "class",
       "runtime": "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget",
@@ -204,7 +204,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.constructor.single_create",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.constructor.single_create",
       "name": "cubism.ui-control-appearance.parameter.single-create",
       "kind": "constructor",
       "runtime": "<init>",
@@ -221,7 +221,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.method.single_selection",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.method.single_selection",
       "name": "cubism.ui-control-appearance.parameter.single-selection",
       "kind": "method",
       "runtime": "updateSelection",
@@ -238,7 +238,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.constructor.double_create",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.constructor.double_create",
       "name": "cubism.ui-control-appearance.parameter.double-create",
       "kind": "constructor",
       "runtime": "<init>",
@@ -255,7 +255,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.method.double_selection",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.method.double_selection",
       "name": "cubism.ui-control-appearance.parameter.double-selection",
       "kind": "method",
       "runtime": "updateSelection",
@@ -272,7 +272,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.constructor.folder_create_primary",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.constructor.folder_create_primary",
       "name": "cubism.ui-control-appearance.parameter.folder-create-primary",
       "kind": "constructor",
       "runtime": "<init>",
@@ -289,7 +289,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.constructor.folder_create_secondary",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.constructor.folder_create_secondary",
       "name": "cubism.ui-control-appearance.parameter.folder-create-secondary",
       "kind": "constructor",
       "runtime": "<init>",
@@ -306,7 +306,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.method.folder_selection",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.method.folder_selection",
       "name": "cubism.ui-control-appearance.parameter.folder-selection",
       "kind": "method",
       "runtime": "updateSelection",
@@ -323,7 +323,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.parameter.method.source",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.parameter.method.source",
       "name": "cubism.ui-control-appearance.parameter.source",
       "kind": "method",
       "runtime": "getParameter",
@@ -340,7 +340,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.method.secondary_source",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.method.secondary_source",
       "name": "cubism.ui-control-appearance.parameter.secondary-source",
       "kind": "method",
       "runtime": "getParameterSec",
@@ -357,7 +357,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.field.label",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.field.label",
       "name": "cubism.ui-control-appearance.parameter.label",
       "kind": "field",
       "runtime": "paramNameLabel",
@@ -374,7 +374,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.field.secondary_label",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.field.secondary_label",
       "name": "cubism.ui-control-appearance.parameter.secondary-label",
       "kind": "field",
       "runtime": "paramNameLabelSec",
@@ -391,7 +391,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.method.folder_source",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.method.folder_source",
       "name": "cubism.ui-control-appearance.parameter.folder-source",
       "kind": "method",
       "runtime": "getParameterGroup",
@@ -408,7 +408,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.method.folder_label",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.method.folder_label",
       "name": "cubism.ui-control-appearance.parameter.folder-label",
       "kind": "method",
       "runtime": "getFolderNameLabel",
@@ -425,7 +425,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.class.source_class",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.class.source_class",
       "name": "cubism.ui-control-appearance.parameter.source-class",
       "kind": "class",
       "runtime": "com/live2d/cubism/doc/model/param/CParameterSource",
@@ -441,7 +441,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.class.folder_source_class",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.class.folder_source_class",
       "name": "cubism.ui-control-appearance.parameter.folder-source-class",
       "kind": "class",
       "runtime": "com/live2d/cubism/doc/model/param/group/CParameterGroup",
@@ -457,7 +457,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.method.source_id",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.method.source_id",
       "name": "cubism.ui-control-appearance.parameter.source-id",
       "kind": "method",
       "runtime": "getId",
@@ -474,7 +474,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.method.folder_source_id",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.method.folder_source_id",
       "name": "cubism.ui-control-appearance.parameter.folder-source-id",
       "kind": "method",
       "runtime": "getId",
@@ -491,7 +491,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.class.label_class",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.class.label_class",
       "name": "cubism.ui-control-appearance.parameter.label-class",
       "kind": "class",
       "runtime": "com/live2d/ui/control/CLabel",
@@ -507,7 +507,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.method.label_swing",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.method.label_swing",
       "name": "cubism.ui-control-appearance.parameter.label-swing",
       "kind": "method",
       "runtime": "getJLabel",
@@ -524,7 +524,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.part.method.renderer",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.part.method.renderer",
       "name": "cubism.ui-control-appearance.part.renderer",
       "kind": "method",
       "runtime": "getTreeCellRendererComponent",
@@ -541,7 +541,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.class.node_class",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.class.node_class",
       "name": "cubism.ui-control-appearance.part.node-class",
       "kind": "class",
       "runtime": "com/live2d/ui/treeTable/c",
@@ -557,7 +557,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.method.node_source",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.method.node_source",
       "name": "cubism.ui-control-appearance.part.node-source",
       "kind": "method",
       "runtime": "h",
@@ -574,7 +574,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.part.class.source_class",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.part.class.source_class",
       "name": "cubism.ui-control-appearance.part.source-class",
       "kind": "class",
       "runtime": "com/live2d/cubism/doc/model/parts/CPartSource",
@@ -590,7 +590,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.part.method.source_id",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.part.method.source_id",
       "name": "cubism.ui-control-appearance.part.source-id",
       "kind": "method",
       "runtime": "getId",
@@ -607,7 +607,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.method.source_children",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.method.source_children",
       "name": "cubism.ui-control-appearance.part.source-children",
       "kind": "method",
       "runtime": "getChildren",
@@ -624,7 +624,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.method.value",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.method.value",
       "name": "cubism.ui-control-appearance.id.value",
       "kind": "method",
       "runtime": "getIdString",
@@ -641,7 +641,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.class.art_mesh_source",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.class.art_mesh_source",
       "name": "cubism.ui-control-appearance.art-mesh.source-class",
       "kind": "class",
       "runtime": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
@@ -657,7 +657,7 @@
       "confidence": "medium"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.ui_control_appearance.method.art_mesh_source_id",
+      "semanticName": "cubism.mapping.v5_0_06.ui_control_appearance.method.art_mesh_source_id",
       "name": "cubism.ui-control-appearance.art-mesh.source-id",
       "kind": "method",
       "runtime": "getId",
