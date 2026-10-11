@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.id;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /** Stable identity for one parameter-binding point within a model generation. */
+@CubismEditor
 public record ParameterBindingPointId(String value) {
     public ParameterBindingPointId {
         value = Objects.requireNonNull(value, "value").trim();

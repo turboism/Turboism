@@ -1,10 +1,12 @@
 package dev.turboism.sdk.cubism.command;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.ui.UserFileHandle;
 import dev.turboism.sdk.ui.UserFileHandleState;
 import java.util.Objects;
 
 /** Validated file-backed Editor command without exposing a filesystem path. */
+@CubismEditor
 public record EditorFileCommandRequest(
         EditorFileCommand command, UserFileHandle file, EditorOverwritePolicy overwritePolicy) {
     public EditorFileCommandRequest {

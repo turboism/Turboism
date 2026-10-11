@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.service.query;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import java.util.List;
 import java.util.Objects;
@@ -19,6 +20,7 @@ import java.util.Optional;
  * @param parentId the containing node, empty for the root
  * @param childIds ids of the node's direct children in Editor order; unmodifiable, possibly empty
  */
+@CubismEditor
 public record HierarchyNode(
         ModelObjectId id, String name, Kind kind, Optional<ModelObjectId> parentId, List<ModelObjectId> childIds) {
     public HierarchyNode {
@@ -30,6 +32,7 @@ public record HierarchyNode(
     }
 
     /** The category of model object a hierarchy node stands for. */
+    @CubismEditor
     public enum Kind {
         MODEL,
         PARAMETER,

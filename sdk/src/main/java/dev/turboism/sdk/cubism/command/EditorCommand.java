@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.command;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Set;
 
 /** Safe no-argument semantic operations discovered from the normal Cubism menus. */
+@CubismEditor
 public enum EditorCommand {
     ADD_NEAR_CTRL_POINT_FOR_SELECTED_ART_MESH_COUNTER(Set.of(
             "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",

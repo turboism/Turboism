@@ -1,10 +1,12 @@
 package dev.turboism.sdk.cubism.history;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 /** One trusted semantic change within a history entry. */
+@CubismEditor
 public record HistoryChange(
         Operation operation,
         Optional<Integer> targetIndex,
@@ -126,6 +128,7 @@ public record HistoryChange(
     }
 
     /** The mutation kind a change applied to its target; {@code UNKNOWN} when unrecognized. */
+    @CubismEditor
     public enum Operation {
         SET,
         ADD,

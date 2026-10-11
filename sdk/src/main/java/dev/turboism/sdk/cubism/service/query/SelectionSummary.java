@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.service.query;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.DocumentId;
@@ -25,6 +26,7 @@ import java.util.Optional;
  * @param selectedDeformerIds selected deformers; unmodifiable
  * @param selectedModelObjectIds selected model objects irrespective of kind; unmodifiable
  */
+@CubismEditor
 public record SelectionSummary(
         Optional<ProjectId> activeProjectId,
         Optional<DocumentId> activeDocumentId,

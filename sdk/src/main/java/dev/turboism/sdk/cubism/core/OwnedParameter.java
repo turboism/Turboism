@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.core;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -14,6 +15,7 @@ import java.util.Optional;
  * is not attached to an Editor document. It is not the write handle for the open Editor model;
  * use {@link dev.turboism.sdk.cubism.model.Parameter} for that.
  */
+@CubismEditor
 public record OwnedParameter(
         String id,
         int typeNumber,

@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.hook;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.model.Part;
 
 /** Override-based lifecycle hooks for Cubism parts. */
+@CubismEditor
 public interface PartHooks {
 
     /**
