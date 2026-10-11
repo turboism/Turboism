@@ -146,11 +146,43 @@ class EditorParameterInterpolationAccessTest {
         });
     }
 
+    /**
+     * The interpolation guard admits every generation whose Editor-model record carries
+     * the capability and refuses the ones that do not. The fully composed write also needs
+     * the ArtMesh authoring read, whose own admission set is narrower today, so this
+     * asserts the interpolation admission decision itself rather than the end state.
+     */
+    @Test
+    void admitsEveryGenerationItsRecordAdmits() {
+        EditorHostThread.dispatch("interpolation version coverage", () -> {
+            final String refused = "Native interpolation requires exact verified evidence";
+            for (String version : EditorParameterInterpolationSelectorContract.SUPPORTED_CUBISM_VERSIONS) {
+                var f = new Fixture(version, "");
+                try {
+                    f.write(0, ELLIPSE);
+                    assertEquals(ParameterInterpolation.Method.ELLIPSE, f.read(0).method(), version);
+                } catch (UnsupportedOperationException dependency) {
+                    assertFalse(
+                            String.valueOf(dependency.getMessage()).startsWith(refused),
+                            version + " must not be refused by the interpolation guard");
+                }
+            }
+            var unadmitted = new Fixture("5.1.03", "");
+            assertTrue(assertThrows(UnsupportedOperationException.class, () -> unadmitted.write(0, ELLIPSE))
+                    .getMessage()
+                    .startsWith(refused));
+            return null;
+        });
+    }
+
     @Test
     void rejectsUnverifiedVersionMissingSelectorOversizedCacheAndStaleSourceBeforeEdit() {
         EditorHostThread.dispatch("interpolation admission", () -> {
             for (var f : List.of(
-                    new Fixture("5.4.00", ""), new Fixture("5.3.02", M + "extended-interpolation.update-forms"))) {
+                    new Fixture("5.4.00", ""),
+                    // A reviewed generation whose record does not admit the capability.
+                    new Fixture("5.1.03", ""),
+                    new Fixture("5.3.02", M + "extended-interpolation.update-forms"))) {
                 assertThrows(UnsupportedOperationException.class, () -> f.write(0, ELLIPSE));
                 assertEquals(0, f.begins);
             }

@@ -336,26 +336,6 @@
   },
   {
    "kind": "java-file",
-   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/command/NativeInterpolationSaveCache.java",
-   "site": "5.2.03,5.3.02,5.3.03",
-   "missing": [
-    "5.3.04"
-   ],
-   "reason": "The admission set names only the exact artifacts the feature was verified against.",
-   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-  },
-  {
-   "kind": "java-file",
-   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/command/VerifiedTypedEditorCommandOperations.java",
-   "site": "5.2.03,5.3.02,5.3.03",
-   "missing": [
-    "5.3.04"
-   ],
-   "reason": "The admission set names only the exact artifacts the feature was verified against.",
-   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-  },
-  {
-   "kind": "java-file",
    "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorArtMeshAuthoringReadAccess.java",
    "site": "5.2.03,5.3.02,5.3.03",
    "missing": [
@@ -428,16 +408,6 @@
   {
    "kind": "java-file",
    "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorObjectHierarchyEditAccess.java",
-   "site": "5.2.03,5.3.02,5.3.03",
-   "missing": [
-    "5.3.04"
-   ],
-   "reason": "The admission set names only the exact artifacts the feature was verified against.",
-   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-  },
-  {
-   "kind": "java-file",
-   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorParameterInterpolationAccess.java",
    "site": "5.2.03,5.3.02,5.3.03",
    "missing": [
     "5.3.04"
@@ -632,16 +602,6 @@
   {
    "kind": "java-annotation",
    "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelImageBinding.java",
-   "site": "5.2.03,5.3.02,5.3.03",
-   "missing": [
-    "5.3.04"
-   ],
-   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-  },
-  {
-   "kind": "java-annotation",
-   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ParameterInterpolation.java",
    "site": "5.2.03,5.3.02,5.3.03",
    "missing": [
     "5.3.04"
