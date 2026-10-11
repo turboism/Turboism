@@ -12,7 +12,7 @@ import java.util.Optional;
  * binding is the authoring data that makes the object morph when the parameter
  * reaches the key value.</p>
  */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface MorphTarget {
 
     /** Returns the parameter that drives this Morph Target. */

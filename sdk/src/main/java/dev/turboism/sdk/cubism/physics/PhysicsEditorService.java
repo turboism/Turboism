@@ -4,7 +4,7 @@ import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.plugin.Registration;
 
 /** Preview registration seam for bounded Physics Settings workflows. */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 @FunctionalInterface
 public interface PhysicsEditorService {
 

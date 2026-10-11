@@ -4,7 +4,7 @@ import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 
 /** Read-only projection of one model image group (a texture-grouping node). */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface ModelImageGroup {
 
     /** Returns the group's display name. */

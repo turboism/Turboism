@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 
 /** Parameter folders in one Editor model. */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface ParameterGroups {
 
     /** Returns all groups in stable pre-order, starting with the root group. */

@@ -3,7 +3,7 @@ package dev.turboism.sdk.cubism.core;
 import dev.turboism.sdk.CubismEditor;
 
 /** Permission-checked metadata for the admitted Cubism Core runtime. */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface CoreRuntimeInfo {
 
     /** Returns the admitted Cubism Core runtime version. */

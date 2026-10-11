@@ -14,7 +14,7 @@ import java.util.Optional;
  * made from the host thread and may fail with {@link CubismServiceException} when the host is
  * unavailable or the bound Editor build does not expose the required internals.
  */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface ModelHierarchyQueryService {
 
     /**

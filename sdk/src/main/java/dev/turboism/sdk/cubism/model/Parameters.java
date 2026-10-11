@@ -16,7 +16,7 @@ import java.util.function.Predicate;
  * Structural operations — {@link #create}, {@link #copy}, {@link #remove}, {@link #createMany} —
  * are Editor authoring writes and join an ambient authoring transaction when one is open.
  */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface Parameters {
 
     /** Returns all parameters in stable model order. */

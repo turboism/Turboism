@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 /** Read-only projection of one animation file-content document. */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface AnimationDocument {
 
     /** Returns the animation file's display name. */

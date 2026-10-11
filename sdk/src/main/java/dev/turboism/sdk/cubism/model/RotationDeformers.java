@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 
 /** Rotation Deformers in one Cubism model. */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface RotationDeformers {
 
     /** Returns every Rotation Deformer in the model, in host order. */

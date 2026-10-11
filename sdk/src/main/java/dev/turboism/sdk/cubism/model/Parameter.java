@@ -22,7 +22,7 @@ import java.util.Optional;
  * {@link dev.turboism.sdk.cubism.edit.EditParameterNode} is a node of the incubating
  * edit-session structure tree.
  */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface Parameter {
 
     /** Returns this parameter's stable identity within the model. */
