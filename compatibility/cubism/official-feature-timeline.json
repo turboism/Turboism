@@ -1,0 +1,462 @@
+{
+ "format": "turboism.official-feature-timeline/v1",
+ "comment": "Official Cubism Editor feature introduction timeline and reference URLs. Used as a machine-readable evidence source for feature boundaries.",
+ "sources": {
+  "5.0.x": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/",
+  "5.1.x": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/",
+  "5.2.x": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/",
+  "5.3.x": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
+  "5.3-overview": "https://www.live2d.com/zh-CHS/cubism/update/"
+ },
+ "features": [
+  {
+   "id": "cubism-5-0-base",
+   "introducedIn": "5.0.00",
+   "nameZh": "Cubism 5.0 主体功能（自定义工作区、Blend Shape、面部动作自动生成等）",
+   "nameEn": "Cubism 5.0 base release (custom workspaces, Blend Shapes, auto facial motion generation)",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/",
+   "relatedCapabilities": [
+    "cubism.workspace.control",
+    "cubism.workspace.read",
+    "cubism.editor-model.morph-target.read",
+    "cubism.editor-model.morph-target.write"
+   ],
+   "relatedCommands": [
+    "EditorCommand.STORE_CURRENT_WORKSPACE_LAYOUT_AS_DEFAULT",
+    "EditorCommand.RESET_CURRENT_WORKSPACE_LAYOUT",
+    "EditorParameterizedCommand.WORKSPACE_SETTING",
+    "EditorParameterizedCommand.BLEND_SHAPE",
+    "EditorParameterizedCommand.SHOW_MORPH_TARGET_CONSTRAINT_EDIT_DIALOG",
+    "EditorParameterizedCommand.VALIDATE_DEFORMER_DIALOG",
+    "EditorParameterizedCommand.SHOW_MOTION_SYNC_SETTING_DAILOG",
+    "EditorParameterizedCommand.BAKE_MOTION_SYNC",
+    "EditorParameterizedCommand.AUTO_CREATE_FACE_DEFORMER",
+    "EditorParameterizedCommand.AUTO_MOVE_FACE_DEFORMER"
+   ],
+   "relatedSdkApis": [
+    "dev.turboism.sdk.cubism.model.MorphTargets",
+    "dev.turboism.sdk.ui.workspace.WorkspaceService"
+   ]
+  },
+  {
+   "id": "import-animation-scene-hide-restore-palette",
+   "introducedIn": "5.0.03",
+   "nameZh": "时间线导入动画场景与面板隐藏/恢复命令",
+   "nameEn": "Import animation scene into timeline and hide/restore palette command",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/",
+   "relatedCommands": [
+    "EditorFileCommand.IMPORT_SCENE_FROM_ANIMATION",
+    "EditorCommand.HIDE_OR_RESTORE_PALETTE"
+   ],
+   "notes": "CMD_HIDE_OR_RESTORE_PALETTE replaced 5.0.00–5.0.02 CMD_HIDE_PALETTE; CMD_IMPORT_SCENE_FROM_ANIMATION added in 5.0.03."
+  },
+  {
+   "id": "sync-parameters-by-id",
+   "introducedIn": "5.0.05",
+   "nameZh": "跨标签页参数值按参数 ID 同步",
+   "nameEn": "Cross-tab parameter value sync by parameter ID",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/",
+   "relatedCommands": [
+    "EditorCommand.SYNC_PARAMETERS_ACROSS_TABS"
+   ],
+   "notes": "CMD_SYNC_PARAMETERS_ACROSS_TABS replaced 5.0.00–5.0.04 CMD_CHANGE_SYNC_PARAMETER_TO_SAME_MODEL."
+  },
+  {
+   "id": "home-feature",
+   "introducedIn": "5.1.00",
+   "nameZh": "Home 功能",
+   "nameEn": "Home dialog",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/",
+   "relatedCommands": [
+    "EditorCommand.SHOW_HOME_DIALOG"
+   ]
+  },
+  {
+   "id": "external-app-integration",
+   "introducedIn": "5.1.00",
+   "nameZh": "外部应用联动（WebSocket API）",
+   "nameEn": "External application integration (WebSocket API)",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/",
+   "relatedCapabilities": [
+    "cubism.integration.external-app-settings.edit-toggle",
+    "cubism.integration.edit-api-bridge.dispatch"
+   ],
+   "relatedCommands": [
+    "EditorParameterizedCommand.EXTERNAL_APP_SETTING"
+   ],
+   "relatedSdkApis": [
+    "dev.turboism.sdk.cubism.CubismFacade#edit()",
+    "dev.turboism.sdk.cubism.edit.EditSessionService",
+    "dev.turboism.sdk.cubism.edit.EditSession",
+    "dev.turboism.sdk.cubism.command.EditorExternalAppSettingsRequest"
+   ],
+   "notes": "Introduced in 5.1.00; package com/live2d/cubism/doc/webSocket/ is completely absent from 5.0.00–5.0.06 jars."
+  },
+  {
+   "id": "export-as-template",
+   "introducedIn": "5.1.00",
+   "nameZh": "模型模板导出增强",
+   "nameEn": "Export as modeling template",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/",
+   "relatedCommands": [
+    "EditorFileCommand.EXPORT_AS_TEMPLATE"
+   ]
+  },
+  {
+   "id": "rotate3d-expression",
+   "introducedIn": "5.1.00",
+   "nameZh": "3D 旋转表现",
+   "nameEn": "3D rotation expression",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/",
+   "relatedCommands": [
+    "EditorParameterizedCommand.SHOW_ROTATE3D_SETTING_DIALOG"
+   ]
+  },
+  {
+   "id": "auto-create-deformers",
+   "introducedIn": "5.1.00",
+   "nameZh": "变形器自动生成",
+   "nameEn": "Automatic deformer generation",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/",
+   "relatedCommands": [
+    "EditorParameterizedCommand.AUTO_CREATE_DEFORMERS"
+   ]
+  },
+  {
+   "id": "auto-sway-yure",
+   "introducedIn": "5.1.00",
+   "nameZh": "自动摇动（Auto Sway/Yure）生成",
+   "nameEn": "Auto sway (Yure) generation",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/",
+   "relatedCapabilities": [
+    "cubism.editor-model.auto-yure.read"
+   ],
+   "relatedCommands": [
+    "EditorParameterizedCommand.CREATE_YURE"
+   ],
+   "relatedSdkApis": [
+    "dev.turboism.sdk.cubism.model.AutoYure",
+    "dev.turboism.sdk.cubism.model.AutoYureBinding",
+    "dev.turboism.sdk.cubism.model.AutoYureConfig",
+    "dev.turboism.sdk.cubism.model.YureDeformConfig"
+   ],
+   "notes": "com/live2d/cubism/doc/model/deformer/autoYure/* and CAutoYureConfigExtension first appear in 5.1.00."
+  },
+  {
+   "id": "show-artmesh-point",
+   "introducedIn": "5.1.00",
+   "nameZh": "网格顶点显示/隐藏",
+   "nameEn": "Show/hide ArtMesh vertices",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/",
+   "relatedCommands": [
+    "EditorCommand.SHOW_ARTMESH_POINT"
+   ]
+  },
+  {
+   "id": "external-app-token-sanitization-param-groups",
+   "introducedIn": "5.1.02",
+   "nameZh": "外部应用联动 Token 净化与参数组设置命令",
+   "nameEn": "External application integration token sanitization and parameter group setting command",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/",
+   "relatedCapabilities": [
+    "cubism.integration.edit-api-bridge.dispatch"
+   ],
+   "relatedCommands": [
+    "EditorParameterizedCommand.OPEN_PARAMETER_GROUP_SETTING"
+   ],
+   "notes": "5.1.02 added token sanitization for external app integration and CMD_OPEN_PARAMETER_GROUP_SETTING."
+  },
+  {
+   "id": "param-controllers-animation",
+   "introducedIn": "5.2.00",
+   "nameZh": "参数控制器（动画）与回放缓存",
+   "nameEn": "Parameter controllers (animation) and playback cache",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/",
+   "relatedCommands": [
+    "EditorCommand.PARAM_CONTROLLER_CONVERT_TO_LINE_PARAM_CTRL",
+    "EditorCommand.PARAM_CONTROLLER_LINE_PARAM_CTRL_REVERSE_DIRECTION",
+    "EditorCommand.PARAM_CONTROLLER_PREVIEW_BAKE",
+    "EditorCommand.PARAM_CONTROLLER_SPLIT_LINE_PARAM_CTRL",
+    "EditorCommand.SHOW_PARAM_CONTROLLER_TARGET_TRACKING",
+    "EditorCommand.SHOW_PARAM_CTRL_MARKER",
+    "EditorParameterizedCommand.PARAM_CONTROLLER_DISPLAY_SETTING_DIALOG",
+    "EditorParameterizedCommand.PARAM_CTRL_CALC_ORDER_SETTING_DIALOG",
+    "EditorCommand.ENABLE_PLAYBACK_CACHE"
+   ]
+  },
+  {
+   "id": "loop-editing-support",
+   "introducedIn": "5.2.00",
+   "nameZh": "循环编辑辅助",
+   "nameEn": "Loop editing support",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/",
+   "relatedCommands": [
+    "EditorCommand.SWITCH_LOOP_EDITING_SUPPORT"
+   ]
+  },
+  {
+   "id": "multi-paste-shape-dialog",
+   "introducedIn": "5.2.00",
+   "nameZh": "特殊粘贴反转形状",
+   "nameEn": "Special paste / multi-paste shape dialog",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/",
+   "relatedCommands": [
+    "EditorParameterizedCommand.DISPLAY_MULTI_PASTE_SHAPE_DIALOG"
+   ]
+  },
+  {
+   "id": "restore-deformer-original-shape",
+   "introducedIn": "5.2.00",
+   "nameZh": "还原原始状态支持变形器（更新/删除变形器原始形状）",
+   "nameEn": "Restore original shape support for deformers (update/delete deformer original shape)",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/",
+   "relatedCommands": [
+    "EditorCommand.DELETE_DEFORMER_ORIGINAL_SHAPE",
+    "EditorCommand.UPDATE_DEFORMER_ORIGINAL_SHAPE"
+   ]
+  },
+  {
+   "id": "select-objects-by-param-key",
+   "introducedIn": "5.2.00",
+   "nameZh": "选择与参数键关联的对象及部件面板参考图切换",
+   "nameEn": "Select objects associated with parameter keys and part palette guide-image toggle",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/",
+   "relatedCommands": [
+    "EditorCommand.SELECT_OBJECT_BY_CURRENT_KEY_VALUE",
+    "EditorCommand.PART_PALETTE_CMD_CHANGE_VISIBLE_GUIDE_IMAGE"
+   ]
+  },
+  {
+   "id": "batch-change-mesh-draw-order",
+   "introducedIn": "5.2.03",
+   "nameZh": "批量更改全部/所选网格绘制顺序",
+   "nameEn": "Batch change draw order of all or selected meshes",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/",
+   "relatedCommands": [
+    "EditorParameterizedCommand.CHANGE_ALL_MESH_DRAW_ORDER",
+    "EditorParameterizedCommand.CHANGE_MESH_DRAW_ORDER"
+   ]
+  },
+  {
+   "id": "select-child-elements-of-deformer",
+   "introducedIn": "5.2.03",
+   "nameZh": "选择所选变形器的子元素",
+   "nameEn": "Select child elements of selected deformer",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/",
+   "relatedCommands": [
+    "EditorCommand.SELECT_CHILD_ELEMENTS_OF_DEFORMER"
+   ]
+  },
+  {
+   "id": "adjust-bounding-box-angle",
+   "introducedIn": "5.2.03",
+   "nameZh": "包围盒与 warp 变形器角度对齐",
+   "nameEn": "Align bounding box angle with warp deformer",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/",
+   "relatedCommands": [
+    "EditorCommand.ADJUST_BOUNDING_BOX_ANGLE"
+   ]
+  },
+  {
+   "id": "show-popup-hovering-object",
+   "introducedIn": "5.2.03",
+   "nameZh": "显示光标下对象名称",
+   "nameEn": "Show hovering object name popup",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/",
+   "relatedCommands": [
+    "EditorCommand.SHOW_POPUP_HOVERING_OBJECT"
+   ]
+  },
+  {
+   "id": "blend-modes",
+   "introducedIn": "5.3.00",
+   "nameZh": "混合模式（RGB 与 Alpha 独立合成）",
+   "nameEn": "Blend modes (independent RGB & Alpha composition)",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
+   "relatedCapabilities": [
+    "cubism.editor-model.part-inspector.write"
+   ],
+   "relatedSdkApis": [
+    "dev.turboism.sdk.cubism.model.AlphaComposition",
+    "dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()",
+    "dev.turboism.sdk.cubism.model.Part#alphaComposition()",
+    "dev.turboism.sdk.cubism.model.Part#setAlphaComposition()",
+    "dev.turboism.sdk.cubism.core.CoreCapabilities#parameterRepeat"
+   ],
+   "notes": "AlphaComposition and CArtMeshSource/CPartSource alpha composition introduced in 5.3.00; Core 6.0.257 added parameter repeats for MOC3 V5_3."
+  },
+  {
+   "id": "part-offscreen-drawing",
+   "introducedIn": "5.3.00",
+   "nameZh": "部件离屏绘制（可设部件不透明度与剪贴蒙版）",
+   "nameEn": "Part offscreen drawing (part opacity and clipping masks)",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
+   "relatedCapabilities": [
+    "cubism.editor-model.part-inspector.write",
+    "cubism.editor-model.part-opacity.write"
+   ],
+   "relatedSdkApis": [
+    "dev.turboism.sdk.cubism.model.Part#maskIds()",
+    "dev.turboism.sdk.cubism.model.Part#setMaskIds()",
+    "dev.turboism.sdk.cubism.model.Part#setOpacity()"
+   ],
+   "notes": "CPartForm#setOpacity, CPartSource#getUseOffscreen, and CPartSource#getClipGuidList introduced in 5.3.00."
+  },
+  {
+   "id": "model-statistics-offscreen-depth",
+   "introducedIn": "5.3.00",
+   "nameZh": "模型统计列出离屏绘制最大层数",
+   "nameEn": "Model statistics offscreen drawing maximum nesting depth",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
+   "relatedCapabilities": [
+    "cubism.editor-model.statistics.read"
+   ],
+   "relatedCommands": [
+    "EditorParameterizedCommand.MODELING_STATISTICS"
+   ]
+  },
+  {
+   "id": "mesh-mirror-movement-edge-deletion",
+   "introducedIn": "5.3.00",
+   "nameZh": "网格编辑模式镜像顶点移动与边删除",
+   "nameEn": "Mesh edit mode mirror vertex movement and edge deletion",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
+   "relatedCapabilities": [
+    "cubism.mesh.mirror-axis-angle"
+   ],
+   "relatedSdkApis": [
+    "dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService",
+    "dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts",
+    "dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation",
+    "dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility"
+   ],
+   "notes": "Introduced natively in 5.3.00; Turboism backports selected-point movement and linked deletion to 5.2.00–5.2.03 via MeshMirrorHostProfile."
+  },
+  {
+   "id": "expand-warp-deformer",
+   "introducedIn": "5.3.00",
+   "nameZh": "warp 变形器智能扩展（保持子元素）",
+   "nameEn": "Smart expansion of warp deformers (keeping child elements)",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
+   "relatedCommands": [
+    "EditorCommand.EXPAND_WARPDEFORMER"
+   ]
+  },
+  {
+   "id": "highlight-conflict-polygons",
+   "introducedIn": "5.3.00",
+   "nameZh": "高级混合冲突多边形高亮",
+   "nameEn": "Highlight conflict polygons under advanced blend modes",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
+   "relatedCommands": [
+    "EditorCommand.SWITCH_HIGHTLIGHT_CONFLICT_POLYGON"
+   ]
+  },
+  {
+   "id": "fade-setting-copy-and-label-rename",
+   "introducedIn": "5.3.00",
+   "nameZh": "淡入淡出设置复制到其他场景/轨道及标签复制命令重命名",
+   "nameEn": "Copy fade settings to other scenes/tracks and label-copy command rename",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
+   "relatedCommands": [
+    "EditorParameterizedCommand.FADE_SETTING",
+    "EditorParameterizedCommand.REFLECT_FADE",
+    "EditorParameterizedCommand.SHOW_LABEL_COPY_DIALOG",
+    "EditorParameterizedCommand.SHOW_SHOW_LABEL_COPY_DIALOG"
+   ],
+   "notes": "CMD_FADE_SETTING and CMD_REFLECT_FADE added in 5.3.00; CMD_SHOW_SHOW_LABEL_COPY_DIALOG renamed to CMD_SHOW_LABEL_COPY_DIALOG in 5.3.00."
+  },
+  {
+   "id": "timeline-fit-full-scene-and-default-zoom",
+   "introducedIn": "5.3.00",
+   "nameZh": "时间线适配整个场景与重置缩放",
+   "nameEn": "Timeline fit full scene and reset zoom",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
+   "relatedCommands": [
+    "EditorCommand.SHOW_FULL_SCENE",
+    "EditorCommand.SHOW_DEFAULT_ZOOM"
+   ]
+  },
+  {
+   "id": "canvas-center-guides",
+   "introducedIn": "5.3.00",
+   "nameZh": "画布中心创建参考线",
+   "nameEn": "Add modeling guide lines at canvas center",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
+   "relatedCommands": [
+    "EditorCommand.SETTING_GUIDES_MODELING_ADD_CENTER"
+   ]
+  },
+  {
+   "id": "deform-brush-expansion-and-shapes",
+   "introducedIn": "5.3.00",
+   "nameZh": "变形笔刷扩张/收缩及圆/方/线笔刷形状",
+   "nameEn": "Deformation brush expand/shrink and circle/square/line brush shapes",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
+   "relatedCapabilities": [
+    "cubism.modeling-tool.selection-brush"
+   ],
+   "relatedSdkApis": [
+    "dev.turboism.sdk.cubism.modeling.ModelingBrush",
+    "dev.turboism.sdk.cubism.modeling.ModelingToolContext",
+    "dev.turboism.sdk.cubism.modeling.ModelingToolRegistry"
+   ]
+  },
+  {
+   "id": "mesh-edit-reset",
+   "introducedIn": "5.3.02",
+   "nameZh": "网格编辑“重置网格”",
+   "nameEn": "Mesh edit Reset Mesh",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
+   "relatedCommands": [
+    "EditorCommand.MESH_EDIT_RESET"
+   ]
+  },
+  {
+   "id": "move-param-after-target-and-default-value",
+   "introducedIn": "5.3.03",
+   "nameZh": "参数“设为移动目标”后可移动及重置当前参数为默认值",
+   "nameEn": "Move parameters after setting move target and reset current parameter to default",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
+   "relatedCapabilities": [
+    "cubism.editor-model.edit.parameter-structure.move-parameter",
+    "cubism.editor-model.parameter-structure.write"
+   ],
+   "relatedCommands": [
+    "EditorCommand.SET_DEFAULT_PARAMETERS"
+   ]
+  },
+  {
+   "id": "mesh-edit-deform-brush",
+   "introducedIn": "5.3.04",
+   "nameZh": "网格编辑模式可用变形笔刷",
+   "nameEn": "Deformation brush available in mesh edit mode",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
+   "relatedCapabilities": [
+    "cubism.mesh-tool.session",
+    "cubism.mesh.custom-tools",
+    "cubism.mesh.mirror-axis-angle"
+   ],
+   "relatedSdkApis": [
+    "dev.turboism.sdk.cubism.mesh.MeshBrush",
+    "dev.turboism.sdk.cubism.mesh.MeshToolContext",
+    "dev.turboism.sdk.cubism.mesh.MeshToolRegistry",
+    "dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility"
+   ],
+   "notes": "CMD_TOOL_MODE_MESH_EDIT_DEFORM_BRUSH added in 5.3.04."
+  },
+  {
+   "id": "apply-deformer-to-children-blend-shape",
+   "introducedIn": "5.3.04",
+   "nameZh": "应用变形器到子元素时传递 Blend Shape 键形与权重限制",
+   "nameEn": "Pass Blend Shape keyforms and weight constraints when applying deformer to children",
+   "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
+   "relatedCapabilities": [
+    "cubism.editor-model.object-hierarchy.apply-deformer-to-children"
+   ],
+   "relatedSdkApis": [
+    "dev.turboism.sdk.cubism.model.Deformers#applyToChildren()"
+   ]
+  }
+ ]
+}

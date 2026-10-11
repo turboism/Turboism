@@ -4,147 +4,1370 @@
  "boundaries": [
   {
    "id": "dev.turboism.sdk.cubism.model.AlphaComposition",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Alpha composition (blend modes) was introduced in Cubism 5.3.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
   },
   {
    "id": "dev.turboism.sdk.cubism.model.Part#maskIds",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Part mask-id access requires the 5.3 inspector schema.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
   },
   {
    "id": "dev.turboism.sdk.cubism.model.Part#alphaComposition",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Alpha composition exists only on Cubism 5.3.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
   },
   {
    "id": "dev.turboism.sdk.cubism.model.Part#setAlphaComposition",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Alpha composition exists only on Cubism 5.3.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
   },
   {
    "id": "dev.turboism.sdk.cubism.model.Part#setOpacity",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Part opacity writes through the inspector are 5.3-only.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
   },
   {
    "id": "dev.turboism.sdk.cubism.core.CoreCapabilities#parameterRepeat",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Core parameterRepeat support is 5.3-only.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
   },
   {
    "id": "cubism.editor-model.part-inspector.write",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "The extended part-inspector write schema (mask/alpha fields) exists only on 5.3.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
   },
   {
    "id": "command:ADJUST_BOUNDING_BOX_ANGLE",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02"
+   ],
    "reason": "Command added in Cubism 5.2.03.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.2.03",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
   },
   {
    "id": "command:SELECT_CHILD_ELEMENTS_OF_DEFORMER",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02"
+   ],
    "reason": "Command added in Cubism 5.2.03.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.2.03",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
   },
   {
    "id": "command:SHOW_POPUP_HOVERING_OBJECT",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02"
+   ],
    "reason": "Command added in Cubism 5.2.03.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.2.03",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
   },
   {
    "id": "command:CHANGE_ALL_MESH_DRAW_ORDER",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02"
+   ],
    "reason": "Command added in Cubism 5.2.03.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.2.03",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
   },
   {
    "id": "command:CHANGE_MESH_DRAW_ORDER",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02"
+   ],
    "reason": "Command added in Cubism 5.2.03.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.2.03",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
   },
   {
    "id": "command:EXPAND_WARPDEFORMER",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Command is 5.3-only.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
   },
   {
    "id": "command:SETTING_GUIDES_MODELING_ADD_CENTER",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Command is 5.3-only.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
   },
   {
    "id": "command:SHOW_DEFAULT_ZOOM",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Command is 5.3-only.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
   },
   {
    "id": "command:SHOW_FULL_SCENE",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Command is 5.3-only.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
   },
   {
    "id": "command:SWITCH_HIGHTLIGHT_CONFLICT_POLYGON",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Command is 5.3-only.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
   },
   {
    "id": "command:FADE_SETTING",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Command is 5.3-only (renamed from the 5.2 label-copy command).",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
   },
   {
    "id": "command:REFLECT_FADE",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Command is 5.3-only.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
   },
   {
    "id": "command:SHOW_LABEL_COPY_DIALOG",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "5.3 rename of the 5.2 SHOW_SHOW_LABEL_COPY_DIALOG command.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
   },
   {
    "id": "command:MESH_EDIT_RESET",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03","5.3.00","5.3.01"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01"
+   ],
    "reason": "Command added in Cubism 5.3.02.",
-   "source": "feature-gap audit class (a)"
+   "source": "feature-gap audit class (a)",
+   "officialSource": {
+    "version": "5.3.02",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
   },
   {
    "id": "command:OPEN_FAQ_PAGE",
-   "absentOn": ["5.3.00","5.3.01","5.3.02","5.3.03","5.3.04"],
+   "absentOn": [
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
    "reason": "Command was dropped in Cubism 5.3 (present through 5.2.03).",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "command:MOVE_END",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03","5.3.00","5.3.01","5.3.02","5.3.03","5.3.04"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
    "reason": "Dead constant: the id exists in no reviewed jar.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "command:MOVE_END_WORKSPACE",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03","5.3.00","5.3.01","5.3.02","5.3.03","5.3.04"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
    "reason": "Dead constant: the id exists in no reviewed jar.",
    "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "cubism.editor-model.auto-yure.read",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Auto sway (Yure) was introduced in Cubism 5.1.00.",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.1.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/"
+   }
+  },
+  {
+   "id": "cubism.editor-model.part-opacity.write",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Part opacity writes through the inspector were introduced in Cubism 5.3.00.",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
+  },
+  {
+   "id": "cubism.integration.external-app-settings.edit-toggle",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "External application integration was introduced in Cubism 5.1.00.",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.1.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/"
+   }
+  },
+  {
+   "id": "cubism.integration.edit-api-bridge.dispatch",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "External application integration WebSocket dispatch was introduced in Cubism 5.1.00.",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.1.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/"
+   }
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.AutoYure",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Auto sway (Yure) was introduced in Cubism 5.1.00.",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.1.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/"
+   }
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.AutoYureBinding",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Auto sway (Yure) was introduced in Cubism 5.1.00.",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.1.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/"
+   }
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.AutoYureConfig",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Auto sway (Yure) was introduced in Cubism 5.1.00.",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.1.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/"
+   }
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.YureDeformConfig",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Auto sway (Yure) was introduced in Cubism 5.1.00.",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.1.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/"
+   }
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.CubismFacade#edit",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "External application edit API was introduced in Cubism 5.1.00.",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.1.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/"
+   }
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Alpha composition (blend modes) was introduced in Cubism 5.3.00.",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.Part#setMaskIds",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Part clipping masks (offscreen drawing) were introduced in Cubism 5.3.00.",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
+  },
+  {
+   "id": "command:HIDE_OR_RESTORE_PALETTE",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02"
+   ],
+   "reason": "Command added in Cubism 5.0.03 (replacing 5.0.00–5.0.02 CMD_HIDE_PALETTE).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.0.03",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/"
+   }
+  },
+  {
+   "id": "command:IMPORT_SCENE_FROM_ANIMATION",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02"
+   ],
+   "reason": "Command added in Cubism 5.0.03.",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.0.03",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/"
+   }
+  },
+  {
+   "id": "command:SYNC_PARAMETERS_ACROSS_TABS",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04"
+   ],
+   "reason": "Command added in Cubism 5.0.05 (replacing 5.0.00–5.0.04 CMD_CHANGE_SYNC_PARAMETER_TO_SAME_MODEL).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.0.05",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/"
+   }
+  },
+  {
+   "id": "command:AUTO_CREATE_DEFORMERS",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Command added in Cubism 5.1.00 (automatic deformer generation).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.1.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/"
+   }
+  },
+  {
+   "id": "command:CREATE_YURE",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Command added in Cubism 5.1.00 (Auto Sway / Yure generation).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.1.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/"
+   }
+  },
+  {
+   "id": "command:EXPORT_AS_TEMPLATE",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Command added in Cubism 5.1.00 (modeling template enhancements).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.1.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/"
+   }
+  },
+  {
+   "id": "command:EXTERNAL_APP_SETTING",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Command added in Cubism 5.1.00 (external application integration).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.1.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/"
+   }
+  },
+  {
+   "id": "command:SHOW_ARTMESH_POINT",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Command added in Cubism 5.1.00 (show/hide mesh vertices).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.1.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/"
+   }
+  },
+  {
+   "id": "command:SHOW_HOME_DIALOG",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Command added in Cubism 5.1.00 (Home dialog).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.1.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/"
+   }
+  },
+  {
+   "id": "command:SHOW_ROTATE3D_SETTING_DIALOG",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Command added in Cubism 5.1.00 (3D rotation expression).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.1.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/"
+   }
+  },
+  {
+   "id": "command:OPEN_PARAMETER_GROUP_SETTING",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01"
+   ],
+   "reason": "Command added in Cubism 5.1.02.",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.1.02",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/"
+   }
+  },
+  {
+   "id": "command:DELETE_DEFORMER_ORIGINAL_SHAPE",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Command added in Cubism 5.2.00 (restore original shape support for deformers).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.2.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
+  },
+  {
+   "id": "command:DISPLAY_MULTI_PASTE_SHAPE_DIALOG",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Command added in Cubism 5.2.00 (special paste shape dialog).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.2.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
+  },
+  {
+   "id": "command:ENABLE_PLAYBACK_CACHE",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Command added in Cubism 5.2.00.",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.2.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
+  },
+  {
+   "id": "command:PARAM_CONTROLLER_CONVERT_TO_LINE_PARAM_CTRL",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Command added in Cubism 5.2.00 (parameter controllers in animation).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.2.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
+  },
+  {
+   "id": "command:PARAM_CONTROLLER_DISPLAY_SETTING_DIALOG",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Command added in Cubism 5.2.00 (parameter controllers in animation).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.2.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
+  },
+  {
+   "id": "command:PARAM_CONTROLLER_LINE_PARAM_CTRL_REVERSE_DIRECTION",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Command added in Cubism 5.2.00 (parameter controllers in animation).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.2.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
+  },
+  {
+   "id": "command:PARAM_CONTROLLER_PREVIEW_BAKE",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Command added in Cubism 5.2.00 (parameter controllers in animation).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.2.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
+  },
+  {
+   "id": "command:PARAM_CONTROLLER_SPLIT_LINE_PARAM_CTRL",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Command added in Cubism 5.2.00 (parameter controllers in animation).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.2.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
+  },
+  {
+   "id": "command:PARAM_CTRL_CALC_ORDER_SETTING_DIALOG",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Command added in Cubism 5.2.00 (parameter controllers in animation).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.2.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
+  },
+  {
+   "id": "command:PART_PALETTE_CMD_CHANGE_VISIBLE_GUIDE_IMAGE",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Command added in Cubism 5.2.00.",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.2.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
+  },
+  {
+   "id": "command:SELECT_OBJECT_BY_CURRENT_KEY_VALUE",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Command added in Cubism 5.2.00 (select objects associated with parameter keys).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.2.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
+  },
+  {
+   "id": "command:SHOW_PARAM_CONTROLLER_TARGET_TRACKING",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Command added in Cubism 5.2.00 (parameter controllers in animation).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.2.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
+  },
+  {
+   "id": "command:SHOW_PARAM_CTRL_MARKER",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Command added in Cubism 5.2.00 (parameter controllers in animation).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.2.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
+  },
+  {
+   "id": "command:SWITCH_LOOP_EDITING_SUPPORT",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Command added in Cubism 5.2.00 (loop editing support).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.2.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
+  },
+  {
+   "id": "command:UPDATE_DEFORMER_ORIGINAL_SHAPE",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Command added in Cubism 5.2.00 (restore original shape support for deformers).",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.2.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/"
+   }
+  },
+  {
+   "id": "command:SHOW_SHOW_LABEL_COPY_DIALOG",
+   "absentOn": [
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "reason": "5.0–5.2 command id renamed to SHOW_LABEL_COPY_DIALOG in Cubism 5.3.00.",
+   "source": "official-feature-timeline + bytecode verification",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
   }
  ]
 }
