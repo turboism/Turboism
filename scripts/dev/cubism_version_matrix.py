@@ -155,6 +155,17 @@ MEMBER_VARIANTS = {
         "memberName": "ap",
         "mappingId": "cubism.mapping.v5_3_04.object_context_menu.method.workspace_selector",
     },
+    # 5.0.x main-frame view keeps the same anchor slot but binds it to the
+    # Nizima page button (a plain CButton); the Home-dialog button only exists
+    # from 5.1.00 on, where q() returns CIconButton.
+    **{
+        ("cubism.ui-main-toolbar.main-frame-view.home-button", version): {
+            "descriptor": "()Lcom/live2d/ui/control/CButton;",
+        }
+        for version in (
+            "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06"
+        )
+    },
 }
 
 
@@ -2042,8 +2053,17 @@ def verify_propagated(
     selector verifies as-is, 'symbol-map' when a resolver candidate does, or
     'unresolved' with the original verifier status."""
     status = verify_selector(jar, selector)
-    if status == "VERIFIED_STATIC" or resolver is None:
-        return selector, status, "direct" if status == "VERIFIED_STATIC" else "unresolved"
+    if status == "VERIFIED_STATIC":
+        return selector, status, "direct"
+    reviewed = MEMBER_VARIANTS.get((selector["alias"], to_version))
+    if reviewed is not None:
+        variant = dict(selector)
+        variant.update(reviewed)
+        variant["alias"] = selector["alias"]
+        if verify_selector(jar, variant) == "VERIFIED_STATIC":
+            return variant, "VERIFIED_STATIC", "variant"
+    if resolver is None:
+        return selector, status, "unresolved"
     try:
         candidate = resolver(dict(selector), from_version, to_version)
     except Exception:
