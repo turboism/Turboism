@@ -6,9 +6,11 @@ import java.util.Set;
 /**
  * Combined runtime trust contract for the recent-files preview slice: the Recent
  * menu chain (embedded-panel slice) plus the current-project chain (project-workspace
- * slice). No new verification record is introduced — both chains are already pinned by
- * the reviewed embedded-panel and project-workspace records — so this contract only
- * narrows each plan to the aliases the recent-preview operations actually use.
+ * slice), including the view-context history member the chain falls back to when the
+ * focus-dependent current-document member reads null. No new verification record is
+ * introduced — both chains are already pinned by the reviewed embedded-panel and
+ * project-workspace records — so this contract only narrows each plan to the aliases
+ * the recent-preview operations actually use.
  */
 public final class RecentPreviewVerificationManifest {
 
@@ -24,6 +26,8 @@ public final class RecentPreviewVerificationManifest {
     public static final Set<String> PROJECT_REQUIRED_ALIASES = Set.of(
         "cubism.app-controller.instance",
         "cubism.app-controller.current-document",
+        "cubism.app-controller.view-context-history",
+        "cubism.view-context.document",
         "cubism.document.file-content",
         "cubism.file-content.file"
     );

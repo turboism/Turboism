@@ -165,6 +165,81 @@ class ScreenshotCaptureHostOperationsTest {
     }
 
     @Test
+    void targetGuardAdmitsLastActiveDocumentWhenViewFocusIsLost() throws Exception {
+        final Path current = Files.createTempFile("recent-preview-unfocused", ".cmo3");
+        final ClassLoader loader = getClass().getClassLoader();
+        final VerifiedRecentFileListHostOperations files = new VerifiedRecentFileListHostOperations(
+                projectResolver("5.2.03", loader), panelResolver("5.2.03", loader));
+        // 5.2 hosts clear the current document while focus sits on the frame
+        // chrome; the guard must still resolve that document through the
+        // verified view-context history instead of rejecting the capture.
+        ProjectHost.setRoot(projectChain(current, false));
+        PanelHost.setRoot(panelChain(RecentPreviewHostFixture.recentMenu()));
+        files.list();
+
+        final List<String> diagnostics = new ArrayList<>();
+        final PreviewCaptureHostOperations capture = new PreviewCaptureHostOperations(
+                panelResolver("5.2.03", loader), files, noopSuppression(), diagnostics::add);
+        final java.util.concurrent.CompletionException failure = assertThrows(
+                java.util.concurrent.CompletionException.class,
+                () -> capture.capture(
+                                new ScreenshotCaptureRequest(files.list().get(0).id(), 150, 150))
+                        .toCompletableFuture()
+                        .join());
+        assertFalse(
+                failure.getCause() instanceof ScreenshotCaptureTargetUnavailableException,
+                "the focus-independent fallback must satisfy the target guard");
+        assertTrue(
+                diagnostics.stream().noneMatch(value -> value.contains("target-guard")),
+                "the guard must not report a null current document under the fallback");
+    }
+
+    @Test
+    void targetGuardStillRejectsOtherIdsWhenViewFocusIsLost() throws Exception {
+        final Path current = Files.createTempFile("recent-preview-unfocused", ".cmo3");
+        final ClassLoader loader = getClass().getClassLoader();
+        final VerifiedRecentFileListHostOperations files = new VerifiedRecentFileListHostOperations(
+                projectResolver("5.2.03", loader), panelResolver("5.2.03", loader));
+        ProjectHost.setRoot(projectChain(current, false));
+        PanelHost.setRoot(panelChain(RecentPreviewHostFixture.recentMenu()));
+        files.list();
+
+        final PreviewCaptureHostOperations capture = new PreviewCaptureHostOperations(
+                panelResolver("5.2.03", loader), files, noopSuppression(), ignored -> {});
+        final java.util.concurrent.CompletionException failure = assertThrows(
+                java.util.concurrent.CompletionException.class,
+                () -> capture.capture(new ScreenshotCaptureRequest(new RecentFileId("0".repeat(64)), 150, 150))
+                        .toCompletableFuture()
+                        .join());
+        assertTrue(
+                failure.getCause() instanceof ScreenshotCaptureTargetUnavailableException,
+                "the fallback must never widen the guard to a different document");
+    }
+
+    @Test
+    void targetGuardFailsClosedWhenHistoryIsEmpty() throws Exception {
+        final ClassLoader loader = getClass().getClassLoader();
+        final VerifiedRecentFileListHostOperations files = new VerifiedRecentFileListHostOperations(
+                projectResolver("5.2.03", loader), panelResolver("5.2.03", loader));
+        ProjectHost.setRoot(RecentPreviewHostFixture.emptyProjectChain());
+        PanelHost.setRoot(panelChain(RecentPreviewHostFixture.recentMenu()));
+        files.list();
+
+        final List<String> diagnostics = new ArrayList<>();
+        final PreviewCaptureHostOperations capture = new PreviewCaptureHostOperations(
+                panelResolver("5.2.03", loader), files, noopSuppression(), diagnostics::add);
+        final java.util.concurrent.CompletionException failure = assertThrows(
+                java.util.concurrent.CompletionException.class,
+                () -> capture.capture(new ScreenshotCaptureRequest(new RecentFileId("0".repeat(64)), 150, 150))
+                        .toCompletableFuture()
+                        .join());
+        assertTrue(failure.getCause() instanceof ScreenshotCaptureTargetUnavailableException);
+        assertTrue(
+                diagnostics.stream().anyMatch(value -> value.contains("current-null=true")),
+                "an empty history must keep the fail-closed null-current rejection");
+    }
+
+    @Test
     void throwingDiagnosticSinkCannotPreventFailureCompletion() throws Exception {
         final Path current = Files.createTempFile("recent-preview-capture", ".cmo3");
         final ClassLoader loader = getClass().getClassLoader();
