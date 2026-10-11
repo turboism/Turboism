@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.motion3;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.json.Json;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -17,6 +18,7 @@ import java.util.Set;
  * {@code UserData} events. Pure SDK — needs no host evidence and works for
  * every supported Cubism version.
  */
+@CubismEditor
 public final class Motion3Validator {
 
     private static final Set<String> CURVE_TARGETS = Set.of("Parameter", "PartOpacity", "Model");

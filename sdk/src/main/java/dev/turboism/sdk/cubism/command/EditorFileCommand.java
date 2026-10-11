@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.command;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.ui.UserFileMode;
 import java.util.Set;
 
 /** Typed Editor operations whose source or destination is an opaque user-file grant. */
+@CubismEditor
 public enum EditorFileCommand {
     OPEN(
             UserFileMode.READ,

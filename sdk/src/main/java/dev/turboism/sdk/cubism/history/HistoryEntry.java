@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.history;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Immutable plugin-facing projection of one native Cubism Undo entry. */
+@CubismEditor
 public record HistoryEntry(
         int index,
         String label,

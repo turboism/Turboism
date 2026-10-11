@@ -44,6 +44,7 @@ Uploads Cubism backup artifacts to a WebDAV endpoint configured by the user.
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions.
+- Editor auto-backup not on 5.0.00–5.0.06
 - Auto-backup artifacts not on 5.0.00–5.0.06
 - Save-triggered auto-backup not on 5.0.00–5.0.06
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)

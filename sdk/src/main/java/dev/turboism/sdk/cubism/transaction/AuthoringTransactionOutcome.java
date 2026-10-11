@@ -1,6 +1,9 @@
 package dev.turboism.sdk.cubism.transaction;
 
+import dev.turboism.sdk.CubismEditor;
+
 /** Terminal outcome of one synchronous Editor authoring transaction callback. */
+@CubismEditor
 public enum AuthoringTransactionOutcome {
     /** At least one authoring write changed state and committed as one history entry. */
     COMMITTED,

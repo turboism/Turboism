@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.history;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /** One exact parameter key-point coordinate used to address a parameter-bound keyform. */
+@CubismEditor
 public record HistoryParameterCoordinate(HistoryTarget parameter, String value) {
 
     private static final int MAX_VALUE_LENGTH = 256;

@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.hook;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Drawable;
 
 /** Override-based lifecycle hooks for ArtMesh authoring writes. */
+@CubismEditor
 public interface DrawableHooks {
     /**
      * Runs before an ArtMesh opacity write; the returned value is passed to the next hook and the

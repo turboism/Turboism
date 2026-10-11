@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.backup;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /**
@@ -8,6 +9,7 @@ import java.util.Objects;
  * <p>Unlike the command/query {@link EditorAutoBackupStatus}, this event projection
  * omits the host document path.</p>
  */
+@CubismEditor
 public record BackupDocumentStatus(
         String documentName, long lastAutoBackupTimeMillis, long lastSavedTimeMillis, boolean modifiedAfterSaving) {
     public BackupDocumentStatus {

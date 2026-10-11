@@ -1,10 +1,12 @@
 package dev.turboism.sdk.cubism.history;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Bounded recursive projection of one grouped native or Turboism history operation. */
+@CubismEditor
 public record HistoryGroup(
         Optional<String> groupId, int observedChildCount, List<HistoryEntryDetail> children, boolean truncated) {
 

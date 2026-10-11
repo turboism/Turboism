@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.core;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 
 /** Immutable adapter-owned projection of one evaluated Core glue. */
+@CubismEditor
 public record OwnedGlue(String id, int drawableA, int drawableB, List<Integer> parameters) {
 
     public OwnedGlue {

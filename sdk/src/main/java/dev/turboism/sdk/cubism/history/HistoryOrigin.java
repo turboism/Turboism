@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.history;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Trusted attribution for one semantic history detail. */
+@CubismEditor
 public record HistoryOrigin(Kind kind, Optional<String> producerId, Optional<String> operationId) {
 
     private static final int MAX_ID_LENGTH = 128;
@@ -46,6 +48,7 @@ public record HistoryOrigin(Kind kind, Optional<String> producerId, Optional<Str
     }
 
     /** Who produced the change: a Turboism operation or an unattributed host action. */
+    @CubismEditor
     public enum Kind {
         TURBOISM,
         HOST_UNATTRIBUTED

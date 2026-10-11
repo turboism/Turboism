@@ -1,6 +1,9 @@
 package dev.turboism.sdk.cubism.command;
 
+import dev.turboism.sdk.CubismEditor;
+
 /** Marker for reviewed command-specific request records; no generic options are permitted. */
+@CubismEditor
 public sealed interface EditorParameterizedRequest
         permits EditorResizeModelRequest,
                 EditorGridSettingsRequest,
