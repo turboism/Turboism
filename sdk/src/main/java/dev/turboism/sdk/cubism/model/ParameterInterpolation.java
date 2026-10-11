@@ -8,7 +8,7 @@ import java.util.Objects;
  * angleScale converts parameter units to degrees for ellipse interpolation.
  * Reading a method does not imply the current backend authorizes writing it.
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.2.00")
 public record ParameterInterpolation(Method method, int insertPointCount, float angleScale) {
     /** Interpolation curve family recorded by the host for a parameter binding. */
     public enum Method {

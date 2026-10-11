@@ -8,7 +8,7 @@ import java.util.function.Supplier;
 import javax.swing.SwingUtilities;
 
 /**
- * Avoids Cubism 5.3.02's giant XML String when serializing derived interpolation
+ * Avoids the Editor's giant XML String when serializing derived interpolation
  * forms. CModelSource.setup() unconditionally rebuilds these forms from ordinary
  * bindings on open. Only the disposable normal cache is omitted, and live cache
  * objects are restored even when the native save fails. Source forms, bindings,
@@ -19,7 +19,8 @@ final class NativeInterpolationSaveCache {
     private static final long MAX_SERIALIZED_CACHE_VERTICES = 16_000_000;
 
     static <T> T save(VerifiedMemberResolver resolver, Object source, Supplier<T> nativeSave) {
-        if (!resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")
+        if (EditorParameterInterpolationSelectorContract.SUPPORTED_CUBISM_VERSIONS.stream()
+                        .noneMatch(resolver::isExactCubismVersion)
                 || !resolver.authorizesFeature(
                         EditorParameterInterpolationSelectorContract.ADAPTER_SLICE_ID,
                         EditorParameterInterpolationSelectorContract.CAPABILITY_ID,
