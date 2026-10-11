@@ -6,6 +6,7 @@
   "capabilityIds": [
     "cubism.editor-history.move",
     "cubism.editor-history.read",
+    "cubism.editor-history.semantic-read",
     "cubism.editor-model.animation-eval",
     "cubism.editor-model.animation-playback",
     "cubism.editor-model.animation-scene-edit",
@@ -10909,6 +10910,9 @@
       "hook:native-edit-begin"
     ],
     "cubism.editor-history.read": [
+      "hook:native-edit-begin"
+    ],
+    "cubism.editor-history.semantic-read": [
       "hook:native-edit-begin"
     ],
     "cubism.editor-model.animation-eval": [
