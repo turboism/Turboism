@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Completion result delivered by the after phase of a model or animation file operation. */
+@CubismEditor
 public record ProjectFileOperationResult(
         ProjectFileOperation request,
         Optional<ProjectContentSnapshot> content,

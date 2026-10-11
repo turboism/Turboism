@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -13,6 +14,7 @@ import java.util.Optional;
  * @param renderable whether the mesh currently participates in rendering; a mesh may be visible
  *     yet not renderable (for example when its owning part is hidden)
  */
+@CubismEditor
 public record ArtMeshSnapshot(String id, String name, Optional<String> textureId, boolean visible, boolean renderable)
         implements ModelObjectSnapshot {
     public ArtMeshSnapshot {

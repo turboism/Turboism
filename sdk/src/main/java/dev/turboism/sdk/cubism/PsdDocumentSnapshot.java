@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 
 /**
@@ -14,6 +15,7 @@ import java.util.List;
  *     free of parent segments
  * @param layers unmodifiable copy of the document's layers, in host order
  */
+@CubismEditor
 public record PsdDocumentSnapshot(String documentId, String relativePath, List<PsdLayerSnapshot> layers) {
     /**
      * Validates the record components.
@@ -42,6 +44,7 @@ public record PsdDocumentSnapshot(String documentId, String relativePath, List<P
      * @param name layer name as authored in the source PSD; must not be null or blank
      * @param visible whether the layer's visibility flag is set in the source document
      */
+    @CubismEditor
     public record PsdLayerSnapshot(String layerId, String name, boolean visible) {
         /**
          * Validates the record components.
