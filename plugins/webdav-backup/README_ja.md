@@ -44,7 +44,7 @@ Cubism のバックアップ成果物を、ユーザーが設定した WebDAV �
 
 <!-- compatibility:begin -->
 **Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
-- 自動バックアップ成果物 のみ 5.2.03–5.3.04（それ以前の Cubism バージョンには機能自体がない）
+- 自動バックアップ成果物 のみ 5.2.03–5.3.04（5.0.00–5.2.02 は未確認）
 - 保存時の自動バックアップ 対象外 5.0.00–5.0.06
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
 <!-- compatibility:end -->

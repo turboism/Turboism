@@ -1,0 +1,150 @@
+{
+ "format": "turboism.version-boundaries/v1",
+ "comment": "Feature-presence boundaries: versions where Cubism Editor itself lacks the feature (audit class (a) in build/spike/52-53-feature-gaps.md, verified against all reviewed jars). Anything absent here is NOT a proven boundary — the matrix generator labels unproven gaps 'pending adaptation' or 'unconfirmed', never 'the version lacks the feature'.",
+ "boundaries": [
+  {
+   "id": "dev.turboism.sdk.cubism.model.AlphaComposition",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "reason": "Alpha composition (blend modes) was introduced in Cubism 5.3.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.Part#maskIds",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "reason": "Part mask-id access requires the 5.3 inspector schema.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.Part#alphaComposition",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "reason": "Alpha composition exists only on Cubism 5.3.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.Part#setAlphaComposition",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "reason": "Alpha composition exists only on Cubism 5.3.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.Part#setOpacity",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "reason": "Part opacity writes through the inspector are 5.3-only.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.core.CoreCapabilities#parameterRepeat",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "reason": "Core parameterRepeat support is 5.3-only.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "cubism.editor-model.part-inspector.write",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "reason": "The extended part-inspector write schema (mask/alpha fields) exists only on 5.3.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "command:ADJUST_BOUNDING_BOX_ANGLE",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02"],
+   "reason": "Command added in Cubism 5.2.03.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "command:SELECT_CHILD_ELEMENTS_OF_DEFORMER",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02"],
+   "reason": "Command added in Cubism 5.2.03.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "command:SHOW_POPUP_HOVERING_OBJECT",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02"],
+   "reason": "Command added in Cubism 5.2.03.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "command:CHANGE_ALL_MESH_DRAW_ORDER",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02"],
+   "reason": "Command added in Cubism 5.2.03.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "command:CHANGE_MESH_DRAW_ORDER",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02"],
+   "reason": "Command added in Cubism 5.2.03.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "command:EXPAND_WARPDEFORMER",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "reason": "Command is 5.3-only.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "command:SETTING_GUIDES_MODELING_ADD_CENTER",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "reason": "Command is 5.3-only.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "command:SHOW_DEFAULT_ZOOM",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "reason": "Command is 5.3-only.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "command:SHOW_FULL_SCENE",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "reason": "Command is 5.3-only.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "command:SWITCH_HIGHTLIGHT_CONFLICT_POLYGON",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "reason": "Command is 5.3-only.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "command:FADE_SETTING",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "reason": "Command is 5.3-only (renamed from the 5.2 label-copy command).",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "command:REFLECT_FADE",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "reason": "Command is 5.3-only.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "command:SHOW_LABEL_COPY_DIALOG",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "reason": "5.3 rename of the 5.2 SHOW_SHOW_LABEL_COPY_DIALOG command.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "command:MESH_EDIT_RESET",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03","5.3.00","5.3.01"],
+   "reason": "Command added in Cubism 5.3.02.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "command:OPEN_FAQ_PAGE",
+   "absentOn": ["5.3.00","5.3.01","5.3.02","5.3.03","5.3.04"],
+   "reason": "Command was dropped in Cubism 5.3 (present through 5.2.03).",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "command:MOVE_END",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03","5.3.00","5.3.01","5.3.02","5.3.03","5.3.04"],
+   "reason": "Dead constant: the id exists in no reviewed jar.",
+   "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "command:MOVE_END_WORKSPACE",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03","5.3.00","5.3.01","5.3.02","5.3.03","5.3.04"],
+   "reason": "Dead constant: the id exists in no reviewed jar.",
+   "source": "feature-gap audit class (a)"
+  }
+ ]
+}

@@ -34,9 +34,9 @@ The official Selection Brush contributes tools for ordinary modeling and mesh ed
 - Interface mode: embedded. No plugin dependencies are declared.
 
 <!-- compatibility:begin -->
-**Cubism Editor version support (generated):** 5.2.03, 5.3.02–5.3.03（5.3.04 pending adaptation；5.3.00–5.3.01 unconfirmed；earlier Cubism versions lack the feature entirely）.
-- Mesh-edit custom tools only on 5.2.03, 5.3.02–5.3.03（5.3.04 pending adaptation；5.3.00–5.3.01 unconfirmed；earlier Cubism versions lack the feature entirely）
-- Modeling selection brush only on 5.2.03, 5.3.02–5.3.03（5.3.04 pending adaptation；5.3.00–5.3.01 unconfirmed；earlier Cubism versions lack the feature entirely）
+**Cubism Editor version support (generated):** 5.2.03, 5.3.02–5.3.03（5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04 pending adaptation）.
+- Mesh-edit custom tools only on 5.2.03, 5.3.02–5.3.03（5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04 pending adaptation）
+- Modeling selection brush only on 5.2.03, 5.3.02–5.3.03（5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04 pending adaptation）
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 

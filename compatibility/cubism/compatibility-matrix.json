@@ -6864,7 +6864,23 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "boundary",
+    "5.0.01": "boundary",
+    "5.0.02": "boundary",
+    "5.0.03": "boundary",
+    "5.0.04": "boundary",
+    "5.0.05": "boundary",
+    "5.0.06": "boundary",
+    "5.1.00": "boundary",
+    "5.1.01": "boundary",
+    "5.1.02": "boundary",
+    "5.1.03": "boundary",
+    "5.2.00": "boundary",
+    "5.2.01": "boundary",
+    "5.2.02": "boundary"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -6879,7 +6895,20 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown",
+    "5.1.00": "unknown",
+    "5.1.01": "unknown",
+    "5.1.02": "unknown",
+    "5.1.03": "unknown"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -6894,7 +6923,20 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown",
+    "5.1.00": "unknown",
+    "5.1.01": "unknown",
+    "5.1.02": "unknown",
+    "5.1.03": "unknown"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -6905,7 +6947,24 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "boundary",
+    "5.0.01": "boundary",
+    "5.0.02": "boundary",
+    "5.0.03": "boundary",
+    "5.0.04": "boundary",
+    "5.0.05": "boundary",
+    "5.0.06": "boundary",
+    "5.1.00": "boundary",
+    "5.1.01": "boundary",
+    "5.1.02": "boundary",
+    "5.1.03": "boundary",
+    "5.2.00": "boundary",
+    "5.2.01": "boundary",
+    "5.2.02": "boundary",
+    "5.2.03": "boundary"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -6928,7 +6987,12 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -6937,17 +7001,80 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "boundary",
+    "5.0.01": "boundary",
+    "5.0.02": "boundary",
+    "5.0.03": "boundary",
+    "5.0.04": "boundary",
+    "5.0.05": "boundary",
+    "5.0.06": "boundary",
+    "5.1.00": "boundary",
+    "5.1.01": "boundary",
+    "5.1.02": "boundary",
+    "5.1.03": "boundary",
+    "5.2.00": "boundary",
+    "5.2.01": "boundary",
+    "5.2.02": "boundary",
+    "5.2.03": "boundary",
+    "5.3.00": "boundary",
+    "5.3.01": "boundary"
+   }
   },
   {
    "enum": "EditorCommand",
    "name": "MOVE_END",
-   "versions": []
+   "versions": [],
+   "missingNature": {
+    "5.0.00": "boundary",
+    "5.0.01": "boundary",
+    "5.0.02": "boundary",
+    "5.0.03": "boundary",
+    "5.0.04": "boundary",
+    "5.0.05": "boundary",
+    "5.0.06": "boundary",
+    "5.1.00": "boundary",
+    "5.1.01": "boundary",
+    "5.1.02": "boundary",
+    "5.1.03": "boundary",
+    "5.2.00": "boundary",
+    "5.2.01": "boundary",
+    "5.2.02": "boundary",
+    "5.2.03": "boundary",
+    "5.3.00": "boundary",
+    "5.3.01": "boundary",
+    "5.3.02": "boundary",
+    "5.3.03": "boundary",
+    "5.3.04": "boundary"
+   }
   },
   {
    "enum": "EditorCommand",
    "name": "MOVE_END_WORKSPACE",
-   "versions": []
+   "versions": [],
+   "missingNature": {
+    "5.0.00": "boundary",
+    "5.0.01": "boundary",
+    "5.0.02": "boundary",
+    "5.0.03": "boundary",
+    "5.0.04": "boundary",
+    "5.0.05": "boundary",
+    "5.0.06": "boundary",
+    "5.1.00": "boundary",
+    "5.1.01": "boundary",
+    "5.1.02": "boundary",
+    "5.1.03": "boundary",
+    "5.2.00": "boundary",
+    "5.2.01": "boundary",
+    "5.2.02": "boundary",
+    "5.2.03": "boundary",
+    "5.3.00": "boundary",
+    "5.3.01": "boundary",
+    "5.3.02": "boundary",
+    "5.3.03": "boundary",
+    "5.3.04": "boundary"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -6968,7 +7095,14 @@
     "5.2.01",
     "5.2.02",
     "5.2.03"
-   ]
+   ],
+   "missingNature": {
+    "5.3.00": "boundary",
+    "5.3.01": "boundary",
+    "5.3.02": "boundary",
+    "5.3.03": "boundary",
+    "5.3.04": "boundary"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -6983,7 +7117,20 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown",
+    "5.1.00": "unknown",
+    "5.1.01": "unknown",
+    "5.1.02": "unknown",
+    "5.1.03": "unknown"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -6998,7 +7145,20 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown",
+    "5.1.00": "unknown",
+    "5.1.01": "unknown",
+    "5.1.02": "unknown",
+    "5.1.03": "unknown"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -7013,7 +7173,20 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown",
+    "5.1.00": "unknown",
+    "5.1.01": "unknown",
+    "5.1.02": "unknown",
+    "5.1.03": "unknown"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -7028,7 +7201,20 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown",
+    "5.1.00": "unknown",
+    "5.1.01": "unknown",
+    "5.1.02": "unknown",
+    "5.1.03": "unknown"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -7043,7 +7229,20 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown",
+    "5.1.00": "unknown",
+    "5.1.01": "unknown",
+    "5.1.02": "unknown",
+    "5.1.03": "unknown"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -7055,7 +7254,23 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "boundary",
+    "5.0.01": "boundary",
+    "5.0.02": "boundary",
+    "5.0.03": "boundary",
+    "5.0.04": "boundary",
+    "5.0.05": "boundary",
+    "5.0.06": "boundary",
+    "5.1.00": "boundary",
+    "5.1.01": "boundary",
+    "5.1.02": "boundary",
+    "5.1.03": "boundary",
+    "5.2.00": "boundary",
+    "5.2.01": "boundary",
+    "5.2.02": "boundary"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -7070,7 +7285,20 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown",
+    "5.1.00": "unknown",
+    "5.1.01": "unknown",
+    "5.1.02": "unknown",
+    "5.1.03": "unknown"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -7081,7 +7309,24 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "boundary",
+    "5.0.01": "boundary",
+    "5.0.02": "boundary",
+    "5.0.03": "boundary",
+    "5.0.04": "boundary",
+    "5.0.05": "boundary",
+    "5.0.06": "boundary",
+    "5.1.00": "boundary",
+    "5.1.01": "boundary",
+    "5.1.02": "boundary",
+    "5.1.03": "boundary",
+    "5.2.00": "boundary",
+    "5.2.01": "boundary",
+    "5.2.02": "boundary",
+    "5.2.03": "boundary"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -7100,7 +7345,16 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -7111,7 +7365,24 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "boundary",
+    "5.0.01": "boundary",
+    "5.0.02": "boundary",
+    "5.0.03": "boundary",
+    "5.0.04": "boundary",
+    "5.0.05": "boundary",
+    "5.0.06": "boundary",
+    "5.1.00": "boundary",
+    "5.1.01": "boundary",
+    "5.1.02": "boundary",
+    "5.1.03": "boundary",
+    "5.2.00": "boundary",
+    "5.2.01": "boundary",
+    "5.2.02": "boundary",
+    "5.2.03": "boundary"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -7122,7 +7393,24 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "boundary",
+    "5.0.01": "boundary",
+    "5.0.02": "boundary",
+    "5.0.03": "boundary",
+    "5.0.04": "boundary",
+    "5.0.05": "boundary",
+    "5.0.06": "boundary",
+    "5.1.00": "boundary",
+    "5.1.01": "boundary",
+    "5.1.02": "boundary",
+    "5.1.03": "boundary",
+    "5.2.00": "boundary",
+    "5.2.01": "boundary",
+    "5.2.02": "boundary",
+    "5.2.03": "boundary"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -7141,7 +7429,16 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -7156,7 +7453,20 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown",
+    "5.1.00": "unknown",
+    "5.1.01": "unknown",
+    "5.1.02": "unknown",
+    "5.1.03": "unknown"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -7171,7 +7481,20 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown",
+    "5.1.00": "unknown",
+    "5.1.01": "unknown",
+    "5.1.02": "unknown",
+    "5.1.03": "unknown"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -7183,7 +7506,23 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "boundary",
+    "5.0.01": "boundary",
+    "5.0.02": "boundary",
+    "5.0.03": "boundary",
+    "5.0.04": "boundary",
+    "5.0.05": "boundary",
+    "5.0.06": "boundary",
+    "5.1.00": "boundary",
+    "5.1.01": "boundary",
+    "5.1.02": "boundary",
+    "5.1.03": "boundary",
+    "5.2.00": "boundary",
+    "5.2.01": "boundary",
+    "5.2.02": "boundary"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -7194,7 +7533,24 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "boundary",
+    "5.0.01": "boundary",
+    "5.0.02": "boundary",
+    "5.0.03": "boundary",
+    "5.0.04": "boundary",
+    "5.0.05": "boundary",
+    "5.0.06": "boundary",
+    "5.1.00": "boundary",
+    "5.1.01": "boundary",
+    "5.1.02": "boundary",
+    "5.1.03": "boundary",
+    "5.2.00": "boundary",
+    "5.2.01": "boundary",
+    "5.2.02": "boundary",
+    "5.2.03": "boundary"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -7209,7 +7565,20 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown",
+    "5.1.00": "unknown",
+    "5.1.01": "unknown",
+    "5.1.02": "unknown",
+    "5.1.03": "unknown"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -7230,7 +7599,14 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown"
+   }
   },
   {
    "enum": "EditorCommand",
@@ -7245,7 +7621,20 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown",
+    "5.1.00": "unknown",
+    "5.1.01": "unknown",
+    "5.1.02": "unknown",
+    "5.1.03": "unknown"
+   }
   },
   {
    "enum": "EditorParameterizedCommand",
@@ -7264,7 +7653,16 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown"
+   }
   },
   {
    "enum": "EditorParameterizedCommand",
@@ -7276,7 +7674,23 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "boundary",
+    "5.0.01": "boundary",
+    "5.0.02": "boundary",
+    "5.0.03": "boundary",
+    "5.0.04": "boundary",
+    "5.0.05": "boundary",
+    "5.0.06": "boundary",
+    "5.1.00": "boundary",
+    "5.1.01": "boundary",
+    "5.1.02": "boundary",
+    "5.1.03": "boundary",
+    "5.2.00": "boundary",
+    "5.2.01": "boundary",
+    "5.2.02": "boundary"
+   }
   },
   {
    "enum": "EditorParameterizedCommand",
@@ -7288,7 +7702,23 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "boundary",
+    "5.0.01": "boundary",
+    "5.0.02": "boundary",
+    "5.0.03": "boundary",
+    "5.0.04": "boundary",
+    "5.0.05": "boundary",
+    "5.0.06": "boundary",
+    "5.1.00": "boundary",
+    "5.1.01": "boundary",
+    "5.1.02": "boundary",
+    "5.1.03": "boundary",
+    "5.2.00": "boundary",
+    "5.2.01": "boundary",
+    "5.2.02": "boundary"
+   }
   },
   {
    "enum": "EditorParameterizedCommand",
@@ -7307,7 +7737,16 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown"
+   }
   },
   {
    "enum": "EditorParameterizedCommand",
@@ -7322,7 +7761,20 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown",
+    "5.1.00": "unknown",
+    "5.1.01": "unknown",
+    "5.1.02": "unknown",
+    "5.1.03": "unknown"
+   }
   },
   {
    "enum": "EditorParameterizedCommand",
@@ -7341,7 +7793,16 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown"
+   }
   },
   {
    "enum": "EditorParameterizedCommand",
@@ -7352,7 +7813,24 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "boundary",
+    "5.0.01": "boundary",
+    "5.0.02": "boundary",
+    "5.0.03": "boundary",
+    "5.0.04": "boundary",
+    "5.0.05": "boundary",
+    "5.0.06": "boundary",
+    "5.1.00": "boundary",
+    "5.1.01": "boundary",
+    "5.1.02": "boundary",
+    "5.1.03": "boundary",
+    "5.2.00": "boundary",
+    "5.2.01": "boundary",
+    "5.2.02": "boundary",
+    "5.2.03": "boundary"
+   }
   },
   {
    "enum": "EditorParameterizedCommand",
@@ -7369,7 +7847,18 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown",
+    "5.1.00": "unknown",
+    "5.1.01": "unknown"
+   }
   },
   {
    "enum": "EditorParameterizedCommand",
@@ -7384,7 +7873,20 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown",
+    "5.1.00": "unknown",
+    "5.1.01": "unknown",
+    "5.1.02": "unknown",
+    "5.1.03": "unknown"
+   }
   },
   {
    "enum": "EditorParameterizedCommand",
@@ -7399,7 +7901,20 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown",
+    "5.1.00": "unknown",
+    "5.1.01": "unknown",
+    "5.1.02": "unknown",
+    "5.1.03": "unknown"
+   }
   },
   {
    "enum": "EditorParameterizedCommand",
@@ -7410,7 +7925,24 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "boundary",
+    "5.0.01": "boundary",
+    "5.0.02": "boundary",
+    "5.0.03": "boundary",
+    "5.0.04": "boundary",
+    "5.0.05": "boundary",
+    "5.0.06": "boundary",
+    "5.1.00": "boundary",
+    "5.1.01": "boundary",
+    "5.1.02": "boundary",
+    "5.1.03": "boundary",
+    "5.2.00": "boundary",
+    "5.2.01": "boundary",
+    "5.2.02": "boundary",
+    "5.2.03": "boundary"
+   }
   },
   {
    "enum": "EditorParameterizedCommand",
@@ -7421,7 +7953,24 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "boundary",
+    "5.0.01": "boundary",
+    "5.0.02": "boundary",
+    "5.0.03": "boundary",
+    "5.0.04": "boundary",
+    "5.0.05": "boundary",
+    "5.0.06": "boundary",
+    "5.1.00": "boundary",
+    "5.1.01": "boundary",
+    "5.1.02": "boundary",
+    "5.1.03": "boundary",
+    "5.2.00": "boundary",
+    "5.2.01": "boundary",
+    "5.2.02": "boundary",
+    "5.2.03": "boundary"
+   }
   },
   {
    "enum": "EditorParameterizedCommand",
@@ -7440,7 +7989,16 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown"
+   }
   },
   {
    "enum": "EditorParameterizedCommand",
@@ -7461,7 +8019,14 @@
     "5.2.01",
     "5.2.02",
     "5.2.03"
-   ]
+   ],
+   "missingNature": {
+    "5.3.00": "unknown",
+    "5.3.01": "unknown",
+    "5.3.02": "unknown",
+    "5.3.03": "unknown",
+    "5.3.04": "unknown"
+   }
   },
   {
    "enum": "EditorFileCommand",
@@ -7484,7 +8049,12 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown"
+   }
   },
   {
    "enum": "EditorFileCommand",
@@ -7503,7 +8073,16 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ]
+   ],
+   "missingNature": {
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown"
+   }
   }
  ],
  "sdkApiConstraints": [
@@ -8931,20 +9510,20 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/CubismFacade.java"
      ],
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary",
-      "5.2.00": "boundary",
-      "5.2.01": "boundary",
-      "5.2.02": "boundary",
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown",
+      "5.2.00": "unknown",
+      "5.2.01": "unknown",
+      "5.2.02": "unknown",
       "5.3.04": "pending"
      }
     }
@@ -9289,14 +9868,15 @@
       "cubism.editor-ui.embedded-panel"
      ],
      "sourceFiles": [],
+     "narrowed": false,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown"
      }
     },
     {
@@ -9332,14 +9912,15 @@
       "cubism.editor-ui.top-menu"
      ],
      "sourceFiles": [],
+     "narrowed": false,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown"
      }
     }
    ],
@@ -9530,13 +10111,13 @@
     "5.3.04"
    ],
    "supportedGaps": {
-    "5.0.00": "boundary",
-    "5.0.01": "boundary",
-    "5.0.02": "boundary",
-    "5.0.03": "boundary",
-    "5.0.04": "boundary",
-    "5.0.05": "boundary",
-    "5.0.06": "boundary"
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown"
    },
    "fullFeatureVersions": [
     "5.1.00",
@@ -9587,14 +10168,15 @@
       "cubism.editor-ui.top-menu"
      ],
      "sourceFiles": [],
+     "narrowed": false,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown"
      }
     }
    ],
@@ -9776,21 +10358,21 @@
     "5.3.04"
    ],
    "supportedGaps": {
-    "5.0.00": "boundary",
-    "5.0.01": "boundary",
-    "5.0.02": "boundary",
-    "5.0.03": "boundary",
-    "5.0.04": "boundary",
-    "5.0.05": "boundary",
-    "5.0.06": "boundary",
-    "5.1.00": "boundary",
-    "5.1.01": "boundary",
-    "5.1.02": "boundary",
-    "5.1.03": "boundary",
-    "5.2.00": "boundary",
-    "5.2.01": "boundary",
-    "5.2.02": "boundary",
-    "5.2.03": "boundary"
+    "5.0.00": "pending",
+    "5.0.01": "pending",
+    "5.0.02": "pending",
+    "5.0.03": "pending",
+    "5.0.04": "pending",
+    "5.0.05": "pending",
+    "5.0.06": "pending",
+    "5.1.00": "pending",
+    "5.1.01": "pending",
+    "5.1.02": "pending",
+    "5.1.03": "pending",
+    "5.2.00": "pending",
+    "5.2.01": "pending",
+    "5.2.02": "pending",
+    "5.2.03": "pending"
    },
    "fullFeatureVersions": [
     "5.3.00",
@@ -9835,22 +10417,23 @@
      "sourceFiles": [
       "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorRawImagePsdReplaceSelectorContract.java"
      ],
+     "narrowed": true,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary",
-      "5.2.00": "boundary",
-      "5.2.01": "boundary",
-      "5.2.02": "boundary",
-      "5.2.03": "boundary"
+      "5.0.00": "pending",
+      "5.0.01": "pending",
+      "5.0.02": "pending",
+      "5.0.03": "pending",
+      "5.0.04": "pending",
+      "5.0.05": "pending",
+      "5.0.06": "pending",
+      "5.1.00": "pending",
+      "5.1.01": "pending",
+      "5.1.02": "pending",
+      "5.1.03": "pending",
+      "5.2.00": "pending",
+      "5.2.01": "pending",
+      "5.2.02": "pending",
+      "5.2.03": "pending"
      }
     },
     {
@@ -9885,21 +10468,21 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java"
      ],
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary",
-      "5.2.00": "boundary",
-      "5.2.01": "boundary",
-      "5.2.02": "boundary",
-      "5.2.03": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown",
+      "5.2.00": "unknown",
+      "5.2.01": "unknown",
+      "5.2.02": "unknown",
+      "5.2.03": "unknown"
      }
     },
     {
@@ -9934,21 +10517,21 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java"
      ],
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary",
-      "5.2.00": "boundary",
-      "5.2.01": "boundary",
-      "5.2.02": "boundary",
-      "5.2.03": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown",
+      "5.2.00": "unknown",
+      "5.2.01": "unknown",
+      "5.2.02": "unknown",
+      "5.2.03": "unknown"
      }
     }
    ],
@@ -10046,21 +10629,22 @@
       "cubism.editor-history.semantic-read"
      ],
      "sourceFiles": [],
+     "narrowed": false,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary",
-      "5.2.00": "boundary",
-      "5.2.01": "boundary",
-      "5.2.02": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown",
+      "5.2.00": "unknown",
+      "5.2.01": "unknown",
+      "5.2.02": "unknown"
      }
     },
     {
@@ -10096,14 +10680,15 @@
       "cubism.editor-ui.embedded-panel"
      ],
      "sourceFiles": [],
+     "narrowed": false,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown"
      }
     }
    ],
@@ -10231,20 +10816,20 @@
       "dev.turboism.sdk.cubism.model.ModelTextures#removeTextureAtlas"
      ],
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary",
-      "5.2.00": "boundary",
-      "5.2.01": "boundary",
-      "5.2.02": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown",
+      "5.2.00": "unknown",
+      "5.2.01": "unknown",
+      "5.2.02": "unknown"
      }
     },
     {
@@ -10281,18 +10866,19 @@
       "cubism.editor-model.parameter-structure.write"
      ],
      "sourceFiles": [],
+     "narrowed": false,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
      }
     },
     {
@@ -10327,17 +10913,17 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/CubismFacade.java"
      ],
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
      }
     },
     {
@@ -10376,17 +10962,17 @@
       "dev.turboism.sdk.cubism.transaction.AuthoringTransactionService#execute"
      ],
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
      }
     },
     {
@@ -10422,14 +11008,15 @@
       "cubism.editor-ui.top-menu"
      ],
      "sourceFiles": [],
+     "narrowed": false,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown"
      }
     },
     {
@@ -10469,13 +11056,13 @@
       "dev.turboism.sdk.cubism.command.EditorCommandService#execute"
      ],
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown"
      }
     },
     {
@@ -10514,13 +11101,13 @@
       "dev.turboism.sdk.cubism.command.EditorCommandService#available"
      ],
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown"
      }
     }
    ],
@@ -10709,23 +11296,24 @@
      ],
      "capabilities": [],
      "sourceFiles": [],
+     "narrowed": true,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary",
-      "5.2.00": "boundary",
-      "5.2.01": "boundary",
-      "5.2.02": "boundary",
-      "5.3.00": "unknown",
-      "5.3.01": "unknown",
+      "5.0.00": "pending",
+      "5.0.01": "pending",
+      "5.0.02": "pending",
+      "5.0.03": "pending",
+      "5.0.04": "pending",
+      "5.0.05": "pending",
+      "5.0.06": "pending",
+      "5.1.00": "pending",
+      "5.1.01": "pending",
+      "5.1.02": "pending",
+      "5.1.03": "pending",
+      "5.2.00": "pending",
+      "5.2.01": "pending",
+      "5.2.02": "pending",
+      "5.3.00": "pending",
+      "5.3.01": "pending",
       "5.3.04": "pending"
      }
     },
@@ -10764,23 +11352,24 @@
      "sourceFiles": [
       "runtime/src/main/java/dev/turboism/ui/mesh/MeshToolbarSelectorContract.java"
      ],
+     "narrowed": true,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary",
-      "5.2.00": "boundary",
-      "5.2.01": "boundary",
-      "5.2.02": "boundary",
-      "5.3.00": "unknown",
-      "5.3.01": "unknown",
+      "5.0.00": "pending",
+      "5.0.01": "pending",
+      "5.0.02": "pending",
+      "5.0.03": "pending",
+      "5.0.04": "pending",
+      "5.0.05": "pending",
+      "5.0.06": "pending",
+      "5.1.00": "pending",
+      "5.1.01": "pending",
+      "5.1.02": "pending",
+      "5.1.03": "pending",
+      "5.2.00": "pending",
+      "5.2.01": "pending",
+      "5.2.02": "pending",
+      "5.3.00": "pending",
+      "5.3.01": "pending",
       "5.3.04": "pending"
      }
     },
@@ -10817,18 +11406,19 @@
       "cubism.geometry.read"
      ],
      "sourceFiles": [],
+     "narrowed": false,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
      }
     }
    ],
@@ -10908,18 +11498,19 @@
       "cubism.editor-model.write"
      ],
      "sourceFiles": [],
+     "narrowed": false,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
      }
     }
    ],
@@ -10999,18 +11590,19 @@
       "cubism.editor-model.write"
      ],
      "sourceFiles": [],
+     "narrowed": false,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
      }
     },
     {
@@ -11045,17 +11637,17 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/CubismFacade.java"
      ],
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
      }
     }
    ],
@@ -11210,18 +11802,19 @@
       "cubism.editor-model.write"
      ],
      "sourceFiles": [],
+     "narrowed": false,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
      }
     }
    ],
@@ -11475,14 +12068,15 @@
       "cubism.editor-ui.embedded-panel"
      ],
      "sourceFiles": [],
+     "narrowed": false,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown"
      }
     }
    ],
@@ -11811,13 +12405,13 @@
     "5.3.04"
    ],
    "supportedGaps": {
-    "5.0.00": "boundary",
-    "5.0.01": "boundary",
-    "5.0.02": "boundary",
-    "5.0.03": "boundary",
-    "5.0.04": "boundary",
-    "5.0.05": "boundary",
-    "5.0.06": "boundary"
+    "5.0.00": "unknown",
+    "5.0.01": "unknown",
+    "5.0.02": "unknown",
+    "5.0.03": "unknown",
+    "5.0.04": "unknown",
+    "5.0.05": "unknown",
+    "5.0.06": "unknown"
    },
    "fullFeatureVersions": [
     "5.1.00",
@@ -11867,14 +12461,15 @@
       "cubism.protected-export.orchestration"
      ],
      "sourceFiles": [],
+     "narrowed": false,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown"
      }
     },
     {
@@ -11909,13 +12504,13 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/export/ExportSettingsContributionService.java"
      ],
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown"
      }
     }
    ],
@@ -12073,14 +12668,15 @@
       "cubism.editor-ui.embedded-panel"
      ],
      "sourceFiles": [],
+     "narrowed": false,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown"
      }
     }
    ],
@@ -12442,22 +13038,22 @@
     "5.3.03"
    ],
    "supportedGaps": {
-    "5.0.00": "boundary",
-    "5.0.01": "boundary",
-    "5.0.02": "boundary",
-    "5.0.03": "boundary",
-    "5.0.04": "boundary",
-    "5.0.05": "boundary",
-    "5.0.06": "boundary",
-    "5.1.00": "boundary",
-    "5.1.01": "boundary",
-    "5.1.02": "boundary",
-    "5.1.03": "boundary",
-    "5.2.00": "boundary",
-    "5.2.01": "boundary",
-    "5.2.02": "boundary",
-    "5.3.00": "unknown",
-    "5.3.01": "unknown",
+    "5.0.00": "pending",
+    "5.0.01": "pending",
+    "5.0.02": "pending",
+    "5.0.03": "pending",
+    "5.0.04": "pending",
+    "5.0.05": "pending",
+    "5.0.06": "pending",
+    "5.1.00": "pending",
+    "5.1.01": "pending",
+    "5.1.02": "pending",
+    "5.1.03": "pending",
+    "5.2.00": "pending",
+    "5.2.01": "pending",
+    "5.2.02": "pending",
+    "5.3.00": "pending",
+    "5.3.01": "pending",
     "5.3.04": "pending"
    },
    "fullFeatureVersions": [
@@ -12503,23 +13099,24 @@
       "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolSessionSelectorContract.java",
       "runtime/src/main/java/dev/turboism/ui/mesh/MeshToolbarSelectorContract.java"
      ],
+     "narrowed": true,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary",
-      "5.2.00": "boundary",
-      "5.2.01": "boundary",
-      "5.2.02": "boundary",
-      "5.3.00": "unknown",
-      "5.3.01": "unknown",
+      "5.0.00": "pending",
+      "5.0.01": "pending",
+      "5.0.02": "pending",
+      "5.0.03": "pending",
+      "5.0.04": "pending",
+      "5.0.05": "pending",
+      "5.0.06": "pending",
+      "5.1.00": "pending",
+      "5.1.01": "pending",
+      "5.1.02": "pending",
+      "5.1.03": "pending",
+      "5.2.00": "pending",
+      "5.2.01": "pending",
+      "5.2.02": "pending",
+      "5.3.00": "pending",
+      "5.3.01": "pending",
       "5.3.04": "pending"
      }
     },
@@ -12558,23 +13155,24 @@
      "sourceFiles": [
       "runtime/src/main/java/dev/turboism/adapter/cubism/modeling/ModelingSelectionSelectorContract.java"
      ],
+     "narrowed": true,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary",
-      "5.2.00": "boundary",
-      "5.2.01": "boundary",
-      "5.2.02": "boundary",
-      "5.3.00": "unknown",
-      "5.3.01": "unknown",
+      "5.0.00": "pending",
+      "5.0.01": "pending",
+      "5.0.02": "pending",
+      "5.0.03": "pending",
+      "5.0.04": "pending",
+      "5.0.05": "pending",
+      "5.0.06": "pending",
+      "5.1.00": "pending",
+      "5.1.01": "pending",
+      "5.1.02": "pending",
+      "5.1.03": "pending",
+      "5.2.00": "pending",
+      "5.2.01": "pending",
+      "5.2.02": "pending",
+      "5.3.00": "pending",
+      "5.3.01": "pending",
       "5.3.04": "pending"
      }
     }
@@ -12722,17 +13320,17 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasEditorSession.java"
      ],
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary",
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown",
       "5.2.03": "pending"
      }
     },
@@ -12768,17 +13366,17 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasEditorPanel.java"
      ],
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
      }
     },
     {
@@ -12813,17 +13411,17 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasEditorUi.java"
      ],
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
      }
     }
    ],
@@ -13116,23 +13714,24 @@
       "cubism.editor-model.warp-mirror"
      ],
      "sourceFiles": [],
+     "narrowed": true,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary",
-      "5.2.00": "boundary",
-      "5.2.01": "boundary",
-      "5.2.02": "boundary",
-      "5.3.00": "unknown",
-      "5.3.01": "unknown",
+      "5.0.00": "pending",
+      "5.0.01": "pending",
+      "5.0.02": "pending",
+      "5.0.03": "pending",
+      "5.0.04": "pending",
+      "5.0.05": "pending",
+      "5.0.06": "pending",
+      "5.1.00": "pending",
+      "5.1.01": "pending",
+      "5.1.02": "pending",
+      "5.1.03": "pending",
+      "5.2.00": "pending",
+      "5.2.01": "pending",
+      "5.2.02": "pending",
+      "5.3.00": "pending",
+      "5.3.01": "pending",
       "5.3.04": "pending"
      }
     }
@@ -13276,20 +13875,20 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/backup/EditorAutoBackupService.java"
      ],
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "boundary",
-      "5.1.01": "boundary",
-      "5.1.02": "boundary",
-      "5.1.03": "boundary",
-      "5.2.00": "boundary",
-      "5.2.01": "boundary",
-      "5.2.02": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown",
+      "5.2.00": "unknown",
+      "5.2.01": "unknown",
+      "5.2.02": "unknown"
      }
     },
     {
@@ -13324,13 +13923,13 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/backup/EditorAutoBackupService.java"
      ],
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown"
      }
     }
    ],
@@ -17172,5 +17771,508 @@
   "backup-webdav": "autobackup",
   "selection-brush": "modeling-tool",
   "atlas": "texture-atlas"
- }
+ },
+ "versionBoundaries": [
+  {
+   "id": "dev.turboism.sdk.cubism.model.AlphaComposition",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Alpha composition (blend modes) was introduced in Cubism 5.3."
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.Part#maskIds",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Part mask-id access requires the 5.3 inspector schema."
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.Part#alphaComposition",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Alpha composition exists only on Cubism 5.3."
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.Part#setAlphaComposition",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Alpha composition exists only on Cubism 5.3."
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.Part#setOpacity",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Part opacity writes through the inspector are 5.3-only."
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.core.CoreCapabilities#parameterRepeat",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Core parameterRepeat support is 5.3-only."
+  },
+  {
+   "id": "cubism.editor-model.part-inspector.write",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "The extended part-inspector write schema (mask/alpha fields) exists only on 5.3."
+  },
+  {
+   "id": "command:ADJUST_BOUNDING_BOX_ANGLE",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02"
+   ],
+   "reason": "Command added in Cubism 5.2.03."
+  },
+  {
+   "id": "command:SELECT_CHILD_ELEMENTS_OF_DEFORMER",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02"
+   ],
+   "reason": "Command added in Cubism 5.2.03."
+  },
+  {
+   "id": "command:SHOW_POPUP_HOVERING_OBJECT",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02"
+   ],
+   "reason": "Command added in Cubism 5.2.03."
+  },
+  {
+   "id": "command:CHANGE_ALL_MESH_DRAW_ORDER",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02"
+   ],
+   "reason": "Command added in Cubism 5.2.03."
+  },
+  {
+   "id": "command:CHANGE_MESH_DRAW_ORDER",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02"
+   ],
+   "reason": "Command added in Cubism 5.2.03."
+  },
+  {
+   "id": "command:EXPAND_WARPDEFORMER",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Command is 5.3-only."
+  },
+  {
+   "id": "command:SETTING_GUIDES_MODELING_ADD_CENTER",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Command is 5.3-only."
+  },
+  {
+   "id": "command:SHOW_DEFAULT_ZOOM",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Command is 5.3-only."
+  },
+  {
+   "id": "command:SHOW_FULL_SCENE",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Command is 5.3-only."
+  },
+  {
+   "id": "command:SWITCH_HIGHTLIGHT_CONFLICT_POLYGON",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Command is 5.3-only."
+  },
+  {
+   "id": "command:FADE_SETTING",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Command is 5.3-only (renamed from the 5.2 label-copy command)."
+  },
+  {
+   "id": "command:REFLECT_FADE",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Command is 5.3-only."
+  },
+  {
+   "id": "command:SHOW_LABEL_COPY_DIALOG",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "5.3 rename of the 5.2 SHOW_SHOW_LABEL_COPY_DIALOG command."
+  },
+  {
+   "id": "command:MESH_EDIT_RESET",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01"
+   ],
+   "reason": "Command added in Cubism 5.3.02."
+  },
+  {
+   "id": "command:OPEN_FAQ_PAGE",
+   "absentOn": [
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "reason": "Command was dropped in Cubism 5.3 (present through 5.2.03)."
+  },
+  {
+   "id": "command:MOVE_END",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "reason": "Dead constant: the id exists in no reviewed jar."
+  },
+  {
+   "id": "command:MOVE_END_WORKSPACE",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "reason": "Dead constant: the id exists in no reviewed jar."
+  }
+ ]
 }

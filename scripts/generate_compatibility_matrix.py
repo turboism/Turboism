@@ -88,6 +88,7 @@ CLASS_PINS_DIR = Path("runtime/src/main/resources/dev/turboism/adapter/cubism/cl
 CAMPAIGN_JOBS = Path("validation/cubism-version-matrix/campaign-jobs.json")
 CAMPAIGN_INVENTORY = Path("validation/cubism-version-matrix/inventory.json")
 MONOTONICITY_EXCEPTIONS = Path("scripts/version-monotonicity-exceptions.json")
+VERSION_BOUNDARIES = Path("compatibility/cubism/version-boundaries.json")
 PLUGIN_DESCRIPTOR = Path("src/main/resources/META-INF/turboism/plugin.json")
 
 BLOCK_BEGIN = "<!-- compatibility:begin -->"
@@ -822,6 +823,9 @@ STRINGS = {
         "full_feature_since": "full feature set requires {min}+",
         "full_feature_only": "full feature set only on {versions}",
         "no_cubism": "initializes without Cubism",
+        "nature_boundary": "boundary",
+        "nature_pending": "pending adaptation",
+        "nature_unknown": "unconfirmed",
         "gap_pending": "{versions} pending adaptation",
         "gap_boundary": "{versions} the Cubism version itself lacks the feature",
         "gap_boundary_prefix": "earlier Cubism versions lack the feature entirely",
@@ -866,6 +870,9 @@ STRINGS = {
         "full_feature_since": "完整功能需 {min} 及以上",
         "full_feature_only": "完整功能仅 {versions}",
         "no_cubism": "可在无 Cubism 下初始化",
+        "nature_boundary": "真实边界",
+        "nature_pending": "尚未适配",
+        "nature_unknown": "待确认",
         "gap_pending": "{versions} 尚未适配",
         "gap_boundary": "{versions} 为 Cubism 本身无此功能",
         "gap_boundary_prefix": "更早版本 Cubism 本身无此功能",
@@ -908,6 +915,9 @@ STRINGS = {
         "full_feature_since": "全機能は {min} 以降が必要",
         "full_feature_only": "全機能は {versions} のみ",
         "no_cubism": "Cubism なしでも初期化可能",
+        "nature_boundary": "実境界",
+        "nature_pending": "未対応",
+        "nature_unknown": "未確認",
         "gap_pending": "{versions} は未対応（適合作業中）",
         "gap_boundary": "{versions} では Cubism 自体に機能なし",
         "gap_boundary_prefix": "それ以前の Cubism バージョンには機能自体がない",
@@ -952,6 +962,9 @@ STRINGS = {
         "full_feature_since": "전체 기능은 {min} 이상 필요",
         "full_feature_only": "전체 기능은 {versions}에서만",
         "no_cubism": "Cubism 없이도 초기화 가능",
+        "nature_boundary": "실제 경계",
+        "nature_pending": "미적용",
+        "nature_unknown": "미확인",
         "gap_pending": "{versions} 미적용(적응 작업 중)",
         "gap_boundary": "{versions}은 Cubism 자체에 기능 없음",
         "gap_boundary_prefix": "이전 Cubism 버전에는 기능 자체가 없음",
@@ -1015,6 +1028,7 @@ DEV_STRINGS = {
         ),
         "col_command": "Command",
         "col_enum": "Enum",
+        "col_nature": "Nature",
         "pins_heading": "Runtime admission pins",
         "pins_note": (
             "Selector contracts and class-pin tables that narrow verified "
@@ -1078,6 +1092,7 @@ DEV_STRINGS = {
         ),
         "col_command": "命令",
         "col_enum": "枚举",
+        "col_nature": "性质",
         "pins_heading": "运行时准入 pin",
         "pins_note": (
             "将已验证能力收窄到特定版本的选择器契约与类 pin 表（功能存在，"
@@ -1136,6 +1151,7 @@ DEV_STRINGS = {
         ),
         "col_command": "コマンド",
         "col_enum": "列挙",
+        "col_nature": "性質",
         "pins_heading": "ランタイム許可ピン",
         "pins_note": (
             "検証済みケイパビリティを特定バージョンに絞り込むセレクタ"
@@ -1197,6 +1213,7 @@ DEV_STRINGS = {
         ),
         "col_command": "명령",
         "col_enum": "열거형",
+        "col_nature": "성격",
         "pins_heading": "런타임 허용 핀",
         "pins_note": (
             "검증된 capability를 특정 버전으로 좁히는 선택자 계약과 클래스 핀 "
@@ -1726,32 +1743,69 @@ def load_monotonicity_exceptions(root: Path) -> list[dict]:
     return entries
 
 
+def load_version_boundaries(root: Path) -> dict[str, set[str]]:
+    """Feature id -> versions where the host itself lacks the feature.
+
+    These are the audit's proven genuine boundaries; anything absent from this
+    file is not asserted to be a boundary.
+    """
+    path = root / VERSION_BOUNDARIES
+    if not path.is_file():
+        return {}
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    return {
+        entry["id"]: set(entry.get("absentOn", []))
+        for entry in doc.get("boundaries", [])
+    }
+
+
+def _load_boundary_entries(root: Path) -> list[dict]:
+    path = root / VERSION_BOUNDARIES
+    if not path.is_file():
+        return []
+    return [
+        {
+            "id": entry["id"],
+            "absentOn": sorted(entry.get("absentOn", []), key=version_key),
+            "reason": entry.get("reason"),
+        }
+        for entry in json.loads(path.read_text(encoding="utf-8")).get(
+            "boundaries", []
+        )
+    ]
+
+
 def classify_gap(
     missing: set[str],
     versions: set[str],
     exceptions: list[dict],
     *,
+    key: str | None = None,
+    narrowed: bool = False,
     pins: set[str] | None = None,
     source_files: set[str] | None = None,
     capabilities: set[str] | None = None,
     task_site: str | None = None,
+    boundaries: dict[str, set[str]] | None = None,
 ) -> dict[str, str]:
-    """Classify every missing version: 'boundary' (the host genuinely lacks
-    the feature or an evidence-sanctioned exclusion), 'pending' (adaptation in
-    flight per a sanctioned exception), or 'unknown'.
+    """Classify every missing version.
 
-    A missing version earlier than every admitted version is a boundary by
-    construction — the feature did not exist yet. Interior and trailing gaps
-    need a scoped exception to be called pending or boundary; unmatched gaps
-    stay unknown rather than guessing.
+    - ``boundary``: proven — the feature is in ``version-boundaries.json``
+      for this key, or an evidence-sanctioned monotonicity exception covers
+      it (the Cubism version itself lacks the feature).
+    - ``pending``: a sanctioned ``pending`` exception covers it, or the
+      capability is narrowed by a selector contract / class pin — the feature
+      exists, adaptation is simply not wired for that version yet.
+    - ``unknown``: no evidence either way (待确认). Missing versions are
+      never assumed to be boundaries.
     """
     pins = pins or set()
     source_files = source_files or set()
     capabilities = capabilities or set()
+    boundaries = boundaries or {}
     result: dict[str, str] = {}
-    earliest = min(versions, key=version_key) if versions else ""
     for version in sorted(missing, key=version_key):
-        if earliest and version_key(version) < version_key(earliest):
+        if key is not None and version in boundaries.get(key, set()):
             result[version] = "boundary"
             continue
         matched: str | None = None
@@ -1784,6 +1838,11 @@ def classify_gap(
             if applies:
                 matched = "pending" if exc["pending"] else "boundary"
                 break
+        if matched is None and narrowed:
+            # A selector contract or pin table narrows the capability: the
+            # feature exists, the admission for this version is just not
+            # wired yet — adaptation pending, not a host boundary.
+            matched = "pending"
         result[version] = matched or "unknown"
     return result
 
@@ -1858,6 +1917,15 @@ def build_matrix(root: Path) -> dict:
     runtime_gates = load_runtime_gates(root)
     campaign = load_campaign(root, reviewed)
     exceptions = load_monotonicity_exceptions(root)
+    boundaries = load_version_boundaries(root)
+    for command in commands:
+        command["missingNature"] = classify_gap(
+            reviewed_set - set(command["versions"]),
+            set(command["versions"]),
+            exceptions,
+            key=f"command:{command['name']}",
+            boundaries=boundaries,
+        )
 
     admitted = {cap: admitted_versions(cap, caps, gates) for cap in caps}
 
@@ -1909,6 +1977,7 @@ def build_matrix(root: Path) -> dict:
                         pins=sorted(resolved["pins"]),
                         capabilities=resolved["capabilities"],
                         sourceFiles=gate_files,
+                        narrowed=bool(gate_files or pin_sets),
                     )
                 )
         # Capability namespaces named after the plugin directory are the
@@ -1929,6 +1998,7 @@ def build_matrix(root: Path) -> dict:
                                 g["source"].split(":")[0]
                                 for g in gates.get(cap, [])
                             ),
+                            narrowed=bool(gates.get(cap)),
                         )
                     )
         all_java = "\n".join(plugin["javaTexts"])
@@ -2049,15 +2119,19 @@ def build_matrix(root: Path) -> dict:
                 set(note["missingOn"]),
                 set(note["versions"]),
                 exceptions,
+                key=note["key"],
+                narrowed=bool(note.get("narrowed")),
                 pins=set(note.get("pins", [])),
                 source_files=set(note.get("sourceFiles", [])),
                 capabilities=set(note.get("capabilities", [])),
                 task_site=plugin["directory"],
+                boundaries=boundaries,
             )
         supported_gaps = classify_gap(
             reviewed_set - supported,
             supported,
             exceptions,
+            narrowed=any(n.get("narrowed") for n in merged.values()),
             pins={
                 pin for note in merged.values() for pin in note.get("pins", [])
             },
@@ -2072,6 +2146,7 @@ def build_matrix(root: Path) -> dict:
                 for c in note.get("capabilities", [])
             },
             task_site=plugin["directory"],
+            boundaries=boundaries,
         )
         tasks = {
             task: versions
@@ -2147,6 +2222,7 @@ def build_matrix(root: Path) -> dict:
         "hostValidation": {task: v for task, v in sorted(campaign.items())},
         "taskPluginAliases": TASK_PLUGIN_ALIASES,
         "taskGroupAliases": TASK_GROUP_ALIASES,
+        "versionBoundaries": _load_boundary_entries(root),
     }
 
 
@@ -2201,6 +2277,20 @@ def _gap_suffix(note: dict, locale: str, reviewed: list[str]) -> str:
     if boundary and prefix_only:
         parts.append(s["gap_boundary_prefix"])
     return "（" + "；".join(parts) + "）" if parts else ""
+
+
+def _nature_text(nature: dict | None, locale: str) -> str:
+    """Summarize the classified nature of a row's missing versions."""
+    if not nature:
+        return "—"
+    s = STRINGS[locale]
+    kinds = {n for n in nature.values() if n}
+    labels = {
+        "boundary": s["nature_boundary"],
+        "pending": s["nature_pending"],
+        "unknown": s["nature_unknown"],
+    }
+    return " / ".join(labels[k] for k in ("boundary", "pending", "unknown") if k in kinds) or "—"
 
 
 def _feature_text(
@@ -2395,8 +2485,8 @@ def render_capabilities_doc(matrix: dict, locale: str) -> str:
         "",
         s["commands_note"],
         "",
-        f"| {s['col_command']} | {s['col_enum']} | {s['col_versions']} |",
-        "|---|---|---|",
+        f"| {s['col_command']} | {s['col_enum']} | {s['col_versions']} | {s['col_nature']} |",
+        "|---|---|---|---|",
     ]
     for command in matrix["commands"]:
         version_text = (
@@ -2404,7 +2494,11 @@ def render_capabilities_doc(matrix: dict, locale: str) -> str:
             if command["versions"]
             else "—"
         )
-        lines.append(f"| `{command['name']}` | {command['enum']} | {version_text} |")
+        nature_text = _nature_text(command.get("missingNature"), locale)
+        lines.append(
+            f"| `{command['name']}` | {command['enum']} | "
+            f"{version_text} | {nature_text} |"
+        )
     lines += [
         "",
         f"## {s['pins_heading']}",
