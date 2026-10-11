@@ -31,9 +31,9 @@ interface: none
 - **インターフェースモード：**`none` —— プラグインはフレームワークアクションでエクスポートを駆動し、通知とログで結果を報告します。
 
 <!-- compatibility:begin -->
-**Cubism Editor バージョン対応（自動生成）：** 5.1.00–5.3.04.
+**Cubism Editor バージョン対応（自動生成）：** 5.1.00–5.3.04（それ以前の Cubism バージョンには機能自体がない）.
 - 保護付きエクスポートオーケストレーション 対象外 5.0.00–5.0.06
-- cubism.export.ExportSettingsContributionService 対象外 5.0.00–5.0.06
+- エクスポート設定贡献 対象外 5.0.00–5.0.06
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
 <!-- compatibility:end -->
 
