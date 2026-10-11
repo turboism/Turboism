@@ -69,6 +69,11 @@ client then proves, through the public MCP transport only:
 If any stage fails, the client attempts direct field-by-field restoration on the task-local model
 copy and reports both the primary and cleanup failure classes without persisting connection data.
 
+The standard variant resolves its fixture in order:
+`TURBOISM_HOST_VALIDATION_FIXTURE_MCP`, then `TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK` (the
+clipmask fixture is also Glue-bearing), then the shared versioned selection. The free-fixture
+variant ignores both overrides and keeps the versioned selection for its FREE-limit preparation.
+
 ## Audited adapter regressions
 
 The client additionally rejects eleven malformed batch / legacy inversion / JSON-RPC ID

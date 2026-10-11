@@ -160,6 +160,12 @@ class McpHostValidationClientTest(unittest.TestCase):
         manifest = json.loads((REPO_ROOT / "scripts/preview/host-validation-tasks.json").read_text())
         self.assertEqual(reviewed, manifest["tasks"]["mcp"]["versions"])
         self.assertIn('turboism_select_fixture "$version"', text)
+        self.assertLess(text.index("TURBOISM_HOST_VALIDATION_FIXTURE_MCP:-"),
+                        text.index("TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK:-"),
+                        "the mcp override must be consulted before the clipmask fallback")
+        self.assertLess(text.index("TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK:-"),
+                        text.rindex('turboism_select_fixture "$version"'),
+                        "the clipmask fallback must precede the versioned selection")
         self.assertIn("--require-fixture-unchanged", text)
         self.assertIn("--client-python", text)
         self.assertNotIn("/home/local-user", text)
