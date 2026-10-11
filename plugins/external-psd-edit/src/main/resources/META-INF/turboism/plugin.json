@@ -32,6 +32,11 @@
       "reason": "Apply Cubism native explicit-target raw-image replacement when a watched temporary PSD is saved."
     },
     {
+      "id": "turboism.cubism.model.observe",
+      "scope": "application",
+      "reason": "Receives model-close and editor-exit lifecycle callbacks that stop external edit sessions; undeclared, the lifecycle registry filters them out."
+    },
+    {
       "id": "turboism.file.read",
       "scope": "application",
       "reason": "Read the runtime-issued temporary PSD revision for replacement."

@@ -23,6 +23,14 @@ public final class ProjectLifecycleHookRegistry {
 
     public static final String OBSERVE_PERMISSION = ParameterHookRegistry.OBSERVE_PERMISSION;
 
+    private static final List<String> EDITOR_LIFECYCLE_METHODS = List.of(
+            "beforeEditorStartup",
+            "onEditorStarted",
+            "afterEditorStartup",
+            "beforeEditorExit",
+            "onEditorExiting",
+            "afterEditorExit");
+
     private final ProjectFileLifecycleCoordinator projectFiles;
     private final Object lifecycleLock = new Object();
     private final EditorLifecycleCoordinator editor;
@@ -67,6 +75,9 @@ public final class ProjectLifecycleHookRegistry {
         final List<? extends TurboismPlugin> ordered = List.copyOf(Objects.requireNonNull(entrypoints, "entrypoints"));
         final PluginLogger pluginLogger = Objects.requireNonNull(logger, "logger");
         final boolean observeAllowed = hasPermission(plugin, OBSERVE_PERMISSION);
+        if (!observeAllowed) {
+            warnSuppressedLifecycleCallbacks(plugin, ordered, pluginLogger);
+        }
         final List<ModelFileHooks> modelHooks = ordered.stream()
                 .filter(ModelFileHooks.class::isInstance)
                 .map(ModelFileHooks.class::cast)
@@ -133,8 +144,12 @@ public final class ProjectLifecycleHookRegistry {
         final RuntimeEventBroker runtimeBroker = Objects.requireNonNull(broker, "broker");
         final PluginEventOwnerKey eventOwner = Objects.requireNonNull(owner, "owner");
         final PluginLogger sink = Objects.requireNonNull(logger, "logger");
+        final boolean observeAllowed = hasPermission(plugin, OBSERVE_PERMISSION);
+        if (!observeAllowed) {
+            warnSuppressedLifecycleCallbacks(plugin, ordered, sink);
+        }
         registerProjectCompatibility(plugin, ordered, sink, pluginScope, eventOwner);
-        if (!hasPermission(plugin, OBSERVE_PERMISSION)) {
+        if (!observeAllowed) {
             return;
         }
         final List<Registration> installed = new java.util.ArrayList<>();
@@ -592,6 +607,58 @@ public final class ProjectLifecycleHookRegistry {
         synchronized (lifecycleLock) {
             projectFiles.unregister(pluginId, token);
             editor.unregister(pluginId, token);
+        }
+    }
+
+    /**
+     * Load-time diagnostic: a plugin that overrides project-file or editor lifecycle callbacks
+     * without declaring {@link #OBSERVE_PERMISSION} is still registered, but every one of those
+     * callbacks is silently filtered out. Naming the suppressed overrides turns that silent
+     * drop into an actionable warning.
+     */
+    private static void warnSuppressedLifecycleCallbacks(
+            final PluginDescriptor plugin,
+            final List<? extends TurboismPlugin> entrypoints,
+            final PluginLogger logger) {
+        final List<String> suppressed = new java.util.ArrayList<>();
+        for (TurboismPlugin entrypoint : entrypoints) {
+            if (entrypoint instanceof ModelFileHooks) {
+                collectSuppressedFileCallbacks(entrypoint, ProjectContentKind.MODEL, suppressed);
+            }
+            if (entrypoint instanceof AnimationFileHooks) {
+                collectSuppressedFileCallbacks(entrypoint, ProjectContentKind.ANIMATION, suppressed);
+            }
+            if (entrypoint instanceof EditorLifecycleHooks) {
+                for (String methodName : EDITOR_LIFECYCLE_METHODS) {
+                    if (overridesEditor(entrypoint, methodName)) {
+                        suppressed.add(methodName);
+                    }
+                }
+            }
+        }
+        if (suppressed.isEmpty()) {
+            return;
+        }
+        logger.warn("Plugin "
+                + plugin.id()
+                + " overrides lifecycle callbacks "
+                + suppressed
+                + " but does not declare permission "
+                + OBSERVE_PERMISSION
+                + "; the runtime filters every project-file and editor lifecycle callback for it."
+                + " Declare the permission in the plugin manifest to receive them.");
+    }
+
+    private static void collectSuppressedFileCallbacks(
+            final TurboismPlugin entrypoint, final ProjectContentKind kind, final List<String> suppressed) {
+        for (dev.turboism.sdk.cubism.ProjectFileOperationType operation :
+                dev.turboism.sdk.cubism.ProjectFileOperationType.values()) {
+            for (String phase : List.of("before", "on", "after")) {
+                final String methodName = methodName(phase, operation, kind);
+                if (overrides(entrypoint, methodName)) {
+                    suppressed.add(methodName);
+                }
+            }
         }
     }
 

@@ -82,6 +82,9 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private static final Set<String> SAVE_LABELS = Set.of("save", "保存", "上書き保存", "저장");
     private static final long ROW_SETTLE_MILLIS = 1_500L;
     private static final long SDK_SAVE_ESCALATION_MILLIS = 5_000L;
+    private static final long DOCUMENT_ACTIVATE_MILLIS = 15_000L;
+    private static final long POPUP_HOVER_GRACE_MILLIS = 20_000L;
+    private static final long POPUP_ESCALATE_RETRY_MILLIS = 5_000L;
 
     private static final Pattern WINDOWS_DRIVE_PREFIX = Pattern.compile("(?m)^[A-Za-z]:[/\\\\]");
     private static final Pattern WINDOWS_UNC_PREFIX = Pattern.compile("(?m)^\\\\{2}");
@@ -115,6 +118,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private volatile boolean productionCachePng;
     private volatile boolean productionIndex;
     private volatile boolean popupThumbnail;
+    private volatile BufferedImage productionThumbnail;
     private final AtomicReference<RecentFileId> recentId = new AtomicReference<>();
     private final AtomicReference<String> savedContentName = new AtomicReference<>();
     private volatile String expectedSavedContentId;
@@ -336,6 +340,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             return null;
         });
         recoverSaveFocus(target);
+        ensureFixtureDocumentActive(target);
         expectedSavedContentId = context.cubism()
                 .activeDocument()
                 .flatMap(dev.turboism.sdk.cubism.DocumentSnapshot::contentId)
@@ -432,6 +437,68 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                     .info("Recent preview save dirtyWrite=failed reason="
                             + failure.getClass().getSimpleName() + ":" + String.valueOf(failure.getMessage()));
         }
+    }
+
+    /**
+     * Whether the active document is the task file. The snapshot's relativePath
+     * leaf is the sanitized backing-file name ({@code documents/<id>/<fileName>}),
+     * so comparing it against the fixture name detects a session-restored
+     * document that reopened after the launch-arg file and took the active slot.
+     */
+    private boolean activeDocumentIsFixture() {
+        try {
+            return context.cubism()
+                    .activeDocument()
+                    .map(document -> {
+                        final String relativePath = document.relativePath();
+                        final int slash = relativePath.lastIndexOf('/');
+                        final String leaf = slash >= 0 ? relativePath.substring(slash + 1) : relativePath;
+                        return fixtureName.equals(leaf);
+                    })
+                    .orElse(false);
+        } catch (RuntimeException unavailable) {
+            return false;
+        }
+    }
+
+    /**
+     * Session restore can reopen an earlier document after the launch-arg file,
+     * leaving it active — the save below would then dirty and save that document
+     * instead of the task file (observed on 5.2.03: a stale recent entry's file
+     * captured the whole save). Re-selecting the fixture entry in File -> Recent
+     * through the real menu path focuses its already-open document.
+     */
+    private void ensureFixtureDocumentActive(final Window host) throws Exception {
+        if (activeDocumentIsFixture()) return;
+        context.logger().info("Recent preview save active-document=mismatch; activating fixture via recent menu");
+        final Robot robot = new Robot();
+        if (!ensureFileMenuOpen(robot, host)) {
+            openFileMenu(robot, host);
+        }
+        final Point recent = awaitMenuPoint(robot, this::recentMenuPoint, SUBMENU_DEADLINE_MILLIS);
+        moveTo(robot, recent);
+        final JMenu recentMenu = onEdt(this::showingRecentMenu);
+        if (recentMenu != null && !awaitMenuPopup(robot, recentMenu)) {
+            clickAt(robot, recent);
+            if (!awaitMenuPopup(robot, recentMenu)) {
+                onEdt(() -> {
+                    recentMenu.setPopupMenuVisible(true);
+                    return null;
+                });
+            }
+        }
+        final Point item = awaitMenuPoint(robot, this::fixtureItemPoint, ITEM_DEADLINE_MILLIS);
+        clickAt(robot, item);
+        final long deadline = System.nanoTime() + DOCUMENT_ACTIVATE_MILLIS * 1_000_000L;
+        while (System.nanoTime() < deadline) {
+            if (activeDocumentIsFixture()) {
+                context.logger().info("Recent preview save active-document=fixture");
+                return;
+            }
+            robot.waitForIdle();
+            Thread.sleep(POLL_MILLIS);
+        }
+        throw new IllegalStateException("active document is not the fixture document after recent-menu activation");
     }
 
     /**
@@ -774,6 +841,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         if (!index.contains(id.value())) {
             throw new IllegalStateException("production cache index is not keyed by the opaque id");
         }
+        productionThumbnail = ImageIO.read(new ByteArrayInputStream(png));
         productionCachePng = true;
         productionIndex = true;
         context.logger()
@@ -832,16 +900,22 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                         + onEdt(WindowsRecentPreviewValidationProbe::selectedPathDepth));
 
         final long deadline = System.nanoTime() + POPUP_DEADLINE_MILLIS * 1_000_000L;
-        boolean selectedItem = false;
+        long nextEscalation = System.nanoTime() + POPUP_HOVER_GRACE_MILLIS * 1_000_000L;
+        int escalations = 0;
         while (System.nanoTime() < deadline) {
-            if (Boolean.TRUE.equals(onEdt(WindowsRecentPreviewValidationProbe::popupThumbnailVisible))) {
+            if (Boolean.TRUE.equals(onEdt(this::popupThumbnailVisible))) {
                 popupThumbnail = true;
                 break;
             }
-            if (!selectedItem && System.nanoTime() > deadline - (POPUP_DEADLINE_MILLIS - 5_000L) * 1_000_000L) {
-                selectedItem = selectFixtureItemForPreview();
+            if (System.nanoTime() >= nextEscalation) {
+                escalations++;
+                selectFixtureItemForPreview();
+                nextEscalation = System.nanoTime() + POPUP_ESCALATE_RETRY_MILLIS * 1_000_000L;
             }
             Thread.sleep(POLL_MILLIS);
+        }
+        if (escalations > 0) {
+            context.logger().info("Recent preview popup escalation attempts=" + escalations);
         }
         if (!popupThumbnail) {
             throw new IllegalStateException("themed hover popup with image content was not observed");
@@ -936,6 +1010,26 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         return null;
     }
 
+    /**
+     * The fixture item anywhere in the menu model, even when its popup is not
+     * posted — unlike {@link #findMenuItemFor} no showing check applies, because
+     * selecting the item through {@code MenuSelectionManager} posts the chain.
+     */
+    private static JMenuItem findMenuItemInModel(final Component root, final String fixtureName) {
+        if (root instanceof JMenuItem item && !(root instanceof JMenu)) {
+            final String text = Objects.toString(item.getText(), "");
+            final String command = Objects.toString(item.getActionCommand(), "");
+            if (matchesFixtureText(text, fixtureName) || matchesFixtureText(command, fixtureName)) {
+                return item;
+            }
+        }
+        for (Component child : menuChildren(root)) {
+            final JMenuItem found = findMenuItemInModel(child, fixtureName);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
     private static boolean matchesFixtureText(final String value, final String fixtureName) {
         if (value.isEmpty()) return false;
         final String normalized = value.trim();
@@ -983,16 +1077,20 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     /**
      * Escalation for the case where the physical pointer hover produces no
      * preview: drives the real menu-selection machinery — the selected path
-     * built from the item's invoker chain plus an armed model — which is the
-     * same state the bridge's rollover/selected ChangeListener observes.
-     * Returns whether a showing fixture item was found to select.
+     * built from the item's invoker chain posts every popup in the chain and
+     * selects the item (the state the bridge's rollover/selected ChangeListener
+     * and selection-path reconcile observe), then dispatches a real
+     * MOUSE_ENTERED to the item so the bridge's hover listener also runs. The
+     * fixture item is located in the menu model even when its popup is not
+     * posted yet, so a previously closed menu chain is re-established.
+     * Returns whether a fixture item was found to select.
      */
     private boolean selectFixtureItemForPreview() {
         try {
             return Boolean.TRUE.equals(onEdt(() -> {
                 for (Window window : Window.getWindows()) {
-                    final JMenuItem item = findMenuItemFor(window, fixtureName);
-                    if (item == null || !item.isShowing()) continue;
+                    final JMenuItem item = findMenuItemInModel(window, fixtureName);
+                    if (item == null) continue;
                     final List<MenuElement> path = new java.util.ArrayList<>();
                     path.add(0, item);
                     Component parent = item.getParent();
@@ -1006,6 +1104,15 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                     }
                     MenuSelectionManager.defaultManager().setSelectedPath(path.toArray(new MenuElement[0]));
                     item.getModel().setArmed(true);
+                    item.dispatchEvent(new java.awt.event.MouseEvent(
+                            item,
+                            java.awt.event.MouseEvent.MOUSE_ENTERED,
+                            System.currentTimeMillis(),
+                            0,
+                            0,
+                            0,
+                            0,
+                            false));
                     return true;
                 }
                 return false;
@@ -1018,19 +1125,19 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         }
     }
 
-    private static boolean popupThumbnailVisible() {
+    private boolean popupThumbnailVisible() {
         for (Window window : Window.getWindows()) {
             if (findPopupImage(window)) return true;
         }
         return false;
     }
 
-    private static boolean findPopupImage(final Component root) {
+    private boolean findPopupImage(final Component root) {
         if (root instanceof JLabel label
                 && POPUP_IMAGE_LABEL.equals(label.getName())
                 && label.getIcon() != null
                 && validThumbnailIcon(label.getIcon())
-                && distinctSampledColors(iconImage(label.getIcon())) >= 2) {
+                && thumbnailContentMatches(iconImage(label.getIcon()))) {
             return true;
         }
         if (root instanceof Container container) {
@@ -1039,6 +1146,27 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             }
         }
         return false;
+    }
+
+    /**
+     * Whether the painted icon carries real thumbnail content: a multi-color
+     * capture, or — under hosts whose viewport readback yields solid content —
+     * exactly the PNG the production plugin stored in its cache this run.
+     */
+    private boolean thumbnailContentMatches(final BufferedImage image) {
+        if (distinctSampledColors(image) >= 2) return true;
+        final BufferedImage expected = productionThumbnail;
+        return expected != null && imagesEqual(image, expected);
+    }
+
+    private static boolean imagesEqual(final BufferedImage a, final BufferedImage b) {
+        if (a.getWidth() != b.getWidth() || a.getHeight() != b.getHeight()) return false;
+        for (int y = 0; y < a.getHeight(); y++) {
+            for (int x = 0; x < a.getWidth(); x++) {
+                if (a.getRGB(x, y) != b.getRGB(x, y)) return false;
+            }
+        }
+        return true;
     }
 
     // --- host close ---------------------------------------------------------------

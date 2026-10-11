@@ -59,6 +59,11 @@
       "reason": "Resolve the active project id for per-project label color persistence."
     },
     {
+      "id": "turboism.cubism.model.observe",
+      "scope": "application",
+      "reason": "Receives model open/create lifecycle callbacks that replay persisted label colors; undeclared, the lifecycle registry filters them out."
+    },
+    {
       "id": "turboism.file.read",
       "scope": "application",
       "reason": "Read persisted per-project label colors for replay."
