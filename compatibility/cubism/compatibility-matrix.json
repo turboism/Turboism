@@ -13119,20 +13119,20 @@
    "hostValidation": {
     "recent-preview": {
      "5.2.03": {
-      "validationStatus": "FAIL",
-      "terminalState": "failed",
-      "triageCategory": "UNKNOWN",
-      "triageRule": null,
-      "round": null,
-      "jobId": "2b290dba-e4db-4648-8935-d09b886d1a06"
-     },
-     "5.3.02": {
       "validationStatus": "PASS",
       "terminalState": "succeeded",
       "triageCategory": null,
       "triageRule": null,
       "round": null,
-      "jobId": "54fcf9e4-4163-4546-83fc-fe6e0c8744f5"
+      "jobId": "8b3ca503-c8f1-4db0-90f4-d74b4c74822a"
+     },
+     "5.3.02": {
+      "validationStatus": "FAIL",
+      "terminalState": "failed",
+      "triageCategory": "UNKNOWN",
+      "triageRule": "verdict-pass-then-fail",
+      "round": null,
+      "jobId": "5747c73c-a49a-4fa8-a7d5-00a411a47528"
      }
     }
    }
@@ -16333,20 +16333,20 @@
   },
   "recent-preview": {
    "5.2.03": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "UNKNOWN",
-    "triageRule": null,
-    "round": null,
-    "jobId": "2b290dba-e4db-4648-8935-d09b886d1a06"
-   },
-   "5.3.02": {
     "validationStatus": "PASS",
     "terminalState": "succeeded",
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "54fcf9e4-4163-4546-83fc-fe6e0c8744f5"
+    "jobId": "8b3ca503-c8f1-4db0-90f4-d74b4c74822a"
+   },
+   "5.3.02": {
+    "validationStatus": "FAIL",
+    "terminalState": "failed",
+    "triageCategory": "UNKNOWN",
+    "triageRule": "verdict-pass-then-fail",
+    "round": null,
+    "jobId": "5747c73c-a49a-4fa8-a7d5-00a411a47528"
    }
   },
   "review056": {

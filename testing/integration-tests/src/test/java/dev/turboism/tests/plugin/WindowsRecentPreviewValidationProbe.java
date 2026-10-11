@@ -201,6 +201,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             validateSavedEvent(id);
             validateProductionCache(id);
             validatePopup(id);
+            validatePopupAfterChromeFocus(id);
             publishResult("PASS");
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
@@ -1082,7 +1083,38 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         robot.waitForIdle();
         Thread.sleep(600L);
         activateWindowForMenus(robot, host);
+        awaitRecentItemPopup(robot, host);
+    }
 
+    /**
+     * Regression pass for the 5.2 focus defect: a deliberate title-bar click
+     * puts focus on the frame chrome — the gesture real users make before
+     * opening the menu — which clears the host's current-document member on
+     * 5.2. The verified view-context history fallback must still surface the
+     * hover preview, so the same File→Recent hover has to produce the themed
+     * thumbnail popup again.
+     */
+    private void validatePopupAfterChromeFocus(final RecentFileId id) throws Exception {
+        phase = "popup-chrome-focus";
+        final Robot robot = new Robot();
+        final Window host = onEdt(() -> selectMenuHostWindow(Window.getWindows()));
+        final Point titlePoint = onEdt(() -> {
+            final Point topLeft = host.getLocationOnScreen();
+            return new Point(topLeft.x + host.getWidth() / 2, topLeft.y + TITLE_BAR_CLICK_OFFSET);
+        });
+        clickAt(robot, titlePoint);
+        robot.waitForIdle();
+        Thread.sleep(600L);
+        context.logger().info("Recent preview chrome-focus window active=" + onEdt(host::isActive));
+        awaitRecentItemPopup(robot, host);
+    }
+
+    /**
+     * File→Recent hover drive shared by both popup passes: opens the File
+     * menu, hovers the Recent submenu and then the working item, and requires
+     * the themed thumbnail popup inside the deadline.
+     */
+    private void awaitRecentItemPopup(final Robot robot, final Window host) throws Exception {
         if (!ensureFileMenuOpen(robot, host)) {
             openFileMenu(robot, host);
         }
@@ -1498,31 +1530,42 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         try {
             final Window target = onEdt(() -> selectHostWindow(Window.getWindows()));
             final HostCloseRoute route = hostCloseRoute(hostVersion);
-            if (route == HostCloseRoute.ROBOT_ALT_F4) {
-                final Robot robot = new Robot();
-                robot.keyPress(KeyEvent.VK_ALT);
-                try {
-                    robot.keyPress(KeyEvent.VK_F4);
-                } finally {
-                    robot.keyRelease(KeyEvent.VK_F4);
-                    robot.keyRelease(KeyEvent.VK_ALT);
+            // The Robot route is retried once: Alt+F4 only reaches the window
+            // that holds real input focus, and a frame-chrome click can leave
+            // focus elsewhere, so the first attempt can land on nothing.
+            for (int attempt = 1; attempt <= 2; attempt++) {
+                if (route == HostCloseRoute.ROBOT_ALT_F4) {
+                    final Robot robot = new Robot();
+                    activateWindowForMenus(robot, target);
+                    robot.keyPress(KeyEvent.VK_ALT);
+                    try {
+                        robot.keyPress(KeyEvent.VK_F4);
+                    } finally {
+                        robot.keyRelease(KeyEvent.VK_F4);
+                        robot.keyRelease(KeyEvent.VK_ALT);
+                    }
+                    context.logger().info("Automated host close requested via Alt+F4 attempt=" + attempt);
+                } else {
+                    SwingUtilities.invokeLater(
+                            () -> target.dispatchEvent(new WindowEvent(target, WindowEvent.WINDOW_CLOSING)));
+                    context.logger().info("Automated host close requested via WINDOW_CLOSING");
                 }
-                context.logger().info("Automated host close requested via Alt+F4");
-            } else {
-                SwingUtilities.invokeLater(
-                        () -> target.dispatchEvent(new WindowEvent(target, WindowEvent.WINDOW_CLOSING)));
-                context.logger().info("Automated host close requested via WINDOW_CLOSING");
-            }
-            final long deadline = System.nanoTime() + CLOSE_DEADLINE_MILLIS * 1_000_000L;
-            boolean closed = false;
-            while (System.nanoTime() < deadline) {
-                if (Boolean.TRUE.equals(onEdt(() -> !target.isDisplayable() || !target.isVisible()))) {
-                    closed = true;
-                    break;
+                final long deadline = System.nanoTime() + CLOSE_DEADLINE_MILLIS * 1_000_000L;
+                boolean closed = false;
+                while (System.nanoTime() < deadline) {
+                    if (Boolean.TRUE.equals(onEdt(() -> !target.isDisplayable() || !target.isVisible()))) {
+                        closed = true;
+                        break;
+                    }
+                    Thread.sleep(200L);
                 }
-                Thread.sleep(200L);
+                if (closed || route != HostCloseRoute.ROBOT_ALT_F4) {
+                    context.logger().info("Recent preview host close confirmed=" + closed);
+                    return;
+                }
+                context.logger().info("Recent preview host close attempt " + attempt + " unconfirmed; retrying");
             }
-            context.logger().info("Recent preview host close confirmed=" + closed);
+            context.logger().info("Recent preview host close confirmed=false");
         } catch (Exception failure) {
             context.logger()
                     .error("Recent preview automated host close failed: "
