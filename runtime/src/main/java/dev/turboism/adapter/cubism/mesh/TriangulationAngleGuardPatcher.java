@@ -19,7 +19,10 @@ final class TriangulationAngleGuardPatcher implements Opcodes {
     private static final String HELPER = "dev/turboism/adapter/cubism/mesh/TriangulationAngleGuard";
     private static final Set<String> REVIEWED_BODIES = Set.of(
             "774ecd6b3cde44d4caf19a9a233f247e670960db1953aa7f2d02532a09e5cbb0",
-            "1f308cc090a427781d7f7abd6df3ac1efa141c56f97cf61d5c1a75bb2987de54");
+            "1f308cc090a427781d7f7abd6df3ac1efa141c56f97cf61d5c1a75bb2987de54",
+            // Reviewed 5.0.x/5.1.x native d() body — the math singleton is
+            // com/live2d/util/K where 5.2/5.3 use com/live2d/util/L.
+            "a2b07323a6c6c38f3d25aa939a91e66f64a8a5473ac84318022347fba00bd4a0");
 
     private TriangulationAngleGuardPatcher() {}
 
