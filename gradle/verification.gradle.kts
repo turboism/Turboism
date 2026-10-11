@@ -7,7 +7,8 @@ import org.gradle.jvm.toolchain.JavaToolchainService
 /*
  * Verification is deliberately layered by cost:
  *
- *   devCheck          daily production compilation and permanent boundaries
+ *   devCheck          daily production compilation, permanent boundaries, and
+ *                     the focused admission unit-test suites
  *   focused tests     selected by the current SDD acceptance conditions
  *   checkIntegration  packaged/runtime and affected cross-module behavior
  *   checkRelease      supply-chain, API tooling, packaging, and release checks
@@ -957,7 +958,7 @@ tasks.register<Exec>("checkPythonLint") {
 val devCheck by tasks.registering {
     dependsOn("checkPluginBoundaries", "checkPluginPermissionAudit")
     group = "verification"
-    description = "Fast production compilation and permanent structural boundaries for an implementation slice."
+    description = "Fast production compilation, permanent structural boundaries, and the focused admission unit-test suites for an implementation slice."
     dependsOn(
         productionClasses,
         checkDuplicateJavaImports,
@@ -972,7 +973,11 @@ val devCheck by tasks.registering {
         checkVersionMonotonicity,
         "validatePluginMeta",
         ":runtime:checkHeadlessRuntimeClasspath",
-        ":runtime:admissionPreflightTest"
+        ":runtime:admissionPreflightTest",
+        ":runtime:admissionUnitTests",
+        ":sdk:test",
+        ":bootstrap:test",
+        ":testing:integration-tests:admissionUnitTests"
     )
 }
 

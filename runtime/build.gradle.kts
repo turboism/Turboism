@@ -284,6 +284,24 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
     }
 }
 
+// Test classes that require separately staged licensed Cubism evidence; they
+// live in legacyCubismEvidenceTest and never run in the offline suites.
+val legacyEvidenceTestClasses = listOf(
+    "dev.turboism.adapter.cubism.VerifiedProjectWorkspaceImageDocumentTest",
+    "dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfileTest",
+    "dev.turboism.mapping.verification.EditorDocumentReadSelectorContractTest",
+    "dev.turboism.mapping.verification.EditorInspectorDrawableSelectorContractTest",
+    "dev.turboism.mapping.verification.EditorInspectorSelectorContractTest",
+    "dev.turboism.mapping.verification.EditorObjectReadSelectorContractTest",
+    "dev.turboism.mapping.verification.EditorParameterBindingSelectorContractTest",
+    "dev.turboism.mapping.verification.EditorPartNameSelectorContractTest",
+    "dev.turboism.mapping.verification.EditorPartOpacitySelectorContractTest",
+    "dev.turboism.mapping.verification.EditorStructureSelectorContractTest",
+    "dev.turboism.mapping.verification.EditorTextureSelectorContractTest",
+    "dev.turboism.mapping.verification.VerifiedCorePublicApiResolverFactoryTest",
+    "dev.turboism.mapping.verification.VerifiedEditorStartupResolverFactoriesTest"
+)
+
 tasks.named<Test>("test") {
     @Suppress("UNCHECKED_CAST")
     val buildMetadata = rootProject.extra["turboismBuildMetadata"] as Map<String, String>
@@ -298,45 +316,41 @@ tasks.named<Test>("test") {
         providers.systemProperty(name).orNull?.let { systemProperty(name, it) }
     }
     filter {
-        excludeTestsMatching(
-            "dev.turboism.adapter.cubism.VerifiedProjectWorkspaceImageDocumentTest"
-        )
-        excludeTestsMatching(
-            "dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfileTest"
-        )
-        excludeTestsMatching(
-            "dev.turboism.mapping.verification.EditorDocumentReadSelectorContractTest"
-        )
-        excludeTestsMatching(
-            "dev.turboism.mapping.verification.EditorInspectorDrawableSelectorContractTest"
-        )
-        excludeTestsMatching(
-            "dev.turboism.mapping.verification.EditorInspectorSelectorContractTest"
-        )
-        excludeTestsMatching(
-            "dev.turboism.mapping.verification.EditorObjectReadSelectorContractTest"
-        )
-        excludeTestsMatching(
-            "dev.turboism.mapping.verification.EditorParameterBindingSelectorContractTest"
-        )
-        excludeTestsMatching(
-            "dev.turboism.mapping.verification.EditorPartNameSelectorContractTest"
-        )
-        excludeTestsMatching(
-            "dev.turboism.mapping.verification.EditorPartOpacitySelectorContractTest"
-        )
-        excludeTestsMatching(
-            "dev.turboism.mapping.verification.EditorStructureSelectorContractTest"
-        )
-        excludeTestsMatching(
-            "dev.turboism.mapping.verification.EditorTextureSelectorContractTest"
-        )
-        excludeTestsMatching(
-            "dev.turboism.mapping.verification.VerifiedCorePublicApiResolverFactoryTest"
-        )
-        excludeTestsMatching(
-            "dev.turboism.mapping.verification.VerifiedEditorStartupResolverFactoriesTest"
-        )
+        legacyEvidenceTestClasses.forEach { excludeTestsMatching(it) }
+    }
+}
+
+/*
+ * Offline admission guard for devCheck: the mapping/verification, Cubism
+ * adapter, and plugin-context suites that pin reviewed records, alias
+ * matrices, and SDK availability boundaries. devCheck never ran plain unit
+ * tests, so admission expectation drift only surfaced in
+ * checkCompletedCommit; this suite keeps the daily gate honest without paying
+ * for the full test task.
+ */
+val admissionUnitTests by tasks.registering(Test::class) {
+    group = "verification"
+    description = "Runs the offline mapping, adapter, and plugin-context admission unit tests."
+    @Suppress("UNCHECKED_CAST")
+    val buildMetadata = rootProject.extra["turboismBuildMetadata"] as Map<String, String>
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    systemProperty("turboism.expectedFrameworkVersion", buildMetadata.getValue("version"))
+    listOf(
+        "turboism.test.cubismEditorJar",
+        "turboism.test.cubismCoreJar",
+        "turboism.test.cubism5302Jar",
+        "turboism.test.verificationDir"
+    ).forEach { name ->
+        providers.systemProperty(name).orNull?.let { systemProperty(name, it) }
+    }
+    filter {
+        includeTestsMatching("dev.turboism.mapping.*")
+        includeTestsMatching("dev.turboism.adapter.cubism.*")
+        includeTestsMatching("dev.turboism.core.plugin.context.*")
+        legacyEvidenceTestClasses.forEach { excludeTestsMatching(it) }
+        isFailOnNoMatchingTests = true
     }
 }
 
