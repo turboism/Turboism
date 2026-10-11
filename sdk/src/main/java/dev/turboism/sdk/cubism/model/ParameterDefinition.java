@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import java.util.Objects;
 
@@ -10,6 +11,7 @@ import java.util.Objects;
  * Parameters#create}, not a value handle: write the current value through {@link
  * Parameter#setValue(float)}.
  */
+@CubismEditor
 public record ParameterDefinition(
         ParameterId id,
         String name,

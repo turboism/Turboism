@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 
 /** Atomic model-level parameter-binding inversion and GUID-transfer operations.
@@ -10,6 +11,7 @@ import java.util.List;
  * unchanged, without remapping or clamping. The ordinary
  * {@link #transfer(ParameterBindingTransferPlan)} operation keeps its existing semantics.</p>
  */
+@CubismEditor(from = "5.0.00")
 public interface ParameterBindingBatchOperations {
 
     /**

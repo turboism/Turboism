@@ -1,6 +1,9 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
+
 /** Immutable RGBA color projected from a Cubism backend. */
+@CubismEditor
 public record Color(float red, float green, float blue, float alpha) {
 
     public Color {

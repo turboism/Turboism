@@ -1,5 +1,7 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * One bezier control handle attached to an {@link AnimationKeyframe}.
  *
@@ -7,6 +9,7 @@ package dev.turboism.sdk.cubism.model;
  * @param value the control point value
  * @param corner whether the handle is broken into a corner (non-continuous)
  */
+@CubismEditor
 public record AnimationBezierHandle(float frame, double value, boolean corner) {
 
     public AnimationBezierHandle {

@@ -1,5 +1,7 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * Read-only projection of one Editor model instance
  * ({@code com.live2d.cubism.doc.model.CModel}).
@@ -7,6 +9,7 @@ package dev.turboism.sdk.cubism.model;
  * <p>Instances are created by the Editor itself (modeling view, animation
  * workspace, export); this projection never mutates the host.</p>
  */
+@CubismEditor(from = "5.2.00")
 public interface ModelInstance {
 
     /** Render kind of this instance. */

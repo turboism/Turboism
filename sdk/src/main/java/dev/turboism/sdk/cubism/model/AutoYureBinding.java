@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 
 /** One evaluated auto-Yure binding: a Warp Deformer tracked for one Parameter. */
+@CubismEditor(from = "5.1.00")
 public interface AutoYureBinding {
 
     /** Returns the tracked Warp Deformer's identity. */

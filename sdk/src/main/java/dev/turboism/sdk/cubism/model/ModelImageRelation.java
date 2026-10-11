@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
@@ -11,6 +12,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Immutable connections from one model image to raw images, layers, and meshes. */
+@CubismEditor
 public record ModelImageRelation(
         ModelImageId id,
         ModelImageEntry modelImage,

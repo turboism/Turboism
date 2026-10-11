@@ -9151,6 +9151,66 @@
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/AlphaComposition.java"
   },
   {
+   "api": "dev.turboism.sdk.cubism.model.AutoYure",
+   "kind": "type",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/AutoYure.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.AutoYureBinding",
+   "kind": "type",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/AutoYureBinding.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.AutoYureConfig",
+   "kind": "type",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/AutoYureConfig.java"
+  },
+  {
    "api": "dev.turboism.sdk.cubism.model.Deformers#applyToChildren()",
    "kind": "method",
    "versions": [
@@ -9177,6 +9237,22 @@
     "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.ModelInstance",
+   "kind": "type",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelInstance.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()",
@@ -9269,6 +9345,26 @@
     "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Part.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.YureDeformConfig",
+   "kind": "type",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/YureDeformConfig.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel",

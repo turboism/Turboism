@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 
 /** Read-only physics settings document projection of the active model. */
+@CubismEditor(from = "5.0.00")
 public interface PhysicsSettings {
 
     /** Returns the horizontal gravity component of the physics settings. */

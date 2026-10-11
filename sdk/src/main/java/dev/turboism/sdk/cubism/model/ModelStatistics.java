@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.OptionalInt;
 
 /** Immutable statistics for one active Cubism model generation. */
+@CubismEditor
 public record ModelStatistics(
         int parameterCount,
         int partCount,

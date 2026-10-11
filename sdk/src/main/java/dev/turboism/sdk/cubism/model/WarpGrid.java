@@ -1,10 +1,12 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 /** Immutable Warp Deformer grid committed as one Editor operation. */
+@CubismEditor
 public record WarpGrid(int rows, int columns, boolean quadTransform, List<Point2> controlPoints) {
 
     public WarpGrid {

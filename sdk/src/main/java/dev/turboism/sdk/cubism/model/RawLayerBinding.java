@@ -1,10 +1,12 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.id.RawLayerId;
 import java.util.Objects;
 
 /** A model-image input's ordered connection to one raw layer entry. */
+@CubismEditor
 public record RawLayerBinding(
         RawImageId rawImageId,
         RawLayerId rawLayerId,
