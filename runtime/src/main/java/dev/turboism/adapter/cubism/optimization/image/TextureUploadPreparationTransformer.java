@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -51,7 +52,7 @@ public final class TextureUploadPreparationTransformer implements ClassFileTrans
     public TextureUploadPreparationTransformer(ClassLoader loader, Path artifact, byte[] reference, String owner) {
         expectedLoader = loader;
         this.artifact = artifact == null ? null : artifact.toAbsolutePath().normalize();
-        this.owner = java.util.Objects.requireNonNull(owner, "owner");
+        this.owner = Objects.requireNonNull(owner, "owner");
         reviewedShape = ReviewedMethodShape.read(reference, owner, "a", METHOD_DESCRIPTOR);
         if (reviewedShape == null) throw new IllegalArgumentException("reviewed texture factory absent");
     }
