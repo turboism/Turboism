@@ -28,7 +28,7 @@ final class InputPathElisionHookContributor extends NativeOptimizationHookContri
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         final boolean validation = Boolean.getBoolean(InputPathElisionTransformer.ENABLE_PROPERTY);
-        final boolean production = InputPathElisionBridge.enabledByPreference();
+        final boolean production = NativeOptimizationPolicy.inputPathElisionEnabled(environment);
         if (!validation && !production) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
