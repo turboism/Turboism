@@ -29,11 +29,31 @@ class EditorModelAliasesTest(unittest.TestCase):
         )
 
     def test_broader_5303_inventory_does_not_widen_runtime_admission(self):
-        aliases = CHECKER.aliases_in_record(ROOT, CHECKER.ADDITIVE_RECORD)
-        broader = aliases - CHECKER.ADDITIVE_ALIASES
-        self.assertTrue(broader)
-        union, _ = CHECKER.record_aliases(ROOT)
-        self.assertTrue(broader - union)
+        # The merged 5.2.03/5.3.02 records now cover every reviewed 5.3.03
+        # editor-model alias, so the additive subset no longer extends the union.
+        # Guard the property that keeps that safe: a 5.3.03-only selector that is
+        # not in the pinned additive subset must never enter runtime admission.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for relative in (*CHECKER.BASE_RECORDS, CHECKER.ADDITIVE_RECORD):
+                source = ROOT / relative
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(source.read_bytes())
+            path = root / CHECKER.ADDITIVE_RECORD
+            document = json.loads(path.read_text(encoding="utf-8"))
+            document["selectors"].append({
+                "alias": "cubism.editor-model.synthetic.inventory-only",
+                "ownerInternalName": "synthetic/Owner",
+                "memberName": "synthetic",
+                "descriptor": "()V",
+                "kind": "method",
+                "status": "VERIFIED_STATIC",
+            })
+            path.write_text(json.dumps(document), encoding="utf-8")
+
+            union, _ = CHECKER.record_aliases(root)
+            self.assertNotIn("cubism.editor-model.synthetic.inventory-only", union)
 
     def test_contract_alias_constant_reference_is_followed(self):
         with tempfile.TemporaryDirectory() as directory:

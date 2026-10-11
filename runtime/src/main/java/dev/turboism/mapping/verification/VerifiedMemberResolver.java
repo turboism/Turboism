@@ -139,6 +139,21 @@ public final class VerifiedMemberResolver {
     }
 
     /**
+     * Returns whether the admitted artifact is exactly one of the given Cubism versions.
+     *
+     * @param expectedVersions exact version strings to compare against
+     * @return {@code true} only when one of them equals the admitted version exactly
+     */
+    public boolean isExactCubismVersion(final String... expectedVersions) {
+        for (final String expectedVersion : expectedVersions) {
+            if (accessPlan.isExactCubismVersion(expectedVersion)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Returns whether the bound selector contract targets the given reviewed
      * generation: the declared version for exact hosts, the bound record's
      * source version for compatibility-bound hosts. Generation-keyed member

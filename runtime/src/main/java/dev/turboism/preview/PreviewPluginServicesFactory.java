@@ -273,7 +273,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
                         tasks,
                         scope,
                         evidence),
-                userFiles(descriptor, permissions, tasks, scope, evidence),
+                userFiles(descriptor, paths, permissions, tasks, scope, evidence),
                 hostReads(descriptor, permissions, tasks, scope),
                 new dev.turboism.mcp.RuntimeMcpConnectionService(
                         descriptor.id(),
@@ -450,22 +450,6 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         return UserFileGrantSource.unavailable();
     }
 
-    private RuntimeUserFileAccessService userFiles(
-            final PluginDescriptor descriptor,
-            final Set<String> permissions,
-            final RuntimePluginTaskScheduler tasks,
-            final DisposableScope scope,
-            final CleanupEvidenceCollector evidence) {
-        return new RuntimeUserFileAccessService(
-                descriptor.id(),
-                permissions,
-                newUserFileGrantSource(descriptor.id(), failureCollector, evidence),
-                tasks,
-                scope,
-                evidence,
-                failureCollector);
-    }
-
     /**
      * The embedded host has no interactive chooser, so grants stay unavailable unless a
      * task-scoped run pins one fixed target through {@code turboism.preview.userFileFixedGrant}.
@@ -482,6 +466,27 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         } catch (RuntimeException invalid) {
             return UserFileGrantSource.unavailable();
         }
+    }
+
+    private RuntimeUserFileAccessService userFiles(
+            final PluginDescriptor descriptor,
+            final PluginHomePaths paths,
+            final Set<String> permissions,
+            final RuntimePluginTaskScheduler tasks,
+            final DisposableScope scope,
+            final CleanupEvidenceCollector evidence) {
+        // Validation probes retain their bounded noninteractive grant policy.
+        // Ordinary plugins obtain paths only through an explicit user choice.
+        final dev.turboism.userfile.UserFileGrantSource grants;
+        if (descriptor.id().startsWith("dev.turboism.validation.")) {
+            grants = ValidationFileGrants.source(descriptor.id(), paths);
+        } else {
+            final var chooser = new dev.turboism.userfile.SwingUserFileGrantSource();
+            scope.register(chooser);
+            grants = chooser;
+        }
+        return new RuntimeUserFileAccessService(
+                descriptor.id(), permissions, grants, tasks, scope, evidence, failureCollector);
     }
 
     private RuntimeAsyncHostReadService hostReads(

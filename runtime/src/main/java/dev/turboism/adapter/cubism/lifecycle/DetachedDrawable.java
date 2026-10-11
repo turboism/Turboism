@@ -61,6 +61,30 @@ final class DetachedDrawable implements Drawable {
         parentDeformerIndex = source.parentDeformerIndex();
     }
 
+    /** A field captured at event time: either its value or the failure it produced. */
+    private static final class Field<T> {
+        private final T value;
+        private final RuntimeException failure;
+
+        private Field(final T value, final RuntimeException failure) {
+            this.value = value;
+            this.failure = failure;
+        }
+
+        private static <T> Field<T> read(final java.util.function.Supplier<T> source) {
+            try {
+                return new Field<>(source.get(), null);
+            } catch (RuntimeException failure) {
+                return new Field<>(null, failure);
+            }
+        }
+
+        private T get() {
+            if (failure != null) throw failure;
+            return value;
+        }
+    }
+
     static DetachedDrawable capture(final Drawable drawable, final float opacity) {
         return new DetachedDrawable(Objects.requireNonNull(drawable, "drawable"), opacity);
     }

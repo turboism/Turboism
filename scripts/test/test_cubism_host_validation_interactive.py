@@ -111,5 +111,119 @@ fake_remote() { case "$2" in cat*) printf '%s' "$exit_code";; *) :;; esac; }
         self.assertNotEqual(0, result.returncode)
         self.assertNotIn('STOP', result.stdout)
 
+class ExitWitnessBatGeneration(unittest.TestCase):
+    """The generated launch.bat keeps byte-identical tails unless the exit
+    diagnostic is enabled through --windows-env TURBOISM_MI3D_EXIT_DIAGNOSTIC=1.
+    Enabled runs capture ERRORLEVEL immediately, write a single exclusive
+    witness file under task evidence, then exit with the saved code."""
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self.temporary.name)
+        source = RUNNER.read_text()
+        z_start = source.index('z_path() {')
+        self.z_path = source[z_start:source.index('\n}\n', z_start) + 3]
+        val_start = source.index('windows_environment_names=()')
+        val_end = source.index('\n\nfor hook in', val_start)
+        self.env_validation = source[val_start:val_end]
+        start = source.index('cat > "$local_tmp/launch.bat"')
+        end = source.index('run_remote_hook "$remote_pre_launch"')
+        self.block = source[start:end]
+
+    def tearDown(self):
+        self.temporary.cleanup()
+
+    def generate(self, *, assignments=(), cubism_java=''):
+        evidence = self.root / 'task dir' / 'evidence'
+        local_tmp = self.root / 'tmp'
+        local_tmp.mkdir(exist_ok=True)
+        env = dict(os.environ, EVIDENCE_DIR=str(evidence), TMP_OUT=str(local_tmp))
+        assignments_literal = ' '.join("'%s'" % a.replace("'", "'\\''") for a in assignments)
+        script = (
+            'set -u\n'
+            + self.z_path + '\n'
+            + 'fail() { printf \'%s\\n\' "$*" >&2; exit 9; }\n'
+            'require_safe_text() { :; }\n'
+            'local_tmp="$TMP_OUT"\n'
+            'evidence_dir="$EVIDENCE_DIR"\n'
+            'task_id=run-42\n'
+            'fixture_name=fixture.cmo3\n'
+            'windows_environment=(' + assignments_literal + ')\n'
+            + self.env_validation + '\n'
+            "java_tool_options='-Dprobe=x'\n"
+            "cubism_java='" + cubism_java + "'\n"
+            "cubism_win='C:\\CubismTest'\n"
+            "win_home='Z:\\task dir\\turboism-home'\n"
+            "win_fixture='Z:\\task dir\\fixture.cmo3'\n"
+            "win_console='Z:\\task dir\\evidence\\cubism-console.txt'\n"
+            + self.block
+        )
+        result = subprocess.run(['bash'], input=script, text=True, env=env, capture_output=True)
+        bat_path = local_tmp / 'launch.bat'
+        bat = bat_path.read_bytes() if bat_path.exists() else None
+        return result, bat
+
+    def call_line(self, cubism_java=''):
+        bat = 'CubismEditor5-java-override.bat' if cubism_java else 'CubismEditor5.bat'
+        return ('call "C:\\CubismTest\\' + bat
+                + '" "Z:\\task dir\\fixture.cmo3" > "Z:\\task dir\\evidence\\cubism-console.txt" 2>&1\n').encode()
+
+    def test_disabled_bytes_unchanged(self):
+        for cubism_java in ('', 'Z:\\tools\\java.exe'):
+            with self.subTest(cubism_java=cubism_java):
+                result, bat = self.generate(
+                    assignments=('HOME={HOME}',), cubism_java=cubism_java)
+                self.assertEqual(0, result.returncode, result.stderr)
+                expected = (
+                    b'@echo off\nsetlocal\n'
+                    + b'set "HOME=Z:\\task dir\\turboism-home"\r\n'
+                    + b'set "JAVA_TOOL_OPTIONS=-Dprobe=x"\r\n'
+                    + self.call_line(cubism_java)
+                    + b'exit /b %ERRORLEVEL%\n'
+                )
+                self.assertEqual(expected, bat)
+
+    def test_enabled_inserts_witness_on_both_call_branches(self):
+        witness = 'Z:' + str(self.root / 'task dir' / 'evidence'
+                             / 'editor-exit.properties').replace('/', '\\')
+        for cubism_java in ('', 'Z:\\tools\\java.exe'):
+            with self.subTest(cubism_java=cubism_java):
+                result, bat = self.generate(
+                    assignments=('TURBOISM_MI3D_EXIT_DIAGNOSTIC=1',), cubism_java=cubism_java)
+                self.assertEqual(0, result.returncode, result.stderr)
+                lines = bat.split(b'\n')
+                call_index = lines.index(self.call_line(cubism_java).rstrip(b'\n'))
+                self.assertEqual(b'set "TURBOISM_MI3D_EXIT_DIAGNOSTIC=1"\r', lines[2])
+                self.assertEqual(b'set "TURBOISM_MI3D_EDITOR_EXIT_CODE=%ERRORLEVEL%"',
+                                 lines[call_index + 1])
+                self.assertEqual(('if not exist "' + witness + '" (').encode(),
+                                 lines[call_index + 2])
+                self.assertEqual(
+                    ('  (echo schemaVersion=1&echo taskId=run-42&echo editorExitCode='
+                     '%TURBOISM_MI3D_EDITOR_EXIT_CODE%&echo complete=true)>"' + witness + '"').encode(),
+                    lines[call_index + 3])
+                self.assertEqual(b')', lines[call_index + 4])
+                self.assertEqual(b'exit /b %TURBOISM_MI3D_EDITOR_EXIT_CODE%', lines[call_index + 5])
+                self.assertNotIn(b'exit /b %ERRORLEVEL%', bat)
+
+    def test_witness_path_uses_quoted_task_evidence(self):
+        result, bat = self.generate(assignments=('TURBOISM_MI3D_EXIT_DIAGNOSTIC=1',))
+        self.assertEqual(0, result.returncode, result.stderr)
+        witness = 'Z:' + str(self.root / 'task dir' / 'evidence'
+                             / 'editor-exit.properties').replace('/', '\\')
+        self.assertIn(('if not exist "' + witness + '"').encode(), bat)
+        self.assertIn((')>"' + witness + '"').encode(), bat)
+
+    def test_non_one_value_rejected_before_generation(self):
+        for value in ('0', 'yes'):
+            with self.subTest(value=value):
+                result, bat = self.generate(
+                    assignments=('TURBOISM_MI3D_EXIT_DIAGNOSTIC=' + value,))
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn('TURBOISM_MI3D_EXIT_DIAGNOSTIC must be exactly 1',
+                              result.stderr)
+                self.assertIsNone(bat)
+
+
 if __name__ == '__main__':
     unittest.main()

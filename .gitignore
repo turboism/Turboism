@@ -104,3 +104,6 @@ prompts/
 *.swo
 *.swn
 *.swx
+
+# Local host-validation frozen fixtures (never committed)
+artifacts/

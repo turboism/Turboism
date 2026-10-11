@@ -818,6 +818,7 @@ class EditorInspectorWriteAccessTest {
                 ParamHandler.class,
                 "changeTargetDeformer",
                 "(" + type(Model.class) + type(Id.class) + ")" + type(Undo.class)));
+        // Match the reviewed native overload: GUID + boolean belongs to the GUID alias.
         selectors.add(method(
                 "cubism.editor-model.parameter-controllable-handler.change-target-deformer-guid",
                 ParamHandler.class,

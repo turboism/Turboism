@@ -132,7 +132,7 @@ public final class WindowsHistoryFloatProbe implements CubismPlugin {
         }
     }
 
-    private static void scanNames(final Container container, final java.util.List<String> hits) {
+    static void scanNames(final Container container, final java.util.List<String> hits) {
         final String name = container.getClass().getName();
         if (name.contains("GLJPanel") || name.contains("CSimplePane") || name.contains("CEMainFrame")) {
             hits.add(name);
@@ -144,7 +144,7 @@ public final class WindowsHistoryFloatProbe implements CubismPlugin {
         }
     }
 
-    private static void scan(final Container container, final String wanted, final java.util.List<String> found) {
+    static void scan(final Container container, final String wanted, final java.util.List<String> found) {
         for (Component child : container.getComponents()) {
             if (wanted.equals(child.getName())) {
                 found.add(child.getClass().getName() + "@" + child.getBounds());
@@ -158,12 +158,12 @@ public final class WindowsHistoryFloatProbe implements CubismPlugin {
     @Override
     public void disable() {}
 
-    private static void append(final Path artifact, final String value) throws Exception {
+    static void append(final Path artifact, final String value) throws Exception {
         Files.writeString(
                 artifact, value, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
     }
 
-    private static void write(final Path artifact, final String value) throws Exception {
+    static void write(final Path artifact, final String value) throws Exception {
         Files.writeString(
                 artifact,
                 value,

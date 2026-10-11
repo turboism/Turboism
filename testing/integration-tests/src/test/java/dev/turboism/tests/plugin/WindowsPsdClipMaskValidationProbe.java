@@ -542,7 +542,7 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
         return Map.copyOf(states);
     }
 
-    private record MaskState(List<ArtMeshId> masks, boolean inverted) {
+    record MaskState(List<ArtMeshId> masks, boolean inverted) {
         MaskState {
             masks = List.copyOf(masks);
         }
@@ -587,7 +587,7 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
     }
 
     /** The post-commit state expected by the synthetic batch. */
-    private static Map<ArtMeshId, MaskState> syntheticExpected(final Map<ArtMeshId, MaskState> before) {
+    static Map<ArtMeshId, MaskState> syntheticExpected(final Map<ArtMeshId, MaskState> before) {
         final List<ArtMeshId> ids = List.copyOf(before.keySet());
         final ArtMeshId first = ids.get(0);
         final ArtMeshId second = ids.get(1);
@@ -614,7 +614,7 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
         return List.copyOf(replacements);
     }
 
-    private static List<ClipMaskReplacement> wrongExpectedBatch(final List<ClipMaskReplacement> replacements) {
+    static List<ClipMaskReplacement> wrongExpectedBatch(final List<ClipMaskReplacement> replacements) {
         final List<ClipMaskReplacement> wrong = new ArrayList<>(replacements.size());
         boolean mutated = false;
         for (ClipMaskReplacement replacement : replacements) {
@@ -729,7 +729,7 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
         }
     }
 
-    private static void appendAssertion(
+    static void appendAssertion(
             final StringBuilder report,
             final String name,
             final String expected,
@@ -749,7 +749,7 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
                 .append('\n');
     }
 
-    private static String ids(final List<ArtMeshId> values) {
+    static String ids(final List<ArtMeshId> values) {
         return values.stream().map(ArtMeshId::value).collect(Collectors.joining(", "));
     }
 
@@ -761,7 +761,7 @@ public final class WindowsPsdClipMaskValidationProbe implements CubismPlugin {
         return count;
     }
 
-    private static String stateSignature(final Map<ArtMeshId, MaskState> states) {
+    static String stateSignature(final Map<ArtMeshId, MaskState> states) {
         return states.entrySet().stream()
                 .map(entry -> entry.getKey().value() + "=" + entry.getValue())
                 .collect(Collectors.joining("; "));

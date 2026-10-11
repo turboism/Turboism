@@ -76,7 +76,7 @@ final class EditorObjectWriteAccess {
     }
 
     /** Undo envelope family mirrored from the Inspector prepareUndo routing. */
-    private enum UndoKind {
+    enum UndoKind {
         ALL_EDIT,
         BASIC_SETTING,
         KEYFORM_EDIT
@@ -210,6 +210,44 @@ final class EditorObjectWriteAccess {
                         resolver.invoke("cubism.editor-model.warp-form.positions", form), "Editor Warp control points")
                 .clone();
         final float[] positions = flattenArray(grid.controlPoints());
+        if (authoringCoordinator != null
+                && resolver.authorizesFeature(
+                        "adapter.editor-model.readwrite",
+                        "cubism.editor-history.read",
+                        EditorHistoryReadSelectorContract.REQUIRED_ALIASES)) {
+            final Runnable apply = () -> {
+                resolver.invoke(
+                        "cubism.editor-model.warp-source.set-row", value.source(), Integer.valueOf(grid.rows()));
+                resolver.invoke(
+                        "cubism.editor-model.warp-source.set-col", value.source(), Integer.valueOf(grid.columns()));
+                resolver.invoke(
+                        "cubism.editor-model.warp-source.set-quad-transform",
+                        value.source(),
+                        Boolean.valueOf(grid.quadTransform()));
+                resolver.invoke("cubism.editor-model.warp-form.set-positions", form, positions.clone());
+            };
+            final Runnable restore = () -> {
+                resolver.invoke(
+                        "cubism.editor-model.warp-source.set-row", value.source(), Integer.valueOf(originalRows));
+                resolver.invoke(
+                        "cubism.editor-model.warp-source.set-col", value.source(), Integer.valueOf(originalColumns));
+                resolver.invoke(
+                        "cubism.editor-model.warp-source.set-quad-transform",
+                        value.source(),
+                        Boolean.valueOf(originalQuad));
+                resolver.invoke("cubism.editor-model.warp-form.set-positions", form, originalPositions.clone());
+            };
+            writeWarpGrid(
+                    modelSource,
+                    value.source(),
+                    apply,
+                    () -> matchesWarpGrid(
+                            value.source(), form, grid.rows(), grid.columns(), grid.quadTransform(), positions),
+                    restore,
+                    () -> matchesWarpGrid(
+                            value.source(), form, originalRows, originalColumns, originalQuad, originalPositions));
+            return;
+        }
         write(Kind.WARP, modelSource, value.source(), "Replace Warp grid", () -> {
             try {
                 resolver.invoke(
@@ -264,6 +302,93 @@ final class EditorObjectWriteAccess {
         });
     }
 
+    private boolean matchesWarpGrid(
+            final Object source,
+            final Object form,
+            final int rows,
+            final int columns,
+            final boolean quad,
+            final float[] positions) {
+        return rows == integer(resolver.invoke("cubism.editor-model.warp-source.row", source), "Editor Warp row count")
+                && columns
+                        == integer(
+                                resolver.invoke("cubism.editor-model.warp-source.col", source),
+                                "Editor Warp column count")
+                && quad
+                        == flag(
+                                resolver.invoke("cubism.editor-model.warp-source.quad-transform", source),
+                                "Editor Warp quad-transform flag")
+                && java.util.Arrays.equals(
+                        positions,
+                        floats(
+                                resolver.invoke("cubism.editor-model.warp-form.positions", form),
+                                "Editor Warp control points"));
+    }
+
+    private void writeWarpGrid(
+            final Object modelSource,
+            final Object source,
+            final Runnable mutation,
+            final BooleanSupplier applied,
+            final Runnable compensation,
+            final BooleanSupplier restored) {
+        final var binding = Objects.requireNonNull(authoringBinding.get(), "authoring binding");
+        final String operationId = "cubism.warp-deformer.replace-grid";
+        final String label = "Replace Warp grid";
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+                label,
+                HistoryAction.DetailLevel.PARTIAL,
+                HistoryOrigin.turboism(binding.pluginId(), operationId),
+                List.of(new HistoryTarget("WARP_DEFORMER", Optional.of(core.objectId(source)), Optional.empty())),
+                List.of(new HistoryChange(
+                        HistoryChange.Operation.SET,
+                        Optional.of(0),
+                        Optional.of("grid"),
+                        Optional.empty(),
+                        Optional.empty())),
+                Optional.empty(),
+                Optional.of("history.capture.warp-grid-summary"));
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Runnable update = () -> {
+            resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+            refresh(app, Kind.WARP, false);
+        };
+        authoringCoordinator.mutate(
+                binding,
+                new EditorUndoContribution(
+                        operationId,
+                        binding.modelIdentity() + ":warp:" + core.objectId(source),
+                        label,
+                        (edit, transactionLabel) -> {
+                            final Object handler = resolver.invoke(
+                                    "cubism.editor-model.parameter-controllable-source.handler", source);
+                            final Object undo =
+                                    resolver.invoke(undoAlias(UndoKind.ALL_EDIT), handler, transactionLabel);
+                            if (!Boolean.TRUE.equals(
+                                    resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE))) {
+                                throw new IllegalStateException("Warp grid Undo admission failed");
+                            }
+                            final Object listener = resolver.createFunctionalProxy(
+                                    "cubism.editor-model.undo-listener.class", ignored -> {
+                                        update.run();
+                                        return null;
+                                    });
+                            resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
+                        },
+                        () -> {
+                            mutation.run();
+                            update.run();
+                        },
+                        applied,
+                        () -> {
+                            compensation.run();
+                            update.run();
+                        },
+                        () -> authoringCoordinator.isCreatedTargetRestored(binding, source) || restored.getAsBoolean(),
+                        EnumSet.of(EditorRefreshRequirement.MARK_DIRTY),
+                        detail));
+    }
+
     void replaceRotationForm(final Object modelSource, final DeformerRef value, final RotationDeformerForm form) {
         if (!EditorHostThread.isCurrent()) {
             EditorHostThread.dispatch("Cubism object write", () -> {
@@ -277,17 +402,95 @@ final class EditorObjectWriteAccess {
         final RotationDeformerForm original = core.rotationForm(value.instance());
         if (form.equals(original)) return;
         final Object current = core.deformerForm(value.instance());
-        write(Kind.ROTATION, modelSource, value.source(), "Replace Rotation form", () -> {
-            try {
-                setRotationForm(current, form);
-            } catch (RuntimeException failure) {
-                compensate(
-                        "Rotation form",
-                        failure,
-                        () -> setRotationForm(current, original),
-                        () -> original.equals(core.rotationForm(value.instance())));
-            }
-        });
+        if (authoringCoordinator == null
+                || !resolver.authorizesFeature(
+                        "adapter.editor-model.readwrite",
+                        "cubism.editor-history.read",
+                        EditorHistoryReadSelectorContract.REQUIRED_ALIASES)) {
+            write(Kind.ROTATION, modelSource, value.source(), "Replace Rotation form", () -> {
+                try {
+                    setRotationForm(current, form);
+                } catch (RuntimeException failure) {
+                    compensate(
+                            "Rotation form",
+                            failure,
+                            () -> setRotationForm(current, original),
+                            () -> original.equals(core.rotationForm(value.instance())));
+                }
+            });
+            return;
+        }
+        writeRotationForm(
+                modelSource,
+                value.source(),
+                () -> setRotationForm(current, form),
+                () -> form.equals(core.rotationForm(value.instance())),
+                () -> setRotationForm(current, original),
+                () -> original.equals(core.rotationForm(value.instance())));
+    }
+
+    private void writeRotationForm(
+            final Object modelSource,
+            final Object source,
+            final Runnable mutation,
+            final BooleanSupplier applied,
+            final Runnable compensation,
+            final BooleanSupplier restored) {
+        final var binding = Objects.requireNonNull(authoringBinding.get(), "authoring binding");
+        final String operationId = "cubism.rotation-deformer.replace-form";
+        final String label = "Replace Rotation form";
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+                label,
+                HistoryAction.DetailLevel.PARTIAL,
+                HistoryOrigin.turboism(binding.pluginId(), operationId),
+                List.of(new HistoryTarget("ROTATION_DEFORMER", Optional.of(core.objectId(source)), Optional.empty())),
+                List.of(new HistoryChange(
+                        HistoryChange.Operation.SET,
+                        Optional.of(0),
+                        Optional.of("form"),
+                        Optional.empty(),
+                        Optional.empty())),
+                Optional.empty(),
+                Optional.of("history.capture.rotation-form-summary"));
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Runnable update = () -> {
+            resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+            refresh(app, Kind.ROTATION, false);
+        };
+        authoringCoordinator.mutate(
+                binding,
+                new EditorUndoContribution(
+                        operationId,
+                        binding.modelIdentity() + ":rotation:" + core.objectId(source),
+                        label,
+                        (edit, transactionLabel) -> {
+                            final Object handler = resolver.invoke(
+                                    "cubism.editor-model.parameter-controllable-source.handler", source);
+                            final Object undo =
+                                    resolver.invoke(undoAlias(UndoKind.ALL_EDIT), handler, transactionLabel);
+                            if (!Boolean.TRUE.equals(
+                                    resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE))) {
+                                throw new IllegalStateException("Rotation form Undo admission failed");
+                            }
+                            final Object listener = resolver.createFunctionalProxy(
+                                    "cubism.editor-model.undo-listener.class", ignored -> {
+                                        update.run();
+                                        return null;
+                                    });
+                            resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
+                        },
+                        () -> {
+                            mutation.run();
+                            update.run();
+                        },
+                        applied,
+                        () -> {
+                            compensation.run();
+                            update.run();
+                        },
+                        () -> authoringCoordinator.isCreatedTargetRestored(binding, source) || restored.getAsBoolean(),
+                        EnumSet.of(EditorRefreshRequirement.MARK_DIRTY),
+                        detail));
     }
 
     private void setRotationForm(final Object current, final RotationDeformerForm form) {
@@ -359,7 +562,7 @@ final class EditorObjectWriteAccess {
         writeEnvelope(undoKind, Kind.ART_MESH, modelSource, List.of(objectSource), action, mutation, true);
     }
 
-    private void writeArtMeshProperty(
+    void writeArtMeshProperty(
             final UndoKind undoKind,
             final Object modelSource,
             final Object objectSource,
@@ -440,7 +643,8 @@ final class EditorObjectWriteAccess {
                                     compensation.run();
                                     update.run();
                                 },
-                                restored,
+                                () -> authoringCoordinator.isCreatedTargetRestored(binding, objectSource)
+                                        || restored.getAsBoolean(),
                                 EnumSet.of(EditorRefreshRequirement.MARK_DIRTY),
                                 pending)
                         .withCaptureAfter(() -> {
@@ -450,6 +654,147 @@ final class EditorObjectWriteAccess {
                                             label, origin, ArtMeshPropertyCapture.capture(resolver, form, property)))
                                     .orElse(pending);
                         }));
+    }
+
+    void writeWarpKeyforms(
+            final Object modelSource,
+            final Object objectSource,
+            final String label,
+            final Runnable mutation,
+            final BooleanSupplier applied,
+            final Runnable compensation,
+            final BooleanSupplier restored) {
+        EditorHostThread.requireHostThread("Cubism Warp keyform write");
+        if (authoringCoordinator == null)
+            throw new UnsupportedOperationException("Warp stored edits require authoring coordinator");
+        final var binding = Objects.requireNonNull(authoringBinding.get(), "authoring binding");
+        final String operationId = "cubism.warp-deformer.keyforms.set-positions";
+        final HistoryOrigin origin = HistoryOrigin.turboism(binding.pluginId(), operationId);
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+                label,
+                HistoryAction.DetailLevel.PARTIAL,
+                origin,
+                List.of(new HistoryTarget("WARP_DEFORMER", Optional.of(core.objectId(objectSource)), Optional.empty())),
+                List.of(new HistoryChange(
+                        HistoryChange.Operation.SET,
+                        Optional.of(0),
+                        Optional.of("keyformPositionsBatch"),
+                        Optional.empty(),
+                        Optional.empty())),
+                Optional.empty(),
+                Optional.of("history.capture.warp-keyforms-summary"));
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Runnable update = () -> {
+            resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+            refresh(app, Kind.WARP, true);
+        };
+        authoringCoordinator.mutate(
+                binding,
+                new EditorUndoContribution(
+                        operationId,
+                        binding.modelIdentity() + ":warp:" + core.objectId(objectSource),
+                        label,
+                        (edit, transactionLabel) -> {
+                            final Object handler = resolver.invoke(
+                                    "cubism.editor-model.parameter-controllable-source.handler", objectSource);
+                            final Object undo = resolver.invoke(
+                                    "cubism.editor-model.parameter-controllable-handler.create-undo-for-keyform-edit",
+                                    handler,
+                                    transactionLabel);
+                            if (!Boolean.TRUE.equals(
+                                    resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE)))
+                                throw new IllegalStateException("Warp Undo admission failed");
+                            final Object listener = resolver.createFunctionalProxy(
+                                    "cubism.editor-model.undo-listener.class", ignored -> {
+                                        update.run();
+                                        return null;
+                                    });
+                            resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
+                        },
+                        () -> {
+                            mutation.run();
+                            update.run();
+                        },
+                        applied,
+                        () -> {
+                            compensation.run();
+                            update.run();
+                        },
+                        () -> authoringCoordinator.isCreatedTargetRestored(binding, objectSource)
+                                || restored.getAsBoolean(),
+                        EnumSet.of(EditorRefreshRequirement.MARK_DIRTY),
+                        detail));
+    }
+
+    void writeRotationKeyforms(
+            final Object modelSource,
+            final Object objectSource,
+            final String label,
+            final Runnable mutation,
+            final BooleanSupplier applied,
+            final Runnable compensation,
+            final BooleanSupplier restored) {
+        EditorHostThread.requireHostThread("Cubism Rotation keyform write");
+        if (authoringCoordinator == null)
+            throw new UnsupportedOperationException("Rotation stored edits require authoring coordinator");
+        final var binding = Objects.requireNonNull(authoringBinding.get(), "authoring binding");
+        final String operationId = "cubism.rotation-deformer.keyforms.set-forms";
+        final HistoryOrigin origin = HistoryOrigin.turboism(binding.pluginId(), operationId);
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+                label,
+                HistoryAction.DetailLevel.PARTIAL,
+                origin,
+                List.of(new HistoryTarget(
+                        "ROTATION_DEFORMER", Optional.of(core.objectId(objectSource)), Optional.empty())),
+                List.of(new HistoryChange(
+                        HistoryChange.Operation.SET,
+                        Optional.of(0),
+                        Optional.of("keyformFormsBatch"),
+                        Optional.empty(),
+                        Optional.empty())),
+                Optional.empty(),
+                Optional.of("history.capture.rotation-keyforms-summary"));
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Runnable update = () -> {
+            resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+            refresh(app, Kind.ROTATION, true);
+        };
+        authoringCoordinator.mutate(
+                binding,
+                new EditorUndoContribution(
+                        operationId,
+                        binding.modelIdentity() + ":rotation:" + core.objectId(objectSource),
+                        label,
+                        (edit, transactionLabel) -> {
+                            final Object handler = resolver.invoke(
+                                    "cubism.editor-model.parameter-controllable-source.handler", objectSource);
+                            final Object undo = resolver.invoke(
+                                    "cubism.editor-model.parameter-controllable-handler.create-undo-for-keyform-edit",
+                                    handler,
+                                    transactionLabel);
+                            if (!Boolean.TRUE.equals(
+                                    resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE)))
+                                throw new IllegalStateException("Rotation Undo admission failed");
+                            final Object listener = resolver.createFunctionalProxy(
+                                    "cubism.editor-model.undo-listener.class", ignored -> {
+                                        update.run();
+                                        return null;
+                                    });
+                            resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
+                        },
+                        () -> {
+                            mutation.run();
+                            update.run();
+                        },
+                        applied,
+                        () -> {
+                            compensation.run();
+                            update.run();
+                        },
+                        () -> authoringCoordinator.isCreatedTargetRestored(binding, objectSource)
+                                || restored.getAsBoolean(),
+                        EnumSet.of(EditorRefreshRequirement.MARK_DIRTY),
+                        detail));
     }
 
     private void writeEnvelope(
@@ -600,7 +945,7 @@ final class EditorObjectWriteAccess {
         refresh(app, kind, false);
     }
 
-    private void refresh(final Object app, final Kind kind, final boolean inspector) {
+    void refresh(final Object app, final Kind kind, final boolean inspector) {
         final Object completePack = resolver.invoke("cubism.editor-model.app-controller.complete-pack", app);
         resolver.invoke(
                 kind == Kind.ART_MESH
@@ -758,20 +1103,45 @@ final class EditorObjectWriteAccess {
         }
         requireInspectorWriteAuthorized();
         final Object target;
+        final Object targetSource;
         if (targetDeformer.isPresent()) {
             final DeformerId targetId = targetDeformer.get();
             final Object source = core.deformerSourceById(identity, modelSource, model, targetId);
             if (source == null) {
                 throw new NoSuchElementException("No Editor Deformer has id " + targetId.value());
             }
-            if (hierarchyEditAccess != null && hierarchyEditAccess.relationCaptureAvailable()) {
-                hierarchyEditAccess.setParent(
-                        identity, modelSource, model, current.source(), source, true, -1, "ArtMesh");
-                return;
-            }
+            targetSource = source;
             target = resolver.construct("cubism.editor-model.deformer-id.create", targetId.value());
         } else {
+            targetSource = null;
             target = null;
+        }
+        if (authoringCoordinator != null
+                && resolver.authorizesFeature(
+                        "adapter.editor-model.readwrite",
+                        "cubism.editor-history.read",
+                        EditorHistoryReadSelectorContract.REQUIRED_ALIASES)) {
+            if (EditorArtMeshParentSnapshot.available(resolver)) {
+                setTargetDeformerCooperatively(modelSource, model, current.source(), target, targetSource);
+                return;
+            }
+            if (targetDeformer.isPresent()
+                    && hierarchyEditAccess != null
+                    && hierarchyEditAccess.relationCaptureAvailable()) {
+                hierarchyEditAccess.setParent(
+                        identity, modelSource, model, current.source(), targetSource, true, -1, "ArtMesh");
+                return;
+            }
+            if (authoringCoordinator.hasActiveTransaction()) {
+                throw new UnsupportedOperationException("ArtMesh parent conversion cannot join this verified root");
+            }
+        }
+        if (targetDeformer.isPresent()
+                && hierarchyEditAccess != null
+                && hierarchyEditAccess.relationCaptureAvailable()) {
+            hierarchyEditAccess.setParent(
+                    identity, modelSource, model, current.source(), targetSource, true, -1, "ArtMesh");
+            return;
         }
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
@@ -878,6 +1248,89 @@ final class EditorObjectWriteAccess {
         } finally {
             resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
         }
+    }
+
+    private void setTargetDeformerCooperatively(
+            final Object modelSource,
+            final Object model,
+            final Object source,
+            final Object target,
+            final Object targetSource) {
+        final var binding = Objects.requireNonNull(authoringBinding.get(), "authoring binding");
+        final var before = new EditorArtMeshParentSnapshot(resolver, new ArtMeshId(core.objectId(source)), source);
+        final String operationId = "cubism.art-mesh.set-target-deformer";
+        final String label = "Set ArtMesh target Deformer";
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Runnable update = () -> {
+            resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+            refresh(app, Kind.ART_MESH, true);
+        };
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+                label,
+                HistoryAction.DetailLevel.PARTIAL,
+                HistoryOrigin.turboism(binding.pluginId(), operationId),
+                List.of(new HistoryTarget("ART_MESH", Optional.of(core.objectId(source)), Optional.empty())),
+                List.of(new HistoryChange(
+                        HistoryChange.Operation.SET,
+                        Optional.of(0),
+                        Optional.of("targetDeformer"),
+                        Optional.empty(),
+                        Optional.empty())),
+                Optional.empty(),
+                Optional.of("history.capture.parent-summary"));
+        authoringCoordinator.mutate(
+                binding,
+                new EditorUndoContribution(
+                        operationId,
+                        binding.modelIdentity() + ":artmesh:" + core.objectId(source),
+                        label,
+                        (edit, transactionLabel) -> {
+                            final Object handler = resolver.invoke(
+                                    "cubism.editor-model.parameter-controllable-source.handler", source);
+                            if (!resolver.isInstance(
+                                    "cubism.editor-model.parameter-controllable-handler.class", handler)) {
+                                throw unavailable("Editor object Undo handler is unavailable.");
+                            }
+                            // These factories eagerly mutate parent and local coordinates. The
+                            // coordinator registers compensation before admission, including when
+                            // undo.add rejects.
+                            final Object undo = target == null
+                                    ? resolver.invoke(
+                                            "cubism.editor-model.parameter-controllable-handler.change-target-deformer-guid",
+                                            handler,
+                                            model,
+                                            resolver.invoke(
+                                                    "cubism.editor-model.deformer-guid.root",
+                                                    resolver.readStaticField(
+                                                            "cubism.editor-model.deformer-guid.companion")),
+                                            Boolean.FALSE)
+                                    : resolver.invoke(
+                                            "cubism.editor-model.parameter-controllable-handler.change-target-deformer",
+                                            handler,
+                                            model,
+                                            target);
+                            if (!Boolean.TRUE.equals(
+                                    resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE))) {
+                                throw new IllegalStateException("ArtMesh parent Undo admission failed");
+                            }
+                            final Object listener = resolver.createFunctionalProxy(
+                                    "cubism.editor-model.undo-listener.class", ignored -> {
+                                        update.run();
+                                        return null;
+                                    });
+                            resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
+                        },
+                        update,
+                        () -> before.applied(targetSource),
+                        () -> {
+                            if (!authoringCoordinator.isCreatedTargetRestored(binding, source)) {
+                                before.restore();
+                                update.run();
+                            }
+                        },
+                        () -> authoringCoordinator.isCreatedTargetRestored(binding, source) || before.restored(),
+                        EnumSet.of(EditorRefreshRequirement.MARK_DIRTY),
+                        detail));
     }
 
     void setClippingMaskIds(
@@ -1112,14 +1565,39 @@ final class EditorObjectWriteAccess {
             return;
         }
         requireInspectorWriteAuthorized();
-        if (core.sourceFlag("cubism.editor-model.art-mesh-source.culling", objectSource, "ArtMesh culling state")
-                == value) {
+        final boolean original =
+                core.sourceFlag("cubism.editor-model.art-mesh-source.culling", objectSource, "ArtMesh culling state");
+        if (original == value) {
             return;
         }
-        writeInspector(UndoKind.BASIC_SETTING, modelSource, objectSource, "Set ArtMesh culling", () -> {
-            resolver.invoke("cubism.editor-model.art-mesh-source.set-culling", objectSource, Boolean.valueOf(value));
-            resolver.invoke("cubism.editor-model.art-mesh.setup-shader", artMesh, new Object[] {null});
-        });
+        writeArtMeshProperty(
+                UndoKind.BASIC_SETTING,
+                modelSource,
+                objectSource,
+                objectSource,
+                "culling",
+                "Set ArtMesh culling",
+                () -> {
+                    resolver.invoke(
+                            "cubism.editor-model.art-mesh-source.set-culling", objectSource, Boolean.valueOf(value));
+                    resolver.invoke("cubism.editor-model.art-mesh.setup-shader", artMesh, new Object[] {null});
+                },
+                () -> core.sourceFlag(
+                                "cubism.editor-model.art-mesh-source.culling", objectSource, "ArtMesh culling state")
+                        == value,
+                () -> {
+                    resolver.invoke(
+                            "cubism.editor-model.art-mesh-source.set-culling", objectSource, Boolean.valueOf(original));
+                    resolver.invoke("cubism.editor-model.art-mesh.setup-shader", artMesh, new Object[] {null});
+                },
+                () -> (authoringCoordinator != null
+                                && authoringBinding.get() != null
+                                && authoringCoordinator.isCreatedTargetRestored(authoringBinding.get(), objectSource))
+                        || core.sourceFlag(
+                                        "cubism.editor-model.art-mesh-source.culling",
+                                        objectSource,
+                                        "ArtMesh culling state")
+                                == original);
     }
 
     void setUserData(final Object modelSource, final Object objectSource, final String userData) {

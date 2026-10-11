@@ -120,6 +120,14 @@ expect_rejected windows-env-duplicate-case 'duplicate Windows environment name' 
   "${base[@]}" --windows-env 'Path=first' --windows-env 'PATH=second'
 expect_rejected windows-env-command 'Windows environment value contains an unsupported command character' \
   "${base[@]}" --windows-env 'HOME=C:\safe&whoami'
+expect_rejected windows-env-exit-diagnostic 'TURBOISM_MI3D_EXIT_DIAGNOSTIC must be exactly 1' \
+  "${base[@]}" --windows-env 'TURBOISM_MI3D_EXIT_DIAGNOSTIC=0'
+expect_rejected windows-env-exit-diagnostic-text 'TURBOISM_MI3D_EXIT_DIAGNOSTIC must be exactly 1' \
+  "${base[@]}" --windows-env 'TURBOISM_MI3D_EXIT_DIAGNOSTIC=yes'
+"${base[@]}" --windows-env 'TURBOISM_MI3D_EXIT_DIAGNOSTIC=1' >"$tmp/windows-env-diagnostic.out" 2>&1 \
+  || fail 'exact TURBOISM_MI3D_EXIT_DIAGNOSTIC=1 dry-run was rejected'
+grep -Fxq 'windowsEnvironment.0=TURBOISM_MI3D_EXIT_DIAGNOSTIC=1' "$tmp/windows-env-diagnostic.out" \
+  || fail 'accepted diagnostic assignment was not echoed as a Windows environment entry'
 expect_rejected jvm-option-quote 'JVM or hook option contains an unsupported quote' \
   "${base[@]}" --jvm-option '-Dunsafe="quoted"'
 

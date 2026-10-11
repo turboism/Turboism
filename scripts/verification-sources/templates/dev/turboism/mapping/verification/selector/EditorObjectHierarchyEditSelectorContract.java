@@ -19,6 +19,13 @@ public final class EditorObjectHierarchyEditSelectorContract {
     public static final String RENAME_CAPABILITY_ID = "cubism.editor-model.object-hierarchy.rename";
     public static final String ART_MESH_CREATE_CAPABILITY_ID =
         "cubism.editor-model.object-hierarchy.art-mesh.create";
+    /** Exact 5.3.02 editor selector, distinct from Inspector selection synchronization. */
+    public static final Set<String> ART_MESH_SELECT_5302_ALIASES = Set.of(
+        "cubism.editor-model.modeling-document.selector",
+        "cubism.editor-model.parameter-controllable-source.selection",
+        "cubism.editor-model.selector.replace-selected",
+        "cubism.editor-model.selector.selected"
+    );
 
 
     /** Capability for the apply-deformer-to-children native command on the reviewed 5.2/5.3 artifacts. */
@@ -86,6 +93,7 @@ public final class EditorObjectHierarchyEditSelectorContract {
         "cubism.editor-model.rotation-form.set-reflect-x",
         "cubism.editor-model.rotation-form.set-reflect-y",
         "cubism.editor-model.part-source.add-child",
+        "cubism.editor-model.part-source.children",
         "cubism.editor-model.part-source.class",
         "cubism.editor-model.warp-source.class",
         "cubism.editor-model.rotation-source.class",
@@ -187,6 +195,7 @@ public final class EditorObjectHierarchyEditSelectorContract {
             "cubism.editor-model.parameter-controllable-source.set-keyform-grid-source",
             "cubism.editor-model.coord-type.canvas",
             "cubism.editor-model.part-source.add-child",
+            "cubism.editor-model.part-source.children",
             "cubism.editor-model.parameter-controllable-source.set-local-name"
         )
     );
@@ -202,6 +211,40 @@ public final class EditorObjectHierarchyEditSelectorContract {
         "cubism.editor-model.update-manager.set-selection",
         "cubism.editor-model.model-source.all-deformers",
         "cubism.editor-model.app-controller.command-delete-deformer-and-set-param"
+    );
+
+    /** Exact 5.3.02 native mesh editing structure, initialized before attachment. */
+    public static final Set<String> EDITABLE_MESH_5302_ALIASES = Set.of(
+        "cubism.editor-model.editable-mesh-extension.class",
+        "cubism.editor-model.editable-mesh-extension.create",
+        "cubism.editor-model.editable-mesh-extension.mesh",
+        "cubism.editor-model.editable-mesh-extension.owner",
+        "cubism.editor-model.editable-mesh-extension.locked",
+        "cubism.editor-model.editable-mesh.init-by-indices",
+        "cubism.editor-model.parameter-controllable-source.add-extension"
+    );
+
+    /** Native Part insertion owns both the registry and parent-child Undo. */
+    public static final Set<String> PART_CREATE_5302_REQUIRED_ALIASES = unionAll(
+        REQUIRED_ALIASES,
+        Set.of(
+            "cubism.editor-model.model-source.root-part",
+            "cubism.editor-model.part-handler.class",
+            "cubism.editor-model.part-handler.add-part-child",
+            "cubism.editor-model.undo.execute-undo"
+        )
+    );
+
+    /** 5.3.02 materializes ArtMeshes from the Part tree, not the source registry alone. */
+    public static final Set<String> ART_MESH_PART_CREATE_5302_REQUIRED_ALIASES = unionAll(
+        ART_MESH_CREATE_REQUIRED_ALIASES,
+        EDITABLE_MESH_5302_ALIASES,
+        Set.of(
+            "cubism.editor-model.model-source.root-part",
+            "cubism.editor-model.part-handler.class",
+            "cubism.editor-model.part-handler.add-part-child",
+            "cubism.editor-model.undo.execute-undo"
+        )
     );
 
     private static Set<String> unionAll(final Set<String>... sets) {
