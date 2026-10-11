@@ -251,6 +251,7 @@ public final class ClipMaskVerificationManifest {
 
 
 
+
     /** Adapter slice identity for the read-only clip-mask family. */
     public static final String ADAPTER_SLICE_ID = "${record:cubism-5.2.03-clipmask.json:adapterSliceId}";
 

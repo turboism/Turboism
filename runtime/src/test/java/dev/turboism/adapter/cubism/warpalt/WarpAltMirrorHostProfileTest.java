@@ -18,6 +18,14 @@ final class WarpAltMirrorHostProfileTest {
                 .isPresent());
         assertTrue(WarpAltMirrorHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_2_03)
                 .isPresent());
+        assertTrue(WarpAltMirrorHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_0_00)
+                .isPresent());
+        assertTrue(WarpAltMirrorHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_0_06)
+                .isPresent());
+        assertTrue(WarpAltMirrorHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_1_00)
+                .isPresent());
+        assertTrue(WarpAltMirrorHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_1_03)
+                .isPresent());
         assertTrue(WarpAltMirrorHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_3_03_JOGL)
                 .isEmpty());
         assertTrue(WarpAltMirrorHostProfile.forArtifact(new HostArtifactDigest(1L, "0".repeat(64)))
@@ -27,6 +35,8 @@ final class WarpAltMirrorHostProfileTest {
     @Test
     void sharedSelectorsPinTheReviewedDragTickSelector() {
         for (final HostArtifactDigest artifact : List.of(
+                ReviewedHostArtifacts.CUBISM_5_0_06,
+                ReviewedHostArtifacts.CUBISM_5_1_03,
                 ReviewedHostArtifacts.CUBISM_5_2_03,
                 ReviewedHostArtifacts.CUBISM_5_3_02,
                 ReviewedHostArtifacts.CUBISM_5_3_03)) {
@@ -45,6 +55,16 @@ final class WarpAltMirrorHostProfileTest {
 
     @Test
     void stripMountSelectorFollowsTheObfuscationGeneration() {
+        assertEquals(
+                "L",
+                WarpAltMirrorHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_0_06)
+                        .orElseThrow()
+                        .stripMountMethod());
+        assertEquals(
+                "L",
+                WarpAltMirrorHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_1_03)
+                        .orElseThrow()
+                        .stripMountMethod());
         assertEquals(
                 "L",
                 WarpAltMirrorHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_2_03)

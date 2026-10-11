@@ -127,9 +127,11 @@ public final class SwingUserFileGrantSource implements UserFileGrantSource, Auto
             if (!isPending(expected)) {
                 return;
             }
+            final var owner = java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .getActiveWindow();
             final int choice = expected.request().mode() == UserFileMode.READ
-                    ? chooser.showOpenDialog(null)
-                    : chooser.showSaveDialog(null);
+                    ? chooser.showOpenDialog(owner)
+                    : chooser.showSaveDialog(owner);
             final File selected = choice == JFileChooser.APPROVE_OPTION ? chooser.getSelectedFile() : null;
             settle(expected, decisionFor(choice, selected));
         } catch (RuntimeException | LinkageError | AWTError failure) {

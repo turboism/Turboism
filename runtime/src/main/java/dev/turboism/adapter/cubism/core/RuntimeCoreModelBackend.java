@@ -110,15 +110,21 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
         return tracer != null;
     }
 
-    /** Publishes the current Editor-owned Core model after verified Runtime acquisition. */
+    /**
+     * Publishes the current Editor-owned Core model after verified Runtime acquisition.
+     * A receiver outside the verified Core model type is never published; evaluated
+     * reads then keep reporting that no verified active Core model is available.
+     */
     public void publishBorrowedModel(final Object borrowedModel, final String modelIdentity) {
         synchronized (lifecycle) {
             requireOpen();
             requireGeometry();
-            if (!resolver.isInstance(
-                    dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.MODEL_CLASS,
-                    borrowedModel)) {
-                throw new IllegalArgumentException("Borrowed model is not a verified Core CubismModel.");
+            if (!tracer.acceptsCoreModel(borrowedModel)) {
+                // A refused receiver poisons its publish identity on the shared source:
+                // every join — existing or later-issued — fails closed on reads derived
+                // from it instead of serving a previously published model's data.
+                source.refusePublication(modelIdentity);
+                return;
             }
             source.publishBorrowedModel(borrowedModel, modelIdentity);
         }

@@ -682,6 +682,36 @@
    "narrowedBy": []
   },
   {
+   "id": "cubism.editor-model.art-mesh.evaluated-read",
+   "group": "art-mesh",
+   "families": [
+    "editor-model"
+   ],
+   "verified": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "admitted": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "narrowedBy": []
+  },
+  {
    "id": "cubism.editor-model.art-mesh.inspector-write",
    "group": "art-mesh",
    "families": [
@@ -734,6 +764,36 @@
    "narrowedBy": []
   },
   {
+   "id": "cubism.editor-model.art-mesh.morph-authoring",
+   "group": "art-mesh",
+   "families": [
+    "editor-model"
+   ],
+   "verified": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "admitted": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "narrowedBy": []
+  },
+  {
    "id": "cubism.editor-model.art-mesh.parameter-bindings.write",
    "group": "art-mesh",
    "families": [
@@ -773,6 +833,36 @@
     "5.1.01",
     "5.1.02",
     "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "narrowedBy": []
+  },
+  {
+   "id": "cubism.editor-model.art-mesh.parameter-interpolation.write",
+   "group": "art-mesh",
+   "families": [
+    "editor-model"
+   ],
+   "verified": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "admitted": [
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -3112,6 +3202,28 @@
    "narrowedBy": []
   },
   {
+   "id": "cubism.editor-model.moc-export.read",
+   "group": "misc",
+   "families": [
+    "editor-model"
+   ],
+   "verified": [
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "admitted": [
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "narrowedBy": []
+  },
+  {
    "id": "cubism.editor-model.model-instance.read",
    "group": "model-instance",
    "families": [
@@ -4872,6 +4984,36 @@
    "narrowedBy": []
   },
   {
+   "id": "cubism.editor-model.render.read",
+   "group": "misc",
+   "families": [
+    "editor-model"
+   ],
+   "verified": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "admitted": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "narrowedBy": []
+  },
+  {
    "id": "cubism.editor-model.rotation-deformer.parameter-bindings.write",
    "group": "misc",
    "families": [
@@ -5028,6 +5170,36 @@
    "narrowedBy": []
   },
   {
+   "id": "cubism.editor-model.source-triangulation.read",
+   "group": "misc",
+   "families": [
+    "editor-model"
+   ],
+   "verified": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "admitted": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "narrowedBy": []
+  },
+  {
    "id": "cubism.editor-model.statistics.read",
    "group": "misc",
    "families": [
@@ -5119,6 +5291,36 @@
     "5.1.01",
     "5.1.02",
     "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "narrowedBy": []
+  },
+  {
+   "id": "cubism.editor-model.texture.register-bind",
+   "group": "texture",
+   "families": [
+    "editor-model"
+   ],
+   "verified": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "admitted": [
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -5866,6 +6068,13 @@
     "ui-main-toolbar"
    ],
    "verified": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
     "5.1.00",
     "5.1.01",
     "5.1.02",
@@ -5881,6 +6090,13 @@
     "5.3.04"
    ],
    "admitted": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
     "5.1.00",
     "5.1.01",
     "5.1.02",
@@ -6044,6 +6260,17 @@
     "editor-model"
    ],
    "verified": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -6055,6 +6282,17 @@
     "5.3.04"
    ],
    "admitted": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -6069,6 +6307,17 @@
     {
      "source": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolSessionSelectorContract.java:SUPPORTED_VERSIONS",
      "versions": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03",
       "5.2.00",
       "5.2.01",
       "5.2.02",
@@ -6744,6 +6993,13 @@
     "ui-main-toolbar"
    ],
    "verified": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
     "5.1.00",
     "5.1.01",
     "5.1.02",
@@ -6759,6 +7015,17 @@
     "5.3.04"
    ],
    "admitted": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -6773,6 +7040,17 @@
     {
      "source": "runtime/src/main/java/dev/turboism/ui/mesh/MeshToolbarSelectorContract.java:SUPPORTED_VERSIONS",
      "versions": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03",
       "5.2.00",
       "5.2.01",
       "5.2.02",
@@ -6913,8 +7191,11 @@
    "id": "art-mesh",
    "capabilities": [
     "cubism.editor-model.art-mesh-clip-mask.read",
+    "cubism.editor-model.art-mesh.evaluated-read",
     "cubism.editor-model.art-mesh.inspector-write",
+    "cubism.editor-model.art-mesh.morph-authoring",
     "cubism.editor-model.art-mesh.parameter-bindings.write",
+    "cubism.editor-model.art-mesh.parameter-interpolation.write",
     "cubism.editor-model.art-mesh.write"
    ],
    "label": {
@@ -7111,6 +7392,7 @@
     "cubism.editor-model.default-keyform-lock.write",
     "cubism.editor-model.deformer-inspector.write",
     "cubism.editor-model.glue-inspector.write",
+    "cubism.editor-model.moc-export.read",
     "cubism.editor-model.model-name.write",
     "cubism.editor-model.model-profile.read",
     "cubism.editor-model.morph-target.read",
@@ -7119,9 +7401,11 @@
     "cubism.editor-model.native-control-appearance.write",
     "cubism.editor-model.objects.read",
     "cubism.editor-model.read",
+    "cubism.editor-model.render.read",
     "cubism.editor-model.rotation-deformer.parameter-bindings.write",
     "cubism.editor-model.rotation-deformer.write",
     "cubism.editor-model.selection.read",
+    "cubism.editor-model.source-triangulation.read",
     "cubism.editor-model.statistics.read",
     "cubism.editor-model.warp-deformer.parameter-bindings.write",
     "cubism.editor-model.warp-deformer.write",
@@ -7373,6 +7657,7 @@
    "id": "texture",
    "capabilities": [
     "cubism.editor-model.texture.read",
+    "cubism.editor-model.texture.register-bind",
     "cubism.editor-model.texture.write"
    ],
    "label": {
@@ -9841,6 +10126,103 @@
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/AlphaComposition.java"
   },
   {
+   "api": "dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot#ArtMeshAuthoringSnapshot()",
+   "kind": "method",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshAuthoringSnapshot.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot#ArtMeshEvaluationSnapshot()",
+   "kind": "method",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshEvaluationSnapshot.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.ArtMeshKeyform",
+   "kind": "type",
+   "versions": [
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshKeyform.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder#ArtMeshKeyformDrawOrder()",
+   "kind": "method",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshKeyformDrawOrder.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions#ArtMeshKeyformPositions()",
+   "kind": "method",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshKeyformPositions.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform",
+   "kind": "type",
+   "versions": [
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshMorphKeyform.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform#setDrawOrder()",
+   "kind": "method",
+   "versions": [
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshMorphKeyform.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.ArtMeshSourceTriangulation#ArtMeshSourceTriangulation()",
+   "kind": "method",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshSourceTriangulation.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.ArtMeshTextureInput#ArtMeshTextureInput()",
+   "kind": "method",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshTextureInput.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.AuthorizedImageContent",
+   "kind": "type",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/AuthorizedImageContent.java"
+  },
+  {
    "api": "dev.turboism.sdk.cubism.model.AutoYure",
    "kind": "type",
    "versions": [
@@ -9901,6 +10283,58 @@
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/AutoYureConfig.java"
   },
   {
+   "api": "dev.turboism.sdk.cubism.model.CubismExportTexture#CubismExportTexture()",
+   "kind": "method",
+   "versions": [
+    "5.3.02"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismExportTexture.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.CubismMocExport#CubismMocExport()",
+   "kind": "method",
+   "versions": [
+    "5.3.02"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismMocExport.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.CubismMocExportSettings#CubismMocExportSettings()",
+   "kind": "method",
+   "versions": [
+    "5.3.02"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismMocExportSettings.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.CubismModel#exportMoc()",
+   "kind": "method",
+   "versions": [
+    "5.3.02"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismModel.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.CubismModel#renderPixels()",
+   "kind": "method",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismModel.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.CubismRenderedPixels#CubismRenderedPixels()",
+   "kind": "method",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismRenderedPixels.java"
+  },
+  {
    "api": "dev.turboism.sdk.cubism.model.Deformers#applyToChildren()",
    "kind": "method",
    "versions": [
@@ -9917,6 +10351,53 @@
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Deformers.java"
   },
   {
+   "api": "dev.turboism.sdk.cubism.model.Drawable#authoringSnapshot()",
+   "kind": "method",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.Drawable#createMorphKeyform()",
+   "kind": "method",
+   "versions": [
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.Drawable#evaluationSnapshot()",
+   "kind": "method",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.Drawable#morphKeyform()",
+   "kind": "method",
+   "versions": [
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.Drawable#ordinaryKeyform()",
+   "kind": "method",
+   "versions": [
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
+  },
+  {
    "api": "dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()",
    "kind": "method",
    "versions": [
@@ -9927,6 +10408,26 @@
     "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.Drawable#setOrdinaryKeyformPositions()",
+   "kind": "method",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.ModelImageBinding#ModelImageBinding()",
+   "kind": "method",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelImageBinding.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.ModelInstance",
@@ -9945,6 +10446,16 @@
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelInstance.java"
   },
   {
+   "api": "dev.turboism.sdk.cubism.model.ModelTextures#bindModelImage()",
+   "kind": "method",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java"
+  },
+  {
    "api": "dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()",
    "kind": "method",
    "versions": [
@@ -9957,6 +10468,16 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.ModelTextures#registerImageAndBind()",
+   "kind": "method",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java"
   },
@@ -9975,6 +10496,26 @@
     "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.ModelTextures#textureInput()",
+   "kind": "method",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.ParameterInterpolation#ParameterInterpolation()",
+   "kind": "method",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ParameterInterpolation.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.Part#alphaComposition()",
@@ -10035,6 +10576,62 @@
     "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Part.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.RotationAuthoringSnapshot#RotationAuthoringSnapshot()",
+   "kind": "method",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/RotationAuthoringSnapshot.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.RotationKeyformForm#RotationKeyformForm()",
+   "kind": "method",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/RotationKeyformForm.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot#WarpAuthoringSnapshot()",
+   "kind": "method",
+   "versions": [
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpAuthoringSnapshot.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.WarpDeformer#authoringSnapshot()",
+   "kind": "method",
+   "versions": [
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpDeformer.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.WarpDeformer#setOrdinaryKeyformPositions()",
+   "kind": "method",
+   "versions": [
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpDeformer.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.model.WarpKeyformPositions#WarpKeyformPositions()",
+   "kind": "method",
+   "versions": [
+    "5.3.02",
+    "5.3.03"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpKeyformPositions.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.YureDeformConfig",
@@ -10353,6 +10950,17 @@
   {
    "name": "mesh-mirror",
    "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -10454,6 +11062,17 @@
   {
    "name": "warp-alt-mirror",
    "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -10746,12 +11365,12 @@
    "hostValidation": {
     "atlas": {
      "5.2.03": {
-      "validationStatus": "FAIL",
-      "terminalState": "failed",
-      "triageCategory": "NO_EVIDENCE",
-      "triageRule": "no-evidence",
+      "validationStatus": "PASS",
+      "terminalState": "succeeded",
+      "triageCategory": null,
+      "triageRule": null,
       "round": null,
-      "jobId": "d342946e-fefb-4cdc-9bbc-9adce242101b"
+      "jobId": "c7f8f74d-5dd4-4541-b675-2b66f4698981"
      },
      "5.3.03": {
       "validationStatus": "FAIL",
@@ -11017,12 +11636,12 @@
    "hostValidation": {
     "clipmask-viewer": {
      "5.0.00": {
-      "validationStatus": "BLOCKED",
-      "terminalState": "failed",
-      "triageCategory": "FIXTURE_UNSUITABLE",
-      "triageRule": "fixture-no-clip-mask-records",
+      "validationStatus": "PASS",
+      "terminalState": "succeeded",
+      "triageCategory": null,
+      "triageRule": null,
       "round": null,
-      "jobId": "cf48c979-b88b-4fa6-afcd-5d909fda60be"
+      "jobId": "78750aa6-e4ca-42a0-9408-8ff3f6a0333e"
      },
      "5.0.01": {
       "validationStatus": "FAIL",
@@ -11065,20 +11684,20 @@
       "jobId": "4d56ac5d-6054-412d-a1d3-4ea260d830c7"
      },
      "5.0.06": {
-      "validationStatus": "FAIL",
-      "terminalState": "failed",
-      "triageCategory": "INFRA_RETRYABLE",
-      "triageRule": "infra-model-ready-timeout",
+      "validationStatus": "PASS",
+      "terminalState": "succeeded",
+      "triageCategory": null,
+      "triageRule": null,
       "round": null,
-      "jobId": "8a8e4c57-ee37-4bf9-a9b4-bb0440223bc6"
+      "jobId": "8e2ce6e0-950d-4ced-9a5f-d6ba792983d6"
      },
      "5.1.00": {
-      "validationStatus": "FAIL",
-      "terminalState": "failed",
-      "triageCategory": "INFRA_RETRYABLE",
-      "triageRule": "infra-model-ready-timeout",
+      "validationStatus": "PASS",
+      "terminalState": "succeeded",
+      "triageCategory": null,
+      "triageRule": null,
       "round": null,
-      "jobId": "ec7e535a-b237-4812-823c-c5818f66d46e"
+      "jobId": "e29d9919-c8e7-4971-b92c-b7bc35895c43"
      },
      "5.1.01": {
       "validationStatus": "FAIL",
@@ -11118,7 +11737,7 @@
       "triageCategory": null,
       "triageRule": null,
       "round": null,
-      "jobId": "ba9d8496-2317-4d67-a385-ba56e3f36abb"
+      "jobId": "54832fae-840e-48d2-abed-89b16e73afbd"
      },
      "5.3.01": {
       "validationStatus": "FAIL",
@@ -12156,12 +12775,12 @@
    "hostValidation": {
     "mcp": {
      "5.3.04": {
-      "validationStatus": "FAIL",
-      "terminalState": "failed",
-      "triageCategory": "INFRA_RETRYABLE",
-      "triageRule": "infra-host-execution-timeout",
+      "validationStatus": "PASS",
+      "terminalState": "succeeded",
+      "triageCategory": null,
+      "triageRule": null,
       "round": null,
-      "jobId": "c4af2aae-99a7-4c19-b2a9-c4471856eae1"
+      "jobId": "717972f0-2359-438b-8ea3-2df234f87062"
      },
      "5.2.02": {
       "validationStatus": "FAIL",
@@ -12190,18 +12809,18 @@
      "5.1.03": {
       "validationStatus": "FAIL",
       "terminalState": "failed",
-      "triageCategory": "PROBE_DRIFT",
-      "triageRule": "probe-missing-member-exception",
-      "round": null,
-      "jobId": "47750510-d48a-438b-be1e-1c973e7fe6a5"
-     },
-     "5.2.00": {
-      "validationStatus": "FAIL",
-      "terminalState": "failed",
       "triageCategory": "INFRA_RETRYABLE",
       "triageRule": "infra-host-execution-timeout",
       "round": null,
-      "jobId": "d16117a7-dee5-4798-ab43-6d87add91c39"
+      "jobId": "c52e6bcc-e70f-40e2-943a-c61ee9cc6282"
+     },
+     "5.2.00": {
+      "validationStatus": "PASS",
+      "terminalState": "succeeded",
+      "triageCategory": null,
+      "triageRule": null,
+      "round": null,
+      "jobId": "e0dd8c3a-9a0b-44a9-b7f9-9f3a7d5f2507"
      },
      "5.2.01": {
       "validationStatus": "PASS",
@@ -12217,7 +12836,7 @@
       "triageCategory": "UNKNOWN",
       "triageRule": "verdict-pass-then-fail-props",
       "round": null,
-      "jobId": "a49c3431-1c74-454c-87a7-8b7a7c34d400"
+      "jobId": "8bca9a87-8fb9-4379-9681-42e287170895"
      },
      "5.3.00": {
       "validationStatus": "PASS",
@@ -12246,10 +12865,10 @@
      "5.0.00": {
       "validationStatus": "FAIL",
       "terminalState": "failed",
-      "triageCategory": "INFRA_RETRYABLE",
-      "triageRule": "infra-host-execution-timeout",
+      "triageCategory": "CAPABILITY_BOUNDARY",
+      "triageRule": "capability-authoring-transactions-unavailable",
       "round": null,
-      "jobId": "d93002ff-f0a0-40ff-b1b8-a644781f25d2"
+      "jobId": "d92e248d-a8be-4f10-96f1-0a19f0c59134"
      },
      "5.0.06": {
       "validationStatus": "FAIL",
@@ -12345,65 +12964,17 @@
      "sourceFiles": [],
      "narrowed": false,
      "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
-     }
-    },
-    {
-     "key": "cubism.mesh.mirror-axis-angle",
-     "declaredCapability": "cubism.mesh.mirror-axis-angle",
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "capability",
-     "pins": [
-      "mesh-mirror"
-     ],
-     "capabilities": [],
-     "sourceFiles": [],
-     "narrowed": true,
-     "missingNature": {
-      "5.0.00": "pending",
-      "5.0.01": "pending",
-      "5.0.02": "pending",
-      "5.0.03": "pending",
-      "5.0.04": "pending",
-      "5.0.05": "pending",
-      "5.0.06": "pending",
-      "5.1.00": "pending",
-      "5.1.01": "pending",
-      "5.1.02": "pending",
-      "5.1.03": "pending"
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary",
+      "5.1.00": "boundary",
+      "5.1.01": "boundary",
+      "5.1.02": "boundary",
+      "5.1.03": "boundary"
      }
     },
     {
@@ -12675,20 +13246,69 @@
       "5.1.02": "unknown",
       "5.1.03": "unknown"
      }
-    },
+    }
+   ],
+   "unmappedCapabilities": [],
+   "hostValidation": {}
+  },
+  {
+   "id": "dev.turboism.plugin.model-import-3d",
+   "name": "3D 模型导入",
+   "directory": "model-import-3d",
+   "requiresCubism": true,
+   "supportedVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "supportedGaps": {},
+   "fullFeatureVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "partialFeatures": [
     {
-     "key": "ui.mesh-toolbar.contribute",
-     "declaredCapability": "ui.mesh-edit.mirror-axis-angle",
+     "key": "dev.turboism.sdk.cubism.model.AuthorizedImageContent",
+     "declaredCapability": null,
      "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
       "5.2.03",
-      "5.3.00",
-      "5.3.01",
       "5.3.02",
-      "5.3.03",
-      "5.3.04"
+      "5.3.03"
      ],
      "missingOn": [
       "5.0.00",
@@ -12701,29 +13321,36 @@
       "5.1.00",
       "5.1.01",
       "5.1.02",
-      "5.1.03"
+      "5.1.03",
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.3.00",
+      "5.3.01",
+      "5.3.04"
      ],
-     "source": "capability",
-     "pins": [],
-     "capabilities": [
-      "ui.mesh-toolbar.contribute"
-     ],
+     "source": "sdk-api",
      "sourceFiles": [
-      "runtime/src/main/java/dev/turboism/ui/mesh/MeshToolbarSelectorContract.java"
+      "sdk/src/main/java/dev/turboism/sdk/cubism/model/AuthorizedImageContent.java"
      ],
-     "narrowed": true,
      "missingNature": {
-      "5.0.00": "boundary",
-      "5.0.01": "boundary",
-      "5.0.02": "boundary",
-      "5.0.03": "boundary",
-      "5.0.04": "boundary",
-      "5.0.05": "boundary",
-      "5.0.06": "boundary",
-      "5.1.00": "pending",
-      "5.1.01": "pending",
-      "5.1.02": "pending",
-      "5.1.03": "pending"
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown",
+      "5.2.00": "unknown",
+      "5.2.01": "unknown",
+      "5.2.02": "unknown",
+      "5.3.00": "unknown",
+      "5.3.01": "unknown",
+      "5.3.04": "boundary"
      }
     }
    ],
@@ -12885,12 +13512,12 @@
    "hostValidation": {
     "parameter": {
      "5.2.00": {
-      "validationStatus": "FAIL",
-      "terminalState": "failed",
-      "triageCategory": "PROBE_DRIFT",
-      "triageRule": "probe-version-allowlist",
+      "validationStatus": "PASS",
+      "terminalState": "succeeded",
+      "triageCategory": null,
+      "triageRule": null,
       "round": null,
-      "jobId": "3fb6ece9-ca78-44c1-9967-838a420b6e90"
+      "jobId": "729327d4-50c8-4c9d-81ae-3cfa03b93161"
      },
      "5.2.01": {
       "validationStatus": "FAIL",
@@ -13303,12 +13930,12 @@
       "jobId": "ab8e6624-252a-4e35-a3ed-d06f809e9b9d"
      },
      "5.1.03": {
-      "validationStatus": "FAIL",
-      "terminalState": "failed",
-      "triageCategory": "INFRA_RETRYABLE",
-      "triageRule": "infra-edt-dispatch",
+      "validationStatus": "PASS",
+      "terminalState": "succeeded",
+      "triageCategory": null,
+      "triageRule": null,
       "round": null,
-      "jobId": "631822f3-7e9e-4c6f-a649-21b814606aba"
+      "jobId": "b64bfc7c-c296-4fbd-87ca-dad15ec6b99f"
      },
      "5.2.01": {
       "validationStatus": "FAIL",
@@ -13689,12 +14316,12 @@
       "jobId": "5b063b35-ea73-42fa-b45e-b98b17272b9f"
      },
      "5.2.03": {
-      "validationStatus": "FAIL",
-      "terminalState": "failed",
-      "triageCategory": "INFRA_RETRYABLE",
-      "triageRule": "infra-deferred-check-unobserved",
+      "validationStatus": "PASS",
+      "terminalState": "succeeded",
+      "triageCategory": null,
+      "triageRule": null,
       "round": null,
-      "jobId": "8d917c9b-216b-45cf-9c79-64f108b6484b"
+      "jobId": "dc218e97-663c-4c30-8f73-ffbe7b95faa8"
      },
      "5.3.00": {
       "validationStatus": "PASS",
@@ -14259,6 +14886,17 @@
    "directory": "selection-brush",
    "requiresCubism": true,
    "supportedVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -14269,19 +14907,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "supportedGaps": {
-    "5.0.00": "pending",
-    "5.0.01": "pending",
-    "5.0.02": "pending",
-    "5.0.03": "pending",
-    "5.0.04": "pending",
-    "5.0.05": "pending",
-    "5.0.06": "pending",
-    "5.1.00": "pending",
-    "5.1.01": "pending",
-    "5.1.02": "pending",
-    "5.1.03": "pending"
-   },
+   "supportedGaps": {},
    "fullFeatureVersions": [
     "5.2.00",
     "5.2.01",
@@ -14294,58 +14920,6 @@
     "5.3.04"
    ],
    "partialFeatures": [
-    {
-     "key": "cubism.mesh.custom-tools",
-     "declaredCapability": "cubism.mesh.custom-tools",
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "capability",
-     "pins": [],
-     "capabilities": [
-      "cubism.mesh-tool.session",
-      "ui.mesh-toolbar.contribute"
-     ],
-     "sourceFiles": [
-      "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolSessionSelectorContract.java",
-      "runtime/src/main/java/dev/turboism/ui/mesh/MeshToolbarSelectorContract.java"
-     ],
-     "narrowed": true,
-     "missingNature": {
-      "5.0.00": "pending",
-      "5.0.01": "pending",
-      "5.0.02": "pending",
-      "5.0.03": "pending",
-      "5.0.04": "pending",
-      "5.0.05": "pending",
-      "5.0.06": "pending",
-      "5.1.00": "pending",
-      "5.1.01": "pending",
-      "5.1.02": "pending",
-      "5.1.03": "pending"
-     }
-    },
     {
      "key": "cubism.modeling-tool.selection-brush",
      "declaredCapability": "cubism.modeling.custom-tools",
@@ -14383,17 +14957,17 @@
      ],
      "narrowed": true,
      "missingNature": {
-      "5.0.00": "pending",
-      "5.0.01": "pending",
-      "5.0.02": "pending",
-      "5.0.03": "pending",
-      "5.0.04": "pending",
-      "5.0.05": "pending",
-      "5.0.06": "pending",
-      "5.1.00": "pending",
-      "5.1.01": "pending",
-      "5.1.02": "pending",
-      "5.1.03": "pending"
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary",
+      "5.1.00": "boundary",
+      "5.1.01": "boundary",
+      "5.1.02": "boundary",
+      "5.1.03": "boundary"
      }
     },
     {
@@ -14842,7 +15416,7 @@
       "triageCategory": null,
       "triageRule": null,
       "round": null,
-      "jobId": "33000b7a-e7c0-442f-ae5c-19e457bc9b4c"
+      "jobId": "05042173-618f-433a-96e1-7605b788c1c0"
      },
      "5.0.01": {
       "validationStatus": "PASS",
@@ -14925,12 +15499,12 @@
       "jobId": "acbf1616-c101-434e-ae04-521e2e0ea7ae"
      },
      "5.2.00": {
-      "validationStatus": "FAIL",
-      "terminalState": "failed",
-      "triageCategory": "INFRA_RETRYABLE",
-      "triageRule": "infra-edt-message",
+      "validationStatus": "PASS",
+      "terminalState": "succeeded",
+      "triageCategory": null,
+      "triageRule": null,
       "round": null,
-      "jobId": "80400814-3124-486a-b1cc-ff7f5441f73a"
+      "jobId": "f7391349-3027-4fdc-8cbb-297d2df40c87"
      },
      "5.2.01": {
       "validationStatus": "FAIL",
@@ -14949,12 +15523,12 @@
       "jobId": "8eff17c2-dde5-40f9-947e-c16756d404df"
      },
      "5.2.03": {
-      "validationStatus": "FAIL",
-      "terminalState": "failed",
-      "triageCategory": "NO_EVIDENCE",
-      "triageRule": "no-evidence",
+      "validationStatus": "PASS",
+      "terminalState": "succeeded",
+      "triageCategory": null,
+      "triageRule": null,
       "round": null,
-      "jobId": "acdfcfa2-08b4-4ca0-b72f-bf499e0ccdd4"
+      "jobId": "c959d8a7-51b8-4c28-8e16-a2c701f4c77e"
      },
      "5.3.00": {
       "validationStatus": "FAIL",
@@ -15028,6 +15602,17 @@
    ],
    "supportedGaps": {},
    "fullFeatureVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -15039,56 +15624,6 @@
     "5.3.04"
    ],
    "partialFeatures": [
-    {
-     "key": "cubism.editor-model.warp-mirror",
-     "declaredCapability": "cubism.deformer.alt-axis-mirror",
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "capability",
-     "pins": [
-      "warp-alt-mirror"
-     ],
-     "capabilities": [
-      "cubism.editor-model.warp-mirror"
-     ],
-     "sourceFiles": [],
-     "narrowed": true,
-     "missingNature": {
-      "5.0.00": "pending",
-      "5.0.01": "pending",
-      "5.0.02": "pending",
-      "5.0.03": "pending",
-      "5.0.04": "pending",
-      "5.0.05": "pending",
-      "5.0.06": "pending",
-      "5.1.00": "pending",
-      "5.1.01": "pending",
-      "5.1.02": "pending",
-      "5.1.03": "pending"
-     }
-    },
     {
      "key": "dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation",
      "declaredCapability": null,
@@ -15534,12 +16069,12 @@
   },
   "animation-timeline": {
    "5.3.04": {
-    "validationStatus": "UNKNOWN",
-    "terminalState": "failed",
-    "triageCategory": "NO_EVIDENCE",
-    "triageRule": "no-evidence",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
+    "triageRule": null,
     "round": null,
-    "jobId": "27ce510a-ff53-40b3-8ae0-44ac7dfd7a13"
+    "jobId": "cb328e04-ea7b-4159-9604-84be3d9dea5c"
    },
    "5.2.00": {
     "validationStatus": "PASS",
@@ -15618,12 +16153,12 @@
   },
   "atlas": {
    "5.2.03": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "NO_EVIDENCE",
-    "triageRule": "no-evidence",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
+    "triageRule": null,
     "round": null,
-    "jobId": "d342946e-fefb-4cdc-9bbc-9adce242101b"
+    "jobId": "c7f8f74d-5dd4-4541-b675-2b66f4698981"
    },
    "5.3.03": {
     "validationStatus": "FAIL",
@@ -15866,12 +16401,12 @@
   },
   "clipmask-viewer": {
    "5.0.00": {
-    "validationStatus": "BLOCKED",
-    "terminalState": "failed",
-    "triageCategory": "FIXTURE_UNSUITABLE",
-    "triageRule": "fixture-no-clip-mask-records",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
+    "triageRule": null,
     "round": null,
-    "jobId": "cf48c979-b88b-4fa6-afcd-5d909fda60be"
+    "jobId": "78750aa6-e4ca-42a0-9408-8ff3f6a0333e"
    },
    "5.0.01": {
     "validationStatus": "FAIL",
@@ -15914,20 +16449,20 @@
     "jobId": "4d56ac5d-6054-412d-a1d3-4ea260d830c7"
    },
    "5.0.06": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "INFRA_RETRYABLE",
-    "triageRule": "infra-model-ready-timeout",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
+    "triageRule": null,
     "round": null,
-    "jobId": "8a8e4c57-ee37-4bf9-a9b4-bb0440223bc6"
+    "jobId": "8e2ce6e0-950d-4ced-9a5f-d6ba792983d6"
    },
    "5.1.00": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "INFRA_RETRYABLE",
-    "triageRule": "infra-model-ready-timeout",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
+    "triageRule": null,
     "round": null,
-    "jobId": "ec7e535a-b237-4812-823c-c5818f66d46e"
+    "jobId": "e29d9919-c8e7-4971-b92c-b7bc35895c43"
    },
    "5.1.01": {
     "validationStatus": "FAIL",
@@ -15967,7 +16502,7 @@
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "ba9d8496-2317-4d67-a385-ba56e3f36abb"
+    "jobId": "54832fae-840e-48d2-abed-89b16e73afbd"
    },
    "5.3.01": {
     "validationStatus": "FAIL",
@@ -16052,12 +16587,12 @@
     "jobId": "e5100c1b-a33e-4e57-8f24-ab11ca466635"
    },
    "5.1.03": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "UNKNOWN",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "a106e1be-d542-49b0-a0b7-3ef2b2c23f6b"
+    "jobId": "a82c671c-7615-456a-9342-3e799a9f8e0b"
    },
    "5.2.00": {
     "validationStatus": "PASS",
@@ -16116,12 +16651,12 @@
     "jobId": "7696cd96-9922-4397-8197-af7df5af1871"
    },
    "5.2.03": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "INFRA_RETRYABLE",
-    "triageRule": "infra-deferred-check-unobserved",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
+    "triageRule": null,
     "round": null,
-    "jobId": "fd0909b1-82cf-46e7-91a0-c698157cee53"
+    "jobId": "6dc8580f-9ade-4555-be4f-446377a0c5a7"
    },
    "5.1.01": {
     "validationStatus": "PASS",
@@ -16243,7 +16778,7 @@
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "ba9d8496-2317-4d67-a385-ba56e3f36abb"
+    "jobId": "54832fae-840e-48d2-abed-89b16e73afbd"
    },
    "5.2.03": {
     "validationStatus": "PASS",
@@ -16283,7 +16818,7 @@
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "7bc6e0b1-1448-4672-b5c2-d11034fe6a8a"
+    "jobId": "e29d9919-c8e7-4971-b92c-b7bc35895c43"
    },
    "5.1.01": {
     "validationStatus": "PASS",
@@ -16331,15 +16866,15 @@
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "c5599402-2180-43df-8469-17e5f61e0301"
+    "jobId": "8e2ce6e0-950d-4ced-9a5f-d6ba792983d6"
    },
    "5.0.00": {
     "validationStatus": "PASS",
-    "terminalState": "failed",
+    "terminalState": "succeeded",
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "cf48c979-b88b-4fa6-afcd-5d909fda60be"
+    "jobId": "78750aa6-e4ca-42a0-9408-8ff3f6a0333e"
    },
    "5.0.01": {
     "validationStatus": "PASS",
@@ -16428,20 +16963,20 @@
     "jobId": "34f0aa6c-b359-4ae2-bbd9-a5fdffda513e"
    },
    "5.2.03": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "UNKNOWN",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "29b69f1b-2d6d-4a1c-8c0d-5201aa9c6c05"
+    "jobId": "0d9b006c-9ec1-4e11-948d-0f41c5419937"
    },
    "5.3.04": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "UNKNOWN",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "9f009679-1d28-4eb2-b86b-9ae9e055ef3a"
+    "jobId": "0e7955ce-9b4f-4472-aaeb-b2698aa6ad37"
    }
   },
   "external-psd-edit-pipeline": {
@@ -16538,12 +17073,12 @@
     "jobId": "ab8e6624-252a-4e35-a3ed-d06f809e9b9d"
    },
    "5.1.03": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "INFRA_RETRYABLE",
-    "triageRule": "infra-edt-dispatch",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
+    "triageRule": null,
     "round": null,
-    "jobId": "631822f3-7e9e-4c6f-a649-21b814606aba"
+    "jobId": "b64bfc7c-c296-4fbd-87ca-dad15ec6b99f"
    },
    "5.2.01": {
     "validationStatus": "FAIL",
@@ -16812,12 +17347,12 @@
   },
   "mcp": {
    "5.3.04": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "INFRA_RETRYABLE",
-    "triageRule": "infra-host-execution-timeout",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
+    "triageRule": null,
     "round": null,
-    "jobId": "c4af2aae-99a7-4c19-b2a9-c4471856eae1"
+    "jobId": "717972f0-2359-438b-8ea3-2df234f87062"
    },
    "5.2.02": {
     "validationStatus": "FAIL",
@@ -16846,18 +17381,18 @@
    "5.1.03": {
     "validationStatus": "FAIL",
     "terminalState": "failed",
-    "triageCategory": "PROBE_DRIFT",
-    "triageRule": "probe-missing-member-exception",
-    "round": null,
-    "jobId": "47750510-d48a-438b-be1e-1c973e7fe6a5"
-   },
-   "5.2.00": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
     "triageCategory": "INFRA_RETRYABLE",
     "triageRule": "infra-host-execution-timeout",
     "round": null,
-    "jobId": "d16117a7-dee5-4798-ab43-6d87add91c39"
+    "jobId": "c52e6bcc-e70f-40e2-943a-c61ee9cc6282"
+   },
+   "5.2.00": {
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
+    "triageRule": null,
+    "round": null,
+    "jobId": "e0dd8c3a-9a0b-44a9-b7f9-9f3a7d5f2507"
    },
    "5.2.01": {
     "validationStatus": "PASS",
@@ -16873,7 +17408,7 @@
     "triageCategory": "UNKNOWN",
     "triageRule": "verdict-pass-then-fail-props",
     "round": null,
-    "jobId": "a49c3431-1c74-454c-87a7-8b7a7c34d400"
+    "jobId": "8bca9a87-8fb9-4379-9681-42e287170895"
    },
    "5.3.00": {
     "validationStatus": "PASS",
@@ -16902,10 +17437,10 @@
    "5.0.00": {
     "validationStatus": "FAIL",
     "terminalState": "failed",
-    "triageCategory": "INFRA_RETRYABLE",
-    "triageRule": "infra-host-execution-timeout",
+    "triageCategory": "CAPABILITY_BOUNDARY",
+    "triageRule": "capability-authoring-transactions-unavailable",
     "round": null,
-    "jobId": "d93002ff-f0a0-40ff-b1b8-a644781f25d2"
+    "jobId": "d92e248d-a8be-4f10-96f1-0a19f0c59134"
    },
    "5.0.06": {
     "validationStatus": "FAIL",
@@ -17064,12 +17599,12 @@
   },
   "parameter": {
    "5.2.00": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "PROBE_DRIFT",
-    "triageRule": "probe-version-allowlist",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
+    "triageRule": null,
     "round": null,
-    "jobId": "3fb6ece9-ca78-44c1-9967-838a420b6e90"
+    "jobId": "729327d4-50c8-4c9d-81ae-3cfa03b93161"
    },
    "5.2.01": {
     "validationStatus": "FAIL",
@@ -17354,12 +17889,12 @@
     "jobId": "5b063b35-ea73-42fa-b45e-b98b17272b9f"
    },
    "5.2.03": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "INFRA_RETRYABLE",
-    "triageRule": "infra-deferred-check-unobserved",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
+    "triageRule": null,
     "round": null,
-    "jobId": "8d917c9b-216b-45cf-9c79-64f108b6484b"
+    "jobId": "dc218e97-663c-4c30-8f73-ffbe7b95faa8"
    },
    "5.3.00": {
     "validationStatus": "PASS",
@@ -17571,7 +18106,7 @@
     "triageCategory": "CAPABILITY_BOUNDARY",
     "triageRule": "capability-session-psd-export-saved-unverified",
     "round": null,
-    "jobId": "ba9d8496-2317-4d67-a385-ba56e3f36abb"
+    "jobId": "54832fae-840e-48d2-abed-89b16e73afbd"
    },
    "5.3.01": {
     "validationStatus": "PASS",
@@ -17608,10 +18143,10 @@
    "5.2.00": {
     "validationStatus": "FAIL",
     "terminalState": "failed",
-    "triageCategory": "UNKNOWN",
-    "triageRule": null,
+    "triageCategory": "CAPABILITY_BOUNDARY",
+    "triageRule": "capability-psd-export-saved-unverified",
     "round": null,
-    "jobId": "e9c53cae-0f02-4dc1-9777-027970cb256b"
+    "jobId": "2f213d7f-b124-45fe-855d-0ecea80fa52f"
    }
   },
   "recent-preview": {
@@ -17716,12 +18251,12 @@
   },
   "selection-lag": {
    "5.0.00": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "UNKNOWN",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "9618bc6f-5551-4079-9a6a-367a2420c5fc"
+    "jobId": "e4da9843-8a3e-4fd1-8324-9e375b551f01"
    },
    "5.0.01": {
     "validationStatus": "FAIL",
@@ -17764,12 +18299,12 @@
     "jobId": "e767e2e3-ad49-4513-8858-a0eea82aface"
    },
    "5.0.06": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "UNKNOWN",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "c360488e-4bb3-4123-bf8b-19367087f134"
+    "jobId": "a30944b2-cba5-47f9-a710-777c9c75db3f"
    },
    "5.1.01": {
     "validationStatus": "PASS",
@@ -17907,11 +18442,11 @@
   "separate-save-path": {
    "5.0.00": {
     "validationStatus": "PASS",
-    "terminalState": "failed",
+    "terminalState": "succeeded",
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "cf48c979-b88b-4fa6-afcd-5d909fda60be"
+    "jobId": "78750aa6-e4ca-42a0-9408-8ff3f6a0333e"
    },
    "5.0.01": {
     "validationStatus": "PASS",
@@ -17959,7 +18494,7 @@
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "c5599402-2180-43df-8469-17e5f61e0301"
+    "jobId": "8e2ce6e0-950d-4ced-9a5f-d6ba792983d6"
    },
    "5.1.01": {
     "validationStatus": "PASS",
@@ -18047,7 +18582,7 @@
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "7bc6e0b1-1448-4672-b5c2-d11034fe6a8a"
+    "jobId": "e29d9919-c8e7-4971-b92c-b7bc35895c43"
    },
    "5.2.00": {
     "validationStatus": "PASS",
@@ -18058,12 +18593,12 @@
     "jobId": "89a35a6e-8199-4dcc-8347-306a9f5345f8"
    },
    "5.3.00": {
-    "validationStatus": "FAIL",
+    "validationStatus": "PASS",
     "terminalState": "failed",
-    "triageCategory": "ADMISSION_STATIC",
-    "triageRule": "admission-deferred-check-inactive",
+    "triageCategory": null,
+    "triageRule": null,
     "round": null,
-    "jobId": "24f81745-166b-483d-8f7f-f198444d8cef"
+    "jobId": "54832fae-840e-48d2-abed-89b16e73afbd"
    }
   },
   "session-standard": {
@@ -18186,12 +18721,12 @@
     "jobId": "70d6d1cc-8331-4560-8ee5-b70bfc5c509c"
    },
    "5.1.00": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "PROBE_DRIFT",
-    "triageRule": "probe-expectation-mismatch",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
+    "triageRule": null,
     "round": null,
-    "jobId": "f838b38f-b4d9-45ae-b17b-1e709c93f03b"
+    "jobId": "8b47a79c-f667-4e9a-9b15-84c1bcbca1d9"
    },
    "5.1.01": {
     "validationStatus": "FAIL",
@@ -18218,12 +18753,12 @@
     "jobId": "528fe970-2bd5-46f8-a465-98e4e4cb9e98"
    },
    "5.2.00": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "PROBE_DRIFT",
-    "triageRule": "probe-expectation-mismatch",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
+    "triageRule": null,
     "round": null,
-    "jobId": "9bbd6117-33ec-43f4-adda-cbc624f8e001"
+    "jobId": "cc4a448e-22c0-48c2-ba59-9af515678e29"
    },
    "5.2.01": {
     "validationStatus": "FAIL",
@@ -18311,11 +18846,11 @@
   "texture-relations": {
    "5.0.00": {
     "validationStatus": "PASS",
-    "terminalState": "failed",
+    "terminalState": "succeeded",
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "cf48c979-b88b-4fa6-afcd-5d909fda60be"
+    "jobId": "78750aa6-e4ca-42a0-9408-8ff3f6a0333e"
    },
    "5.2.02": {
     "validationStatus": "PASS",
@@ -18379,7 +18914,7 @@
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "c5599402-2180-43df-8469-17e5f61e0301"
+    "jobId": "8e2ce6e0-950d-4ced-9a5f-d6ba792983d6"
    },
    "5.1.00": {
     "validationStatus": "PASS",
@@ -18387,7 +18922,7 @@
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "7bc6e0b1-1448-4672-b5c2-d11034fe6a8a"
+    "jobId": "e29d9919-c8e7-4971-b92c-b7bc35895c43"
    },
    "5.1.01": {
     "validationStatus": "PASS",
@@ -18443,7 +18978,7 @@
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "ba9d8496-2317-4d67-a385-ba56e3f36abb"
+    "jobId": "54832fae-840e-48d2-abed-89b16e73afbd"
    },
    "5.3.01": {
     "validationStatus": "PASS",
@@ -18487,7 +19022,7 @@
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "33000b7a-e7c0-442f-ae5c-19e457bc9b4c"
+    "jobId": "05042173-618f-433a-96e1-7605b788c1c0"
    },
    "5.0.01": {
     "validationStatus": "PASS",
@@ -18570,12 +19105,12 @@
     "jobId": "acbf1616-c101-434e-ae04-521e2e0ea7ae"
    },
    "5.2.00": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "INFRA_RETRYABLE",
-    "triageRule": "infra-edt-message",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
+    "triageRule": null,
     "round": null,
-    "jobId": "80400814-3124-486a-b1cc-ff7f5441f73a"
+    "jobId": "f7391349-3027-4fdc-8cbb-297d2df40c87"
    },
    "5.2.01": {
     "validationStatus": "FAIL",
@@ -18594,12 +19129,12 @@
     "jobId": "8eff17c2-dde5-40f9-947e-c16756d404df"
    },
    "5.2.03": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "NO_EVIDENCE",
-    "triageRule": "no-evidence",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
+    "triageRule": null,
     "round": null,
-    "jobId": "acdfcfa2-08b4-4ca0-b72f-bf499e0ccdd4"
+    "jobId": "c959d8a7-51b8-4c28-8e16-a2c701f4c77e"
    },
    "5.3.00": {
     "validationStatus": "FAIL",
@@ -18810,12 +19345,12 @@
     "jobId": "d5a8cbfc-9633-4017-b55f-2de5265e7d25"
    },
    "5.1.03": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "INFRA_RETRYABLE",
-    "triageRule": "infra-update-check-readiness",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
+    "triageRule": null,
     "round": null,
-    "jobId": "8bdd3286-e971-4d97-bd34-20631b1cd5bd"
+    "jobId": "3cc5af7a-0ae3-48cc-9004-2e6aeeaeabcb"
    },
    "5.2.00": {
     "validationStatus": "PASS",
@@ -19016,10 +19551,10 @@
    "5.0.00": {
     "validationStatus": "FAIL",
     "terminalState": "failed",
-    "triageCategory": "NO_EVIDENCE",
-    "triageRule": "no-evidence",
+    "triageCategory": "CAPABILITY_BOUNDARY",
+    "triageRule": "capability-workspace-layout-provider-absent",
     "round": null,
-    "jobId": "b1e568a9-885a-4d35-b5e8-8d74849a38b9"
+    "jobId": "bc9b9ff9-9411-40b1-8f3b-2bfe541423fd"
    },
    "5.0.01": {
     "validationStatus": "FAIL",
@@ -19102,12 +19637,12 @@
     "jobId": "a08b6b37-34dc-493e-959d-d6af29ab0187"
    },
    "5.2.00": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "UNKNOWN",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "ba91327a-9dc2-4d7e-a39c-c8323a7b14f9"
+    "jobId": "9aaf4b37-de7b-4a8a-8786-203669795767"
    },
    "5.2.01": {
     "validationStatus": "PASS",
@@ -19896,6 +20431,40 @@
     "5.2.03"
    ],
    "reason": "com/live2d/cubism/doc/model/parts/CPartForm::getOpacity()F / setOpacity(F)V are absent on every 5.0.x/5.1.x/5.2.x jar — part-form opacity accessors were introduced in 5.3."
+  },
+  {
+   "id": "cubism.geometry.read",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Core deformer/glue geometry read requires com/live2d/sdk/cubism/core/CubismDeformers and CubismGlues plus CubismModel.getDeformers/getGlues; both classes are absent from Live2DCubismCore.jar on all reviewed 5.0/5.1 builds and first appear in 5.2.00."
+  },
+  {
+   "id": "cubism.modeling-tool.selection-brush",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Selection-brush ingress requires com/live2d/cubism/CEAppCtrl.getCurrentViewContextChangedListeners()Ljava/util/ArrayList; and the currentViewContextChangedListeners field; both are absent on all reviewed 5.0/5.1 jars and first appear in 5.2.00 (the modeling-tool view listener API was added in 5.2)."
   }
  ]
 }

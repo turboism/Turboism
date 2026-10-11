@@ -232,6 +232,31 @@ final class HttpUpdateTransportTest {
         assertTrue(awaitTrue(redirect.disconnected), "redirect response teardown must complete");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void responseCompletionDoesNotWaitForConnectionTeardown(final boolean oversized) throws Exception {
+        final BlockingDisconnectConnection connection =
+                new BlockingDisconnectConnection(new ByteArrayInputStream(bytes("redirect-body")));
+        ((FakeConnection) connection).responseCode = oversized ? 200 : 302;
+        if (oversized) ((FakeConnection) connection).contentLength = (long) UpdateDiscoveryParser.MAX_BYTES + 1L;
+        try {
+            final var result = transport(Duration.ofSeconds(2), connection)
+                    .fetch(Optional.empty())
+                    .toCompletableFuture();
+            if (oversized) {
+                assertThrows(ExecutionException.class, () -> result.get(2, TimeUnit.SECONDS));
+            } else {
+                assertEquals(302, result.get(2, TimeUnit.SECONDS).statusCode());
+                assertFalse(connection.getInstanceFollowRedirects());
+            }
+            assertTrue(connection.disconnectStarted.await(2, TimeUnit.SECONDS));
+            assertFalse(connection.disconnectCompleted.get(), "cleanup is still behind the test latch");
+        } finally {
+            connection.releaseDisconnect.countDown();
+        }
+        assertTrue(awaitTrue(connection.disconnectCompleted), "released cleanup must finish");
+    }
+
     private static HttpUpdateTransport transport(final Duration deadline, final FakeConnection connection) {
         return new HttpUpdateTransport(deadline, ignored -> connection);
     }

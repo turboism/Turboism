@@ -228,6 +228,8 @@ class VerifiedTextureAtlasLayoutProvider520Test {
                     TextureManager.class,
                     "changeInputToAtlas",
                     "()V"));
+            selectors.add(method(
+                    "cubism.texture-atlas.texture-manager.reinit-input", TextureManager.class, "reinitInput", "()V"));
             selectors.add(StaticSelector.classSelector("cubism.texture-atlas.atlas.class", internal(Atlas.class)));
             selectors.add(StaticSelector.constructor(
                     "cubism.texture-atlas.atlas.create",
@@ -534,6 +536,10 @@ class VerifiedTextureAtlasLayoutProvider520Test {
 
         public void changeInputToAtlas() {
             atlasInputChangeCount++;
+        }
+
+        public void reinitInput() {
+            changeInputToAtlas();
         }
     }
 

@@ -1100,6 +1100,20 @@ class PreparedStore:
         if request.get("environment", {}) != {}:
             raise QueueError("normalized runner must express all configuration as argv")
         source_root = source_root.resolve(strict=True)
+        core_dispatch = any(flag == "--name" and value == "official-core"
+                            for flag, value in zip(argv, argv[1:]))
+        if task_spec == "official-core:5302" or core_dispatch:
+            if task_spec != "official-core:5302":
+                raise QueueError("standalone Core dispatch requires its exact registered task")
+            from host_validation_official_core import options
+            options(argv)
+        viewer_dispatch = any(flag == "--name" and value == "official-viewer"
+                              for flag, value in zip(argv, argv[1:]))
+        if task_spec == "official-viewer:5302" or viewer_dispatch:
+            if task_spec != "official-viewer:5302":
+                raise QueueError("official Viewer dispatch requires its exact registered task")
+            from host_validation_official_viewer import options
+            options(argv)
         memory_dependency = memory_observer_dependency(argv, source_root, task_spec)
         mcp_dependency = mcp_client_dependency(argv, source_root, task_spec)
         edit_protocol_dependency = edit_protocol_client_dependency(argv, source_root, task_spec)
@@ -1128,6 +1142,9 @@ class PreparedStore:
                 item for item in (memory_dependency, mcp_dependency, edit_protocol_dependency)
                 if item is not None
             ]
+            if task_spec in ("official-viewer:5302", "official-core:5302"):
+                host_dependencies.append({"option": "private-display-server", "path": "/usr/bin/Xvfb",
+                                          "sha256": runtime_digest(Path("/usr/bin/Xvfb"))})
             if "--focus-editor-window" in argv:
                 if not (tool_dir / "focus-cubism-validation-window.py").is_file():
                     raise QueueError("missing canonical editor window helper")

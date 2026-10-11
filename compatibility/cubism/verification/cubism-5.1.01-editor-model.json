@@ -108,7 +108,8 @@
     "cubism.texture-atlas.native-layout-invocation",
     "ui.object-context-menu.contribute",
     "cubism.editor-model.psd.raw-image.export",
-    "cubism.editor-model.psd.raw-image.replace"
+    "cubism.editor-model.psd.raw-image.replace",
+    "cubism.mesh-tool.session"
   ],
   "cubismVersion": "5.1.01",
   "profileId": "cubism-5.1.01",
@@ -1369,6 +1370,28 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.set_texture",
+      "alias": "cubism.editor-model.art-mesh-source.set-texture",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "memberName": "setTexture",
+      "descriptor": "(Lcom/live2d/graphics3d/texture/GTexture;)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.set_texture_state",
+      "alias": "cubism.editor-model.art-mesh-source.set-texture-state",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "memberName": "setTextureState",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/drawable/TextureState;)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_303.editor_model.method.inspector_set_user_data",
       "alias": "cubism.editor-model.art-mesh-source.set-user-data",
       "kind": "method",
@@ -1413,6 +1436,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.texture_state",
+      "alias": "cubism.editor-model.art-mesh-source.texture-state",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "memberName": "getTextureState",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/TextureState;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_model.method.art_mesh_source_user_data",
       "alias": "cubism.editor-model.art-mesh-source.user-data",
       "kind": "method",
@@ -1435,6 +1469,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.art_mesh_calculated_form",
+      "alias": "cubism.editor-model.art-mesh.calculated-form",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "memberName": "getCalculatedForm",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_model.class.art_mesh_class",
       "alias": "cubism.editor-model.art-mesh.class",
       "kind": "class",
@@ -1451,6 +1496,17 @@
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
       "memberName": "getCurrentKeyform",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.art_mesh_interpolated_form",
+      "alias": "cubism.editor-model.art-mesh.interpolated-form",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "memberName": "getInterpolatedForm",
       "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm;",
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
@@ -1996,6 +2052,50 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.field.cached_image_param_companion",
+      "alias": "cubism.editor-model.cached-image-param.companion",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/graphics/cachedImage/CachedImageParam",
+      "memberName": "Companion",
+      "descriptor": "Lcom/live2d/graphics/cachedImage/CachedImageParam$a;",
+      "requiredAccessFlags": 9,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.default",
+      "alias": "cubism.editor-model.cached-image-param.default",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics/cachedImage/CachedImageParam$a",
+      "memberName": "b",
+      "descriptor": "()Lcom/live2d/graphics/cachedImage/CachedImageParam;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.texture",
+      "alias": "cubism.editor-model.cached-image.texture",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics/cachedImage/CCachedImage",
+      "memberName": "h",
+      "descriptor": "()Lcom/live2d/graphics3d/texture/GTexture2D;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.caffine_create",
+      "alias": "cubism.editor-model.caffine.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/type/CAffine",
+      "memberName": "<init>",
+      "descriptor": "()V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5.3.02.editor_model.method.camera_document_to_component",
       "alias": "cubism.editor-model.camera.document-to-component",
       "kind": "method",
@@ -2172,6 +2272,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.const_value_connector_create",
+      "alias": "cubism.editor-model.const-value-connector.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/graphics/filter/concreteConnector/ConstValueConnector",
+      "memberName": "<init>",
+      "descriptor": "(Ljava/lang/Object;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_model.method.coord_type_canvas",
       "alias": "cubism.editor-model.coord-type.canvas",
       "kind": "method",
@@ -2180,6 +2291,17 @@
       "descriptor": "()Lcom/live2d/doc/CoordType;",
       "requiredAccessFlags": 9,
       "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.coord_type_label",
+      "alias": "cubism.editor-model.coord-type.label",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/doc/CoordType",
+      "memberName": "toString",
+      "descriptor": "()Ljava/lang/String;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },
     {
@@ -2425,6 +2547,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.drawable_form_coord_type",
+      "alias": "cubism.editor-model.drawable-form.coord-type",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableForm",
+      "memberName": "getCoordType",
+      "descriptor": "()Lcom/live2d/doc/CoordType;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_model.method.drawable_form_draw_order",
       "alias": "cubism.editor-model.drawable-form.draw-order",
       "kind": "method",
@@ -2590,6 +2723,61 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.class.editable_mesh_extension_class",
+      "alias": "cubism.editor-model.editable-mesh-extension.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/editableMesh/CEditableMeshExtension",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.editable_mesh_extension_create",
+      "alias": "cubism.editor-model.editable-mesh-extension.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/editableMesh/CEditableMeshExtension",
+      "memberName": "<init>",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.editable_mesh_extension_locked",
+      "alias": "cubism.editor-model.editable-mesh-extension.locked",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/editableMesh/CEditableMeshExtension",
+      "memberName": "isLocked",
+      "descriptor": "()Z",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.editable_mesh_extension_mesh",
+      "alias": "cubism.editor-model.editable-mesh-extension.mesh",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/editableMesh/CEditableMeshExtension",
+      "memberName": "getEditableMesh",
+      "descriptor": "()Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.editable_mesh_extension_owner",
+      "alias": "cubism.editor-model.editable-mesh-extension.owner",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/ACExtension",
+      "memberName": "getOwner",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/ACParameterControllableSource;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_model.class.editable_mesh",
       "alias": "cubism.editor-model.editable-mesh.class",
       "kind": "class",
@@ -2612,12 +2800,45 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.editable_mesh_create",
+      "alias": "cubism.editor-model.editable-mesh.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+      "memberName": "<init>",
+      "descriptor": "()V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_gl_indices_default",
+      "alias": "cubism.editor-model.editable-mesh.gl-indices-default",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+      "memberName": "getGlIndices$default",
+      "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Lcom/live2d/util/i/a;ZILjava/lang/Object;)[I",
+      "requiredAccessFlags": 9,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_model.method.editable_mesh_gl_positions",
       "alias": "cubism.editor-model.editable-mesh.gl-positions",
       "kind": "method",
       "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
       "memberName": "getGlPositions",
       "descriptor": "()[F",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.editable_mesh_init_by_indices",
+      "alias": "cubism.editor-model.editable-mesh.init-by-indices",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+      "memberName": "initByIndices",
+      "descriptor": "([F[ILcom/live2d/doc/CoordType;)V",
       "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
@@ -2722,6 +2943,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.empty_filter_create",
+      "alias": "cubism.editor-model.empty-filter.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/graphics/filter/concreteFilter/EmptyFilter",
+      "memberName": "<init>",
+      "descriptor": "(Lcom/live2d/graphics/filter/FilterValue;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_model.method.entity_enabled_in_hierarchy",
       "alias": "cubism.editor-model.entity.enabled-in-hierarchy",
       "kind": "method",
@@ -2755,6 +2987,127 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.class.extended_interpolation_class",
+      "alias": "cubism.editor-model.extended-interpolation.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.extended_interpolation_create",
+      "alias": "cubism.editor-model.extended-interpolation.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+      "memberName": "<init>",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/ACParameterControllableSource;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.extended_interpolation_enabled",
+      "alias": "cubism.editor-model.extended-interpolation.enabled",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+      "memberName": "isExtendedInterpolationEnabled",
+      "descriptor": "()Z",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.extended_interpolation_forms",
+      "alias": "cubism.editor-model.extended-interpolation.forms",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+      "memberName": "getNormalExtendedKeyforms",
+      "descriptor": "()Lcom/live2d/type/CArrayList;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.extended_interpolation_grid",
+      "alias": "cubism.editor-model.extended-interpolation.grid",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+      "memberName": "getExtendedKeyformGridSource",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/interpolator/KeyformGridSource;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.extended_interpolation_owner",
+      "alias": "cubism.editor-model.extended-interpolation.owner",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/ACExtension",
+      "memberName": "getOwner",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/ACParameterControllableSource;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.extended_interpolation_setup_forms",
+      "alias": "cubism.editor-model.extended-interpolation.setup-forms",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+      "memberName": "setupFormStructure",
+      "descriptor": "(ZZ)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.extended_interpolation_update_forms",
+      "alias": "cubism.editor-model.extended-interpolation.update-forms",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension",
+      "memberName": "updateInterpolatedForms",
+      "descriptor": "(Z)Z",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.field.extended_type_ellipse",
+      "alias": "cubism.editor-model.extended-type.ellipse",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType",
+      "memberName": "ELLIPSE",
+      "descriptor": "Lcom/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType;",
+      "requiredAccessFlags": 25,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.field.extended_type_linear",
+      "alias": "cubism.editor-model.extended-type.linear",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType",
+      "memberName": "LINEAR",
+      "descriptor": "Lcom/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType;",
+      "requiredAccessFlags": 25,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.field.extended_type_sns_curve",
+      "alias": "cubism.editor-model.extended-type.sns-curve",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType",
+      "memberName": "SNS_CURVE",
+      "descriptor": "Lcom/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType;",
+      "requiredAccessFlags": 25,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_model.method.file_content_file",
       "alias": "cubism.editor-model.file-content.file",
       "kind": "method",
@@ -2762,6 +3115,72 @@
       "memberName": "getFile",
       "descriptor": "()Ljava/io/File;",
       "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.set_input",
+      "alias": "cubism.editor-model.filter-instance.set-input",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics/filter/filterInstance/FilterInstance",
+      "memberName": "setInput",
+      "descriptor": "(Lcom/live2d/graphics/filter/FilterValue;Lcom/live2d/graphics/filter/AValueConnector;)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.add_filter",
+      "alias": "cubism.editor-model.filter-set.add-filter",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics/filter/FilterSet",
+      "memberName": "addFilter",
+      "descriptor": "(Lcom/live2d/graphics/filter/AFilterDef;Lcom/live2d/graphics/filter/id/FilterInstanceId;)Lcom/live2d/graphics/filter/filterInstance/FilterInstance;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.connect_env_output",
+      "alias": "cubism.editor-model.filter-set.connect-env-output",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics/filter/FilterSet",
+      "memberName": "connectEnvOutput",
+      "descriptor": "(Lcom/live2d/graphics/filter/filterInstance/FilterInstance;Lcom/live2d/graphics/filter/FilterValue;Lcom/live2d/graphics/filter/FilterValue;)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.verify",
+      "alias": "cubism.editor-model.filter-set.verify",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics/filter/FilterSet",
+      "memberName": "verify",
+      "descriptor": "(ZLcom/live2d/util/verify/a;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.filter_value_create",
+      "alias": "cubism.editor-model.filter-value.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/graphics/filter/FilterValue",
+      "memberName": "<init>",
+      "descriptor": "(Ljava/lang/String;Lcom/live2d/graphics/filter/id/FilterValueId;Lkotlin/jvm/functions/Function0;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.id",
+      "alias": "cubism.editor-model.filter-value.id",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics/filter/FilterValue",
+      "memberName": "getId",
+      "descriptor": "()Lcom/live2d/graphics/filter/id/FilterValueId;",
+      "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },
@@ -2881,6 +3300,28 @@
       "kind": "method",
       "ownerInternalName": "com/live2d/type/Guid",
       "memberName": "getUuidString",
+      "descriptor": "()Ljava/lang/String;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.form_name",
+      "alias": "cubism.editor-model.form.name",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/ACForm",
+      "memberName": "getName",
+      "descriptor": "()Ljava/lang/String;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.form_notes",
+      "alias": "cubism.editor-model.form.notes",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/ACForm",
+      "memberName": "getNotes",
       "descriptor": "()Ljava/lang/String;",
       "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
@@ -3036,6 +3477,17 @@
       "ownerInternalName": "com/live2d/cubism/doc/model/affecter/glue/CGlue",
       "memberName": "getCurrentKeyform",
       "descriptor": "()Lcom/live2d/cubism/doc/model/affecter/glue/CGlueForm;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.group_undo_create",
+      "alias": "cubism.editor-model.group-undo.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/undo/GroupUndo",
+      "memberName": "<init>",
+      "descriptor": "(Ljava/lang/String;)V",
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
@@ -3206,6 +3658,94 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.field.int_argb",
+      "alias": "cubism.editor-model.image-color-type.int-argb",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/graphics/n",
+      "memberName": "c",
+      "descriptor": "Lcom/live2d/graphics/n;",
+      "requiredAccessFlags": 9,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.field.byte_data_bytes",
+      "alias": "cubism.editor-model.image-resource.byte-data-bytes",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/graphics/CImageResource",
+      "memberName": "byteDataBytes",
+      "descriptor": "I",
+      "requiredAccessFlags": 10,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.image_resource_create",
+      "alias": "cubism.editor-model.image-resource.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/graphics/CImageResource",
+      "memberName": "<init>",
+      "descriptor": "([BLcom/live2d/graphics/n;Z)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.height",
+      "alias": "cubism.editor-model.image-resource.height",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics/CImageResource",
+      "memberName": "getHeight",
+      "descriptor": "()I",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.image",
+      "alias": "cubism.editor-model.image-resource.image",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics/CImageResource",
+      "memberName": "getImage",
+      "descriptor": "()Lcom/live2d/graphics/CWritableImage;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.field.loaded_bytes",
+      "alias": "cubism.editor-model.image-resource.loaded-bytes",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/graphics/CImageResource",
+      "memberName": "loadedBytes",
+      "descriptor": "I",
+      "requiredAccessFlags": 10,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.field.loaded_count",
+      "alias": "cubism.editor-model.image-resource.loaded-count",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/graphics/CImageResource",
+      "memberName": "loadedCount",
+      "descriptor": "I",
+      "requiredAccessFlags": 10,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.width",
+      "alias": "cubism.editor-model.image-resource.width",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics/CImageResource",
+      "memberName": "getWidth",
+      "descriptor": "()I",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_model.inherits.ACUndoable_implements_ICTreeAccessible",
       "alias": "cubism.editor-model.inherits.ACUndoable.implements.ICTreeAccessible",
       "kind": "inherits",
@@ -3316,6 +3856,50 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.keyform_binding_extended_scale",
+      "alias": "cubism.editor-model.keyform-binding.extended-scale",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "memberName": "getExtendedInterpolationScale",
+      "descriptor": "()F",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.keyform_binding_extended_type",
+      "alias": "cubism.editor-model.keyform-binding.extended-type",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "memberName": "getExtendedInterpolationType",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.keyform_binding_illegal_extended",
+      "alias": "cubism.editor-model.keyform-binding.illegal-extended",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "memberName": "isIllegalExtendedInterpolation",
+      "descriptor": "()Z",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.keyform_binding_insert_count",
+      "alias": "cubism.editor-model.keyform-binding.insert-count",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "memberName": "getInsertPointCount",
+      "descriptor": "()I",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_model.method.keyform_binding_keys",
       "alias": "cubism.editor-model.keyform-binding.keys",
       "kind": "method",
@@ -3323,6 +3907,17 @@
       "memberName": "getKeys",
       "descriptor": "()Ljava/util/List;",
       "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.keyform_binding_legacy_type",
+      "alias": "cubism.editor-model.keyform-binding.legacy-type",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "memberName": "getInterpolationType",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/interpolator/InterpolationType;",
+      "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },
@@ -3345,6 +3940,50 @@
       "memberName": "getParameterId",
       "descriptor": "()Lcom/live2d/cubism/doc/model/id/CParameterId;",
       "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.keyform_binding_set_extended_scale",
+      "alias": "cubism.editor-model.keyform-binding.set-extended-scale",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "memberName": "setExtendedInterpolationScale",
+      "descriptor": "(F)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.keyform_binding_set_extended_type",
+      "alias": "cubism.editor-model.keyform-binding.set-extended-type",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "memberName": "setExtendedInterpolationType",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType;)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.keyform_binding_set_insert_count",
+      "alias": "cubism.editor-model.keyform-binding.set-insert-count",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "memberName": "setInsertPointCount",
+      "descriptor": "(I)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.keyform_grid_row_guid",
+      "alias": "cubism.editor-model.keyform-grid-row.guid",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformOnGrid",
+      "memberName": "b",
+      "descriptor": "()Lcom/live2d/type/CFormGuid;",
+      "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },
@@ -3499,6 +4138,17 @@
       "memberName": "reverseKeyformsOnParameter",
       "descriptor": "(Lcom/live2d/type/CParameterGuid;)V",
       "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.keyform_grid_rows",
+      "alias": "cubism.editor-model.keyform-grid.rows",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "memberName": "getKeyformsOnGrid",
+      "descriptor": "()Ljava/util/List;",
+      "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },
@@ -3932,6 +4582,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.layered_image_wrapper_create",
+      "alias": "cubism.editor-model.layered-image-wrapper.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/model/texture/LayeredImageWrapper",
+      "memberName": "<init>",
+      "descriptor": "(Lcom/live2d/cubism/doc/resources/CLayeredImage;JJZ)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5.3.03.editor_model.method.layered-image-wrapper_image",
       "alias": "cubism.editor-model.layered-image-wrapper.image",
       "kind": "method",
@@ -3995,6 +4656,17 @@
       "descriptor": null,
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.layered_image_create",
+      "alias": "cubism.editor-model.layered-image.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/resources/CLayeredImage",
+      "memberName": "<init>",
+      "descriptor": "(Lcom/live2d/graphics/CImageResource;Ljava/io/File;Ljava/lang/String;Ljava/lang/String;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },
     {
@@ -4082,6 +4754,17 @@
       "memberName": "getWidth",
       "descriptor": "()I",
       "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.list_undo_create",
+      "alias": "cubism.editor-model.list-undo.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/undo/ListUndo",
+      "memberName": "<init>",
+      "descriptor": "(Ljava/lang/String;Ljava/util/ArrayList;)V",
+      "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },
@@ -4394,6 +5077,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.field.model_image_filter_env_companion",
+      "alias": "cubism.editor-model.model-image-filter-env.companion",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/inputFilter/ModelImageFilterEnv",
+      "memberName": "Companion",
+      "descriptor": "Lcom/live2d/cubism/doc/model/extension/textureInput/inputFilter/ModelImageFilterEnv$a;",
+      "requiredAccessFlags": 9,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.editor_model.method.model_image_filter_env_current_image_guid",
       "alias": "cubism.editor-model.model-image-filter-env.current-image-guid",
       "kind": "method",
@@ -4433,6 +5127,50 @@
       "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/inputFilter/ModelImageFilterEnv",
       "memberName": "getLayerInputData",
       "descriptor": "()Lcom/live2d/cubism/doc/model/extension/textureInput/inputFilter/CLayerSelectorMap;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.output_image",
+      "alias": "cubism.editor-model.model-image-filter-env.output-image",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/inputFilter/ModelImageFilterEnv$a",
+      "memberName": "c",
+      "descriptor": "()Lcom/live2d/graphics/filter/FilterValue;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.output_transform",
+      "alias": "cubism.editor-model.model-image-filter-env.output-transform",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/inputFilter/ModelImageFilterEnv$a",
+      "memberName": "d",
+      "descriptor": "()Lcom/live2d/graphics/filter/FilterValue;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.model_image_filter_env_set_current_image_guid",
+      "alias": "cubism.editor-model.model-image-filter-env.set-current-image-guid",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/inputFilter/ModelImageFilterEnv",
+      "memberName": "setCurrentImageGuid",
+      "descriptor": "(Lcom/live2d/type/CLayeredImageGuid;)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.add_linked_layered_image",
+      "alias": "cubism.editor-model.model-image-group.add-linked-layered-image",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/texture/modelImage/CModelImageGroup",
+      "memberName": "addLinkedLayeredImage",
+      "descriptor": "(Lcom/live2d/type/CLayeredImageGuid;)V",
       "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
@@ -4504,6 +5242,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.model_image_guid_create",
+      "alias": "cubism.editor-model.model-image-guid.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/type/CModelImageGuid",
+      "memberName": "<init>",
+      "descriptor": "()V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5.3.03.editor_model.class.model-image",
       "alias": "cubism.editor-model.model-image.class",
       "kind": "class",
@@ -4512,6 +5261,17 @@
       "descriptor": null,
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.model_image_create",
+      "alias": "cubism.editor-model.model-image.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/model/texture/modelImage/CModelImage",
+      "memberName": "<init>",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/CModelSource;Ljava/lang/String;Lcom/live2d/type/CModelImageGuid;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },
     {
@@ -4543,6 +5303,17 @@
       "ownerInternalName": "com/live2d/cubism/doc/model/texture/modelImage/CModelImage",
       "memberName": "getHeight",
       "descriptor": "()I",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.input_filter",
+      "alias": "cubism.editor-model.model-image.input-filter",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/texture/modelImage/CModelImage",
+      "memberName": "getInputFilter",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/extension/textureInput/inputFilter/ModelImageFilterSet;",
       "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
@@ -4753,6 +5524,17 @@
       "memberName": "getObject",
       "descriptor": "(Ljava/lang/String;)Lcom/live2d/cubism/doc/model/ACParameterControllableSource;",
       "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.model-source_get-rendered-image",
+      "alias": "cubism.editor-model.model-source.get-rendered-image",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+      "memberName": "getRenderedImage",
+      "descriptor": "(IILcom/live2d/cubism/doc/model/param/CParameterSet;Lcom/live2d/type/CColor;Lkotlin/jvm/functions/Function1;)Lcom/live2d/graphics/CWritableImage;",
+      "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },
@@ -4999,6 +5781,28 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.model_last_updated_parameter_set",
+      "alias": "cubism.editor-model.model.last-updated-parameter-set",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/CModel",
+      "memberName": "getLastUpdatedParameterSet",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/param/CParameterSet;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.model_last_updated_time",
+      "alias": "cubism.editor-model.model.last-updated-time",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/CModel",
+      "memberName": "getLastUpdatedTimeMSec",
+      "descriptor": "()J",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_model.method.parameter_set",
       "alias": "cubism.editor-model.model.parameter-set",
       "kind": "method",
@@ -5082,6 +5886,17 @@
       "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
       "memberName": "getModelSource",
       "descriptor": "()Lcom/live2d/cubism/doc/model/CModelSource;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.modeling_document_selector",
+      "alias": "cubism.editor-model.modeling-document.selector",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
+      "memberName": "getSelector",
+      "descriptor": "()Lcom/live2d/doc/selection/ISelector;",
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
@@ -5351,6 +6166,50 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.morph_authoring_utils_create_key",
+      "alias": "cubism.editor-model.morph-authoring-utils.create-key",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/MorphTargetUtils",
+      "memberName": "a",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/CModel;Lcom/live2d/cubism/doc/model/ACParameterControllableSource;FLcom/live2d/type/CParameterGuid;Lcom/live2d/undo/GroupUndo;)Lcom/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.field.morph_authoring_utils_instance",
+      "alias": "cubism.editor-model.morph-authoring-utils.instance",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/MorphTargetUtils",
+      "memberName": "a",
+      "descriptor": "Lcom/live2d/cubism/doc/model/morphTarget/MorphTargetUtils;",
+      "requiredAccessFlags": 25,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.morph_constraints_entries",
+      "alias": "cubism.editor-model.morph-constraints.entries",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/MorphTargetBlendWeightConstraintSet",
+      "memberName": "getConstraints",
+      "descriptor": "()Ljava/util/List;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.morph_target_set_can_add_key",
+      "alias": "cubism.editor-model.morph-target-set.can-add-key",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet",
+      "memberName": "canAddKey",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/param/CParameterSource;F)Z",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_model.class.morph_target_set",
       "alias": "cubism.editor-model.morph-target-set.class",
       "kind": "class",
@@ -5359,6 +6218,17 @@
       "descriptor": null,
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.morph_target_set_constraints",
+      "alias": "cubism.editor-model.morph-target-set.constraints",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet",
+      "memberName": "getBlendWeightConstraintSet",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/morphTarget/MorphTargetBlendWeightConstraintSet;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },
     {
@@ -5391,6 +6261,17 @@
       "memberName": "getMorphTargets",
       "descriptor": "()Ljava/util/List;",
       "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.morph_target_set_owner",
+      "alias": "cubism.editor-model.morph-target-set.owner",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet",
+      "memberName": "getOwner",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/ACParameterControllableSource;",
+      "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },
@@ -5456,6 +6337,17 @@
       "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget",
       "memberName": "getKeyformGuid",
       "descriptor": "()Lcom/live2d/type/CFormGuid;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.morph_target_owner",
+      "alias": "cubism.editor-model.morph-target.owner",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget",
+      "memberName": "getOwner",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/ACParameterControllableSource;",
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
@@ -5648,6 +6540,138 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.native_list_immutable",
+      "alias": "cubism.editor-model.native-list.immutable",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/type/CArrayList",
+      "memberName": "getImmutable",
+      "descriptor": "()Z",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.official_export.exporter_create",
+      "alias": "cubism.editor-model.official-export.exporter-create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/model/exporter/w",
+      "memberName": "<init>",
+      "descriptor": "()V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.official_export.exporter_settings",
+      "alias": "cubism.editor-model.official-export.exporter-settings",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/exporter/w",
+      "memberName": "a",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/exporter/CMocExportSetting;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.official_export.set_extend_edge",
+      "alias": "cubism.editor-model.official-export.set-extend-edge",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/exporter/CMocExportSetting",
+      "memberName": "setEnableExtendEdgeColor",
+      "descriptor": "(Z)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.official_export.set_format",
+      "alias": "cubism.editor-model.official-export.set-format",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/exporter/CMocExportSetting",
+      "memberName": "setExportFormat",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/exporter/CMocExportFormat;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.official_export.set_invisible_mesh",
+      "alias": "cubism.editor-model.official-export.set-invisible-mesh",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/exporter/CMocExportSetting",
+      "memberName": "setExportInvisibleArtMesh",
+      "descriptor": "(Z)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.official_export.set_invisible_part",
+      "alias": "cubism.editor-model.official-export.set-invisible-part",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/exporter/CMocExportSetting",
+      "memberName": "setExportInvisiblePart",
+      "descriptor": "(Z)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.official_export.set_origin_x",
+      "alias": "cubism.editor-model.official-export.set-origin-x",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/exporter/CMocExportSetting",
+      "memberName": "setOriginX",
+      "descriptor": "(F)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.official_export.set_origin_y",
+      "alias": "cubism.editor-model.official-export.set-origin-y",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/exporter/CMocExportSetting",
+      "memberName": "setOriginY",
+      "descriptor": "(F)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.official_export.set_pixels_per_unit",
+      "alias": "cubism.editor-model.official-export.set-pixels-per-unit",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/exporter/CMocExportSetting",
+      "memberName": "setPixelsPerUnit",
+      "descriptor": "(F)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.official_export.set_sketch_part",
+      "alias": "cubism.editor-model.official-export.set-sketch-part",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/exporter/CMocExportSetting",
+      "memberName": "setExportSketchPart",
+      "descriptor": "(Z)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.official_export.settings_create",
+      "alias": "cubism.editor-model.official-export.settings-create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/model/exporter/CMocExportSetting",
+      "memberName": "<init>",
+      "descriptor": "()V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_303.editor_model.method.inspector_change_target_deformer_id",
       "alias": "cubism.editor-model.parameter-controllable-handler.change-target-deformer",
       "kind": "method",
@@ -5714,6 +6738,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.parameter_controllable_source_add_extension",
+      "alias": "cubism.editor-model.parameter-controllable-source.add-extension",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "memberName": "addExtension",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/extension/ACExtension;I)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_model.method.source_all_parent_deformers",
       "alias": "cubism.editor-model.parameter-controllable-source.all-parent-deformers",
       "kind": "method",
@@ -5742,6 +6777,17 @@
       "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
       "memberName": "isEditableInHierarchy",
       "descriptor": "()Z",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.parameter_controllable_source_extended_morph_set",
+      "alias": "cubism.editor-model.parameter-controllable-source.extended-morph-set",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "memberName": "getExtendedKeyformMorphTargetSetIfAvailable",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/morphTarget/extendedInterpolation/ExtendedKeyFormMorphTargetSet;",
       "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
@@ -6506,6 +7552,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.parameter_set_update_version",
+      "alias": "cubism.editor-model.parameter-set.update-version",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSet",
+      "memberName": "getUpdateVersion",
+      "descriptor": "()I",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_model.class.parameter-source-set_class",
       "alias": "cubism.editor-model.parameter-source-set.class",
       "kind": "class",
@@ -6765,6 +7822,17 @@
       "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
       "memberName": "setRepeat",
       "descriptor": "(Z)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.parameter_source_snap_epsilon",
+      "alias": "cubism.editor-model.parameter-source.snap-epsilon",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
+      "memberName": "getSnapEpsilon",
+      "descriptor": "()F",
       "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
@@ -8354,6 +9422,28 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.selector_replace_selected",
+      "alias": "cubism.editor-model.selector.replace-selected",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/doc/selection/ISelector",
+      "memberName": "clearAndAddAllSelected",
+      "descriptor": "(Ljava/util/List;I)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.selector_selected",
+      "alias": "cubism.editor-model.selector.selected",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/doc/selection/ISelector",
+      "memberName": "getSelected",
+      "descriptor": "()Ljava/util/List;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.simple_undo",
       "alias": "cubism.editor-model.simple-undo.create",
       "kind": "constructor",
@@ -8372,6 +9462,17 @@
       "memberName": "a",
       "descriptor": "()I",
       "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.texture_input_texture_atlas_region_atlas_guid",
+      "alias": "cubism.editor-model.texture-atlas-guid",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/CTextureInput_TextureAtlasRegion",
+      "memberName": "getTextureAtlasGuid",
+      "descriptor": "()Lcom/live2d/type/CTextureAtlasGuid;",
+      "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },
@@ -8508,6 +9609,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.add_input",
+      "alias": "cubism.editor-model.texture-input-extension.add-input",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/CTextureInputExtension",
+      "memberName": "addTextureInput",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/extension/textureInput/ACTextureInput;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_model.class.texture_input_extension_class",
       "alias": "cubism.editor-model.texture-input-extension.class",
       "kind": "class",
@@ -8519,12 +9631,45 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.texture_input_extension_create",
+      "alias": "cubism.editor-model.texture-input-extension.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/CTextureInputExtension",
+      "memberName": "<init>",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.current_input",
+      "alias": "cubism.editor-model.texture-input-extension.current-input",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/CTextureInputExtension",
+      "memberName": "getCurrentTextureInputData",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/extension/textureInput/ACTextureInput;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.editor_model.method.texture_input_extension_current_texture_input_data",
       "alias": "cubism.editor-model.texture-input-extension.current-texture-input-data",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/CTextureInputExtension",
       "memberName": "getCurrentTextureInputData",
       "descriptor": "()Lcom/live2d/cubism/doc/model/extension/textureInput/ACTextureInput;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.inputs",
+      "alias": "cubism.editor-model.texture-input-extension.inputs",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/CTextureInputExtension",
+      "memberName": "getTextureInputs",
+      "descriptor": "()Ljava/util/List;",
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
@@ -8541,12 +9686,34 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.set_current_input",
+      "alias": "cubism.editor-model.texture-input-extension.set-current-input",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/CTextureInputExtension",
+      "memberName": "setCurrentTextureInputData",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/extension/textureInput/ACTextureInput;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.editor_model.method.texture_input_extension_texture_inputs",
       "alias": "cubism.editor-model.texture-input-extension.texture-inputs",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/CTextureInputExtension",
       "memberName": "getTextureInputs",
       "descriptor": "()Ljava/util/List;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.cached_image",
+      "alias": "cubism.editor-model.texture-input-model-image.cached-image",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/CTextureInput_ModelImage",
+      "memberName": "getCachedImage",
+      "descriptor": "(Lcom/live2d/graphics/cachedImage/CachedImageParam;)Lcom/live2d/graphics/cachedImage/CCachedImage;",
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
@@ -8560,6 +9727,17 @@
       "descriptor": null,
       "requiredAccessFlags": 0,
       "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.texture_input_model_image_create",
+      "alias": "cubism.editor-model.texture-input-model-image.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/CTextureInput_ModelImage",
+      "memberName": "<init>",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/extension/textureInput/ITextureInputData;Lcom/live2d/cubism/doc/model/texture/modelImage/CModelImage;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },
     {
@@ -8670,6 +9848,17 @@
       "descriptor": "()Ljava/util/List;",
       "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.field.model_image",
+      "alias": "cubism.editor-model.texture-state.model-image",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/cubism/doc/model/drawable/TextureState",
+      "memberName": "MODEL_IMAGE",
+      "descriptor": "Lcom/live2d/cubism/doc/model/drawable/TextureState;",
+      "requiredAccessFlags": 9,
+      "forbiddenAccessFlags": 0,
       "status": "VERIFIED_STATIC"
     },
     {
@@ -9014,6 +10203,50 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.undo_add_remove_extension_create",
+      "alias": "cubism.editor-model.undo-add-remove-extension.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableHandler$Undo_AddOrRemove_Extension",
+      "memberName": "<init>",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/ACParameterControllableSource;Lcom/live2d/cubism/doc/model/extension/ACExtension;IZ)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.undo_add_remove_model_image_group_create",
+      "alias": "cubism.editor-model.undo-add-remove-model-image-group.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/model/texture/TextureManagerHandler$UndoAddOrRemove_ModelImageGroup",
+      "memberName": "<init>",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/CModelSource;Lcom/live2d/cubism/doc/model/texture/modelImage/CModelImageGroup;IZ)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.undo_add_remove_model_image_create",
+      "alias": "cubism.editor-model.undo-add-remove-model-image.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/model/texture/TextureManagerHandler$UndoAddOrRemove_ModelImage",
+      "memberName": "<init>",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/texture/modelImage/CModelImageGroup;Lcom/live2d/cubism/doc/model/texture/modelImage/CModelImage;IZ)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.undo_add_remove_raw_image_wrapper_create",
+      "alias": "cubism.editor-model.undo-add-remove-raw-image-wrapper.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/model/texture/TextureManagerHandler$UndoAddOrRemove_RawImageWrapper",
+      "memberName": "<init>",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/CModelSource;Lcom/live2d/cubism/doc/model/texture/LayeredImageWrapper;IZ)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.editor_model.class.undo_listener",
       "alias": "cubism.editor-model.undo-listener.class",
       "kind": "class",
@@ -9066,6 +10299,17 @@
       "descriptor": null,
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.undo_execute_undo",
+      "alias": "cubism.editor-model.undo.execute-undo",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/undo/ACUndoable",
+      "memberName": "undo",
+      "descriptor": "()V",
+      "requiredAccessFlags": 1025,
+      "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     },
     {
@@ -9168,6 +10412,28 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.field.instance",
+      "alias": "cubism.editor-model.uu-undo.instance",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/undo/UUUndo",
+      "memberName": "a",
+      "descriptor": "Lcom/live2d/undo/UUUndo;",
+      "requiredAccessFlags": 9,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.local_simple_create",
+      "alias": "cubism.editor-model.uu-undo.local-simple-create",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/undo/UUUndo",
+      "memberName": "a",
+      "descriptor": "(Ljava/lang/String;ZLkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;)Lcom/live2d/undo/ACUndoable;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5.3.02.editor_model.constructor.vector_create",
       "alias": "cubism.editor-model.vector.create",
       "kind": "constructor",
@@ -9229,6 +10495,17 @@
       "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
       "memberName": "getY",
       "descriptor": "()F",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.constructor.verify_collector_create",
+      "alias": "cubism.editor-model.verify-collector.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/util/verify/a",
+      "memberName": "<init>",
+      "descriptor": "()V",
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
@@ -9449,6 +10726,39 @@
       "ownerInternalName": "com/live2d/ui/CWidget",
       "memberName": "getJComponent",
       "descriptor": "()Ljavax/swing/JComponent;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.class.writable-image_class",
+      "alias": "cubism.editor-model.writable-image.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/graphics/CWritableImage",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.writable-image_flush",
+      "alias": "cubism.editor-model.writable-image.flush",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics/CWritableImage",
+      "memberName": "flush",
+      "descriptor": "()V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.writable-image_j-buffered-image",
+      "alias": "cubism.editor-model.writable-image.j-buffered-image",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics/CWritableImage",
+      "memberName": "getJBufferedImage",
+      "descriptor": "()Ljava/awt/image/BufferedImage;",
       "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
@@ -10455,6 +11765,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.texture_atlas.manager_reinit_input",
+      "alias": "cubism.texture-atlas.texture-manager.reinit-input",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/texture/CTextureManager",
+      "memberName": "reinitModelTextureInput",
+      "descriptor": "()V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.texture_atlas.undo_create",
       "alias": "cubism.texture-atlas.undo.create",
       "kind": "constructor",
@@ -11089,6 +12410,9 @@
     ],
     "cubism.editor-model.psd.raw-image.replace": [
       "declaredGeneration"
+    ],
+    "cubism.mesh-tool.session": [
+      "hook:mesh-tool-session"
     ]
   }
 }

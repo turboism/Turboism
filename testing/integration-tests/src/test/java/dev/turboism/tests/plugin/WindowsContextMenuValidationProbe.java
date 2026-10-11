@@ -56,7 +56,17 @@ public final class WindowsContextMenuValidationProbe implements TurboismPlugin {
             final String id,
             final ContextMenuRegistry.Location location,
             final Set<ContextMenuRegistry.ObjectKind> kinds) {
-        final ContextMenuRegistry.ContextMenuEntry entry = ContextMenuRegistry.ContextMenuEntry.submenu(
+        final ContextMenuRegistry.ContextMenuEntry entry = probeEntry(id);
+        context.disposableScope()
+                .register(context.services()
+                        .find(ContextMenuRegistry.class)
+                        .orElse(ContextMenuRegistry.unavailable())
+                        .contribute(new ContextMenuRegistry.ContextMenuContribution(
+                                "context-menu-validation-" + id, location, kinds, 0, entry)));
+    }
+
+    static ContextMenuRegistry.ContextMenuEntry probeEntry(final String id) {
+        return ContextMenuRegistry.ContextMenuEntry.submenu(
                 "turboism-validation-" + id,
                 "Turboism Validation " + id,
                 List.of(
@@ -84,12 +94,6 @@ public final class WindowsContextMenuValidationProbe implements TurboismPlugin {
                                         List.of(ContextMenuRegistry.ContextMenuEntry.item(
                                                 "deep", "Deep Action", "context-menu.deep")))))),
                 ContextMenuRegistry.Placement.first());
-        context.disposableScope()
-                .register(context.services()
-                        .find(ContextMenuRegistry.class)
-                        .orElse(ContextMenuRegistry.unavailable())
-                        .contribute(new ContextMenuRegistry.ContextMenuContribution(
-                                "context-menu-validation-" + id, location, kinds, 0, entry)));
     }
 
     private ActionRegistry.Action action(final String actionId) {

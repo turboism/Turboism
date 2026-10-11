@@ -276,6 +276,128 @@ final class MeshMirrorNativeMethodTransformerTest {
     }
 
     @Test
+    void legacyAxisDrawInterceptsOnlyTheConfiguredOrdinalCall() {
+        final MeshMirrorHostProfile shared = MeshMirrorHostProfile.reviewed52And53();
+        final String callDescriptor =
+                "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;FFILjava/lang/Object;)V";
+        for (final int ordinal : List.of(0, 1)) {
+            final MeshMirrorHostProfile profile = new MeshMirrorHostProfile(
+                    shared.meshEditorOwner(),
+                    shared.mirrorPointMethod(),
+                    shared.mirrorAxisPointMethod(),
+                    shared.mirrorPointDescriptor(),
+                    shared.mirrorHitMethod(),
+                    shared.mirrorHitDescriptor(),
+                    shared.mirrorWidgetOwner(),
+                    shared.mirrorWidgetMethod(),
+                    shared.mirrorWidgetDescriptor(),
+                    null,
+                    null,
+                    null,
+                    new MeshMirrorHostProfile.LegacyAxisDraw(
+                            "fixture/Guide", "C", "()V", "fixture/Drawer", "draw", callDescriptor, ordinal),
+                    null,
+                    null,
+                    null);
+            final MeshMirrorNativeMethodTransformer transformer = new MeshMirrorNativeMethodTransformer(profile, null);
+            final byte[] transformed =
+                    transformer.transform(null, null, "fixture/Guide", null, null, legacyFixture(callDescriptor));
+            assertNotNull(transformed, "ordinal=" + ordinal);
+            assertEquals(List.of("legacyAxisDraw"), bridgeCalls(transformed), "ordinal=" + ordinal);
+            final List<String> remaining = drawerCalls(transformed, callDescriptor);
+            assertEquals(List.of("draw"), remaining, "ordinal=" + ordinal);
+        }
+    }
+
+    @Test
+    void legacyAxisDrawRejectsTheEnclosingClassWhenTheCallIsMissing() {
+        final MeshMirrorHostProfile profile = MeshMirrorHostProfile.reviewed5051("fixture/Guide");
+        final MeshMirrorNativeMethodTransformer transformer = new MeshMirrorNativeMethodTransformer(profile, null);
+        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "fixture/Guide", null, "java/lang/Object", null);
+        final MethodVisitor pass = writer.visitMethod(Opcodes.ACC_PUBLIC, "C", "()V", null, null);
+        pass.visitCode();
+        pass.visitInsn(Opcodes.RETURN);
+        pass.visitMaxs(0, 0);
+        pass.visitEnd();
+        writer.visitEnd();
+        assertNull(transformer.transform(null, null, "fixture/Guide", null, null, writer.toByteArray()));
+        assertEquals(MeshMirrorNativeMethodTransformer.Outcome.LEGACY_AXIS_DRAW_NOT_INJECTED, transformer.outcome());
+    }
+
+    @Test
+    void legacyProfileSelectsTheGuideContextByGeneration() {
+        assertEquals(
+                "com/live2d/cubism/view/context/J",
+                MeshMirrorHostProfile.forReviewedVersion("5.0.06")
+                        .orElseThrow()
+                        .legacyAxisDraw()
+                        .enclosingOwner());
+        assertEquals(
+                "com/live2d/cubism/view/context/K",
+                MeshMirrorHostProfile.forReviewedVersion("5.1.03")
+                        .orElseThrow()
+                        .legacyAxisDraw()
+                        .enclosingOwner());
+        assertNull(
+                MeshMirrorHostProfile.forReviewedVersion("5.0.06").orElseThrow().mirrorAxisDrawOwner());
+    }
+
+    private static byte[] legacyFixture(final String callDescriptor) {
+        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "fixture/Guide", null, "java/lang/Object", null);
+        final MethodVisitor pass = writer.visitMethod(Opcodes.ACC_PUBLIC, "C", "()V", null, null);
+        pass.visitCode();
+        for (int i = 0; i < 2; i++) {
+            pass.visitInsn(Opcodes.ACONST_NULL);
+            pass.visitInsn(Opcodes.ACONST_NULL);
+            pass.visitInsn(Opcodes.ACONST_NULL);
+            pass.visitInsn(Opcodes.ACONST_NULL);
+            pass.visitInsn(Opcodes.FCONST_0);
+            pass.visitInsn(Opcodes.FCONST_0);
+            pass.visitInsn(Opcodes.ICONST_0);
+            pass.visitInsn(Opcodes.ACONST_NULL);
+            pass.visitMethodInsn(Opcodes.INVOKESTATIC, "fixture/Drawer", "draw", callDescriptor, false);
+        }
+        pass.visitInsn(Opcodes.RETURN);
+        pass.visitMaxs(0, 0);
+        pass.visitEnd();
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    private static List<String> drawerCalls(final byte[] bytecode, final String callDescriptor) {
+        final List<String> calls = new ArrayList<>();
+        new ClassReader(bytecode)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitMethodInsn(
+                                            final int opcode,
+                                            final String owner,
+                                            final String calledName,
+                                            final String calledDescriptor,
+                                            final boolean isInterface) {
+                                        if (owner.equals("fixture/Drawer") && calledDescriptor.equals(callDescriptor)) {
+                                            calls.add(calledName);
+                                        }
+                                    }
+                                };
+                            }
+                        },
+                        0);
+        return calls;
+    }
+
+    @Test
     void selectedMovementInjectionExecutesBeforeTheUnmodifiedHostBody() throws Exception {
         final String owner = "fixture/SelectedPointMovementAction";
         final MeshMirrorHostProfile shared = MeshMirrorHostProfile.reviewed52And53();
@@ -292,6 +414,7 @@ final class MeshMirrorNativeMethodTransformerTest {
                 shared.mirrorAxisDrawOwner(),
                 shared.mirrorAxisDrawMethod(),
                 shared.mirrorAxisDrawDescriptor(),
+                null,
                 null,
                 new MeshMirrorHostProfile.SelectedPointMove(owner, "c", "(Ljava/lang/Object;)V"),
                 null);
