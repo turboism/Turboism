@@ -99,17 +99,27 @@ class SelectionBrushManifestBindingTest {
         var loaded = new StaticVerificationRecordLoader()
                 .load(root.resolve("compatibility/cubism/verification/cubism-" + manifest.cubismVersion() + "-" + slice
                         + ".json"));
+        final Set<String> recordAliases =
+                loaded.record().selectors().stream().map(StaticSelector::alias).collect(Collectors.toSet());
         assertAll(
                 manifest.cubismVersion() + "/" + slice,
                 () -> assertEquals(loaded.sha256(), manifest.recordSha256(), "record trust-root digest"),
                 () -> assertEquals(
                         Set.copyOf(loaded.record().capabilityIds()), manifest.capabilityIds(), "exact capabilities"),
-                () -> assertEquals(
-                        loaded.record().selectors().stream()
-                                .map(StaticSelector::alias)
-                                .collect(Collectors.toSet()),
-                        manifest.requiredAliases(),
-                        "exact selector roster"),
+                // Exact 5.3.03 is admitted through cubism5303RuntimeScope: its manifest
+                // deliberately names only the aliases mature contracts consume while the
+                // record still carries every statically verified selector, so the roster
+                // check is subset there and exact elsewhere (mirrors
+                // VerificationManifestAdmissionPreflightTest.isRuntimeScopedAdmission).
+                () -> {
+                    if ("5.3.03".equals(manifest.cubismVersion()) && "editor-model".equals(slice)) {
+                        assertTrue(
+                                recordAliases.containsAll(manifest.requiredAliases()),
+                                "manifest aliases must all verify in the scoped record");
+                    } else {
+                        assertEquals(recordAliases, manifest.requiredAliases(), "exact selector roster");
+                    }
+                },
                 () -> assertTrue(manifest.capabilityIds().contains(meshCapability), "mesh capability"),
                 () -> assertTrue(manifest.requiredAliases().containsAll(meshAliases), "mesh selector scope"));
     }

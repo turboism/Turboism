@@ -65,7 +65,17 @@ final class EditorWarpMirrorSelectorContractTest {
 
         final java.util.Set<String> recordAliases = new java.util.HashSet<>();
         loaded.record().selectors().forEach(selector -> recordAliases.add(selector.alias()));
-        assertEquals(manifest.requiredAliases(), recordAliases, "record/manifest alias set mismatch on " + version);
+        // Exact 5.3.03 is admitted through cubism5303RuntimeScope: its manifest names only
+        // the aliases mature contracts consume while the record carries every statically
+        // verified selector, so the check is subset there and exact elsewhere (mirrors
+        // VerificationManifestAdmissionPreflightTest.isRuntimeScopedAdmission).
+        if (version.equals("5.3.03")) {
+            assertTrue(
+                    recordAliases.containsAll(manifest.requiredAliases()),
+                    "manifest aliases must all verify in the scoped record on " + version);
+        } else {
+            assertEquals(manifest.requiredAliases(), recordAliases, "record/manifest alias set mismatch on " + version);
+        }
         assertEquals(
                 manifest.capabilityIds(),
                 java.util.Set.copyOf(loaded.record().capabilityIds()),

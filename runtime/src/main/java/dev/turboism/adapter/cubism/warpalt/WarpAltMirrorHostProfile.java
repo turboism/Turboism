@@ -69,30 +69,27 @@ public record WarpAltMirrorHostProfile(
      * profile selector resolves to the same member names, including the
      * {@code L()V} strip mount pass.
      */
-    private static final Set<String> REVIEWED_52_VERSIONS =
-            Set.of(
-                    ReviewedHostArtifacts.CUBISM_5_2_00_VERSION,
-                    ReviewedHostArtifacts.CUBISM_5_2_01_VERSION,
-                    ReviewedHostArtifacts.CUBISM_5_2_02_VERSION,
-                    ReviewedHostArtifacts.CUBISM_5_2_03_VERSION);
+    private static final Set<String> REVIEWED_52_VERSIONS = Set.of(
+            ReviewedHostArtifacts.CUBISM_5_2_00_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_2_01_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_2_02_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_2_03_VERSION);
 
     /**
      * Reviewed 5.3.x generations sharing the 5.3.02/5.3.03 selector tuple: every
      * profile selector resolves to the same member names, including the
      * {@code R()V} strip mount pass.
      */
-    private static final Set<String> REVIEWED_53_VERSIONS =
-            Set.of(
-                    ReviewedHostArtifacts.CUBISM_5_3_00_VERSION,
-                    ReviewedHostArtifacts.CUBISM_5_3_01_VERSION,
-                    ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
-                    ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
-                    ReviewedHostArtifacts.CUBISM_5_3_04_VERSION);
+    private static final Set<String> REVIEWED_53_VERSIONS = Set.of(
+            ReviewedHostArtifacts.CUBISM_5_3_00_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_3_01_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_3_04_VERSION);
 
     /** Returns the exact reviewed selector profile for the artifact, if it is supported. */
     public static Optional<WarpAltMirrorHostProfile> forArtifact(final HostArtifactDigest artifact) {
-        return ReviewedHostArtifacts.cubismVersionOf(artifact)
-                .flatMap(WarpAltMirrorHostProfile::forReviewedVersion);
+        return ReviewedHostArtifacts.cubismVersionOf(artifact).flatMap(WarpAltMirrorHostProfile::forReviewedVersion);
     }
 
     /**
