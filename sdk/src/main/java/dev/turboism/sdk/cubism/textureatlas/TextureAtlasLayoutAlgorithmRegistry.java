@@ -21,7 +21,7 @@ import java.util.Optional;
  * than failing. Planners that return {@code null} or throw are also converted to
  * native fallback; plugin failures never escape into the host.</p>
  */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface TextureAtlasLayoutAlgorithmRegistry {
 
     /**

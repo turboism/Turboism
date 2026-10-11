@@ -11,7 +11,7 @@ import java.util.List;
  * unchanged, without remapping or clamping. The ordinary
  * {@link #transfer(ParameterBindingTransferPlan)} operation keeps its existing semantics.</p>
  */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface ParameterBindingBatchOperations {
 
     /**

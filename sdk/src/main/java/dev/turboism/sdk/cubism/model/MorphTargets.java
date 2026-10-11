@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 
 /** Keyform Morph Targets of one Editor object, in stable host order. */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface MorphTargets {
 
     /** Returns all Morph Targets in stable host order. */

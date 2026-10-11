@@ -12,7 +12,7 @@ import java.util.List;
  * calls may need to be made from the host thread and fail with {@link CubismServiceException} when
  * the host is unavailable.
  */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface SelectionQueryService {
 
     /**

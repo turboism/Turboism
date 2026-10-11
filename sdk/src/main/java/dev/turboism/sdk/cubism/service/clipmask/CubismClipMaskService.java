@@ -11,7 +11,7 @@ import java.util.Objects;
  * mesh snapshots into stable {@link ClipMaskRecord} values. Plugins must not depend on
  * Cubism internal ArtMesh classes or reflection to inspect clip-mask relationships.</p>
  */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface CubismClipMaskService {
 
     /**

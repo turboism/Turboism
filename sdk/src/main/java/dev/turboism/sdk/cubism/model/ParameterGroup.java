@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 /** One folder in the Editor parameter hierarchy. */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface ParameterGroup {
 
     /** Returns this folder's stable identity. */

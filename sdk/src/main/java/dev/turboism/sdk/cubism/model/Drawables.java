@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 
 /** Drawables in one Cubism model. */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface Drawables {
 
     /** Returns every drawable in the model, in host order. */

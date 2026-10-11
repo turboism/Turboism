@@ -10,7 +10,7 @@ import java.util.Optional;
  * One animated attribute on an {@link AnimationTrack}: an effect slot that
  * carries a keyed value sequence.
  */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface AnimationAttribute {
 
     /** Host attribute identifier, opaque and stable within the scene. */

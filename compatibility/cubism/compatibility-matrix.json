@@ -8269,6 +8269,26 @@
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/CubismFacade.java"
   },
   {
+   "api": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService",
+   "kind": "type",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/backup/EditorAutoBackupService.java"
+  },
+  {
    "api": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService#artifacts()",
    "kind": "method",
    "versions": [
@@ -8407,6 +8427,26 @@
     "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/backup/EditorAutoBackupService.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.command.EditorCommandService",
+   "kind": "type",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommandService.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.edit.CancelSource",
@@ -9731,6 +9771,22 @@
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasPolygonLayoutService.java"
   },
   {
+   "api": "dev.turboism.sdk.cubism.transaction.AuthoringTransactionService",
+   "kind": "type",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/transaction/AuthoringTransactionService.java"
+  },
+  {
    "api": "dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation",
    "kind": "type",
    "versions": [
@@ -10781,6 +10837,47 @@
       "5.0.05": "unknown",
       "5.0.06": "unknown"
      }
+    },
+    {
+     "key": "dev.turboism.sdk.cubism.command.EditorCommandService",
+     "declaredCapability": null,
+     "versions": [
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03",
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommandService.java"
+     ],
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown"
+     }
     }
    ],
    "unmappedCapabilities": [],
@@ -11550,7 +11647,7 @@
      ],
      "source": "sdk-api",
      "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/CubismFacade.java"
+      "sdk/src/main/java/dev/turboism/sdk/cubism/transaction/AuthoringTransactionService.java"
      ],
      "missingNature": {
       "5.0.00": "unknown",
@@ -11649,6 +11746,47 @@
      ],
      "sourceFiles": [],
      "narrowed": false,
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown"
+     }
+    },
+    {
+     "key": "dev.turboism.sdk.cubism.command.EditorCommandService",
+     "declaredCapability": null,
+     "versions": [
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03",
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommandService.java"
+     ],
      "missingNature": {
       "5.0.00": "unknown",
       "5.0.01": "unknown",
@@ -15044,6 +15182,47 @@
     "5.3.04"
    ],
    "partialFeatures": [
+    {
+     "key": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService",
+     "declaredCapability": null,
+     "versions": [
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03",
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/backup/EditorAutoBackupService.java"
+     ],
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown"
+     }
+    },
     {
      "key": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService#artifacts()",
      "declaredCapability": null,
