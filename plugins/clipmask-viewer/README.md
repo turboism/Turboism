@@ -44,7 +44,7 @@ Inspects clip-mask relationships, duplicates, order conflicts, and related ArtMe
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions.
-- Top menu integration not on 5.0.00–5.0.06
+- Top menu integration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 
