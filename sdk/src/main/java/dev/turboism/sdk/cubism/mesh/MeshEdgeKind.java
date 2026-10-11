@@ -1,6 +1,9 @@
 package dev.turboism.sdk.cubism.mesh;
 
+import dev.turboism.sdk.CubismEditor;
+
 /** Edge classification carried across the boundary in place of the host's own enum. */
+@CubismEditor
 public enum MeshEdgeKind {
     /** An edge on the outer boundary of the mesh. */
     BORDER,

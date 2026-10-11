@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.mirror;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import java.util.Objects;
 
@@ -16,6 +17,7 @@ import java.util.Objects;
  * @param direction which half of the grid is mirrored onto the other
  * @param preserveDescendants whether descendant geometry is compensated to stay in place
  */
+@CubismEditor
 public record WarpMirrorRequest(DeformerId target, WarpMirrorDirection direction, boolean preserveDescendants) {
     public WarpMirrorRequest {
         target = Objects.requireNonNull(target, "target");

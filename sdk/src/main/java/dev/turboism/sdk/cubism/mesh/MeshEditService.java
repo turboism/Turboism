@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.mesh;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 
 /**
@@ -15,6 +16,7 @@ import java.util.List;
  * <p>Cubism has no standalone edge-move operation: an edge is a pair of point ids, so moving one
  * or both endpoints through {@link #movePoints(List)} moves every connected edge.</p>
  */
+@CubismEditor(from = "5.2.00")
 public interface MeshEditService {
 
     /** Adds points at the given positions; Cubism assigns their ids. */

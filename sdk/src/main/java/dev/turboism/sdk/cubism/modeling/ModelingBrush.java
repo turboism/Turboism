@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.modeling;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.Incubating;
 
 /** Runtime-owned point selection brush for one ordinary modeling-tool activation. */
 @Incubating
+@CubismEditor(from = "5.2.00")
 public interface ModelingBrush extends AutoCloseable {
     /** Minimum radius in active component pixels. */
     int MIN_RADIUS_PIXELS = 8;

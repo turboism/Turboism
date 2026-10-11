@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /** Final pixel bounds; rotated means a positive quarter-turn before translating into these bounds. */
+@CubismEditor
 public record TextureAtlasPlacement(
         String textureId, int pageIndex, int x, int y, int width, int height, boolean rotated) {
 
