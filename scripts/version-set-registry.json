@@ -1816,6 +1816,13 @@
    "kind": "file",
    "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/EmbeddedPanelVerificationManifest.java",
    "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
     "5.1.00",
     "5.1.01",
     "5.1.02",
@@ -1831,7 +1838,7 @@
     "5.3.04"
    ],
    "basis": "verification-derived",
-   "reason": "Verification manifest record-version table derived from the verification records it admits."
+   "reason": "ui-embedded-panel records exist for all twenty reviewed generations after 5.0.x propagation; the manifest lists exactly the emitted record set"
   },
   {
    "kind": "file",

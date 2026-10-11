@@ -2599,7 +2599,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_02.editor_model.constructor.eval_flags_create",
+      "mappingId": "cubism.mapping.v5_1_03.editor_model.constructor.eval_flags_create",
       "alias": "cubism.editor-model.eval-flags.create",
       "kind": "constructor",
       "ownerInternalName": "com/live2d/cubism/doc/animation/movie/track/E",
@@ -4205,7 +4205,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_02.editor_model.method.model-handler_move-parameter",
+      "mappingId": "cubism.mapping.v5_1_03.editor_model.method.model-handler_move-parameter",
       "alias": "cubism.editor-model.model-handler.move-parameter",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/doc/model/ModelHandler",
@@ -5910,7 +5910,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_02.editor_model.method.parameter-group-handler_add-group-child",
+      "mappingId": "cubism.mapping.v5_0_06.editor_model.method.parameter-group-handler_add-group-child",
       "alias": "cubism.editor-model.parameter-group-handler.add-group-child",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/doc/model/param/group/f",
@@ -5921,7 +5921,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_02.editor_model.method.parameter-group-handler_add-parameter-child",
+      "mappingId": "cubism.mapping.v5_0_06.editor_model.method.parameter-group-handler_add-parameter-child",
       "alias": "cubism.editor-model.parameter-group-handler.add-parameter-child",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/doc/model/param/group/f",
@@ -5932,7 +5932,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_02.editor_model.class.parameter-group-handler_class",
+      "mappingId": "cubism.mapping.v5_0_06.editor_model.class.parameter-group-handler_class",
       "alias": "cubism.editor-model.parameter-group-handler.class",
       "kind": "class",
       "ownerInternalName": "com/live2d/cubism/doc/model/param/group/f",
@@ -5943,7 +5943,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_02.editor_model.method.parameter-group-handler_remove-descendant",
+      "mappingId": "cubism.mapping.v5_0_06.editor_model.method.parameter-group-handler_remove-descendant",
       "alias": "cubism.editor-model.parameter-group-handler.remove-descendant",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/doc/model/param/group/f",
@@ -6020,7 +6020,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_02.editor_model.method.parameter-group_handler",
+      "mappingId": "cubism.mapping.v5_0_06.editor_model.method.parameter-group_handler",
       "alias": "cubism.editor-model.parameter-group.handler",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/doc/model/param/group/CParameterGroup",
@@ -8638,7 +8638,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_02.editor_model.method.track_instance_update",
+      "mappingId": "cubism.mapping.v5_1_03.editor_model.method.track_instance_update",
       "alias": "cubism.editor-model.track-instance.update",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/doc/animation/movie/track/ICMvTrack_Instance",
@@ -9705,7 +9705,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_02.editor_model.method.native_data_impl",
+      "mappingId": "cubism.mapping.v5_0_04.editor_model.method.native_data_impl",
       "alias": "cubism.texture-atlas.native.data.impl",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/a/a",
@@ -9771,7 +9771,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_02.editor_model.method.native_impl_container",
+      "mappingId": "cubism.mapping.v5_0_04.editor_model.method.native_impl_container",
       "alias": "cubism.texture-atlas.native.impl.container",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/impl/O",

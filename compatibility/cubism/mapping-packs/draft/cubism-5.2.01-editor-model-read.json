@@ -24852,9 +24852,9 @@
     "profileId": "cubism-5.2.01",
     "verificationId": "cubism-5.2.01.editor-model.static",
     "selectorCount": 980,
-    "capabilityCount": 108,
+    "capabilityCount": 110,
     "validationNotes": "DRAFT only. Every selector is statically checked against the exact 5.2.01 JAR by kind/owner/name/descriptor/access. Runtime/host behavior is not claimed because no host was started.",
-    "verificationRecordSha256": "bdb6f615d0dab8c60f650b750813e965b942dad123432ae36c2ff91ed0ade4ca",
+    "verificationRecordSha256": "6d797abfe664032bbc076602e3030493488e2d8f3327a3fdb385287bbf4ced06",
     "capabilityIds": [
       "cubism.editor-history.move",
       "cubism.editor-history.read",
@@ -24963,7 +24963,9 @@
       "cubism.texture-atlas.native-layout-invocation",
       "ui.object-context-menu.contribute",
       "cubism.editor-model.psd.raw-image.export",
-      "cubism.editor-model.psd.raw-image.replace"
+      "cubism.editor-model.psd.raw-image.replace",
+      "cubism.mesh-tool.session",
+      "cubism.modeling-tool.selection-brush"
     ]
   }
 }
