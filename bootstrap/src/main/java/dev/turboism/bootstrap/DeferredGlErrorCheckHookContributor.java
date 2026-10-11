@@ -1,6 +1,5 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.optimization.deferred.DeferredGlErrorCheckTransformer;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
@@ -32,7 +31,7 @@ final class DeferredGlErrorCheckHookContributor extends NativeOptimizationHookCo
 
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
-        if (!DeferredGlErrorCheckTransformer.enabledByPreference()) {
+        if (!NativeOptimizationPolicy.mesaGlThreadEnabled(environment)) {
             log(environment, id() + " deferred=INACTIVE installation=NOT_ADMITTED reason=preference-disabled");
             return noOp();
         }

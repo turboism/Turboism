@@ -1,7 +1,5 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateBridge;
-
 /** Contributor for the verified incremental model update optimization. */
 final class IncrementalUpdateHookContributor extends NativeOptimizationHookContributor {
 
@@ -11,7 +9,7 @@ final class IncrementalUpdateHookContributor extends NativeOptimizationHookContr
 
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
-        if (!IncrementalUpdateBridge.flagEnabled()) {
+        if (!NativeOptimizationPolicy.incrementalUpdateEnabled(environment)) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }

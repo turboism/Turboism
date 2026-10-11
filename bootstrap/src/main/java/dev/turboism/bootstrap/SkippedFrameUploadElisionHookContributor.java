@@ -1,7 +1,5 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge;
-import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionBridge;
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionTransformer;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 
@@ -29,12 +27,12 @@ final class SkippedFrameUploadElisionHookContributor extends NativeOptimizationH
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         final boolean validation = Boolean.getBoolean(SkippedFrameUploadElisionTransformer.ENABLE_PROPERTY);
-        final boolean production = SkippedFrameUploadElisionBridge.enabledByPreference();
+        final boolean production = NativeOptimizationPolicy.uploadElisionEnabled(environment);
         if (!validation && !production) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }
-        if (production && !validation && !ModelUpdateSkipBridge.flagEnabled()) {
+        if (production && !validation && !NativeOptimizationPolicy.modelUpdateSkipEnabled(environment)) {
             // Without skipped frames the consult can never elide; installing
             // would buy pure per-call overhead.
             log(environment, id() + " installation=NOT_ADMITTED reason=modelUpdateSkip-disabled");

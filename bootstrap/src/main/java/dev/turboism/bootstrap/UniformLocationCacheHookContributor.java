@@ -1,6 +1,5 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 
 /** Contributor for the verified uniform-location cache optimization. */
@@ -12,7 +11,7 @@ final class UniformLocationCacheHookContributor extends NativeOptimizationHookCo
 
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
-        if (!UniformLocationHookBridge.enabledByPreference()) {
+        if (!NativeOptimizationPolicy.uniformLocationCacheEnabled(environment)) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }

@@ -48,6 +48,7 @@ public record ModelUpdateSkipTarget(
     private static final String PS = "com.live2d.cubism.doc.model.param.CParameterSet";
     private static final String CP = "com.live2d.cubism.doc.model.param.CParameter";
     private static final String DOC = "com.live2d.cubism.doc.modeling.CModelingDocument";
+    private static final String EM = "com.live2d.cubism.doc.ACEditMode";
     private static final String CX = "com.live2d.cubism.view.context.CEViewContext";
     private static final String MV = "com.live2d.cubism.view.context.CEViewContext_ModelingView";
     private static final String AS = "com.live2d.cubism.setting.AppSetting";
@@ -254,6 +255,7 @@ public record ModelUpdateSkipTarget(
         deps.add(new Dep(CX, "getDevelopSetting", "()L" + developSetting().replace('.', '/') + ";"));
         deps.add(new Dep(CX, "getAppearanceSetting", "()L" + appearanceSetting().replace('.', '/') + ";"));
         deps.add(new Dep(CX, "getCurrentEditMode", "()Lcom/live2d/doc/IEditMode;"));
+        deps.add(new Dep(EM, "isEditing", "()Z"));
         deps.add(new Dep(MV, "isRandomPoseAnimation", "()Z"));
         deps.add(new Dep(MV, "isExternalAppAnimation", "()Z"));
         deps.add(new Dep(MV, "isRecording", "()Z"));
