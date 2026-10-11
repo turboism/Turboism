@@ -43,6 +43,29 @@ tasks.test {
     systemProperty("mcpBuildDir", project(":plugins:mcp").buildDir.absolutePath)
 }
 
+/*
+ * devCheck admission guard: the static verification record and DRAFT mapping
+ * pack repository suites. These are the tests that pin review-data drift
+ * (record digests, selector matrices, pack provenance) and previously only ran
+ * under checkCompletedCommit.
+ */
+val admissionUnitTests by tasks.registering(Test::class) {
+    group = "verification"
+    description = "Runs the offline static verification record and draft mapping pack repository tests."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    maxParallelForks = 1
+    systemProperty("projectRoot", rootProject.projectDir.absolutePath)
+    systemProperty("sdkBuildDir", project(":sdk").buildDir.absolutePath)
+    systemProperty("projectInspectorBuildDir", project(":plugins:project-inspector").buildDir.absolutePath)
+    systemProperty("mcpBuildDir", project(":plugins:mcp").buildDir.absolutePath)
+    filter {
+        includeTestsMatching("dev.turboism.tests.mapping.*")
+        isFailOnNoMatchingTests = true
+    }
+}
+
 tasks.register<Test>("previewPluginRuntimeTest") {
     group = "verification"
     description = "Runs real local plugin loading and preview failure-report integration tests."
