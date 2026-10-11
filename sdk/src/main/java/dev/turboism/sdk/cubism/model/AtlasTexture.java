@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.TextureAtlasId;
 
 /** Read-only projection of one texture atlas document. */
+@CubismEditor(from = "5.0.00")
 public interface AtlasTexture {
 
     /** Returns this atlas document's stable identity. */

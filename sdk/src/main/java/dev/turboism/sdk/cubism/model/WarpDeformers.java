@@ -1,10 +1,12 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import java.util.List;
 import java.util.NoSuchElementException;
 
 /** Warp Deformers in one Cubism model. */
+@CubismEditor(from = "5.0.00")
 public interface WarpDeformers {
 
     /** Returns every Warp Deformer in the model, in host order. */

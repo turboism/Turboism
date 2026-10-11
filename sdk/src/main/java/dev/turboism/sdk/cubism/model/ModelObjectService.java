@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 
@@ -14,6 +15,7 @@ import java.util.Objects;
  * optionally grouped through {@link
  * dev.turboism.sdk.cubism.CubismFacade#authoringTransactions()}.
  */
+@CubismEditor(from = "5.0.00")
 public interface ModelObjectService {
 
     /** Returns every model object in the active authoring model, in host order. */

@@ -1,5 +1,7 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * Access to Cubism model objects.
  *
@@ -9,6 +11,7 @@ package dev.turboism.sdk.cubism.model;
  * To group several writes into one Editor Undo unit, run them inside {@link
  * dev.turboism.sdk.cubism.CubismFacade#authoringTransactions()}.
  */
+@CubismEditor(from = "5.0.00")
 public interface CubismModelAccess {
 
     /**

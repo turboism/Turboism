@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ParameterBindingPointId;
 import java.util.Objects;
 
 /** One immutable coordinate in an Editor parameter binding. */
+@CubismEditor
 public record ParameterBindingPoint(ParameterBindingPointId id, float value) {
     public ParameterBindingPoint {
         id = Objects.requireNonNull(id, "id");

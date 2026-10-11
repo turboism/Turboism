@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import java.util.List;
 import java.util.Locale;
@@ -15,6 +16,7 @@ import java.util.function.Predicate;
  * Structural operations — {@link #create}, {@link #copy}, {@link #remove}, {@link #createMany} —
  * are Editor authoring writes and join an ambient authoring transaction when one is open.
  */
+@CubismEditor(from = "5.0.00")
 public interface Parameters {
 
     /** Returns all parameters in stable model order. */

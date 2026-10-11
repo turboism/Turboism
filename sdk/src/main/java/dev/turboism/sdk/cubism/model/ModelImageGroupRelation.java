@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import java.util.List;
@@ -7,6 +8,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Immutable group projection; intentionally has no fabricated group GUID. */
+@CubismEditor
 public record ModelImageGroupRelation(
         ModelImageGroup group,
         List<ModelImageId> modelImageIds,

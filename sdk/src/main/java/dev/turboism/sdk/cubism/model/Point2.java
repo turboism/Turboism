@@ -1,6 +1,9 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
+
 /** Immutable two-dimensional point owned by Turboism. */
+@CubismEditor
 public record Point2(float x, float y) {
 
     public Point2 {
