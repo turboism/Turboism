@@ -18,6 +18,7 @@ import java.util.Optional;
  * facade snapshots and {@link dev.turboism.sdk.cubism.core.OwnedParameter} inside the detached
  * owned model — but none of them is a write handle.
  */
+@CubismEditor(from = "5.0.00")
 public interface CubismModel {
 
     /** Returns this model's stable identity when the model-read contract is admitted. */

@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /** Stable ID of one Cubism Part. */
+@CubismEditor
 public record PartId(String value) {
 
     public PartId {

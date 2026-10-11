@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import java.util.List;
 import java.util.Objects;
@@ -13,6 +14,7 @@ import java.util.Optional;
  * reopened project may have no PSD document object; both cases remain {@link SourceKind#UNKNOWN}.
  * Classification does not read source-file contents.</p>
  */
+@CubismEditor
 public record RawImageDetails(
         RawTexture rawImage,
         SourceKind sourceKind,
