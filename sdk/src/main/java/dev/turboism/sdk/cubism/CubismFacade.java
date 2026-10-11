@@ -7,7 +7,7 @@ import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import java.util.Optional;
 
 /** View of the Cubism host exposed to plugins. */
-@dev.turboism.sdk.CubismEditor(from = "5.0.00")
+@dev.turboism.sdk.CubismEditor
 public interface CubismFacade {
 
     /** Returns the host runtime identity and version snapshot. */

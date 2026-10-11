@@ -72,11 +72,11 @@ final class CubismEditorAvailabilityPolicy {
             collectDeclarations(parent, method, declarations, visited);
         }
         final CubismEditor direct = type.getAnnotation(CubismEditor.class);
-        if (direct != null) declarations.add(direct);
+        if (isRestrictive(direct)) declarations.add(direct);
         try {
             final CubismEditor methodDeclaration = type.getDeclaredMethod(method.getName(), method.getParameterTypes())
                     .getAnnotation(CubismEditor.class);
-            if (methodDeclaration != null) declarations.add(methodDeclaration);
+            if (isRestrictive(methodDeclaration)) declarations.add(methodDeclaration);
         } catch (NoSuchMethodException inherited) {
             // The interface-level constraint still applies to inherited methods.
         }
@@ -84,18 +84,31 @@ final class CubismEditorAvailabilityPolicy {
 
     private static boolean declaresAnnotatedMethod(final Class<?> type) {
         for (Method method : type.getMethods()) {
-            if (method.isAnnotationPresent(CubismEditor.class)) return true;
+            if (isRestrictive(method.getAnnotation(CubismEditor.class))) return true;
         }
         return false;
     }
 
     private static boolean hasTypeDeclaration(final Class<?> type, final Set<Class<?>> visited) {
         if (!visited.add(type)) return false;
-        if (type.isAnnotationPresent(CubismEditor.class)) return true;
+        if (isRestrictive(type.getAnnotation(CubismEditor.class))) return true;
         for (Class<?> parent : type.getInterfaces()) {
             if (hasTypeDeclaration(parent, visited)) return true;
         }
         return false;
+    }
+
+    /**
+     * A bare {@code @CubismEditor} (no {@code value}, {@code from}, {@code to}, or
+     * {@code exclude}) documents that the surface was audited for all reviewed versions
+     * without imposing a version constraint or requiring a verified host on carrier methods.
+     */
+    private static boolean isRestrictive(final CubismEditor declaration) {
+        return declaration != null
+                && (declaration.value().length > 0
+                        || !declaration.from().isEmpty()
+                        || !declaration.to().isEmpty()
+                        || declaration.exclude().length > 0);
     }
 
     private static Set<String> expand(final CubismEditor declaration, final String apiId) {

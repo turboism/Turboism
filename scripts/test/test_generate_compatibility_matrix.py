@@ -62,6 +62,8 @@ public interface CubismFacade {
 
 SDK_SVC = """
 package dev.turboism.sdk.cubism;
+import dev.turboism.sdk.CubismEditor;
+@CubismEditor
 public interface Svc {
 }
 """
@@ -316,6 +318,12 @@ class MatrixTest(unittest.TestCase):
         self.assertEqual([], names["DEAD"])
 
     def test_sdk_constraints(self) -> None:
+        parsed_entries, _ = GEN.parse_sdk_annotations(self.root, list(VERSIONS))
+        parsed_by_api = {e["api"]: e["versions"] for e in parsed_entries}
+        self.assertEqual(
+            list(VERSIONS),
+            parsed_by_api["dev.turboism.sdk.cubism.Svc"],
+        )
         apis = {e["api"]: e["versions"] for e in self.matrix["sdkApiConstraints"]}
         self.assertEqual(
             ["5.1.00", "5.2.00"],
@@ -324,6 +332,7 @@ class MatrixTest(unittest.TestCase):
         self.assertNotIn(
             "dev.turboism.sdk.cubism.CubismFacade#reads()", apis
         )
+        self.assertNotIn("dev.turboism.sdk.cubism.Svc", apis)
 
     def test_plugin_supported_and_deltas(self) -> None:
         plugin = self.plugin()
