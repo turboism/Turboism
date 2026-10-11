@@ -274,7 +274,7 @@ Latest FINAL result per task × version from `validation/cubism-version-matrix/c
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `about-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |
 | `acp` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
-| `animation` |  |  |  |  |  |  |  |  |  |  |  | ✓ | ✓ | ✓ | ✓ | ✓ | ? | ✓ | ✓ | ? |
+| `animation` |  |  |  |  |  |  |  |  |  |  |  | ✓ | ✓ | ✓ | ✓ | ✓ | ? | ✓ | ✓ | ✓ |
 | `artmesh-mirror-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |
 | `atlas-image-observe` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |
 | `atlas-image-shadow` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
@@ -305,13 +305,13 @@ Latest FINAL result per task × version from `validation/cubism-version-matrix/c
 | `official-core` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
 | `official-viewer` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
 | `parameter` | ? | ? | ◇ | ◇ | ◇ | ◇ | ◇ | ? | ◇ | ◇ | ◇ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `performance` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | ✓ | ✓ | ? |  | ◇ | ◇ | ✓ |  | ◇ | ✓ | ✓ | ✓ |
+| `performance` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ |  | ◇ | ◇ | ✓ |  | ◇ | ✓ | ✓ | ✓ |
 | `performance-settings` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |
 | `plugin-management-direct-jar-restart` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
 | `plugin-management-direct-jar-stage` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
 | `plugin-ui` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ? |  |  |
 | `project-workspace` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ? |  |  |
-| `protected-export` |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |  | ? | ✓ |  | ? | ? | ✓ |
+| `protected-export` |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |  | ✓ | ✓ |  | ? | ? | ✓ |
 | `psd` |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ✓ | ◇ | ✓ | ✓ | ✓ | ✓ |
 | `review056` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ? | ? |  |
 | `selection-brush-coordinate-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |  |  |  |
@@ -320,13 +320,13 @@ Latest FINAL result per task × version from `validation/cubism-version-matrix/c
 | `selection-edit` | ? | ? | ? | ? | ? | ? | ? |  | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ |
 | `semantic-history-native-ui` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |
 | `semantic-history-primary` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ? | ? |  |
-| `separate-save-path` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ? | ? | ✓ | ◇ | ◇ | ✓ | ✓ | ✓ |
+| `separate-save-path` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ? | ? | ✓ | ✓ | ◇ | ✓ | ✓ | ✓ |
 | `session-standard` | ? |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |  | ◇ |
 | `settings-edge-index` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |
 | `settings-page` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
-| `startup` | ✓ | ? | ? | ✓ | ? | ? | ✓ | ? | ? | ? | ✓ | ? | ? | ? | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ |
+| `startup` | ✓ | ? | ? | ✓ | ? | ? | ✓ | ✓ | ? | ? | ✓ | ✓ | ? | ? | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ |
 | `texture` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `texture-atlas` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ? | ? |  |
+| `texture-atlas` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ? | ? |  |
 | `texture-relations-smoke` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
 | `tlprod-5203-off` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |  |  |  |
 | `tlprod-5203-on` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |  |  |  |
@@ -335,10 +335,10 @@ Latest FINAL result per task × version from `validation/cubism-version-matrix/c
 | `tlprod-5303-off` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |
 | `tlprod-5303-on` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |
 | `turbo-mesh` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
-| `update-check` | ✓ | ✓ | ? | ? | ✓ | ✓ | ✓ | ✓ | ✓ | ? | ? | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ | ✓ | ✓ | ✓ |
+| `update-check` | ✓ | ✓ | ? | ? | ✓ | ✓ | ✓ | ✓ | ✓ | ? | ✓ | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ | ✓ | ✓ | ✓ |
 | `vertex-upload-skip` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |
 | `warp-deformer` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
 | `warp-deformer-alt-symmetry` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ? | ✓ |  |
 | `warp-glue` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ? | ✓ |  |
 | `warp-point-link` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
-| `workspace` | ? | ◇ | ◇ | ◇ | ◇ | ? | ◇ | ✓ | ? | ? | ✓ | ? | ✓ | ? | ✓ | ✓ | ? | ✓ | ✓ | ✓ |
+| `workspace` | ◇ | ◇ | ◇ | ◇ | ◇ | ? | ◇ | ✓ | ? | ? | ✓ | ✓ | ✓ | ? | ✓ | ✓ | ? | ✓ | ✓ | ✓ |
