@@ -33,6 +33,13 @@ The official Selection Brush contributes tools for ordinary modeling and mesh ed
 - Requires an exact reviewed Cubism 5.2.03, 5.3.02, or 5.3.03 artifact. Ordinary modeling additionally requires its independently admitted point-selection and tool-lifecycle capability; missing that feature leaves mesh tools available.
 - Interface mode: embedded. No plugin dependencies are declared.
 
+<!-- compatibility:begin -->
+**Cubism Editor version support (generated):** 5.2.03, 5.3.02–5.3.03.
+- Mesh-edit custom tools only on 5.2.03, 5.3.02–5.3.03
+- Modeling selection brush only on 5.2.03, 5.3.02–5.3.03
+Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
+<!-- compatibility:end -->
+
 ## Install and enable
 
 Install the plugin through Turboism's official Full or Thin installer, or use the Full archive. Select Selection Brush in the installer or enable it in Plugin Management. Restart the Editor after changing plugin enabled state; the current manager applies these changes on the next launch. Its delivery status is store candidate.

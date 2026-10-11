@@ -60,6 +60,12 @@ MIT ライセンスの `whitegreen/Dalsoo-Bin-Packing`（コミット `bde2a3e`�
 - **インターフェースモード:** `none`。
 - **プラグイン依存:** なし。
 
+<!-- compatibility:begin -->
+**Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
+- ポリゴン対応アトラスレイアウト のみ 5.2.03–5.3.03
+完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
+<!-- compatibility:end -->
+
 ## 正直な制限
 
 - **輪郭フォールバック。** ホスト項目に利用可能な輪郭がない場合、

@@ -42,6 +42,12 @@ interface: embedded
 - **インターフェースモード:** `embedded`。
 - **プラグイン依存関係:** 宣言されていません。
 
+<!-- compatibility:begin -->
+**Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
+- エディタモデル書き込み のみ 5.2.00–5.3.04
+完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
+<!-- compatibility:end -->
+
 ## インストールと有効化
 
 この公式プラグインは、まだ公開ストアに掲載されていない**ストア候補**です。マーケットプレイスで公開されるまでの間は、Turboism の公式リリースパッケージを通じてインストールし、**Plugin Management** で有効化してください。このワークフローが不要な場合は、同じウィンドウから無効化またはアンインストールできます。

@@ -30,6 +30,13 @@ interface: none
 - **模型：**仅允许符合条件的模型。包含不支持家族、非存储关键帧、退化几何或缺失配对的模型会收到阻塞原因，而不是部分导出。
 - **界面模式：**`none` —— 插件通过框架动作驱动导出，并经通知与日志报告结果。
 
+<!-- compatibility:begin -->
+**Cubism Editor 版本支持（自动生成）：** 5.1.00–5.3.04.
+- 受保护导出编排 不适用于 5.0.00–5.0.06
+- cubism.export.ExportSettingsContributionService 不适用于 5.0.00–5.0.06
+完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
+<!-- compatibility:end -->
+
 ## 安装与启用
 
 本官方插件为**商店候选**，尚未发布到商店。在市场上架前，请通过 Turboism 官方发行包安装，然后在**插件管理**中启用；不需要该工作流时，可在同一窗口禁用或卸载。

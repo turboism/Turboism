@@ -42,6 +42,14 @@ interface: swing
 - **界面模式：**`swing`。
 - **插件依赖：**未声明。
 
+<!-- compatibility:begin -->
+**Cubism Editor 版本支持（自动生成）：** 全部审核版本.
+- 原生纹理图集编辑器会话访问 仅 5.2.00–5.2.02, 5.3.00–5.3.04
+- cubism.textureatlas.TextureAtlasEditorPanel 仅 5.2.00–5.3.04
+- 原生纹理图集编辑器 UI 贡献 仅 5.2.00–5.3.04
+完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
+<!-- compatibility:end -->
+
 ## 安装与启用
 
 此官方插件是一个**商店候选项**，尚未作为商店列表发布。在市场发布前，请通过 Turboism 的官方发行包安装它，然后在**插件管理**中启用它。若不再需要此工作流，请在同一窗口中禁用或卸载它。

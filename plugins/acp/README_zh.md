@@ -33,6 +33,11 @@ interface: swing
 - 需要 MCP 工具访问时，由捆绑的 `dev.turboism.plugin.mcp` 插件提供 Turboism MCP 服务器。
 - 需要已安装的 Cubism Editor 宿主；插件不在独立预览中运行。
 
+<!-- compatibility:begin -->
+**Cubism Editor 版本支持（自动生成）：** 全部审核版本.
+完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
+<!-- compatibility:end -->
+
 ## 安装与启用
 
 - 插件随 Turboism 捆绑，默认启用。
