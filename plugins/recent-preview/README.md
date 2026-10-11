@@ -60,6 +60,7 @@ No capabilities are declared in the plugin manifest.
 
 | Permission | Scope | Why it is requested |
 |---|---|---|
+| `turboism.cubism.model.observe` | `application` | Receives model open/save lifecycle callbacks that trigger bounded preview captures; undeclared, the lifecycle registry filters them out. |
 | `turboism.cubism.recent-file.read` | `application` | Lists the host Recent Files projection to key the preview cache by opaque file id. |
 | `turboism.ui.viewport.read` | `application` | Captures bounded modeling-surface preview thumbnails for recent files. |
 | `turboism.ui.recent-preview.contribute` | `application` | Contributes thumbnail popup content to the host Recent Files hover bridge. |
