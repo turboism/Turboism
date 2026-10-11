@@ -30,13 +30,20 @@ case " $* " in
     turboism_select_fixture "$version"
     ;;
   *)
+    # The standard variant needs a Glue-bearing fixture for the glue authoring
+    # assertions; the shared versioned fixture may carry none. Prefer the
+    # task-scoped override, then reuse the clipmask mask/Glue-bearing fixture,
+    # and only then fall back to the versioned selection.
     if [ -n "${TURBOISM_HOST_VALIDATION_FIXTURE_MCP:-}" ]; then
-      # Task-scoped Glue-bearing fixture: the shared versioned fixture may
-      # carry no Glue relation, which fails the glue authoring assertions.
       fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_MCP"
       fixture_sha256="${TURBOISM_HOST_VALIDATION_FIXTURE_MCP_SHA256:-}"
       [ -n "$fixture_sha256" ] \
         || { echo "error: TURBOISM_HOST_VALIDATION_FIXTURE_MCP set but TURBOISM_HOST_VALIDATION_FIXTURE_MCP_SHA256 missing" >&2; exit 2; }
+    elif [ -n "${TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK:-}" ]; then
+      fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK"
+      fixture_sha256="${TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK_SHA256:-}"
+      [ -n "$fixture_sha256" ] \
+        || { echo "error: TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK set but TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK_SHA256 missing" >&2; exit 2; }
     else
       turboism_select_fixture "$version"
     fi
