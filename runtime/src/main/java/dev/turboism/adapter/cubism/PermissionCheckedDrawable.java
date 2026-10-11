@@ -375,8 +375,7 @@ final class PermissionCheckedDrawable implements dev.turboism.sdk.cubism.model.D
                 || !Float.isFinite(keyValue)
                 || keyValue <= 0f
                 || keyValue > 1f) {
-            throw new IllegalArgumentException(
-                    "a native parameter GUID and positive morph key are required");
+            throw new IllegalArgumentException("a native parameter GUID and positive morph key are required");
         }
         final var created = new dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform[1];
         facade.runSemantic(

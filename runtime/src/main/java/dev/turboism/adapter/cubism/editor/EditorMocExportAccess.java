@@ -5,7 +5,6 @@ import dev.turboism.mapping.verification.selector.EditorMocExportSelectorContrac
 import dev.turboism.sdk.cubism.model.CubismExportTexture;
 import dev.turboism.sdk.cubism.model.CubismMocExport;
 import dev.turboism.sdk.cubism.model.CubismMocExportSettings;
-
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,27 +20,28 @@ final class EditorMocExportAccess {
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
 
-    EditorMocExportAccess(final VerifiedMemberResolver resolver,
-                          final EditorParameterCombinedAccess.ModelGuard modelGuard) {
+    EditorMocExportAccess(
+            final VerifiedMemberResolver resolver, final EditorParameterCombinedAccess.ModelGuard modelGuard) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
     }
 
-    CubismMocExport exportMoc(final String identity, final Object source, final Object model,
-                             final CubismMocExportSettings settings) {
+    CubismMocExport exportMoc(
+            final String identity, final Object source, final Object model, final CubismMocExportSettings settings) {
         Objects.requireNonNull(settings, "settings");
-        if (!resolver.isExactCubismVersion("5.3.02") || !resolver.authorizesFeature(
-            EditorMocExportSelectorContract.ADAPTER_SLICE_ID,
-            EditorMocExportSelectorContract.CAPABILITY_ID,
-            EditorMocExportSelectorContract.REQUIRED_ALIASES)) {
+        if (!resolver.isExactCubismVersion("5.3.02")
+                || !resolver.authorizesFeature(
+                        EditorMocExportSelectorContract.ADAPTER_SLICE_ID,
+                        EditorMocExportSelectorContract.CAPABILITY_ID,
+                        EditorMocExportSelectorContract.REQUIRED_ALIASES)) {
             throw new UnsupportedOperationException("Official MOC export requires exact verified Cubism 5.3.02.");
         }
-        return EditorHostThread.dispatch("Cubism official MOC export",
-            () -> exportOnEdt(identity, source, model, settings));
+        return EditorHostThread.dispatch(
+                "Cubism official MOC export", () -> exportOnEdt(identity, source, model, settings));
     }
 
-    private CubismMocExport exportOnEdt(final String identity, final Object source, final Object model,
-                                       final CubismMocExportSettings settings) {
+    private CubismMocExport exportOnEdt(
+            final String identity, final Object source, final Object model, final CubismMocExportSettings settings) {
         modelGuard.requireCurrent(identity, model);
         final List<?> instances = snapshot(resolver.invoke(INSTANCES, source));
         final Object current = resolver.invoke(CURRENT, source);
@@ -53,16 +53,34 @@ final class EditorMocExportAccess {
         Throwable primary = null;
         try {
             final Object nativeSettings = resolver.construct("cubism.editor-model.official-export.settings-create");
-            resolver.invoke("cubism.editor-model.official-export.set-format", nativeSettings,
-                resolver.readStaticField("cubism.editor-model.official-export.format-530"));
+            resolver.invoke(
+                    "cubism.editor-model.official-export.set-format",
+                    nativeSettings,
+                    resolver.readStaticField("cubism.editor-model.official-export.format-530"));
             resolver.invoke("cubism.editor-model.official-export.set-origin-x", nativeSettings, settings.originX());
             resolver.invoke("cubism.editor-model.official-export.set-origin-y", nativeSettings, settings.originY());
-            resolver.invoke("cubism.editor-model.official-export.set-pixels-per-unit", nativeSettings, settings.pixelsPerUnit());
-            resolver.invoke("cubism.editor-model.official-export.set-invisible-part", nativeSettings, settings.includeInvisibleParts());
-            resolver.invoke("cubism.editor-model.official-export.set-sketch-part", nativeSettings, settings.includeSketchParts());
-            resolver.invoke("cubism.editor-model.official-export.set-invisible-mesh", nativeSettings, settings.includeInvisibleMeshes());
-            resolver.invoke("cubism.editor-model.official-export.set-invisible-alias", nativeSettings, settings.includeInvisibleAliases());
-            resolver.invoke("cubism.editor-model.official-export.set-extend-edge", nativeSettings, settings.extendEdgeColors());
+            resolver.invoke(
+                    "cubism.editor-model.official-export.set-pixels-per-unit",
+                    nativeSettings,
+                    settings.pixelsPerUnit());
+            resolver.invoke(
+                    "cubism.editor-model.official-export.set-invisible-part",
+                    nativeSettings,
+                    settings.includeInvisibleParts());
+            resolver.invoke(
+                    "cubism.editor-model.official-export.set-sketch-part",
+                    nativeSettings,
+                    settings.includeSketchParts());
+            resolver.invoke(
+                    "cubism.editor-model.official-export.set-invisible-mesh",
+                    nativeSettings,
+                    settings.includeInvisibleMeshes());
+            resolver.invoke(
+                    "cubism.editor-model.official-export.set-invisible-alias",
+                    nativeSettings,
+                    settings.includeInvisibleAliases());
+            resolver.invoke(
+                    "cubism.editor-model.official-export.set-extend-edge", nativeSettings, settings.extendEdgeColors());
             final Object exporter = resolver.construct("cubism.editor-model.official-export.exporter-create");
             resolver.invoke("cubism.editor-model.official-export.exporter-settings", exporter, nativeSettings);
             // Exact native ak.a(null) supplies its own progress implementation. The official
@@ -77,10 +95,11 @@ final class EditorMocExportAccess {
             try {
                 modelGuard.requireCurrent(identity, model);
                 if (resolver.invoke(CURRENT, source) != current
-                    || !sameIdentities(instances, snapshot(resolver.invoke(INSTANCES, source)))
-                    || resolver.invoke(MANAGER, source) != manager
-                    || !sameIdentities(atlases, snapshot(resolver.invoke(ATLASES, manager)))) {
-                    throw new IllegalStateException("Official export changed the active model or its resource membership.");
+                        || !sameIdentities(instances, snapshot(resolver.invoke(INSTANCES, source)))
+                        || resolver.invoke(MANAGER, source) != manager
+                        || !sameIdentities(atlases, snapshot(resolver.invoke(ATLASES, manager)))) {
+                    throw new IllegalStateException(
+                            "Official export changed the active model or its resource membership.");
                 }
             } catch (RuntimeException | Error failure) {
                 if (primary != null) primary.addSuppressed(failure);
@@ -93,12 +112,12 @@ final class EditorMocExportAccess {
         final Object rawBytes = resolver.invoke("cubism.editor-model.official-export.moc-bytes", result);
         if (!(rawBytes instanceof List<?> bytes)) {
             throw new IllegalStateException("Official exporter returned a non-list MOC byte container: "
-                + (rawBytes == null ? "null" : rawBytes.getClass().getName()) + ".");
+                    + (rawBytes == null ? "null" : rawBytes.getClass().getName()) + ".");
         }
         final int byteCount = bytes.size();
         if (byteCount < 64 || byteCount > CubismMocExport.MAX_MOC_BYTES) {
             throw new IllegalStateException("Official exporter returned invalid or oversized MOC data: length="
-                + byteCount + ", maximum=" + CubismMocExport.MAX_MOC_BYTES + ".");
+                    + byteCount + ", maximum=" + CubismMocExport.MAX_MOC_BYTES + ".");
         }
         final byte[] moc = new byte[byteCount];
         int index = 0;
@@ -126,15 +145,16 @@ final class EditorMocExportAccess {
                 throw new IllegalStateException("Official texture pixel budget exceeded.");
             }
             final Object nativeImage = resolver.invoke("cubism.editor-model.image-resource.image", image);
-            final Object rawRaster = resolver.invoke("cubism.editor-model.writable-image.j-buffered-image", nativeImage);
+            final Object rawRaster =
+                    resolver.invoke("cubism.editor-model.writable-image.j-buffered-image", nativeImage);
             if (!(rawRaster instanceof BufferedImage raster)
-                || raster.getWidth() != width || raster.getHeight() != height) {
+                    || raster.getWidth() != width
+                    || raster.getHeight() != height) {
                 throw new IllegalStateException("Official texture raster dimensions differ from its resource.");
             }
             // Cached export textures are borrowed from CImageResource, unlike an owned
             // offscreen render. Copy pixels; never flush or modify that native cache.
-            textures.add(new CubismExportTexture(width, height,
-                raster.getRGB(0, 0, width, height, null, 0, width)));
+            textures.add(new CubismExportTexture(width, height, raster.getRGB(0, 0, width, height, null, 0, width)));
         }
         return new CubismMocExport(moc, textures, settings);
     }

@@ -494,8 +494,7 @@ final class CoreCallSiteTable implements AutoCloseable {
         if (closed) {
             return false;
         }
-        return callSite(CorePublicApiSelectorContract.MODEL_GET_CANVAS_INFO)
-            .acceptsReceiver(model);
+        return callSite(CorePublicApiSelectorContract.MODEL_GET_CANVAS_INFO).acceptsReceiver(model);
     }
 
     private VerifiedMethodCallSite callSite(final String alias) {

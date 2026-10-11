@@ -3769,114 +3769,6 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.editor_model.helper_instance",
-      "kind": "field",
-      "name": "cubism.texture-atlas.texture-input-relink.helper-instance",
-      "runtime": "a",
-      "profile": "cubism-5.3.02",
-      "status": "DRAFT",
-      "stability": "experimental",
-      "source": "exact-public-classfile-observation",
-      "verifiedBy": "none",
-      "verifiedAt": null,
-      "confidence": "high",
-      "owner": "edit-api-bridge",
-      "intermediary": "",
-      "descriptor": "Lcom/live2d/cubism/doc/model/texture/r;",
-      "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/texture/r",
-        "requiredAccessFlags": 9,
-        "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.texture-atlas.texture-input-relink.helper-instance",
-        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.helper_instance",
-        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
-        "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
-      }
-    },
-    {
-      "semanticName": "cubism.mapping.v5_3_02.editor_model.rebuild",
-      "kind": "method",
-      "name": "cubism.texture-atlas.texture-input-relink.rebuild",
-      "runtime": "a",
-      "profile": "cubism-5.3.02",
-      "status": "DRAFT",
-      "stability": "experimental",
-      "source": "exact-public-classfile-observation",
-      "verifiedBy": "none",
-      "verifiedAt": null,
-      "confidence": "high",
-      "owner": "edit-api-bridge",
-      "intermediary": "",
-      "descriptor": "(Lcom/live2d/cubism/doc/model/CModelSource;)V",
-      "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/texture/r",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.texture-atlas.texture-input-relink.rebuild",
-        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.rebuild",
-        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
-        "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
-      }
-    },
-    {
-      "semanticName": "cubism.mapping.v5_3_02.editor_model.drawable_uses",
-      "kind": "method",
-      "name": "cubism.texture-atlas.texture-manager-handler.drawable-uses",
-      "runtime": "d",
-      "profile": "cubism-5.3.02",
-      "status": "DRAFT",
-      "stability": "experimental",
-      "source": "exact-public-classfile-observation",
-      "verifiedBy": "none",
-      "verifiedAt": null,
-      "confidence": "high",
-      "owner": "edit-api-bridge",
-      "intermediary": "",
-      "descriptor": "()Ljava/util/HashMap;",
-      "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/texture/TextureManagerHandler",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.texture-atlas.texture-manager-handler.drawable-uses",
-        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.drawable_uses",
-        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
-        "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
-      }
-    },
-    {
-      "semanticName": "cubism.mapping.v5_3_02.editor_model.change_input_to_atlas",
-      "kind": "method",
-      "name": "cubism.texture-atlas.texture-manager.change-input-to-atlas",
-      "runtime": "changeModelTextureInput_toAtlas",
-      "profile": "cubism-5.3.02",
-      "status": "DRAFT",
-      "stability": "experimental",
-      "source": "exact-public-classfile-observation",
-      "verifiedBy": "none",
-      "verifiedAt": null,
-      "confidence": "high",
-      "owner": "edit-api-bridge",
-      "intermediary": "",
-      "descriptor": "()V",
-      "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/texture/CTextureManager",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.texture-atlas.texture-manager.change-input-to-atlas",
-        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.change_input_to_atlas",
-        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
-        "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
-      }
-    },
-    {
       "semanticName": "cubism.mapping.v5_3_03.editor_model.method.keyform_grid_keyforms_on_grid",
       "kind": "method",
       "owner": "editor-model-parameter-binding",
@@ -9121,48 +9013,6 @@
       "descriptor": "()Z"
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.model_image_linked_raw_image_guids",
-      "kind": "method",
-      "owner": "editor-model-read",
-      "name": "cubism.editor-model.model-image.linked-raw-image-guids",
-      "runtime": "getLinkedRawImageGuids",
-      "profile": "cubism-5.3.02",
-      "status": "DRAFT",
-      "stability": "experimental",
-      "source": "exact-public-classfile-observation",
-      "verifiedBy": "none",
-      "verifiedAt": null,
-      "confidence": "high",
-      "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/texture/modelImage/CModelImage",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
-      },
-      "intermediary": "",
-      "descriptor": "()Lcom/live2d/type/CArrayList;"
-    },
-    {
-      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.model_image_input_filter_env",
-      "kind": "method",
-      "owner": "editor-model-read",
-      "name": "cubism.editor-model.model-image.input-filter-env",
-      "runtime": "getInputFilterEnv",
-      "profile": "cubism-5.3.02",
-      "status": "DRAFT",
-      "stability": "experimental",
-      "source": "exact-public-classfile-observation",
-      "verifiedBy": "none",
-      "verifiedAt": null,
-      "confidence": "high",
-      "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/texture/modelImage/CModelImage",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
-      },
-      "intermediary": "",
-      "descriptor": "()Lcom/live2d/cubism/doc/model/extension/textureInput/inputFilter/ModelImageFilterEnv;"
-    },
-    {
       "semanticName": "cubism.mapping.v5_3_02.editor_model.method.layered_image_children",
       "kind": "method",
       "owner": "editor-model-read",
@@ -9719,31 +9569,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.mesh-edit-data.editable-mesh",
         "recordMappingId": "cubism.mapping.v5_3_02.editor_model.method.mesh_edit_data_editable_mesh",
-        "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
-    },
-    {
-      "semanticName": "cubism.mapping.v5_3_02.editor_model.class.editable_mesh",
-      "kind": "class",
-      "owner": "editor-model-readwrite",
-      "name": "cubism.editor-model.editable-mesh.class",
-      "runtime": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
-      "profile": "cubism-5.3.02",
-      "status": "DRAFT",
-      "stability": "experimental",
-      "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
-      "verifiedBy": "none",
-      "verifiedAt": null,
-      "confidence": "high",
-      "x.verification": {
-        "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.editable-mesh.class",
-        "recordMappingId": "cubism.mapping.v5_3_02.editor_model.class.editable_mesh",
         "exactArtifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
@@ -13395,27 +13220,6 @@
       "x.verification": {
         "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
         "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
-      }
-    },
-    {
-      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.parameter-controllable-source_selection",
-      "kind": "method",
-      "owner": "editor-model-read",
-      "name": "cubism.editor-model.parameter-controllable-source.selection",
-      "runtime": "getSelection",
-      "profile": "cubism-5.3.02",
-      "status": "DRAFT",
-      "stability": "experimental",
-      "source": "exact-public-classfile-observation",
-      "verifiedBy": "none",
-      "verifiedAt": null,
-      "confidence": "high",
-      "intermediary": "",
-      "descriptor": "()Lcom/live2d/cubism/doc/selection/ACParameterControllableSelection;",
-      "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
-        "requiredAccessFlags": 1025,
         "forbiddenAccessFlags": 8
       }
     },
@@ -19284,25 +19088,6 @@
       "descriptor": "()Lcom/live2d/type/CModelImageGuid;"
     },
     {
-      "semanticName": "cubism.mapping.v5_3_02.editor_model.class.texture_input_texture_atlas_region",
-      "kind": "class",
-      "owner": "editor-model-read",
-      "name": "cubism.editor-model.texture-input-texture-atlas-region.class",
-      "runtime": "com/live2d/cubism/doc/model/extension/textureInput/CTextureInput_TextureAtlasRegion",
-      "profile": "cubism-5.3.02",
-      "status": "DRAFT",
-      "stability": "experimental",
-      "source": "exact-public-classfile-observation",
-      "verifiedBy": "none",
-      "verifiedAt": null,
-      "confidence": "high",
-      "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/extension/textureInput/CTextureInput_TextureAtlasRegion",
-        "requiredAccessFlags": 0,
-        "forbiddenAccessFlags": 0
-      }
-    },
-    {
       "semanticName": "cubism.mapping.v5_3_02.editor_model.class.texture_input_texture_atlas_region_class",
       "kind": "class",
       "owner": "editor-model-read",
@@ -23889,7 +23674,7 @@
       "main": "b8c09b5a",
       "entryUnionCount": 1111
     },
-    "selectorCount": 1129,
+    "selectorCount": 1120,
     "capabilityCount": 119,
     "capabilityIds": [
       "cubism.editor-history.move",
@@ -24012,6 +23797,6 @@
       "cubism.texture-atlas.native-layout-invocation",
       "ui.object-context-menu.contribute"
     ],
-    "verificationRecordSha256": "73412c6aba5ae9d6477961941237b4742f3d634652be636a4b831327295ff5ae"
+    "verificationRecordSha256": "49cb92c45301882bfb043dc49df954b56b545a94fb89762dddcfbc3f63e15e41"
   }
 }

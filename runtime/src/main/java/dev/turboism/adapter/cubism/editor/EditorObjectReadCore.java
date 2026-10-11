@@ -607,8 +607,7 @@ final class EditorObjectReadCore {
         try {
             return evaluatedJoin.evaluated(identity).drawable(id);
         } catch (IllegalStateException unavailable) {
-            if (lazyPublish == null
-                    || !unavailable.getMessage().contains("No verified active Core model")) {
+            if (lazyPublish == null || !unavailable.getMessage().contains("No verified active Core model")) {
                 throw unavailable;
             }
             if (!lazyPublish.apply(identity)) {

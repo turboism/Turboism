@@ -1,13 +1,12 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.ParameterId;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import dev.turboism.sdk.CubismEditor;
 
 /**
  * Detached observation of the Editor's last calculated ArtMesh form, not its stored current keyform.
@@ -17,13 +16,12 @@ import dev.turboism.sdk.CubismEditor;
  */
 @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record ArtMeshEvaluationSnapshot(
-    ArtMeshId artMeshId,
-    String sourceGuid,
-    Optional<Form> calculatedForm,
-    ParameterState liveParameters,
-    ParameterState consumedParameters,
-    long passEntryTimeMillis
-) {
+        ArtMeshId artMeshId,
+        String sourceGuid,
+        Optional<Form> calculatedForm,
+        ParameterState liveParameters,
+        ParameterState consumedParameters,
+        long passEntryTimeMillis) {
     public ArtMeshEvaluationSnapshot {
         Objects.requireNonNull(artMeshId, "artMeshId");
         requireText(sourceGuid, "sourceGuid");

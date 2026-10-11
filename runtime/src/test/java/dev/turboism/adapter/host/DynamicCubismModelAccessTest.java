@@ -14,6 +14,7 @@ import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ModelId;
+import dev.turboism.sdk.cubism.id.ParameterBindingPointId;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.AnimationAttribute;
@@ -42,9 +43,13 @@ import dev.turboism.sdk.cubism.model.ModelObjectReference;
 import dev.turboism.sdk.cubism.model.ModelProfile;
 import dev.turboism.sdk.cubism.model.MorphTargets;
 import dev.turboism.sdk.cubism.model.Parameter;
+import dev.turboism.sdk.cubism.model.ParameterBindingOperations;
+import dev.turboism.sdk.cubism.model.ParameterBindingPoint;
+import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
 import dev.turboism.sdk.cubism.model.ParameterGroup;
 import dev.turboism.sdk.cubism.model.ParameterGroups;
+import dev.turboism.sdk.cubism.model.ParameterInterpolation;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Part;
@@ -58,26 +63,20 @@ import dev.turboism.sdk.cubism.model.RotationDeformers;
 import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpDeformers;
 import dev.turboism.sdk.cubism.model.WarpGrid;
-import dev.turboism.sdk.cubism.model.ParameterInterpolation;
-import dev.turboism.sdk.cubism.model.ParameterBindingOperations;
-import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
-import dev.turboism.sdk.cubism.model.ParameterBindingPoint;
-import dev.turboism.sdk.cubism.id.ParameterBindingPointId;
 import dev.turboism.sdk.ui.appearance.NativeLabelColor;
 import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
+import org.junit.jupiter.api.Test;
 
 class DynamicCubismModelAccessTest {
 
-    @Test void interpolationOperationsCannotCrossModelReplacementOrDeactivation() {
+    @Test
+    void interpolationOperationsCannotCrossModelReplacementOrDeactivation() {
         var recording = new RecordingModel();
         var access = new DynamicCubismModelAccess();
         access.connect(() -> recording);
@@ -271,8 +270,9 @@ class DynamicCubismModelAccessTest {
         assertEquals("guid-source", created.guid());
         access.deactivate();
         assertThrows(IllegalStateException.class, created::guid);
-        assertThrows(IllegalStateException.class, () ->
-            meshes.createWithSourceGeometry("Source", null, -1, geometry, List.of()));
+        assertThrows(
+                IllegalStateException.class,
+                () -> meshes.createWithSourceGeometry("Source", null, -1, geometry, List.of()));
     }
 
     @Test
@@ -1083,13 +1083,23 @@ class DynamicCubismModelAccessTest {
             @Override
             public dev.turboism.sdk.cubism.model.Drawables drawables() {
                 return new dev.turboism.sdk.cubism.model.Drawables() {
-                    @Override public List<Drawable> all() { return List.of(drawable); }
-                    @Override public Drawable find(final ArtMeshId id) { return drawable; }
-                    @Override public Drawable createWithSourceGeometry(
-                        final String name, final dev.turboism.sdk.cubism.model.Part parent, final int index,
-                        final ArtMeshGeometry geometry,
-                        final List<dev.turboism.sdk.cubism.model.Point2> defaultPositions
-                    ) {
+                    @Override
+                    public List<Drawable> all() {
+                        return List.of(drawable);
+                    }
+
+                    @Override
+                    public Drawable find(final ArtMeshId id) {
+                        return drawable;
+                    }
+
+                    @Override
+                    public Drawable createWithSourceGeometry(
+                            final String name,
+                            final dev.turboism.sdk.cubism.model.Part parent,
+                            final int index,
+                            final ArtMeshGeometry geometry,
+                            final List<dev.turboism.sdk.cubism.model.Point2> defaultPositions) {
                         assertEquals("Source", name);
                         assertEquals(List.of(), geometry.positions());
                         assertEquals(List.of(), defaultPositions);
@@ -1245,20 +1255,39 @@ class DynamicCubismModelAccessTest {
     }
 
     private static final class RecordingModel implements CubismModel {
-        @Override public ParameterBindingOperations parameterBindings(final ParameterId parameterId) {
+        @Override
+        public ParameterBindingOperations parameterBindings(final ParameterId parameterId) {
             return new ParameterBindingOperations() {
-                @Override public ParameterInterpolation interpolation(ParameterBindingTarget target) {
+                @Override
+                public ParameterInterpolation interpolation(ParameterBindingTarget target) {
                     calls.add("interpolation.read:" + target.id());
                     return new ParameterInterpolation(ParameterInterpolation.Method.ELLIPSE, 6, 1);
                 }
-                @Override public void setInterpolation(ParameterBindingTarget target, ParameterInterpolation settings) {
+
+                @Override
+                public void setInterpolation(ParameterBindingTarget target, ParameterInterpolation settings) {
                     calls.add("interpolation.write:" + target.id() + ":" + settings.insertPointCount());
                 }
-                public void bind(ParameterBindingTarget t, List<ParameterBindingPoint> p) { throw new UnsupportedOperationException(); }
-                public void createPoint(ParameterBindingTarget t, ParameterBindingPoint p) { throw new UnsupportedOperationException(); }
-                public void movePoint(ParameterBindingTarget t, ParameterBindingPointId p, float v) { throw new UnsupportedOperationException(); }
-                public void deletePoint(ParameterBindingTarget t, ParameterBindingPointId p) { throw new UnsupportedOperationException(); }
-                public void unbind(ParameterBindingTarget t) { throw new UnsupportedOperationException(); }
+
+                public void bind(ParameterBindingTarget t, List<ParameterBindingPoint> p) {
+                    throw new UnsupportedOperationException();
+                }
+
+                public void createPoint(ParameterBindingTarget t, ParameterBindingPoint p) {
+                    throw new UnsupportedOperationException();
+                }
+
+                public void movePoint(ParameterBindingTarget t, ParameterBindingPointId p, float v) {
+                    throw new UnsupportedOperationException();
+                }
+
+                public void deletePoint(ParameterBindingTarget t, ParameterBindingPointId p) {
+                    throw new UnsupportedOperationException();
+                }
+
+                public void unbind(ParameterBindingTarget t) {
+                    throw new UnsupportedOperationException();
+                }
             };
         }
 
@@ -1956,59 +1985,141 @@ class DynamicCubismModelAccessTest {
         };
         final RotationDeformerForm[] rotationForm = {new RotationDeformerForm(0.0F, 0.0F, 0.0F, 1.0F, false, false)};
         final Drawable drawable = new Drawable() {
-            @Override public ArtMeshId id() { return new ArtMeshId("ArtMeshA"); }
-            @Override public float getOpacity() { return drawableOpacity[0]; }
-            @Override public void setOpacity(final float value) { drawableOpacity[0] = value; }
-            @Override public ArtMeshGeometry geometry() { return geometry[0]; }
-            @Override public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot authoringSnapshot() {
-                return new dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot(id(), "source-guid", geometry[0],
-                    List.of(), List.of(), List.of(), List.of());
+            @Override
+            public ArtMeshId id() {
+                return new ArtMeshId("ArtMeshA");
             }
-            @Override public dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot evaluationSnapshot() {
-                return new dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot(id(), "source-guid",
-                    java.util.Optional.empty(), new dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot.ParameterState(7, List.of()),
-                    new dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot.ParameterState(13, List.of()), -1);
+
+            @Override
+            public float getOpacity() {
+                return drawableOpacity[0];
             }
-            @Override public dev.turboism.sdk.cubism.model.ArtMeshKeyform ordinaryKeyform(
-                final List<dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Coordinate> coordinates
-            ) {
+
+            @Override
+            public void setOpacity(final float value) {
+                drawableOpacity[0] = value;
+            }
+
+            @Override
+            public ArtMeshGeometry geometry() {
+                return geometry[0];
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot authoringSnapshot() {
+                return new dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot(
+                        id(), "source-guid", geometry[0], List.of(), List.of(), List.of(), List.of());
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot evaluationSnapshot() {
+                return new dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot(
+                        id(),
+                        "source-guid",
+                        java.util.Optional.empty(),
+                        new dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot.ParameterState(7, List.of()),
+                        new dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot.ParameterState(13, List.of()),
+                        -1);
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.ArtMeshKeyform ordinaryKeyform(
+                    final List<dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Coordinate> coordinates) {
                 return new dev.turboism.sdk.cubism.model.ArtMeshKeyform() {
                     private List<Point2> positions = List.of(new Point2(2, 3));
                     private int order = 500;
-                    @Override public List<dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Coordinate> coordinates() {
+
+                    @Override
+                    public List<dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Coordinate> coordinates() {
                         return List.copyOf(coordinates);
                     }
-                    @Override public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form snapshot() {
-                        return new dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form("stored-form", positions, order);
+
+                    @Override
+                    public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form snapshot() {
+                        return new dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form(
+                                "stored-form", positions, order);
                     }
-                    @Override public boolean defaultKeyform() { return false; }
-                    @Override public void setPositions(final List<Point2> value) { positions = List.copyOf(value); }
-                    @Override public void setDrawOrder(final int value) { order = value; }
+
+                    @Override
+                    public boolean defaultKeyform() {
+                        return false;
+                    }
+
+                    @Override
+                    public void setPositions(final List<Point2> value) {
+                        positions = List.copyOf(value);
+                    }
+
+                    @Override
+                    public void setDrawOrder(final int value) {
+                        order = value;
+                    }
                 };
             }
-            @Override public dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform morphKeyform(final String guid, final float key) {
+
+            @Override
+            public dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform morphKeyform(final String guid, final float key) {
                 return new dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform() {
                     private List<Point2> positions = List.of(new Point2(2, 3));
                     private int order = 500;
-                    @Override public String parameterGuid() { return guid; }
-                    @Override public float keyValue() { return key; }
-                    @Override public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form snapshot() {
-                        return new dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form("morph-form", positions, order);
+
+                    @Override
+                    public String parameterGuid() {
+                        return guid;
                     }
-                    @Override public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form baseSnapshot() {
-                        return new dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form("base-form", List.of(new Point2(2, 3)), 500);
+
+                    @Override
+                    public float keyValue() {
+                        return key;
                     }
-                    @Override public void setPositions(final List<Point2> value) { positions = List.copyOf(value); }
-                    @Override public void setDrawOrder(final int value) { order = value; }
+
+                    @Override
+                    public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form snapshot() {
+                        return new dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form(
+                                "morph-form", positions, order);
+                    }
+
+                    @Override
+                    public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form baseSnapshot() {
+                        return new dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form(
+                                "base-form", List.of(new Point2(2, 3)), 500);
+                    }
+
+                    @Override
+                    public void setPositions(final List<Point2> value) {
+                        positions = List.copyOf(value);
+                    }
+
+                    @Override
+                    public void setDrawOrder(final int value) {
+                        order = value;
+                    }
                 };
             }
-            @Override public dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform createMorphKeyform(final String guid, final float key) {
+
+            @Override
+            public dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform createMorphKeyform(
+                    final String guid, final float key) {
                 return morphKeyform(guid, key);
             }
-            @Override public void replaceGeometry(final ArtMeshGeometry value) { geometry[0] = value; }
-            @Override public byte constantFlag() { return 0; }
-            @Override public byte dynamicFlag() { return 0; }
-            @Override public dev.turboism.sdk.cubism.model.BlendMode blendMode() {
+
+            @Override
+            public void replaceGeometry(final ArtMeshGeometry value) {
+                geometry[0] = value;
+            }
+
+            @Override
+            public byte constantFlag() {
+                return 0;
+            }
+
+            @Override
+            public byte dynamicFlag() {
+                return 0;
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.BlendMode blendMode() {
                 return dev.turboism.sdk.cubism.model.BlendMode.NORMAL;
             }
 
@@ -2074,19 +2185,61 @@ class DynamicCubismModelAccessTest {
         };
         final int[] warpOrdinaryWrites = {0};
         final WarpDeformer warp = new WarpDeformer() {
-            @Override public DeformerId id() { return new DeformerId("WarpA"); }
-            @Override public float getOpacity() { return warpOpacity[0]; }
-            @Override public void setOpacity(final float value) { warpOpacity[0] = value; }
-            @Override public WarpGrid grid() { return grid[0]; }
-            @Override public void replaceGrid(final WarpGrid value) { grid[0] = value; }
-            @Override public dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot authoringSnapshot() {
-                return new dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot(id(), "warp-source", grid[0].rows(), grid[0].columns(),
-                    grid[0].quadTransform(), List.of(), List.of(), List.of(new dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot.Form("warp-form",grid[0].controlPoints())));
+            @Override
+            public DeformerId id() {
+                return new DeformerId("WarpA");
             }
-            @Override public void setOrdinaryKeyformPositions(dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot expected,
-                List<dev.turboism.sdk.cubism.model.WarpKeyformPositions> edits) { warpOrdinaryWrites[0]++; }
-            @Override public int parentDeformerIndex() { return -1; }
-            @Override public IntSequence parameters() { return emptyInts(); }
+
+            @Override
+            public float getOpacity() {
+                return warpOpacity[0];
+            }
+
+            @Override
+            public void setOpacity(final float value) {
+                warpOpacity[0] = value;
+            }
+
+            @Override
+            public WarpGrid grid() {
+                return grid[0];
+            }
+
+            @Override
+            public void replaceGrid(final WarpGrid value) {
+                grid[0] = value;
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot authoringSnapshot() {
+                return new dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot(
+                        id(),
+                        "warp-source",
+                        grid[0].rows(),
+                        grid[0].columns(),
+                        grid[0].quadTransform(),
+                        List.of(),
+                        List.of(),
+                        List.of(new dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot.Form(
+                                "warp-form", grid[0].controlPoints())));
+            }
+
+            @Override
+            public void setOrdinaryKeyformPositions(
+                    dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot expected,
+                    List<dev.turboism.sdk.cubism.model.WarpKeyformPositions> edits) {
+                warpOrdinaryWrites[0]++;
+            }
+
+            @Override
+            public int parentDeformerIndex() {
+                return -1;
+            }
+
+            @Override
+            public IntSequence parameters() {
+                return emptyInts();
+            }
         };
         final RotationDeformer rotation = new RotationDeformer() {
             @Override
@@ -2207,7 +2360,8 @@ class DynamicCubismModelAccessTest {
         wrappedWarp.setOpacity(0.5F);
         final var warpAuthoring = wrappedWarp.authoringSnapshot();
         assertEquals("warp-source", warpAuthoring.sourceGuid());
-        wrappedWarp.setOrdinaryKeyformPositions(warpAuthoring,List.of());assertEquals(1,warpOrdinaryWrites[0]);
+        wrappedWarp.setOrdinaryKeyformPositions(warpAuthoring, List.of());
+        assertEquals(1, warpOrdinaryWrites[0]);
         wrappedRotation.replaceForm(new RotationDeformerForm(10.0F, 2.0F, 3.0F, 1.5F, true, false));
         assertEquals(0.75F, wrappedDrawable.getOpacity());
         final var authoring = wrappedDrawable.authoringSnapshot();
@@ -2218,7 +2372,8 @@ class DynamicCubismModelAccessTest {
         assertEquals(7, evaluation.liveParameters().updateVersion());
         assertEquals(0.5F, wrappedWarp.getOpacity());
         assertEquals(10.0F, wrappedRotation.form().angle());
-        final var coordinates = List.of(new dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Coordinate("x-guid", 1));
+        final var coordinates =
+                List.of(new dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Coordinate("x-guid", 1));
         final var keyform = wrappedDrawable.ordinaryKeyform(coordinates);
         assertEquals(coordinates, keyform.coordinates());
         assertFalse(keyform.defaultKeyform());
@@ -2232,9 +2387,11 @@ class DynamicCubismModelAccessTest {
         assertEquals(List.of(new Point2(7, 8)), keyform.snapshot().positions());
         final var morph = wrappedDrawable.morphKeyform("morph-guid", .5f);
         final var createdMorph = wrappedDrawable.createMorphKeyform("morph-guid", 1f);
-        assertEquals("morph-guid", morph.parameterGuid()); assertEquals(.5f, morph.keyValue());
+        assertEquals("morph-guid", morph.parameterGuid());
+        assertEquals(.5f, morph.keyValue());
         assertEquals(1f, createdMorph.keyValue());
-        final var priorMorph = morph.snapshot(); final var priorBase = morph.baseSnapshot();
+        final var priorMorph = morph.snapshot();
+        final var priorBase = morph.baseSnapshot();
         morph.setPositions(List.of(new Point2(12, 13)));
         assertEquals(List.of(new Point2(12, 13)), morph.snapshot().positions());
         assertEquals(List.of(new Point2(2, 3)), priorMorph.positions());
@@ -2251,7 +2408,8 @@ class DynamicCubismModelAccessTest {
         assertEquals("source-guid", authoring.sourceGuid(), "detached values survive the lease");
         assertThrows(IllegalStateException.class, () -> wrappedDrawable.setOpacity(0.25F));
         assertThrows(IllegalStateException.class, () -> wrappedDrawable.ordinaryKeyform(coordinates));
-        assertThrows(IllegalStateException.class, () -> wrappedDrawable.setOrdinaryKeyformPositions(authoring, List.of()));
+        assertThrows(
+                IllegalStateException.class, () -> wrappedDrawable.setOrdinaryKeyformPositions(authoring, List.of()));
         assertThrows(IllegalStateException.class, keyform::coordinates);
         assertThrows(IllegalStateException.class, keyform::snapshot);
         assertThrows(IllegalStateException.class, keyform::defaultKeyform);
@@ -2271,8 +2429,9 @@ class DynamicCubismModelAccessTest {
         assertEquals("base-form", priorBase.formGuid());
         assertThrows(IllegalStateException.class, wrappedWarp::grid);
         assertThrows(IllegalStateException.class, wrappedWarp::authoringSnapshot);
-        assertThrows(IllegalStateException.class, () -> wrappedWarp.setOrdinaryKeyformPositions(warpAuthoring,List.of()));
-        assertEquals(1,warpOrdinaryWrites[0]);
+        assertThrows(
+                IllegalStateException.class, () -> wrappedWarp.setOrdinaryKeyformPositions(warpAuthoring, List.of()));
+        assertEquals(1, warpOrdinaryWrites[0]);
         assertThrows(IllegalStateException.class, () -> wrappedWarp.setOpacity(0.25F));
         assertThrows(IllegalStateException.class, wrappedRotation::form);
         assertThrows(IllegalStateException.class, () -> wrappedRotation.replaceForm(rotationForm[0]));

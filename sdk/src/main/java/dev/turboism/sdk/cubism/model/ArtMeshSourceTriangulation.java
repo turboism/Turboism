@@ -1,7 +1,7 @@
 package dev.turboism.sdk.cubism.model;
 
-import java.util.List;
 import dev.turboism.sdk.CubismEditor;
+import java.util.List;
 
 /** Owned result from the Editor's source-plane triangulator. This is a planning
  * observation, not proof that a mesh has entered or committed the native editor. */

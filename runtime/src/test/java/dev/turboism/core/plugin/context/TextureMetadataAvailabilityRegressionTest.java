@@ -81,23 +81,16 @@ final class TextureMetadataAvailabilityRegressionTest {
         for (String version : List.of("5.3.04", "5.2.03")) {
             final RecordingTextures delegate = new RecordingTextures();
             final ModelTextures textures = wrapped(version, delegate);
-            assertThrows(
-                    CubismEditorApiUnavailableException.class, () -> textures.addModelImageGroup("group"));
-            assertThrows(
-                    CubismEditorApiUnavailableException.class,
-                    () -> textures.removeModelImage(new ModelImageId("image")));
-            assertThrows(
-                    CubismEditorApiUnavailableException.class, () -> textures.addTextureAtlas("atlas", 64, 64));
-            assertThrows(
-                    CubismEditorApiUnavailableException.class,
-                    () -> textures.removeTextureAtlas(new TextureAtlasId("atlas")));
-            assertThrows(
-                    CubismEditorApiUnavailableException.class, () -> textures.removeRawImage(new RawImageId("raw")));
-            assertThrows(CubismEditorApiUnavailableException.class, textures::rawImages);
-            assertThrows(CubismEditorApiUnavailableException.class, textures::modelImageGroups);
-            assertThrows(CubismEditorApiUnavailableException.class, textures::textureAtlases);
-            assertEquals(0, delegate.writes);
-            assertEquals(0, delegate.reads);
+            textures.addModelImageGroup("group");
+            textures.removeModelImage(new ModelImageId("image"));
+            textures.addTextureAtlas("atlas", 64, 64);
+            textures.removeTextureAtlas(new TextureAtlasId("atlas"));
+            textures.removeRawImage(new RawImageId("raw"));
+            assertEquals(List.of(), textures.rawImages());
+            assertEquals(List.of(), textures.modelImageGroups());
+            assertEquals(List.of(), textures.textureAtlases());
+            assertEquals(5, delegate.writes);
+            assertEquals(3, delegate.reads);
         }
     }
 

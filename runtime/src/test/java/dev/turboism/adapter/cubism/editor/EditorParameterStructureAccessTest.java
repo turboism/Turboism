@@ -1,32 +1,29 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorParameterStructureSelectorContract;
-import dev.turboism.mapping.verification.StaticSelector;
-import dev.turboism.mapping.verification.TestVerifiedResolvers;
-import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.sdk.cubism.id.ParameterGroupId;
-import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.cubism.model.ParameterDefinition;
-import dev.turboism.sdk.cubism.model.ParameterType;
-import org.junit.jupiter.api.Test;
-import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
-import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
-import dev.turboism.sdk.cubism.history.HistoryEntry;
-import dev.turboism.sdk.cubism.history.HistorySnapshot;
-import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
-import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
-import java.util.Optional;
-import java.util.Set;
-
-import java.util.ArrayList;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
+import dev.turboism.mapping.verification.StaticSelector;
+import dev.turboism.mapping.verification.TestVerifiedResolvers;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorParameterStructureSelectorContract;
+import dev.turboism.sdk.cubism.history.HistoryEntry;
+import dev.turboism.sdk.cubism.history.HistorySnapshot;
+import dev.turboism.sdk.cubism.id.ParameterGroupId;
+import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.model.ParameterDefinition;
+import dev.turboism.sdk.cubism.model.ParameterType;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
 
 class EditorParameterStructureAccessTest {
 
@@ -309,14 +306,21 @@ class EditorParameterStructureAccessTest {
     void singleAndBatchParameterCreatesShareOneRootAndUndoRedo() {
         EditorHostThread.dispatch("parameter transaction test", () -> {
             final var scoped = new ParameterScopedFixture();
-            final var result = scoped.coordinator.execute(scoped.binding,
-                AuthoringTransactionOptions.of("import rotation axes"), () -> {
-                    scoped.create("X");
-                    scoped.access.createMany("model", scoped.fixture.source, scoped.fixture.source.model,
-                        List.of(definition("Y"), definition("Z")), Optional.empty());
-                    return null;
-                });
-            assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome(), () -> String.valueOf(result.diagnosticId()));
+            final var result = scoped.coordinator.execute(
+                    scoped.binding, AuthoringTransactionOptions.of("import rotation axes"), () -> {
+                        scoped.create("X");
+                        scoped.access.createMany(
+                                "model",
+                                scoped.fixture.source,
+                                scoped.fixture.source.model,
+                                List.of(definition("Y"), definition("Z")),
+                                Optional.empty());
+                        return null;
+                    });
+            assertEquals(
+                    AuthoringTransactionOutcome.COMMITTED,
+                    result.outcome(),
+                    () -> String.valueOf(result.diagnosticId()));
             assertEquals(1, scoped.fixture.editMode.beginCount);
             assertEquals(1, scoped.roots.size());
             assertEquals(List.of("P1", "X", "Y", "Z"), scoped.ids());
@@ -333,25 +337,29 @@ class EditorParameterStructureAccessTest {
     void parameterCreateFailuresRestoreEverySourceAndFolderWithoutNestedEdits() {
         EditorHostThread.dispatch("parameter recovery test", () -> {
             for (boolean nativeAbort : List.of(false, true))
-            for (int rejectAt : List.of(0, 1, 2)) {
-                final var scoped = new ParameterScopedFixture();
-                scoped.nativeAbort = nativeAbort;
-                scoped.fixture.editMode.rejectAt = rejectAt;
-                final var result = scoped.coordinator.execute(scoped.binding,
-                    AuthoringTransactionOptions.of("failing rotation axes"), () -> {
-                        scoped.access.createMany("model", scoped.fixture.source, scoped.fixture.source.model,
-                            List.of(definition("X"), definition("Y")), Optional.empty());
-                        throw new IllegalStateException("failure after axes");
-                    });
-                final String tag = "nativeAbort=" + nativeAbort + " rejectAt=" + rejectAt;
-                assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome(), tag);
-                assertEquals(List.of("P1"), scoped.ids(), tag);
-                assertEquals(List.of(scoped.fixture.p1), scoped.fixture.source.sources, tag);
-                assertEquals(List.of(scoped.fixture.p1), scoped.fixture.root.children, tag);
-                assertEquals(List.of(scoped.fixture.p1), scoped.fixture.source.sourceSet.all, tag);
-                assertEquals(0, scoped.roots.size(), tag);
-                assertEquals(1, scoped.fixture.editMode.beginCount, tag);
-            }
+                for (int rejectAt : List.of(0, 1, 2)) {
+                    final var scoped = new ParameterScopedFixture();
+                    scoped.nativeAbort = nativeAbort;
+                    scoped.fixture.editMode.rejectAt = rejectAt;
+                    final var result = scoped.coordinator.execute(
+                            scoped.binding, AuthoringTransactionOptions.of("failing rotation axes"), () -> {
+                                scoped.access.createMany(
+                                        "model",
+                                        scoped.fixture.source,
+                                        scoped.fixture.source.model,
+                                        List.of(definition("X"), definition("Y")),
+                                        Optional.empty());
+                                throw new IllegalStateException("failure after axes");
+                            });
+                    final String tag = "nativeAbort=" + nativeAbort + " rejectAt=" + rejectAt;
+                    assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome(), tag);
+                    assertEquals(List.of("P1"), scoped.ids(), tag);
+                    assertEquals(List.of(scoped.fixture.p1), scoped.fixture.source.sources, tag);
+                    assertEquals(List.of(scoped.fixture.p1), scoped.fixture.root.children, tag);
+                    assertEquals(List.of(scoped.fixture.p1), scoped.fixture.source.sourceSet.all, tag);
+                    assertEquals(0, scoped.roots.size(), tag);
+                    assertEquals(1, scoped.fixture.editMode.beginCount, tag);
+                }
             return null;
         });
     }
@@ -360,12 +368,16 @@ class EditorParameterStructureAccessTest {
     void duplicateParameterBatchFailsBeforeAnyNativeEdit() {
         EditorHostThread.dispatch("parameter duplicate test", () -> {
             final var scoped = new ParameterScopedFixture();
-            final var result = scoped.coordinator.execute(scoped.binding,
-                AuthoringTransactionOptions.of("duplicate axes"), () -> {
-                    scoped.access.createMany("model", scoped.fixture.source, scoped.fixture.source.model,
-                        List.of(definition("X"), definition("X")), Optional.empty());
-                    return null;
-                });
+            final var result =
+                    scoped.coordinator.execute(scoped.binding, AuthoringTransactionOptions.of("duplicate axes"), () -> {
+                        scoped.access.createMany(
+                                "model",
+                                scoped.fixture.source,
+                                scoped.fixture.source.model,
+                                List.of(definition("X"), definition("X")),
+                                Optional.empty());
+                        return null;
+                    });
             assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
             assertEquals(0, scoped.fixture.editMode.beginCount);
             assertEquals(List.of("P1"), scoped.ids());
@@ -377,8 +389,11 @@ class EditorParameterStructureAccessTest {
     void missingRecoveryAliasRejectsParameterCreateBeforeNativeMutation() {
         EditorHostThread.dispatch("parameter preflight test", () -> {
             final var scoped = new ParameterScopedFixture("cubism.editor-model.undo.execute-undo");
-            final var result = scoped.coordinator.execute(scoped.binding,
-                AuthoringTransactionOptions.of("missing recovery"), () -> { scoped.create("X"); return null; });
+            final var result = scoped.coordinator.execute(
+                    scoped.binding, AuthoringTransactionOptions.of("missing recovery"), () -> {
+                        scoped.create("X");
+                        return null;
+                    });
             assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
             assertEquals(0, scoped.fixture.editMode.beginCount);
             assertEquals(List.of("P1"), scoped.ids());
@@ -392,11 +407,11 @@ class EditorParameterStructureAccessTest {
         EditorHostThread.dispatch("parameter residual test", () -> {
             final var scoped = new ParameterScopedFixture();
             scoped.fixture.editMode.leaveSourceResidue = true;
-            final var result = scoped.coordinator.execute(scoped.binding,
-                AuthoringTransactionOptions.of("broken parameter undo"), () -> {
-                    scoped.create("X");
-                    throw new IllegalStateException("import failure");
-                });
+            final var result = scoped.coordinator.execute(
+                    scoped.binding, AuthoringTransactionOptions.of("broken parameter undo"), () -> {
+                        scoped.create("X");
+                        throw new IllegalStateException("import failure");
+                    });
             assertEquals(AuthoringTransactionOutcome.RECOVERY_FAILED, result.outcome());
             assertEquals(2, scoped.fixture.source.sourceSet.all.size());
             assertEquals(List.of(scoped.fixture.p1), scoped.fixture.root.children);
@@ -410,8 +425,11 @@ class EditorParameterStructureAccessTest {
             final var scoped = new ParameterScopedFixture();
             scoped.fixture.editMode.rejectListener = true;
             scoped.nativeAbort = false;
-            final var result = scoped.coordinator.execute(scoped.binding,
-                AuthoringTransactionOptions.of("rejected listener"), () -> { scoped.create("X"); return null; });
+            final var result = scoped.coordinator.execute(
+                    scoped.binding, AuthoringTransactionOptions.of("rejected listener"), () -> {
+                        scoped.create("X");
+                        return null;
+                    });
             assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
             assertEquals(List.of("P1"), scoped.ids());
             assertEquals(List.of(scoped.fixture.p1), scoped.fixture.root.children);
@@ -426,44 +444,71 @@ class EditorParameterStructureAccessTest {
     }
 
     private static final class ParameterScopedFixture implements EditorAuthoringTransactionCoordinator.Host {
-        @Override public void undoEditGroup(final dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding expected, final Object edit) {}
+        @Override
+        public void undoEditGroup(
+                final dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding
+                        expected,
+                final Object edit) {}
+
         final Fixture fixture = new Fixture();
         final List<GroupUndo> roots = new ArrayList<>();
         final EditorAuthoringTransactionCoordinator coordinator = new EditorAuthoringTransactionCoordinator(this);
-        final EditorAuthoringTransactionCoordinator.Binding binding =
-            new EditorAuthoringTransactionCoordinator.Binding(
+        final EditorAuthoringTransactionCoordinator.Binding binding = new EditorAuthoringTransactionCoordinator.Binding(
                 "parameter-test", "document", 1, "model", 1, Thread.currentThread());
         final EditorParameterStructureAccess access;
         boolean nativeAbort = true;
 
-        ParameterScopedFixture() { this(""); }
+        ParameterScopedFixture() {
+            this("");
+        }
+
         ParameterScopedFixture(final String excludedAlias) {
             Host.document = fixture.document;
             access = new EditorParameterStructureAccess(
-                resolver(true, excludedAlias), (identity, model) -> { }, coordinator, () -> binding);
+                    resolver(true, excludedAlias), (identity, model) -> {}, coordinator, () -> binding);
         }
+
         void create(final String id) {
             access.create("model", fixture.source, fixture.source.model, definition(id), Optional.empty());
         }
+
         List<String> ids() {
-            return fixture.source.model.parameterSet.parameters.stream().map(p -> p.source.id.value).toList();
+            return fixture.source.model.parameterSet.parameters.stream()
+                    .map(p -> p.source.id.value)
+                    .toList();
         }
-        @Override public boolean isCurrent(final EditorAuthoringTransactionCoordinator.Binding current) {
+
+        @Override
+        public boolean isCurrent(final EditorAuthoringTransactionCoordinator.Binding current) {
             return binding.equals(current) && current.hostThread() == Thread.currentThread();
         }
-        @Override public HistorySnapshot history(final EditorAuthoringTransactionCoordinator.Binding current) {
+
+        @Override
+        public HistorySnapshot history(final EditorAuthoringTransactionCoordinator.Binding current) {
             final var entries = new ArrayList<HistoryEntry>();
             for (int i = 0; i < roots.size(); i++) entries.add(new HistoryEntry(i, "edit-" + i, true));
-            return new HistorySnapshot(HistorySnapshot.Availability.AVAILABLE, 1, roots.size(), roots.size(),
-                entries, !roots.isEmpty(), false, "document", "history");
+            return new HistorySnapshot(
+                    HistorySnapshot.Availability.AVAILABLE,
+                    1,
+                    roots.size(),
+                    roots.size(),
+                    entries,
+                    !roots.isEmpty(),
+                    false,
+                    "document",
+                    "history");
         }
-        @Override public Object beginEdit(final EditorAuthoringTransactionCoordinator.Binding current, final String label) {
+
+        @Override
+        public Object beginEdit(final EditorAuthoringTransactionCoordinator.Binding current, final String label) {
             final var edit = fixture.editMode.begin(label);
             roots.add(edit);
             return edit;
         }
-        @Override public void endEdit(final EditorAuthoringTransactionCoordinator.Binding current,
-            final Object edit, final boolean abort) {
+
+        @Override
+        public void endEdit(
+                final EditorAuthoringTransactionCoordinator.Binding current, final Object edit, final boolean abort) {
             fixture.editMode.end(abort, null);
             if (abort) {
                 if (nativeAbort) ((GroupUndo) edit).undo();
@@ -471,14 +516,31 @@ class EditorParameterStructureAccessTest {
                 fixture.editMode.edits.clear();
             }
         }
-        @Override public void refresh(final EditorAuthoringTransactionCoordinator.Binding current,
-            final Set<EditorRefreshRequirement> requirements) { }
-        @Override public Optional<String> committedHistoryEntryId(
-            final EditorAuthoringTransactionCoordinator.Binding current, final HistorySnapshot before,
-            final HistorySnapshot after, final String id, final String label) {
-            return after.position() == before.position() + 1 ? Optional.of("entry-" + after.position()) : Optional.empty();
+
+        @Override
+        public void refresh(
+                final EditorAuthoringTransactionCoordinator.Binding current,
+                final Set<EditorRefreshRequirement> requirements) {}
+
+        @Override
+        public Optional<String> committedHistoryEntryId(
+                final EditorAuthoringTransactionCoordinator.Binding current,
+                final HistorySnapshot before,
+                final HistorySnapshot after,
+                final String id,
+                final String label) {
+            return after.position() == before.position() + 1
+                    ? Optional.of("entry-" + after.position())
+                    : Optional.empty();
         }
-        @Override public String diagnosticId(final String code, final Throwable failure) { final String value = failure == null ? code : code + "#" + failure.getClass().getSimpleName() + ":" + failure.getMessage(); return value.length() > 120 ? value.substring(0, 120) : value; }
+
+        @Override
+        public String diagnosticId(final String code, final Throwable failure) {
+            final String value = failure == null
+                    ? code
+                    : code + "#" + failure.getClass().getSimpleName() + ":" + failure.getMessage();
+            return value.length() > 120 ? value.substring(0, 120) : value;
+        }
     }
 
     private static VerifiedMemberResolver resolver(final boolean includeCapability) {
@@ -525,8 +587,7 @@ class EditorParameterStructureAccessTest {
                 "(Ljava/lang/String;)" + type(GroupUndo.class)));
         selectors.add(method("cubism.editor-model.edit-mode.end", EditMode.class, "end", "(ZLjava/lang/Object;)V"));
         selectors.add(method("cubism.editor-model.undo.add", GroupUndo.class, "add", "(" + type(Undo.class) + "Z)Z"));
-        selectors.add(method(
-                "cubism.editor-model.undo.execute-undo", Undo.class, "undo", "()V"));
+        selectors.add(method("cubism.editor-model.undo.execute-undo", Undo.class, "undo", "()V"));
         selectors.add(method(
                 "cubism.editor-model.undo.add-listener", Undo.class, "addListener", "(" + type(Listener.class) + ")Z"));
         selectors.add(
@@ -717,13 +778,19 @@ class EditorParameterStructureAccessTest {
         selectors.add(method(
                 "cubism.editor-model.parameter.source", RuntimeParameter.class, "source", desc(ParameterSource.class)));
         return TestVerifiedResolvers.create(
-            "5.3.02", "adapter.editor-model.readwrite",
-            includeCapability
-                ? java.util.Set.of("cubism.editor-model.read", EditorParameterStructureSelectorContract.CAPABILITY_ID,
-                    dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID)
-                : java.util.Set.of("cubism.editor-model.read"),
-            selectors.stream().filter(selector -> !selector.alias().equals(excludedAlias)).toList(),
-            Host.class.getClassLoader());
+                "5.3.02",
+                "adapter.editor-model.readwrite",
+                includeCapability
+                        ? java.util.Set.of(
+                                "cubism.editor-model.read",
+                                EditorParameterStructureSelectorContract.CAPABILITY_ID,
+                                dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelectorContract
+                                        .CAPABILITY_ID)
+                        : java.util.Set.of("cubism.editor-model.read"),
+                selectors.stream()
+                        .filter(selector -> !selector.alias().equals(excludedAlias))
+                        .toList(),
+                Host.class.getClassLoader());
     }
 
     private static StaticSelector method(
@@ -1112,6 +1179,7 @@ class EditorParameterStructureAccessTest {
         boolean rejectListener;
         int rejectAt;
         int admissionCount;
+
         public GroupUndo begin(final String name) {
             beginCount++;
             lastUndo = new GroupUndo(edits);
@@ -1134,15 +1202,22 @@ class EditorParameterStructureAccessTest {
 
     public static final class GroupUndo extends Undo {
         final List<Undo> edits;
-        GroupUndo(final List<Undo> edits) { this.edits = edits; }
+
+        GroupUndo(final List<Undo> edits) {
+            this.edits = edits;
+        }
+
         public boolean add(final Undo undo, final boolean significant) {
             final var owner = Host.document.editMode;
             if (++owner.admissionCount == owner.rejectAt) return false;
             edits.add(undo);
             return true;
         }
-        @Override public void undo() {
-            for (int index = edits.size() - 1; index >= 0; index--) edits.get(index).undo();
+
+        @Override
+        public void undo() {
+            for (int index = edits.size() - 1; index >= 0; index--)
+                edits.get(index).undo();
             changed();
         }
 

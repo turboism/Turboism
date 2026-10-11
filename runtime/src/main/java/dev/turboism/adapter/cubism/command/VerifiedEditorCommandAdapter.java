@@ -30,7 +30,8 @@ public final class VerifiedEditorCommandAdapter implements EditorCommandAdapter 
     }
 
     /** Shares the separately verified editor-model selector for instance rebuilds. */
-    public VerifiedEditorCommandAdapter(final VerifiedMemberResolver resolver, final VerifiedMemberResolver editorModelResolver) {
+    public VerifiedEditorCommandAdapter(
+            final VerifiedMemberResolver resolver, final VerifiedMemberResolver editorModelResolver) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.typed = new VerifiedTypedEditorCommandOperations(resolver, editorModelResolver);
         final EnumSet<EditorCommand> commands = EnumSet.noneOf(EditorCommand.class);

@@ -43,8 +43,7 @@ final class ValidationFileGrants {
     static final String SAVE_PROPERTY = "turboism.validation.mi3d.persistenceSave";
     static final String MODE_PROPERTY = "turboism.validation.mi3d.mode";
 
-    private ValidationFileGrants() {
-    }
+    private ValidationFileGrants() {}
 
     static UserFileGrantSource source(final String pluginId, final PluginHomePaths paths) {
         Objects.requireNonNull(pluginId, "pluginId");
@@ -56,63 +55,101 @@ final class ValidationFileGrants {
         final String requestId;
         final String fileName;
         switch (mode) {
-            case "cat-vertex-save", "cat-optimized-save", "cat-adaptive-save", "cat-cost-save", "cat-default-serialization" -> {
+            case "cat-vertex-save",
+                    "cat-optimized-save",
+                    "cat-adaptive-save",
+                    "cat-cost-save",
+                    "cat-default-serialization" -> {
                 if (!APPLE_PLUGIN_ID.equals(pluginId)) return UserFileGrantSource.unavailable();
-                requestId = "mi3d-cat-menu-save"; fileName = "mi3d-cat-model.cmo3";
+                requestId = "mi3d-cat-menu-save";
+                fileName = "mi3d-cat-model.cmo3";
             }
             case "apple-derived-save" -> {
                 if (!APPLE_PLUGIN_ID.equals(pluginId)) return UserFileGrantSource.unavailable();
-                requestId = APPLE_REQUEST_ID; fileName = APPLE_FILE_NAME;
+                requestId = APPLE_REQUEST_ID;
+                fileName = APPLE_FILE_NAME;
             }
             case "apple-all-mesh-edit" -> {
                 if (!APPLE_PLUGIN_ID.equals(pluginId)
-                    || !"true".equals(System.getProperty("turboism.validation.mi3d.equivalentSlotProbe"))
-                    || !"true".equals(System.getProperty("turboism.validation.mi3d.partitionBoundProbe"))
-                    || !"26".equals(System.getProperty("turboism.validation.mi3d.meshStartIndex"))
-                    || !"27".equals(System.getProperty("turboism.validation.mi3d.meshEndIndex")))
+                        || !"true".equals(System.getProperty("turboism.validation.mi3d.equivalentSlotProbe"))
+                        || !"true".equals(System.getProperty("turboism.validation.mi3d.partitionBoundProbe"))
+                        || !"26".equals(System.getProperty("turboism.validation.mi3d.meshStartIndex"))
+                        || !"27".equals(System.getProperty("turboism.validation.mi3d.meshEndIndex")))
                     return UserFileGrantSource.unavailable();
-                requestId = APPLE_REQUEST_ID; fileName = APPLE_FILE_NAME;
+                requestId = APPLE_REQUEST_ID;
+                fileName = APPLE_FILE_NAME;
             }
             case "apple-menu-editability-compact" -> {
                 if (!APPLE_PLUGIN_ID.equals(pluginId)
-                    || !"true".equals(System.getProperty("turboism.validation.mi3d.meshEditingProbe"))
-                    || !"true".equals(System.getProperty("turboism.validation.mi3d.originalMeshEditing"))
-                    || !"true".equals(System.getProperty("turboism.validation.mi3d.meshEditingCommitSave")))
+                        || !"true".equals(System.getProperty("turboism.validation.mi3d.meshEditingProbe"))
+                        || !"true".equals(System.getProperty("turboism.validation.mi3d.originalMeshEditing"))
+                        || !"true".equals(System.getProperty("turboism.validation.mi3d.meshEditingCommitSave")))
                     return UserFileGrantSource.unavailable();
-                requestId = APPLE_REQUEST_ID; fileName = APPLE_FILE_NAME;
+                requestId = APPLE_REQUEST_ID;
+                fileName = APPLE_FILE_NAME;
             }
             case "interpolation-witness-save" -> {
                 if (!APPLE_PLUGIN_ID.equals(pluginId)) return UserFileGrantSource.unavailable();
-                requestId="mi3d-interpolation-save";fileName="mi3d-interpolation-model.cmo3";
+                requestId = "mi3d-interpolation-save";
+                fileName = "mi3d-interpolation-model.cmo3";
             }
             case "cube-xyz-menu-save" -> {
                 if (!APPLE_PLUGIN_ID.equals(pluginId)
-                    || !"true".equals(System.getProperty("turboism.validation.mi3d.xyzProbe")))
+                        || !"true".equals(System.getProperty("turboism.validation.mi3d.xyzProbe")))
                     return UserFileGrantSource.unavailable();
-                requestId = XYZ_REQUEST_ID; fileName = XYZ_FILE_NAME;
+                requestId = XYZ_REQUEST_ID;
+                fileName = XYZ_FILE_NAME;
             }
             case "apple-menu-save", "apple-menu-save-compact", "apple-menu-atlas-save-compact" -> {
                 if (!APPLE_PLUGIN_ID.equals(pluginId)) return UserFileGrantSource.unavailable();
-                requestId = APPLE_REQUEST_ID; fileName = APPLE_FILE_NAME;
+                requestId = APPLE_REQUEST_ID;
+                fileName = APPLE_FILE_NAME;
             }
             case "plane-menu-save", "seam-menu-save", "plane-menu-atlas-save", "seam-menu-atlas-save" -> {
                 if (!APPLE_PLUGIN_ID.equals(pluginId)) return UserFileGrantSource.unavailable();
-                requestId = SURFACE_REQUEST_ID; fileName = SURFACE_FILE_NAME;
+                requestId = SURFACE_REQUEST_ID;
+                fileName = SURFACE_FILE_NAME;
             }
-            case "persistence-save" -> { requestId = REQUEST_ID; fileName = FILE_NAME; }
-            case "cube-persistence-save", "cube-atlas-save" -> { requestId = CUBE_REQUEST_ID; fileName = CUBE_FILE_NAME; }
-            default -> { return UserFileGrantSource.unavailable(); }
+            case "persistence-save" -> {
+                requestId = REQUEST_ID;
+                fileName = FILE_NAME;
+            }
+            case "cube-persistence-save", "cube-atlas-save" -> {
+                requestId = CUBE_REQUEST_ID;
+                fileName = CUBE_FILE_NAME;
+            }
+            default -> {
+                return UserFileGrantSource.unavailable();
+            }
         }
-        if (!List.of("apple-menu-save", "apple-menu-save-compact", "apple-menu-atlas-save-compact", "apple-menu-editability-compact",
-                "plane-menu-save", "seam-menu-save", "plane-menu-atlas-save", "seam-menu-atlas-save",
-                "cube-xyz-menu-save", "interpolation-witness-save", "apple-all-mesh-edit", "apple-derived-save", "cat-vertex-save", "cat-optimized-save", "cat-adaptive-save", "cat-cost-save", "cat-default-serialization").contains(mode) && !PLUGIN_ID.equals(pluginId)) return UserFileGrantSource.unavailable();
+        if (!List.of(
+                                "apple-menu-save",
+                                "apple-menu-save-compact",
+                                "apple-menu-atlas-save-compact",
+                                "apple-menu-editability-compact",
+                                "plane-menu-save",
+                                "seam-menu-save",
+                                "plane-menu-atlas-save",
+                                "seam-menu-atlas-save",
+                                "cube-xyz-menu-save",
+                                "interpolation-witness-save",
+                                "apple-all-mesh-edit",
+                                "apple-derived-save",
+                                "cat-vertex-save",
+                                "cat-optimized-save",
+                                "cat-adaptive-save",
+                                "cat-cost-save",
+                                "cat-default-serialization")
+                        .contains(mode)
+                && !PLUGIN_ID.equals(pluginId)) return UserFileGrantSource.unavailable();
         final Path stateDir = Objects.requireNonNull(paths, "paths").stateDir();
         return request -> CompletableFuture.completedFuture(grant(request, stateDir, requestId, fileName));
     }
 
     private static UserFileGrantSource.Decision grant(
             final UserFileRequest request, final Path stateDir, final String requestId, final String fileName) {
-        if (!requestId.equals(request.id()) || request.mode() != UserFileMode.WRITE
+        if (!requestId.equals(request.id())
+                || request.mode() != UserFileMode.WRITE
                 || request.lifetime() != UserFileLifetime.ONE_OPERATION
                 || !request.allowedExtensions().equals(List.of("cmo3"))) {
             return UserFileGrantSource.Decision.unavailable();

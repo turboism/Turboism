@@ -55,9 +55,8 @@ public final class CoreEvaluatedJoin {
         synchronized (cacheLock) {
             if (source.isRefusedPublication(identity)) {
                 throw new IllegalStateException(
-                    "Core evaluated data is unavailable: the active binding's model could not be "
-                        + "published as a verified Core model."
-                );
+                        "Core evaluated data is unavailable: the active binding's model could not be "
+                                + "published as a verified Core model.");
             }
             if (cachedIdentity != null && cachedIdentity.equals(identity)) {
                 requireCurrentCoreGeneration(cachedSnapshot.generation());
@@ -91,9 +90,8 @@ public final class CoreEvaluatedJoin {
         synchronized (cacheLock) {
             if (identity != null && source.isRefusedPublication(identity)) {
                 throw new IllegalStateException(
-                    "Core evaluated data is unavailable: the active binding's model could not be "
-                        + "published as a verified Core model."
-                );
+                        "Core evaluated data is unavailable: the active binding's model could not be "
+                                + "published as a verified Core model.");
             }
         }
         final CoreModelAcquisition acquisition = source.acquire(provider);
@@ -128,8 +126,7 @@ public final class CoreEvaluatedJoin {
         // Only a receiver of the verified Core model type may be published; anything
         // else (for example the Editor's document CModel) is refused here rather than
         // failing every later structural call site with a receiver-type RESOLUTION.
-        final boolean accepted = tracer.acceptsCoreModel(model)
-            && source.tryPublishBorrowedModel(model, identity);
+        final boolean accepted = tracer.acceptsCoreModel(model) && source.tryPublishBorrowedModel(model, identity);
         if (!accepted) {
             source.refusePublication(identity);
         }

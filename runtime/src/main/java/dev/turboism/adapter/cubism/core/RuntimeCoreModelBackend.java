@@ -115,10 +115,7 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
      * A receiver outside the verified Core model type is never published; evaluated
      * reads then keep reporting that no verified active Core model is available.
      */
-    public void publishBorrowedModel(
-        final Object borrowedModel,
-        final String modelIdentity
-    ) {
+    public void publishBorrowedModel(final Object borrowedModel, final String modelIdentity) {
         synchronized (lifecycle) {
             requireOpen();
             requireGeometry();

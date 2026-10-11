@@ -37,11 +37,9 @@ final class MeshInterpolationHookContributor implements HookContributor {
         }
         final boolean interpolation = TurboismAgent.meshInterpolationEnabled(
                 policy,
-                TurboismAgent.meshInterpolationRequested(
-                        System.getProperty("turboism.meshInterpolation.enabled")));
+                TurboismAgent.meshInterpolationRequested(System.getProperty("turboism.meshInterpolation.enabled")));
         final boolean serialization = TurboismAgent.modelSerializationEnabled(
-                policy,
-                Boolean.parseBoolean(System.getProperty("turboism.modelSerialization.enabled", "true")));
+                policy, Boolean.parseBoolean(System.getProperty("turboism.modelSerialization.enabled", "true")));
         return interpolation || serialization;
     }
 
@@ -50,11 +48,9 @@ final class MeshInterpolationHookContributor implements HookContributor {
         final dev.turboism.config.RuntimeStartupConfig policy = environment.startupPolicy();
         final boolean interpolation = TurboismAgent.meshInterpolationEnabled(
                 policy,
-                TurboismAgent.meshInterpolationRequested(
-                        System.getProperty("turboism.meshInterpolation.enabled")));
+                TurboismAgent.meshInterpolationRequested(System.getProperty("turboism.meshInterpolation.enabled")));
         final boolean serialization = TurboismAgent.modelSerializationEnabled(
-                policy,
-                Boolean.parseBoolean(System.getProperty("turboism.modelSerialization.enabled", "true")));
+                policy, Boolean.parseBoolean(System.getProperty("turboism.modelSerialization.enabled", "true")));
         try {
             return dev.turboism.adapter.cubism.interpolation.VerifiedMeshInterpolationInstaller.install(
                     environment.instrumentation(),
@@ -62,8 +58,7 @@ final class MeshInterpolationHookContributor implements HookContributor {
                     interpolation,
                     serialization);
         } catch (final RuntimeException | LinkageError failure) {
-            RuntimeDiagnostics.error(
-                    "mesh-interpolation", "Interpolation optimization admission declined", failure);
+            RuntimeDiagnostics.error("mesh-interpolation", "Interpolation optimization admission declined", failure);
             return () -> {};
         }
     }

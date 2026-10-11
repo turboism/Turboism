@@ -173,10 +173,7 @@ public interface ModelTextures {
      * @return the detached registration/binding handle
      */
     @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
-    default ModelImageBinding registerImageAndBind(
-        final AuthorizedImageContent image,
-        final ArtMeshId target
-    ) {
+    default ModelImageBinding registerImageAndBind(final AuthorizedImageContent image, final ArtMeshId target) {
         throw unavailable("Model image registration and binding");
     }
 
@@ -191,10 +188,7 @@ public interface ModelTextures {
      * @return the detached binding handle
      */
     @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
-    default ModelImageBinding bindModelImage(
-        final ModelImageId image,
-        final ArtMeshId target
-    ) {
+    default ModelImageBinding bindModelImage(final ModelImageId image, final ArtMeshId target) {
         throw unavailable("Model image binding");
     }
 

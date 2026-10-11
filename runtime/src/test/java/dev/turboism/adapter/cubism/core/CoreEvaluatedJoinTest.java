@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -18,8 +19,6 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class CoreEvaluatedJoinTest {
 
@@ -180,23 +179,24 @@ class CoreEvaluatedJoinTest {
             final CoreEvaluatedJoin join = harness.join();
             assertFalse(join.tryPublish(new Object(), "model-foreign"));
             assertFalse(join.tryPublish(null, "model-foreign"));
-            assertEquals(0x04, Byte.toUnsignedInt(
-                join.evaluated("identity-a").drawable("ArtMeshFace").constantFlag()
-            ), "the previous verified publication is undisturbed");
+            assertEquals(
+                    0x04,
+                    Byte.toUnsignedInt(
+                            join.evaluated("identity-a").drawable("ArtMeshFace").constantFlag()),
+                    "the previous verified publication is undisturbed");
             // A refused publication must not let the new binding read the old model's
             // data under its own derived identity (join counterexample regression).
             assertThrows(
-                IllegalStateException.class,
-                () -> join.evaluated("model-foreign:2").drawable("ArtMeshFace"),
-                "a read identity derived from the refused publish fails closed"
-            );
+                    IllegalStateException.class,
+                    () -> join.evaluated("model-foreign:2").drawable("ArtMeshFace"),
+                    "a read identity derived from the refused publish fails closed");
             assertTrue(
-                join.tryPublish(model(canvasReads, drawableWithFlag((byte) 0x08)), "model-b"),
-                "a receiver of the verified type is still accepted"
-            );
-            assertEquals(0x08, Byte.toUnsignedInt(
-                join.evaluated("identity-b").drawable("ArtMeshFace").constantFlag()
-            ));
+                    join.tryPublish(model(canvasReads, drawableWithFlag((byte) 0x08)), "model-b"),
+                    "a receiver of the verified type is still accepted");
+            assertEquals(
+                    0x08,
+                    Byte.toUnsignedInt(
+                            join.evaluated("identity-b").drawable("ArtMeshFace").constantFlag()));
         }
     }
 
@@ -209,35 +209,41 @@ class CoreEvaluatedJoinTest {
         final TestCoreApiFixture.Model coreModel = model(canvasReads, drawableWithFlag((byte) 0x04));
         try (Harness harness = harness("5.3.02", coreModel)) {
             final CoreEvaluatedJoin join = harness.join();
-            assertEquals(0x04, Byte.toUnsignedInt(
-                join.evaluated("session:model-a:1").drawable("ArtMeshFace").constantFlag()
-            ), "control read for the published model");
+            assertEquals(
+                    0x04,
+                    Byte.toUnsignedInt(join.evaluated("session:model-a:1")
+                            .drawable("ArtMeshFace")
+                            .constantFlag()),
+                    "control read for the published model");
 
             assertFalse(join.tryPublish(new Object(), "session:editor-b"));
             assertThrows(
-                IllegalStateException.class,
-                () -> join.evaluated("session:editor-b:2").drawable("ArtMeshFace")
-            );
+                    IllegalStateException.class,
+                    () -> join.evaluated("session:editor-b:2").drawable("ArtMeshFace"));
             assertThrows(
-                IllegalStateException.class,
-                () -> join.evaluated("session:editor-b").drawable("ArtMeshFace")
-            );
+                    IllegalStateException.class,
+                    () -> join.evaluated("session:editor-b").drawable("ArtMeshFace"));
             // Unrelated identities — including a sibling that shares the refused prefix —
             // are not poisoned and still trace the published model.
-            assertEquals(0x04, Byte.toUnsignedInt(
-                join.evaluated("session:model-a:9").drawable("ArtMeshFace").constantFlag()
-            ));
-            assertEquals(0x04, Byte.toUnsignedInt(
-                join.evaluated("session:editor-b2:1").drawable("ArtMeshFace").constantFlag()
-            ));
+            assertEquals(
+                    0x04,
+                    Byte.toUnsignedInt(join.evaluated("session:model-a:9")
+                            .drawable("ArtMeshFace")
+                            .constantFlag()));
+            assertEquals(
+                    0x04,
+                    Byte.toUnsignedInt(join.evaluated("session:editor-b2:1")
+                            .drawable("ArtMeshFace")
+                            .constantFlag()));
 
             // A later valid publication under the refused identity clears the refusal and
             // its derived reads trace the new model, not the stale snapshot.
-            assertTrue(join.tryPublish(
-                model(canvasReads, drawableWithFlag((byte) 0x08)), "session:editor-b"));
-            assertEquals(0x08, Byte.toUnsignedInt(
-                join.evaluated("session:editor-b:3").drawable("ArtMeshFace").constantFlag()
-            ));
+            assertTrue(join.tryPublish(model(canvasReads, drawableWithFlag((byte) 0x08)), "session:editor-b"));
+            assertEquals(
+                    0x08,
+                    Byte.toUnsignedInt(join.evaluated("session:editor-b:3")
+                            .drawable("ArtMeshFace")
+                            .constantFlag()));
         }
     }
 

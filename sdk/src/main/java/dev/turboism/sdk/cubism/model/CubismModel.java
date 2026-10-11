@@ -147,9 +147,7 @@ public interface CubismModel {
      */
     @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     default CubismRenderedPixels renderPixels(final int width, final int height) {
-        throw new UnsupportedOperationException(
-            "Cubism native model rendering is unavailable."
-        );
+        throw new UnsupportedOperationException("Cubism native model rendering is unavailable.");
     }
 
     /**

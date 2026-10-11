@@ -9,12 +9,11 @@ import dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot.Form;
 import dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot.ParameterState;
 import dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot.ParameterValue;
 import dev.turboism.sdk.cubism.model.Point2;
-
-import javax.swing.SwingUtilities;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import javax.swing.SwingUtilities;
 
 /** Caller validates source/instance/model identity inside the same EDT dispatch as this read. */
 final class EditorArtMeshEvaluationReadAccess {
@@ -24,23 +23,25 @@ final class EditorArtMeshEvaluationReadAccess {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
     }
 
-    ArtMeshEvaluationSnapshot read(final ArtMeshId id, final Object source,
-                                   final Object instance, final Object model) {
+    ArtMeshEvaluationSnapshot read(final ArtMeshId id, final Object source, final Object instance, final Object model) {
         if (!SwingUtilities.isEventDispatchThread()) {
             throw new IllegalStateException("calculated ArtMesh reads require the Editor thread");
         }
         requireSamplingConfiguration();
-        if (!resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03") || !resolver.authorizesFeature(
-            EditorArtMeshEvaluationReadSelectorContract.ADAPTER_SLICE_ID,
-            EditorArtMeshEvaluationReadSelectorContract.CAPABILITY_ID,
-            EditorArtMeshEvaluationReadSelectorContract.REQUIRED_ALIASES
-        )) throw new UnsupportedOperationException("verified 5.3.02 calculated ArtMesh reads are unavailable");
+        if (!resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")
+                || !resolver.authorizesFeature(
+                        EditorArtMeshEvaluationReadSelectorContract.ADAPTER_SLICE_ID,
+                        EditorArtMeshEvaluationReadSelectorContract.CAPABILITY_ID,
+                        EditorArtMeshEvaluationReadSelectorContract.REQUIRED_ALIASES))
+            throw new UnsupportedOperationException("verified 5.3.02 calculated ArtMesh reads are unavailable");
 
-        final String sourceGuid = text(invoke("cubism.editor-model.guid.value",
-            invoke("cubism.editor-model.art-mesh-source.guid", source)));
-        final int vertexCount = points(invoke("cubism.editor-model.art-mesh-source.positions", source)).size();
+        final String sourceGuid = text(
+                invoke("cubism.editor-model.guid.value", invoke("cubism.editor-model.art-mesh-source.guid", source)));
+        final int vertexCount = points(invoke("cubism.editor-model.art-mesh-source.positions", source))
+                .size();
         final ParameterState live = parameters(invoke("cubism.editor-model.model.parameter-set", model));
-        final ParameterState consumed = parameters(invoke("cubism.editor-model.model.last-updated-parameter-set", model));
+        final ParameterState consumed =
+                parameters(invoke("cubism.editor-model.model.last-updated-parameter-set", model));
         final Object stamp = invoke("cubism.editor-model.model.last-updated-time", model);
         if (!(stamp instanceof Long time)) throw new IllegalStateException("native pass time is not a long");
         final Object calculated = invoke("cubism.editor-model.art-mesh.calculated-form", instance);
@@ -48,12 +49,15 @@ final class EditorArtMeshEvaluationReadAccess {
         Optional<Form> form = Optional.empty();
         if (calculated != null) {
             final List<Point2> positions = points(invoke("cubism.editor-model.art-mesh-form.positions", calculated));
-            if (positions.size() != vertexCount) throw new IllegalStateException("calculated/source vertex count differs");
-            form = Optional.of(new Form(positions,
-                integer(invoke("cubism.editor-model.drawable-form.draw-order", calculated)),
-                text(invoke("cubism.editor-model.coord-type.label",
-                    invoke("cubism.editor-model.drawable-form.coord-type", calculated))),
-                calculated == interpolated));
+            if (positions.size() != vertexCount)
+                throw new IllegalStateException("calculated/source vertex count differs");
+            form = Optional.of(new Form(
+                    positions,
+                    integer(invoke("cubism.editor-model.drawable-form.draw-order", calculated)),
+                    text(invoke(
+                            "cubism.editor-model.coord-type.label",
+                            invoke("cubism.editor-model.drawable-form.coord-type", calculated))),
+                    calculated == interpolated));
         }
         // No evaluation, freshness classification, current-form fallback or native mutation here.
         return new ArtMeshEvaluationSnapshot(id, sourceGuid, form, live, consumed, time);
@@ -67,10 +71,10 @@ final class EditorArtMeshEvaluationReadAccess {
         // The native copied set's GUID map can contain removed parameters. Enumerate its actual list.
         for (final Object parameter : List.copyOf(list)) {
             final Object source = invoke("cubism.editor-model.parameter.source", parameter);
-            final String guid = text(invoke("cubism.editor-model.guid.value",
-                invoke("cubism.editor-model.parameter-source.guid", source)));
-            final ParameterId id = new ParameterId(text(invoke("cubism.editor-model.id.value",
-                invoke("cubism.editor-model.parameter.id", parameter))));
+            final String guid = text(invoke(
+                    "cubism.editor-model.guid.value", invoke("cubism.editor-model.parameter-source.guid", source)));
+            final ParameterId id = new ParameterId(text(
+                    invoke("cubism.editor-model.id.value", invoke("cubism.editor-model.parameter.id", parameter))));
             final Object raw = invoke("cubism.editor-model.parameter.value", parameter);
             if (!(raw instanceof Float value) || !Float.isFinite(value)) {
                 throw new IllegalStateException("native parameter value is not a finite float");
@@ -86,7 +90,8 @@ final class EditorArtMeshEvaluationReadAccess {
         for (final String property : List.of("sun.java2d.opengl", "jogl.gljpanel.noogl")) {
             final String value = System.getProperty(property);
             if (value != null && !value.equals("false")) {
-                throw new UnsupportedOperationException("unsupported calculated-read rendering configuration: " + property);
+                throw new UnsupportedOperationException(
+                        "unsupported calculated-read rendering configuration: " + property);
             }
         }
     }
