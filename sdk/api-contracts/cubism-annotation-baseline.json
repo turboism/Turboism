@@ -3,7 +3,6 @@
   "comment": "Frozen backlog of public dev.turboism.sdk.cubism types that predate the @CubismEditor requirement. Regenerate with `python3 scripts/check_sdk_cubism_annotations.py --update` only when annotating entries or deliberately re-baselining; new unannotated public types fail checkSdkCubismEditorAnnotations until annotated.",
   "scope": "dev.turboism.sdk.cubism",
   "unannotatedTypes": [
-    "dev.turboism.sdk.cubism.CubismFacade",
     "dev.turboism.sdk.cubism.backup.BackupArtifact",
     "dev.turboism.sdk.cubism.backup.BackupArtifactHandle",
     "dev.turboism.sdk.cubism.backup.BackupCompletedEvent",
