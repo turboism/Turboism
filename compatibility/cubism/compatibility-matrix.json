@@ -316,6 +316,9 @@
     "editor-model"
    ],
    "verified": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
     "5.3.00",
     "5.3.01",
@@ -324,6 +327,9 @@
     "5.3.04"
    ],
    "admitted": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
     "5.3.00",
     "5.3.01",
@@ -2916,6 +2922,9 @@
     "editor-model"
    ],
    "verified": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
     "5.3.00",
     "5.3.01",
@@ -2924,6 +2933,9 @@
     "5.3.04"
    ],
    "admitted": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
     "5.3.00",
     "5.3.01",
@@ -3196,6 +3208,36 @@
   {
    "id": "cubism.editor-model.native-control-appearance.write",
    "group": "misc",
+   "families": [
+    "editor-model"
+   ],
+   "verified": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "admitted": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "narrowedBy": []
+  },
+  {
+   "id": "cubism.editor-model.object-hierarchy.apply-deformer-to-children",
+   "group": "object-hierarchy",
    "families": [
     "editor-model"
    ],
@@ -4248,6 +4290,10 @@
     "editor-model"
    ],
    "verified": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
     "5.3.00",
     "5.3.01",
     "5.3.02",
@@ -4255,6 +4301,10 @@
     "5.3.04"
    ],
    "admitted": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
     "5.3.00",
     "5.3.01",
     "5.3.02",
@@ -4265,6 +4315,10 @@
     {
      "source": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorRawImagePsdSelectorContract.java:SUPPORTED_CUBISM_VERSIONS",
      "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
       "5.3.00",
       "5.3.01",
       "5.3.02",
@@ -4281,6 +4335,10 @@
     "editor-model"
    ],
    "verified": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
     "5.3.00",
     "5.3.01",
     "5.3.02",
@@ -4288,6 +4346,10 @@
     "5.3.04"
    ],
    "admitted": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
     "5.3.00",
     "5.3.01",
     "5.3.02",
@@ -4298,6 +4360,10 @@
     {
      "source": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorRawImagePsdReplaceSelectorContract.java:SUPPORTED_CUBISM_VERSIONS",
      "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
       "5.3.00",
       "5.3.01",
       "5.3.02",
@@ -6579,6 +6645,7 @@
   {
    "id": "object-hierarchy",
    "capabilities": [
+    "cubism.editor-model.object-hierarchy.apply-deformer-to-children",
     "cubism.editor-model.object-hierarchy.art-mesh.create",
     "cubism.editor-model.object-hierarchy.edit",
     "cubism.editor-model.object-hierarchy.rename"
@@ -8128,7 +8195,8 @@
     "5.3.00",
     "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/CubismFacade.java"
   },
@@ -8140,7 +8208,8 @@
     "5.3.00",
     "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/CubismFacade.java"
   },
@@ -8152,7 +8221,8 @@
     "5.3.00",
     "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/CubismFacade.java"
   },
@@ -8160,6 +8230,13 @@
    "api": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService#artifacts()",
    "kind": "method",
    "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
     "5.3.00",
     "5.3.01",
@@ -9035,7 +9112,15 @@
    "api": "dev.turboism.sdk.cubism.model.Deformers#applyToChildren()",
    "kind": "method",
    "versions": [
-    "5.3.02"
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Deformers.java"
   },
@@ -9055,6 +9140,10 @@
    "api": "dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
     "5.3.00",
     "5.3.01",
     "5.3.02",
@@ -9067,6 +9156,10 @@
    "api": "dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
     "5.3.00",
     "5.3.01",
     "5.3.02",
@@ -9158,6 +9251,7 @@
     "5.2.00",
     "5.2.01",
     "5.2.02",
+    "5.2.03",
     "5.3.00",
     "5.3.01",
     "5.3.02",
@@ -9486,7 +9580,8 @@
       "5.3.00",
       "5.3.01",
       "5.3.02",
-      "5.3.03"
+      "5.3.03",
+      "5.3.04"
      ],
      "missingOn": [
       "5.0.00",
@@ -9502,8 +9597,7 @@
       "5.1.03",
       "5.2.00",
       "5.2.01",
-      "5.2.02",
-      "5.3.04"
+      "5.2.02"
      ],
      "source": "sdk-api",
      "sourceFiles": [
@@ -9523,8 +9617,7 @@
       "5.1.03": "unknown",
       "5.2.00": "unknown",
       "5.2.01": "unknown",
-      "5.2.02": "unknown",
-      "5.3.04": "pending"
+      "5.2.02": "unknown"
      }
     }
    ],
@@ -10351,6 +10444,10 @@
    "directory": "external-psd-edit",
    "requiresCubism": true,
    "supportedVersions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
     "5.3.00",
     "5.3.01",
     "5.3.02",
@@ -10368,13 +10465,13 @@
     "5.1.00": "pending",
     "5.1.01": "pending",
     "5.1.02": "pending",
-    "5.1.03": "pending",
-    "5.2.00": "pending",
-    "5.2.01": "pending",
-    "5.2.02": "pending",
-    "5.2.03": "pending"
+    "5.1.03": "pending"
    },
    "fullFeatureVersions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
     "5.3.00",
     "5.3.01",
     "5.3.02",
@@ -10386,6 +10483,10 @@
      "key": "cubism.editor-model.psd.raw-image.replace",
      "declaredCapability": "cubism.psd.external-edit",
      "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
       "5.3.00",
       "5.3.01",
       "5.3.02",
@@ -10403,11 +10504,7 @@
       "5.1.00",
       "5.1.01",
       "5.1.02",
-      "5.1.03",
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03"
+      "5.1.03"
      ],
      "source": "capability",
      "pins": [],
@@ -10429,17 +10526,17 @@
       "5.1.00": "pending",
       "5.1.01": "pending",
       "5.1.02": "pending",
-      "5.1.03": "pending",
-      "5.2.00": "pending",
-      "5.2.01": "pending",
-      "5.2.02": "pending",
-      "5.2.03": "pending"
+      "5.1.03": "pending"
      }
     },
     {
      "key": "dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()",
      "declaredCapability": null,
      "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
       "5.3.00",
       "5.3.01",
       "5.3.02",
@@ -10457,11 +10554,7 @@
       "5.1.00",
       "5.1.01",
       "5.1.02",
-      "5.1.03",
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03"
+      "5.1.03"
      ],
      "source": "sdk-api",
      "sourceFiles": [
@@ -10478,17 +10571,17 @@
       "5.1.00": "unknown",
       "5.1.01": "unknown",
       "5.1.02": "unknown",
-      "5.1.03": "unknown",
-      "5.2.00": "unknown",
-      "5.2.01": "unknown",
-      "5.2.02": "unknown",
-      "5.2.03": "unknown"
+      "5.1.03": "unknown"
      }
     },
     {
      "key": "dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()",
      "declaredCapability": null,
      "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
       "5.3.00",
       "5.3.01",
       "5.3.02",
@@ -10506,11 +10599,7 @@
       "5.1.00",
       "5.1.01",
       "5.1.02",
-      "5.1.03",
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03"
+      "5.1.03"
      ],
      "source": "sdk-api",
      "sourceFiles": [
@@ -10527,11 +10616,7 @@
       "5.1.00": "unknown",
       "5.1.01": "unknown",
       "5.1.02": "unknown",
-      "5.1.03": "unknown",
-      "5.2.00": "unknown",
-      "5.2.01": "unknown",
-      "5.2.02": "unknown",
-      "5.2.03": "unknown"
+      "5.1.03": "unknown"
      }
     }
    ],
@@ -10588,6 +10673,9 @@
    ],
    "supportedGaps": {},
    "fullFeatureVersions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
     "5.3.00",
     "5.3.01",
@@ -10600,6 +10688,9 @@
      "key": "cubism.editor-history.semantic-read",
      "declaredCapability": "cubism.editor-history.semantic-read",
      "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
       "5.2.03",
       "5.3.00",
       "5.3.01",
@@ -10618,10 +10709,7 @@
       "5.1.00",
       "5.1.01",
       "5.1.02",
-      "5.1.03",
-      "5.2.00",
-      "5.2.01",
-      "5.2.02"
+      "5.1.03"
      ],
      "source": "capability",
      "pins": [],
@@ -10641,10 +10729,7 @@
       "5.1.00": "unknown",
       "5.1.01": "unknown",
       "5.1.02": "unknown",
-      "5.1.03": "unknown",
-      "5.2.00": "unknown",
-      "5.2.01": "unknown",
-      "5.2.02": "unknown"
+      "5.1.03": "unknown"
      }
     },
     {
@@ -13289,52 +13374,6 @@
    ],
    "partialFeatures": [
     {
-     "key": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession",
-     "declaredCapability": null,
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03",
-      "5.2.03"
-     ],
-     "source": "sdk-api",
-     "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasEditorSession.java"
-     ],
-     "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown",
-      "5.2.03": "pending"
-     }
-    },
-    {
      "key": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel",
      "declaredCapability": null,
      "versions": [
@@ -13364,6 +13403,51 @@
      "source": "sdk-api",
      "sourceFiles": [
       "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasEditorPanel.java"
+     ],
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
+     }
+    },
+    {
+     "key": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession",
+     "declaredCapability": null,
+     "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasEditorSession.java"
      ],
      "missingNature": {
       "5.0.00": "unknown",
@@ -13847,6 +13931,13 @@
      "key": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService#artifacts()",
      "declaredCapability": null,
      "versions": [
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03",
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
       "5.2.03",
       "5.3.00",
       "5.3.01",
@@ -13861,14 +13952,7 @@
       "5.0.03",
       "5.0.04",
       "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03",
-      "5.2.00",
-      "5.2.01",
-      "5.2.02"
+      "5.0.06"
      ],
      "source": "sdk-api",
      "sourceFiles": [
@@ -13881,14 +13965,7 @@
       "5.0.03": "unknown",
       "5.0.04": "unknown",
       "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown",
-      "5.2.00": "unknown",
-      "5.2.01": "unknown",
-      "5.2.02": "unknown"
+      "5.0.06": "unknown"
      }
     },
     {

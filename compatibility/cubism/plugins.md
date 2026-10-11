@@ -11,7 +11,7 @@ When Cubism runs under a FREE licence, saving is subject to the FREE parameter-c
 | Plugin | Supported versions | Feature deltas | Real-host validation |
 |---|---|---|---|
 | `acp` | all reviewed versions | — | host-verified 5.2.03, 5.3.02–5.3.03 |
-| `atlas-dalsoo-polygon` | all reviewed versions | Polygon-aware atlas layout only on 5.2.03–5.3.03（5.3.04 pending adaptation；5.0.00–5.2.02 unconfirmed） | host-verified 5.2.03, 5.3.02–5.3.03 |
+| `atlas-dalsoo-polygon` | all reviewed versions | Polygon-aware atlas layout only on 5.2.03–5.3.04（5.0.00–5.2.02 unconfirmed） | host-verified 5.2.03, 5.3.02–5.3.03 |
 | `atlas-maxrects-bssf` | all reviewed versions | — | — |
 | `bounding-box` | all reviewed versions | — | — |
 | `boundingbox-warp-mirror` | all reviewed versions | — | host-verified 5.2.03, 5.3.03 |
@@ -20,8 +20,8 @@ When Cubism runs under a FREE licence, saving is subject to the FREE parameter-c
 | `context-menu` | all reviewed versions | — | — |
 | `cubism-tab-filter` | all reviewed versions | — | — |
 | `demo` | all reviewed versions | — | — |
-| `external-psd-edit` | 5.3.00–5.3.04（5.0.00–5.2.03 pending adaptation） | PSD raw-image replace only on 5.3.00–5.3.04（5.0.00–5.2.03 pending adaptation）<br>Export PSD raw image only on 5.3.00–5.3.04（5.0.00–5.2.03 unconfirmed）<br>Replace PSD raw image only on 5.3.00–5.3.04（5.0.00–5.2.03 unconfirmed） | host-verified 5.3.02 |
-| `history-panel` | all reviewed versions | full feature set requires 5.2.03+<br>Semantic history decoding only on 5.2.03–5.3.04（5.0.00–5.2.02 unconfirmed）<br>Embedded panel docking not on 5.0.00–5.0.06 | — |
+| `external-psd-edit` | 5.2.00–5.3.04（5.0.00–5.1.03 pending adaptation） | PSD raw-image replace only on 5.2.00–5.3.04（5.0.00–5.1.03 pending adaptation）<br>Export PSD raw image only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Replace PSD raw image only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed） | host-verified 5.3.02 |
+| `history-panel` | all reviewed versions | full feature set requires 5.2.00+<br>Semantic history decoding only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Embedded panel docking not on 5.0.00–5.0.06 | — |
 | `mcp` | all reviewed versions | full feature set requires 5.2.00+<br>MCP texture writes only on 5.2.03–5.3.04（5.0.00–5.2.02 unconfirmed）<br>Parameter writes only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Authoring transactions (grouped undo writes) only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>MCP transaction execution only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Top menu integration not on 5.0.00–5.0.06 | host-verified 5.2.00–5.2.01, 5.3.00<br>confirmed boundary 5.0.06–5.1.00 |
 | `mesh-edit-mirror-axis-enhance` | all reviewed versions | full feature set only on 5.2.03, 5.3.02–5.3.03<br>Mesh mirror axis-angle enhancement only on 5.2.03, 5.3.02–5.3.03（5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04 pending adaptation）<br>Mesh toolbar contribution only on 5.2.03, 5.3.02–5.3.03（5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04 pending adaptation）<br>Mesh geometry read only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed） | — |
 | `palette-label-style` | all reviewed versions | full feature set requires 5.2.00+<br>Editor model writes only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed） | — |
@@ -37,9 +37,9 @@ When Cubism runs under a FREE licence, saving is subject to the FREE parameter-c
 | `recent-preview` | all reviewed versions | — | — |
 | `scene-palette-enhancer` | all reviewed versions | — | — |
 | `selection-brush` | 5.2.03, 5.3.02–5.3.03（5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04 pending adaptation） | Mesh-edit custom tools only on 5.2.03, 5.3.02–5.3.03（5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04 pending adaptation）<br>Modeling selection brush only on 5.2.03, 5.3.02–5.3.03（5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04 pending adaptation） | host-verified 5.2.03, 5.3.02–5.3.03 |
-| `texture-atlas-stats` | all reviewed versions | Native atlas editor session access only on 5.2.00–5.2.02, 5.3.00–5.3.04（5.2.03 pending adaptation；5.0.00–5.1.03 unconfirmed）<br>Atlas editor panel only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Native atlas editor UI contribution only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed） | — |
+| `texture-atlas-stats` | all reviewed versions | Atlas editor panel only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Native atlas editor session access only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Native atlas editor UI contribution only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed） | — |
 | `ui-theme` | all reviewed versions | — | host-verified 5.0.00–5.1.01, 5.1.03, 5.2.02, 5.3.03<br>confirmed boundary 5.3.00–5.3.01, 5.3.04 |
 | `warp-deformer-alt-symmetry` | all reviewed versions | full feature set only on 5.2.03, 5.3.02–5.3.03<br>Warp mirror only on 5.2.03, 5.3.02–5.3.03（5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04 pending adaptation） | host-verified 5.2.03, 5.3.02–5.3.03 |
-| `webdav-backup` | all reviewed versions | Auto-backup artifacts only on 5.2.03–5.3.04（5.0.00–5.2.02 unconfirmed）<br>Save-triggered auto-backup not on 5.0.00–5.0.06 | host-verified 5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04<br>confirmed boundary 5.1.00–5.1.01, 5.1.03, 5.2.01–5.2.02, 5.3.01 |
+| `webdav-backup` | all reviewed versions | Auto-backup artifacts not on 5.0.00–5.0.06<br>Save-triggered auto-backup not on 5.0.00–5.0.06 | host-verified 5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04<br>confirmed boundary 5.1.00–5.1.01, 5.1.03, 5.2.01–5.2.02, 5.3.01 |
 
 Real-host column: latest FINAL campaign result per task and version from `validation/cubism-version-matrix/campaign-jobs.json`, classified by triage. Infrastructure retries, probe drift, and inconclusive runs are never listed; unprobed versions stay blank — static review is the baseline everywhere.

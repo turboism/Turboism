@@ -56,7 +56,7 @@ interface: none
 
 <!-- compatibility:begin -->
 **Cubism Editor 版本支持（自动生成）：** 全部审核版本.
-- 多边形图集布局 仅 5.2.03–5.3.03（5.3.04 尚未适配；5.0.00–5.2.02 待确认）
+- 多边形图集布局 仅 5.2.03–5.3.04（5.0.00–5.2.02 待确认）
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->
 

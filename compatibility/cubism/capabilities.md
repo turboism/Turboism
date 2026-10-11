@@ -21,14 +21,14 @@ Legend: ✓ every capability in the group admitted · ◐ partially admitted · 
 | Edit session | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Editor UI surfaces | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Geometry read | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Editor history | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Editor history | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Integration bridges | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Mesh tool session | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
 | Mesh toolbar contribution | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
 | Other model surfaces | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Model instance read | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Model instance read | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Modeling custom tools | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
-| Object hierarchy | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Object hierarchy | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Parameters & bindings | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Parameter key editing | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Parameter structure editing | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -39,7 +39,7 @@ Legend: ✓ every capability in the group admitted · ◐ partially admitted · 
 | Plugin UI surfaces | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Project read | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Protected export | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| PSD raw image | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| PSD raw image | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Selection editing | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Startup suppression | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Textures & raw images | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -57,7 +57,7 @@ Legend: ✓ every capability in the group admitted · ◐ partially admitted · 
 - `cubism.editor-ui.main-toolbar` (Main toolbar integration): no verified record 5.0.00–5.0.06
 - `cubism.editor-ui.top-menu` (Top menu integration): no verified record 5.0.00–5.0.06
 - `cubism.geometry.read` (Mesh geometry read): no verified record 5.0.00–5.1.03
-- `cubism.editor-history.semantic-read` (Semantic history decoding): no verified record 5.0.00–5.2.02
+- `cubism.editor-history.semantic-read` (Semantic history decoding): no verified record 5.0.00–5.1.03
 - `cubism.integration.edit-api-bridge.dispatch`: no verified record 5.0.00–5.1.01
 - `cubism.integration.external-app-settings.edit-toggle` (External-app editing toggle): no verified record 5.0.00–5.0.06
 - `cubism.mesh-tool.session` (Mesh-edit tool session): no verified record 5.0.00–5.2.02
@@ -67,9 +67,10 @@ Legend: ✓ every capability in the group admitted · ◐ partially admitted · 
 - `cubism.editor-model.default-keyform-lock.write`: no verified record 5.0.00–5.1.03
 - `cubism.editor-model.native-control-appearance.write`: no verified record 5.0.00–5.1.03
 - `cubism.editor-model.write` (Editor model writes): no verified record 5.0.00–5.1.03
-- `cubism.editor-model.model-instance.read` (Live model-instance read): no verified record 5.0.00–5.2.02
+- `cubism.editor-model.model-instance.read` (Live model-instance read): no verified record 5.0.00–5.1.03
 - `cubism.modeling-tool.selection-brush` (Modeling selection brush): no verified record 5.0.00–5.2.02
 - `cubism.modeling-tool.selection-brush` (Modeling selection brush): verified but narrowed by contract/pins (adaptation pending) 5.3.00–5.3.01, 5.3.04
+- `cubism.editor-model.object-hierarchy.apply-deformer-to-children`: no verified record 5.0.00–5.1.03
 - `cubism.editor-model.parameter-combined.write`: no verified record 5.0.00–5.1.03
 - `cubism.editor-model.parameter-definition.write`: no verified record 5.0.00–5.1.03
 - `cubism.editor-model.parameter-structure.write` (Parameter structure writes): no verified record 5.0.00–5.1.03
@@ -84,8 +85,8 @@ Legend: ✓ every capability in the group admitted · ◐ partially admitted · 
 - `cubism.editor-model.part-inspector.write`: no verified record 5.0.00–5.2.03
 - `cubism.editor-model.part-opacity.write`: no verified record 5.0.00–5.2.03
 - `cubism.protected-export.orchestration` (Protected-export orchestration): no verified record 5.0.00–5.0.06
-- `cubism.editor-model.psd.raw-image.export`: no verified record 5.0.00–5.2.03
-- `cubism.editor-model.psd.raw-image.replace` (PSD raw-image replace): no verified record 5.0.00–5.2.03
+- `cubism.editor-model.psd.raw-image.export`: no verified record 5.0.00–5.1.03
+- `cubism.editor-model.psd.raw-image.replace` (PSD raw-image replace): no verified record 5.0.00–5.1.03
 - `cubism.texture-atlas.auto-layout-hook`: no verified record 5.0.00–5.1.03
 - `cubism.texture-atlas.native-layout-invocation`: no verified record 5.0.00–5.1.03
 
@@ -97,10 +98,10 @@ Only surfaces whose `@CubismEditor` resolves to a strict subset of the reviewed 
 |---|---|---|
 | `dev.turboism.sdk.cubism.CubismFacade#authoringTransactions()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.CubismFacade#edit()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorSession()` | method | 5.2.03–5.3.03 |
-| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorUi()` | method | 5.2.03–5.3.03 |
-| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasPolygonLayouts()` | method | 5.2.03–5.3.03 |
-| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#artifacts()` | method | 5.2.03–5.3.04 |
+| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorSession()` | method | 5.2.03–5.3.04 |
+| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorUi()` | method | 5.2.03–5.3.04 |
+| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasPolygonLayouts()` | method | 5.2.03–5.3.04 |
+| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#artifacts()` | method | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#backupAfterSave()` | method | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#backupNow()` | method | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#registerSyncTarget()` | method | 5.1.00–5.3.04 |
@@ -148,17 +149,17 @@ Only surfaces whose `@CubismEditor` resolves to a strict subset of the reviewed 
 | `dev.turboism.sdk.cubism.export.ExportSettingsDecision#ExportSettingsDecision()` | method | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.export.Outcome` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AlphaComposition` | type | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.Deformers#applyToChildren()` | method | 5.3.02 |
+| `dev.turboism.sdk.cubism.model.Deformers#applyToChildren()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()` | method | 5.3.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()` | method | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#alphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#maskIds()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setAlphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setMaskIds()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setOpacity()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession` | type | 5.2.00–5.2.02, 5.3.00–5.3.04 |
+| `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi` | type | 5.2.00–5.3.04 |
 
 ## Editor commands available on a subset of versions

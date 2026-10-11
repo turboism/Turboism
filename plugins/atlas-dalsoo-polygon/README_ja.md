@@ -62,7 +62,7 @@ MIT ライセンスの `whitegreen/Dalsoo-Bin-Packing`（コミット `bde2a3e`�
 
 <!-- compatibility:begin -->
 **Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
-- ポリゴン対応アトラスレイアウト のみ 5.2.03–5.3.03（5.3.04 は未対応（適合作業中）；5.0.00–5.2.02 は未確認）
+- ポリゴン対応アトラスレイアウト のみ 5.2.03–5.3.04（5.0.00–5.2.02 は未確認）
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
 <!-- compatibility:end -->
 
