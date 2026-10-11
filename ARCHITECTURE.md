@@ -307,7 +307,9 @@ focused verification
 
 devCheck
   Production compilation plus inexpensive permanent structural boundaries after
-  a meaningful implementation slice.
+  a meaningful implementation slice, plus the focused offline admission
+  unit-test suites (`:runtime:admissionUnitTests`, `:sdk:test`,
+  `:bootstrap:test`, `:testing:integration-tests:admissionUnitTests`).
 
 checkIntegration
   Packaged runtime, plugin, bundle, and affected cross-module behavior.

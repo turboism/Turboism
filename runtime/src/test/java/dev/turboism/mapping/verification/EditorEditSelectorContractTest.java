@@ -238,19 +238,11 @@ final class EditorEditSelectorContractTest {
                     "cubism.editor-model.parameter-group.set-id");
         }
 
-        // Keyform conditions: the keyform-on-grid members land only on 5.3.03.
-        assertUnbound(
-                aliases5203,
-                EditorEditPartObjectSelectorContract.KEYFORM_CONDITION_ALIASES,
-                "cubism.editor-model.keyform-grid.keyforms-on-grid",
-                "cubism.editor-model.keyform-on-grid.form-guid",
-                "cubism.editor-model.part.current-keyform");
-        assertUnbound(
-                aliases5302,
-                EditorEditPartObjectSelectorContract.KEYFORM_CONDITION_ALIASES,
-                "cubism.editor-model.keyform-grid.keyforms-on-grid",
-                "cubism.editor-model.keyform-on-grid.form-guid");
-        assertBound(aliases5303, EditorEditPartObjectSelectorContract.KEYFORM_CONDITION_ALIASES);
+        // Keyform conditions: the keyform-on-grid members are verified on every supported
+        // host, so the whole condition set is bound on all three records.
+        for (Set<String> aliases : List.of(aliases5203, aliases5302, aliases5303)) {
+            assertBound(aliases, EditorEditPartObjectSelectorContract.KEYFORM_CONDITION_ALIASES);
+        }
 
         // MoveObjectOnPartsPalette reparent via remove-child lands only on 5.3.03.
         assertUnbound(
@@ -265,6 +257,7 @@ final class EditorEditSelectorContractTest {
 
         // 5.3-only Part read fields for GetObject: the 5.2.03 host lacks the offscreen/clip/
         // blend part readers, the part-form visual reads, and the alpha-composition carrier.
+        // part-form.class is the shared carrier bound on every record.
         assertBound(aliases5302, EditorEditPartObjectSelectorContract.GET_OBJECT_PART_EXTENDED_ALIASES);
         assertBound(aliases5303, EditorEditPartObjectSelectorContract.GET_OBJECT_PART_EXTENDED_ALIASES);
         assertUnbound(
@@ -276,7 +269,6 @@ final class EditorEditSelectorContractTest {
                 "cubism.editor-model.part-source.color-composition",
                 "cubism.editor-model.part-source.alpha-composition",
                 "cubism.editor-model.alpha-composition.values",
-                "cubism.editor-model.part-form.class",
                 "cubism.editor-model.part-form.opacity",
                 "cubism.editor-model.part-form.multiply-color",
                 "cubism.editor-model.part-form.screen-color");
@@ -312,7 +304,6 @@ final class EditorEditSelectorContractTest {
                 "cubism.editor-model.part-source.clip-guid-list",
                 "cubism.editor-model.part-source.alpha-composition",
                 "cubism.editor-model.part-source.set-alpha-composition",
-                "cubism.editor-model.part-form.class",
                 "cubism.editor-model.part-form.opacity",
                 "cubism.editor-model.part-form.set-opacity",
                 "cubism.editor-model.alpha-composition.class",
