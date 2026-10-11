@@ -65,9 +65,11 @@ class EditorRawImagePsdReplaceSelectorContractTest {
     }
 
     @Test
-    void contractListsOnlyReviewed53GenerationsAndRequiresCompleteAliases() {
+    void contractListsReviewedGenerationsAndRequiresCompleteAliases() {
         assertEquals(
-                java.util.Set.of("5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"),
+                java.util.Set.of(
+                        "5.2.00", "5.2.01", "5.2.02", "5.2.03",
+                        "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"),
                 EditorRawImagePsdReplaceSelectorContract.SUPPORTED_CUBISM_VERSIONS);
         assertFalse(EditorRawImagePsdReplaceSelectorContract.SUPPORTED_CUBISM_VERSIONS.contains("5.3.05"));
         assertEquals(
@@ -78,7 +80,7 @@ class EditorRawImagePsdReplaceSelectorContractTest {
     }
 
     @Test
-    void replaceAdmissionRequiresReviewed53ModelRecords() {
+    void replaceAdmissionRequiresReviewedModelRecords() {
         assertTrue(EditorModelVerificationManifest.cubism5302Capabilities()
                 .contains(EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID));
         assertFalse(EditorModelVerificationManifest.CAPABILITY_IDS.contains(
@@ -86,6 +88,16 @@ class EditorRawImagePsdReplaceSelectorContractTest {
         assertTrue(EditorModelVerificationManifest.cubism5303Capabilities()
                 .contains(EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID));
         assertTrue(EditorModelVerificationManifest.cubism5303StaticAliases()
+                .containsAll(EditorRawImagePsdReplaceSelectorContract.REQUIRED_ALIASES));
+        assertTrue(EditorModelVerificationManifest.cubism52Capabilities()
+                .contains(EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID));
+        assertTrue(EditorModelVerificationManifest.cubism52Aliases()
+                .containsAll(EditorRawImagePsdReplaceSelectorContract.REQUIRED_ALIASES));
+        assertTrue(EditorModelVerificationManifest.forArtifact(ReviewedHostArtifacts.CUBISM_5_2_00)
+                .capabilityIds()
+                .contains(EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID));
+        assertTrue(EditorModelVerificationManifest.forArtifact(ReviewedHostArtifacts.CUBISM_5_2_00)
+                .requiredAliases()
                 .containsAll(EditorRawImagePsdReplaceSelectorContract.REQUIRED_ALIASES));
     }
 
