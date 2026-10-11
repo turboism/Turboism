@@ -19,6 +19,7 @@ import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorCon
 import dev.turboism.mapping.verification.selector.EditorHistoryIngressSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryMoveSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorHistorySemanticSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorIntegrationSettingsDialogSelectorContract;
@@ -52,6 +53,8 @@ import dev.turboism.mapping.verification.selector.EditorPartStructureSelectorCon
 import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPhysicsReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPsdSnapshotSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorRawImagePsdReplaceSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorRawImagePsdSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorSelectionReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorWarpMirrorSelectorContract;
@@ -466,6 +469,18 @@ final class CapabilitySelectorDependencies {
                 EditorPsdSnapshotSelectorContract.REQUIRED_ALIASES);
         add(
                 result,
+                EditorRawImagePsdSelectorContract.CAPABILITY_ID,
+                EditorRawImagePsdSelectorContract.REQUIRED_ALIASES);
+        add(
+                result,
+                EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID,
+                EditorRawImagePsdReplaceSelectorContract.REQUIRED_ALIASES);
+        add(
+                result,
+                EditorHistorySemanticSelectorContract.CAPABILITY_ID,
+                EditorHistorySemanticSelectorContract.REQUIRED_ALIASES);
+        add(
+                result,
                 EditorSelectionReadSelectorContract.CAPABILITY_ID,
                 EditorSelectionReadSelectorContract.REQUIRED_ALIASES);
         add(
@@ -571,6 +586,11 @@ final class CapabilitySelectorDependencies {
                 && EditorModelInstanceReadSelectorContract.ONION_SKIN_ABSENT_VERSIONS.contains(
                         record.cubismVersion())) {
             aliases.removeAll(EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES);
+        }
+        if (capability.equals(EditorRawImagePsdSelectorContract.CAPABILITY_ID)
+                && EditorRawImagePsdSelectorContract.TRANSPARENCY_SHAPES_ABSENT_VERSIONS.contains(
+                        record.cubismVersion())) {
+            aliases.removeAll(EditorRawImagePsdSelectorContract.TRANSPARENCY_SHAPES_ALIASES);
         }
         if (capability.startsWith("cubism.editor-model.edit.")) {
             aliases.addAll(EditorEditSessionSelectorContract.SESSION_ADMISSION_REQUIRED_ALIASES);

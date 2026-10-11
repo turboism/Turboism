@@ -185,6 +185,35 @@ public final class EditorHistorySemanticSelectorContract {
         "cubism.editor-model.id.value"
     );
 
+    /** Admission union: every decoder subset this capability can project. */
+    public static final Set<String> REQUIRED_ALIASES = unionAll(
+        GROUP_REQUIRED_ALIASES,
+        PROPERTY_REQUIRED_ALIASES,
+        SIMPLE_REQUIRED_ALIASES,
+        LIST_REQUIRED_ALIASES,
+        ART_MESH_FORM_REQUIRED_ALIASES,
+        WARP_FORM_REQUIRED_ALIASES,
+        ROTATION_FORM_REQUIRED_ALIASES,
+        ADD_REMOVE_REQUIRED_ALIASES,
+        ADD_REMOVE_PARAMETER_REQUIRED_ALIASES,
+        ADD_REMOVE_PART_REQUIRED_ALIASES,
+        ADD_REMOVE_DRAWABLE_REQUIRED_ALIASES,
+        ADD_REMOVE_DEFORMER_REQUIRED_ALIASES,
+        ADD_REMOVE_PARAMETER_GROUP_REQUIRED_ALIASES,
+        PART_MEMBERSHIP_REQUIRED_ALIASES
+    );
+
+    private static Set<String> unionAll(
+        final Set<String> first,
+        final Set<String>... rest
+    ) {
+        final java.util.LinkedHashSet<String> combined = new java.util.LinkedHashSet<>(first);
+        for (final Set<String> next : rest) {
+            combined.addAll(next);
+        }
+        return Set.copyOf(combined);
+    }
+
     private static Set<String> union(
         final Set<String> first,
         final Set<String> second,
