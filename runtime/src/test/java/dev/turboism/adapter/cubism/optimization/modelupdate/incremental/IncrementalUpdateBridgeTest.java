@@ -329,6 +329,16 @@ class IncrementalUpdateBridgeTest {
                 .add(
                         "com/live2d/cubism/doc/IDocument",
                         emit("com/live2d/cubism/doc/IDocument", "interface", null, f(), f(), m()))
+                .add("com/live2d/doc/IEditMode", emit("com/live2d/doc/IEditMode", "interface", null, f(), f(), m()))
+                .add(
+                        N + "doc/ACEditMode",
+                        emit(
+                                N + "doc/ACEditMode",
+                                null,
+                                new String[] {"com/live2d/doc/IEditMode"},
+                                f("editing:Z"),
+                                f(),
+                                m(g("isEditing", "()Z", "editing"))))
                 .add("com/live2d/type/CDeformerGuid", emit("com/live2d/type/CDeformerGuid", null, null, f(), f(), m()))
                 .add("com/live2d/doc/selection/d", emit("com/live2d/doc/selection/d", null, null, f(), f(), m()))
                 .add(
@@ -349,9 +359,11 @@ class IncrementalUpdateBridgeTest {
                                 C + "CEViewContext",
                                 null,
                                 null,
-                                f("doc:Lcom/live2d/cubism/doc/IDocument;"),
+                                f("doc:Lcom/live2d/cubism/doc/IDocument;", "editMode:Lcom/live2d/doc/IEditMode;"),
                                 f(),
-                                m(g("getDoc", "()Lcom/live2d/cubism/doc/IDocument;", "doc"))))
+                                m(
+                                        g("getDoc", "()Lcom/live2d/cubism/doc/IDocument;", "doc"),
+                                        g("getCurrentEditMode", "()Lcom/live2d/doc/IEditMode;", "editMode"))))
                 .add(C + "bL", emit(C + "bL", null, null, f(), f(), m()))
                 .add(M + "ax", emit(M + "ax", null, null, f(), f(), m()))
                 .add(M + "CModel", emitModel(M + "CModel"))
@@ -503,7 +515,7 @@ class IncrementalUpdateBridgeTest {
     /** A small host world: two deformers (parent/child) and one artMesh. */
     private static final class World {
         final Loader loader;
-        final Object model, ctx, ax, parent, child, mesh, meshForm, deformedOut, doc;
+        final Object model, ctx, ax, parent, child, mesh, meshForm, deformedOut, doc, editMode;
         final Object parentForm, childForm;
         final List<Object> deformers = new ArrayList<>();
 
@@ -514,8 +526,10 @@ class IncrementalUpdateBridgeTest {
             ctx = make(loader, N + "view/context/CEViewContext");
             ax = make(loader, M + "ax");
             doc = make(loader, N + "doc/modeling/CModelingDocument");
+            editMode = make(loader, N + "doc/ACEditMode");
             set(doc, "lastModified", 7L);
             set(ctx, "doc", doc);
+            set(ctx, "editMode", editMode);
             parent = make(loader, M + "deformer/ACDeformer");
             child = make(loader, M + "deformer/ACDeformer");
             parentForm = make(loader, M + "deformer/warp/CWarpDeformerForm");
@@ -841,6 +855,45 @@ class IncrementalUpdateBridgeTest {
         } finally {
             bridge.close();
             java.nio.file.Files.deleteIfExists(report);
+        }
+    }
+
+    @Test
+    void interactiveEditModeAndDocumentModificationForceFullDeform() throws Exception {
+        Loader loader = host();
+        World world = new World(loader);
+        System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
+        IncrementalUpdateBridge bridge = installed(loader);
+        try {
+            // Baseline narrowed epoch.
+            begin().accept(world.epoch());
+            assertTrue((boolean) field(loader.of(N + "view/ay"), "e"));
+
+            // Interactive drag (e.g. WarpDeformer handle/bounding-box drag) sets ACEditMode.isEditing()=true
+            // while parameters and document.lastModified remain unchanged.
+            set(world.editMode, "editing", true);
+            begin().accept(world.epoch());
+            assertFalse((boolean) field(loader.of(N + "view/ay"), "e"));
+            mark().accept(world.parent, world.model);
+            mark().accept(world.child, world.model);
+            assertTrue((boolean) field(world.parent, "dirty"));
+            assertTrue((boolean) field(world.child, "dirty"));
+            deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
+            assertEquals(1, (int) field(loader.of(N + "doc/model/drawable/artMesh/CArtMeshForm"), "transformCalls"));
+
+            // First epoch after mouseReleased (editing=false) still forces one full pass, then resumes narrowed.
+            set(world.editMode, "editing", false);
+            begin().accept(world.epoch());
+            assertFalse((boolean) field(loader.of(N + "view/ay"), "e"));
+            begin().accept(world.epoch());
+            assertTrue((boolean) field(loader.of(N + "view/ay"), "e"));
+
+            // Instantaneous edit or Undo/Redo advances document.lastModified -> forces full pass.
+            set(world.doc, "lastModified", 8L);
+            begin().accept(world.epoch());
+            assertFalse((boolean) field(loader.of(N + "view/ay"), "e"));
+        } finally {
+            bridge.close();
         }
     }
 
