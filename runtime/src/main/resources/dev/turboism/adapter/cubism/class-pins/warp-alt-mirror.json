@@ -1,83 +1,182 @@
 {
-    "5.2.00": {
-        "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
-        "com/live2d/cubism/view/context/temporaryHandler/a": "1b22a324345a3f537804684c0e96044264c92de0e5da5fa85d1333351ff953eb",
-        "com/live2d/cubism/view/context/a/b": "429863b82675183c0758d446534550101f0e5216d514e78f5a652cb21a5fe601",
-        "com/live2d/cubism/doc/model/deformer/warp/a$b": "da1685329d08c6566396b89aa28ccc9536132ba8f0faa0345b922b8d3e874e51",
-        "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
-        "com/live2d/cubism/view/context/actionManager/CEActionManager": "ac73a35cf91639269c69d0419b9e3367e4d15f559f93b087b363d66116fd09ec",
-        "com/live2d/cubism/view/context/CEViewContext": "cd5babcc316aecf14280dfbce306df72e9be1162c32af8498e504032d1e89394"
-    },
-    "5.2.01": {
-        "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
-        "com/live2d/cubism/view/context/temporaryHandler/a": "1b22a324345a3f537804684c0e96044264c92de0e5da5fa85d1333351ff953eb",
-        "com/live2d/cubism/view/context/a/b": "429863b82675183c0758d446534550101f0e5216d514e78f5a652cb21a5fe601",
-        "com/live2d/cubism/doc/model/deformer/warp/a$b": "da1685329d08c6566396b89aa28ccc9536132ba8f0faa0345b922b8d3e874e51",
-        "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
-        "com/live2d/cubism/view/context/actionManager/CEActionManager": "ac73a35cf91639269c69d0419b9e3367e4d15f559f93b087b363d66116fd09ec",
-        "com/live2d/cubism/view/context/CEViewContext": "cd5babcc316aecf14280dfbce306df72e9be1162c32af8498e504032d1e89394"
-    },
-    "5.2.02": {
-        "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
-        "com/live2d/cubism/view/context/temporaryHandler/a": "1b22a324345a3f537804684c0e96044264c92de0e5da5fa85d1333351ff953eb",
-        "com/live2d/cubism/view/context/a/b": "429863b82675183c0758d446534550101f0e5216d514e78f5a652cb21a5fe601",
-        "com/live2d/cubism/doc/model/deformer/warp/a$b": "da1685329d08c6566396b89aa28ccc9536132ba8f0faa0345b922b8d3e874e51",
-        "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
-        "com/live2d/cubism/view/context/actionManager/CEActionManager": "ac73a35cf91639269c69d0419b9e3367e4d15f559f93b087b363d66116fd09ec",
-        "com/live2d/cubism/view/context/CEViewContext": "cd5babcc316aecf14280dfbce306df72e9be1162c32af8498e504032d1e89394"
-    },
-    "5.2.03": {
-        "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
-        "com/live2d/cubism/view/context/temporaryHandler/a": "1b22a324345a3f537804684c0e96044264c92de0e5da5fa85d1333351ff953eb",
-        "com/live2d/cubism/view/context/a/b": "7a64d696813b44dda628487c4c47c64a9ebf99cc8bc00df01432ab8f64fc0293",
-        "com/live2d/cubism/doc/model/deformer/warp/a$b": "da1685329d08c6566396b89aa28ccc9536132ba8f0faa0345b922b8d3e874e51",
-        "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
-        "com/live2d/cubism/view/context/actionManager/CEActionManager": "ac73a35cf91639269c69d0419b9e3367e4d15f559f93b087b363d66116fd09ec",
-        "com/live2d/cubism/view/context/CEViewContext": "096b41d6fb53fa540953a46a9b51ebe3efe91c3def555152c48d7c70eabf375a"
-    },
-    "5.3.00": {
-        "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
-        "com/live2d/cubism/view/context/temporaryHandler/a": "dba95d92fbd6b1318f4f8d8555c5c37367cf7d8da3d73e02941636677d6b3539",
-        "com/live2d/cubism/view/context/a/b": "cf32a557dd1b720c462659b8cccbff788e5b743d07969ecde3e00f27f25003b1",
-        "com/live2d/cubism/doc/model/deformer/warp/a$b": "67aeb05e99486a9851c21d098c4d325bee106e805038037d85ca9038f0a7a271",
-        "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
-        "com/live2d/cubism/view/context/actionManager/CEActionManager": "c1c6b8093f2b11a7636c3f6a93e782e6cc807fa446b8c59733438462f55701ef",
-        "com/live2d/cubism/view/context/CEViewContext": "84890bb80fcfd3c0ab2f616a5be93b0b2d24039661901fbe2eae5e56732bade5"
-    },
-    "5.3.01": {
-        "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
-        "com/live2d/cubism/view/context/temporaryHandler/a": "dba95d92fbd6b1318f4f8d8555c5c37367cf7d8da3d73e02941636677d6b3539",
-        "com/live2d/cubism/view/context/a/b": "cf32a557dd1b720c462659b8cccbff788e5b743d07969ecde3e00f27f25003b1",
-        "com/live2d/cubism/doc/model/deformer/warp/a$b": "67aeb05e99486a9851c21d098c4d325bee106e805038037d85ca9038f0a7a271",
-        "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
-        "com/live2d/cubism/view/context/actionManager/CEActionManager": "c1c6b8093f2b11a7636c3f6a93e782e6cc807fa446b8c59733438462f55701ef",
-        "com/live2d/cubism/view/context/CEViewContext": "84890bb80fcfd3c0ab2f616a5be93b0b2d24039661901fbe2eae5e56732bade5"
-    },
-    "5.3.02": {
-        "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
-        "com/live2d/cubism/view/context/temporaryHandler/a": "60db25516b5466387b9f60550a24fde61c6b963b66f61e83827ea750ca48a7e6",
-        "com/live2d/cubism/view/context/a/b": "f212f2797f104f2a45e4c596101c49d4b484e9cb7b2dc289412f3424135d9566",
-        "com/live2d/cubism/doc/model/deformer/warp/a$b": "67aeb05e99486a9851c21d098c4d325bee106e805038037d85ca9038f0a7a271",
-        "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
-        "com/live2d/cubism/view/context/actionManager/CEActionManager": "c1c6b8093f2b11a7636c3f6a93e782e6cc807fa446b8c59733438462f55701ef",
-        "com/live2d/cubism/view/context/CEViewContext": "5bd6c34d0b5a0213f2762396fb13eb81e78354156013210df4121a82494bfb8e"
-    },
-    "5.3.03": {
-        "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
-        "com/live2d/cubism/view/context/temporaryHandler/a": "02f046569d3c3c83bc06cbac68dc62b3218f243bf473043c65822e1f94599e3e",
-        "com/live2d/cubism/view/context/a/b": "bc29a9bca6a09b0aceeb7b61f0b68170c558870db7beec1f06ef142861d5bec4",
-        "com/live2d/cubism/doc/model/deformer/warp/a$b": "d85901df5f0ae742ee7cb3d8019295240d9d9ca3d9c6deb59b8a75c50286a56a",
-        "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
-        "com/live2d/cubism/view/context/actionManager/CEActionManager": "c1c6b8093f2b11a7636c3f6a93e782e6cc807fa446b8c59733438462f55701ef",
-        "com/live2d/cubism/view/context/CEViewContext": "6f888ce6f10a79a71f4409ecfc22e6f0cabe190f7eab13bf61279da7f033fd57"
-    },
-    "5.3.04": {
-        "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
-        "com/live2d/cubism/view/context/temporaryHandler/a": "b141df30f6f4b59ba3096fe9ec2ebbee4af3c7d20af5f291acfcf7cc051a5516",
-        "com/live2d/cubism/view/context/a/b": "e8d3052b14a891b098df471a796158416db174823a1c0dd1ac078f09ee0f49a7",
-        "com/live2d/cubism/doc/model/deformer/warp/a$b": "5a2a7651f053e2f393c70b9b2bb5454801e4accff78e367036636f51e70daf83",
-        "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
-        "com/live2d/cubism/view/context/actionManager/CEActionManager": "4153f6ec3ad24ca27f22227869dfc6029f562c4427c0ef413e9c78b87b6e02a0",
-        "com/live2d/cubism/view/context/CEViewContext": "b466712176901018494bcbaf7a7750106177a73d1094797dd4bb036ae465a9ce"
-    }
+  "5.0.00": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "f9b8b55ea06f862b69a6193a2118b10bb07505393b5b0fb51ca1722c9ad994df",
+    "com/live2d/cubism/view/context/CEViewContext": "3d868fed421a3c97b84af0ea29db858a3d40c8db5e497b971cec68a8b50f45fa",
+    "com/live2d/cubism/view/context/a/b": "e0a10508504133336b73a505c1ed9b99c59d4c5f14dbe2163a484febc491960f",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+  },
+  "5.0.01": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "f9b8b55ea06f862b69a6193a2118b10bb07505393b5b0fb51ca1722c9ad994df",
+    "com/live2d/cubism/view/context/CEViewContext": "3d868fed421a3c97b84af0ea29db858a3d40c8db5e497b971cec68a8b50f45fa",
+    "com/live2d/cubism/view/context/a/b": "e0a10508504133336b73a505c1ed9b99c59d4c5f14dbe2163a484febc491960f",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+  },
+  "5.0.02": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "f9b8b55ea06f862b69a6193a2118b10bb07505393b5b0fb51ca1722c9ad994df",
+    "com/live2d/cubism/view/context/CEViewContext": "3d868fed421a3c97b84af0ea29db858a3d40c8db5e497b971cec68a8b50f45fa",
+    "com/live2d/cubism/view/context/a/b": "e0a10508504133336b73a505c1ed9b99c59d4c5f14dbe2163a484febc491960f",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+  },
+  "5.0.03": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "f9b8b55ea06f862b69a6193a2118b10bb07505393b5b0fb51ca1722c9ad994df",
+    "com/live2d/cubism/view/context/CEViewContext": "a42984e36d448f3f30cf0f860cc42db8a5a0df6ec27f0ca5cf4b7461a61354d9",
+    "com/live2d/cubism/view/context/a/b": "84653976c30d59b58317143b6a7ac687427577a0729712fd7515fcd76c6d223b",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+  },
+  "5.0.04": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "f9b8b55ea06f862b69a6193a2118b10bb07505393b5b0fb51ca1722c9ad994df",
+    "com/live2d/cubism/view/context/CEViewContext": "a42984e36d448f3f30cf0f860cc42db8a5a0df6ec27f0ca5cf4b7461a61354d9",
+    "com/live2d/cubism/view/context/a/b": "84653976c30d59b58317143b6a7ac687427577a0729712fd7515fcd76c6d223b",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+  },
+  "5.0.05": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "f9b8b55ea06f862b69a6193a2118b10bb07505393b5b0fb51ca1722c9ad994df",
+    "com/live2d/cubism/view/context/CEViewContext": "8805e02a7655bc713ee0d8c1293a96121b46f5c91477ad7143602965362124e7",
+    "com/live2d/cubism/view/context/a/b": "84653976c30d59b58317143b6a7ac687427577a0729712fd7515fcd76c6d223b",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+  },
+  "5.0.06": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "f9b8b55ea06f862b69a6193a2118b10bb07505393b5b0fb51ca1722c9ad994df",
+    "com/live2d/cubism/view/context/CEViewContext": "8805e02a7655bc713ee0d8c1293a96121b46f5c91477ad7143602965362124e7",
+    "com/live2d/cubism/view/context/a/b": "2de469bb038298b0c028bf603bca66087e081104a15aa031f60f11035e871efc",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+  },
+  "5.1.00": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "f9b8b55ea06f862b69a6193a2118b10bb07505393b5b0fb51ca1722c9ad994df",
+    "com/live2d/cubism/view/context/CEViewContext": "ce13fce25d16df489885e5f3bbff1c7ed5af80ce82212df0d276460390904608",
+    "com/live2d/cubism/view/context/a/b": "37c1617a3c2dbaf9aff356d78be4f6679ef001247878e0be8dcfe811d75abc1d",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+  },
+  "5.1.01": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "f9b8b55ea06f862b69a6193a2118b10bb07505393b5b0fb51ca1722c9ad994df",
+    "com/live2d/cubism/view/context/CEViewContext": "45a4add25bb1f8a23f1c0437d1aef37665f80f6b0971c844a2b9ac67d3959eff",
+    "com/live2d/cubism/view/context/a/b": "37c1617a3c2dbaf9aff356d78be4f6679ef001247878e0be8dcfe811d75abc1d",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+  },
+  "5.1.02": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "ca0435a3cef37b15a65457634535d7c3e4b0eb7ce21bdc5ef245f146b27ea1c1",
+    "com/live2d/cubism/view/context/CEViewContext": "f9741137e4bd755ff3d08e7a8995826b930e251226666e7d9ba30c8dfc54a279",
+    "com/live2d/cubism/view/context/a/b": "1bc935f57d135fd229da851d627a3ca86476eb978402823c1de08fc70ec65c85",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+  },
+  "5.1.03": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "ca0435a3cef37b15a65457634535d7c3e4b0eb7ce21bdc5ef245f146b27ea1c1",
+    "com/live2d/cubism/view/context/CEViewContext": "f9741137e4bd755ff3d08e7a8995826b930e251226666e7d9ba30c8dfc54a279",
+    "com/live2d/cubism/view/context/a/b": "1bc935f57d135fd229da851d627a3ca86476eb978402823c1de08fc70ec65c85",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "97803c9ea01c03e9212afb3be46180113420a09b300ed69179b11783b6151eb7",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "3d8196f554da7bc5206fd27da8094be1024458b5feea4abef970f070642cfb7b",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb"
+  },
+  "5.2.00": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "1b22a324345a3f537804684c0e96044264c92de0e5da5fa85d1333351ff953eb",
+    "com/live2d/cubism/view/context/a/b": "429863b82675183c0758d446534550101f0e5216d514e78f5a652cb21a5fe601",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "da1685329d08c6566396b89aa28ccc9536132ba8f0faa0345b922b8d3e874e51",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "ac73a35cf91639269c69d0419b9e3367e4d15f559f93b087b363d66116fd09ec",
+    "com/live2d/cubism/view/context/CEViewContext": "cd5babcc316aecf14280dfbce306df72e9be1162c32af8498e504032d1e89394"
+  },
+  "5.2.01": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "1b22a324345a3f537804684c0e96044264c92de0e5da5fa85d1333351ff953eb",
+    "com/live2d/cubism/view/context/a/b": "429863b82675183c0758d446534550101f0e5216d514e78f5a652cb21a5fe601",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "da1685329d08c6566396b89aa28ccc9536132ba8f0faa0345b922b8d3e874e51",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "ac73a35cf91639269c69d0419b9e3367e4d15f559f93b087b363d66116fd09ec",
+    "com/live2d/cubism/view/context/CEViewContext": "cd5babcc316aecf14280dfbce306df72e9be1162c32af8498e504032d1e89394"
+  },
+  "5.2.02": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "1b22a324345a3f537804684c0e96044264c92de0e5da5fa85d1333351ff953eb",
+    "com/live2d/cubism/view/context/a/b": "429863b82675183c0758d446534550101f0e5216d514e78f5a652cb21a5fe601",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "da1685329d08c6566396b89aa28ccc9536132ba8f0faa0345b922b8d3e874e51",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "ac73a35cf91639269c69d0419b9e3367e4d15f559f93b087b363d66116fd09ec",
+    "com/live2d/cubism/view/context/CEViewContext": "cd5babcc316aecf14280dfbce306df72e9be1162c32af8498e504032d1e89394"
+  },
+  "5.2.03": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "1b22a324345a3f537804684c0e96044264c92de0e5da5fa85d1333351ff953eb",
+    "com/live2d/cubism/view/context/a/b": "7a64d696813b44dda628487c4c47c64a9ebf99cc8bc00df01432ab8f64fc0293",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "da1685329d08c6566396b89aa28ccc9536132ba8f0faa0345b922b8d3e874e51",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "ac73a35cf91639269c69d0419b9e3367e4d15f559f93b087b363d66116fd09ec",
+    "com/live2d/cubism/view/context/CEViewContext": "096b41d6fb53fa540953a46a9b51ebe3efe91c3def555152c48d7c70eabf375a"
+  },
+  "5.3.00": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "dba95d92fbd6b1318f4f8d8555c5c37367cf7d8da3d73e02941636677d6b3539",
+    "com/live2d/cubism/view/context/a/b": "cf32a557dd1b720c462659b8cccbff788e5b743d07969ecde3e00f27f25003b1",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "67aeb05e99486a9851c21d098c4d325bee106e805038037d85ca9038f0a7a271",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "c1c6b8093f2b11a7636c3f6a93e782e6cc807fa446b8c59733438462f55701ef",
+    "com/live2d/cubism/view/context/CEViewContext": "84890bb80fcfd3c0ab2f616a5be93b0b2d24039661901fbe2eae5e56732bade5"
+  },
+  "5.3.01": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "dba95d92fbd6b1318f4f8d8555c5c37367cf7d8da3d73e02941636677d6b3539",
+    "com/live2d/cubism/view/context/a/b": "cf32a557dd1b720c462659b8cccbff788e5b743d07969ecde3e00f27f25003b1",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "67aeb05e99486a9851c21d098c4d325bee106e805038037d85ca9038f0a7a271",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "c1c6b8093f2b11a7636c3f6a93e782e6cc807fa446b8c59733438462f55701ef",
+    "com/live2d/cubism/view/context/CEViewContext": "84890bb80fcfd3c0ab2f616a5be93b0b2d24039661901fbe2eae5e56732bade5"
+  },
+  "5.3.02": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "60db25516b5466387b9f60550a24fde61c6b963b66f61e83827ea750ca48a7e6",
+    "com/live2d/cubism/view/context/a/b": "f212f2797f104f2a45e4c596101c49d4b484e9cb7b2dc289412f3424135d9566",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "67aeb05e99486a9851c21d098c4d325bee106e805038037d85ca9038f0a7a271",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "c1c6b8093f2b11a7636c3f6a93e782e6cc807fa446b8c59733438462f55701ef",
+    "com/live2d/cubism/view/context/CEViewContext": "5bd6c34d0b5a0213f2762396fb13eb81e78354156013210df4121a82494bfb8e"
+  },
+  "5.3.03": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "02f046569d3c3c83bc06cbac68dc62b3218f243bf473043c65822e1f94599e3e",
+    "com/live2d/cubism/view/context/a/b": "bc29a9bca6a09b0aceeb7b61f0b68170c558870db7beec1f06ef142861d5bec4",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "d85901df5f0ae742ee7cb3d8019295240d9d9ca3d9c6deb59b8a75c50286a56a",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "c1c6b8093f2b11a7636c3f6a93e782e6cc807fa446b8c59733438462f55701ef",
+    "com/live2d/cubism/view/context/CEViewContext": "6f888ce6f10a79a71f4409ecfc22e6f0cabe190f7eab13bf61279da7f033fd57"
+  },
+  "5.3.04": {
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/view/context/temporaryHandler/a": "b141df30f6f4b59ba3096fe9ec2ebbee4af3c7d20af5f291acfcf7cc051a5516",
+    "com/live2d/cubism/view/context/a/b": "e8d3052b14a891b098df471a796158416db174823a1c0dd1ac078f09ee0f49a7",
+    "com/live2d/cubism/doc/model/deformer/warp/a$b": "5a2a7651f053e2f393c70b9b2bb5454801e4accff78e367036636f51e70daf83",
+    "com/live2d/doc/selection/PointSelector": "a9822a7faa13752c73779eac062366a77668810047a7b071b74b1c7fd2384fcb",
+    "com/live2d/cubism/view/context/actionManager/CEActionManager": "4153f6ec3ad24ca27f22227869dfc6029f562c4427c0ef413e9c78b87b6e02a0",
+    "com/live2d/cubism/view/context/CEViewContext": "b466712176901018494bcbaf7a7750106177a73d1094797dd4bb036ae465a9ce"
+  }
 }
