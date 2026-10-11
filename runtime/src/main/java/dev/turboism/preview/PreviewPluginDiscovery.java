@@ -1,5 +1,7 @@
 package dev.turboism.preview;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.core.descriptor.DescriptorParseException;
 import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.core.plugin.PluginJarContract;
@@ -23,6 +25,7 @@ import java.util.jar.JarFile;
 final class PreviewPluginDiscovery {
 
     private static final String DESCRIPTOR_PATH = "META-INF/turboism/plugin.json";
+    private static final String CUBISM_VERSIONS_PATH = "META-INF/turboism/cubism-versions.json";
     private static final PluginVersion TURBOISM_API_VERSION = PluginVersion.parse("0.1.0");
 
     private final Path pluginDirectory;
@@ -167,6 +170,7 @@ final class PreviewPluginDiscovery {
                         "Plugin requires Turboism API " + descriptor.turboismApi() + ", runtime is 0.1.0"));
                 return null;
             }
+            noteCubismVersionDeclaration(archive, descriptor);
             return new PreviewPluginCandidate(jar.toAbsolutePath().normalize(), descriptor);
         }
     }
@@ -176,6 +180,40 @@ final class PreviewPluginDiscovery {
             return VersionRange.parse(descriptor.turboismApi()).contains(TURBOISM_API_VERSION);
         } catch (IllegalArgumentException exception) {
             return false;
+        }
+    }
+
+    /**
+     * Reports the plugin's Cubism Editor version declaration state. A plugin that declares
+     * {@code requiresCubism} but ships no {@code cubism-versions.json} sidecar is treated as
+     * undeclared: it still loads (its SDK calls stay gated by @CubismEditor at invocation
+     * time), and the absence is logged once so the gap is visible instead of silent. A
+     * malformed sidecar degrades to a warning the same way; neither case fails admission.
+     */
+    private void noteCubismVersionDeclaration(final JarFile archive, final PluginDescriptor descriptor) {
+        if (!descriptor.environment().requiresCubism()) {
+            return;
+        }
+        final JarEntry sidecar = archive.getJarEntry(CUBISM_VERSIONS_PATH);
+        if (sidecar == null || sidecar.isDirectory()) {
+            log.info(
+                    "plugin-loader",
+                    "Plugin " + descriptor.id() + " declares no Cubism Editor version support ("
+                            + CUBISM_VERSIONS_PATH + " absent); treated as undeclared — see "
+                            + "compatibility/cubism/compatibility-matrix.json for derived support");
+            return;
+        }
+        try (InputStream source = archive.getInputStream(sidecar)) {
+            final JsonNode document = new ObjectMapper().readTree(source);
+            final JsonNode versions = document.path("supportedVersions");
+            if (!versions.isArray()) {
+                throw new IOException("supportedVersions is not an array");
+            }
+        } catch (IOException | RuntimeException exception) {
+            log.warn(
+                    "plugin-loader",
+                    "Plugin " + descriptor.id() + " ships an unreadable " + CUBISM_VERSIONS_PATH
+                            + "; treated as undeclared");
         }
     }
 }
