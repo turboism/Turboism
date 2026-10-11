@@ -10482,9 +10482,15 @@
    "api": "dev.turboism.sdk.cubism.model.ArtMeshTextureInput#ArtMeshTextureInput()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
+    "5.3.00",
+    "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshTextureInput.java"
   },
@@ -10492,9 +10498,15 @@
    "api": "dev.turboism.sdk.cubism.model.AuthorizedImageContent",
    "kind": "type",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
+    "5.3.00",
+    "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/AuthorizedImageContent.java"
   },
@@ -10711,9 +10723,15 @@
    "api": "dev.turboism.sdk.cubism.model.ModelImageBinding#ModelImageBinding()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
+    "5.3.00",
+    "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelImageBinding.java"
   },
@@ -10737,9 +10755,15 @@
    "api": "dev.turboism.sdk.cubism.model.ModelTextures#bindModelImage()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
+    "5.3.00",
+    "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java"
   },
@@ -10763,9 +10787,15 @@
    "api": "dev.turboism.sdk.cubism.model.ModelTextures#registerImageAndBind()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
+    "5.3.00",
+    "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java"
   },
@@ -10789,9 +10819,15 @@
    "api": "dev.turboism.sdk.cubism.model.ModelTextures#textureInput()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
+    "5.3.00",
+    "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java"
   },
@@ -13624,9 +13660,15 @@
      "key": "dev.turboism.sdk.cubism.model.AuthorizedImageContent",
      "declaredCapability": null,
      "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
       "5.2.03",
+      "5.3.00",
+      "5.3.01",
       "5.3.02",
-      "5.3.03"
+      "5.3.03",
+      "5.3.04"
      ],
      "missingOn": [
       "5.0.00",
@@ -13639,13 +13681,7 @@
       "5.1.00",
       "5.1.01",
       "5.1.02",
-      "5.1.03",
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.3.00",
-      "5.3.01",
-      "5.3.04"
+      "5.1.03"
      ],
      "source": "sdk-api",
      "sourceFiles": [
@@ -13662,13 +13698,7 @@
       "5.1.00": "unknown",
       "5.1.01": "unknown",
       "5.1.02": "unknown",
-      "5.1.03": "unknown",
-      "5.2.00": "unknown",
-      "5.2.01": "unknown",
-      "5.2.02": "unknown",
-      "5.3.00": "unknown",
-      "5.3.01": "unknown",
-      "5.3.04": "boundary"
+      "5.1.03": "unknown"
      }
     }
    ],
