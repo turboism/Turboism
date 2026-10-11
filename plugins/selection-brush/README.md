@@ -35,7 +35,7 @@ The official Selection Brush contributes tools for ordinary modeling and mesh ed
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions.
-- Modeling selection brush only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）
+- Modeling selection brush only on 5.2.00–5.3.04（[Cubism 5.3.00 added Deformation brush expand/shrink and circle/square/line brush shapes](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 

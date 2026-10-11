@@ -34,7 +34,7 @@ Turboism 官方插件，在普通建模模式和网格编辑模式提供选区�
 
 <!-- compatibility:begin -->
 **Cubism Editor 版本支持（自动生成）：** 全部审核版本.
-- 建模选区笔刷 仅 5.2.00–5.3.04（更早版本 Cubism 本身无此功能）
+- 建模选区笔刷 仅 5.2.00–5.3.04（[Cubism 5.3.00 新增变形笔刷扩张/收缩及圆/方/线笔刷形状](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->
 

@@ -93,6 +93,7 @@ CAMPAIGN_JOBS = Path("validation/cubism-version-matrix/campaign-jobs.json")
 CAMPAIGN_INVENTORY = Path("validation/cubism-version-matrix/inventory.json")
 MONOTONICITY_EXCEPTIONS = Path("scripts/version-monotonicity-exceptions.json")
 VERSION_BOUNDARIES = Path("compatibility/cubism/version-boundaries.json")
+OFFICIAL_TIMELINE = Path("compatibility/cubism/official-feature-timeline.json")
 PLUGIN_DESCRIPTOR = Path("src/main/resources/META-INF/turboism/plugin.json")
 
 BLOCK_BEGIN = "<!-- compatibility:begin -->"
@@ -422,6 +423,84 @@ FEATURE_LABELS: dict[str, dict[str, str]] = {
         "zh": "Alpha 合成（混合模式）",
         "ja": "アルファ合成（ブレンドモード）",
         "ko": "알파 합성(블렌드 모드)",
+    },
+    "dev.turboism.sdk.cubism.model.AutoYure": {
+        "en": "Auto sway (yure)",
+        "zh": "自动摇动（摆锤）",
+        "ja": "自動揺れ",
+        "ko": "자동 흔들림",
+    },
+    "dev.turboism.sdk.cubism.model.AutoYureBinding": {
+        "en": "Auto sway bindings",
+        "zh": "自动摇动绑定",
+        "ja": "自動揺れバインド",
+        "ko": "자동 흔들림 바인딩",
+    },
+    "dev.turboism.sdk.cubism.model.AutoYureConfig": {
+        "en": "Auto sway config",
+        "zh": "自动摇动配置",
+        "ja": "自動揺れ設定",
+        "ko": "자동 흔들림 설정",
+    },
+    "dev.turboism.sdk.cubism.model.YureDeformConfig": {
+        "en": "Sway deformation config",
+        "zh": "摇动变形配置",
+        "ja": "揺れ変形設定",
+        "ko": "흔들림 변형 설정",
+    },
+    "dev.turboism.sdk.cubism.model.Part#maskIds": {
+        "en": "Part clipping mask IDs",
+        "zh": "部件剪贴蒙版 ID",
+        "ja": "パーツクリッピングマスク ID",
+        "ko": "파트 클리핑 마스크 ID",
+    },
+    "dev.turboism.sdk.cubism.model.Part#setMaskIds": {
+        "en": "Part clipping mask writes",
+        "zh": "部件剪贴蒙版写入",
+        "ja": "パーツクリッピングマスク書き込み",
+        "ko": "파트 클리핑 마스크 쓰기",
+    },
+    "dev.turboism.sdk.cubism.model.Part#setOpacity": {
+        "en": "Part opacity writes",
+        "zh": "部件不透明度写入",
+        "ja": "パーツ不透明度書き込み",
+        "ko": "파트 불투명도 쓰기",
+    },
+    "dev.turboism.sdk.cubism.model.Part#alphaComposition": {
+        "en": "Part alpha composition",
+        "zh": "部件 Alpha 合成",
+        "ja": "パーツアルファ合成",
+        "ko": "파트 알파 합성",
+    },
+    "dev.turboism.sdk.cubism.model.Part#setAlphaComposition": {
+        "en": "Part alpha composition writes",
+        "zh": "部件 Alpha 合成写入",
+        "ja": "パーツアルファ合成書き込み",
+        "ko": "파트 알파合成 쓰기",
+    },
+    "dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition": {
+        "en": "Drawable alpha composition writes",
+        "zh": "可绘制对象 Alpha 合成写入",
+        "ja": "描画オブジェクトアルファ合成書き込み",
+        "ko": "드로어블 알파 합성 쓰기",
+    },
+    "cubism.editor-model.auto-yure.read": {
+        "en": "Auto sway (yure) read",
+        "zh": "自动摇动读取",
+        "ja": "自動揺れ読み取り",
+        "ko": "자동 흔들림 읽기",
+    },
+    "cubism.editor-model.part-opacity.write": {
+        "en": "Part opacity writes",
+        "zh": "部件不透明度写入",
+        "ja": "パーツ不透明度書き込み",
+        "ko": "파트 불투명도 쓰기",
+    },
+    "cubism.editor-model.part-inspector.write": {
+        "en": "Part inspector writes",
+        "zh": "部件检查器写入",
+        "ja": "パーツインスペクタ書き込み",
+        "ko": "파트 인스펙터 쓰기",
     },
     "dev.turboism.sdk.cubism.backup.EditorAutoBackupService": {
         "en": "Editor auto-backup",
@@ -833,6 +912,7 @@ STRINGS = {
         "gap_pending": "{versions} pending adaptation",
         "gap_boundary": "{versions} the Cubism version itself lacks the feature",
         "gap_boundary_prefix": "earlier Cubism versions lack the feature entirely",
+        "gap_official_prefix": "Cubism {version} added {feature}",
         "gap_unknown": "{versions} unconfirmed",
         "license_note_title": "FREE / PRO licence note",
         "license_note": (
@@ -880,6 +960,7 @@ STRINGS = {
         "gap_pending": "{versions} 尚未适配",
         "gap_boundary": "{versions} 为 Cubism 本身无此功能",
         "gap_boundary_prefix": "更早版本 Cubism 本身无此功能",
+        "gap_official_prefix": "Cubism {version} 新增{feature}",
         "gap_unknown": "{versions} 待确认",
         "license_note_title": "FREE / PRO 许可说明",
         "license_note": (
@@ -925,6 +1006,7 @@ STRINGS = {
         "gap_pending": "{versions} は未対応（適合作業中）",
         "gap_boundary": "{versions} では Cubism 自体に機能なし",
         "gap_boundary_prefix": "それ以前の Cubism バージョンには機能自体がない",
+        "gap_official_prefix": "Cubism {version} で{feature}を追加",
         "gap_unknown": "{versions} は未確認",
         "license_note_title": "FREE / PRO ライセンスについて",
         "license_note": (
@@ -972,6 +1054,7 @@ STRINGS = {
         "gap_pending": "{versions} 미적용(적응 작업 중)",
         "gap_boundary": "{versions}은 Cubism 자체에 기능 없음",
         "gap_boundary_prefix": "이전 Cubism 버전에는 기능 자체가 없음",
+        "gap_official_prefix": "Cubism {version}에 {feature} 추가",
         "gap_unknown": "{versions} 미확인",
         "license_note_title": "FREE / PRO 라이선스 안내",
         "license_note": (
@@ -1033,6 +1116,16 @@ DEV_STRINGS = {
         "col_command": "Command",
         "col_enum": "Enum",
         "col_nature": "Nature",
+        "col_introduced": "Official introduction",
+        "boundaries_heading": "Confirmed version boundaries",
+        "boundaries_note": (
+            "Proven host boundaries where Cubism Editor itself lacks the "
+            "feature, verified against official update history and reviewed "
+            "bytecode."
+        ),
+        "col_surface": "Surface / ID",
+        "col_absent": "Absent versions",
+        "col_reason": "Reason",
         "pins_heading": "Runtime admission pins",
         "pins_note": (
             "Selector contracts and class-pin tables that narrow verified "
@@ -1097,6 +1190,15 @@ DEV_STRINGS = {
         "col_command": "命令",
         "col_enum": "枚举",
         "col_nature": "性质",
+        "col_introduced": "官方引入版本",
+        "boundaries_heading": "已确认版本边界",
+        "boundaries_note": (
+            "Cubism Editor 本身缺少相应功能的已确认宿主边界，均经官方更新历史"
+            "与审核字节码双重核实。"
+        ),
+        "col_surface": "表面 / 标识",
+        "col_absent": "缺失版本",
+        "col_reason": "原因",
         "pins_heading": "运行时准入 pin",
         "pins_note": (
             "将已验证能力收窄到特定版本的选择器契约与类 pin 表（功能存在，"
@@ -1156,6 +1258,15 @@ DEV_STRINGS = {
         "col_command": "コマンド",
         "col_enum": "列挙",
         "col_nature": "性質",
+        "col_introduced": "公式導入バージョン",
+        "boundaries_heading": "確認済みバージョン境界",
+        "boundaries_note": (
+            "Cubism Editor 自体に機能が存在しない確認済みホスト境界。公式更新"
+            "履歴およびレビュー済みバイトコードで検証済み。"
+        ),
+        "col_surface": "サーフェス / 識別子",
+        "col_absent": "非対応バージョン",
+        "col_reason": "理由",
         "pins_heading": "ランタイム許可ピン",
         "pins_note": (
             "検証済みケイパビリティを特定バージョンに絞り込むセレクタ"
@@ -1218,6 +1329,15 @@ DEV_STRINGS = {
         "col_command": "명령",
         "col_enum": "열거형",
         "col_nature": "성격",
+        "col_introduced": "공식 도입 버전",
+        "boundaries_heading": "확인된 버전 경계",
+        "boundaries_note": (
+            "Cubism Editor 자체에 기능이 없는 확인된 호스트 경계. 공식 업데이트 "
+            "기록 및 검토된 바이트코드로 검증됨."
+        ),
+        "col_surface": "표면 / 식별자",
+        "col_absent": "미지원 버전",
+        "col_reason": "이유",
         "pins_heading": "런타임 허용 핀",
         "pins_note": (
             "검증된 capability를 특정 버전으로 좁히는 선택자 계약과 클래스 핀 "
@@ -1776,16 +1896,54 @@ def _load_boundary_entries(root: Path) -> list[dict]:
     path = root / VERSION_BOUNDARIES
     if not path.is_file():
         return []
-    return [
-        {
+    entries = []
+    for entry in json.loads(path.read_text(encoding="utf-8")).get(
+        "boundaries", []
+    ):
+        item = {
             "id": entry["id"],
             "absentOn": sorted(entry.get("absentOn", []), key=version_key),
             "reason": entry.get("reason"),
         }
-        for entry in json.loads(path.read_text(encoding="utf-8")).get(
-            "boundaries", []
-        )
-    ]
+        if "officialSource" in entry:
+            item["officialSource"] = entry["officialSource"]
+        entries.append(item)
+    return entries
+
+
+def load_official_timeline(root: Path) -> list[dict]:
+    path = root / OFFICIAL_TIMELINE
+    if not path.is_file():
+        return []
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        return doc.get("features", [])
+    except Exception:
+        return []
+
+
+def index_official_timeline(features: list[dict]) -> dict[str, dict]:
+    """Token -> timeline feature mapping.
+
+    Keys include feature id, relatedCapabilities, relatedCommands (both
+    enum-qualified, command:NAME, and bare NAME), and relatedSdkApis (with
+    and without trailing ()).
+    """
+    index: dict[str, dict] = {}
+    for feat in features:
+        if "id" in feat:
+            index[feat["id"]] = feat
+        for cap in feat.get("relatedCapabilities", []):
+            index[cap] = feat
+        for cmd in feat.get("relatedCommands", []):
+            index[cmd] = feat
+            bare = cmd.split(".")[-1]
+            index[bare] = feat
+            index[f"command:{bare}"] = feat
+        for api in feat.get("relatedSdkApis", []):
+            index[api] = feat
+            index[api.rstrip("()")] = feat
+    return index
 
 
 def classify_gap(
@@ -1818,7 +1976,10 @@ def classify_gap(
     boundaries = boundaries or {}
     result: dict[str, str] = {}
     for version in sorted(missing, key=version_key):
-        if key is not None and version in boundaries.get(key, set()):
+        if key is not None and (
+            version in boundaries.get(key, set())
+            or version in boundaries.get(key.rstrip("()"), set())
+        ):
             result[version] = "boundary"
             continue
         matched: str | None = None
@@ -1931,6 +2092,24 @@ def build_matrix(root: Path) -> dict:
     campaign = load_campaign(root, reviewed)
     exceptions = load_monotonicity_exceptions(root)
     boundaries = load_version_boundaries(root)
+    timeline = load_official_timeline(root)
+    timeline_index = index_official_timeline(timeline)
+    boundary_entries = _load_boundary_entries(root)
+    boundary_sources = {
+        b["id"]: b["officialSource"]
+        for b in boundary_entries
+        if "officialSource" in b
+    }
+    for b in boundary_entries:
+        if "officialSource" not in b:
+            feat = timeline_index.get(b["id"]) or timeline_index.get(b["id"].rstrip("()"))
+            if feat:
+                b["officialSource"] = {
+                    "version": feat["introducedIn"],
+                    "url": feat["url"],
+                    "nameZh": feat.get("nameZh"),
+                    "nameEn": feat.get("nameEn"),
+                }
     for command in commands:
         command["missingNature"] = classify_gap(
             reviewed_set - set(command["versions"]),
@@ -1939,6 +2118,19 @@ def build_matrix(root: Path) -> dict:
             key=f"command:{command['name']}",
             boundaries=boundaries,
         )
+        feat = (
+            timeline_index.get(f"command:{command['name']}")
+            or timeline_index.get(command["name"])
+        )
+        if feat:
+            command["officialSource"] = {
+                "version": feat["introducedIn"],
+                "url": feat["url"],
+                "nameZh": feat.get("nameZh"),
+                "nameEn": feat.get("nameEn"),
+            }
+        elif f"command:{command['name']}" in boundary_sources:
+            command["officialSource"] = boundary_sources[f"command:{command['name']}"]
 
     admitted = {cap: admitted_versions(cap, caps, gates) for cap in caps}
 
@@ -2140,6 +2332,26 @@ def build_matrix(root: Path) -> dict:
                 task_site=plugin["directory"],
                 boundaries=boundaries,
             )
+            feat = (
+                timeline_index.get(note["key"])
+                or timeline_index.get(note["key"].rstrip("()"))
+            )
+            if not feat:
+                for cap in note.get("capabilities", []):
+                    feat = timeline_index.get(cap)
+                    if feat:
+                        break
+            if feat:
+                note["officialSource"] = {
+                    "version": feat["introducedIn"],
+                    "url": feat["url"],
+                    "nameZh": feat.get("nameZh"),
+                    "nameEn": feat.get("nameEn"),
+                }
+            elif note["key"] in boundary_sources:
+                note["officialSource"] = boundary_sources[note["key"]]
+            elif note["key"].rstrip("()") in boundary_sources:
+                note["officialSource"] = boundary_sources[note["key"].rstrip("()")]
         supported_gaps = classify_gap(
             reviewed_set - supported,
             supported,
@@ -2235,7 +2447,8 @@ def build_matrix(root: Path) -> dict:
         "hostValidation": {task: v for task, v in sorted(campaign.items())},
         "taskPluginAliases": TASK_PLUGIN_ALIASES,
         "taskGroupAliases": TASK_GROUP_ALIASES,
-        "versionBoundaries": _load_boundary_entries(root),
+        "versionBoundaries": boundary_entries,
+        "officialTimeline": timeline,
     }
 
 
@@ -2255,7 +2468,31 @@ def _has_label(key: str) -> bool:
     )
 
 
-def _gap_suffix(note: dict, locale: str, reviewed: list[str]) -> str:
+def _format_official_link(off: dict | None, locale: str) -> str | None:
+    if not off:
+        return None
+    ver = off.get("version") or off.get("introducedIn") or ""
+    url = off.get("url") or ""
+    name = (
+        off.get("nameZh")
+        if locale == "zh"
+        else off.get("nameEn", off.get("nameZh", off.get("feature", "")))
+    )
+    if not name and "feature" in off:
+        name = off["feature"]
+    s = STRINGS[locale]
+    tmpl = s.get("gap_official_prefix", "Cubism {version} 新增{feature}")
+    text = tmpl.format(version=ver, feature=name) if name else f"Cubism {ver}"
+    return f"[{text}]({url})" if url else text
+
+
+def _gap_suffix(
+    note: dict,
+    locale: str,
+    reviewed: list[str],
+    *,
+    boundary_only: bool = False,
+) -> str:
     """Annotate missing versions with their classified nature.
 
     Missing versions below the earliest supported version are a pure leading
@@ -2265,10 +2502,12 @@ def _gap_suffix(note: dict, locale: str, reviewed: list[str]) -> str:
     nature = note.get("missingNature") or {}
     if not nature:
         return ""
+    boundary = [v for v, n in nature.items() if n == "boundary"]
+    if boundary_only and not boundary:
+        return ""
     s = STRINGS[locale]
     versions = set(note.get("versions") or [])
     earliest = min(versions, key=version_key) if versions else ""
-    boundary = [v for v, n in nature.items() if n == "boundary"]
     prefix_only = bool(earliest) and bool(boundary) and all(
         version_key(v) < version_key(earliest) for v in boundary
     )
@@ -2280,15 +2519,28 @@ def _gap_suffix(note: dict, locale: str, reviewed: list[str]) -> str:
         for v in boundary
         if not earliest or version_key(v) >= version_key(earliest)
     ]
-    for kind, key, listed in (
-        ("pending", "gap_pending", pending),
-        ("boundary", "gap_boundary", interior_boundary),
-        ("unknown", "gap_unknown", unknown),
-    ):
-        if listed:
-            parts.append(s[key].format(versions=compact_ranges(listed, reviewed)))
+    official_src = note.get("officialSource")
+    official_link = _format_official_link(official_src, locale)
+
+    if not boundary_only:
+        for kind, key, listed in (
+            ("pending", "gap_pending", pending),
+            ("boundary", "gap_boundary", interior_boundary),
+            ("unknown", "gap_unknown", unknown),
+        ):
+            if listed:
+                parts.append(s[key].format(versions=compact_ranges(listed, reviewed)))
+    elif interior_boundary:
+        parts.append(s["gap_boundary"].format(versions=compact_ranges(interior_boundary, reviewed)))
+
     if boundary and prefix_only:
-        parts.append(s["gap_boundary_prefix"])
+        if official_link:
+            parts.append(official_link)
+        else:
+            parts.append(s["gap_boundary_prefix"])
+    elif boundary and official_link and not prefix_only:
+        parts.append(official_link)
+
     return "（" + "；".join(parts) + "）" if parts else ""
 
 
@@ -2321,7 +2573,8 @@ def _feature_text(
             f"{label} {s['only_versions']} "
             f"{compact_ranges(versions, reviewed)}{_gap_suffix(note, locale, reviewed)}"
         )
-    return f"{label} {s['not_on']} {compact_ranges(note['missingOn'], reviewed)}"
+    boundary_gap = _gap_suffix(note, locale, reviewed, boundary_only=True)
+    return f"{label} {s['not_on']} {compact_ranges(note['missingOn'], reviewed)}{boundary_gap}"
 
 
 def _host_cell(
@@ -2498,8 +2751,8 @@ def render_capabilities_doc(matrix: dict, locale: str) -> str:
         "",
         s["commands_note"],
         "",
-        f"| {s['col_command']} | {s['col_enum']} | {s['col_versions']} | {s['col_nature']} |",
-        "|---|---|---|---|",
+        f"| {s['col_command']} | {s['col_enum']} | {s['col_versions']} | {s['col_nature']} | {s['col_introduced']} |",
+        "|---|---|---|---|---|",
     ]
     for command in matrix["commands"]:
         version_text = (
@@ -2508,10 +2761,40 @@ def render_capabilities_doc(matrix: dict, locale: str) -> str:
             else "—"
         )
         nature_text = _nature_text(command.get("missingNature"), locale)
+        off = command.get("officialSource")
+        if off and off.get("url"):
+            introduced_text = f"[{off.get('version', '')}]({off['url']})"
+        elif off and off.get("version"):
+            introduced_text = off["version"]
+        else:
+            introduced_text = "—"
         lines.append(
             f"| `{command['name']}` | {command['enum']} | "
-            f"{version_text} | {nature_text} |"
+            f"{version_text} | {nature_text} | {introduced_text} |"
         )
+    if matrix.get("versionBoundaries"):
+        lines += [
+            "",
+            f"## {s['boundaries_heading']}",
+            "",
+            s["boundaries_note"],
+            "",
+            f"| {s['col_surface']} | {s['col_absent']} | {s['col_introduced']} | {s['col_reason']} |",
+            "|---|---|---|---|",
+        ]
+        for b in matrix["versionBoundaries"]:
+            absent_text = compact_ranges(b.get("absentOn", []), reviewed)
+            off = b.get("officialSource")
+            if off and off.get("url"):
+                intro_text = f"[{off.get('version', '')}]({off['url']})"
+            elif off and off.get("version"):
+                intro_text = off["version"]
+            else:
+                intro_text = "—"
+            reason = b.get("reason", "—")
+            lines.append(
+                f"| `{b['id']}` | {absent_text} | {intro_text} | {reason} |"
+            )
     lines += [
         "",
         f"## {s['pins_heading']}",

@@ -32,7 +32,7 @@ interface: none
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** 5.1.00–5.3.04（5.0.00–5.0.06 unconfirmed）.
-- Protected-export orchestration not on 5.0.00–5.0.06
+- Protected-export orchestration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）
 - Export settings contribution not on 5.0.00–5.0.06
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
