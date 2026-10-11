@@ -85,7 +85,8 @@
     "cubism.texture-atlas.layout.write",
     "ui.object-context-menu.contribute",
     "cubism.editor-model.texture.write",
-    "cubism.editor-model.art-mesh.inspector-write"
+    "cubism.editor-model.art-mesh.inspector-write",
+    "cubism.mesh-tool.session"
   ],
   "cubismVersion": "5.0.05",
   "profileId": "cubism-5.0.05",
@@ -10392,6 +10393,9 @@
     ],
     "cubism.editor-model.art-mesh.inspector-write": [
       "declaredGeneration"
+    ],
+    "cubism.mesh-tool.session": [
+      "hook:mesh-tool-session"
     ]
   }
 }
