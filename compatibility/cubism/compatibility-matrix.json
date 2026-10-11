@@ -5436,6 +5436,13 @@
     "ui-main-toolbar"
    ],
    "verified": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
     "5.1.00",
     "5.1.01",
     "5.1.02",
@@ -5451,6 +5458,13 @@
     "5.3.04"
    ],
    "admitted": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
     "5.1.00",
     "5.1.01",
     "5.1.02",
@@ -5614,6 +5628,17 @@
     "editor-model"
    ],
    "verified": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -5625,6 +5650,17 @@
     "5.3.04"
    ],
    "admitted": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -5639,6 +5675,17 @@
     {
      "source": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolSessionSelectorContract.java:SUPPORTED_VERSIONS",
      "versions": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03",
       "5.2.00",
       "5.2.01",
       "5.2.02",
@@ -6270,6 +6317,13 @@
     "ui-main-toolbar"
    ],
    "verified": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
     "5.1.00",
     "5.1.01",
     "5.1.02",
@@ -6285,6 +6339,17 @@
     "5.3.04"
    ],
    "admitted": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -6299,6 +6364,17 @@
     {
      "source": "runtime/src/main/java/dev/turboism/ui/mesh/MeshToolbarSelectorContract.java:SUPPORTED_VERSIONS",
      "versions": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03",
       "5.2.00",
       "5.2.01",
       "5.2.02",
@@ -9879,6 +9955,17 @@
   {
    "name": "mesh-mirror",
    "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -9980,6 +10067,17 @@
   {
    "name": "warp-alt-mirror",
    "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -12082,65 +12180,17 @@
      "sourceFiles": [],
      "narrowed": false,
      "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
-     }
-    },
-    {
-     "key": "cubism.mesh.mirror-axis-angle",
-     "declaredCapability": "cubism.mesh.mirror-axis-angle",
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "capability",
-     "pins": [
-      "mesh-mirror"
-     ],
-     "capabilities": [],
-     "sourceFiles": [],
-     "narrowed": true,
-     "missingNature": {
-      "5.0.00": "pending",
-      "5.0.01": "pending",
-      "5.0.02": "pending",
-      "5.0.03": "pending",
-      "5.0.04": "pending",
-      "5.0.05": "pending",
-      "5.0.06": "pending",
-      "5.1.00": "pending",
-      "5.1.01": "pending",
-      "5.1.02": "pending",
-      "5.1.03": "pending"
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary",
+      "5.1.00": "boundary",
+      "5.1.01": "boundary",
+      "5.1.02": "boundary",
+      "5.1.03": "boundary"
      }
     },
     {
@@ -12411,56 +12461,6 @@
       "5.1.01": "unknown",
       "5.1.02": "unknown",
       "5.1.03": "unknown"
-     }
-    },
-    {
-     "key": "ui.mesh-toolbar.contribute",
-     "declaredCapability": "ui.mesh-edit.mirror-axis-angle",
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "capability",
-     "pins": [],
-     "capabilities": [
-      "ui.mesh-toolbar.contribute"
-     ],
-     "sourceFiles": [
-      "runtime/src/main/java/dev/turboism/ui/mesh/MeshToolbarSelectorContract.java"
-     ],
-     "narrowed": true,
-     "missingNature": {
-      "5.0.00": "pending",
-      "5.0.01": "pending",
-      "5.0.02": "pending",
-      "5.0.03": "pending",
-      "5.0.04": "pending",
-      "5.0.05": "pending",
-      "5.0.06": "pending",
-      "5.1.00": "pending",
-      "5.1.01": "pending",
-      "5.1.02": "pending",
-      "5.1.03": "pending"
      }
     }
    ],
@@ -14199,6 +14199,17 @@
    "directory": "selection-brush",
    "requiresCubism": true,
    "supportedVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -14209,19 +14220,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "supportedGaps": {
-    "5.0.00": "pending",
-    "5.0.01": "pending",
-    "5.0.02": "pending",
-    "5.0.03": "pending",
-    "5.0.04": "pending",
-    "5.0.05": "pending",
-    "5.0.06": "pending",
-    "5.1.00": "pending",
-    "5.1.01": "pending",
-    "5.1.02": "pending",
-    "5.1.03": "pending"
-   },
+   "supportedGaps": {},
    "fullFeatureVersions": [
     "5.2.00",
     "5.2.01",
@@ -14234,58 +14233,6 @@
     "5.3.04"
    ],
    "partialFeatures": [
-    {
-     "key": "cubism.mesh.custom-tools",
-     "declaredCapability": "cubism.mesh.custom-tools",
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "capability",
-     "pins": [],
-     "capabilities": [
-      "cubism.mesh-tool.session",
-      "ui.mesh-toolbar.contribute"
-     ],
-     "sourceFiles": [
-      "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolSessionSelectorContract.java",
-      "runtime/src/main/java/dev/turboism/ui/mesh/MeshToolbarSelectorContract.java"
-     ],
-     "narrowed": true,
-     "missingNature": {
-      "5.0.00": "pending",
-      "5.0.01": "pending",
-      "5.0.02": "pending",
-      "5.0.03": "pending",
-      "5.0.04": "pending",
-      "5.0.05": "pending",
-      "5.0.06": "pending",
-      "5.1.00": "pending",
-      "5.1.01": "pending",
-      "5.1.02": "pending",
-      "5.1.03": "pending"
-     }
-    },
     {
      "key": "cubism.modeling-tool.selection-brush",
      "declaredCapability": "cubism.modeling.custom-tools",
@@ -14323,17 +14270,17 @@
      ],
      "narrowed": true,
      "missingNature": {
-      "5.0.00": "pending",
-      "5.0.01": "pending",
-      "5.0.02": "pending",
-      "5.0.03": "pending",
-      "5.0.04": "pending",
-      "5.0.05": "pending",
-      "5.0.06": "pending",
-      "5.1.00": "pending",
-      "5.1.01": "pending",
-      "5.1.02": "pending",
-      "5.1.03": "pending"
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary",
+      "5.1.00": "boundary",
+      "5.1.01": "boundary",
+      "5.1.02": "boundary",
+      "5.1.03": "boundary"
      }
     },
     {
@@ -14968,6 +14915,17 @@
    ],
    "supportedGaps": {},
    "fullFeatureVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -14979,56 +14937,6 @@
     "5.3.04"
    ],
    "partialFeatures": [
-    {
-     "key": "cubism.editor-model.warp-mirror",
-     "declaredCapability": "cubism.deformer.alt-axis-mirror",
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "capability",
-     "pins": [
-      "warp-alt-mirror"
-     ],
-     "capabilities": [
-      "cubism.editor-model.warp-mirror"
-     ],
-     "sourceFiles": [],
-     "narrowed": true,
-     "missingNature": {
-      "5.0.00": "pending",
-      "5.0.01": "pending",
-      "5.0.02": "pending",
-      "5.0.03": "pending",
-      "5.0.04": "pending",
-      "5.0.05": "pending",
-      "5.0.06": "pending",
-      "5.1.00": "pending",
-      "5.1.01": "pending",
-      "5.1.02": "pending",
-      "5.1.03": "pending"
-     }
-    },
     {
      "key": "dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation",
      "declaredCapability": null,
@@ -19662,6 +19570,40 @@
     "5.3.04"
    ],
    "reason": "Dead constant: the id exists in no reviewed jar."
+  },
+  {
+   "id": "cubism.geometry.read",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Core deformer/glue geometry read requires com/live2d/sdk/cubism/core/CubismDeformers and CubismGlues plus CubismModel.getDeformers/getGlues; both classes are absent from Live2DCubismCore.jar on all reviewed 5.0/5.1 builds and first appear in 5.2.00."
+  },
+  {
+   "id": "cubism.modeling-tool.selection-brush",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Selection-brush ingress requires com/live2d/cubism/CEAppCtrl.getCurrentViewContextChangedListeners()Ljava/util/ArrayList; and the currentViewContextChangedListeners field; both are absent on all reviewed 5.0/5.1 jars and first appear in 5.2.00 (the modeling-tool view listener API was added in 5.2)."
   }
  ]
 }
