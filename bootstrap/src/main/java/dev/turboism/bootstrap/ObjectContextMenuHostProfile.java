@@ -14,6 +14,7 @@ record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.
     private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
     private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
     private static final HostArtifactDigest CUBISM_5303 = ReviewedHostArtifacts.CUBISM_5_3_03;
+    private static final HostArtifactDigest CUBISM_5304 = ReviewedHostArtifacts.CUBISM_5_3_04;
     private static final String MENU = "com/live2d/ui/menu/k";
     private static final String ITEM = "Lcom/live2d/ui/menu/CMenuItem;";
 
@@ -35,6 +36,9 @@ record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.
         if (artifact.equals(CUBISM_5303)) {
             return forReviewedVersion(ReviewedHostArtifacts.CUBISM_5_3_03_VERSION);
         }
+        if (artifact.equals(CUBISM_5304)) {
+            return forReviewedVersion(ReviewedHostArtifacts.CUBISM_5_3_04_VERSION);
+        }
         return Optional.empty();
     }
 
@@ -45,13 +49,18 @@ record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.
     static Optional<ObjectContextMenuHostProfile> forReviewedVersion(final String cubismVersion) {
         Objects.requireNonNull(cubismVersion, "cubismVersion");
         if (ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(cubismVersion)) {
-            return Optional.of(profile("R", "aL", 7, 21, 23, 3, 2));
+            return Optional.of(profile("R", "aL", "a", 7, 21, 23, 3, 2));
         }
         if (ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(cubismVersion)) {
-            return Optional.of(profile("T", "aL", 7, 22, 22, 1, 1));
+            return Optional.of(profile("T", "aL", "a", 7, 22, 22, 1, 1));
         }
         if (ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(cubismVersion)) {
-            return Optional.of(profile("T", "aM", 10, 22, 22, 3, 1));
+            return Optional.of(profile("T", "aM", "a", 10, 22, 22, 3, 1));
+        }
+        // Same tuple as 5.3.03 except the menu-building mouse handler moved from
+        // aM.a(MouseEvent) to aM.b(MouseEvent); aM.a is a public delegate on 5.3.04.
+        if (ReviewedHostArtifacts.CUBISM_5_3_04_VERSION.equals(cubismVersion)) {
+            return Optional.of(profile("T", "aM", "b", 10, 22, 22, 3, 1));
         }
         return Optional.empty();
     }
@@ -59,6 +68,7 @@ record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.
     private static ObjectContextMenuHostProfile profile(
             final String partsOwner,
             final String parameterOwner,
+            final String parameterMethod,
             final int parameterAppends,
             final int partsAppends,
             final int workspaceAppends,
@@ -80,7 +90,7 @@ record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.
                 append(
                         "parameter",
                         "com/live2d/cubism/view/palette/parameter/" + parameterOwner,
-                        "a",
+                        parameterMethod,
                         "(Ljava/awt/event/MouseEvent;)V",
                         "c",
                         "(" + ITEM + ")V",

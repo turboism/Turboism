@@ -348,6 +348,7 @@ public final class EditorModelVerificationManifest {
         EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID,
         EditorObjectHierarchyEditSelectorContract.RENAME_CAPABILITY_ID,
         EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID,
+        EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_CAPABILITY_ID,
         ObjectContextMenuVerificationManifest.CAPABILITY_ID,
         EditorParameterBindingReadSelectorContract.CAPABILITY_ID,
         EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID,
@@ -12314,6 +12315,7 @@ public final class EditorModelVerificationManifest {
         return Set.of(
             "cubism.editor-history.move",
             "cubism.editor-history.read",
+            "cubism.editor-history.semantic-read",
             "cubism.editor-model.animation-eval",
             "cubism.editor-model.animation-playback",
             "cubism.editor-model.animation-scene-edit",
@@ -12368,12 +12370,14 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.edit.session.get-is-edit-approval",
             "cubism.editor-model.edit.session.notify-undo-cancel",
             "cubism.editor-model.glue-inspector.write",
+            "cubism.editor-model.model-instance.read",
             "cubism.editor-model.model-name.write",
             "cubism.editor-model.model-profile.read",
             "cubism.editor-model.morph-target.read",
             "cubism.editor-model.morph-target.write",
             "cubism.editor-model.native-control-appearance.read",
             "cubism.editor-model.native-control-appearance.write",
+            "cubism.editor-model.object-hierarchy.apply-deformer-to-children",
             "cubism.editor-model.object-hierarchy.art-mesh.create",
             "cubism.editor-model.object-hierarchy.edit",
             "cubism.editor-model.object-hierarchy.rename",
@@ -12394,6 +12398,8 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.part-structure.write",
             "cubism.editor-model.part-tree.read",
             "cubism.editor-model.physics.read",
+            "cubism.editor-model.psd.raw-image.export",
+            "cubism.editor-model.psd.raw-image.replace",
             "cubism.editor-model.psd.snapshot.read",
             "cubism.editor-model.read",
             "cubism.editor-model.rotation-deformer.parameter-bindings.write",
@@ -13407,6 +13413,7 @@ public final class EditorModelVerificationManifest {
         return Set.of(
             "cubism.editor-history.move",
             "cubism.editor-history.read",
+            "cubism.editor-history.semantic-read",
             "cubism.editor-model.animation-eval",
             "cubism.editor-model.animation-playback",
             "cubism.editor-model.animation-scene-edit",
@@ -13461,12 +13468,14 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.edit.session.get-is-edit-approval",
             "cubism.editor-model.edit.session.notify-undo-cancel",
             "cubism.editor-model.glue-inspector.write",
+            "cubism.editor-model.model-instance.read",
             "cubism.editor-model.model-name.write",
             "cubism.editor-model.model-profile.read",
             "cubism.editor-model.morph-target.read",
             "cubism.editor-model.morph-target.write",
             "cubism.editor-model.native-control-appearance.read",
             "cubism.editor-model.native-control-appearance.write",
+            "cubism.editor-model.object-hierarchy.apply-deformer-to-children",
             "cubism.editor-model.object-hierarchy.art-mesh.create",
             "cubism.editor-model.object-hierarchy.edit",
             "cubism.editor-model.object-hierarchy.rename",
@@ -13487,6 +13496,8 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.part-structure.write",
             "cubism.editor-model.part-tree.read",
             "cubism.editor-model.physics.read",
+            "cubism.editor-model.psd.raw-image.export",
+            "cubism.editor-model.psd.raw-image.replace",
             "cubism.editor-model.psd.snapshot.read",
             "cubism.editor-model.read",
             "cubism.editor-model.rotation-deformer.parameter-bindings.write",
@@ -14500,6 +14511,7 @@ public final class EditorModelVerificationManifest {
         return Set.of(
             "cubism.editor-history.move",
             "cubism.editor-history.read",
+            "cubism.editor-history.semantic-read",
             "cubism.editor-model.animation-eval",
             "cubism.editor-model.animation-playback",
             "cubism.editor-model.animation-scene-edit",
@@ -14554,12 +14566,14 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.edit.session.get-is-edit-approval",
             "cubism.editor-model.edit.session.notify-undo-cancel",
             "cubism.editor-model.glue-inspector.write",
+            "cubism.editor-model.model-instance.read",
             "cubism.editor-model.model-name.write",
             "cubism.editor-model.model-profile.read",
             "cubism.editor-model.morph-target.read",
             "cubism.editor-model.morph-target.write",
             "cubism.editor-model.native-control-appearance.read",
             "cubism.editor-model.native-control-appearance.write",
+            "cubism.editor-model.object-hierarchy.apply-deformer-to-children",
             "cubism.editor-model.object-hierarchy.art-mesh.create",
             "cubism.editor-model.object-hierarchy.edit",
             "cubism.editor-model.object-hierarchy.rename",
@@ -14580,6 +14594,8 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.part-structure.write",
             "cubism.editor-model.part-tree.read",
             "cubism.editor-model.physics.read",
+            "cubism.editor-model.psd.raw-image.export",
+            "cubism.editor-model.psd.raw-image.replace",
             "cubism.editor-model.psd.snapshot.read",
             "cubism.editor-model.read",
             "cubism.editor-model.rotation-deformer.parameter-bindings.write",
@@ -15655,6 +15671,7 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.morph-target.write",
             "cubism.editor-model.native-control-appearance.read",
             "cubism.editor-model.native-control-appearance.write",
+            "cubism.editor-model.object-hierarchy.apply-deformer-to-children",
             "cubism.editor-model.object-hierarchy.art-mesh.create",
             "cubism.editor-model.object-hierarchy.edit",
             "cubism.editor-model.object-hierarchy.rename",
@@ -16778,6 +16795,7 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.morph-target.write",
             "cubism.editor-model.native-control-appearance.read",
             "cubism.editor-model.native-control-appearance.write",
+            "cubism.editor-model.object-hierarchy.apply-deformer-to-children",
             "cubism.editor-model.object-hierarchy.art-mesh.create",
             "cubism.editor-model.object-hierarchy.edit",
             "cubism.editor-model.object-hierarchy.rename",
@@ -17901,6 +17919,7 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.morph-target.write",
             "cubism.editor-model.native-control-appearance.read",
             "cubism.editor-model.native-control-appearance.write",
+            "cubism.editor-model.object-hierarchy.apply-deformer-to-children",
             "cubism.editor-model.object-hierarchy.art-mesh.create",
             "cubism.editor-model.object-hierarchy.edit",
             "cubism.editor-model.object-hierarchy.rename",
@@ -19108,6 +19127,22 @@ public final class EditorModelVerificationManifest {
         );
     }
 
+    /**
+     * Returns the reviewed record admitting one exact Cubism version.
+     *
+     * @param cubismVersion the version an admitted resolver reports
+     * @return the record for that version, or empty when no reviewed record covers it
+     */
+    static java.util.Optional<ReviewedSliceRecord> recordForVersion(final String cubismVersion) {
+        java.util.Objects.requireNonNull(cubismVersion, "cubismVersion");
+        for (final ReviewedSliceRecord record : RECORDS) {
+            if (record.cubismVersion().equals(cubismVersion)) {
+                return java.util.Optional.of(record);
+            }
+        }
+        return java.util.Optional.empty();
+    }
+
     private static Set<String> union(final Set<String> left, final Set<String> right) {
         final java.util.HashSet<String> values = new java.util.HashSet<>(left);
         values.addAll(right);
@@ -19121,14 +19156,6 @@ public final class EditorModelVerificationManifest {
         values.add(EditorPartOpacityReadSelectorContract.CAPABILITY_ID);
         values.add(EditorRawImagePsdSelectorContract.CAPABILITY_ID);
         values.add(EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID);
-        return Set.copyOf(values);
-    }
-
-    private static Set<String> withoutApplyToChildren5302OnlyAliases(final Set<String> source) {
-        final java.util.HashSet<String> values = new java.util.HashSet<>(source);
-        values.removeAll(
-            EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_5302_ONLY_ALIASES
-        );
         return Set.copyOf(values);
     }
 
@@ -19183,9 +19210,7 @@ public final class EditorModelVerificationManifest {
 
     /** Full exact-JAR selector roster carried by the independent 5.3.03 static record. */
     public static Set<String> cubism5303StaticAliases() {
-        final java.util.HashSet<String> values = new java.util.HashSet<>(
-            withoutApplyToChildren5302OnlyAliases(REQUIRED_ALIASES)
-        );
+        final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
         values.addAll(Set.of(
             "cubism.editor-model.modeling-document.last-active-view",
             "cubism.editor-model.modeling-view.model",
@@ -19215,7 +19240,7 @@ public final class EditorModelVerificationManifest {
     static PinnedVerifiedResolverWorkflow.RuntimeScope cubism5303RuntimeScope() {
         return new PinnedVerifiedResolverWorkflow.RuntimeScope(
             cubism5303Capabilities(),
-            withoutApplyToChildren5302OnlyAliases(cubism5303StaticAliases())
+            cubism5303StaticAliases()
         );
     }
 
@@ -19925,6 +19950,9 @@ public final class EditorModelVerificationManifest {
         values.add(EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.CAPABILITY_ID);
         values.remove(EditorPartInspectorSelectorContract.CAPABILITY_ID);
         values.add(EditorPartInspectorIdWriteSelectorContract.CAPABILITY_ID);
+        // The 5.2.03 record admits the PSD export and replace seams reviewed on 5.3.
+        values.add(EditorRawImagePsdSelectorContract.CAPABILITY_ID);
+        values.add(EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID);
         return Set.copyOf(values);
     }
 
@@ -20001,13 +20029,9 @@ public final class EditorModelVerificationManifest {
      */
     public static Set<String> cubism52Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
-        values.removeAll(
-            EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_5302_ONLY_ALIASES
-        );
         values.removeAll(EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES);
         values.removeAll(CUBISM_5303_ONLY_ALIASES);
         values.addAll(dev.turboism.adapter.cubism.mesh.MeshToolSessionSelectorContract.REQUIRED_ALIASES);
-        values.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorContract.STATISTICS_ALIASES);
         values.removeAll(PART_OPACITY_ADDITIVE_ALIASES);
         values.removeAll(EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES);
         values.addAll(EditorPartOpacityReadSelectorContract.REQUIRED_ALIASES);
@@ -20030,6 +20054,11 @@ public final class EditorModelVerificationManifest {
         values.removeAll(GET_OBJECT_5302_ONLY_ALIASES);
         values.removeAll(CUBISM_5303_ONLY_ALIASES);
         values.addAll(dev.turboism.adapter.cubism.mesh.MeshToolSessionSelectorContract.REQUIRED_ALIASES);
+        // The 5.2.03 record carries every PSD export/replace selector except the
+        // transparency-shape member its ACLayerEntry does not have.
+        values.addAll(EditorRawImagePsdSelectorContract.REQUIRED_ALIASES);
+        values.removeAll(EditorRawImagePsdSelectorContract.TRANSPARENCY_SHAPES_ALIASES);
+        values.addAll(EditorRawImagePsdReplaceSelectorContract.REQUIRED_ALIASES);
         values.addAll(CUBISM_52_PROPAGATED_ALIASES);
         return Set.copyOf(values);
     }

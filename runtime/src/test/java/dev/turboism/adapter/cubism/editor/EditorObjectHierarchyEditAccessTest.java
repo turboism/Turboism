@@ -510,12 +510,11 @@ class EditorObjectHierarchyEditAccessTest {
         assertFalse(fixture.document.dirty);
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.03"})
-    void rejectsApplyToChildrenOutsideTheExact5302Candidate(final String cubismVersion) {
+    @Test
+    void rejectsApplyToChildrenWithoutAdmittedCapability() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(resolver(cubismVersion), "session-a").active();
+        final var model = new EditorBackedCubismModelAccess(resolverWithoutHierarchyCapability(), "session-a").active();
         final var target = model.deformers().find(new DeformerId("WarpA"));
 
         assertThrows(
@@ -980,9 +979,7 @@ class EditorObjectHierarchyEditAccessTest {
         capabilities.add(EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID);
         capabilities.add(EditorObjectHierarchyEditSelectorContract.RENAME_CAPABILITY_ID);
         capabilities.add(EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID);
-        if ("5.3.02".equals(cubismVersion)) {
-            capabilities.add(EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_CAPABILITY_ID);
-        }
+        capabilities.add(EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_CAPABILITY_ID);
         return TestVerifiedResolvers.create(
                 cubismVersion,
                 EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,

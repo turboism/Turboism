@@ -9,7 +9,7 @@ if [[ $# -gt 0 && "$1" != --* ]]; then
   if [[ $# -gt 0 && "$1" != --* ]]; then run_label="$1"; shift; fi
 fi
 case "$version" in
-  5300|5301|5302|5303|5304) ;;
+  5200|5201|5202|5203|5300|5301|5302|5303|5304) ;;
   *) echo "error: unreviewed exact version: $version" >&2; exit 2 ;;
 esac
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

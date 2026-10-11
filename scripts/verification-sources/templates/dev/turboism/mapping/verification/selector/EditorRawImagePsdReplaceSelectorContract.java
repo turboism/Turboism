@@ -15,6 +15,7 @@ public final class EditorRawImagePsdReplaceSelectorContract {
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
     /** Reviewed generations carrying both native replacement and issued-PSD export dependencies. */
     public static final Set<String> SUPPORTED_CUBISM_VERSIONS = Set.of(
+        "5.2.00", "5.2.01", "5.2.02", "5.2.03",
         "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
     );
 

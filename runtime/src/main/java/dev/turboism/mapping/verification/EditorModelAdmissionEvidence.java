@@ -36,15 +36,8 @@ public record EditorModelAdmissionEvidence(
      * @throws IllegalArgumentException when the resolver reports an unsupported version
      */
     public static EditorModelAdmissionEvidence forResolver(final VerifiedMemberResolver resolver) {
-        return switch (resolver.admittedCubismVersion()) {
-            case EditorModelVerificationManifest.CUBISM_VERSION_5_3_02 ->
-                of(EditorModelVerificationManifest.RECORD_5_3_02);
-            case EditorModelVerificationManifest.CUBISM_VERSION_5_2_03 ->
-                of(EditorModelVerificationManifest.RECORD_5_2_03);
-            case EditorModelVerificationManifest.CUBISM_VERSION_5_3_03 ->
-                of(EditorModelVerificationManifest.RECORD_5_3_03);
-            default -> throw new IllegalArgumentException("Unsupported Editor model resolver version");
-        };
+        return of(EditorModelVerificationManifest.recordForVersion(resolver.admittedCubismVersion())
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported Editor model resolver version")));
     }
 
     private static EditorModelAdmissionEvidence of(final ReviewedSliceRecord record) {

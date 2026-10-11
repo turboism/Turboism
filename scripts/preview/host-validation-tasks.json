@@ -3765,6 +3765,10 @@
       "description": "Native PSD export observation: readable-v2 or explicit save-only profile; issued handle and stop; no fidelity/replace/external-edit acceptance.",
       "command": "scripts/preview/run-psd-export-observation-host-validation.sh",
       "versions": [
+        "5200",
+        "5201",
+        "5202",
+        "5203",
         "5300",
         "5301",
         "5302",
