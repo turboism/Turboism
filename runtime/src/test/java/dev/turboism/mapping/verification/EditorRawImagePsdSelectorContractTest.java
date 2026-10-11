@@ -28,10 +28,7 @@ class EditorRawImagePsdSelectorContractTest {
             PROJECT_ROOT.resolve("compatibility/cubism/mapping-packs/draft/cubism-5.3.02-editor-model-read.json");
 
     @ParameterizedTest
-    @ValueSource(strings = {
-        "5.2.00", "5.2.01", "5.2.02", "5.2.03",
-        "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
-    })
+    @ValueSource(strings = {"5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     void exactRecordsVerifyEveryPsdExportAndParseSelector(final String version) throws Exception {
         final Path recordPath =
                 PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-" + version + "-editor-model.json");
@@ -217,11 +214,13 @@ class EditorRawImagePsdSelectorContractTest {
         assertTrue(manifest5302.requiredAliases().containsAll(EditorRawImagePsdSelectorContract.REQUIRED_ALIASES));
         assertTrue(manifest52.capabilityIds().contains(EditorRawImagePsdSelectorContract.CAPABILITY_ID));
         assertTrue(manifest52.requiredAliases().containsAll(transparencyAbsent));
-        assertFalse(manifest52.requiredAliases()
+        assertFalse(manifest52
+                .requiredAliases()
                 .containsAll(EditorRawImagePsdSelectorContract.TRANSPARENCY_SHAPES_ALIASES));
         assertTrue(manifest5200.capabilityIds().contains(EditorRawImagePsdSelectorContract.CAPABILITY_ID));
         assertTrue(manifest5200.requiredAliases().containsAll(transparencyAbsent));
-        assertFalse(manifest5200.requiredAliases()
+        assertFalse(manifest5200
+                .requiredAliases()
                 .containsAll(EditorRawImagePsdSelectorContract.TRANSPARENCY_SHAPES_ALIASES));
         assertTrue(manifest5303.capabilityIds().contains(EditorRawImagePsdSelectorContract.CAPABILITY_ID));
         assertTrue(manifest5303.requiredAliases().containsAll(EditorRawImagePsdSelectorContract.REQUIRED_ALIASES));
