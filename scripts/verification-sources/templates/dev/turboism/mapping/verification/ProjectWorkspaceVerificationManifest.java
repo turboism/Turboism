@@ -241,6 +241,11 @@ public final class ProjectWorkspaceVerificationManifest {
 
 
 
+
+
+
+
+
     public static final String ADAPTER_SLICE_ID = "${record:cubism-5.2.03-project-workspace.json:adapterSliceId}";
     public static final Set<String> CAPABILITY_IDS = Set.of(
         "cubism.project.read",

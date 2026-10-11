@@ -45,7 +45,6 @@ Imports ordered PSD clipping relationships into ArtMesh clip-mask assignments af
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions.
-- Embedded panel docking not on 5.0.00–5.0.06
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 

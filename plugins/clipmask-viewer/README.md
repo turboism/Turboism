@@ -44,7 +44,6 @@ Inspects clip-mask relationships, duplicates, order conflicts, and related ArtMe
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions.
-- Embedded panel docking not on 5.0.00–5.0.06
 - Top menu integration not on 5.0.00–5.0.06
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->

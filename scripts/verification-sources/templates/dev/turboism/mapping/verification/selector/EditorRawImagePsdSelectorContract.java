@@ -14,6 +14,8 @@ public final class EditorRawImagePsdSelectorContract {
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
     /** Reviewed generations carrying every identity, native export and integrity selector. */
     public static final Set<String> SUPPORTED_CUBISM_VERSIONS = Set.of(
+        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+        "5.1.00", "5.1.01", "5.1.02", "5.1.03",
         "5.2.00", "5.2.01", "5.2.02", "5.2.03",
         "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
     );
@@ -25,6 +27,8 @@ public final class EditorRawImagePsdSelectorContract {
      * otherwise identical, so admission requires every other alias on these generations.
      */
     public static final Set<String> TRANSPARENCY_SHAPES_ABSENT_VERSIONS = Set.of(
+        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+        "5.1.00", "5.1.01", "5.1.02", "5.1.03",
         "5.2.00", "5.2.01", "5.2.02", "5.2.03"
     );
 

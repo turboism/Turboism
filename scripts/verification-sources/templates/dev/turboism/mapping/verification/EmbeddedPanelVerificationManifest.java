@@ -11,6 +11,20 @@ import java.util.Set;
  */
 public final class EmbeddedPanelVerificationManifest {
 
+    /** Cubism version reported for the reviewed 5.0.00 artifact. */
+    public static final String CUBISM_VERSION_5_0_00 = "${record:cubism-5.0.00-ui-embedded-panel.json:cubismVersion}";
+    /** Cubism version reported for the reviewed 5.0.01 artifact. */
+    public static final String CUBISM_VERSION_5_0_01 = "${record:cubism-5.0.01-ui-embedded-panel.json:cubismVersion}";
+    /** Cubism version reported for the reviewed 5.0.02 artifact. */
+    public static final String CUBISM_VERSION_5_0_02 = "${record:cubism-5.0.02-ui-embedded-panel.json:cubismVersion}";
+    /** Cubism version reported for the reviewed 5.0.03 artifact. */
+    public static final String CUBISM_VERSION_5_0_03 = "${record:cubism-5.0.03-ui-embedded-panel.json:cubismVersion}";
+    /** Cubism version reported for the reviewed 5.0.04 artifact. */
+    public static final String CUBISM_VERSION_5_0_04 = "${record:cubism-5.0.04-ui-embedded-panel.json:cubismVersion}";
+    /** Cubism version reported for the reviewed 5.0.05 artifact. */
+    public static final String CUBISM_VERSION_5_0_05 = "${record:cubism-5.0.05-ui-embedded-panel.json:cubismVersion}";
+    /** Cubism version reported for the reviewed 5.0.06 artifact. */
+    public static final String CUBISM_VERSION_5_0_06 = "${record:cubism-5.0.06-ui-embedded-panel.json:cubismVersion}";
     /** Cubism version reported for the reviewed 5.1.00 artifact. */
     public static final String CUBISM_VERSION_5_1_00 = "${record:cubism-5.1.00-ui-embedded-panel.json:cubismVersion}";
     /** Cubism version reported for the reviewed 5.1.01 artifact. */
@@ -38,6 +52,62 @@ public final class EmbeddedPanelVerificationManifest {
     /** Cubism version reported for the reviewed 5.3.04 artifact. */
     public static final String CUBISM_VERSION_5_3_04 = "${record:cubism-5.3.04-ui-embedded-panel.json:cubismVersion}";
 
+    /** Reviewed record admitted for exact Cubism 5.0.00. */
+    public static final ReviewedSliceRecord RECORD_5_0_00 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_0_00,
+        "${record:cubism-5.0.00-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.0.00-ui-embedded-panel.json:sha256}",
+        CUBISM_VERSION_5_0_00,
+        "${record:cubism-5.0.00-ui-embedded-panel.json:profileId}"
+    );
+    /** Reviewed record admitted for exact Cubism 5.0.01. */
+    public static final ReviewedSliceRecord RECORD_5_0_01 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_0_01,
+        "${record:cubism-5.0.01-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.0.01-ui-embedded-panel.json:sha256}",
+        CUBISM_VERSION_5_0_01,
+        "${record:cubism-5.0.01-ui-embedded-panel.json:profileId}"
+    );
+    /** Reviewed record admitted for exact Cubism 5.0.02. */
+    public static final ReviewedSliceRecord RECORD_5_0_02 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_0_02,
+        "${record:cubism-5.0.02-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.0.02-ui-embedded-panel.json:sha256}",
+        CUBISM_VERSION_5_0_02,
+        "${record:cubism-5.0.02-ui-embedded-panel.json:profileId}"
+    );
+    /** Reviewed record admitted for exact Cubism 5.0.03. */
+    public static final ReviewedSliceRecord RECORD_5_0_03 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_0_03,
+        "${record:cubism-5.0.03-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.0.03-ui-embedded-panel.json:sha256}",
+        CUBISM_VERSION_5_0_03,
+        "${record:cubism-5.0.03-ui-embedded-panel.json:profileId}"
+    );
+    /** Reviewed record admitted for exact Cubism 5.0.04. */
+    public static final ReviewedSliceRecord RECORD_5_0_04 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_0_04,
+        "${record:cubism-5.0.04-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.0.04-ui-embedded-panel.json:sha256}",
+        CUBISM_VERSION_5_0_04,
+        "${record:cubism-5.0.04-ui-embedded-panel.json:profileId}"
+    );
+    /** Reviewed record admitted for exact Cubism 5.0.05. */
+    public static final ReviewedSliceRecord RECORD_5_0_05 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_0_05,
+        "${record:cubism-5.0.05-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.0.05-ui-embedded-panel.json:sha256}",
+        CUBISM_VERSION_5_0_05,
+        "${record:cubism-5.0.05-ui-embedded-panel.json:profileId}"
+    );
+    /** Reviewed record admitted for exact Cubism 5.0.06. */
+    public static final ReviewedSliceRecord RECORD_5_0_06 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_0_06,
+        "${record:cubism-5.0.06-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.0.06-ui-embedded-panel.json:sha256}",
+        CUBISM_VERSION_5_0_06,
+        "${record:cubism-5.0.06-ui-embedded-panel.json:profileId}"
+    );
     /** Reviewed record admitted for exact Cubism 5.1.00. */
     public static final ReviewedSliceRecord RECORD_5_1_00 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_1_00,
@@ -143,6 +213,13 @@ public final class EmbeddedPanelVerificationManifest {
         "${record:cubism-5.3.04-ui-embedded-panel.json:profileId}"
     );
     private static final List<ReviewedSliceRecord> RECORDS = List.of(
+        RECORD_5_0_00,
+        RECORD_5_0_01,
+        RECORD_5_0_02,
+        RECORD_5_0_03,
+        RECORD_5_0_04,
+        RECORD_5_0_05,
+        RECORD_5_0_06,
         RECORD_5_1_00,
         RECORD_5_1_01,
         RECORD_5_1_02,
@@ -157,6 +234,11 @@ public final class EmbeddedPanelVerificationManifest {
         RECORD_5_3_03,
         RECORD_5_3_04
     );
+
+
+
+
+
 
 
 

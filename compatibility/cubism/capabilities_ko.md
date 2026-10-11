@@ -11,7 +11,7 @@
 | capability 그룹 | 5.0.00 | 5.0.01 | 5.0.02 | 5.0.03 | 5.0.04 | 5.0.05 | 5.0.06 | 5.1.00 | 5.1.01 | 5.1.02 | 5.1.03 | 5.2.00 | 5.2.01 | 5.2.02 | 5.2.03 | 5.3.00 | 5.3.01 | 5.3.02 | 5.3.03 | 5.3.04 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 애니메이션과 타임라인 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 아트메시 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ◐ | ◐ | ✓ | ✓ | ◐ |
+| 아트메시 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 자동 흔들림 읽기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 자동 백업 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 클리핑 마스크 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -21,17 +21,17 @@
 | 편집 세션 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 에디터 UI 표면 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 지오메트리 읽기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 편집 기록 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 편집 기록 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 통합 브리지 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 메시 도구 세션 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 메시 도구 모음 기여 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 기타 모델 표면 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ◐ |
-| 모델 인스턴스 읽기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 기타 모델 표면 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 모델 인스턴스 읽기 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 모델링 사용자 도구 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 오브젝트 계층 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 파라미터와 바인딩 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 오브젝트 계층 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 파라미터와 바인딩 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 파라미터 키 편집 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 파라미터 구조 편집 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 파라미터 구조 편집 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 파트와 인스펙터 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 파트/오브젝트 편집 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 성능 통계 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -39,57 +39,35 @@
 | 플러그인 UI 표면 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 프로젝트 읽기 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 보호된 내보내기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| PSD 원본 이미지 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| PSD 원본 이미지 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 선택 편집 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 시작 억제 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 텍스처와 원본 이미지 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ◐ | ◐ | ✓ | ✓ | ◐ |
-| 텍스처 아틀라스 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 텍스처와 원본 이미지 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 텍스처 아틀라스 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 실행 취소 복귀 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 워프 디포머 미러 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 워크스페이스 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 - `cubism.editor-model.animation-eval`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.animation-timeline.write`: 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-model.art-mesh.evaluated-read`: 검증된 레코드 없음 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
-- `cubism.editor-model.art-mesh.morph-authoring`: 검증된 레코드 없음 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
-- `cubism.editor-model.art-mesh.parameter-interpolation.write`: 검증된 레코드 없음 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
+- `cubism.editor-model.art-mesh.evaluated-read`: 검증된 레코드 없음 5.0.00–5.1.03
+- `cubism.editor-model.art-mesh.morph-authoring`: 검증된 레코드 없음 5.0.00–5.1.03
+- `cubism.editor-model.art-mesh.parameter-interpolation.write`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.auto-yure.read`: 검증된 레코드 없음 5.0.00–5.0.06
 - `cubism.autobackup.backup` (자동 백업 생성): 검증된 레코드 없음 5.0.00–5.0.06
 - `cubism.autobackup.settings`: 검증된 레코드 없음 5.0.00–5.0.06
-- `cubism.editor-ui.embedded-panel` (임베디드 패널 도킹): 검증된 레코드 없음 5.0.00–5.0.06
 - `cubism.editor-ui.top-menu` (상단 메뉴 통합): 검증된 레코드 없음 5.0.00–5.0.06
 - `cubism.geometry.read` (메시 지오메트리 읽기): 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-history.semantic-read` (기록의 의미적 디코딩): 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.integration.edit-api-bridge.dispatch`: 검증된 레코드 없음 5.0.00–5.1.01
 - `cubism.integration.external-app-settings.edit-toggle` (외부 앱 편집 토글): 검증된 레코드 없음 5.0.00–5.0.06
-- `cubism.editor-model.default-keyform-lock.write`: 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-model.moc-export.read`: 검증된 레코드 없음 5.0.00–5.3.01, 5.3.04
-- `cubism.editor-model.native-control-appearance.write`: 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-model.render.read`: 검증된 레코드 없음 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
-- `cubism.editor-model.source-triangulation.read`: 검증된 레코드 없음 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
-- `cubism.editor-model.write` (에디터 모델 쓰기): 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-model.model-instance.read` (활성 모델 인스턴스 읽기): 검증된 레코드 없음 5.0.00–5.1.03
+- `cubism.editor-model.moc-export.read`: 검증된 레코드 없음 5.0.00–5.2.03
+- `cubism.editor-model.render.read`: 검증된 레코드 없음 5.0.00–5.1.03
+- `cubism.editor-model.source-triangulation.read`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.modeling-tool.selection-brush` (모델링 선택 브러시): 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-model.object-hierarchy.apply-deformer-to-children`: 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-model.parameter-combined.write`: 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-model.parameter-definition.write`: 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-model.parameter-structure.write` (파라미터 구조 쓰기): 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-model.edit.parameter-structure.add-parameter`: 검증된 레코드 없음 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.add-parameter-group`: 검증된 레코드 없음 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.delete-parameter`: 검증된 레코드 없음 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.delete-parameter-group`: 검증된 레코드 없음 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.edit-parameter`: 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-model.edit.parameter-structure.edit-parameter-group`: 검증된 레코드 없음 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.move-parameter`: 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-model.edit.parameter-structure.move-parameter-group`: 검증된 레코드 없음 5.0.00–5.1.01
 - `cubism.editor-model.part-inspector.write`: 검증된 레코드 없음 5.0.00–5.2.03
 - `cubism.editor-model.part-opacity.write`: 검증된 레코드 없음 5.0.00–5.2.03
 - `cubism.protected-export.orchestration` (보호된 내보내기 오케스트레이션): 검증된 레코드 없음 5.0.00–5.0.06
-- `cubism.editor-model.psd.raw-image.export`: 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-model.psd.raw-image.replace` (PSD 원본 이미지 교체): 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-model.texture.register-bind`: 검증된 레코드 없음 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
-- `cubism.texture-atlas.auto-layout-hook`: 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.texture-atlas.native-layout-invocation`: 검증된 레코드 없음 5.0.00–5.1.03
+- `cubism.editor-model.texture.register-bind`: 검증된 레코드 없음 5.0.00–5.1.03
 
 ## 버전 제약이 있는 SDK 표면
 

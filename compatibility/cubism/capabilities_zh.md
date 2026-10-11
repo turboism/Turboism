@@ -11,7 +11,7 @@
 | 能力组 | 5.0.00 | 5.0.01 | 5.0.02 | 5.0.03 | 5.0.04 | 5.0.05 | 5.0.06 | 5.1.00 | 5.1.01 | 5.1.02 | 5.1.03 | 5.2.00 | 5.2.01 | 5.2.02 | 5.2.03 | 5.3.00 | 5.3.01 | 5.3.02 | 5.3.03 | 5.3.04 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 动画与时间线 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| ArtMesh | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ◐ | ◐ | ✓ | ✓ | ◐ |
+| ArtMesh | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 自动摆动读取 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 自动备份 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 剪贴蒙版 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -21,17 +21,17 @@
 | 编辑会话 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 编辑器 UI 表面 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 几何读取 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 编辑历史 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 编辑历史 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 集成桥接 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 网格工具会话 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 网格工具栏贡献 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 其他模型表面 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ◐ |
-| 模型实例读取 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 其他模型表面 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 模型实例读取 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 建模自定义工具 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 对象层级 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 参数与绑定 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 对象层级 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 参数与绑定 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 参数键编辑 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 参数结构编辑 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 参数结构编辑 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 部件与检查器 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 部件对象编辑 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 性能统计 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -39,57 +39,35 @@
 | 插件 UI 表面 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 项目读取 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 受保护导出 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| PSD 原始图像 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| PSD 原始图像 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 选区编辑 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 启动抑制 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 纹理与原始图像 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ◐ | ◐ | ✓ | ✓ | ◐ |
-| 纹理图集 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 纹理与原始图像 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 纹理图集 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 撤销恢复 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 曲面变形器镜像 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 工作区 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 - `cubism.editor-model.animation-eval`: 无已验证记录 5.0.00–5.1.03
 - `cubism.editor-model.animation-timeline.write`: 无已验证记录 5.0.00–5.1.03
-- `cubism.editor-model.art-mesh.evaluated-read`: 无已验证记录 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
-- `cubism.editor-model.art-mesh.morph-authoring`: 无已验证记录 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
-- `cubism.editor-model.art-mesh.parameter-interpolation.write`: 无已验证记录 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
+- `cubism.editor-model.art-mesh.evaluated-read`: 无已验证记录 5.0.00–5.1.03
+- `cubism.editor-model.art-mesh.morph-authoring`: 无已验证记录 5.0.00–5.1.03
+- `cubism.editor-model.art-mesh.parameter-interpolation.write`: 无已验证记录 5.0.00–5.1.03
 - `cubism.editor-model.auto-yure.read`: 无已验证记录 5.0.00–5.0.06
 - `cubism.autobackup.backup` (自动备份创建): 无已验证记录 5.0.00–5.0.06
 - `cubism.autobackup.settings`: 无已验证记录 5.0.00–5.0.06
-- `cubism.editor-ui.embedded-panel` (嵌入式面板停靠): 无已验证记录 5.0.00–5.0.06
 - `cubism.editor-ui.top-menu` (顶部菜单集成): 无已验证记录 5.0.00–5.0.06
 - `cubism.geometry.read` (网格几何读取): 无已验证记录 5.0.00–5.1.03
-- `cubism.editor-history.semantic-read` (语义化历史解读): 无已验证记录 5.0.00–5.1.03
 - `cubism.integration.edit-api-bridge.dispatch`: 无已验证记录 5.0.00–5.1.01
 - `cubism.integration.external-app-settings.edit-toggle` (外部应用编辑开关): 无已验证记录 5.0.00–5.0.06
-- `cubism.editor-model.default-keyform-lock.write`: 无已验证记录 5.0.00–5.1.03
-- `cubism.editor-model.moc-export.read`: 无已验证记录 5.0.00–5.3.01, 5.3.04
-- `cubism.editor-model.native-control-appearance.write`: 无已验证记录 5.0.00–5.1.03
-- `cubism.editor-model.render.read`: 无已验证记录 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
-- `cubism.editor-model.source-triangulation.read`: 无已验证记录 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
-- `cubism.editor-model.write` (编辑器模型写入): 无已验证记录 5.0.00–5.1.03
-- `cubism.editor-model.model-instance.read` (活动模型实例读取): 无已验证记录 5.0.00–5.1.03
+- `cubism.editor-model.moc-export.read`: 无已验证记录 5.0.00–5.2.03
+- `cubism.editor-model.render.read`: 无已验证记录 5.0.00–5.1.03
+- `cubism.editor-model.source-triangulation.read`: 无已验证记录 5.0.00–5.1.03
 - `cubism.modeling-tool.selection-brush` (建模选区笔刷): 无已验证记录 5.0.00–5.1.03
-- `cubism.editor-model.object-hierarchy.apply-deformer-to-children`: 无已验证记录 5.0.00–5.1.03
-- `cubism.editor-model.parameter-combined.write`: 无已验证记录 5.0.00–5.1.03
-- `cubism.editor-model.parameter-definition.write`: 无已验证记录 5.0.00–5.1.03
-- `cubism.editor-model.parameter-structure.write` (参数结构写入): 无已验证记录 5.0.00–5.1.03
-- `cubism.editor-model.edit.parameter-structure.add-parameter`: 无已验证记录 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.add-parameter-group`: 无已验证记录 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.delete-parameter`: 无已验证记录 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.delete-parameter-group`: 无已验证记录 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.edit-parameter`: 无已验证记录 5.0.00–5.1.03
-- `cubism.editor-model.edit.parameter-structure.edit-parameter-group`: 无已验证记录 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.move-parameter`: 无已验证记录 5.0.00–5.1.03
-- `cubism.editor-model.edit.parameter-structure.move-parameter-group`: 无已验证记录 5.0.00–5.1.01
 - `cubism.editor-model.part-inspector.write`: 无已验证记录 5.0.00–5.2.03
 - `cubism.editor-model.part-opacity.write`: 无已验证记录 5.0.00–5.2.03
 - `cubism.protected-export.orchestration` (受保护导出编排): 无已验证记录 5.0.00–5.0.06
-- `cubism.editor-model.psd.raw-image.export`: 无已验证记录 5.0.00–5.1.03
-- `cubism.editor-model.psd.raw-image.replace` (PSD 原始图像替换): 无已验证记录 5.0.00–5.1.03
-- `cubism.editor-model.texture.register-bind`: 无已验证记录 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
-- `cubism.texture-atlas.auto-layout-hook`: 无已验证记录 5.0.00–5.1.03
-- `cubism.texture-atlas.native-layout-invocation`: 无已验证记录 5.0.00–5.1.03
+- `cubism.editor-model.texture.register-bind`: 无已验证记录 5.0.00–5.1.03
 
 ## 带版本约束的 SDK 表面
 

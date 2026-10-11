@@ -1431,6 +1431,69 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.04-ui-control-appearance.json:adapterSliceId}",
         "${record:cubism-5.3.04-ui-control-appearance.json:profileId}"
     );
+    private static final Candidate C_UI_EMBEDDED_PANEL_5_0_00 = new Candidate(
+        "ui-embedded-panel",
+        "${record:cubism-5.0.00-ui-embedded-panel.json:cubismVersion}",
+        "cubism-5.0.00-ui-embedded-panel.json",
+        "${record:cubism-5.0.00-ui-embedded-panel.json:sha256}",
+        "${record:cubism-5.0.00-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.0.00-ui-embedded-panel.json:adapterSliceId}",
+        "${record:cubism-5.0.00-ui-embedded-panel.json:profileId}"
+    );
+    private static final Candidate C_UI_EMBEDDED_PANEL_5_0_01 = new Candidate(
+        "ui-embedded-panel",
+        "${record:cubism-5.0.01-ui-embedded-panel.json:cubismVersion}",
+        "cubism-5.0.01-ui-embedded-panel.json",
+        "${record:cubism-5.0.01-ui-embedded-panel.json:sha256}",
+        "${record:cubism-5.0.01-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.0.01-ui-embedded-panel.json:adapterSliceId}",
+        "${record:cubism-5.0.01-ui-embedded-panel.json:profileId}"
+    );
+    private static final Candidate C_UI_EMBEDDED_PANEL_5_0_02 = new Candidate(
+        "ui-embedded-panel",
+        "${record:cubism-5.0.02-ui-embedded-panel.json:cubismVersion}",
+        "cubism-5.0.02-ui-embedded-panel.json",
+        "${record:cubism-5.0.02-ui-embedded-panel.json:sha256}",
+        "${record:cubism-5.0.02-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.0.02-ui-embedded-panel.json:adapterSliceId}",
+        "${record:cubism-5.0.02-ui-embedded-panel.json:profileId}"
+    );
+    private static final Candidate C_UI_EMBEDDED_PANEL_5_0_03 = new Candidate(
+        "ui-embedded-panel",
+        "${record:cubism-5.0.03-ui-embedded-panel.json:cubismVersion}",
+        "cubism-5.0.03-ui-embedded-panel.json",
+        "${record:cubism-5.0.03-ui-embedded-panel.json:sha256}",
+        "${record:cubism-5.0.03-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.0.03-ui-embedded-panel.json:adapterSliceId}",
+        "${record:cubism-5.0.03-ui-embedded-panel.json:profileId}"
+    );
+    private static final Candidate C_UI_EMBEDDED_PANEL_5_0_04 = new Candidate(
+        "ui-embedded-panel",
+        "${record:cubism-5.0.04-ui-embedded-panel.json:cubismVersion}",
+        "cubism-5.0.04-ui-embedded-panel.json",
+        "${record:cubism-5.0.04-ui-embedded-panel.json:sha256}",
+        "${record:cubism-5.0.04-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.0.04-ui-embedded-panel.json:adapterSliceId}",
+        "${record:cubism-5.0.04-ui-embedded-panel.json:profileId}"
+    );
+    private static final Candidate C_UI_EMBEDDED_PANEL_5_0_05 = new Candidate(
+        "ui-embedded-panel",
+        "${record:cubism-5.0.05-ui-embedded-panel.json:cubismVersion}",
+        "cubism-5.0.05-ui-embedded-panel.json",
+        "${record:cubism-5.0.05-ui-embedded-panel.json:sha256}",
+        "${record:cubism-5.0.05-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.0.05-ui-embedded-panel.json:adapterSliceId}",
+        "${record:cubism-5.0.05-ui-embedded-panel.json:profileId}"
+    );
+    private static final Candidate C_UI_EMBEDDED_PANEL_5_0_06 = new Candidate(
+        "ui-embedded-panel",
+        "${record:cubism-5.0.06-ui-embedded-panel.json:cubismVersion}",
+        "cubism-5.0.06-ui-embedded-panel.json",
+        "${record:cubism-5.0.06-ui-embedded-panel.json:sha256}",
+        "${record:cubism-5.0.06-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.0.06-ui-embedded-panel.json:adapterSliceId}",
+        "${record:cubism-5.0.06-ui-embedded-panel.json:profileId}"
+    );
     private static final Candidate C_UI_EMBEDDED_PANEL_5_1_00 = new Candidate(
         "ui-embedded-panel",
         "${record:cubism-5.1.00-ui-embedded-panel.json:cubismVersion}",
@@ -1547,6 +1610,69 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.04-ui-embedded-panel.json:verificationId}",
         "${record:cubism-5.3.04-ui-embedded-panel.json:adapterSliceId}",
         "${record:cubism-5.3.04-ui-embedded-panel.json:profileId}"
+    );
+    private static final Candidate C_UI_MAIN_TOOLBAR_5_0_00 = new Candidate(
+        "ui-main-toolbar",
+        "${record:cubism-5.0.00-ui-main-toolbar.json:cubismVersion}",
+        "cubism-5.0.00-ui-main-toolbar.json",
+        "${record:cubism-5.0.00-ui-main-toolbar.json:sha256}",
+        "${record:cubism-5.0.00-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.0.00-ui-main-toolbar.json:adapterSliceId}",
+        "${record:cubism-5.0.00-ui-main-toolbar.json:profileId}"
+    );
+    private static final Candidate C_UI_MAIN_TOOLBAR_5_0_01 = new Candidate(
+        "ui-main-toolbar",
+        "${record:cubism-5.0.01-ui-main-toolbar.json:cubismVersion}",
+        "cubism-5.0.01-ui-main-toolbar.json",
+        "${record:cubism-5.0.01-ui-main-toolbar.json:sha256}",
+        "${record:cubism-5.0.01-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.0.01-ui-main-toolbar.json:adapterSliceId}",
+        "${record:cubism-5.0.01-ui-main-toolbar.json:profileId}"
+    );
+    private static final Candidate C_UI_MAIN_TOOLBAR_5_0_02 = new Candidate(
+        "ui-main-toolbar",
+        "${record:cubism-5.0.02-ui-main-toolbar.json:cubismVersion}",
+        "cubism-5.0.02-ui-main-toolbar.json",
+        "${record:cubism-5.0.02-ui-main-toolbar.json:sha256}",
+        "${record:cubism-5.0.02-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.0.02-ui-main-toolbar.json:adapterSliceId}",
+        "${record:cubism-5.0.02-ui-main-toolbar.json:profileId}"
+    );
+    private static final Candidate C_UI_MAIN_TOOLBAR_5_0_03 = new Candidate(
+        "ui-main-toolbar",
+        "${record:cubism-5.0.03-ui-main-toolbar.json:cubismVersion}",
+        "cubism-5.0.03-ui-main-toolbar.json",
+        "${record:cubism-5.0.03-ui-main-toolbar.json:sha256}",
+        "${record:cubism-5.0.03-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.0.03-ui-main-toolbar.json:adapterSliceId}",
+        "${record:cubism-5.0.03-ui-main-toolbar.json:profileId}"
+    );
+    private static final Candidate C_UI_MAIN_TOOLBAR_5_0_04 = new Candidate(
+        "ui-main-toolbar",
+        "${record:cubism-5.0.04-ui-main-toolbar.json:cubismVersion}",
+        "cubism-5.0.04-ui-main-toolbar.json",
+        "${record:cubism-5.0.04-ui-main-toolbar.json:sha256}",
+        "${record:cubism-5.0.04-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.0.04-ui-main-toolbar.json:adapterSliceId}",
+        "${record:cubism-5.0.04-ui-main-toolbar.json:profileId}"
+    );
+    private static final Candidate C_UI_MAIN_TOOLBAR_5_0_05 = new Candidate(
+        "ui-main-toolbar",
+        "${record:cubism-5.0.05-ui-main-toolbar.json:cubismVersion}",
+        "cubism-5.0.05-ui-main-toolbar.json",
+        "${record:cubism-5.0.05-ui-main-toolbar.json:sha256}",
+        "${record:cubism-5.0.05-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.0.05-ui-main-toolbar.json:adapterSliceId}",
+        "${record:cubism-5.0.05-ui-main-toolbar.json:profileId}"
+    );
+    private static final Candidate C_UI_MAIN_TOOLBAR_5_0_06 = new Candidate(
+        "ui-main-toolbar",
+        "${record:cubism-5.0.06-ui-main-toolbar.json:cubismVersion}",
+        "cubism-5.0.06-ui-main-toolbar.json",
+        "${record:cubism-5.0.06-ui-main-toolbar.json:sha256}",
+        "${record:cubism-5.0.06-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.0.06-ui-main-toolbar.json:adapterSliceId}",
+        "${record:cubism-5.0.06-ui-main-toolbar.json:profileId}"
     );
     private static final Candidate C_UI_MAIN_TOOLBAR_5_1_00 = new Candidate(
         "ui-main-toolbar",
@@ -2321,6 +2447,13 @@ public final class CubismSliceCatalog {
     };
 
     private static final Candidate[] CANDIDATES_UI_EMBEDDED_PANEL = {
+        C_UI_EMBEDDED_PANEL_5_0_00,
+        C_UI_EMBEDDED_PANEL_5_0_01,
+        C_UI_EMBEDDED_PANEL_5_0_02,
+        C_UI_EMBEDDED_PANEL_5_0_03,
+        C_UI_EMBEDDED_PANEL_5_0_04,
+        C_UI_EMBEDDED_PANEL_5_0_05,
+        C_UI_EMBEDDED_PANEL_5_0_06,
         C_UI_EMBEDDED_PANEL_5_1_00,
         C_UI_EMBEDDED_PANEL_5_1_01,
         C_UI_EMBEDDED_PANEL_5_1_02,
@@ -2337,6 +2470,13 @@ public final class CubismSliceCatalog {
     };
 
     private static final Candidate[] CANDIDATES_UI_MAIN_TOOLBAR = {
+        C_UI_MAIN_TOOLBAR_5_0_00,
+        C_UI_MAIN_TOOLBAR_5_0_01,
+        C_UI_MAIN_TOOLBAR_5_0_02,
+        C_UI_MAIN_TOOLBAR_5_0_03,
+        C_UI_MAIN_TOOLBAR_5_0_04,
+        C_UI_MAIN_TOOLBAR_5_0_05,
+        C_UI_MAIN_TOOLBAR_5_0_06,
         C_UI_MAIN_TOOLBAR_5_1_00,
         C_UI_MAIN_TOOLBAR_5_1_01,
         C_UI_MAIN_TOOLBAR_5_1_02,

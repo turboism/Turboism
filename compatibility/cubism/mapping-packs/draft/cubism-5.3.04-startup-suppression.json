@@ -17,7 +17,7 @@
     "capabilityIds": [
       "cubism.startup.suppression"
     ],
-    "verificationRecordSha256": "f956f386cc678d8de4274951bda3275a03f44de0ba1f40ff24abcaa525a8cab8"
+    "verificationRecordSha256": "755822d66d9020d2b8b2bdb8f88066b435be03322f49c10b44e658d07ace8867"
   },
   "entries": [
     {
@@ -43,7 +43,7 @@
         "recordAlias": "cubism.startup-suppression.app.class",
         "recordMappingId": "cubism.mapping.v5_3_04.startup_suppression.class.app",
         "exactArtifactSha256": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d",
-        "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
+        "provenance": "exact classfile verification on the reviewed 5.3.04 artifact via cubism_version_matrix"
       }
     },
     {
@@ -70,7 +70,7 @@
         "recordAlias": "cubism.startup-suppression.app.startup",
         "recordMappingId": "cubism.mapping.v5_3_04.startup_suppression.method.startup",
         "exactArtifactSha256": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d",
-        "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
+        "provenance": "exact classfile verification on the reviewed 5.3.04 artifact via cubism_version_matrix"
       }
     },
     {
@@ -97,7 +97,7 @@
         "recordAlias": "cubism.startup-suppression.app.splash-factory",
         "recordMappingId": "cubism.mapping.v5_3_04.startup_suppression.method.splash_factory",
         "exactArtifactSha256": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d",
-        "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
+        "provenance": "exact classfile verification on the reviewed 5.3.04 artifact via cubism_version_matrix"
       }
     },
     {
@@ -123,7 +123,7 @@
         "recordAlias": "cubism.startup-suppression.app-controller.class",
         "recordMappingId": "cubism.mapping.v5_3_04.startup_suppression.class.app_ctrl",
         "exactArtifactSha256": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d",
-        "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
+        "provenance": "exact classfile verification on the reviewed 5.3.04 artifact via cubism_version_matrix"
       }
     },
     {
@@ -150,7 +150,7 @@
         "recordAlias": "cubism.startup-suppression.app-controller.update-check",
         "recordMappingId": "cubism.mapping.v5_3_04.startup_suppression.method.update_check",
         "exactArtifactSha256": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d",
-        "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
+        "provenance": "exact classfile verification on the reviewed 5.3.04 artifact via cubism_version_matrix"
       }
     },
     {
@@ -177,7 +177,7 @@
         "recordAlias": "cubism.startup-suppression.app-controller.show-information",
         "recordMappingId": "cubism.mapping.v5_3_04.startup_suppression.method.show_information",
         "exactArtifactSha256": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d",
-        "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
+        "provenance": "exact classfile verification on the reviewed 5.3.04 artifact via cubism_version_matrix"
       }
     }
   ]
