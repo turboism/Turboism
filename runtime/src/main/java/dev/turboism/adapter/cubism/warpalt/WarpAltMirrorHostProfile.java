@@ -5,10 +5,11 @@ import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Exact selector tuple for the Warp Deformer temporary-handler drag tick, recovered
- * from the reviewed Cubism 5.2.03, 5.3.02 and 5.3.03 artifacts by disassembly.
+ * from the reviewed Cubism 5.2.x and 5.3.x artifacts by disassembly.
  *
  * <p>Two injection points cover the two known Warp control-point editing flows:</p>
  * <ul>
@@ -26,7 +27,7 @@ import java.util.Optional;
  * </ul>
  *
  * <p>The strip selectors differ between obfuscation generations: the mount pass is
- * {@code L()V} on 5.2.03 and {@code R()V} on 5.3.02/5.3.03 — 5.2.03's own {@code R()}
+ * {@code L()V} on 5.2.x and {@code R()V} on 5.3.x — 5.2's own {@code R()}
  * is an unrelated delegate, so the mount name must come from the per-version
  * profile rather than a shared constant.</p>
  *
@@ -63,19 +64,32 @@ public record WarpAltMirrorHostProfile(
         String inputIngressMethod,
         String inputIngressDescriptor) {
 
-    private static final HostArtifactDigest CUBISM_5203 = ReviewedHostArtifacts.CUBISM_5_2_03;
-    private static final HostArtifactDigest CUBISM_5302 = ReviewedHostArtifacts.CUBISM_5_3_02;
-    private static final HostArtifactDigest CUBISM_5303 = ReviewedHostArtifacts.CUBISM_5_3_03;
+    /**
+     * Reviewed 5.2.x generations sharing the 5.2.03 obfuscation generation: every
+     * profile selector resolves to the same member names, including the
+     * {@code L()V} strip mount pass.
+     */
+    private static final Set<String> REVIEWED_52_VERSIONS = Set.of(
+            ReviewedHostArtifacts.CUBISM_5_2_00_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_2_01_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_2_02_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_2_03_VERSION);
+
+    /**
+     * Reviewed 5.3.x generations sharing the 5.3.02/5.3.03 selector tuple: every
+     * profile selector resolves to the same member names, including the
+     * {@code R()V} strip mount pass.
+     */
+    private static final Set<String> REVIEWED_53_VERSIONS = Set.of(
+            ReviewedHostArtifacts.CUBISM_5_3_00_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_3_01_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_3_04_VERSION);
 
     /** Returns the exact reviewed selector profile for the artifact, if it is supported. */
     public static Optional<WarpAltMirrorHostProfile> forArtifact(final HostArtifactDigest artifact) {
-        if (CUBISM_5203.equals(artifact)) {
-            return Optional.of(reviewed5203());
-        }
-        if (CUBISM_5302.equals(artifact) || CUBISM_5303.equals(artifact)) {
-            return Optional.of(reviewed5302And5303());
-        }
-        return Optional.empty();
+        return ReviewedHostArtifacts.cubismVersionOf(artifact).flatMap(WarpAltMirrorHostProfile::forReviewedVersion);
     }
 
     /**
@@ -85,11 +99,10 @@ public record WarpAltMirrorHostProfile(
      * artifact — the version alone is never proof.
      */
     public static Optional<WarpAltMirrorHostProfile> forReviewedVersion(final String version) {
-        if (ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(version)) {
+        if (REVIEWED_52_VERSIONS.contains(version)) {
             return Optional.of(reviewed5203());
         }
-        if (ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(version)
-                || ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(version)) {
+        if (REVIEWED_53_VERSIONS.contains(version)) {
             return Optional.of(reviewed5302And5303());
         }
         return Optional.empty();

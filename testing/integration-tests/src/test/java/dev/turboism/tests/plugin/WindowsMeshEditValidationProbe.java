@@ -59,7 +59,8 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     static final long SAVE_TIMEOUT_MILLIS = 30_000L;
     static final long SAVE_POLL_MILLIS = 100L;
     static final int SAVE_STABLE_SAMPLES = 3;
-    private static final Set<String> SELECTION_BRUSH_VERSIONS = Set.of("5203", "5302", "5303");
+    private static final Set<String> SELECTION_BRUSH_VERSIONS =
+            Set.of("5200", "5201", "5202", "5203", "5300", "5301", "5302", "5303", "5304");
     private static final float EPSILON = 0.0001F;
 
     private final AtomicReference<MeshSnapshot> failureBaseline = new AtomicReference<>();

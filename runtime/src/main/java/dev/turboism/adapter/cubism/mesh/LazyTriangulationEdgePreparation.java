@@ -27,10 +27,20 @@ final class LazyTriangulationEdgePreparation {
     private static final String ASSERTIONS = "kotlin._Assertions", INTRINSICS = "kotlin.jvm.internal.Intrinsics";
     private static final String KOTLIN_JAR = "kotlin-stdlib-1.7.21.jar";
     private static final String KOTLIN_SHA = "d46a9d773ffb9dee4ff1a748ac845dc8e50005c589302951760a2b5187bddd19";
+    // The pinned triangulation classes are byte-identical inside each minor line:
+    // every 5.2.x artifact carries the 5.2 family bytes and every 5.3.x artifact
+    // the 5.3 family bytes, so the flag selects that family's baseline and
+    // dependency fingerprints exactly.
     private static final Map<HostArtifactDigest, Boolean> HOST_JARS = Map.of(
+            ReviewedHostArtifacts.CUBISM_5_2_00, true,
+            ReviewedHostArtifacts.CUBISM_5_2_01, true,
+            ReviewedHostArtifacts.CUBISM_5_2_02, true,
             ReviewedHostArtifacts.CUBISM_5_2_03, true,
+            ReviewedHostArtifacts.CUBISM_5_3_00, false,
+            ReviewedHostArtifacts.CUBISM_5_3_01, false,
             ReviewedHostArtifacts.CUBISM_5_3_02, false,
-            ReviewedHostArtifacts.CUBISM_5_3_03, false);
+            ReviewedHostArtifacts.CUBISM_5_3_03, false,
+            ReviewedHostArtifacts.CUBISM_5_3_04, false);
     private static final String BASELINE_52 = "d0fac0cd2c2092db163db7b78bffd011713f2bef17279b08ab088af4e7d27d92";
     private static final String BASELINE_53 = "40d0754026a7a2fb7c491e95144b9d8a1a605d7aee44579cb20bb2363962f8e6";
     private static final String FACE_53 = "91963e179b498e470b9d474a27b876dd4a5a7ee714941cb530a7cd5202924a88";
