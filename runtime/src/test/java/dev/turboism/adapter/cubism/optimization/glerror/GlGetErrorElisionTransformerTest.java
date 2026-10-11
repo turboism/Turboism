@@ -195,7 +195,7 @@ public class GlGetErrorElisionTransformerTest {
             assertEquals(1, transformer.matches());
             assertEquals(1, transformer.elided());
         }
-        assertEquals(2, GlGetErrorElisionTarget.all().size());
+        assertEquals(3, GlGetErrorElisionTarget.all().size());
         assertTrue(
                 GlGetErrorElisionTarget.of(ReviewedHostArtifacts.CUBISM_5_2_03).isEmpty(),
                 "5.2.03 has no such marker method and stays unsupported");

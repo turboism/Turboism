@@ -1,12 +1,14 @@
 package dev.turboism.adapter.cubism.mesh;
 
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
-import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.ProtectionDomain;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -23,9 +25,13 @@ public final class MeshTriangulationHashTransformer implements ClassFileTransfor
     static final String TARGET_INTERNAL_NAME = "com/live2d/graphics3d/editableMesh/triangulation/l";
     /** Descriptor of the corner point type referenced by the target's three fields. */
     static final String POINT_DESCRIPTOR = "Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;";
-    /** SHA-256 of the reviewed 5.3.03 class bytes. */
-    static final String REVIEWED_CLASS_SHA256 = ClassPinTable.singleSha256(
-            "mesh-triangulation-hash", ReviewedHostArtifacts.CUBISM_5_3_03_VERSION, TARGET_INTERNAL_NAME);
+    /**
+     * SHA-256 of every reviewed generation's class bytes. The 5.3.x family ships one
+     * shared {@code l} and the 5.0.x–5.2.x family ships another; both carry the exact
+     * {@code a},{@code b},{@code c} {@code TriPoint} field layout and the constant
+     * {@code hashCode} the patcher was reviewed against.
+     */
+    static final Set<String> REVIEWED_CLASS_SHA256S = reviewedClassSha256s();
 
     /** What the transformer concluded, for diagnostics and tests. */
     public enum Outcome {
@@ -39,18 +45,19 @@ public final class MeshTriangulationHashTransformer implements ClassFileTransfor
         SHAPE_REJECTED
     }
 
-    private final String expectedSha256;
+    private final Set<String> expectedSha256s;
     private final MeshTriangulationHashPatcher patcher =
             new MeshTriangulationHashPatcher(TARGET_INTERNAL_NAME, POINT_DESCRIPTOR);
     private final AtomicReference<Outcome> outcome = new AtomicReference<>(Outcome.NONE);
     private final AtomicReference<String> diagnostic = new AtomicReference<>("");
 
     public MeshTriangulationHashTransformer() {
-        this(REVIEWED_CLASS_SHA256);
+        this(REVIEWED_CLASS_SHA256S);
     }
 
-    MeshTriangulationHashTransformer(final String expectedSha256) {
-        this.expectedSha256 = Objects.requireNonNull(expectedSha256, "expectedSha256");
+    MeshTriangulationHashTransformer(final Set<String> expectedSha256s) {
+        if (expectedSha256s.isEmpty()) throw new IllegalArgumentException("no reviewed class digest");
+        this.expectedSha256s = Set.copyOf(Objects.requireNonNull(expectedSha256s, "expectedSha256s"));
     }
 
     /** Latest observed outcome; {@code NONE} until the target class has been defined. */
@@ -72,7 +79,7 @@ public final class MeshTriangulationHashTransformer implements ClassFileTransfor
             final byte[] classfileBuffer) {
         if (classfileBuffer == null || !TARGET_INTERNAL_NAME.equals(className)) return null;
         final String observed = sha256(classfileBuffer);
-        if (!expectedSha256.equals(observed)) {
+        if (!expectedSha256s.contains(observed)) {
             outcome.compareAndSet(Outcome.NONE, Outcome.HASH_MISMATCH);
             diagnostic.compareAndSet("", "observed=" + observed);
             return null;
@@ -86,6 +93,19 @@ public final class MeshTriangulationHashTransformer implements ClassFileTransfor
             diagnostic.set(rejected.getMessage());
             return null;
         }
+    }
+
+    private static Set<String> reviewedClassSha256s() {
+        final Set<String> digests = new TreeSet<>();
+        for (final Map<String, String> block :
+                ClassPinTable.load("mesh-triangulation-hash").values()) {
+            final String pinned = block.get(TARGET_INTERNAL_NAME);
+            if (pinned == null) {
+                throw new IllegalStateException("mesh-triangulation-hash pin block lacks " + TARGET_INTERNAL_NAME);
+            }
+            digests.add(pinned);
+        }
+        return Set.copyOf(digests);
     }
 
     static String sha256(final byte[] bytes) {

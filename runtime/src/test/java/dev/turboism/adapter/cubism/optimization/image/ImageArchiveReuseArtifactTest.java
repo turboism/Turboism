@@ -16,15 +16,35 @@ import org.junit.jupiter.api.Test;
 class ImageArchiveReuseArtifactTest {
     @Test
     void exact5302ArchiveAndDecodeCallSitesTransformWithoutChangingTheJar() throws Exception {
-        String configured = System.getProperty("turboism.test.cubism5302Jar", "");
-        assumeTrue(!configured.isBlank(), "exact local artifact path not configured");
+        exercise(ReviewedHostArtifacts.CUBISM_5_3_02, "5.3.02");
+    }
+
+    @Test
+    void exact5203ArchiveAndDecodeCallSitesTransformWithoutChangingTheJar() throws Exception {
+        exercise(ReviewedHostArtifacts.CUBISM_5_2_03, "5.2.03");
+    }
+
+    @Test
+    void exact5303ArchiveAndDecodeCallSitesTransformWithoutChangingTheJar() throws Exception {
+        exercise(ReviewedHostArtifacts.CUBISM_5_3_03, "5.3.03");
+    }
+
+    private static void exercise(final HostArtifactDigest expected, final String version) throws Exception {
+        String configured = System.getProperty("turboism.test.cubism" + version.replace(".", "") + "Jar", "");
+        if (configured.isBlank()) {
+            final String ref = System.getProperty(
+                    "turboism.test.cubismRefDir", System.getenv().getOrDefault("TURBOISM_CUBISM_REF", ""));
+            assumeTrue(!ref.isBlank(), "exact " + version + " artifact not configured");
+            configured =
+                    Path.of(ref).resolve(version).resolve("Live2D_Cubism.jar").toString();
+        }
         Path artifact = Path.of(configured);
         assumeTrue(Files.isRegularFile(artifact), "exact local artifact missing");
-        assertEquals(ReviewedHostArtifacts.CUBISM_5_3_02, HostArtifactDigest.from(artifact));
+        assertEquals(expected, HostArtifactDigest.from(artifact));
         try (var jar = new JarFile(artifact.toFile());
                 var loader = new URLClassLoader(
                         new java.net.URL[] {artifact.toUri().toURL()},
-                        getClass().getClassLoader())) {
+                        ImageArchiveReuseArtifactTest.class.getClassLoader())) {
             byte[] bytes;
             try (var in = jar.getInputStream(jar.getJarEntry("com/live2d/graphics/CImageResource.class"))) {
                 bytes = in.readAllBytes();
@@ -39,6 +59,6 @@ class ImageArchiveReuseArtifactTest {
             assertFalse(java.util.Arrays.equals(bytes, result));
             assertNotNull(transformer.beforeSha256());
         }
-        assertEquals(ReviewedHostArtifacts.CUBISM_5_3_02, HostArtifactDigest.from(artifact));
+        assertEquals(expected, HostArtifactDigest.from(artifact));
     }
 }
