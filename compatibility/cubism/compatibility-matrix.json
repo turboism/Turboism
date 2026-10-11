@@ -9338,9 +9338,11 @@
     "5.2.00",
     "5.2.01",
     "5.2.02",
+    "5.2.03",
     "5.3.00",
     "5.3.01",
     "5.3.02",
+    "5.3.03",
     "5.3.04"
    ],
    "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/serialization/FloatArrayParseTransformer.java"
@@ -9348,9 +9350,14 @@
   {
    "name": "image-archive-reuse",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
     "5.3.00",
     "5.3.01",
     "5.3.02",
+    "5.3.03",
     "5.3.04"
    ],
    "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/image/ImageArchiveReuseTransformer.java"
@@ -9358,9 +9365,15 @@
   {
    "name": "incremental-update",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
+    "5.3.00",
+    "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/modelupdate/incremental/IncrementalUpdateTarget.java"
   },
@@ -9397,16 +9410,30 @@
   {
    "name": "mesh-triangulation-hash",
    "versions": [
-    "5.3.03"
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
    ],
-   "loadedBy": null
+   "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshTriangulationHashTransformer.java"
   },
   {
    "name": "model-update-skip",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
+    "5.3.00",
+    "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/modelupdate/ModelUpdateSkipTarget.java"
   },
@@ -9439,9 +9466,14 @@
   {
    "name": "texture-upload-preparation",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
     "5.3.00",
     "5.3.01",
     "5.3.02",
+    "5.3.03",
     "5.3.04"
    ],
    "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/image/TextureUploadPreparationTransformer.java"
@@ -9449,6 +9481,9 @@
   {
    "name": "uniform-location-lifecycle",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
     "5.3.00",
     "5.3.01",
@@ -9476,9 +9511,15 @@
   {
    "name": "warp-position-projection",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
     "5.3.00",
     "5.3.01",
-    "5.3.02"
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
    ],
    "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/geometry/WarpPositionProjectionTransformer.java"
   }
