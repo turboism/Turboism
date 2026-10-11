@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /**
@@ -15,6 +16,7 @@ import java.util.Objects;
  * auto-scale tuning, kernel choice); the dialog enables those controls only for
  * algorithms declaring it and they are ignored for every other selection.</p>
  */
+@CubismEditor
 public record TextureAtlasLayoutAlgorithm(
         String id,
         String displayName,

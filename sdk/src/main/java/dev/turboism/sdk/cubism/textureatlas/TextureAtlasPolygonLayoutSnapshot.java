@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 
@@ -10,6 +11,7 @@ import java.util.Objects;
  * policies and issued transforms so a polygon planner can plan (and a writer can
  * validate) without re-entering the host.</p>
  */
+@CubismEditor
 public record TextureAtlasPolygonLayoutSnapshot(
         TextureAtlasLayoutTarget target,
         String documentId,

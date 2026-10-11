@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.mesh;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Optional;
 
 /**
@@ -12,6 +13,7 @@ import java.util.Optional;
  * genuinely has to differ.</p>
  */
 @FunctionalInterface
+@CubismEditor
 public interface MeshMirrorCounterpartResolver {
 
     /**

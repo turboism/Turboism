@@ -1,6 +1,9 @@
 package dev.turboism.sdk.cubism.mirror;
 
+import dev.turboism.sdk.CubismEditor;
+
 /** Terminal outcome of one {@link WarpMirrorService#apply(WarpMirrorRequest)} call. */
+@CubismEditor
 public enum WarpMirrorOutcome {
     /** The mirrored grid (and any compensation writes) were committed as one Undo entry. */
     APPLIED,

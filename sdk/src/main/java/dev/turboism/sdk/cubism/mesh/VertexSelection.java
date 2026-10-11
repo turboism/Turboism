@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.mesh;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -12,6 +13,7 @@ import java.util.TreeSet;
  *
  * @param indices non-negative indices, canonicalized to ascending unique order
  */
+@CubismEditor
 public record VertexSelection(List<Integer> indices) {
 
     public VertexSelection {

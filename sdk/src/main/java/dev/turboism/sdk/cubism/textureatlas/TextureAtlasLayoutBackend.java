@@ -1,5 +1,7 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * Packing backend for a texture-atlas layout.
  *
@@ -9,6 +11,7 @@ package dev.turboism.sdk.cubism.textureatlas;
  * reserved capability slot - selecting it delegates to the host exactly like the
  * pass-through algorithm and produces no Turboism plan.</p>
  */
+@CubismEditor
 public enum TextureAtlasLayoutBackend {
     AUTO,
     MAXRECTS_RECTANGLE,

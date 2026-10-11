@@ -1,5 +1,7 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * Where an item outline came from.
  *
@@ -9,6 +11,7 @@ package dev.turboism.sdk.cubism.textureatlas;
  * when the host exposes no contour for an item; {@code EXPLICIT} marks caller
  * supplied outlines.</p>
  */
+@CubismEditor
 public enum TextureAtlasOutlineSource {
     DRAW_DATA_SHAPES,
     BOUNDS_FALLBACK,

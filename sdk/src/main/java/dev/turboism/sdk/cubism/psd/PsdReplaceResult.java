@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.psd;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
 import java.util.Objects;
@@ -19,6 +20,7 @@ import java.util.Optional;
  * @param consumedRevision version consumed only after verified application
  * @param relations optional available post-operation relation snapshot
  */
+@CubismEditor
 public record PsdReplaceResult(
         Status status,
         String diagnostic,
@@ -52,6 +54,7 @@ public record PsdReplaceResult(
     }
 
     /** Outcome of one explicit raw-image replacement request. */
+    @CubismEditor
     public enum Status {
         APPLIED,
         UNAVAILABLE,

@@ -1,10 +1,12 @@
 package dev.turboism.sdk.cubism.mesh;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.plugin.Registration;
 import java.util.Objects;
 import java.util.function.Consumer;
 
 /** Declarative contributions for Cubism's native mesh-edit tool area. */
+@CubismEditor(from = "5.2.00")
 public interface MeshEditUiService {
 
     /**

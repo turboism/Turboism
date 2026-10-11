@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.screenshot;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
@@ -9,6 +10,7 @@ import java.util.concurrent.CompletionStage;
  * a stage is returned; once returned, the stage's completion thread and failure modes are
  * implementation-defined.
  */
+@CubismEditor(from = "5.1.00")
 public interface ScreenshotCaptureService {
 
     /**
