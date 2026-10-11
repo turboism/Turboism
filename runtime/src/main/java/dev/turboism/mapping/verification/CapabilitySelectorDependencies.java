@@ -564,7 +564,8 @@ final class CapabilitySelectorDependencies {
                             : EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES);
         }
         if (capability.equals(EditorModelInstanceReadSelectorContract.CAPABILITY_ID)
-                && record.cubismVersion().equals("5.2.03")) {
+                && EditorModelInstanceReadSelectorContract.ONION_SKIN_ABSENT_VERSIONS.contains(
+                        record.cubismVersion())) {
             aliases.removeAll(EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES);
         }
         if (capability.startsWith("cubism.editor-model.edit.")) {

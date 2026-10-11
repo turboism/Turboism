@@ -60,6 +60,7 @@
     "cubism.editor-model.edit.session.get-is-edit-approval",
     "cubism.editor-model.edit.session.notify-undo-cancel",
     "cubism.editor-model.glue-inspector.write",
+    "cubism.editor-model.model-instance.read",
     "cubism.editor-model.model-name.write",
     "cubism.editor-model.model-profile.read",
     "cubism.editor-model.morph-target.read",
@@ -11073,6 +11074,9 @@
     ],
     "cubism.editor-model.glue-inspector.write": [
       "declaredGeneration"
+    ],
+    "cubism.editor-model.model-instance.read": [
+      "structure"
     ],
     "cubism.editor-model.model-name.write": [
       "declaredGeneration"
