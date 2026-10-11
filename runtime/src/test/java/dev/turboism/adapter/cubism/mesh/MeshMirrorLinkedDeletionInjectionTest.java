@@ -216,6 +216,7 @@ final class MeshMirrorLinkedDeletionInjectionTest {
                 shared.mirrorAxisDrawDescriptor(),
                 null,
                 null,
+                null,
                 new MeshMirrorHostProfile.LinkedDeletion(
                         POINT_FIXTURE,
                         "b",

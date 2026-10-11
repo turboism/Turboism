@@ -236,8 +236,29 @@
   },
   {
    "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeMeshInterpolationBridge.java",
+   "versions": [
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "collection",
    "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgePreparation.java",
    "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -250,6 +271,33 @@
    ],
    "basis": "verification-derived",
    "reason": "Literal version table derived from verification records; the set names the reviewed versions this surface admits."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshMirrorHostProfile.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "basis": "verification-derived",
+   "reason": "Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshMirrorHostProfile.java",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
   },
   {
    "kind": "collection",
@@ -280,6 +328,17 @@
    "kind": "collection",
    "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolSessionSelectorContract.java",
    "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -368,6 +427,36 @@
   },
   {
    "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/shader/ShaderUniformTransformer.java",
+   "versions": [
+    "5.2.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/shader/ShaderUniformTransformer.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/shader/ShaderUniformTransformer.java",
+   "versions": [
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "collection",
    "path": "runtime/src/main/java/dev/turboism/adapter/cubism/startup/StartupSuppressionProfile.java",
    "versions": [
     "5.0.00",
@@ -421,6 +510,25 @@
    ],
    "basis": "verification-derived",
    "reason": "Selector contract admission set derived from verification records; the contract admits the capability on exactly these reviewed versions."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/warpalt/WarpAltMirrorHostProfile.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
   },
   {
    "kind": "collection",
@@ -570,6 +678,17 @@
    "kind": "collection",
    "path": "runtime/src/main/java/dev/turboism/ui/mesh/MeshToolbarSelectorContract.java",
    "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -1343,6 +1462,28 @@
   },
   {
    "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/command/NativeInterpolationSaveCache.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/command/VerifiedTypedEditorCommandOperations.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "file",
    "path": "runtime/src/main/java/dev/turboism/adapter/cubism/core/CorePublicApiProviderFactory.java",
    "versions": [
     "5.2.03",
@@ -1381,6 +1522,147 @@
   },
   {
    "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorArtMeshAuthoringReadAccess.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorArtMeshEvaluationReadAccess.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorArtMeshKeyformAccess.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorArtMeshMorphState.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorArtMeshParentSnapshot.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorDeformerParentEditAccess.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorMocExportAccess.java",
+   "versions": [
+    "5.3.02"
+   ],
+   "basis": "task-scoped",
+   "reason": "Admission set for a surface recovered from the exact 5.3.02 artifact only (model-import-3d / popup-undo / texture-atlas work); pending 5.3.03/5.3.04 review is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorObjectHierarchyEditAccess.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorParameterInterpolationAccess.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorRenderPixelsAccess.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorRotationAuthoringReadAccess.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorRotationKeyformAccess.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorSourceTriangulationAccess.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "file",
    "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorTextureReplacementDiagnostic.java",
    "versions": [
     "5.3.02"
@@ -1390,12 +1672,62 @@
   },
   {
    "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorWarpAuthoringReadAccess.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorWarpKeyformAccess.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "file",
    "path": "runtime/src/main/java/dev/turboism/adapter/cubism/filechooser/FileChooserHistoryHostProfile.java",
    "versions": [
     "5.2.03"
    ],
    "basis": "task-scoped",
    "reason": "Task-scoped host profile pin for the exact-host file-chooser validation lane."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/MeshInterpolationTransformer.java",
+   "versions": [
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeMeshInterpolationBridge.java",
+   "versions": [
+    "5.3.02"
+   ],
+   "basis": "task-scoped",
+   "reason": "Admission set for a surface recovered from the exact 5.3.02 artifact only (model-import-3d / popup-undo / texture-atlas work); pending 5.3.03/5.3.04 review is recorded in scripts/version-monotonicity-exceptions.json."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/PopupMeshUndoContract.java",
+   "versions": [
+    "5.3.02"
+   ],
+   "basis": "task-scoped",
+   "reason": "Admission set for a surface recovered from the exact 5.3.02 artifact only (model-import-3d / popup-undo / texture-atlas work); pending 5.3.03/5.3.04 review is recorded in scripts/version-monotonicity-exceptions.json."
   },
   {
    "kind": "file",
@@ -1481,6 +1813,15 @@
    ],
    "basis": "verification-derived",
    "reason": "Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/VerifiedTextureAtlasLayoutProviderEngine.java",
+   "versions": [
+    "5.3.02"
+   ],
+   "basis": "task-scoped",
+   "reason": "Admission set for a surface recovered from the exact 5.3.02 artifact only (model-import-3d / popup-undo / texture-atlas work); pending 5.3.03/5.3.04 review is recorded in scripts/version-monotonicity-exceptions.json."
   },
   {
    "kind": "file",
@@ -1853,6 +2194,13 @@
    "kind": "file",
    "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/MainToolbarVerificationManifest.java",
    "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
     "5.1.00",
     "5.1.01",
     "5.1.02",

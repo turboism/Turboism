@@ -1,10 +1,18 @@
 package dev.turboism.validation;
 
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
 
 /** Offline task-binding checks; never starts a UI or Cubism process. */
 public final class NativeStartupAssistanceAgentTest {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         final String run = "queue-0123456789abcdef0123456789abcdef";
         NativeStartupAssistanceAgent.validateTaskHome(Path.of("/tmp", run, "turboism-home"), run);
         for (Path invalid : new Path[] {Path.of("/tmp/normal-profile"),
@@ -170,6 +178,149 @@ public final class NativeStartupAssistanceAgentTest {
         if (!"ACTIVE_TRIAL_WELCOME_ACKNOWLEDGED".equals(
                 NativeFreeStartup.promptAction("Confirm", activeWelcome, "OK")))
             throw new AssertionError("active-trial welcome OK rejected");
+        verifyAnnouncementStageHandling();
         System.out.println("PASS: startup assistance bound to queue task; foreign homes/runs rejected");
+    }
+
+    private static void verifyAnnouncementStageHandling() throws Exception {
+        // 1. Class absent (5.1+ or non-Cubism classloader): no-op.
+        try (URLClassLoader emptyLoader = new URLClassLoader(new URL[0], null)) {
+            if (NativeFreeStartup.dismissAnnouncementStageIfPresent(List.of(emptyLoader)) != null) {
+                throw new AssertionError("absent announcement class must be a no-op");
+            }
+        }
+
+        // 2. Class present without field d: no-op.
+        try (URLClassLoader noFieldLoader = compileSyntheticClasses(Map.of(
+                "com/live2d/cubism/appCtrlImpl/ui/dialog/a.java",
+                "package com.live2d.cubism.appCtrlImpl.ui.dialog;\n"
+                        + "public final class a {\n"
+                        + "    private static Object other;\n"
+                        + "}\n"))) {
+            if (NativeFreeStartup.dismissAnnouncementStageIfPresent(List.of(noFieldLoader)) != null) {
+                throw new AssertionError("announcement class without stage field d must be a no-op");
+            }
+        }
+
+        // 3. Class and field d present: null -> no-op; non-null Stage -> hidden via
+        // Platform.runLater(stage::hide) with UUConfig suppression keys written, and
+        // subsequent pass on the already-hidden stage is a no-op.
+        try (URLClassLoader stageLoader = compileSyntheticClasses(Map.of(
+                "javafx/application/Platform.java",
+                "package javafx.application;\n"
+                        + "public final class Platform {\n"
+                        + "    public static int runLaterCount;\n"
+                        + "    public static void runLater(final Runnable runnable) {\n"
+                        + "        runLaterCount++;\n"
+                        + "        runnable.run();\n"
+                        + "    }\n"
+                        + "}\n",
+                "javafx/stage/Stage.java",
+                "package javafx.stage;\n"
+                        + "public final class Stage {\n"
+                        + "    public boolean showing = true;\n"
+                        + "    public int hideCount;\n"
+                        + "    public boolean isShowing() { return showing; }\n"
+                        + "    public void hide() {\n"
+                        + "        showing = false;\n"
+                        + "        hideCount++;\n"
+                        + "    }\n"
+                        + "}\n",
+                "com/live2d/util/UUConfig.java",
+                "package com.live2d.util;\n"
+                        + "import java.util.HashMap;\n"
+                        + "import java.util.Map;\n"
+                        + "public final class UUConfig {\n"
+                        + "    private static final UUConfig a = new UUConfig();\n"
+                        + "    public static final Map<String, Object> WRITTEN = new HashMap<>();\n"
+                        + "    public Object b(final String key, final Object value) {\n"
+                        + "        return WRITTEN.put(key, value);\n"
+                        + "    }\n"
+                        + "}\n",
+                "com/live2d/cubism/appCtrlImpl/ui/dialog/a.java",
+                "package com.live2d.cubism.appCtrlImpl.ui.dialog;\n"
+                        + "import javafx.stage.Stage;\n"
+                        + "public final class a {\n"
+                        + "    private static Stage d;\n"
+                        + "}\n"))) {
+            if (NativeFreeStartup.dismissAnnouncementStageIfPresent(List.of(stageLoader)) != null) {
+                throw new AssertionError("null announcement stage field d must be a no-op");
+            }
+
+            final Class<?> stageClass = Class.forName("javafx.stage.Stage", true, stageLoader);
+            final Object stage = stageClass.getDeclaredConstructor().newInstance();
+            final Class<?> dialogClass = Class.forName(
+                    "com.live2d.cubism.appCtrlImpl.ui.dialog.a", true, stageLoader);
+            final var stageField = dialogClass.getDeclaredField("d");
+            stageField.setAccessible(true);
+            stageField.set(null, stage);
+
+            final String action =
+                    NativeFreeStartup.dismissAnnouncementStageIfPresent(List.of(stageLoader));
+            if (!"ANNOUNCEMENT_STAGE_HIDDEN".equals(action)) {
+                throw new AssertionError("expected ANNOUNCEMENT_STAGE_HIDDEN, got: " + action);
+            }
+            if ((boolean) stageClass.getField("showing").get(stage)) {
+                throw new AssertionError("announcement stage remained showing after hide");
+            }
+            if ((int) stageClass.getField("hideCount").get(stage) != 1) {
+                throw new AssertionError("expected hideCount == 1");
+            }
+            final Class<?> platformClass =
+                    Class.forName("javafx.application.Platform", true, stageLoader);
+            if ((int) platformClass.getField("runLaterCount").get(null) != 1) {
+                throw new AssertionError("expected Platform.runLaterCount == 1");
+            }
+            final Class<?> configClass = Class.forName("com.live2d.util.UUConfig", true, stageLoader);
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> written =
+                    (Map<String, Object>) configClass.getField("WRITTEN").get(null);
+            if (!Boolean.TRUE.equals(written.get("AnnouncementDialog_DoNotShowAgainToday"))
+                    || !Integer.valueOf(99991231).equals(written.get("AnnouncementDialog_LastOpenedDate"))) {
+                throw new AssertionError("UUConfig suppression keys were not written: " + written);
+            }
+
+            // Second scan pass while d still holds the hidden Stage instance must be a no-op.
+            if (NativeFreeStartup.dismissAnnouncementStageIfPresent(List.of(stageLoader)) != null) {
+                throw new AssertionError("already-hidden announcement stage was hidden twice");
+            }
+            if ((int) stageClass.getField("hideCount").get(stage) != 1) {
+                throw new AssertionError("hide() invoked again on already-hidden stage");
+            }
+        }
+    }
+
+    private static URLClassLoader compileSyntheticClasses(final Map<String, String> sources)
+            throws Exception {
+        final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        if (compiler == null) {
+            throw new IllegalStateException("JDK compiler unavailable");
+        }
+        final Path workDir = Files.createTempDirectory("startup-assistance-synth-");
+        final Path srcDir = workDir.resolve("src");
+        final Path classesDir = workDir.resolve("classes");
+        Files.createDirectories(classesDir);
+        final java.util.List<String> args = new java.util.ArrayList<>(
+                List.of("--release", "17", "-d", classesDir.toString()));
+        for (final Map.Entry<String, String> entry : sources.entrySet()) {
+            final Path file = srcDir.resolve(entry.getKey());
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, entry.getValue(), StandardCharsets.UTF_8);
+            args.add(file.toString());
+        }
+        final int rc = compiler.run(null, null, null, args.toArray(String[]::new));
+        if (rc != 0) {
+            throw new AssertionError("synthetic compilation failed with exit " + rc);
+        }
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try (var paths = Files.walk(workDir)) {
+                paths.sorted(java.util.Comparator.reverseOrder()).forEach(path -> {
+                    try {
+                        Files.deleteIfExists(path);
+                    } catch (Exception ignored) { }
+                });
+            } catch (Exception ignored) { }
+        }));
+        return new URLClassLoader(new URL[] {classesDir.toUri().toURL()}, null);
     }
 }

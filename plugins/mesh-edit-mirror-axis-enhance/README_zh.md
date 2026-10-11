@@ -44,8 +44,7 @@ interface: embedded
 
 <!-- compatibility:begin -->
 **Cubism Editor 版本支持（自动生成）：** 全部审核版本.
-- 网格几何读取 仅 5.2.00–5.3.04（5.0.00–5.1.03 待确认）
-- 网格镜像轴角增强 仅 5.2.00–5.3.04（5.0.00–5.1.03 尚未适配）
+- 网格几何读取 仅 5.2.00–5.3.04（更早版本 Cubism 本身无此功能）
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->
 

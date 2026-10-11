@@ -538,6 +538,28 @@ class Probe:
                 )
             conn.pump(0.5)
 
+    def await_edit_approval(self, conn: Connection, expected: bool) -> bool:
+        deadline = time.monotonic() + self.approval_timeout
+        polls = 0
+        while True:
+            frame = self.call(conn, "GetIsEditApproval", expect="response")
+            polls += 1
+            result = frame.result_flag()
+            if result is not True and result is not False:
+                raise ValidationFailure(
+                    "GetIsEditApproval response lacks a boolean Result"
+                )
+            if result is expected:
+                self.observe(f"is-edit-approval.await.{expected}.polls", polls)
+                return True
+            if time.monotonic() >= deadline:
+                raise ValidationFailure(
+                    f"GetIsEditApproval stayed {result} (expected {expected}) "
+                    f"for {self.approval_timeout:.0f}s; the probe plugin did not "
+                    "apply approval.mode to the edit-toggle checkbox"
+                )
+            conn.pump(0.1)
+
     def write_control_files(self, token: str) -> None:
         self.plugin_state.mkdir(parents=True, exist_ok=True)
         publish_atomic(self.plugin_state / "auth-allow.txt", token + "\n")
@@ -655,6 +677,7 @@ class Probe:
             flag = edit_approval.result_flag()
             self.check("p0.is-edit-approval.shape", isinstance(flag, bool))
             self.observe("is-edit-approval.initial", flag)
+            self.await_edit_approval(conn1, True)
 
             uid = self.current_model_uid(conn1)
             self.check("p0.current-model-uid", bool(uid))
@@ -1053,13 +1076,15 @@ class Probe:
         self.await_plugin_approval(conn4)
         self.set_approval_mode("deny")
         try:
+            self.await_edit_approval(conn4, False)
             denied = self.call(conn4, "EditBegin", {}, expect="any")
+            latched = self.call(conn4, "EditBegin", {}, expect="any")
         finally:
             self.set_approval_mode("approve")
+            self.await_edit_approval(conn1, True)
         self.check("s6.edit-approval.denied",
                    denied.error == "InvalidEditOperation",
                    self.describe(denied))
-        latched = self.call(conn4, "EditBegin", {}, expect="any")
         self.check("s6.edit-approval.latched",
                    latched.error == "InvalidEditOperation",
                    self.describe(latched))
