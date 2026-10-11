@@ -23,11 +23,11 @@
 | 지오메트리 읽기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 편집 기록 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 통합 브리지 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 메시 도구 세션 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
-| 메시 도구 모음 기여 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
+| 메시 도구 세션 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 메시 도구 모음 기여 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 기타 모델 표면 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 모델 인스턴스 읽기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 모델링 사용자 도구 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
+| 모델링 사용자 도구 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 오브젝트 계층 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 파라미터와 바인딩 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 파라미터 키 편집 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -60,16 +60,14 @@
 - `cubism.editor-history.semantic-read` (기록의 의미적 디코딩): 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.integration.edit-api-bridge.dispatch`: 검증된 레코드 없음 5.0.00–5.1.01
 - `cubism.integration.external-app-settings.edit-toggle` (외부 앱 편집 토글): 검증된 레코드 없음 5.0.00–5.0.06
-- `cubism.mesh-tool.session` (메시 편집 도구 세션): 검증된 레코드 없음 5.0.00–5.2.02
-- `cubism.mesh-tool.session` (메시 편집 도구 세션): 검증됐으나 계약/핀으로 축소(적응 대기) 5.3.00–5.3.01, 5.3.04
+- `cubism.mesh-tool.session` (메시 편집 도구 세션): 검증된 레코드 없음 5.0.00–5.1.03
 - `ui.mesh-toolbar.contribute` (메시 도구 모음 기여): 검증된 레코드 없음 5.0.00–5.0.06
-- `ui.mesh-toolbar.contribute` (메시 도구 모음 기여): 검증됐으나 계약/핀으로 축소(적응 대기) 5.1.00–5.2.02, 5.3.00–5.3.01, 5.3.04
+- `ui.mesh-toolbar.contribute` (메시 도구 모음 기여): 검증됐으나 계약/핀으로 축소(적응 대기) 5.1.00–5.1.03
 - `cubism.editor-model.default-keyform-lock.write`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.native-control-appearance.write`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.write` (에디터 모델 쓰기): 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.model-instance.read` (활성 모델 인스턴스 읽기): 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.modeling-tool.selection-brush` (모델링 선택 브러시): 검증된 레코드 없음 5.0.00–5.2.02
-- `cubism.modeling-tool.selection-brush` (모델링 선택 브러시): 검증됐으나 계약/핀으로 축소(적응 대기) 5.3.00–5.3.01, 5.3.04
+- `cubism.modeling-tool.selection-brush` (모델링 선택 브러시): 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.object-hierarchy.apply-deformer-to-children`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.parameter-combined.write`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.parameter-definition.write`: 검증된 레코드 없음 5.0.00–5.1.03
@@ -223,15 +221,14 @@
 | class-pins/`image-archive-reuse.json` | `ClassPinTable` | 5.3.00–5.3.02, 5.3.04 |
 | class-pins/`incremental-update.json` | `ClassPinTable` | 5.2.03, 5.3.02–5.3.03 |
 | class-pins/`matrix-scratch.json` | `ClassPinTable` | 5.2.00–5.3.04 |
-| class-pins/`mesh-mirror.json` | `ClassPinTable` | 5.2.03, 5.3.02–5.3.03 |
+| class-pins/`mesh-mirror.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`mesh-triangulation-hash.json` | `ClassPinTable` | 5.3.03 |
 | class-pins/`model-update-skip.json` | `ClassPinTable` | 5.2.03, 5.3.02–5.3.03 |
 | class-pins/`startup-suppression.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`texture-upload-preparation.json` | `ClassPinTable` | 5.3.00–5.3.02, 5.3.04 |
 | class-pins/`uniform-location-lifecycle.json` | `ClassPinTable` | 5.2.03–5.3.04 |
-| class-pins/`warp-alt-mirror.json` | `ClassPinTable` | 5.2.03, 5.3.02–5.3.03 |
+| class-pins/`warp-alt-mirror.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`warp-position-projection.json` | `ClassPinTable` | 5.3.00–5.3.02 |
-| `runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolSessionHostProfile.java` | `SUPPORTED_VERSIONS` | 5.2.03, 5.3.02–5.3.03 |
 
 ## 버전 단조성 원칙
 
