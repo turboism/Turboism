@@ -232,15 +232,13 @@ final class EditorRawImagePsdIntegrityAccess {
                     bool(resolver.invoke("cubism.editor-model.layer-entry.clipping", entry), "layer clipping");
             // The 5.2 layer model has no isTransparencyShapesLayer member: where the record
             // carries no such alias the attribute is unrepresentable, not unobserved.
-            final boolean transparencyShapes =
-                    resolver.authorizesFeature(
-                                    EditorRawImagePsdSelectorContract.ADAPTER_SLICE_ID,
-                                    EditorRawImagePsdSelectorContract.CAPABILITY_ID,
-                                    EditorRawImagePsdSelectorContract.TRANSPARENCY_SHAPES_ALIASES)
-                            && bool(
-                                    resolver.invoke(
-                                            "cubism.editor-model.layer-entry.transparency-shapes", entry),
-                                    "transparency-shape state");
+            final boolean transparencyShapes = resolver.authorizesFeature(
+                            EditorRawImagePsdSelectorContract.ADAPTER_SLICE_ID,
+                            EditorRawImagePsdSelectorContract.CAPABILITY_ID,
+                            EditorRawImagePsdSelectorContract.TRANSPARENCY_SHAPES_ALIASES)
+                    && bool(
+                            resolver.invoke("cubism.editor-model.layer-entry.transparency-shapes", entry),
+                            "transparency-shape state");
             return new LayerAttributes(
                     true,
                     opacity255,

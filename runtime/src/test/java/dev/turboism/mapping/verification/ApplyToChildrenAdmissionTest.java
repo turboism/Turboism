@@ -12,10 +12,10 @@ class ApplyToChildrenAdmissionTest {
     void applyToChildrenIsAProductionCapability() {
         assertTrue(EditorModelVerificationManifest.CAPABILITY_IDS.contains(
                 EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_CAPABILITY_ID));
-        assertTrue(EditorModelVerificationManifest.cubism52Capabilities().contains(
-                EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_CAPABILITY_ID));
-        assertTrue(EditorModelVerificationManifest.cubism5303Capabilities().contains(
-                EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_CAPABILITY_ID));
+        assertTrue(EditorModelVerificationManifest.cubism52Capabilities()
+                .contains(EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_CAPABILITY_ID));
+        assertTrue(EditorModelVerificationManifest.cubism5303Capabilities()
+                .contains(EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_CAPABILITY_ID));
     }
 
     @Test
@@ -23,8 +23,7 @@ class ApplyToChildrenAdmissionTest {
         for (String alias : EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_REQUIRED_ALIASES) {
             assertTrue(EditorModelVerificationManifest.REQUIRED_ALIASES.contains(alias));
             assertTrue(EditorModelVerificationManifest.cubism52Aliases().contains(alias));
-            assertTrue(
-                    EditorModelVerificationManifest.cubism5303StaticAliases().contains(alias));
+            assertTrue(EditorModelVerificationManifest.cubism5303StaticAliases().contains(alias));
         }
     }
 }

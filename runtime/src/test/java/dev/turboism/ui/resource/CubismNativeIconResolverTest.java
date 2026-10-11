@@ -61,7 +61,8 @@ class CubismNativeIconResolverTest {
         assertEquals(
                 9L,
                 dev.turboism.mapping.verification.ReviewedHostArtifacts.reviewedCubismVersions().stream()
-                        .filter(version -> CubismNativeIconCatalog.artifact(version).isPresent())
+                        .filter(version ->
+                                CubismNativeIconCatalog.artifact(version).isPresent())
                         .count());
         assertTrue(CubismNativeIconCatalog.artifact("5.1.03").isEmpty());
         assertTrue(CubismNativeIconCatalog.artifact("5.3").isEmpty());
