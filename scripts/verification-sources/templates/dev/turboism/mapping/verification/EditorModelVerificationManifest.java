@@ -348,6 +348,7 @@ public final class EditorModelVerificationManifest {
         EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID,
         EditorObjectHierarchyEditSelectorContract.RENAME_CAPABILITY_ID,
         EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID,
+        EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_CAPABILITY_ID,
         ObjectContextMenuVerificationManifest.CAPABILITY_ID,
         EditorParameterBindingReadSelectorContract.CAPABILITY_ID,
         EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID,
@@ -12376,6 +12377,7 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.morph-target.write",
             "cubism.editor-model.native-control-appearance.read",
             "cubism.editor-model.native-control-appearance.write",
+            "cubism.editor-model.object-hierarchy.apply-deformer-to-children",
             "cubism.editor-model.object-hierarchy.art-mesh.create",
             "cubism.editor-model.object-hierarchy.edit",
             "cubism.editor-model.object-hierarchy.rename",
@@ -13471,6 +13473,7 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.morph-target.write",
             "cubism.editor-model.native-control-appearance.read",
             "cubism.editor-model.native-control-appearance.write",
+            "cubism.editor-model.object-hierarchy.apply-deformer-to-children",
             "cubism.editor-model.object-hierarchy.art-mesh.create",
             "cubism.editor-model.object-hierarchy.edit",
             "cubism.editor-model.object-hierarchy.rename",
@@ -14566,6 +14569,7 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.morph-target.write",
             "cubism.editor-model.native-control-appearance.read",
             "cubism.editor-model.native-control-appearance.write",
+            "cubism.editor-model.object-hierarchy.apply-deformer-to-children",
             "cubism.editor-model.object-hierarchy.art-mesh.create",
             "cubism.editor-model.object-hierarchy.edit",
             "cubism.editor-model.object-hierarchy.rename",
@@ -15661,6 +15665,7 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.morph-target.write",
             "cubism.editor-model.native-control-appearance.read",
             "cubism.editor-model.native-control-appearance.write",
+            "cubism.editor-model.object-hierarchy.apply-deformer-to-children",
             "cubism.editor-model.object-hierarchy.art-mesh.create",
             "cubism.editor-model.object-hierarchy.edit",
             "cubism.editor-model.object-hierarchy.rename",
@@ -16784,6 +16789,7 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.morph-target.write",
             "cubism.editor-model.native-control-appearance.read",
             "cubism.editor-model.native-control-appearance.write",
+            "cubism.editor-model.object-hierarchy.apply-deformer-to-children",
             "cubism.editor-model.object-hierarchy.art-mesh.create",
             "cubism.editor-model.object-hierarchy.edit",
             "cubism.editor-model.object-hierarchy.rename",
@@ -17907,6 +17913,7 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.morph-target.write",
             "cubism.editor-model.native-control-appearance.read",
             "cubism.editor-model.native-control-appearance.write",
+            "cubism.editor-model.object-hierarchy.apply-deformer-to-children",
             "cubism.editor-model.object-hierarchy.art-mesh.create",
             "cubism.editor-model.object-hierarchy.edit",
             "cubism.editor-model.object-hierarchy.rename",
@@ -19130,14 +19137,6 @@ public final class EditorModelVerificationManifest {
         return Set.copyOf(values);
     }
 
-    private static Set<String> withoutApplyToChildren5302OnlyAliases(final Set<String> source) {
-        final java.util.HashSet<String> values = new java.util.HashSet<>(source);
-        values.removeAll(
-            EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_5302_ONLY_ALIASES
-        );
-        return Set.copyOf(values);
-    }
-
     private static final Set<String> CUBISM_5303_ONLY_ALIASES = Set.of(
         "cubism.editor-model.keyform-grid.keyforms-on-grid",
         "cubism.editor-model.keyform-on-grid.form-guid",
@@ -19189,9 +19188,7 @@ public final class EditorModelVerificationManifest {
 
     /** Full exact-JAR selector roster carried by the independent 5.3.03 static record. */
     public static Set<String> cubism5303StaticAliases() {
-        final java.util.HashSet<String> values = new java.util.HashSet<>(
-            withoutApplyToChildren5302OnlyAliases(REQUIRED_ALIASES)
-        );
+        final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
         values.addAll(Set.of(
             "cubism.editor-model.modeling-document.last-active-view",
             "cubism.editor-model.modeling-view.model",
@@ -19221,7 +19218,7 @@ public final class EditorModelVerificationManifest {
     static PinnedVerifiedResolverWorkflow.RuntimeScope cubism5303RuntimeScope() {
         return new PinnedVerifiedResolverWorkflow.RuntimeScope(
             cubism5303Capabilities(),
-            withoutApplyToChildren5302OnlyAliases(cubism5303StaticAliases())
+            cubism5303StaticAliases()
         );
     }
 
@@ -20007,9 +20004,6 @@ public final class EditorModelVerificationManifest {
      */
     public static Set<String> cubism52Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
-        values.removeAll(
-            EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_5302_ONLY_ALIASES
-        );
         values.removeAll(EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES);
         values.removeAll(CUBISM_5303_ONLY_ALIASES);
         values.addAll(dev.turboism.adapter.cubism.mesh.MeshToolSessionSelectorContract.REQUIRED_ALIASES);

@@ -44,10 +44,12 @@ public interface Deformers {
     }
 
     /**
-     * Applies {@code deformer} to its child elements through the exact Cubism 5.3.02 native
-     * command path. The host owns the child-element semantics.
+     * Applies {@code deformer} to its child elements through the native command path on the
+     * reviewed 5.2/5.3 Editors. The host owns the child-element semantics.
      */
-    @CubismEditor({"5.3.02"})
+    @CubismEditor({
+        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+    })
     default void applyToChildren(Deformer deformer) {
         throw unavailable("Apply deformer to child elements");
     }
