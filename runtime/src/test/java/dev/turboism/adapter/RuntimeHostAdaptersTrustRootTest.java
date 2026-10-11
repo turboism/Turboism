@@ -157,7 +157,7 @@ class RuntimeHostAdaptersTrustRootTest {
                                 StaticSelector.classSelector(alias, name(SyntheticProjectDocument.class));
                             case "cubism.file-content.class" ->
                                 StaticSelector.classSelector(alias, name(SyntheticFileContent.class));
-                            case "cubism.main-frame.class", "cubism.dock-wrapper.class" ->
+                            case "cubism.main-frame.class", "cubism.dock-wrapper.class", "cubism.view-context.class" ->
                                 StaticSelector.classSelector(alias, host);
                             case "cubism.workspace.class" -> StaticSelector.classSelector(alias, workspace);
                             case "cubism.id.class" -> StaticSelector.classSelector(alias, name(SyntheticId.class));
@@ -172,13 +172,16 @@ class RuntimeHostAdaptersTrustRootTest {
                                         "currentProject",
                                         "()L" + project + ";",
                                         StaticSelector.ACCESS_PUBLIC);
-                            case "cubism.app-controller.current-document" ->
+                            case "cubism.app-controller.current-document", "cubism.view-context.document" ->
                                 StaticSelector.method(
                                         alias,
                                         host,
                                         "currentProjectDocument",
                                         "()L" + name(SyntheticProjectDocument.class) + ";",
                                         StaticSelector.ACCESS_PUBLIC);
+                            case "cubism.app-controller.view-context-history" ->
+                                StaticSelector.field(
+                                        alias, host, "viewContextHistory", "Ljava/util/ArrayList;", 0x0012);
                             case "cubism.app-controller.main-frame" ->
                                 StaticSelector.method(
                                         alias, host, "mainFrame", "()L" + host + ";", StaticSelector.ACCESS_PUBLIC);
@@ -332,6 +335,7 @@ class RuntimeHostAdaptersTrustRootTest {
         private final SyntheticProject project;
         private final SyntheticWorkspace workspace;
         private final SyntheticDocument document;
+        private final java.util.ArrayList<Object> viewContextHistory = new java.util.ArrayList<>();
 
         SyntheticHost(SyntheticProject project, SyntheticWorkspace workspace, SyntheticDocument document) {
             this.project = project;
