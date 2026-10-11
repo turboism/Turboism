@@ -11,7 +11,7 @@ final class ModelUpdateSkipHookContributor extends NativeOptimizationHookContrib
 
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
-        if (!ModelUpdateSkipBridge.flagEnabled()) {
+        if (!NativeOptimizationPolicy.modelUpdateSkipEnabled(environment)) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }

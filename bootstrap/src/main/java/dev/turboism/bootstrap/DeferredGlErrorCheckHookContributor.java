@@ -32,7 +32,7 @@ final class DeferredGlErrorCheckHookContributor extends NativeOptimizationHookCo
 
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
-        if (!DeferredGlErrorCheckTransformer.enabledByPreference()) {
+        if (!NativeOptimizationPolicy.mesaGlThreadEnabled(environment)) {
             log(environment, id() + " deferred=INACTIVE installation=NOT_ADMITTED reason=preference-disabled");
             return noOp();
         }

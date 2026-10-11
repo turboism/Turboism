@@ -141,4 +141,38 @@ public record RuntimeStartupConfig(
             // Diagnostics must never block the official host startup path.
         }
     }
+
+    /**
+     * Reads a persisted {@code launcher.<name>} boolean preference without creating {@code config.json}.
+     *
+     * @param turboismHome Turboism home directory containing {@code config.json}, or {@code null}
+     * @param name {@code launcher} boolean property name
+     * @param defaultEnabled value when {@code turboismHome}, {@code config.json}, or the key is absent
+     * @return the persisted boolean, {@code defaultEnabled} when absent, or {@code false} when invalid/unreadable
+     */
+    public static boolean readLauncherOptimization(
+            final Path turboismHome, final String name, final boolean defaultEnabled) {
+        Objects.requireNonNull(name, "name");
+        if (turboismHome == null) return defaultEnabled;
+        final Path home = turboismHome.toAbsolutePath().normalize();
+        final Path configPath = home.resolve("config.json").normalize();
+        if (!configPath.startsWith(home)) return false;
+        if (!Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)) return defaultEnabled;
+        try {
+            if (!Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS)
+                    || Files.size(configPath) > MAX_CONFIG_BYTES) {
+                return false;
+            }
+            final JsonNode root = JSON.readTree(Files.readAllBytes(configPath));
+            if (root == null || !root.isObject()) return false;
+            final java.util.List<dev.turboism.core.schema.SchemaValidationError> configErrors =
+                    new RuntimeConfigValidator().validate(root, configPath.toString());
+            if (!configErrors.isEmpty()) return false;
+            final JsonNode value = root.path("launcher").path(name);
+            if (value.isMissingNode()) return defaultEnabled;
+            return value.isBoolean() && value.booleanValue();
+        } catch (IOException | RuntimeException failure) {
+            return false;
+        }
+    }
 }
