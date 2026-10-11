@@ -40,7 +40,10 @@
       "kind": "class-pins",
       "path": "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/float-array-parse.json",
       "site": "float-array-parse.json",
-      "missing": ["5.2.03", "5.3.03"],
+      "missing": [
+        "5.2.03",
+        "5.3.03"
+      ],
       "reason": "Pin table omits 5.2.03 and 5.3.03 even though the pinned bytes are identical there (audit: bytes identical, omitted).",
       "pending": "gap-optimization-pins"
     },
@@ -48,7 +51,9 @@
       "kind": "class-pins",
       "path": "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/image-archive-reuse.json",
       "site": "image-archive-reuse.json",
-      "missing": ["5.3.03"],
+      "missing": [
+        "5.3.03"
+      ],
       "reason": "Pin table skips 5.3.03 though the pinned classes are byte-identical to 5.3.02/5.3.04.",
       "pending": "gap-optimization-pins"
     },
@@ -56,23 +61,19 @@
       "kind": "class-pins",
       "path": "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/incremental-update.json",
       "site": "incremental-update.json",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "Pin table covers {5.2.03, 5.3.02, 5.3.03} but not 5.3.04.",
       "pending": "gap-optimization-pins"
     },
     {
       "kind": "class-pins",
-      "path": "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/mesh-mirror.json",
-      "site": "mesh-mirror.json",
-      "missing": ["5.3.04"],
-      "reason": "Mesh-mirror pin table covers {5.2.03, 5.3.02, 5.3.03} but not 5.3.04.",
-      "pending": "gap-mesh-modeling"
-    },
-    {
-      "kind": "class-pins",
       "path": "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/mesh-triangulation-hash.json",
       "site": "mesh-triangulation-hash.json",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "Pin table holds only 5.3.03; the fix applies wherever the bytes match (all of 5.3.x per the audit).",
       "pending": "gap-optimization-pins"
     },
@@ -80,7 +81,9 @@
       "kind": "class-pins",
       "path": "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/model-update-skip.json",
       "site": "model-update-skip.json",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "Pin table covers {5.2.03, 5.3.02, 5.3.03} but not 5.3.04.",
       "pending": "gap-optimization-pins"
     },
@@ -88,71 +91,30 @@
       "kind": "class-pins",
       "path": "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/texture-upload-preparation.json",
       "site": "texture-upload-preparation.json",
-      "missing": ["5.3.03"],
+      "missing": [
+        "5.3.03"
+      ],
       "reason": "Pin table skips 5.3.03 though the pinned classes are byte-identical to 5.3.02/5.3.04.",
       "pending": "gap-optimization-pins"
     },
     {
       "kind": "class-pins",
-      "path": "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/warp-alt-mirror.json",
-      "site": "warp-alt-mirror.json",
-      "missing": ["5.3.04"],
-      "reason": "Warp alt-mirror pin table covers {5.2.03, 5.3.02, 5.3.03} but not 5.3.04.",
-      "pending": "gap-mesh-modeling"
-    },
-    {
-      "kind": "class-pins",
       "path": "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins/warp-position-projection.json",
       "site": "warp-position-projection.json",
-      "missing": ["5.3.03", "5.3.04"],
+      "missing": [
+        "5.3.03",
+        "5.3.04"
+      ],
       "reason": "Pin table covers 5.3.00-5.3.02 but not 5.3.03/5.3.04.",
       "pending": "gap-optimization-pins"
-    },
-    {
-      "kind": "host-validation-task",
-      "path": "scripts/preview/host-validation-tasks.json",
-      "site": "selection-brush",
-      "missing": ["5.3.04"],
-      "reason": "The task mirrors ModelingSelectionSelectorContract.SUPPORTED_VERSIONS {5.2.03, 5.3.02, 5.3.03}; it picks up 5.3.04 together with the contract.",
-      "pending": "gap-mesh-modeling"
-    },
-    {
-      "kind": "java-set",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgePreparation.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": ["5.3.04"],
-      "reason": "Edge-weave target list covers {5.2.03, 5.3.02, 5.3.03} but not 5.3.04.",
-      "pending": "gap-mesh-modeling"
-    },
-    {
-      "kind": "java-set",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolSessionHostProfile.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": ["5.3.04"],
-      "reason": "Mesh-tool session host profile supports {5.2.03, 5.3.02, 5.3.03} but not 5.3.04.",
-      "pending": "gap-mesh-modeling"
-    },
-    {
-      "kind": "java-set",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolSessionSelectorContract.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": ["5.3.04"],
-      "reason": "Mesh-tool session contract supports {5.2.03, 5.3.02, 5.3.03} but not 5.3.04.",
-      "pending": "gap-mesh-modeling"
-    },
-    {
-      "kind": "java-set",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/modeling/ModelingSelectionSelectorContract.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": ["5.3.04"],
-      "reason": "Selection-brush contract supports {5.2.03, 5.3.02, 5.3.03} but not 5.3.04.",
-      "pending": "gap-mesh-modeling"
     },
     {
       "kind": "java-set",
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/glerror/GlGetErrorElisionTarget.java",
       "site": "5.3.02,5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "glGetError elision targets cover {5.3.02, 5.3.03} but not 5.3.04.",
       "pending": "gap-optimization-pins"
     },
@@ -160,7 +122,9 @@
       "kind": "java-file",
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/glerror/GlGetErrorElisionTarget.java",
       "site": "5.3.02,5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "Constructor version literals cover {5.3.02, 5.3.03} but not 5.3.04.",
       "pending": "gap-optimization-pins"
     },
@@ -168,7 +132,9 @@
       "kind": "java-set",
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/modelupdate/ModelUpdateSkipTarget.java",
       "site": "5.2.03,5.3.02,5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "Model-update-skip targets cover {5.2.03, 5.3.02, 5.3.03} but not 5.3.04.",
       "pending": "gap-optimization-pins"
     },
@@ -176,7 +142,9 @@
       "kind": "java-file",
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/modelupdate/ModelUpdateSkipTarget.java",
       "site": "5.2.03,5.3.02,5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "Constructor version literals cover {5.2.03, 5.3.02, 5.3.03} but not 5.3.04.",
       "pending": "gap-optimization-pins"
     },
@@ -184,7 +152,9 @@
       "kind": "java-set",
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/modelupdate/incremental/IncrementalUpdateTarget.java",
       "site": "5.2.03,5.3.02,5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "Incremental-update targets cover {5.2.03, 5.3.02, 5.3.03} but not 5.3.04.",
       "pending": "gap-optimization-pins"
     },
@@ -192,7 +162,9 @@
       "kind": "java-file",
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/modelupdate/incremental/IncrementalUpdateTarget.java",
       "site": "5.2.03,5.3.02,5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "Constructor version literals cover {5.2.03, 5.3.02, 5.3.03} but not 5.3.04.",
       "pending": "gap-optimization-pins"
     },
@@ -200,7 +172,9 @@
       "kind": "java-set",
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/uploadelision/SkippedFrameUploadElisionTarget.java",
       "site": "5.3.02,5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "Skipped-frame upload-elision targets cover {5.3.02, 5.3.03} but not 5.3.04.",
       "pending": "gap-optimization-pins"
     },
@@ -208,39 +182,19 @@
       "kind": "java-file",
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/uploadelision/SkippedFrameUploadElisionTarget.java",
       "site": "5.3.02,5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "Constructor version literals cover {5.3.02, 5.3.03} but not 5.3.04.",
       "pending": "gap-optimization-pins"
-    },
-    {
-      "kind": "java-set",
-      "path": "runtime/src/main/java/dev/turboism/ui/mesh/MeshToolbarSelectorContract.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": ["5.3.04"],
-      "reason": "Mesh-toolbar contract supports {5.2.03, 5.3.02, 5.3.03} but not 5.3.04 (records identical on all nine jars).",
-      "pending": "gap-mesh-modeling"
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshMirrorHostProfile.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": ["5.3.04"],
-      "reason": "Mesh-mirror profile admits artifacts {5.2.03, 5.3.02, 5.3.03} but not 5.3.04.",
-      "pending": "gap-mesh-modeling"
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/warpalt/WarpAltMirrorHostProfile.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": ["5.3.04"],
-      "reason": "Warp alt-mirror profile admits artifacts {5.2.03, 5.3.02, 5.3.03} but not 5.3.04.",
-      "pending": "gap-mesh-modeling"
     },
     {
       "kind": "java-file",
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/composite/CanvasCompositeElisionTarget.java",
       "site": "5.2.03,5.3.02,5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "Canvas-composite elision targets cover {5.2.03, 5.3.02, 5.3.03} but not 5.3.04.",
       "pending": "gap-optimization-pins"
     },
@@ -248,7 +202,9 @@
       "kind": "java-file",
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshTriangulationHashTransformer.java",
       "site": "5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "Triangulation-hash fix pins only 5.3.03 though it applies wherever the bytes match (all of 5.3.x).",
       "pending": "gap-optimization-pins"
     },
@@ -256,7 +212,9 @@
       "kind": "java-file",
       "path": "runtime/src/main/java/dev/turboism/ui/workspace/WorkspaceControlAdmission.java",
       "site": "5.2.03,5.3.02,5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "The three CUBISM_VERSION_* constants look like an admission set but are only slice-id dispatch keys.",
       "evidence": "authorizes(resolver) admits every ReviewedHostArtifacts.reviewedCubismVersions() entry; the constants merely pick adapter-slice ids, so no reviewed version is refused."
     },
@@ -264,7 +222,10 @@
       "kind": "java-file",
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/core/CorePublicApiProviderFactory.java",
       "site": "5.2.03,5.3.02",
-      "missing": ["5.3.03", "5.3.04"],
+      "missing": [
+        "5.3.03",
+        "5.3.04"
+      ],
       "reason": "artifactProfile's case arms look like a version set.",
       "evidence": "The switch is an identity mapping: 'default -> reviewedVersion' passes every admitted version through unchanged; the two case arms exist only as the single place a profile-id divergence would live."
     },
@@ -272,7 +233,10 @@
       "kind": "java-file",
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorTextureReplacementDiagnostic.java",
       "site": "5.3.02",
-      "missing": ["5.3.03", "5.3.04"],
+      "missing": [
+        "5.3.03",
+        "5.3.04"
+      ],
       "reason": "SUPPORTED_VERSION pins a single version.",
       "evidence": "Property-gated validation diagnostic (turboism.validation.editorTextureReplaceDiagnostic) that was authored and reviewed against the exact 5.3.02 host; it is a diagnostic tool, not a capability admission set."
     },
@@ -280,7 +244,9 @@
       "kind": "java-file",
       "path": "runtime/src/main/java/dev/turboism/mapping/verification/VerifiedEditorModelResolverFactory.java",
       "site": "5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "A single-version CUBISM_5_3_03.equals(artifact) guard looks like admission.",
       "evidence": "The guard only selects the optional 5.3.03 validation-candidate runtime scope (admits5303ValidationCandidate); every reviewed artifact still gets a resolver with a null extra scope."
     },
@@ -288,7 +254,9 @@
       "kind": "java-file",
       "path": "bootstrap/src/main/java/dev/turboism/bootstrap/PerformanceFpsHookInstaller.java",
       "site": "5.3.02,5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "fpsTargetsForVersion names 5.3.02/5.3.03 before its fallback.",
       "evidence": "The final branch admits every ReviewedHostArtifacts.reviewedCubismVersions() entry and returns the generic cubism5203() targets; the two named arms are fast paths, not an admission set."
     },
@@ -296,7 +264,9 @@
       "kind": "java-file",
       "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/FileChooserHistoryVerificationManifest.java",
       "site": "5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "The manifest names one exact version.",
       "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane (admits5303ValidationCandidate); the lane runs one version by design."
     },
@@ -304,7 +274,9 @@
       "kind": "java-file",
       "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/NativeControlAppearancePersistenceVerificationManifest.java",
       "site": "5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "The manifest names one exact version.",
       "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane; the lane runs one version by design."
     },
@@ -312,7 +284,9 @@
       "kind": "java-file",
       "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ParameterLifecycleVerificationManifest.java",
       "site": "5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "The manifest names one exact version.",
       "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane; the lane runs one version by design."
     },
@@ -320,7 +294,9 @@
       "kind": "java-file",
       "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/PerformanceFpsVerificationManifest.java",
       "site": "5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "The manifest names one exact version.",
       "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane; the lane runs one version by design."
     },
@@ -328,7 +304,9 @@
       "kind": "java-file",
       "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ProjectLifecycleVerificationManifest.java",
       "site": "5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "The manifest names one exact version.",
       "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane; the lane runs one version by design."
     },
@@ -336,7 +314,9 @@
       "kind": "java-file",
       "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/TextureAtlasVerificationManifest.java",
       "site": "5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "The manifest names one exact version.",
       "evidence": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane; the lane runs one version by design."
     },
@@ -344,7 +324,9 @@
       "kind": "java-file",
       "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorModelInstanceReadSelectorContract.java",
       "site": "5.3.03",
-      "missing": ["5.3.04"],
+      "missing": [
+        "5.3.04"
+      ],
       "reason": "The contract names one exact record version constant.",
       "evidence": "CUBISM_5_3_03_VERSION is a dispatch constant referencing the 5.3.03 record whose onion-skin shape the contract special-cases; version admission flows through the record itself, not this constant."
     }

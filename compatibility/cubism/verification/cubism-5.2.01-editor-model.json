@@ -111,7 +111,9 @@
     "cubism.editor-model.psd.raw-image.export",
     "cubism.editor-model.psd.raw-image.replace",
     "cubism.editor-model.texture.write",
-    "cubism.editor-model.art-mesh.inspector-write"
+    "cubism.editor-model.art-mesh.inspector-write",
+    "cubism.mesh-tool.session",
+    "cubism.modeling-tool.selection-brush"
   ],
   "cubismVersion": "5.2.01",
   "profileId": "cubism-5.2.01",
@@ -11233,6 +11235,13 @@
     ],
     "cubism.editor-model.psd.raw-image.replace": [
       "declaredGeneration"
+    ],
+    "cubism.mesh-tool.session": [
+      "hook:mesh-tool-session"
+    ],
+    "cubism.modeling-tool.selection-brush": [
+      "hook:mesh-tool-session",
+      "hook:modeling-tool-lifecycle"
     ]
   }
 }
