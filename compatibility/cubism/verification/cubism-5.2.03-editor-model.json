@@ -109,6 +109,8 @@
     "cubism.texture-atlas.layout.write",
     "cubism.texture-atlas.native-layout-invocation",
     "ui.object-context-menu.contribute",
+    "cubism.editor-model.psd.raw-image.export",
+    "cubism.editor-model.psd.raw-image.replace",
     "cubism.editor-model.selection.read",
     "cubism.mesh-tool.session",
     "cubism.modeling-tool.selection-brush"
@@ -11146,6 +11148,12 @@
     "cubism.modeling-tool.selection-brush": [
       "hook:mesh-tool-session",
       "hook:modeling-tool-lifecycle"
+    ],
+    "cubism.editor-model.psd.raw-image.export": [
+      "declaredGeneration"
+    ],
+    "cubism.editor-model.psd.raw-image.replace": [
+      "declaredGeneration"
     ]
   }
 }

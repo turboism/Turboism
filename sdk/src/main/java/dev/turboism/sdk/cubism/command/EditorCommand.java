@@ -194,7 +194,17 @@ public enum EditorCommand {
     MODELING_REFLECTION_V(Set.of(
             "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
             "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04")),
+    /**
+     * @deprecated the {@code CMD_MOVE_End} id appears in no reviewed jar; the empty support
+     *     set means the command can never be issued. Kept only for SDK binary compatibility.
+     */
+    @Deprecated(forRemoval = true)
     MOVE_END(Set.of()),
+    /**
+     * @deprecated the {@code CMD_MOVE_End_WORKSPACE} id appears in no reviewed jar; the empty
+     *     support set means the command can never be issued. Kept only for SDK binary compatibility.
+     */
+    @Deprecated(forRemoval = true)
     MOVE_END_WORKSPACE(Set.of()),
     MOVE_START(Set.of(
             "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",

@@ -67,7 +67,7 @@ public interface EditorAutoBackupService {
      *         caller lacks {@code turboism.cubism.backup.observe}
      * @throws UnsupportedOperationException when the service is unavailable
      */
-    @CubismEditor(from = "5.2.03")
+    @CubismEditor(from = "5.1.00")
     List<BackupArtifactHandle> artifacts();
 
     /**
