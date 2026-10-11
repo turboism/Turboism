@@ -34,7 +34,7 @@ When Cubism runs under a FREE licence, saving is subject to the FREE parameter-c
 | `protected-export` | 5.1.00–5.3.04（5.0.00–5.0.06 unconfirmed） | Protected-export orchestration not on 5.0.00–5.0.06<br>Export settings contribution not on 5.0.00–5.0.06 | host-verified 5.1.00, 5.1.03–5.2.00, 5.3.00, 5.3.04 |
 | `psd-clip-mask-import` | all reviewed versions | Embedded panel docking not on 5.0.00–5.0.06 | host-verified 5.0.00–5.1.00, 5.1.02–5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
 | `psd-import` | all reviewed versions | — | — |
-| `recent-preview` | all reviewed versions | — | — |
+| `recent-preview` | all reviewed versions | — | host-verified 5.2.03 |
 | `scene-palette-enhancer` | all reviewed versions | — | — |
 | `selection-brush` | 5.2.00–5.3.04（5.0.00–5.1.03 pending adaptation） | Mesh-edit custom tools only on 5.2.00–5.3.04（5.0.00–5.1.03 pending adaptation）<br>Modeling selection brush only on 5.2.00–5.3.04（5.0.00–5.1.03 pending adaptation） | host-verified 5.2.03, 5.3.02–5.3.03 |
 | `texture-atlas-stats` | all reviewed versions | Atlas editor panel only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Native atlas editor session access only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Native atlas editor UI contribution only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed） | — |

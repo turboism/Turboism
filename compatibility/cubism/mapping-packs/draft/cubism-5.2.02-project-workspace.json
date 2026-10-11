@@ -88,6 +88,67 @@
       }
     },
     {
+      "semanticName": "cubism.mapping.v5_3_03.project_workspace.field.view_context_history",
+      "kind": "field",
+      "owner": "project-workspace",
+      "name": "cubism.app-controller.view-context-history",
+      "runtime": "viewContextHistory",
+      "intermediary": "",
+      "descriptor": "Ljava/util/ArrayList;",
+      "profile": "cubism-5.2.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "jar-metadata-probe",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "requiredAccessFlags": 18,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.project_workspace.class.view_context",
+      "kind": "class",
+      "owner": "project-workspace",
+      "name": "cubism.view-context.class",
+      "runtime": "com/live2d/cubism/view/context/CEViewContext",
+      "profile": "cubism-5.2.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "jar-metadata-probe",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.project_workspace.method.view_context_document",
+      "kind": "method",
+      "owner": "project-workspace",
+      "name": "cubism.view-context.document",
+      "runtime": "getDoc",
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/IDocument;",
+      "profile": "cubism-5.2.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "jar-metadata-probe",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
       "semanticName": "cubism.mapping.v5_3_03.project_workspace.method.main_frame",
       "kind": "method",
       "owner": "project-workspace",
@@ -479,12 +540,12 @@
     "artifactSha256": "ba1f31a1846490c3f111a4ae99887c36bcc0c1bc1a3cf970eb5a7aeed7902aff",
     "profileId": "cubism-5.2.02",
     "verificationId": "cubism-5.2.02.project-workspace.static",
-    "selectorCount": 23,
+    "selectorCount": 26,
     "capabilityCount": 2,
     "capabilityIds": [
       "cubism.project.read",
       "cubism.workspace.read"
     ],
-    "verificationRecordSha256": "0fe65bf766a50ab9c1ece5b9f1c496db75b684bb8b14795f6089c999385609b6"
+    "verificationRecordSha256": "4d7542de5a035effc2e9203613ec8a5909e48b7a93b192aea75fa7fa765a7dc7"
   }
 }
