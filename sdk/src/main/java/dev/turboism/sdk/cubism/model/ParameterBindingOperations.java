@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ParameterBindingPointId;
 import java.util.List;
 
 /** Editor-authoring operations for typed model-object parameter bindings. */
+@CubismEditor(from = "5.0.00")
 public interface ParameterBindingOperations {
 
     /** Binds {@code target} to the parameter with the given binding points. */

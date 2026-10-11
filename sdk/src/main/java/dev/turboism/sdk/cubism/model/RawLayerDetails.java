@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.id.RawLayerId;
 import java.util.List;
@@ -7,6 +8,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Immutable layer-entry projection inside one owning raw image. */
+@CubismEditor
 public record RawLayerDetails(
         RawLayerId id,
         RawImageId ownerRawImageId,

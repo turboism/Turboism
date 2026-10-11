@@ -1,11 +1,14 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * Evaluated deformation configuration of one side of an auto-Yure binding.
  *
  * <p>Values mirror the Editor's {@code YureDeformConfig} projection:
  * scale percent X/Y, expand scale, and decay level.</p>
  */
+@CubismEditor(from = "5.1.00")
 public interface YureDeformConfig {
 
     /** Returns the horizontal scale percent applied to this side. */

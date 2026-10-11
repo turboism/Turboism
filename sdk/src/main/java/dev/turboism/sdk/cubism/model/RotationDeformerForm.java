@@ -1,6 +1,9 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
+
 /** Immutable Rotation Deformer keyform committed as one Editor operation. */
+@CubismEditor
 public record RotationDeformerForm(
         float angle, float originX, float originY, float scale, boolean reflectedX, boolean reflectedY) {
 

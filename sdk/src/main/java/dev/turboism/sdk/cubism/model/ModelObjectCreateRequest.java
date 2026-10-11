@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Typed creation requests for model objects. */
+@CubismEditor
 public sealed interface ModelObjectCreateRequest
         permits ModelObjectCreateRequest.Part,
                 ModelObjectCreateRequest.ArtMesh,

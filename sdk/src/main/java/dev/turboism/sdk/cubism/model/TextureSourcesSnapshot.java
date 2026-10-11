@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import java.util.List;
@@ -11,6 +12,7 @@ import java.util.Optional;
  * pixel data, selector maps or global usage/group lists. Missing entries are unresolved, not
  * permission to guess a source. The revision is an observation sequence, not a model revision.
  */
+@CubismEditor
 public record TextureSourcesSnapshot(
         Availability availability,
         String binding,

@@ -1,11 +1,14 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * Evaluated auto-Yure configuration of one parameter binding on one Warp Deformer.
  *
  * <p>Mirrors the Editor's {@code AutoYureConfig} projection: left/right
  * deformation configs, sync flag, root direction, and flip flag.</p>
  */
+@CubismEditor(from = "5.1.00")
 public interface AutoYureConfig {
 
     /** Returns the left-side deformation configuration. */

@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Optional;
 
 /** One track on an {@link AnimationScene} timeline. */
+@CubismEditor(from = "5.0.00")
 public interface AnimationTrack {
 
     /** Host-assigned track guid string. */

@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 
 /** Read-only evaluated auto-Yure state of the active model. */
+@CubismEditor(from = "5.1.00")
 public interface AutoYure {
 
     /** Returns every evaluated auto-Yure binding in stable model order. */

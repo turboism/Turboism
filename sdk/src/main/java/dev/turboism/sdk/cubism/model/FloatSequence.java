@@ -1,6 +1,9 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
+
 /** Immutable indexed float sequence. */
+@CubismEditor
 public interface FloatSequence {
 
     /** Returns the number of elements. */
