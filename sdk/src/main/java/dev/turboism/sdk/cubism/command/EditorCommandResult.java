@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.command;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /** Sanitized result of one semantic Editor command invocation. */
+@CubismEditor
 public record EditorCommandResult(Status status, String commandId) {
     public EditorCommandResult {
         status = Objects.requireNonNull(status, "status");
@@ -24,6 +26,7 @@ public record EditorCommandResult(Status status, String commandId) {
      * command out, which can include a recognized no-op; it does not by itself imply a
      * document change, dirty state or an Undo entry.
      */
+    @CubismEditor
     public enum Status {
         EXECUTED,
         UNAVAILABLE,

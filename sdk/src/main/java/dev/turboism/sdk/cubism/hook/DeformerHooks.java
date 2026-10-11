@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.hook;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
@@ -7,6 +8,7 @@ import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 
 /** Override-based lifecycle hooks for Warp and Rotation Deformer authoring writes. */
+@CubismEditor
 public interface DeformerHooks {
     /**
      * Runs before a deformer opacity write; the returned value is passed to the next hook and the

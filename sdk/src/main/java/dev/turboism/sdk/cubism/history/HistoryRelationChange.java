@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.history;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Immutable direct hierarchy relation change captured for one history operation. */
+@CubismEditor
 public record HistoryRelationChange(Kind kind, Endpoint before, Endpoint after) {
 
     public HistoryRelationChange {
@@ -13,12 +15,14 @@ public record HistoryRelationChange(Kind kind, Endpoint before, Endpoint after) 
     }
 
     /** The direct relation family that changed. */
+    @CubismEditor
     public enum Kind {
         PART_MEMBERSHIP,
         DEFORMER_PARENT
     }
 
     /** The captured state of one direct relation endpoint. */
+    @CubismEditor
     public enum State {
         TARGET,
         ROOT,
@@ -26,6 +30,7 @@ public record HistoryRelationChange(Kind kind, Endpoint before, Endpoint after) 
     }
 
     /** Immutable endpoint value; target endpoints require a stable target ID. */
+    @CubismEditor
     public record Endpoint(State state, Optional<HistoryTarget> target) {
 
         public Endpoint {

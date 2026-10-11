@@ -1,5 +1,7 @@
 package dev.turboism.sdk.cubism.transaction;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * Synchronous work performed inside an Editor authoring transaction scope.
  *
@@ -9,6 +11,7 @@ package dev.turboism.sdk.cubism.transaction;
  *
  * @param <T> callback result type
  */
+@CubismEditor
 @FunctionalInterface
 public interface AuthoringTransactionWork<T> {
 

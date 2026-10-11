@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.backup;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -14,6 +15,7 @@ import java.util.Optional;
  * operations; artifact access goes through {@link BackupArtifactHandle}. It is
  * empty when the host did not expose a backup directory (fail closed).</p>
  */
+@CubismEditor
 public record EditorAutoBackupSettings(
         boolean enabled, int intervalMinutes, int maxMB, Optional<String> backupDirDisplay) {
 

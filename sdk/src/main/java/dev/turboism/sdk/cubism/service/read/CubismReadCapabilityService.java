@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.service.read;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.ActiveReadProjections;
 import dev.turboism.sdk.cubism.AnimationSnapshot;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
@@ -28,6 +29,7 @@ import java.util.Optional;
  * <p>This service groups typed model and Editor read families used by plugins. Implementations must return immutable SDK DTOs and must not
  * expose raw host objects, Swing/AWT handles, adapter classes, or hook state.</p>
  */
+@CubismEditor(from = "5.0.00")
 public interface CubismReadCapabilityService {
 
     /**

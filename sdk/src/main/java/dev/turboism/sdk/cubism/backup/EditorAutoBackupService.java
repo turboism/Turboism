@@ -18,6 +18,7 @@ import java.util.concurrent.CompletionStage;
  * and fails closed to UNAVAILABLE when any required selector is
  * missing or the host slice is not connected.</p>
  */
+@CubismEditor(from = "5.1.00")
 public interface EditorAutoBackupService {
 
     /**

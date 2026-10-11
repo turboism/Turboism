@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.core;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /** Immutable adapter-owned projection of one evaluated Core part. */
+@CubismEditor
 public record OwnedPart(String id, float opacity, int parentIndex) {
 
     public OwnedPart {

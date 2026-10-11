@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.backup;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 
@@ -15,6 +16,7 @@ import java.util.Objects;
  * @param artifacts backup artifact handles produced by the command
  * @param statuses per-document host status snapshot captured at completion
  */
+@CubismEditor
 public record BackupRunResult(
         long completedAtMillis, List<BackupArtifactHandle> artifacts, List<EditorAutoBackupStatus> statuses) {
     public BackupRunResult {
