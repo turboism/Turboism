@@ -403,6 +403,20 @@ class MatrixTest(unittest.TestCase):
         self.assertIn("LATE_ONLY", en)
         self.assertIn("cubism.mesh-tool.session", en)
 
+    def test_plugin_cubism_versions_sidecar(self) -> None:
+        outputs = GEN.render_all(self.root)
+        rel = (
+            "plugins/toy/src/main/resources/META-INF/turboism/"
+            "cubism-versions.json"
+        )
+        document = json.loads(outputs[rel])
+        self.assertEqual(
+            "turboism.plugin-cubism-versions/v1", document["format"]
+        )
+        self.assertEqual("dev.turboism.plugin.toy", document["plugin"])
+        self.assertEqual(list(VERSIONS), document["supportedVersions"])
+        self.assertEqual(["5.0.00", "5.2.00"], document["fullFeatureVersions"])
+
     def test_readme_block_idempotent(self) -> None:
         plugin = self.plugin()
         once = GEN.update_readme(

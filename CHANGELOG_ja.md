@@ -85,6 +85,18 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
   `ActionRegistry.Action.defaultShortcut()` と新しい
   `Action.of(id, label, shortcut, handler)` オーバーロードにより、プラグインはユーザーが再割り当て可能なデフォルトショートカットを宣言できます。コアシェルはウィンドウアクションに既定キーを宣言しています（設定 Ctrl+Alt+S、プラグイン Ctrl+Alt+P、ログ Ctrl+Alt+L、キーバインド Ctrl+Shift+K）。第一パーティのメッシュ検査・履歴パネル・デモアクションも SDK の例として既定キーを持ちます。行のショートカットセルをダブルクリックするとキーキャプチャダイアログが直接開きます。
 
+- すべてのファーストパーティプラグイン JAR に、対応 Cubism Editor バージョンを宣言する派生
+  `META-INF/turboism/cubism-versions.json` が同梱されるようになりました。互換マトリクス
+  ジェネレータがレビューデータから `compatibility/cubism/compatibility-matrix.json` と
+  一緒に生成するため、宣言が実際のコード使用からずれることはありません。サードパーティ
+  プラグインも同じサイドカーを同梱できます。ファイルを持たない `requiresCubism` プラグインは
+  従来どおり読み込まれ、読み込み時に「未宣言」として一度だけ記録されます。`devCheck` に
+  バージョン適応ゲートが 2 つ追加されました: `checkSdkCubismEditorAnnotations` は
+  `dev.turboism.sdk.cubism` の新規公開 API に `@CubismEditor` を要求し（既存面は
+  `sdk/api-contracts/cubism-annotation-baseline.json` に凍結）、
+  `checkVersionSetRegistry` は本番ソース内のすべてのリテラル Cubism バージョン集合が
+  `scripts/version-set-registry.json` に根拠と理由付きで登録されていることを要求します。
+
 ### 削除
 
 - 管理型 fx ランタイムを完全に削除しました。エージェントバイナリの同梱・ダウンロード、
