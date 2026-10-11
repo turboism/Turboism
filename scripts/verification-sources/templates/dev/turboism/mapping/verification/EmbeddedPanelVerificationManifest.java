@@ -242,6 +242,8 @@ public final class EmbeddedPanelVerificationManifest {
 
 
 
+
+
     public static final String ADAPTER_SLICE_ID = "${record:cubism-5.2.03-ui-embedded-panel.json:adapterSliceId}";
     public static final String CAPABILITY_ID = "cubism.editor-ui.embedded-panel";
     public static final Set<String> CAPABILITY_IDS = Set.of(CAPABILITY_ID);

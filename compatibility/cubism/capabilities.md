@@ -23,11 +23,11 @@ Legend: ✓ every capability in the group admitted · ◐ partially admitted · 
 | Geometry read | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Editor history | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Integration bridges | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Mesh tool session | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Mesh tool session | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Mesh toolbar contribution | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Other model surfaces | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Model instance read | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Modeling custom tools | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Modeling custom tools | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Object hierarchy | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Parameters & bindings | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Parameter key editing | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -58,10 +58,10 @@ Legend: ✓ every capability in the group admitted · ◐ partially admitted · 
 - `cubism.geometry.read` (Mesh geometry read): no verified record 5.0.00–5.1.03
 - `cubism.integration.edit-api-bridge.dispatch`: no verified record 5.0.00–5.1.01
 - `cubism.integration.external-app-settings.edit-toggle` (External-app editing toggle): no verified record 5.0.00–5.0.06
-- `cubism.mesh-tool.session` (Mesh-edit tool session): no verified record 5.0.00–5.2.02
+- `cubism.mesh-tool.session` (Mesh-edit tool session): no verified record 5.0.00–5.1.03
 - `ui.mesh-toolbar.contribute` (Mesh toolbar contribution): no verified record 5.0.00–5.0.06
 - `ui.mesh-toolbar.contribute` (Mesh toolbar contribution): verified but narrowed by contract/pins (adaptation pending) 5.1.00–5.1.03
-- `cubism.modeling-tool.selection-brush` (Modeling selection brush): no verified record 5.0.00–5.2.02
+- `cubism.modeling-tool.selection-brush` (Modeling selection brush): no verified record 5.0.00–5.1.03
 - `cubism.editor-model.part-inspector.write`: no verified record 5.0.00–5.2.03
 - `cubism.editor-model.part-opacity.write`: no verified record 5.0.00–5.2.03
 - `cubism.protected-export.orchestration` (Protected-export orchestration): no verified record 5.0.00–5.0.06
