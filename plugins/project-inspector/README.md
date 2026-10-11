@@ -43,6 +43,11 @@ A Developer Preview Swing window that reads and displays the active Cubism proje
 - **Interface mode:** `swing`; a headless JVM cannot open the inspector.
 - **Plugin dependencies:** None declared.
 
+<!-- compatibility:begin -->
+**Cubism Editor version support (generated):** all reviewed versions.
+Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
+<!-- compatibility:end -->
+
 ## Install and enable
 
 This is a **development-only** module. It is not a marketplace listing, release plugin, or supported end-user installation. Use it only when a development build has deliberately included it, then enable it through the development runtime's plugin controls. Disabling or shutting it down cancels an in-flight read and disposes the window.

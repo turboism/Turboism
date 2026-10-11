@@ -43,6 +43,12 @@ interface: embedded
 - **界面模式：**`embedded`。
 - **插件依赖项：**未声明。
 
+<!-- compatibility:begin -->
+**Cubism Editor 版本支持（自动生成）：** 全部审核版本.
+- 嵌入式面板停靠 不适用于 5.0.00–5.0.06
+完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
+<!-- compatibility:end -->
+
 ## 安装与启用
 
 本插件包含在 Turboism Full 发布包中。安装 Full 包后，可在**插件管理**中启用。只有当前精确版本宿主提供全部经过审查的必要服务时，操作和写入才可用。

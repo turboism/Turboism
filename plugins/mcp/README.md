@@ -44,6 +44,14 @@ Runs a token-gated MCP Streamable HTTP server on the local loopback interface, p
 - **Interface mode:** `swing`, with a local connection-details window.
 - **Plugin dependencies:** None declared.
 
+<!-- compatibility:begin -->
+**Cubism Editor version support (generated):** all reviewed versions.
+- textures.write only on 5.2.03–5.3.04
+- Parameter writes only on 5.2.00–5.3.04
+- Authoring transactions (grouped undo writes) only on 5.2.00–5.3.04
+Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
+<!-- compatibility:end -->
+
 ## Install and enable
 
 1. Install and enable the plugin through Turboism's official release packaging and **Plugin Management**.

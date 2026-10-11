@@ -43,6 +43,14 @@ interface: swing
 - **インターフェースモード:** `swing`。ローカル MCP 接続情報ウィンドウを提供します。
 - **プラグイン依存関係:** 宣言されていません。
 
+<!-- compatibility:begin -->
+**Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
+- textures.write のみ 5.2.03–5.3.04
+- パラメータ書き込み のみ 5.2.00–5.3.04
+- オーサリングトランザクション（グループ化されたアンドゥ書き込み） のみ 5.2.00–5.3.04
+完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
+<!-- compatibility:end -->
+
 ## インストールと有効化
 
 1. Turboism の公式リリースパッケージおよび **Plugin Management** を通じてプラグインをインストールし、有効化します。

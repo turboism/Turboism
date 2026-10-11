@@ -54,6 +54,12 @@ interface: none
 - **界面模式：** `none`。
 - **插件依赖：** 无。
 
+<!-- compatibility:begin -->
+**Cubism Editor 版本支持（自动生成）：** 全部审核版本.
+- 多边形图集布局 仅 5.2.03–5.3.03
+完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
+<!-- compatibility:end -->
+
 ## 诚实的限制
 
 - **轮廓回退。** 宿主项无可用轮廓时回退到包围矩形，并在诊断中标记

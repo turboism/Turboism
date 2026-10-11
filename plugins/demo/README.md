@@ -42,6 +42,11 @@ Demonstrates Turboism action, menu, toolbar, context-menu, configuration, locali
 - **Interface mode:** `none`.
 - **Plugin dependencies:** None declared.
 
+<!-- compatibility:begin -->
+**Cubism Editor version support (generated):** all reviewed versions.
+Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
+<!-- compatibility:end -->
+
 ## Install and enable
 
 This is a **development-only** module, not a published store listing or release-delivery plugin. Build and load it only through this repository's development runtime, then enable it in **Plugin Management** when validating framework integrations. Disable it from the same window when the demonstration registrations are not needed.

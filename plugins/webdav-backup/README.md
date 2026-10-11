@@ -42,6 +42,13 @@ Uploads Cubism backup artifacts to a WebDAV endpoint configured by the user.
 - **Interface mode:** `swing`.
 - **Plugin dependencies:** None declared.
 
+<!-- compatibility:begin -->
+**Cubism Editor version support (generated):** all reviewed versions.
+- EditorAutoBackupService#artifacts() only on 5.2.03–5.3.04
+- EditorAutoBackupService#backupAfterSave() not on 5.0.00–5.0.06
+Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
+<!-- compatibility:end -->
+
 ## Install and enable
 
 This official plugin is a **store candidate**, not yet a published store listing. Until marketplace publication, install it through Turboism's official release packaging, then enable it in **Plugin Management**. Disable or uninstall it from the same window when the workflow is not needed.

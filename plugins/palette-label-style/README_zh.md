@@ -42,6 +42,12 @@ interface: embedded
 - **接口模式：** `embedded`。
 - **插件依赖项：** 未声明。
 
+<!-- compatibility:begin -->
+**Cubism Editor 版本支持（自动生成）：** 全部审核版本.
+- 编辑器模型写入 仅 5.2.00–5.3.04
+完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
+<!-- compatibility:end -->
+
 ## 安装与启用
 
 此官方插件是一个**商店候选插件**，尚未发布为商店条目。在市场发布之前，请通过 Turboism 的官方发布包安装它，然后在**插件管理**中启用它。当不再需要该工作流时，可在同一窗口中禁用或卸载它。
