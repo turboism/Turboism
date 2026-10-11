@@ -11893,12 +11893,12 @@
    "hostValidation": {
     "mcp": {
      "5.3.04": {
-      "validationStatus": "FAIL",
-      "terminalState": "failed",
-      "triageCategory": "INFRA_RETRYABLE",
-      "triageRule": "infra-host-execution-timeout",
+      "validationStatus": "PASS",
+      "terminalState": "succeeded",
+      "triageCategory": null,
+      "triageRule": null,
       "round": null,
-      "jobId": "94c20851-e621-43b4-bb5a-2a2abfa5790d"
+      "jobId": "717972f0-2359-438b-8ea3-2df234f87062"
      },
      "5.2.02": {
       "validationStatus": "FAIL",
@@ -11933,12 +11933,12 @@
       "jobId": "c52e6bcc-e70f-40e2-943a-c61ee9cc6282"
      },
      "5.2.00": {
-      "validationStatus": "FAIL",
-      "terminalState": "failed",
-      "triageCategory": "INFRA_RETRYABLE",
-      "triageRule": "infra-host-execution-timeout",
+      "validationStatus": "PASS",
+      "terminalState": "succeeded",
+      "triageCategory": null,
+      "triageRule": null,
       "round": null,
-      "jobId": "0c60b3df-843f-4ccc-a009-7243007e34d7"
+      "jobId": "e0dd8c3a-9a0b-44a9-b7f9-9f3a7d5f2507"
      },
      "5.2.01": {
       "validationStatus": "PASS",
@@ -11983,10 +11983,10 @@
      "5.0.00": {
       "validationStatus": "FAIL",
       "terminalState": "failed",
-      "triageCategory": "INFRA_RETRYABLE",
-      "triageRule": "infra-host-execution-timeout",
+      "triageCategory": "CAPABILITY_BOUNDARY",
+      "triageRule": "capability-authoring-transactions-unavailable",
       "round": null,
-      "jobId": "5ba6239d-26ed-43b3-be81-0fdb3c160cc5"
+      "jobId": "d92e248d-a8be-4f10-96f1-0a19f0c59134"
      },
      "5.0.06": {
       "validationStatus": "FAIL",
@@ -16752,12 +16752,12 @@
   },
   "mcp": {
    "5.3.04": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "INFRA_RETRYABLE",
-    "triageRule": "infra-host-execution-timeout",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
+    "triageRule": null,
     "round": null,
-    "jobId": "94c20851-e621-43b4-bb5a-2a2abfa5790d"
+    "jobId": "717972f0-2359-438b-8ea3-2df234f87062"
    },
    "5.2.02": {
     "validationStatus": "FAIL",
@@ -16792,12 +16792,12 @@
     "jobId": "c52e6bcc-e70f-40e2-943a-c61ee9cc6282"
    },
    "5.2.00": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "INFRA_RETRYABLE",
-    "triageRule": "infra-host-execution-timeout",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
+    "triageRule": null,
     "round": null,
-    "jobId": "0c60b3df-843f-4ccc-a009-7243007e34d7"
+    "jobId": "e0dd8c3a-9a0b-44a9-b7f9-9f3a7d5f2507"
    },
    "5.2.01": {
     "validationStatus": "PASS",
@@ -16842,10 +16842,10 @@
    "5.0.00": {
     "validationStatus": "FAIL",
     "terminalState": "failed",
-    "triageCategory": "INFRA_RETRYABLE",
-    "triageRule": "infra-host-execution-timeout",
+    "triageCategory": "CAPABILITY_BOUNDARY",
+    "triageRule": "capability-authoring-transactions-unavailable",
     "round": null,
-    "jobId": "5ba6239d-26ed-43b3-be81-0fdb3c160cc5"
+    "jobId": "d92e248d-a8be-4f10-96f1-0a19f0c59134"
    },
    "5.0.06": {
     "validationStatus": "FAIL",
