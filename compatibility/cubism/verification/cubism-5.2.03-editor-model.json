@@ -68,6 +68,7 @@
     "cubism.editor-model.morph-target.write",
     "cubism.editor-model.native-control-appearance.read",
     "cubism.editor-model.native-control-appearance.write",
+    "cubism.editor-model.object-hierarchy.apply-deformer-to-children",
     "cubism.editor-model.object-hierarchy.art-mesh.create",
     "cubism.editor-model.object-hierarchy.edit",
     "cubism.editor-model.object-hierarchy.rename",
@@ -11012,6 +11013,9 @@
     ],
     "cubism.editor-model.native-control-appearance.write": [
       "hook:control-appearance"
+    ],
+    "cubism.editor-model.object-hierarchy.apply-deformer-to-children": [
+      "declaredGeneration"
     ],
     "cubism.editor-model.object-hierarchy.art-mesh.create": [
       "declaredGeneration"
