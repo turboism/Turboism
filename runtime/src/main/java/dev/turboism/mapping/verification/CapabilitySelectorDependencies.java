@@ -353,6 +353,10 @@ final class CapabilitySelectorDependencies {
                 result,
                 EditorObjectHierarchyEditSelectorContract.RENAME_CAPABILITY_ID,
                 EditorObjectHierarchyEditSelectorContract.RENAME_REQUIRED_ALIASES);
+        add(
+                result,
+                EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_CAPABILITY_ID,
+                EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_REQUIRED_ALIASES);
         add(result, EditorObjectReadSelectorContract.CAPABILITY_ID, EditorObjectReadSelectorContract.REQUIRED_ALIASES);
         add(
                 result,

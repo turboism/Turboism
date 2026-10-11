@@ -377,9 +377,9 @@ final class EditorObjectHierarchyEditAccess {
     }
 
     /**
-     * Executes the exact native 5.3.02 candidate after selecting the target deformer. Child
-     * semantics remain owned by Cubism; this path deliberately avoids generic DELETE, Undo, and
-     * refresh/dirty envelopes used by ordinary hierarchy edits.
+     * Executes the exact native apply-to-children command after selecting the target deformer.
+     * Child semantics remain owned by Cubism; this path deliberately avoids generic DELETE,
+     * Undo, and refresh/dirty envelopes used by ordinary hierarchy edits.
      */
     void applyToChildren(
             final String identity,
@@ -899,12 +899,7 @@ final class EditorObjectHierarchyEditAccess {
     }
 
     private boolean applyToChildrenAuthorized() {
-        if (resolver.isCompatibilityBinding()
-                || !Set.of(
-                                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00",
-                                "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.3.00", "5.3.01",
-                                "5.3.02", "5.3.04")
-                        .contains(resolver.cubismVersion())) {
+        if (resolver.isCompatibilityBinding()) {
             return false;
         }
         return resolver.authorizesFeature(
