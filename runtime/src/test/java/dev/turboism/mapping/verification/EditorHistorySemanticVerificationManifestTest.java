@@ -30,9 +30,9 @@ class EditorHistorySemanticVerificationManifestTest {
         assertTrue(EditorModelVerificationManifest.cubism5303Capabilities()
                 .contains(EditorHistorySemanticSelectorContract.CAPABILITY_ID));
         assertTrue(
-                EditorModelVerificationManifest.cubism5303StaticAliases().containsAll(semanticAliases),
+                EditorModelVerificationManifest.cubism5303Aliases().containsAll(semanticAliases),
                 () -> "5.3.03 missing "
-                        + missing(EditorModelVerificationManifest.cubism5303StaticAliases(), semanticAliases));
+                        + missing(EditorModelVerificationManifest.cubism5303Aliases(), semanticAliases));
         final PinnedVerifiedResolverWorkflow.RuntimeScope runtimeScope =
                 EditorModelVerificationManifest.cubism5303RuntimeScope();
         assertTrue(runtimeScope.capabilityIds().contains(EditorHistorySemanticSelectorContract.CAPABILITY_ID));

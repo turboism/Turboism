@@ -14,8 +14,11 @@ import java.util.Optional;
 public interface TextureAtlasLayoutService {
 
     /**
-     * Returns the model's current texture-atlas layout, or empty when the active document has
-     * no atlas to project.
+     * Captures the active layout. On 5.3.02, an existing atlas in the active model
+     * is also available before the native atlas editor has first opened or
+     * after switching away from the document captured by that editor.
+     * This does not create an atlas or open a window. A captured background
+     * document is never substituted for the active document.
      */
     Optional<TextureAtlasLayoutSnapshot> current();
 

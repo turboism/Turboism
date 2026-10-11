@@ -251,6 +251,9 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
             "dev.turboism.mapping.verification.EditorDocumentReadSelectorContractTest"
         )
         includeTestsMatching(
+            "dev.turboism.mapping.verification.EditorEditSelectorContractTest"
+        )
+        includeTestsMatching(
             "dev.turboism.mapping.verification.EditorInspectorDrawableSelectorContractTest"
         )
         includeTestsMatching(
@@ -269,7 +272,16 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
             "dev.turboism.mapping.verification.EditorPartOpacitySelectorContractTest"
         )
         includeTestsMatching(
+            "dev.turboism.mapping.verification.EditorRawImagePsdSelectorContractTest"
+        )
+        includeTestsMatching(
+            "dev.turboism.mapping.verification.EditorRawImagePsdReplaceSelectorContractTest"
+        )
+        includeTestsMatching(
             "dev.turboism.mapping.verification.EditorStructureSelectorContractTest"
+        )
+        includeTestsMatching(
+            "dev.turboism.mapping.verification.EditorTextureRelationsSelectorContractTest"
         )
         includeTestsMatching(
             "dev.turboism.mapping.verification.EditorTextureSelectorContractTest"
@@ -289,14 +301,19 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
 val legacyEvidenceTestClasses = listOf(
     "dev.turboism.adapter.cubism.VerifiedProjectWorkspaceImageDocumentTest",
     "dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfileTest",
+    "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexExactHostShapeTest",
     "dev.turboism.mapping.verification.EditorDocumentReadSelectorContractTest",
+    "dev.turboism.mapping.verification.EditorEditSelectorContractTest",
     "dev.turboism.mapping.verification.EditorInspectorDrawableSelectorContractTest",
     "dev.turboism.mapping.verification.EditorInspectorSelectorContractTest",
     "dev.turboism.mapping.verification.EditorObjectReadSelectorContractTest",
     "dev.turboism.mapping.verification.EditorParameterBindingSelectorContractTest",
     "dev.turboism.mapping.verification.EditorPartNameSelectorContractTest",
     "dev.turboism.mapping.verification.EditorPartOpacitySelectorContractTest",
+    "dev.turboism.mapping.verification.EditorRawImagePsdReplaceSelectorContractTest",
+    "dev.turboism.mapping.verification.EditorRawImagePsdSelectorContractTest",
     "dev.turboism.mapping.verification.EditorStructureSelectorContractTest",
+    "dev.turboism.mapping.verification.EditorTextureRelationsSelectorContractTest",
     "dev.turboism.mapping.verification.EditorTextureSelectorContractTest",
     "dev.turboism.mapping.verification.VerifiedCorePublicApiResolverFactoryTest",
     "dev.turboism.mapping.verification.VerifiedEditorStartupResolverFactoriesTest"

@@ -70,6 +70,19 @@ final class PermissionCheckedModel implements CubismModel {
     }
 
     @Override
+    public dev.turboism.sdk.cubism.model.CubismMocExport exportMoc(
+            final dev.turboism.sdk.cubism.model.CubismMocExportSettings settings) {
+        facade.requireModelRead("model.exportMoc");
+        return delegate.exportMoc(settings);
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.model.CubismRenderedPixels renderPixels(final int width, final int height) {
+        facade.requireModelRead("model.renderPixels");
+        return delegate.renderPixels(width, height);
+    }
+
+    @Override
     public dev.turboism.sdk.cubism.model.ModelProfile profile() {
         facade.requireModelRead("model.profile");
         return delegate.profile();
@@ -202,6 +215,41 @@ final class PermissionCheckedModel implements CubismModel {
             public void removeRawImage(final dev.turboism.sdk.cubism.id.RawImageId id) {
                 facade.requireModelWrite("model.textures.removeRawImage");
                 textures.removeRawImage(id);
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.ModelImageBinding registerImageAndBind(
+                    final dev.turboism.sdk.cubism.model.AuthorizedImageContent image,
+                    final dev.turboism.sdk.cubism.id.ArtMeshId target) {
+                facade.requireModelWrite("model.textures.registerImageAndBind");
+                final dev.turboism.sdk.cubism.model.ModelImageBinding[] bound =
+                        new dev.turboism.sdk.cubism.model.ModelImageBinding[1];
+                facade.runSemanticConfirmed(
+                        CubismOperation.REGISTER_MODEL_IMAGE,
+                        id().value(),
+                        () -> bound[0] = textures.registerImageAndBind(image, target));
+                return bound[0];
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.ModelImageBinding bindModelImage(
+                    final dev.turboism.sdk.cubism.id.ModelImageId image,
+                    final dev.turboism.sdk.cubism.id.ArtMeshId target) {
+                facade.requireModelWrite("model.textures.bindModelImage");
+                final dev.turboism.sdk.cubism.model.ModelImageBinding[] bound =
+                        new dev.turboism.sdk.cubism.model.ModelImageBinding[1];
+                facade.runSemanticConfirmed(
+                        CubismOperation.BIND_MODEL_IMAGE,
+                        id().value(),
+                        () -> bound[0] = textures.bindModelImage(image, target));
+                return bound[0];
+            }
+
+            @Override
+            public java.util.Optional<dev.turboism.sdk.cubism.model.ArtMeshTextureInput> textureInput(
+                    final dev.turboism.sdk.cubism.id.ArtMeshId target) {
+                facade.requireModelRead("model.textures.textureInput");
+                return textures.textureInput(target);
             }
         };
     }
@@ -467,6 +515,21 @@ final class PermissionCheckedModel implements CubismModel {
         final dev.turboism.sdk.cubism.model.ParameterBindingOperations operations =
                 delegate.parameterBindings(Objects.requireNonNull(parameterId, "parameterId"));
         return new dev.turboism.sdk.cubism.model.ParameterBindingOperations() {
+            @Override
+            public dev.turboism.sdk.cubism.model.ParameterInterpolation interpolation(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target) {
+                facade.requireModelRead("model.parameterBindings.interpolation");
+                return operations.interpolation(target);
+            }
+
+            @Override
+            public void setInterpolation(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
+                    final dev.turboism.sdk.cubism.model.ParameterInterpolation settings) {
+                facade.requireModelWrite("model.parameterBindings.setInterpolation");
+                operations.setInterpolation(target, settings);
+            }
+
             private void write(
                     final CubismOperation semanticOperation, final String operation, final Runnable mutation) {
                 facade.requireModelWrite(operation);
@@ -673,6 +736,19 @@ final class PermissionCheckedModel implements CubismModel {
             }
 
             @Override
+            public dev.turboism.sdk.cubism.model.ArtMeshSourceTriangulation previewSourceTriangulation(
+                    final dev.turboism.sdk.cubism.model.ArtMeshGeometry geometry) {
+                facade.requireModelRead("model.drawables.previewSourceTriangulation");
+                return values.previewSourceTriangulation(Objects.requireNonNull(geometry, "geometry"));
+            }
+
+            @Override
+            public void select(final List<dev.turboism.sdk.cubism.id.ArtMeshId> ids) {
+                facade.requireModelWrite("model.drawables.select");
+                values.select(List.copyOf(Objects.requireNonNull(ids, "ids")));
+            }
+
+            @Override
             public dev.turboism.sdk.cubism.model.Drawable create(
                     final String name,
                     final dev.turboism.sdk.cubism.model.Part parent,
@@ -683,6 +759,25 @@ final class PermissionCheckedModel implements CubismModel {
                         facade,
                         wrapperOwner,
                         values.create(name, facade.unwrapPart(wrapperOwner, parent), index, geometry));
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.Drawable createWithSourceGeometry(
+                    final String name,
+                    final dev.turboism.sdk.cubism.model.Part parent,
+                    final int index,
+                    final dev.turboism.sdk.cubism.model.ArtMeshGeometry sourceGeometry,
+                    final List<dev.turboism.sdk.cubism.model.Point2> defaultPositions) {
+                facade.requireModelWrite("model.drawables.createWithSourceGeometry");
+                return new PermissionCheckedDrawable(
+                        facade,
+                        wrapperOwner,
+                        values.createWithSourceGeometry(
+                                name,
+                                facade.unwrapPart(wrapperOwner, parent),
+                                index,
+                                sourceGeometry,
+                                defaultPositions));
             }
 
             @Override

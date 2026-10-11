@@ -97,10 +97,7 @@ public final class WindowsMeshMirrorAxisValidationProbe implements CubismPlugin 
                     .currentAngleDegrees();
             final String report = "status=SDK_ROUNDTRIP_DONE\n"
                     + "time=" + Instant.now() + "\n"
-                    + "initialAngleDegrees=" + initial + "\n"
-                    + "afterSet45Degrees=" + afterSet + "\n"
-                    + "afterRestore0Degrees=" + afterRestore + "\n"
-                    + "roundtripPassed=" + (afterSet == 45.0f && afterRestore == 0.0f) + "\n";
+                    + roundtripReport(initial, afterSet, afterRestore);
             Files.writeString(
                     outputDir.resolve("mirror-axis-roundtrip.txt"),
                     report,
@@ -109,6 +106,17 @@ public final class WindowsMeshMirrorAxisValidationProbe implements CubismPlugin 
         } catch (Exception failure) {
             context.logger().error("Mesh mirror-axis probe roundtrip failed", failure);
         }
+    }
+
+    static boolean roundtripPassed(final float afterSet, final float afterRestore) {
+        return afterSet == 45.0f && afterRestore == 0.0f;
+    }
+
+    static String roundtripReport(final float initial, final float afterSet, final float afterRestore) {
+        return "initialAngleDegrees=" + initial + "\n"
+                + "afterSet45Degrees=" + afterSet + "\n"
+                + "afterRestore0Degrees=" + afterRestore + "\n"
+                + "roundtripPassed=" + roundtripPassed(afterSet, afterRestore) + "\n";
     }
 
     private void dumpState(final String status) {

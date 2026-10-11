@@ -587,7 +587,7 @@ class StaticVerificationRecordRepositoryTest {
                     "26c4204656d9fc396044d8412de62a987922d2f49dd7481685ffb518755b7037"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.2.03-editor-model.json",
-                    "3560fe418f469d826ac751927e064157ecd9621f28a15a501e640a0111b085f7"),
+                    "6ca758d3ac0b3712feb57ed9a6501967e40c99b0e70a2111606e4be8ebb84154"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.2.03-performance-render-scene.json",
                     "399c09052ddb715f1d3ca257d84d41d851b74da3aba18a84f0fefc5956fd4cab"),
@@ -722,7 +722,7 @@ class StaticVerificationRecordRepositoryTest {
                     "6650108a950731fcc8d98210b40398a9d3c6fece8fda19b220bcdf58a09bd8da"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.3.02-editor-model.json",
-                    "93864fe15753497ea9b602892ee6703d6441701397f6fd10814fa4bdf4020864"),
+                    "49cb92c45301882bfb043dc49df954b56b545a94fb89762dddcfbc3f63e15e41"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.3.02-performance-render-scene.json",
                     "cf401975fa0e033d7e093a54117a4f78ff5ff218bb9b7c4f7eae5bb7e8f57a92"),
@@ -767,7 +767,7 @@ class StaticVerificationRecordRepositoryTest {
                     "a0a47ca2b03c2267147019460caf17ca2241f1389bdc9b1f307aac57132deb67"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.3.03-editor-model.json",
-                    "f5110f3dda4dbcb8c05337dffd798ac3e1901c6ea60cab9a8b0f11fa5bc2def9"),
+                    "f38de80eea22fc5fc64e82caffe7e50edbc18249978874f160470df000a15849"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.3.03-performance-render-scene.json",
                     "1f46c24551b7b5ccc63bb379a4498d5b3166fa20916499ca9b5c8c52da307ba5"),
@@ -1003,8 +1003,8 @@ class StaticVerificationRecordRepositoryTest {
                                     "Live2D_Cubism.jar",
                                     ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                                     ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                                    "3560fe418f469d826ac751927e064157ecd9621f28a15a501e640a0111b085f7",
-                                    972,
+                                    "6ca758d3ac0b3712feb57ed9a6501967e40c99b0e70a2111606e4be8ebb84154",
+                                    1100,
                                     EditorModelVerificationManifest.cubism52Aliases(),
                                     EditorModelVerificationManifest.cubism52Aliases(),
                                     recordMethodAliases(
@@ -1032,7 +1032,7 @@ class StaticVerificationRecordRepositoryTest {
                                             .artifact()
                                             .sha256(),
                                     EditorModelVerificationManifest.RECORD_5_3_02.recordSha256(),
-                                    994,
+                                    1120,
                                     EditorModelVerificationManifest.cubism5302Aliases(),
                                     EditorModelVerificationManifest.cubism5302Aliases(),
                                     recordMethodAliases(
@@ -1270,7 +1270,7 @@ class StaticVerificationRecordRepositoryTest {
         return switch (fileName) {
             case "cubism-5.3.03-autobackup" -> "639036d9d0bc35a480ef18521efc43eec29f26a95c4eea7b136f52e40cf0d74d";
             case "cubism-5.3.03-clipmask" -> "f4702a5914c8fa8f6e8b266c675bc0c9e21b2667364ddca05b313f10b1351459";
-            case "cubism-5.3.03-editor-model" -> "f5110f3dda4dbcb8c05337dffd798ac3e1901c6ea60cab9a8b0f11fa5bc2def9";
+            case "cubism-5.3.03-editor-model" -> "f38de80eea22fc5fc64e82caffe7e50edbc18249978874f160470df000a15849";
             case "cubism-5.3.03-performance-render-scene" ->
                 "1f46c24551b7b5ccc63bb379a4498d5b3166fa20916499ca9b5c8c52da307ba5";
             case "cubism-5.3.03-protected-export" -> "de6066d86686cd3445b921086e7747167cf30b2fa89eb8efe49da064242d99b7";

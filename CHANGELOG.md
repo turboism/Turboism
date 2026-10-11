@@ -10,6 +10,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- The `acp` exact-host validation capability joins the local host-validation queue: a test-only
+  probe opens the ACP Agent window through the public action catalog inside a real Cubism
+  session, a scripted fake agent (default-package `acp` entry point) asserts the
+  credential-free stdio MCP attachment and performs one rename through the token-gated
+  `TurboismMcpBridge` with a guarded undo, an SDK cross-read re-verifies the restored document,
+  and the host closes normally on 5.2.03, 5.3.02 and 5.3.03.
+
 - Reworked the development-only agent chat plugin into the generic `Turboism ACP` plugin
   (`dev.turboism.plugin.acp`): it launches user-installed ACP-compatible agents (Claude Agent ACP,
   Codex ACP, Antigravity, Gemini CLI, OpenCode, Pi, Devin CLI, or a custom command), detects
