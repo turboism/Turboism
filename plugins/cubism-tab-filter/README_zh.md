@@ -42,6 +42,11 @@ interface: none
 - **界面模式：**`none`。
 - **插件依赖项：**未声明。
 
+<!-- compatibility:begin -->
+**Cubism Editor 版本支持（自动生成）：** 全部审核版本.
+完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
+<!-- compatibility:end -->
+
 ## 安装与启用
 
 此官方插件是一个**商店候选项**，尚未作为已发布的商店条目提供。在市场发布前，请通过 Turboism 的官方发布包安装它，然后在**插件管理**中启用它。当不需要该工作流程时，可在同一窗口中将其禁用或卸载。

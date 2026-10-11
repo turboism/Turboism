@@ -33,6 +33,11 @@ Opens an Agent conversation window and a Settings window. Drives a user-installe
 - The bundled `dev.turboism.plugin.mcp` plugin provides the Turboism MCP server when MCP tool access is wanted.
 - Requires an installed Cubism Editor host; the plugin does not run inside the standalone preview.
 
+<!-- compatibility:begin -->
+**Cubism Editor version support (generated):** all reviewed versions.
+Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
+<!-- compatibility:end -->
+
 ## Install and enable
 
 - The plugin is bundled with Turboism and is enabled by default.

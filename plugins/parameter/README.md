@@ -42,6 +42,13 @@ Provides parameter CSV import/export plus typed parameter-binding inversion and 
 - **Interface mode:** `embedded`.
 - **Plugin dependencies:** None declared.
 
+<!-- compatibility:begin -->
+**Cubism Editor version support (generated):** all reviewed versions.
+- Editor model writes only on 5.2.00–5.3.04
+- Authoring transactions (grouped undo writes) only on 5.2.00–5.3.04
+Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
+<!-- compatibility:end -->
+
 ## Install and enable
 
 This is a **development-only** module, not a published store listing or release-delivery plugin. Load it through the repository's development runtime and enable it in **Plugin Management** when validating parameter import/export and binding integrations.

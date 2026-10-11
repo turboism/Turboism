@@ -50,6 +50,14 @@ Right-click ArtMeshes to edit their complete raw PSD in the operating system's d
 - **Plugin dependencies:** None declared.
 - The temporary PSD is a rebuilt document, not a byte copy of the source asset.
 
+<!-- compatibility:begin -->
+**Cubism Editor version support (generated):** 5.3.00–5.3.04.
+- PSD raw-image replace only on 5.3.00–5.3.04
+- ModelTextures#exportRawImagePsd() only on 5.3.00–5.3.04
+- ModelTextures#replaceRawImagePsd() only on 5.3.00–5.3.04
+Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
+<!-- compatibility:end -->
+
 ## Install and enable
 
 This is a **development-only** module, not a published store listing or release-delivery plugin. Load it only through the repository's development runtime and enable it in **Plugin Management** while validating the feature.
