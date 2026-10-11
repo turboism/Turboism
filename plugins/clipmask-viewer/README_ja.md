@@ -44,7 +44,6 @@ interface: swing
 
 <!-- compatibility:begin -->
 **Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
-- 埋め込みパネル docking 対象外 5.0.00–5.0.06
 - トップメニュー統合 対象外 5.0.00–5.0.06
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
 <!-- compatibility:end -->

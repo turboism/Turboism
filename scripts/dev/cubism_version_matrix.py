@@ -169,6 +169,272 @@ MEMBER_VARIANTS = {
 }
 
 
+# Reviewed obfuscation renames on 5.0.x/5.1.x (bytecode evidence noted per
+# cluster; every variant was checked against the exact target jar):
+#
+# - parameter palette operation class is ``k`` on 5.0.00-5.0.02 and ``m`` on
+#   5.0.03-5.1.03 (``s`` on 5.2+); the operation instance surfaces through
+#   ``CEPaletteCtrl_Param$ViewCtrlParam#b``.
+# - the parameter validator accessor is ``c(op)`` returning ``a/i`` (5.0.00-02),
+#   ``a/j`` (5.0.03-04) or ``a/k`` (5.0.05-06), and ``e(op)`` returning ``a/m``
+#   on 5.1.x (``a/n`` on 5.2+); the property editor stays ``a/b`` via ``a(op)``.
+# - the refresh Function0 lambda bound into ``a/b#a(...Function0)Z`` is ``aD``
+#   (5.0.00-02), ``aG`` (5.0.03-06), ``aM`` (5.1.00-01) or ``aQ`` (5.1.02-03).
+# - the parameter-group handler behind ``CParameterGroup#getHandler`` is ``f``
+#   (5.0.x), ``g`` (5.1.00-01) or ``h`` (5.1.02-03).
+# - ``ModelHandler``'s group move entry is ``a`` on 5.0/5.1 (``b`` on 5.2+;
+#   bodies identical).
+# - the atlas edit-layer container behind ``atlasEditor/a/a#a()`` is ``impl/O``
+#   (5.0.00-04) or ``impl/Q`` (5.0.05-5.1.03) (``impl/S`` on 5.2+).
+# - the eval flags class behind ``ICMvTrack_Instance#updateTrackInstance_testImpl``
+#   is ``track/E`` on 5.0/5.1 (``track/F`` on 5.2+).
+# - ``CEDockWrapper#updateWindowMenuItem`` is ``updatePaletteMenuCheck`` on
+#   5.0.00-5.0.05 and the tab-popup append on ``ui/menu/k`` is ``b`` on 5.0.x
+#   (``c`` on 5.1+; bodies identical).
+V50_LO = ("5.0.00", "5.0.01", "5.0.02")
+V50_MID = ("5.0.03", "5.0.04")
+V50_HI = ("5.0.05", "5.0.06")
+V50_ALL = V50_LO + V50_MID + V50_HI
+V51_LO = ("5.1.00", "5.1.01")
+V51_HI = ("5.1.02", "5.1.03")
+V51_ALL = V51_LO + V51_HI
+V50_51 = V50_ALL + V51_ALL
+
+_OP_BY_VERSION = {
+    **{v: "k" for v in V50_LO},
+    **{v: "m" for v in V50_MID + V50_HI + V51_ALL},
+}
+_VALIDATOR_BY_VERSION = {
+    **{v: ("c", "i") for v in V50_LO},
+    **{v: ("c", "j") for v in V50_MID},
+    **{v: ("c", "k") for v in V50_HI},
+    **{v: ("e", "m") for v in V51_ALL},
+}
+_CALLBACK_BY_VERSION = {
+    **{v: "aD" for v in V50_LO},
+    **{v: "aG" for v in V50_MID + V50_HI},
+    **{v: "aM" for v in V51_LO},
+    **{v: "aQ" for v in V51_HI},
+}
+_GROUP_HANDLER_BY_VERSION = {
+    **{v: "f" for v in V50_ALL},
+    **{v: "g" for v in V51_LO},
+    **{v: "h" for v in V51_HI},
+}
+_ATLAS_IMPL_BY_VERSION = {
+    **{v: "O" for v in V50_LO + V50_MID},
+    **{v: "Q" for v in V50_HI + V51_ALL},
+}
+
+_PARAM_OP = "com/live2d/cubism/view/palette/parameter"
+
+
+def _editor_variants() -> dict:
+    out = {}
+    for version in V50_51:
+        tag = version.replace(".", "_")
+        op = _OP_BY_VERSION[version]
+        accessor, validator = _VALIDATOR_BY_VERSION[version]
+        callback = _CALLBACK_BY_VERSION[version]
+        handler = _GROUP_HANDLER_BY_VERSION[version]
+        impl = _ATLAS_IMPL_BY_VERSION[version]
+
+        def add(alias, mapping, **overrides):
+            out[(alias, version)] = {"mappingId": mapping, **overrides}
+
+        add(
+            "cubism.editor-model.parameter-operation.class",
+            f"cubism.mapping.v{tag}.editor_model.class.parameter_operation",
+            ownerInternalName=f"{_PARAM_OP}/{op}",
+        )
+        add(
+            "cubism.editor-model.parameter-operation.property-editor",
+            f"cubism.mapping.v{tag}.editor_model.method.parameter_property_editor",
+            ownerInternalName=f"{_PARAM_OP}/{op}",
+            memberName="a",
+            descriptor=f"(L{_PARAM_OP}/{op};)L{_PARAM_OP}/a/b;",
+        )
+        add(
+            "cubism.editor-model.parameter-operation.validator",
+            f"cubism.mapping.v{tag}.editor_model.method.parameter_validator",
+            ownerInternalName=f"{_PARAM_OP}/{op}",
+            memberName=accessor,
+            descriptor=f"(L{_PARAM_OP}/{op};)L{_PARAM_OP}/a/{validator};",
+        )
+        add(
+            "cubism.editor-model.parameter-operation.refresh",
+            f"cubism.mapping.v{tag}.editor_model.method.parameter_refresh",
+            ownerInternalName=f"{_PARAM_OP}/{op}",
+            memberName="a",
+            descriptor="(Z)V",
+        )
+        add(
+            "cubism.editor-model.parameter-operation.rows",
+            f"cubism.mapping.v{tag}.editor_model.method.parameter_rows",
+            ownerInternalName=f"{_PARAM_OP}/{op}",
+            memberName="f",
+            descriptor="()Lcom/live2d/type/CArrayList;",
+        )
+        add(
+            "cubism.editor-model.parameter-operation.set-value",
+            f"cubism.mapping.v{tag}.editor_model.method.parameter_set_value",
+            ownerInternalName=f"{_PARAM_OP}/{op}",
+            memberName="a",
+            descriptor="(Lcom/live2d/cubism/doc/model/param/CParameterSource;F)V",
+        )
+        add(
+            "cubism.editor-model.parameter-palette-view.operation",
+            f"cubism.mapping.v{tag}.editor_model.method.parameter_operation",
+            memberName="b",
+            descriptor=f"()L{_PARAM_OP}/{op};",
+        )
+        add(
+            "cubism.editor-model.parameter-refresh-callback.create",
+            f"cubism.mapping.v{tag}.editor_model.constructor.parameter_refresh_callback",
+            ownerInternalName=f"{_PARAM_OP}/{callback}",
+            memberName="<init>",
+            descriptor=f"(L{_PARAM_OP}/{op};)V",
+        )
+        add(
+            "cubism.editor-model.parameter-validator.class",
+            f"cubism.mapping.v{tag}.editor_model.class.parameter_validator",
+            ownerInternalName=f"{_PARAM_OP}/a/{validator}",
+        )
+        for alias, member, desc, mid in (
+            (
+                "parameter-validator.allow-repeat",
+                "a",
+                "(Lcom/live2d/cubism/doc/model/param/CParameterSource;Z)Z",
+                "parameter_allow_repeat",
+            ),
+            (
+                "parameter-validator.default-change-affects-morph-target",
+                "a",
+                "(Lcom/live2d/cubism/doc/model/param/CParameterSource;F)Z",
+                "parameter_default_affects_morph_target",
+            ),
+            (
+                "parameter-validator.keys-outside-range",
+                "a",
+                "(Lcom/live2d/type/CParameterGuid;FF)Z",
+                "parameter_keys_outside_range",
+            ),
+            (
+                "parameter-validator.reject-type-change",
+                "a",
+                "(Lcom/live2d/cubism/doc/model/param/CParameterSource;ZZ)Z",
+                "parameter_reject_type_change",
+            ),
+            (
+                "parameter-validator.supports-type",
+                "a",
+                "(Z)Z",
+                "parameter_supports_type",
+            ),
+            (
+                "parameter-validator.valid-id",
+                "b",
+                "(Ljava/lang/String;)Z",
+                "parameter_valid_id",
+            ),
+        ):
+            add(
+                f"cubism.editor-model.{alias}",
+                f"cubism.mapping.v{tag}.editor_model.method.{mid}",
+                ownerInternalName=f"{_PARAM_OP}/a/{validator}",
+                memberName=member,
+                descriptor=desc,
+            )
+        add(
+            "cubism.editor-model.parameter-group-handler.class",
+            f"cubism.mapping.v{tag}.editor_model.class.parameter-group-handler_class",
+            ownerInternalName=f"com/live2d/cubism/doc/model/param/group/{handler}",
+        )
+        for alias, desc, mid in (
+            (
+                "parameter-group-handler.add-group-child",
+                "(Lcom/live2d/cubism/doc/model/param/group/CParameterGroup;I)Lcom/live2d/undo/ACUndoable;",
+                "parameter-group-handler_add-group-child",
+            ),
+            (
+                "parameter-group-handler.add-parameter-child",
+                "(Lcom/live2d/cubism/doc/model/param/CParameterSource;I)Lcom/live2d/undo/ACUndoable;",
+                "parameter-group-handler_add-parameter-child",
+            ),
+            (
+                "parameter-group-handler.remove-descendant",
+                "(Lcom/live2d/cubism/doc/model/param/group/CParameterGroup;Lcom/live2d/cubism/doc/model/param/CParameterSet;ZZ)Lcom/live2d/undo/ACUndoable;",
+                "parameter-group-handler_remove-descendant",
+            ),
+        ):
+            add(
+                f"cubism.editor-model.{alias}",
+                f"cubism.mapping.v{tag}.editor_model.method.{mid}",
+                ownerInternalName=f"com/live2d/cubism/doc/model/param/group/{handler}",
+                memberName="a",
+                descriptor=desc,
+            )
+        add(
+            "cubism.editor-model.parameter-group.handler",
+            f"cubism.mapping.v{tag}.editor_model.method.parameter-group_handler",
+            memberName="getHandler",
+            descriptor=f"()Lcom/live2d/cubism/doc/model/param/group/{handler};",
+        )
+        add(
+            "cubism.editor-model.model-handler.move-parameter",
+            f"cubism.mapping.v{tag}.editor_model.method.model-handler_move-parameter",
+            memberName="a",
+        )
+        add(
+            "cubism.texture-atlas.native.data.impl",
+            f"cubism.mapping.v{tag}.editor_model.method.native_data_impl",
+            memberName="a",
+            descriptor=f"()Lcom/live2d/cubism/doc/modeling/ui/atlasEditor/impl/{impl};",
+        )
+        add(
+            "cubism.texture-atlas.native.impl.container",
+            f"cubism.mapping.v{tag}.editor_model.method.native_impl_container",
+            ownerInternalName=f"com/live2d/cubism/doc/modeling/ui/atlasEditor/impl/{impl}",
+            memberName="b",
+            descriptor="()Ljp/noids/design/layer/core/ContainerLayer;",
+        )
+        add(
+            "cubism.editor-model.eval-flags.create",
+            f"cubism.mapping.v{tag}.editor_model.constructor.eval_flags_create",
+            ownerInternalName="com/live2d/cubism/doc/animation/movie/track/E",
+            memberName="<init>",
+            descriptor="(Z)V",
+        )
+        add(
+            "cubism.editor-model.track-instance.update",
+            f"cubism.mapping.v{tag}.editor_model.method.track_instance_update",
+            memberName="updateTrackInstance_testImpl",
+            descriptor="(Lcom/live2d/cubism/view/context/CEViewContext;Lcom/live2d/cubism/doc/animation/movie/core/a;Lcom/live2d/cubism/doc/animation/movie/track/E;)V",
+        )
+    return out
+
+
+MEMBER_VARIANTS.update(_editor_variants())
+
+# 5.0.x dock/menu renames: updatePaletteMenuCheck (5.0.00-05) is the
+# updateWindowMenuItem body, and the tab-popup append is b (c on 5.1+).
+for _v in ("5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05"):
+    MEMBER_VARIANTS[("cubism.ui-panel.dock.update-window-menu", _v)] = {
+        "memberName": "updatePaletteMenuCheck",
+        "mappingId": "cubism.mapping.v{}.ui_embedded_panel.dock_update_window_menu".format(
+            _v.replace(".", "_")
+        ),
+    }
+for _v in V50_ALL:
+    MEMBER_VARIANTS[("cubism.ui-panel.dock-tab-popup.menu-append", _v)] = {
+        "memberName": "b",
+        "mappingId": "cubism.mapping.v{}.ui_embedded_panel.menu_append".format(
+            _v.replace(".", "_")
+        ),
+    }
+del _v
+
+
 def decode_mutf8(data: bytes) -> str:
     """Decode Java modified UTF-8 the way DataInputStream.readUTF does."""
     chars = []
@@ -461,6 +727,62 @@ def contract_constants() -> dict[str, dict[str, object]]:
             name: (v["v"] if v["t"] == "s" else frozenset(v["v"]))
             for name, v in fields.items()
         }
+    # Runtime-side admission contracts referenced by
+    # CapabilitySelectorDependencies.add(...) entries. They live outside the
+    # template tree, so their literals are folded in from source instead of
+    # being compiled.
+    table.update(runtime_contract_constants())
+    # Capability -> declared SUPPORTED_VERSIONS for runtime-side contracts;
+    # emitted records must not advertise a capability outside its contract.
+    versions: dict[str, frozenset] = {}
+    for cls in _RUNTIME_CONTRACT_FILES:
+        simple = cls.rsplit("/", 1)[-1].removesuffix(".java")
+        fields = table[simple]
+        cap = fields.get("CAPABILITY_ID")
+        supported = fields.get("SUPPORTED_VERSIONS")
+        if isinstance(cap, str) and isinstance(supported, frozenset):
+            versions[cap] = supported
+    table["_capabilitySupportedVersions"] = versions
+    return table
+
+
+_RUNTIME_CONTRACT_FILES = (
+    "dev/turboism/adapter/cubism/mesh/MeshToolSessionSelectorContract.java",
+    "dev/turboism/adapter/cubism/modeling/ModelingSelectionSelectorContract.java",
+)
+
+
+def runtime_contract_constants() -> dict[str, dict[str, object]]:
+    """Extract String/Set-of-String constants from runtime-only contracts."""
+    table: dict[str, dict[str, object]] = {}
+    for relative in _RUNTIME_CONTRACT_FILES:
+        path = ROOT / "runtime/src/main/java" / relative
+        text = path.read_text(encoding="utf-8")
+        fields: dict[str, object] = {}
+        for match in re.finditer(
+            r'public static final String (\w+) =\s*"([^"]+)"', text
+        ):
+            fields[match.group(1)] = match.group(2)
+        for match in re.finditer(
+            r"public static final Set<String> (\w+) =\s*Set\.of\(([^;]+?)\);",
+            text,
+            re.DOTALL,
+        ):
+            values = []
+            for token in re.findall(r'"([^"]+)"|(\b[A-Z][A-Z0-9_]*\b)', match.group(2)):
+                literal, constant = token
+                if literal:
+                    values.append(literal)
+                else:
+                    resolved = fields.get(constant)
+                    if resolved is None:
+                        raise ValueError(
+                            f"unresolvable runtime contract constant: {constant} in {relative}"
+                        )
+                    values.append(resolved)
+            fields[match.group(1)] = frozenset(values)
+        simple = relative.rsplit("/", 1)[-1].removesuffix(".java")
+        table[simple] = fields
     return table
 
 
@@ -519,6 +841,12 @@ def required_aliases(
         and cubism_version in inst["ONION_SKIN_ABSENT_VERSIONS"]
     ):
         aliases -= set(inst["ONION_SKIN_ALIASES"])
+    psd = constants["EditorRawImagePsdSelectorContract"]
+    if (
+        capability == psd["CAPABILITY_ID"]
+        and cubism_version in psd["TRANSPARENCY_SHAPES_ABSENT_VERSIONS"]
+    ):
+        aliases -= set(psd["TRANSPARENCY_SHAPES_ALIASES"])
     session = constants["EditorEditSessionSelectorContract"]
     if capability.startswith("cubism.editor-model.edit."):
         aliases.update(session["SESSION_ADMISSION_REQUIRED_ALIASES"])
@@ -679,7 +1007,6 @@ def derive_editor_model_record(
         variant.update(overrides)
         if verify_selector(jar, variant) == "VERIFIED_STATIC":
             chosen[alias] = variant
-    full_universe = len(chosen) == len(universe)
     merged = [chosen[a] for a in sorted(chosen)]
 
     merged_surviving = set(chosen)
@@ -692,10 +1019,21 @@ def derive_editor_model_record(
                 continue
             conditions_by_cap[capability] = record_conditions.get(capability, [])
             cap_order.append(capability)
+    supported_versions = constants.get("_capabilitySupportedVersions") or {}
     capabilities = []
     for capability in cap_order:
+        declared = supported_versions.get(capability)
+        if declared is not None and version not in declared:
+            continue
         if capability not in editor:
-            if not full_universe:
+            # Unlisted capabilities conservatively require a complete source
+            # record that declares them: keep only when some declaring
+            # record's entire selector set survives on this jar.
+            if not any(
+                capability in source["capabilityIds"]
+                and {s["alias"] for s in source["selectors"]} <= merged_surviving
+                for _source_version, source in sources
+            ):
                 continue
         else:
             required = required_aliases(
@@ -752,8 +1090,12 @@ def derive_record(
     else:
         selectors = [s for s in source["selectors"] if s["alias"] in surviving]
         record_conditions = source.get("capabilityConditions") or {}
+        supported_versions = constants.get("_capabilitySupportedVersions") or {}
         capabilities = []
         for capability in source["capabilityIds"]:
+            declared = supported_versions.get(capability)
+            if declared is not None and version not in declared:
+                continue
             listed = capability in editor
             if not listed and not full:
                 # Unlisted capabilities conservatively require the entire
@@ -2050,7 +2392,8 @@ def verify_propagated(
     jar: JarIndex, selector: dict, from_version: str, to_version: str, resolver
 ):
     """Returns (selector_to_use, status, via): 'direct' when the reference
-    selector verifies as-is, 'symbol-map' when a resolver candidate does, or
+    selector verifies as-is, 'variant' when a reviewed MEMBER_VARIANTS
+    override does, 'symbol-map' when a resolver candidate does, or
     'unresolved' with the original verifier status."""
     status = verify_selector(jar, selector)
     if status == "VERIFIED_STATIC":

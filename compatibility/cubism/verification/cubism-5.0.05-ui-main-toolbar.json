@@ -331,7 +331,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_05.ui_main_toolbar.field.mesh_tool_mode_instance",
+      "mappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.field.mesh_tool_mode_instance",
       "alias": "cubism.ui-main-toolbar.mesh-tool-mode.instance",
       "kind": "field",
       "ownerInternalName": "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolMode_MeshEdit_Manual",
@@ -342,7 +342,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_05.ui_main_toolbar.method.mesh_tool_mode_tool_panel",
+      "mappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.method.mesh_tool_mode_tool_panel",
       "alias": "cubism.ui-main-toolbar.mesh-tool-mode.tool-panel",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolMode_MeshEdit_Manual",
@@ -353,7 +353,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_05.ui_main_toolbar.method.mesh_tool_panel_arrow_button",
+      "mappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.method.mesh_tool_panel_arrow_button",
       "alias": "cubism.ui-main-toolbar.mesh-tool-panel.arrow-button",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
@@ -375,7 +375,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_05.ui_main_toolbar.class.abstract_button",
+      "mappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.class.abstract_button",
       "alias": "cubism.ui-main-toolbar.abstract-button.class",
       "kind": "class",
       "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
@@ -390,14 +390,14 @@
       "descriptor": "()Ljavax/swing/AbstractButton;",
       "forbiddenAccessFlags": 8,
       "kind": "method",
-      "mappingId": "cubism.mapping.v5_0_05.ui_main_toolbar.method.abstract_button_get_j_abstract_button",
+      "mappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.method.abstract_button_get_j_abstract_button",
       "memberName": "getJAbstractButton",
       "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
       "requiredAccessFlags": 17,
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_05.ui_main_toolbar.method.abstract_button_set_selected",
+      "mappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.method.abstract_button_set_selected",
       "alias": "cubism.ui-main-toolbar.abstract-button.set-selected",
       "kind": "method",
       "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
@@ -412,7 +412,7 @@
       "descriptor": "(Lcom/live2d/type/CIcon;)V",
       "forbiddenAccessFlags": 8,
       "kind": "method",
-      "mappingId": "cubism.mapping.v5_0_05.ui_main_toolbar.method.abstract_button_set_icon",
+      "mappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.method.abstract_button_set_icon",
       "memberName": "setIcon",
       "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
       "requiredAccessFlags": 17,
@@ -423,7 +423,7 @@
       "descriptor": "(Lcom/live2d/type/CIcon;)V",
       "forbiddenAccessFlags": 8,
       "kind": "method",
-      "mappingId": "cubism.mapping.v5_0_05.ui_main_toolbar.method.abstract_button_set_pressed_icon",
+      "mappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.method.abstract_button_set_pressed_icon",
       "memberName": "setPressedIcon",
       "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
       "requiredAccessFlags": 17,
@@ -434,7 +434,7 @@
       "descriptor": "(Lcom/live2d/type/CIcon;)V",
       "forbiddenAccessFlags": 8,
       "kind": "method",
-      "mappingId": "cubism.mapping.v5_0_05.ui_main_toolbar.method.abstract_button_set_selected_icon",
+      "mappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.method.abstract_button_set_selected_icon",
       "memberName": "setSelectedIcon",
       "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
       "requiredAccessFlags": 17,
@@ -445,7 +445,7 @@
       "descriptor": "(Lcom/live2d/type/CIcon;)V",
       "forbiddenAccessFlags": 8,
       "kind": "method",
-      "mappingId": "cubism.mapping.v5_0_05.ui_main_toolbar.method.abstract_button_set_disabled_icon",
+      "mappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.method.abstract_button_set_disabled_icon",
       "memberName": "setDisabledIcon",
       "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
       "requiredAccessFlags": 17,
@@ -456,7 +456,7 @@
       "descriptor": "(Lcom/live2d/type/CIcon;)V",
       "forbiddenAccessFlags": 8,
       "kind": "method",
-      "mappingId": "cubism.mapping.v5_0_05.ui_main_toolbar.method.abstract_button_set_disabled_selected_icon",
+      "mappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.method.abstract_button_set_disabled_selected_icon",
       "memberName": "setDisabledSelectedIcon",
       "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
       "requiredAccessFlags": 17,

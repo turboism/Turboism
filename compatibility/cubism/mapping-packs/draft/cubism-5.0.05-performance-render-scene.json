@@ -5,7 +5,7 @@
   "source": "jar-metadata-probe",
   "cubismVersion": "5.0.05",
   "metadata": {
-    "validationNotes": "Exact metadata inventory for adapter.cubism.performance.fps-hook, taken verbatim from the targets the probe transformer binds. Every selector verified VERIFIED_STATIC against the exact artifact. Pack remains DRAFT; only its hash-anchored record is VERIFIED_STATIC.",
+    "validationNotes": "Exact metadata inventory for adapter.cubism.performance.fps-hook, taken verbatim from the targets the probe transformer binds. Every selector is VERIFIED_STATIC against the exact artifact. Pack remains DRAFT; its hash-anchored record does not admit the 5.0.05 FPS installer.",
     "inventoryRef": "compatibility/cubism/verification/cubism-5.0.05-performance-render-scene.json",
     "artifactName": "Live2D_Cubism.jar",
     "artifactSize": 36644752,

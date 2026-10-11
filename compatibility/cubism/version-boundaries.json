@@ -1,160 +1,751 @@
 {
  "format": "turboism.version-boundaries/v1",
- "comment": "Feature-presence boundaries: versions where Cubism Editor itself lacks the feature (audit class (a) in build/spike/52-53-feature-gaps.md, verified against all reviewed jars). Anything absent here is NOT a proven boundary — the matrix generator labels unproven gaps 'pending adaptation' or 'unconfirmed', never 'the version lacks the feature'.",
+ "comment": "Feature-presence boundaries: versions where Cubism Editor itself lacks the feature (audit class (a) in build/spike/52-53-feature-gaps.md, verified against all reviewed jars). Anything absent here is NOT a proven boundary \u2014 the matrix generator labels unproven gaps 'pending adaptation' or 'unconfirmed', never 'the version lacks the feature'.",
  "boundaries": [
   {
    "id": "dev.turboism.sdk.cubism.model.AlphaComposition",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Alpha composition (blend modes) was introduced in Cubism 5.3.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "dev.turboism.sdk.cubism.model.Part#maskIds",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Part mask-id access requires the 5.3 inspector schema.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "dev.turboism.sdk.cubism.model.Part#alphaComposition",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Alpha composition exists only on Cubism 5.3.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "dev.turboism.sdk.cubism.model.Part#setAlphaComposition",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Alpha composition exists only on Cubism 5.3.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "dev.turboism.sdk.cubism.model.Part#setOpacity",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Part opacity writes through the inspector are 5.3-only.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "dev.turboism.sdk.cubism.core.CoreCapabilities#parameterRepeat",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Core parameterRepeat support is 5.3-only.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "cubism.editor-model.part-inspector.write",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "The extended part-inspector write schema (mask/alpha fields) exists only on 5.3.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "command:ADJUST_BOUNDING_BOX_ANGLE",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02"
+   ],
    "reason": "Command added in Cubism 5.2.03.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "command:SELECT_CHILD_ELEMENTS_OF_DEFORMER",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02"
+   ],
    "reason": "Command added in Cubism 5.2.03.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "command:SHOW_POPUP_HOVERING_OBJECT",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02"
+   ],
    "reason": "Command added in Cubism 5.2.03.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "command:CHANGE_ALL_MESH_DRAW_ORDER",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02"
+   ],
    "reason": "Command added in Cubism 5.2.03.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "command:CHANGE_MESH_DRAW_ORDER",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02"
+   ],
    "reason": "Command added in Cubism 5.2.03.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "command:EXPAND_WARPDEFORMER",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Command is 5.3-only.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "command:SETTING_GUIDES_MODELING_ADD_CENTER",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Command is 5.3-only.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "command:SHOW_DEFAULT_ZOOM",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Command is 5.3-only.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "command:SHOW_FULL_SCENE",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Command is 5.3-only.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "command:SWITCH_HIGHTLIGHT_CONFLICT_POLYGON",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Command is 5.3-only.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "command:FADE_SETTING",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Command is 5.3-only (renamed from the 5.2 label-copy command).",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "command:REFLECT_FADE",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "Command is 5.3-only.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "command:SHOW_LABEL_COPY_DIALOG",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
    "reason": "5.3 rename of the 5.2 SHOW_SHOW_LABEL_COPY_DIALOG command.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "command:MESH_EDIT_RESET",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03","5.3.00","5.3.01"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01"
+   ],
    "reason": "Command added in Cubism 5.3.02.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "command:OPEN_FAQ_PAGE",
-   "absentOn": ["5.3.00","5.3.01","5.3.02","5.3.03","5.3.04"],
+   "absentOn": [
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
    "reason": "Command was dropped in Cubism 5.3 (present through 5.2.03).",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "command:MOVE_END",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03","5.3.00","5.3.01","5.3.02","5.3.03","5.3.04"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
    "reason": "Dead constant: the id exists in no reviewed jar.",
    "source": "feature-gap audit class (a)"
   },
   {
    "id": "command:MOVE_END_WORKSPACE",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03","5.3.00","5.3.01","5.3.02","5.3.03","5.3.04"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
    "reason": "Dead constant: the id exists in no reviewed jar.",
    "source": "feature-gap audit class (a)"
   },
   {
+   "id": "cubism.autobackup.settings",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "com/live2d/cubism/doc/modeling/CModelingDocument::getDocumentUID()Ljava/lang/String; is absent on every 5.0.x jar (MEMBER_MISSING); the document-UID identity chain the autobackup session depends on was introduced in 5.1 \u2014 5.0.x exposes only getFileContentInstanceGuid().",
+   "source": "gap5051 bytecode audit: javap on cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; propagate autobackup --from 5.2.00 reports MEMBER_MISSING on all 5.0.x"
+  },
+  {
+   "id": "cubism.autobackup.backup",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "com/live2d/cubism/doc/modeling/CModelingDocument::getDocumentUID()Ljava/lang/String; is absent on every 5.0.x jar (MEMBER_MISSING); the document-UID identity chain the autobackup session depends on was introduced in 5.1 \u2014 5.0.x exposes only getFileContentInstanceGuid().",
+   "source": "gap5051 bytecode audit: javap on cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; propagate autobackup --from 5.2.00 reports MEMBER_MISSING on all 5.0.x"
+  },
+  {
+   "id": "cubism.protected-export.orchestration",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Three incompatible members on every 5.0.x jar: export driver com/live2d/cubism/appCtrlImpl/al::a(CModelSource;CFrame;Function1)V takes Function1 (5.1+ uses Function2 \u2014 the staged output-file + absolute-path-list callback contract does not exist), CModelSource::containMotionSyncSettingNeedCorrection()Z missing, CMotionSyncSettingSource::getMotionSyncVersion() missing. The reviewed transformation premise fails closed.",
+   "source": "gap5051 bytecode audit: javap on cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; propagate protected-export --from 5.2.00 reports DESCRIPTOR_MISMATCH + 2x MEMBER_MISSING on all 5.0.x"
+  },
+  {
+   "id": "cubism.editor-ui.main-toolbar",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Field com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl::toolBtn_openHomeDialog and its accessor (q()Lcom/live2d/ui/control/CIconButton;) are absent on every 5.0.x jar (DESCRIPTOR_MISMATCH \u2014 q() returns CButton); the home-dialog toolbar button was introduced in 5.1.00.",
+   "source": "gap5051 bytecode audit: javap on cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; propagate ui-main-toolbar --from 5.1.03 reports the home-button selector missing on all 5.0.x"
+  },
+  {
+   "id": "ui.mesh-toolbar.contribute",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Field com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl::toolBtn_openHomeDialog and its accessor (q()Lcom/live2d/ui/control/CIconButton;) are absent on every 5.0.x jar (DESCRIPTOR_MISMATCH \u2014 q() returns CButton); the home-dialog toolbar button was introduced in 5.1.00.",
+   "source": "gap5051 bytecode audit: javap on cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; propagate ui-main-toolbar --from 5.1.03 reports the home-button selector missing on all 5.0.x"
+  },
+  {
+   "id": "cubism.editor-ui.top-menu",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Package com/live2d/cubism/doc/webSocket contains zero classes in every 5.0.x jar (100 classes in 5.1.00); all 10 external-app selectors (com/live2d/cubism/doc/webSocket/l, l$a, x) report CLASS_MISSING.",
+   "source": "gap5051 bytecode audit: jar listing of cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; propagate ui-top-menu --from 5.1.03 reports 10x CLASS_MISSING on all 5.0.x"
+  },
+  {
+   "id": "cubism.editor-model.auto-yure.read",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Package com/live2d/cubism/autoYure contains zero classes in every 5.0.x jar (59 classes in 5.1.00); the auto-sway document model was introduced in 5.1.",
+   "source": "gap5051 bytecode audit: jar listing of cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar (autoYure class count = 0)"
+  },
+  {
+   "id": "cubism.integration.edit-api-bridge.dispatch",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01"
+   ],
+   "reason": "On 5.0.x the com/live2d/cubism/doc/webSocket package is absent entirely (CLASS_MISSING on all 10 dispatch selectors). On 5.1.00/5.1.01 the session-lookup com/live2d/cubism/doc/webSocket/l::b(Lorg/java_websocket/WebSocket;) is private (contract requires public+final) and the only public bridge is static (forbidden by the selector); the session class is webSocket/aa with a different auth manager call shape (CExternalAppAuthManager.getAuth(String) vs getAuth(String,String) on 5.1.02+).",
+   "source": "gap5051 bytecode audit: javap on cubism-ref 5.0.x/5.1.00/5.1.01 Live2D_Cubism.jar; webSocket server class is T (5.1.00-01) / U (5.1.02+)"
+  },
+  {
+   "id": "cubism.integration.external-app-settings.edit-toggle",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Package com/live2d/cubism/doc/webSocket contains zero classes in every 5.0.x jar; the external-app settings dialog selectors are CLASS_MISSING on all 5.0.x.",
+   "source": "gap5051 bytecode audit: jar listing of cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar"
+  },
+  {
+   "id": "cubism.editor-model.animation-timeline.write",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "com/live2d/cubism/doc/animation/movie/effect/attr/CMvAttrF::setValueAndCurveType(ID;Lcom/live2d/cubism/doc/animation/movie/effect/attr/value/CCurveType;)V is absent on every 5.0.x/5.1.x jar \u2014 timeline curve-type writes were introduced in 5.2.",
+   "source": "gap5051 bytecode audit: javap CMvAttrF on cubism-ref/5.0.00..5.1.03 Live2D_Cubism.jar (setValueAndCurveType count = 0)"
+  },
+  {
+   "id": "cubism.editor-model.animation-eval",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "com/live2d/cubism/doc/animation/movie/track/CMvTrack_Live2DModel_Instance::getParameterSet() is absent on every 5.0.x/5.1.x jar, and the timeline-write roster (CMvAttrF::setValueAndCurveType) the eval bake path requires is also absent \u2014 evaluated-parameter recording cannot complete.",
+   "source": "gap5051 bytecode audit: javap CMvTrack_Live2DModel_Instance + CMvAttrF on cubism-ref/5.0.00..5.1.03 Live2D_Cubism.jar"
+  },
+  {
+   "id": "cubism.editor-model.part-opacity.write",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "com/live2d/cubism/doc/model/parts/CPartForm::getOpacity()F / setOpacity(F)V are absent on every 5.0.x/5.1.x/5.2.x jar \u2014 part-form opacity accessors were introduced in 5.3.",
+   "source": "gap5051 bytecode audit: javap CPartForm on cubism-ref/5.0.00..5.2.03 Live2D_Cubism.jar (opacity member count = 0)"
+  },
+  {
    "id": "cubism.geometry.read",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
    "reason": "Core deformer/glue geometry read requires com/live2d/sdk/cubism/core/CubismDeformers and CubismGlues plus CubismModel.getDeformers/getGlues; both classes are absent from Live2DCubismCore.jar on all reviewed 5.0/5.1 builds and first appear in 5.2.00.",
    "source": "bytecode review: Live2DCubismCore.jar class listing 5.0.00-5.1.03 vs 5.2.00"
   },
   {
    "id": "cubism.modeling-tool.selection-brush",
-   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03"],
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
    "reason": "Selection-brush ingress requires com/live2d/cubism/CEAppCtrl.getCurrentViewContextChangedListeners()Ljava/util/ArrayList; and the currentViewContextChangedListeners field; both are absent on all reviewed 5.0/5.1 jars and first appear in 5.2.00 (the modeling-tool view listener API was added in 5.2).",
    "source": "bytecode review: CEAppCtrl member listing 5.0.00-5.1.03 vs 5.2.00"
   }

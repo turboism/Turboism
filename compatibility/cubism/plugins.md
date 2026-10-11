@@ -15,25 +15,25 @@ When Cubism runs under a FREE licence, saving is subject to the FREE parameter-c
 | `atlas-maxrects-bssf` | all reviewed versions | — | host-verified 5.2.03 |
 | `bounding-box` | all reviewed versions | — | — |
 | `boundingbox-warp-mirror` | all reviewed versions | — | host-verified 5.2.03, 5.3.03 |
-| `clipmask-viewer` | all reviewed versions | Embedded panel docking not on 5.0.00–5.0.06<br>Top menu integration not on 5.0.00–5.0.06 | host-verified 5.0.00, 5.0.06–5.1.00, 5.1.03–5.2.00, 5.2.03–5.3.00, 5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
+| `clipmask-viewer` | all reviewed versions | Top menu integration not on 5.0.00–5.0.06 | host-verified 5.0.00, 5.0.06–5.1.00, 5.1.03–5.2.00, 5.2.03–5.3.00, 5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
 | `command-palette` | 5.1.00–5.3.04（5.0.00–5.0.06 unconfirmed） | Top menu integration not on 5.0.00–5.0.06 | — |
 | `context-menu` | all reviewed versions | — | — |
 | `cubism-tab-filter` | all reviewed versions | — | — |
 | `demo` | all reviewed versions | — | — |
-| `external-psd-edit` | 5.2.00–5.3.04（5.0.00–5.1.03 pending adaptation） | PSD raw-image replace only on 5.2.00–5.3.04（5.0.00–5.1.03 pending adaptation）<br>Export PSD raw image only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Replace PSD raw image only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed） | host-verified 5.3.02 |
-| `history-panel` | all reviewed versions | full feature set requires 5.2.00+<br>Semantic history decoding only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Embedded panel docking not on 5.0.00–5.0.06 | — |
-| `mcp` | all reviewed versions | full feature set requires 5.2.00+<br>MCP texture writes only on 5.2.03–5.3.04（5.0.00–5.2.02 unconfirmed）<br>Parameter writes only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Authoring transactions (grouped undo writes) only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>MCP transaction execution only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Top menu integration not on 5.0.00–5.0.06 | host-verified 5.2.00–5.2.01, 5.3.00, 5.3.04<br>confirmed boundary 5.0.00, 5.0.06–5.1.00 |
+| `external-psd-edit` | all reviewed versions | Export PSD raw image only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Replace PSD raw image only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed） | host-verified 5.3.02 |
+| `history-panel` | all reviewed versions | — | — |
+| `mcp` | all reviewed versions | full feature set requires 5.1.00+<br>MCP texture writes only on 5.2.03–5.3.04（5.0.00–5.2.02 unconfirmed）<br>Authoring transactions (grouped undo writes) only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>MCP transaction execution only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Top menu integration not on 5.0.00–5.0.06 | host-verified 5.2.00–5.2.01, 5.3.00, 5.3.04<br>confirmed boundary 5.0.00, 5.0.06–5.1.00 |
 | `mesh-edit-mirror-axis-enhance` | all reviewed versions | full feature set requires 5.2.00+<br>Mesh geometry read only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely） | — |
 | `model-import-3d` | all reviewed versions | — | — |
-| `palette-label-style` | all reviewed versions | full feature set requires 5.2.00+<br>Editor model writes only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed） | — |
-| `parameter` | all reviewed versions | full feature set requires 5.2.00+<br>Editor model writes only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Authoring transactions (grouped undo writes) only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed） | host-verified 5.2.00, 5.2.03, 5.3.02, 5.3.04<br>confirmed boundary 5.3.00–5.3.01 |
-| `parameter-batch-transfer` | all reviewed versions | full feature set requires 5.2.00+<br>Editor model writes only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed） | host-verified 5.2.00–5.3.04<br>confirmed boundary 5.0.02–5.0.06, 5.1.01–5.1.03 |
-| `perf-stats` | all reviewed versions | Embedded panel docking not on 5.0.00–5.0.06 | host-verified 5.0.00–5.0.06, 5.1.01–5.1.03, 5.2.03, 5.3.02–5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
+| `palette-label-style` | all reviewed versions | — | — |
+| `parameter` | all reviewed versions | Authoring transactions (grouped undo writes) only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed） | host-verified 5.2.00, 5.2.03, 5.3.02, 5.3.04<br>confirmed boundary 5.3.00–5.3.01 |
+| `parameter-batch-transfer` | all reviewed versions | — | host-verified 5.2.00–5.3.04<br>confirmed boundary 5.0.02–5.0.06, 5.1.01–5.1.03 |
+| `perf-stats` | all reviewed versions | — | host-verified 5.0.00–5.0.06, 5.1.01–5.1.03, 5.2.03, 5.3.02–5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
 | `physics-editor` | all reviewed versions | — | — |
 | `project-inspector` | all reviewed versions | — | — |
 | `project-panel` | all reviewed versions | — | — |
 | `protected-export` | 5.1.00–5.3.04（5.0.00–5.0.06 unconfirmed） | Protected-export orchestration not on 5.0.00–5.0.06<br>Export settings contribution not on 5.0.00–5.0.06 | host-verified 5.1.00, 5.1.03–5.2.00, 5.2.03–5.3.00, 5.3.04 |
-| `psd-clip-mask-import` | all reviewed versions | Embedded panel docking not on 5.0.00–5.0.06 | host-verified 5.0.00–5.1.00, 5.1.02–5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
+| `psd-clip-mask-import` | all reviewed versions | — | host-verified 5.0.00–5.1.00, 5.1.02–5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
 | `psd-import` | all reviewed versions | — | — |
 | `recent-preview` | all reviewed versions | — | host-verified 5.2.03 |
 | `scene-palette-enhancer` | all reviewed versions | — | — |

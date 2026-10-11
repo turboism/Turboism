@@ -2,6 +2,13 @@
  "format": "turboism.verification-source-family/v1",
  "family": "ui-embedded-panel",
  "records": [
+  "cubism-5.0.00-ui-embedded-panel.json",
+  "cubism-5.0.01-ui-embedded-panel.json",
+  "cubism-5.0.02-ui-embedded-panel.json",
+  "cubism-5.0.03-ui-embedded-panel.json",
+  "cubism-5.0.04-ui-embedded-panel.json",
+  "cubism-5.0.05-ui-embedded-panel.json",
+  "cubism-5.0.06-ui-embedded-panel.json",
   "cubism-5.1.00-ui-embedded-panel.json",
   "cubism-5.1.01-ui-embedded-panel.json",
   "cubism-5.1.02-ui-embedded-panel.json",
