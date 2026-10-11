@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 
 /**
@@ -17,6 +18,7 @@ import java.util.List;
  * @param recentProjectIds unmodifiable copy of recently opened project identifiers, most-recent
  *     ordering as supplied by the host
  */
+@CubismEditor
 public record WorkspaceSnapshot(
         String workspaceId, String displayName, String rootRelativePath, List<String> recentProjectIds) {
     /** Convenience constructor that uses the workspace identifier as its display name. */

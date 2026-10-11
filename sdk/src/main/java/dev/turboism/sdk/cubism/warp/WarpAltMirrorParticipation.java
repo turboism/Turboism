@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.warp;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.plugin.Registration;
 
 /**
@@ -10,6 +11,7 @@ import dev.turboism.sdk.plugin.Registration;
  * <p>Participating activates the native drag-tick bridge when the reviewed host
  * hook is installed; without participation the bridge stays inert.</p>
  */
+@CubismEditor(from = "5.2.00")
 public interface WarpAltMirrorParticipation {
 
     /**

@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.clipmask;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import java.util.List;
 import java.util.Objects;
@@ -9,6 +10,7 @@ import java.util.Optional;
  * Immutable PSD resource snapshot with the clipping relationship data needed
  * for clip-mask planning, associated with this Editor model.
  */
+@CubismEditor
 public record PsdClipMaskDocumentSnapshot(String documentId, String relativePath, List<PsdLayerSnapshot> layers) {
     public PsdClipMaskDocumentSnapshot {
         if (documentId == null || documentId.isBlank()) {
@@ -43,6 +45,7 @@ public record PsdClipMaskDocumentSnapshot(String documentId, String relativePath
      *     {@code clipping} is {@code false}
      * @param children the layers nested inside this one, possibly empty; must not be {@code null}
      */
+    @CubismEditor
     public record PsdLayerSnapshot(
             String layerId,
             String name,

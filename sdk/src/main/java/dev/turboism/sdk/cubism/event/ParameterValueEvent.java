@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.event;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.event.TurboismEvent;
 import java.util.Objects;
@@ -7,6 +8,7 @@ import java.util.Objects;
 /**
  * Typed states of the semantic parameter set-value event family.
  */
+@CubismEditor
 public sealed interface ParameterValueEvent extends TurboismEvent
         permits ParameterValueEvent.Before, ParameterValueEvent.On, ParameterValueEvent.After {
 
@@ -89,6 +91,7 @@ public sealed interface ParameterValueEvent extends TurboismEvent
         }
 
         /** One Runtime-owned mutable callback scope. */
+        @CubismEditor
         public static final class Callback implements AutoCloseable {
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;

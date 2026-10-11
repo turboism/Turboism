@@ -9271,6 +9271,46 @@
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Part.java"
   },
   {
+   "api": "dev.turboism.sdk.cubism.recentfile.RecentFileService",
+   "kind": "type",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/recentfile/RecentFileService.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService",
+   "kind": "type",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/recentpreview/RecentPreviewContributionService.java"
+  },
+  {
    "api": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel",
    "kind": "type",
    "versions": [
@@ -9317,6 +9357,22 @@
     "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasEditorUi.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation",
+   "kind": "type",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/warp/WarpAltMirrorParticipation.java"
   }
  ],
  "runtimeGates": [],
@@ -13114,7 +13170,90 @@
     "5.3.03",
     "5.3.04"
    ],
-   "partialFeatures": [],
+   "partialFeatures": [
+    {
+     "key": "dev.turboism.sdk.cubism.recentfile.RecentFileService",
+     "declaredCapability": null,
+     "versions": [
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03",
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/recentfile/RecentFileService.java"
+     ],
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown"
+     }
+    },
+    {
+     "key": "dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService",
+     "declaredCapability": null,
+     "versions": [
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03",
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/recentpreview/RecentPreviewContributionService.java"
+     ],
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown"
+     }
+    }
+   ],
    "unmappedCapabilities": [],
    "hostValidation": {
     "recent-preview": {
@@ -13890,6 +14029,51 @@
       "5.1.01": "pending",
       "5.1.02": "pending",
       "5.1.03": "pending"
+     }
+    },
+    {
+     "key": "dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation",
+     "declaredCapability": null,
+     "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/warp/WarpAltMirrorParticipation.java"
+     ],
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
      }
     }
    ],

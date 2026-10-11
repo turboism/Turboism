@@ -1,10 +1,12 @@
 package dev.turboism.sdk.cubism.event;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.event.TurboismEvent;
 import java.util.Objects;
 
 /** Typed states of the semantic Deformer visibility write event family. */
+@CubismEditor
 public sealed interface DeformerVisibilityEvent extends TurboismEvent
         permits DeformerVisibilityEvent.Before, DeformerVisibilityEvent.On, DeformerVisibilityEvent.After {
 
@@ -59,6 +61,7 @@ public sealed interface DeformerVisibilityEvent extends TurboismEvent
         }
 
         /** One Runtime-owned mutable callback scope. */
+        @CubismEditor
         public static final class Callback implements AutoCloseable {
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;

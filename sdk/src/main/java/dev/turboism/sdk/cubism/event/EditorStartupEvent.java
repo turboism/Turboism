@@ -1,10 +1,12 @@
 package dev.turboism.sdk.cubism.event;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.EditorLifecycleSnapshot;
 import dev.turboism.sdk.event.TurboismEvent;
 import java.util.Objects;
 
 /** Typed states of the Turboism-visible Cubism Editor startup lifecycle. */
+@CubismEditor
 public sealed interface EditorStartupEvent extends TurboismEvent
         permits EditorStartupEvent.Before, EditorStartupEvent.On, EditorStartupEvent.After {
 

@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.event;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.event.TurboismEvent;
 import java.util.Objects;
 
 /** Typed lifecycle states for one Runtime-confirmed semantic Cubism operation. */
+@CubismEditor
 public sealed interface CubismOperationLifecycleEvent extends TurboismEvent
         permits CubismOperationLifecycleEvent.Before,
                 CubismOperationLifecycleEvent.On,

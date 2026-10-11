@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Result of Cubism's exit request before process shutdown. */
+@CubismEditor
 public record EditorExitResult(EditorLifecycleSnapshot editor, boolean accepted, Optional<String> failureType) {
     public EditorExitResult {
         editor = Objects.requireNonNull(editor, "editor");

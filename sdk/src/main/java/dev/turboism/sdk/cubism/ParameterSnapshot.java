@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /**
@@ -18,6 +19,7 @@ import java.util.Objects;
  * @param editable whether the user may change the value; a visible parameter may still be locked
  * @see dev.turboism.sdk.cubism.model.Parameter the live object-API handle for reads and writes
  */
+@CubismEditor
 public record ParameterSnapshot(
         String id,
         String name,

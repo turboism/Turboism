@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.recentfile;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /** Opaque, cross-session-stable identity of a recently opened Cubism project file. */
+@CubismEditor
 public record RecentFileId(String value) {
     public RecentFileId {
         value = Objects.requireNonNull(value, "value");

@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.event;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -14,6 +15,7 @@ import java.util.Optional;
  *              edit name a Cubism Editor action was started with. It is presentation only: a label
  *              is never an identity and is never proof of what an operation changed
  */
+@CubismEditor
 public record CubismOperationEvent(
         long sequence,
         CubismOperation operation,
