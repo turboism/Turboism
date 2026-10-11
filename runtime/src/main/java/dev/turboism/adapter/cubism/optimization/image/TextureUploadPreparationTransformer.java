@@ -19,8 +19,10 @@ import org.objectweb.asm.Opcodes;
 
 /** Substitutes only the image argument of one reviewed native texture-creation call. */
 public final class TextureUploadPreparationTransformer implements ClassFileTransformer {
-    /** Exact 5.3.02 native texture factory. */
+    /** Exact 5.3.x native texture factory. */
     public static final String TARGET = "com/live2d/graphics3d/shader/A";
+    /** Same factory owner on Cubism 5.2.x, where the class kept its earlier name. */
+    public static final String TARGET_52 = "com/live2d/graphics3d/shader/y";
     /** The profiled factory overload; the other overload remains untouched. */
     public static final String METHOD_DESCRIPTOR =
             "(Lcom/live2d/graphics3d/a;Lcom/live2d/graphics/CWritableImage;ILjava/lang/String;)Lkotlin/Pair;";
@@ -30,6 +32,7 @@ public final class TextureUploadPreparationTransformer implements ClassFileTrans
             "(Lcom/jogamp/opengl/GLProfile;Ljava/awt/image/BufferedImage;Z)Lcom/jogamp/opengl/util/texture/Texture;";
     private final ClassLoader expectedLoader;
     private final Path artifact;
+    private final String owner;
     private final List<String> reviewedShape;
     private volatile int matches;
     private volatile String failure;
@@ -37,23 +40,46 @@ public final class TextureUploadPreparationTransformer implements ClassFileTrans
 
     /** Reference bytes come from the installer's verified target-class snapshot. */
     public TextureUploadPreparationTransformer(ClassLoader loader, Path artifact, byte[] reference) {
+        this(loader, artifact, reference, TARGET);
+    }
+
+    /**
+     * Reference bytes come from the installer's verified target-class snapshot for the
+     * bound generation's factory owner ({@link #TARGET} on 5.3.x, {@link #TARGET_52} on
+     * 5.2.x).
+     */
+    public TextureUploadPreparationTransformer(ClassLoader loader, Path artifact, byte[] reference, String owner) {
         expectedLoader = loader;
         this.artifact = artifact == null ? null : artifact.toAbsolutePath().normalize();
-        reviewedShape = ReviewedMethodShape.read(reference, TARGET, "a", METHOD_DESCRIPTOR);
+        this.owner = java.util.Objects.requireNonNull(owner, "owner");
+        reviewedShape = ReviewedMethodShape.read(reference, owner, "a", METHOD_DESCRIPTOR);
         if (reviewedShape == null) throw new IllegalArgumentException("reviewed texture factory absent");
+    }
+
+    /**
+     * The factory owner pinned for one reviewed generation. Each pin block carries exactly
+     * one class — {@link #TARGET} on 5.3.x, {@link #TARGET_52} on 5.2.x — so the owner is
+     * recovered from the table rather than restated here.
+     */
+    public static String ownerForVersion(String version) {
+        Map<String, String> block = reviewedClassSha256().get(version);
+        if (block == null || block.size() != 1) {
+            throw new IllegalArgumentException("no single texture factory pin for version " + version);
+        }
+        return block.keySet().iterator().next();
     }
 
     @Override
     public byte[] transform(
             Module module, ClassLoader loader, String name, Class<?> redefined, ProtectionDomain domain, byte[] bytes) {
-        if (loader != expectedLoader || !TARGET.equals(name) || bytes == null) return null;
+        if (loader != expectedLoader || !owner.equals(name) || bytes == null) return null;
         try {
             if (artifact != null
                     && !artifact.equals(
                             Path.of(domain.getCodeSource().getLocation().toURI())
                                     .toAbsolutePath()
                                     .normalize())) return null;
-            if (!reviewedShape.equals(ReviewedMethodShape.read(bytes, TARGET, "a", METHOD_DESCRIPTOR))) {
+            if (!reviewedShape.equals(ReviewedMethodShape.read(bytes, owner, "a", METHOD_DESCRIPTOR))) {
                 failure = "native texture factory body differs from reviewed artifact";
                 return null;
             }

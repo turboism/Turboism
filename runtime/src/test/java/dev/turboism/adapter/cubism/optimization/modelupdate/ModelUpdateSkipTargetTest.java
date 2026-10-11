@@ -12,7 +12,7 @@ public class ModelUpdateSkipTargetTest {
 
     @Test
     void everyReviewedArtifactHasExactlyOneTarget() {
-        assertEquals(3, ModelUpdateSkipTarget.all().size());
+        assertEquals(9, ModelUpdateSkipTarget.all().size());
         for (ModelUpdateSkipTarget target : ModelUpdateSkipTarget.all()) {
             assertSame(target, ModelUpdateSkipTarget.of(target.digest()).orElseThrow());
         }
@@ -64,6 +64,47 @@ public class ModelUpdateSkipTargetTest {
                 v5303.methodDescriptor());
         assertEquals("com.live2d.cubism.view.context.bS$b", v5303.developSetting());
         assertEquals("com.live2d.cubism.view.context.bS$a", v5303.appearanceSetting());
+
+        ModelUpdateSkipTarget v5200 =
+                ModelUpdateSkipTarget.of(ReviewedHostArtifacts.CUBISM_5_2_00).orElseThrow();
+        assertEquals("com/live2d/cubism/view/at", v5200.owner());
+        assertEquals(
+                "(Lcom/live2d/cubism/view/context/CEViewContext;"
+                        + "Lcom/live2d/cubism/doc/model/CModel;ZLcom/live2d/cubism/doc/model/ay;Z"
+                        + "Lcom/live2d/cubism/view/context/bI;)V",
+                v5200.methodDescriptor());
+        assertEquals("com.live2d.cubism.doc.model.ay", v5200.updateContext());
+        assertEquals("com.live2d.cubism.view.context.bO$b", v5200.developSetting());
+        assertEquals("com.live2d.cubism.view.context.bO$a", v5200.appearanceSetting());
+        assertFalse(v5200.extendedUpdateContext());
+        assertFalse(v5200.appearanceAuxSettings());
+        for (String version : new String[] {"5.2.01", "5.2.02"}) {
+            ModelUpdateSkipTarget v52x = ModelUpdateSkipTarget.all().stream()
+                    .filter(t -> t.version().equals(version))
+                    .findFirst()
+                    .orElseThrow();
+            assertEquals(v5200.owner(), v52x.owner(), version);
+            assertEquals(v5200.methodDescriptor(), v52x.methodDescriptor(), version);
+        }
+
+        ModelUpdateSkipTarget v5300 =
+                ModelUpdateSkipTarget.of(ReviewedHostArtifacts.CUBISM_5_3_00).orElseThrow();
+        assertEquals("com/live2d/cubism/view/ay", v5300.owner());
+        assertEquals(v5302.methodDescriptor(), v5300.methodDescriptor());
+        assertEquals("com.live2d.cubism.doc.model.ax", v5300.updateContext());
+        ModelUpdateSkipTarget v5304 =
+                ModelUpdateSkipTarget.of(ReviewedHostArtifacts.CUBISM_5_3_04).orElseThrow();
+        assertEquals("com/live2d/cubism/view/ay", v5304.owner());
+        assertEquals(
+                "(Lcom/live2d/cubism/view/context/CEViewContext;"
+                        + "Lcom/live2d/cubism/doc/model/CModel;ZLcom/live2d/cubism/doc/model/az;Z"
+                        + "Lcom/live2d/cubism/view/context/bM;Z)V",
+                v5304.methodDescriptor());
+        assertEquals("com.live2d.cubism.doc.model.az", v5304.updateContext());
+        assertEquals("com.live2d.cubism.view.context.bT$b", v5304.developSetting());
+        assertEquals("com.live2d.cubism.view.context.bT$a", v5304.appearanceSetting());
+        assertTrue(v5304.extendedUpdateContext());
+        assertTrue(v5304.appearanceAuxSettings());
     }
 
     @Test

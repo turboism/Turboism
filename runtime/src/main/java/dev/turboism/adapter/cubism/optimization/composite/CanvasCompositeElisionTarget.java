@@ -69,6 +69,9 @@ public record CanvasCompositeElisionTarget(String version, HostArtifactDigest di
         if (ReviewedHostArtifacts.CUBISM_5_3_03.equals(digest)) {
             return Optional.of(new CanvasCompositeElisionTarget("5.3.03", digest));
         }
+        if (ReviewedHostArtifacts.CUBISM_5_3_04.equals(digest)) {
+            return Optional.of(new CanvasCompositeElisionTarget("5.3.04", digest));
+        }
         return Optional.empty();
     }
 }

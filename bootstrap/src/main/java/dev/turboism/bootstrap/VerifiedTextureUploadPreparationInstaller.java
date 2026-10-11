@@ -47,7 +47,8 @@ final class VerifiedTextureUploadPreparationInstaller implements AutoCloseable {
         if (!JOGL_SHA256.equals(sha256(jogl)))
             throw new IllegalArgumentException("texture preparation requires reviewed JOGL artifact");
         this.instrumentation = instrumentation;
-        target = Class.forName(TextureUploadPreparationTransformer.TARGET.replace('/', '.'), false, loader);
+        final String factoryOwner = TextureUploadPreparationTransformer.ownerForVersion(contract.sourceVersion());
+        target = Class.forName(factoryOwner.replace('/', '.'), false, loader);
         Class<?> profile = Class.forName("com.jogamp.opengl.GLProfile", false, loader);
         if (target.getClassLoader() != loader
                 || profile.getClassLoader() != loader
@@ -56,9 +57,8 @@ final class VerifiedTextureUploadPreparationInstaller implements AutoCloseable {
             throw new IllegalArgumentException("texture factory/profile loader or code source mismatch");
         }
         try (JarFile jar = new JarFile(artifact.toFile());
-                var input =
-                        jar.getInputStream(jar.getJarEntry(TextureUploadPreparationTransformer.TARGET + ".class"))) {
-            transformer = new TextureUploadPreparationTransformer(loader, artifact, input.readAllBytes());
+                var input = jar.getInputStream(jar.getJarEntry(factoryOwner + ".class"))) {
+            transformer = new TextureUploadPreparationTransformer(loader, artifact, input.readAllBytes(), factoryOwner);
         }
         bridge = new TextureUploadPreparationBridge(profile);
         contract.requireUnchanged(artifact);
