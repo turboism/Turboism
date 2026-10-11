@@ -60,6 +60,7 @@ interface: swing
 
 | 权限 | 范围 | 请求原因 |
 |---|---|---|
+| `turboism.cubism.model.observe` | `application` | 接收模型打开/保存生命周期回调以触发受限预览捕获；未声明时，生命周期注册表会将这些回调过滤掉。 |
 | `turboism.cubism.recent-file.read` | `application` | 列出主机的 Recent Files 投影，以不透明文件 ID 作为预览缓存的键。 |
 | `turboism.ui.viewport.read` | `application` | 为最近文件捕获受限的建模画布预览缩略图。 |
 | `turboism.ui.recent-preview.contribute` | `application` | 向主机的 Recent Files 悬停桥接贡献缩略图弹窗内容。 |
