@@ -60,6 +60,7 @@ interface: swing
 
 | 権限 | スコープ | 要求理由 |
 |---|---|---|
+| `turboism.cubism.model.observe` | `application` | モデルのオープン/保存ライフサイクルコールバックを受け取り、範囲を制限したプレビューキャプチャを起動します。未宣言の場合、ライフサイクルレジストリがこれらをフィルタリングします。 |
 | `turboism.cubism.recent-file.read` | `application` | 不透明なファイル ID をプレビューキャッシュのキーとして使用するため、ホストの Recent Files プロジェクションを一覧表示します。 |
 | `turboism.ui.viewport.read` | `application` | 最近使用したファイル用に、サイズが制限されたモデリングサーフェスのプレビューサムネイルをキャプチャします。 |
 | `turboism.ui.recent-preview.contribute` | `application` | ホストの Recent Files ホバーブリッジにサムネイルポップアップのコンテンツを提供します。 |
