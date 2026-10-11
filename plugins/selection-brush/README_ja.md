@@ -34,7 +34,7 @@ interface: embedded
 
 <!-- compatibility:begin -->
 **Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
-- モデリング選択ブラシ のみ 5.2.00–5.3.04（それ以前の Cubism バージョンには機能自体がない）
+- モデリング選択ブラシ のみ 5.2.00–5.3.04（[Cubism 5.3.00 でDeformation brush expand/shrink and circle/square/line brush shapesを追加](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
 <!-- compatibility:end -->
 

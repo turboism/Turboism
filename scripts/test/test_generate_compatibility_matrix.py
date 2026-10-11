@@ -251,6 +251,46 @@ def build_tree(root: Path) -> None:
     )
     _write(
         root,
+        "compatibility/cubism/official-feature-timeline.json",
+        json.dumps(
+            {
+                "format": "turboism.official-feature-timeline/v1",
+                "features": [
+                    {
+                        "id": "late-feature",
+                        "introducedIn": "5.2.00",
+                        "nameZh": "晚期功能",
+                        "nameEn": "Late feature",
+                        "url": "https://example.com/late",
+                        "relatedCommands": ["EditorCommand.LATE_ONLY"],
+                    }
+                ],
+            }
+        ),
+    )
+    _write(
+        root,
+        "compatibility/cubism/version-boundaries.json",
+        json.dumps(
+            {
+                "format": "turboism.version-boundaries/v1",
+                "boundaries": [
+                    {
+                        "id": "command:LATE_ONLY",
+                        "absentOn": ["5.0.00", "5.1.00"],
+                        "reason": "LATE_ONLY added in 5.2.00",
+                        "source": "official timeline",
+                        "officialSource": {
+                            "version": "5.2.00",
+                            "url": "https://example.com/late",
+                        },
+                    }
+                ],
+            }
+        ),
+    )
+    _write(
+        root,
         "validation/cubism-version-matrix/campaign-jobs.json",
         json.dumps(
             {
@@ -403,6 +443,33 @@ class MatrixTest(unittest.TestCase):
         # page, shown as unconfirmed to developers.
         self.assertNotIn("5.1.00", user_cell)
         self.assertIn("5.1.00", dev_cell)
+
+    def test_official_timeline_in_docs(self) -> None:
+        en = GEN.render_capabilities_doc(self.matrix, "en")
+        zh = GEN.render_capabilities_doc(self.matrix, "zh")
+        self.assertIn("Official introduction", en)
+        self.assertIn("官方引入版本", zh)
+        self.assertIn("[5.2.00](https://example.com/late)", en)
+        self.assertIn("Confirmed version boundaries", en)
+        self.assertIn("已确认版本边界", zh)
+
+        # User page delta with official boundary note
+        note = {
+            "key": "dev.turboism.sdk.cubism.model.AlphaComposition",
+            "versions": ["5.2.00"],
+            "missingOn": ["5.0.00", "5.1.00"],
+            "missingNature": {"5.0.00": "boundary", "5.1.00": "boundary"},
+            "officialSource": {
+                "version": "5.2.00",
+                "url": "https://example.com/alpha",
+                "nameZh": "混合模式",
+                "nameEn": "blend modes",
+            },
+        }
+        text_zh = GEN._feature_text(note, "zh", list(VERSIONS), user=True)
+        self.assertIn("[Cubism 5.2.00 新增混合模式](https://example.com/alpha)", text_zh)
+        text_en = GEN._feature_text(note, "en", list(VERSIONS), user=True)
+        self.assertIn("[Cubism 5.2.00 added blend modes](https://example.com/alpha)", text_en)
 
     def test_rendered_docs(self) -> None:
         zh = GEN.render_plugins_doc(self.matrix, "zh")
