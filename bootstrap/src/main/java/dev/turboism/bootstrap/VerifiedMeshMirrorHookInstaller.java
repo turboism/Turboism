@@ -111,8 +111,14 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         // target would go undetected and cleanup would leave it rewritten.
         final List<String> targets = new ArrayList<>(List.of(
                 profile.meshEditorOwner().replace('/', '.'),
-                profile.mirrorWidgetOwner().replace('/', '.'),
-                profile.mirrorAxisDrawOwner().replace('/', '.')));
+                profile.mirrorWidgetOwner().replace('/', '.')));
+        if (profile.mirrorAxisDrawOwner() != null) {
+            targets.add(profile.mirrorAxisDrawOwner().replace('/', '.'));
+        }
+        final MeshMirrorHostProfile.LegacyAxisDraw legacyAxisDraw = profile.legacyAxisDraw();
+        if (legacyAxisDraw != null) {
+            targets.add(legacyAxisDraw.enclosingOwner().replace('/', '.'));
+        }
         final MeshMirrorHostProfile.SelectedPointMove move = profile.selectedPointMove();
         if (move != null) targets.add(move.owner().replace('/', '.'));
         final MeshMirrorHostProfile.LinkedDeletion linked = profile.linkedDeletion();
