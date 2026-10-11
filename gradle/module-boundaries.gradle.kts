@@ -153,7 +153,14 @@ private val runtimePackageRules = listOf(
  * Accepted layering debt, one entry per file. Each waiver names the file relative to
  * {@code runtime/src/main/java/dev/turboism/} plus the direction it is allowed to keep.
  */
-private val runtimePackageWaivers = mapOf<String, Set<String>>()
+private val runtimePackageWaivers = mapOf(
+    // The selector contracts for the mesh-tool session and modeling selection-brush
+    // adapters live under dev.turboism.adapter.cubism.* (they are runtime admission
+    // contracts, not verification manifests). Reusing their CAPABILITY_ID and
+    // REQUIRED_ALIASES keeps capability requirements single-sourced; relocating the
+    // contracts into mapping.verification.selector is the deferred consolidation.
+    "mapping/verification/CapabilitySelectorDependencies.java" to setOf("adapter"),
+)
 
 private fun checkModuleBoundaries(project: Project) {
     val state = BoundaryState(project.logger)
@@ -636,10 +643,17 @@ private val pluginBoundaryProjects = rootProject.subprojects
  */
 private class PluginBoundaryExtras(
     val forbiddenSourceTokens: List<String> = emptyList(),
-    val contractTaskNames: List<String> = emptyList()
+    val contractTaskNames: List<String> = emptyList(),
+    val allowedBinaryRoots: Set<String> = pluginBoundaryAllowedRoots
 )
 
 private val pluginBoundaryExtras = mapOf(
+    // The model-import-3d validation plugin ships the frozen host-probe engine verbatim;
+    // its own classes intentionally live in dev.turboism.validation.modelimport3d so
+    // bytecode evidence stays byte-identical with the reviewed validation jar.
+    ":plugins:model-import-3d" to PluginBoundaryExtras(
+        allowedBinaryRoots = pluginBoundaryAllowedRoots + "validation"
+    ),
     ":plugins:selection-brush" to PluginBoundaryExtras(
         forbiddenSourceTokens = listOf(
             "java.awt", "javax.swing", "java.lang.reflect", "dev.turboism.runtime",
@@ -781,6 +795,7 @@ private fun checkPluginClassFile(
     root: Project,
     file: java.io.File,
     forbiddenDottedRoots: Set<String>,
+    allowedRoots: Set<String>,
     state: BoundaryState
 ) {
     val bytes = file.readBytes()
@@ -792,7 +807,7 @@ private fun checkPluginClassFile(
             end++
         }
         val segment = bytes.decodeToString(offset + binaryNeedle.size, end)
-        if (segment.isNotEmpty() && segment !in pluginBoundaryAllowedRoots) {
+        if (segment.isNotEmpty() && segment !in allowedRoots) {
             state.reject(
                 "Plugin class ${file.relativeTo(root.projectDir)} references forbidden " +
                     "package dev/turboism/$segment"
@@ -833,9 +848,11 @@ private fun checkPluginBytecodeReferences(root: Project, plugin: Project, state:
         return
     }
     val forbiddenDottedRoots = pluginBoundaryForbiddenDottedRoots(root)
+    val allowedRoots = pluginBoundaryExtras[plugin.path]?.allowedBinaryRoots
+        ?: pluginBoundaryAllowedRoots
     classesDir.walkTopDown()
         .filter { it.isFile && it.extension == "class" }
-        .forEach { checkPluginClassFile(root, it, forbiddenDottedRoots, state) }
+        .forEach { checkPluginClassFile(root, it, forbiddenDottedRoots, allowedRoots, state) }
 }
 
 private fun checkPluginForbiddenSourceTokens(root: Project, plugin: Project, state: BoundaryState) {

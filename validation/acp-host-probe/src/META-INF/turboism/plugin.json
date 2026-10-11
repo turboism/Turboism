@@ -1,0 +1,55 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.validation.acp",
+  "name": "ACP Host Validation Probe",
+  "version": "0.0.0",
+  "description": "Task-local probe that drives the ACP agent window through the public action catalog, cross-reads the fake agent's stdio MCP write evidence, and closes the exact host.",
+  "entrypoints": [
+    "dev.turboism.validation.acp.AcpHostValidationPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["base"]
+  },
+  "dependencies": [
+    {
+      "id": "dev.turboism.plugin.mcp",
+      "version": "[0.1.0,0.2.0)",
+      "type": "required",
+      "ordering": "after"
+    },
+    {
+      "id": "dev.turboism.plugin.acp",
+      "version": "[0.1.0,0.2.0)",
+      "type": "required",
+      "ordering": "after"
+    }
+  ],
+  "permissions": [
+    {"id": "turboism.mcp.connection.read", "scope": "application", "reason": "Waits for the MCP connection to publish a stdio launch descriptor before opening the agent window."},
+    {"id": "turboism.action.invoke", "scope": "application", "reason": "Invokes the ACP plugin's open action through the public action catalog."},
+    {"id": "turboism.cubism.model.read", "scope": "application", "reason": "Cross-reads object names to confirm the rename was undone in the host document."},
+    {"id": "turboism.cubism.project.read", "scope": "application", "reason": "Cross-reads the native history position against the fake agent's evidence."}
+  ],
+  "capabilities": [
+    "validation.acp.lifecycle"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "none"
+  },
+  "tags": [
+    "validation",
+    "acp",
+    "mcp"
+  ],
+  "category": "integration"
+}

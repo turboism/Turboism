@@ -3,12 +3,13 @@ package dev.turboism.adapter.cubism.editor.transaction;
 import dev.turboism.adapter.cubism.editor.EditorHostThread;
 import dev.turboism.adapter.cubism.editor.history.EditorHistoryMetadataRegistry;
 import dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider;
+import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.cubism.history.HistoryAction;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,9 +27,6 @@ import java.util.function.Supplier;
  * abort can still close the exact edit mode even if the active document changes.</p>
  */
 public final class VerifiedEditorAuthoringTransactionHost implements EditorAuthoringTransactionCoordinator.Host {
-
-    private static final String COMPONENT = "authoring-transaction";
-    private static final int DIAGNOSTIC_MESSAGE_LIMIT = 160;
 
     private final VerifiedMemberResolver resolver;
     private final Supplier<NativeBinding> current;
@@ -289,28 +287,50 @@ public final class VerifiedEditorAuthoringTransactionHost implements EditorAutho
 
     @Override
     public String diagnosticId(final String code, final Throwable failure) {
-        final String checked = Objects.requireNonNull(code, "code");
-        if (failure != null) {
-            // Keep the root cause in the runtime log without widening the SDK-facing
-            // identifier: exception class plus a bounded message, no host internals.
-            RuntimeDiagnostics.warn(
-                    COMPONENT,
-                    checked
-                            + " failure=" + failure.getClass().getName()
-                            + " message=" + abbreviate(failure.getMessage())
-                            + " suppressed=" + failure.getSuppressed().length);
-        }
-        return checked;
+        return describeFailure(code, failure);
     }
 
-    private static String abbreviate(final String message) {
-        if (message == null) {
-            return "none";
+    /**
+     * Host learning (job e12d35db): a bare code hid the true registration
+     * callback failure behind ROLLED_BACK, forcing a blind re-run. Carries the
+     * concrete failure type and message after the stable code token so host
+     * reports name the cause; the code stays the leading token and the outcome
+     * semantics are unchanged. Bounded so hostile messages cannot bloat reports.
+     */
+    static String describeFailure(final String code, final Throwable failure) {
+        final String prefix = Objects.requireNonNull(code, "code");
+        if (failure == null) return prefix;
+        // SDK contract (AuthoringTransactionReceipt.MAX_ID_LENGTH): the diagnostic
+        // must stay within 128 chars and carry no ISO control characters. Job
+        // 08e1e2e2 (r4) exceeded the budget and masked the true callback cause.
+        // For sanitized access failures the alias/kind IS the payload — the fixed
+        // message carries no information — so it is dropped in favour of the
+        // selector identity; other failures keep type + bounded message.
+        final String raw = failure.getMessage();
+        String detail;
+        if (failure instanceof final VerifiedAccessException access) {
+            detail = "VerifiedAccess[" + access.alias() + "/" + access.failureKind() + "]";
+        } else {
+            detail = failure.getClass().getSimpleName()
+                    + (raw == null || raw.isBlank() ? " (no message)" : ": " + sanitize(raw));
         }
-        return message.length() <= DIAGNOSTIC_MESSAGE_LIMIT
-                ? message
-                : message.substring(0, DIAGNOSTIC_MESSAGE_LIMIT) + "…";
+        final String combined = prefix + ": " + detail;
+        return combined.length() <= MAX_DIAGNOSTIC_LENGTH ? combined : combined.substring(0, MAX_DIAGNOSTIC_LENGTH);
     }
+
+    private static String sanitize(final String message) {
+        final StringBuilder clean = new StringBuilder(message.length());
+        for (int i = 0; i < message.length(); i++) {
+            // Same predicate as the SDK validation (Character.isISOControl:
+            // C0 + DEL + C1) so sanitized output can never be rejected again.
+            char c = message.charAt(i);
+            clean.append(Character.isISOControl(c) ? ' ' : c);
+        }
+        return clean.toString();
+    }
+
+    /** Mirrors {@link AuthoringTransactionReceipt#MAX_ID_LENGTH} without an SDK import cycle. */
+    private static final int MAX_DIAGNOSTIC_LENGTH = AuthoringTransactionReceipt.MAX_ID_LENGTH;
 
     private NativeBinding currentFor(final EditorAuthoringTransactionCoordinator.Binding expected) {
         final NativeBinding active = Objects.requireNonNull(current.get(), "current binding");

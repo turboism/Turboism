@@ -1,7 +1,9 @@
 package dev.turboism.adapter.cubism.core;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
@@ -23,6 +25,39 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
     private boolean transitioning;
     private boolean closed;
     private boolean releaseRequested;
+    private final Set<String> refusedPublishIdentities = new HashSet<>();
+
+    /**
+     * Marks a publish identity as refused: a receiver the verified Core model type did not
+     * accept must leave every read identity derived from it fail-closed for all joins and
+     * readers sharing this source, instead of falling through to a previously published
+     * model that belongs to a different binding. A later accepted publication under the
+     * same identity clears the refusal.
+     */
+    @Override
+    public void refusePublication(final String identity) {
+        synchronized (monitor) {
+            refusedPublishIdentities.add(requireText(identity, "identity"));
+        }
+    }
+
+    /**
+     * Reports whether {@code identity} equals or derives from ({@code refused + ":"})
+     * a publish identity whose publication was refused. The {@code ":"} boundary keeps a
+     * sibling id prefix (for example {@code model-a2}) from being poisoned by a refused
+     * {@code model-a}.
+     */
+    @Override
+    public boolean isRefusedPublication(final String identity) {
+        synchronized (monitor) {
+            for (final String refused : refusedPublishIdentities) {
+                if (identity.equals(refused) || identity.startsWith(refused + ":")) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
 
     /**
      * Publishes an Editor-owned borrowed model after a verified acquisition adapter resolves it.
@@ -170,6 +205,9 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
                 activeModel = replacement;
                 modelIdentity = identity;
                 generation = nextGeneration;
+                if (identity != null) {
+                    refusedPublishIdentities.remove(identity);
+                }
             } finally {
                 transitioning = false;
                 monitor.notifyAll();

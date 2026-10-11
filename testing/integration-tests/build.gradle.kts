@@ -8,6 +8,12 @@ sourceSets.test {
     java.srcDir(rootProject.file("validation/shared/src"))
 }
 
+// RelocateJar is probe-build tooling that needs org.ow2.asm:asm-commons, which is
+// not on the test classpath; the probes compile it themselves from source.
+tasks.named<JavaCompile>("compileTestJava") {
+    exclude("dev/turboism/validation/shared/tools/RelocateJar.java")
+}
+
 dependencies {
     testImplementation(project(":runtime"))
     testImplementation(project(":sdk"))

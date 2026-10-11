@@ -12,6 +12,7 @@ import dev.turboism.sdk.cubism.mesh.MirrorAxisState;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -282,6 +283,93 @@ public final class NativeMeshMirrorBridge {
         } catch (ReflectiveOperationException | RuntimeException failure) {
             return false;
         }
+    }
+
+    /**
+     * Handles the 5.0/5.1 inlined axis draw: those generations emit the mirror-axis
+     * segment through the shared draw-line helper inside the guide pass instead of a
+     * dedicated method, so the weave replaces that call. With a custom axis active the
+     * resolved segment is redrawn through the same host helper; otherwise the original
+     * call is re-issued verbatim so native rendering is unchanged.
+     */
+    public static void legacyAxisDraw(
+            final Object drawer,
+            final Object start,
+            final Object end,
+            final Object color,
+            final float first,
+            final float second,
+            final int flags,
+            final Object defaults) {
+        final Binding binding = INSTALLED.get();
+        try {
+            if (binding != null
+                    && binding.enabled
+                    && binding.axis.currentAngleDegrees() != 0.0f
+                    && drawer != null
+                    && start != null
+                    && end != null) {
+                final float startX = coordinate(start, "getX");
+                final float startY = coordinate(start, "getY");
+                final float endX = coordinate(end, "getX");
+                final float endY = coordinate(end, "getY");
+                final boolean vertical = Math.abs(endX - startX) < 0.0001f;
+                final float axisValue = vertical ? startX : startY;
+                MeshMirrorGeometry.Point pivot = canvasCenter(CURRENT_PANEL.get());
+                if (pivot == null) {
+                    pivot = new MeshMirrorGeometry.Point((startX + endX) * 0.5f, (startY + endY) * 0.5f);
+                }
+                binding.axis.observeAxis(axisValue, vertical, pivot.x(), pivot.y());
+                final MeshMirrorGeometry.Line line = binding.axis.resolveLine();
+                if (line != null) {
+                    final float radius = (float) Math.hypot(endX - startX, endY - startY) * 0.5f;
+                    final Object resolvedStart = vector(
+                            start,
+                            new MeshMirrorGeometry.Point(
+                                    line.anchor().x() - line.direction().x() * radius,
+                                    line.anchor().y() - line.direction().y() * radius));
+                    final Object resolvedEnd = vector(
+                            start,
+                            new MeshMirrorGeometry.Point(
+                                    line.anchor().x() + line.direction().x() * radius,
+                                    line.anchor().y() + line.direction().y() * radius));
+                    invokeLegacyAxisCall(drawer, resolvedStart, resolvedEnd, color, first, second, flags, defaults);
+                    return;
+                }
+            }
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            // The native segment is drawn below when the custom path is unavailable.
+        }
+        try {
+            invokeLegacyAxisCall(drawer, start, end, color, first, second, flags, defaults);
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            diagnostic("LEGACY_AXIS_DRAW_FAILED reason=" + failure.getClass().getName());
+        }
+    }
+
+    /** Re-issues the intercepted host draw-line call with identical argument order. */
+    private static void invokeLegacyAxisCall(
+            final Object drawer,
+            final Object start,
+            final Object end,
+            final Object color,
+            final float first,
+            final float second,
+            final int flags,
+            final Object defaults)
+            throws ReflectiveOperationException {
+        if (drawer == null) throw new NoSuchMethodException("drawer");
+        for (final Method method : MethodHandleCache.declaredOverloads(drawer.getClass(), "a", 8)) {
+            if (!Modifier.isStatic(method.getModifiers())) continue;
+            try {
+                if (!method.canAccess(null)) method.setAccessible(true);
+                method.invoke(null, drawer, start, end, color, first, second, flags, defaults);
+                return;
+            } catch (IllegalArgumentException ignored) {
+                // Try the next overload.
+            }
+        }
+        throw new NoSuchMethodException(drawer.getClass().getName() + "#a");
     }
 
     private static Object adjust(
@@ -1482,18 +1570,35 @@ public final class NativeMeshMirrorBridge {
     static Object activeMeshEditMode() {
         try {
             final Object viewContext = activeMeshViewContext();
-            return viewContext == null ? null : property(viewContext, "currentEditMode");
+            if (viewContext == null) {
+                diagnostic("MESH_EDIT_MODE_UNAVAILABLE reason=NO_VIEW_CONTEXT panel=" + (CURRENT_PANEL.get() != null));
+                return null;
+            }
+            final Object mode = property(viewContext, "currentEditMode");
+            diagnostic("MESH_EDIT_MODE_OBSERVED class="
+                    + (mode == null ? "null" : mode.getClass().getName()));
+            return mode;
         } catch (ReflectiveOperationException | RuntimeException failure) {
+            diagnostic("MESH_EDIT_MODE_UNAVAILABLE reason=" + failure.getClass().getName());
             return null;
         }
     }
 
-    /** The current mesh action pack ({@code Z}), which owns the native edit envelope. */
+    /** The current mesh action pack, which owns the native edit envelope. */
     static Object activeMeshActionPack() {
         try {
             final Object viewContext = activeMeshViewContext();
             if (viewContext == null) return null;
-            return invoke(viewContext, "getLastActionPack");
+            final Object cached = invoke(viewContext, "getLastActionPack");
+            final Object mode = property(viewContext, "currentEditMode");
+            if (actionPackOwnsEditMode(cached, mode)) return cached;
+            final Object refreshed = PopupMeshUndoContract.refresh(viewContext, cached);
+            diagnostic("MESH_EDIT_ACTION_PACK cached="
+                    + (cached == null ? "null" : cached.getClass().getName())
+                    + " refreshed="
+                    + (refreshed == null ? "null" : refreshed.getClass().getName())
+                    + " ownsMode=" + actionPackOwnsEditMode(refreshed, mode));
+            return refreshed;
         } catch (ReflectiveOperationException | RuntimeException failure) {
             return null;
         }
@@ -1503,6 +1608,9 @@ public final class NativeMeshMirrorBridge {
     static boolean actionPackOwnsEditMode(final Object actionPack, final Object editMode) {
         if (actionPack == null || editMode == null) return false;
         try {
+            if (PopupMeshUndoContract.admitted(actionPack)) {
+                return PopupMeshUndoContract.owns(actionPack, editMode);
+            }
             return call(actionPack, "aP", NO_PARAMS) == editMode;
         } catch (ReflectiveOperationException | RuntimeException failure) {
             return false;
@@ -1530,7 +1638,12 @@ public final class NativeMeshMirrorBridge {
     }
 
     /** Installs the host's canonical live-mesh SimpleUndo snapshots before direct mutations. */
-    static void snapshotMeshesForUndo(final Object actionPack, final String label) throws ReflectiveOperationException {
+    static void snapshotMeshesForUndo(final Object actionPack, final String label, final Object group)
+            throws ReflectiveOperationException {
+        if (PopupMeshUndoContract.admitted(actionPack)) {
+            PopupMeshUndoContract.snapshot(actionPack, label, group);
+            return;
+        }
         final Method snapshot = declaredMethod(actionPack.getClass(), "d", String.class);
         if (snapshot == null) throw new NoSuchMethodException("mesh snapshot helper");
         snapshot.invoke(actionPack, label);
@@ -1592,17 +1705,18 @@ public final class NativeMeshMirrorBridge {
     static boolean canMovePoint(final Object point) throws ReflectiveOperationException {
         final Object current = call(point, "getPos", NO_PARAMS);
         if (current == null) return false;
-        return vectorConstructor(current.getClass()) != null
-                && movePointMethod(point.getClass(), current.getClass()) != null;
+        final Method move = movePointMethod(point.getClass(), current.getClass());
+        return move != null && vectorConstructor(move.getParameterTypes()[0]) != null;
     }
 
     static void movePoint(final Object point, final float x, final float y) throws ReflectiveOperationException {
         final Object current = call(point, "getPos", NO_PARAMS);
         if (current == null) throw new NoSuchMethodException("mesh point position");
-        final Constructor<?> vector = vectorConstructor(current.getClass());
-        if (vector == null) throw new NoSuchMethodException("mesh point vector construction");
         final Method move = movePointMethod(point.getClass(), current.getClass());
         if (move == null) throw new NoSuchMethodException("mesh point movement");
+        // Native getPos() returns MPoint2, but moveToOnLocal accepts GVector2.
+        final Constructor<?> vector = vectorConstructor(move.getParameterTypes()[0]);
+        if (vector == null) throw new NoSuchMethodException("mesh point vector construction");
         move.invoke(point, vector.newInstance(x, y), 1.0f);
     }
 

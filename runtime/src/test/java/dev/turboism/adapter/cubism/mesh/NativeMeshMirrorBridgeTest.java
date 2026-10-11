@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.AfterEach;
@@ -27,7 +28,7 @@ final class NativeMeshMirrorBridgeTest {
      */
     @Test
     void unboundWidgetCallbackDefersAndBindingReplaysItExactlyOnce() {
-        final List<String> diagnostics = new CopyOnWriteArrayList<>();
+        final List<String> diagnostics = diagnosticLog();
         NativeMeshMirrorBridge.diagnostics(diagnostics::add);
         final Object widget = new javax.swing.JPanel();
 
@@ -50,7 +51,7 @@ final class NativeMeshMirrorBridgeTest {
 
     @Test
     void deferredAttachWaitsForTheAuthorizedContributionAndReplaysWhenItArrives() {
-        final List<String> diagnostics = new CopyOnWriteArrayList<>();
+        final List<String> diagnostics = diagnosticLog();
         NativeMeshMirrorBridge.diagnostics(diagnostics::add);
         NativeMeshMirrorBridge.attachControl(new javax.swing.JPanel(), new Panel(200.0f, 100.0f));
 
@@ -68,7 +69,7 @@ final class NativeMeshMirrorBridgeTest {
 
     @Test
     void boundWidgetCallbackAttachesDirectlyAndRecordsNothingDeferred() {
-        final List<String> diagnostics = new CopyOnWriteArrayList<>();
+        final List<String> diagnostics = diagnosticLog();
         final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
         ui.contributeMirrorAxisAngleControl(angleControl());
         NativeMeshMirrorBridge.install(new RuntimeMeshMirrorAxisService(), ui);
@@ -90,7 +91,7 @@ final class NativeMeshMirrorBridgeTest {
         NativeMeshMirrorBridge.uninstall();
 
         assertFalse(NativeMeshMirrorBridge.controlAttached());
-        final List<String> diagnostics = new CopyOnWriteArrayList<>();
+        final List<String> diagnostics = diagnosticLog();
         NativeMeshMirrorBridge.diagnostics(diagnostics::add);
         final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
         ui.contributeMirrorAxisAngleControl(angleControl());
@@ -105,6 +106,30 @@ final class NativeMeshMirrorBridgeTest {
 
     private static int count(final List<String> diagnostics, final String value) {
         return (int) diagnostics.stream().filter(value::equals).count();
+    }
+
+    private static List<String> diagnosticLog() {
+        // ATTACH_BEGIN is synchronous; the rest of attachment may report from the EDT.
+        return new CopyOnWriteArrayList<>();
+    }
+
+    @Test
+    void diagnosticSnapshotSurvivesAnEdtAttachmentCallback() throws Exception {
+        final List<String> diagnostics = diagnosticLog();
+        NativeMeshMirrorBridge.diagnostics(diagnostics::add);
+        NativeMeshMirrorBridge.attachControl(new javax.swing.JPanel(), new Panel(200.0f, 100.0f));
+        final var snapshot = diagnostics.iterator();
+        final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
+        ui.contributeMirrorAxisAngleControl(angleControl());
+
+        // Force the real attach diagnostic writer between iterator creation and traversal.
+        javax.swing.SwingUtilities.invokeAndWait(
+                () -> NativeMeshMirrorBridge.install(new RuntimeMeshMirrorAxisService(), ui));
+        final List<String> observed = new ArrayList<>();
+        snapshot.forEachRemaining(observed::add);
+        assertEquals(1, count(observed, stage("DEFERRED_ATTACH_PENDING")));
+        assertEquals(0, count(observed, stage("DEFERRED_ATTACH_REPLAY")));
+        assertEquals(1, count(diagnostics, stage("DEFERRED_ATTACH_REPLAY")));
     }
 
     private static MeshEditUiService.MirrorAxisAngleControl angleControl() {

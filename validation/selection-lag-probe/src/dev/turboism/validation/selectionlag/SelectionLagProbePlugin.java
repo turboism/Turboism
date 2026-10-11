@@ -164,7 +164,7 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
                 Thread.sleep(BASELINE_MILLIS);
 
                 final Robot robot = new Robot();
-                final Rectangle hostWindow = findHostWindow(result);
+                final Rectangle hostWindow = awaitStableHostWindow(result);
                 if (hostWindow == null) {
                     result.status = "BLOCKED";
                     result.statusReason = "no visible host window found for Robot interaction";
@@ -174,7 +174,7 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
                 }
                 sampler.setPhase(Phase.INTERACTION);
                 sampler.resetEventGap();
-                activateHostWindow();
+                activateHostWindow(result.fixtureName);
                 runInteraction(robot, hostWindow, attempts, result, sampler);
                 sampler.setPhase(Phase.SETTLE);
                 Thread.sleep(SETTLE_MILLIS);
@@ -253,49 +253,156 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
         return -1L;
     }
 
+    private Rectangle awaitStableHostWindow(final ProbeResult result) throws Exception {
+        final long deadline = System.currentTimeMillis() + 15_000L;
+        Rectangle previous = null;
+        int stableCount = 0;
+        Rectangle latest = null;
+        while (System.currentTimeMillis() < deadline) {
+            final boolean readyForInput = onHostThread(() -> {
+                for (Window window : Window.getWindows()) {
+                    if (window instanceof java.awt.Dialog dialog
+                            && dialog.isShowing()
+                            && dialog.isModal()) {
+                        return false;
+                    }
+                }
+                final Window selected =
+                    selectTargetWindow(Window.getWindows(), result.fixtureName);
+                return selected != null && selected.isEnabled();
+            });
+            latest = findHostWindow(result);
+            if (readyForInput && latest != null) {
+                if (latest.equals(previous)) {
+                    stableCount++;
+                    if (stableCount >= 2) {
+                        return latest;
+                    }
+                } else {
+                    previous = new Rectangle(latest);
+                    stableCount = 1;
+                }
+            } else {
+                previous = null;
+                stableCount = 0;
+            }
+            Thread.sleep(150L);
+        }
+        return latest != null ? latest : findHostWindow(result);
+    }
+
     private Rectangle findHostWindow(final ProbeResult result) throws Exception {
         return onHostThread(() -> {
-            Rectangle best = null;
-            String bestTitle = "";
-            String bestClass = "";
-            for (Window window : Window.getWindows()) {
-                if (!window.isShowing()) {
-                    continue;
-                }
-                final Rectangle bounds = window.getBounds();
-                if (bounds.isEmpty()) {
-                    continue;
-                }
-                if (best == null || bounds.width * bounds.height > best.width * best.height) {
-                    best = bounds;
-                    bestTitle = window instanceof java.awt.Frame f ? f.getTitle() : "";
-                    bestClass = window.getClass().getName();
-                }
+            final Window selected = selectTargetWindow(Window.getWindows(), result.fixtureName);
+            if (selected == null) {
+                return null;
             }
-            if (best != null) {
-                result.hostWindowTitle = bestTitle;
-                result.hostWindowClass = bestClass;
-                result.hostWindowBounds = best.x + "," + best.y + " " + best.width + "x" + best.height;
+            final Rectangle bounds = selected.getBounds();
+            if (bounds.isEmpty()) {
+                return null;
             }
-            return best;
+            result.hostWindowTitle = selected instanceof java.awt.Frame f ? f.getTitle() : "";
+            result.hostWindowClass = selected.getClass().getName();
+            result.hostWindowBounds =
+                bounds.x + "," + bounds.y + " " + bounds.width + "x" + bounds.height;
+            return bounds;
         });
+    }
+
+    static Window selectTargetWindow(final Window[] windows, final String fixtureName) {
+        Window fixtureFrame = null;
+        Window bestFrame = null;
+        Window bestWindow = null;
+        for (Window window : windows) {
+            if (!window.isShowing()) {
+                continue;
+            }
+            final Rectangle bounds = window.getBounds();
+            if (bounds.isEmpty()) {
+                continue;
+            }
+            if (window instanceof java.awt.Frame frame) {
+                final String title = frame.getTitle() == null ? "" : frame.getTitle();
+                if (fixtureName != null
+                        && !fixtureName.isBlank()
+                        && !"unknown".equals(fixtureName)
+                        && title.contains(fixtureName)) {
+                    if (fixtureFrame == null
+                            || area(bounds) > area(fixtureFrame.getBounds())) {
+                        fixtureFrame = window;
+                    }
+                }
+                if (bestFrame == null || area(bounds) > area(bestFrame.getBounds())) {
+                    bestFrame = window;
+                }
+            }
+            if (bestWindow == null || area(bounds) > area(bestWindow.getBounds())) {
+                bestWindow = window;
+            }
+        }
+        if (fixtureFrame != null) {
+            return fixtureFrame;
+        }
+        return bestFrame != null ? bestFrame : bestWindow;
+    }
+
+    private static long area(final Rectangle bounds) {
+        return (long) bounds.width * (long) bounds.height;
     }
 
     // ------------------------------------------------------------------
     // Robot interaction: select-and-drag path
     // ------------------------------------------------------------------
 
-
-    private void activateHostWindow() throws Exception {
+    private void activateHostWindow(final String fixtureName) throws Exception {
         onHostThread(() -> {
-            for (Window window : Window.getWindows()) {
-                if (window.isShowing()) {
-                    window.toFront();
-                }
+            final Window target = selectTargetWindow(Window.getWindows(), fixtureName);
+            if (target != null) {
+                target.toFront();
+                target.requestFocus();
             }
             return null;
         });
     }
+
+    static Point titleBarActivationPoint(final Rectangle window) {
+        final int centerX = window.x + window.width / 2;
+        final int titleBarY = Math.max(window.y + 30, 20);
+        return new Point(centerX, titleBarY);
+    }
+
+    private void activateAndAwaitReceipt(final Robot robot, final Rectangle window,
+            final String fixtureName, final EdtSampler sampler) throws Exception {
+        final Point titleBar = titleBarActivationPoint(window);
+        final int centerX = window.x + window.width / 2;
+        final int centerY = window.y + window.height / 2;
+        final Point[] activationPoints = {
+            titleBar,
+            new Point(centerX, centerY),
+            new Point(centerX, Math.max(window.y + 15, 12)),
+            new Point(centerX, centerY),
+        };
+        for (int attempt = 0; attempt < activationPoints.length; attempt++) {
+            activateHostWindow(fixtureName);
+            final Point point = activationPoints[attempt];
+            robot.mouseMove(point.x, point.y);
+            robot.delay(150);
+            robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
+            robot.delay(50);
+            robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+            robot.delay(250);
+            robot.mouseMove(centerX, centerY);
+            robot.delay(80);
+            robot.mouseMove(centerX + 8, centerY + 8);
+            robot.delay(150);
+            if (sampler.mouseEventCount() > 0) {
+                logger.info("SELECTION_LAG_ACTIVATION_RECEIPT attempt=" + attempt
+                    + " mouseEvents=" + sampler.mouseEventCount());
+                return;
+            }
+        }
+    }
+
     private void runInteraction(final Robot robot, final Rectangle window, final int attempts,
             final ProbeResult result, final EdtSampler sampler) throws Exception {
         final Point[] offsets = {
@@ -307,15 +414,12 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
         };
         final int centerX = window.x + window.width / 2;
         final int centerY = window.y + window.height / 2;
-        // Wine-hosted windows may ignore input while unactivated: perform one
-        // press+release on the window title bar before the first attempt.
-        robot.mouseMove(centerX, window.y + 30);
-        robot.delay(200);
-        robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
-        robot.delay(50);
-        robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
-        robot.delay(500);
+        // Wine-hosted windows may ignore input while unactivated: activate the
+        // window and verify that synthetic mouse events reach the EDT before the
+        // timed select-and-drag attempts begin.
+        activateAndAwaitReceipt(robot, window, result.fixtureName, sampler);
         for (int index = 0; index < Math.min(attempts, offsets.length); index++) {
+            final int beforeEvents = sampler.mouseEventCount();
             final Point offset = offsets[index];
             final int startX = centerX + offset.x;
             final int startY = centerY + offset.y;
@@ -333,6 +437,9 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
             robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
             final long attemptMillis = System.currentTimeMillis() - attemptStart;
             Thread.sleep(400L);
+            if (sampler.mouseEventCount() == beforeEvents) {
+                activateAndAwaitReceipt(robot, window, result.fixtureName, sampler);
+            }
             final SelectionEvidence selection = readSelectionBestEffort();
             final InteractionAttempt record = new InteractionAttempt(index, startX, startY,
                 attemptMillis, selection.selectedIds, selection.activeArtMesh,

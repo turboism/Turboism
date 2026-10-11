@@ -7,6 +7,7 @@
   "PRO_TRIAL_ACTIVATED_ACKNOWLEDGED",
   "ACTIVE_TRIAL_WELCOME_ACKNOWLEDGED",
   "HOME_NEWS_DIALOG_CLOSED",
+  "ANNOUNCEMENT_STAGE_HIDDEN",
   "START_FREE_SELECTED",
   "FREE_WELCOME_CONFIRMED",
   "FREE_PARAMETER_LIMIT_ACKNOWLEDGED",
@@ -121,10 +122,22 @@
    "advice": "the session's psd-export-observation step produced a readable native export that was saved but cannot be structurally verified without a runtime-issued edit handle — a documented SDK gap on this host, not probe drift; record the boundary"
   },
   {
+   "id": "capability-psd-export-saved-unverified",
+   "category": "CAPABILITY_BOUNDARY",
+   "when": {"failureText": "PSD_NATIVE_EXPORT;status\\\\?=SAVED_UNVERIFIED|Native readable export without a runtime-issued edit handle"},
+   "advice": "psd-export-observation produced a readable native export that was saved (SAVED_UNVERIFIED) without a runtime-issued edit handle — a documented SDK gap on this host, not probe drift; record the boundary"
+  },
+  {
    "id": "fixture-no-clip-mask-records",
    "category": "FIXTURE_UNSUITABLE",
    "when": {"marker": "CLIPMASK_VIEWER_MATRIX_RESULT status=BLOCKED"},
    "advice": "the fixture loaded but contains no clip-mask relationships (fixture.clipMasks BLOCKED); rerun with a mask-bearing fixture instead of retrying"
+  },
+  {
+   "id": "fixture-no-glue-relation",
+   "category": "FIXTURE_UNSUITABLE",
+   "when": {"failureText": "fixture contains no Glue relation"},
+   "advice": "the mcp standard variant requires a Glue-bearing fixture but the resolved fixture has none (mcp result error=); set TURBOISM_HOST_VALIDATION_FIXTURE_MCP or TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK to the mask/Glue-bearing fixture instead of retrying"
   },
   {
    "id": "capability-backup-artifact-absent",

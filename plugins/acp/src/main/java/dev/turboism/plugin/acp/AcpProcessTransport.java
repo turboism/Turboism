@@ -48,16 +48,21 @@ final class AcpProcessTransport implements AcpTransport {
         builder.environment().put("NO_COLOR", "1");
         builder.environment().putAll(launch.environment());
         if (validationJavaBridge(launch)) {
-            builder.environment()
-                    .keySet()
-                    .removeIf(name -> "JAVA_TOOL_OPTIONS".equalsIgnoreCase(name)
-                            || "_JAVA_OPTIONS".equalsIgnoreCase(name)
-                            || "JDK_JAVA_OPTIONS".equalsIgnoreCase(name));
+            stripJavaOptionVariables(builder.environment());
         }
         return new AcpProcessTransport(builder.start());
     }
 
-    private static List<String> command(final AgentLaunchSpec launch) {
+    /** Removes inherited JVM option variables so a staged agent cannot attach into the child JVM. */
+    static void stripJavaOptionVariables(final java.util.Map<String, String> environment) {
+        environment
+                .keySet()
+                .removeIf(name -> "JAVA_TOOL_OPTIONS".equalsIgnoreCase(name)
+                        || "_JAVA_OPTIONS".equalsIgnoreCase(name)
+                        || "JDK_JAVA_OPTIONS".equalsIgnoreCase(name));
+    }
+
+    static List<String> command(final AgentLaunchSpec launch) {
         if (!validationJavaBridge(launch)) return windowsCommandShim(launch.command());
         final String classPath = System.getProperty("turboism.acp.validation.bridgeClassPath", "");
         final String configuration = System.getProperty("turboism.acp.validation.bridgeConfig", "");
@@ -115,7 +120,7 @@ final class AcpProcessTransport implements AcpTransport {
         return "\"" + argument + "\"";
     }
 
-    private static boolean validationJavaBridge(final AgentLaunchSpec launch) {
+    static boolean validationJavaBridge(final AgentLaunchSpec launch) {
         return Boolean.getBoolean("turboism.acp.validation.bridge")
                 && launch.executable().toLowerCase(Locale.ROOT).endsWith("java.exe");
     }

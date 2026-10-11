@@ -44,8 +44,7 @@ interface: embedded
 
 <!-- compatibility:begin -->
 **Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
-- メッシュジオメトリ読み取り のみ 5.2.00–5.3.04（5.0.00–5.1.03 は未確認）
-- メッシュミラー軸角拡張 のみ 5.2.00–5.3.04（5.0.00–5.1.03 は未対応（適合作業中））
+- メッシュジオメトリ読み取り のみ 5.2.00–5.3.04（それ以前の Cubism バージョンには機能自体がない）
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
 <!-- compatibility:end -->
 

@@ -377,6 +377,33 @@ public final class TurboismAgent {
         return null;
     }
 
+    static boolean meshInterpolationEnabled(
+            final dev.turboism.config.RuntimeStartupConfig policy, final boolean requested) {
+        return requested
+                && policy != null
+                && policy.hookEnabled(MeshInterpolationHookContributor.INTERPOLATION_POLICY_ID);
+    }
+
+    static boolean meshInterpolationRequested(final String option) {
+        return option == null || Boolean.parseBoolean(option);
+    }
+
+    static boolean modelSerializationEnabled(
+            final dev.turboism.config.RuntimeStartupConfig policy, final boolean requested) {
+        return requested
+                && policy != null
+                && policy.hookEnabled(MeshInterpolationHookContributor.SERIALIZATION_POLICY_ID);
+    }
+
+    static boolean shaderUniformEnabled(
+            final dev.turboism.config.RuntimeStartupConfig policy, final boolean requested) {
+        return requested && policy != null && policy.hookEnabled(ShaderUniformHookContributor.HOOK_POLICY_ID);
+    }
+
+    static boolean shaderUniformRequested(final String option) {
+        return option == null || Boolean.parseBoolean(option);
+    }
+
     private static void disableHookCapabilities(final HookContributor contributor, final HookEnvironment environment) {
         environment.runtime().ifPresent(runtime -> {
             for (final String hookId : contributor.runtimeHookIds()) {

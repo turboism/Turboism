@@ -25,6 +25,80 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
             VerifiedTextureAtlasSelectorContract.profileFor("5.3.02").orElseThrow();
 
     @Test
+    void packsActiveModelWithoutOpeningAtlasEditor() {
+        final Fixture fixture = new Fixture();
+        final var capture = new TextureAtlasDataModelCapture();
+        final var provider =
+                new VerifiedTextureAtlasLayoutProvider(resolver("5.3.02", true), "session-a", capture, PROFILE_5_3_02);
+        final var before = provider.current().orElseThrow();
+        final var plan = new TextureAtlasLayoutPlan(
+                16,
+                8,
+                1,
+                List.of(
+                        new TextureAtlasPlacement("texture-a", 0, 2, 1, 4, 3, false),
+                        new TextureAtlasPlacement("texture-b", 0, 8, 1, 2, 2, false),
+                        new TextureAtlasPlacement("texture-unused", 0, 12, 1, 1, 1, false)));
+        assertEquals(TextureAtlasLayoutProvider.ApplyOutcome.APPLIED, provider.apply(before, plan));
+        assertEquals(plan, provider.current().orElseThrow().currentPlan());
+        assertEquals(1, fixture.document.dirtyCount);
+        capture.close();
+        assertTrue(provider.current().isEmpty(), "closed connection must not regain a model target");
+        assertEquals(TextureAtlasLayoutProvider.ApplyOutcome.REJECTED, provider.apply(before, plan));
+    }
+
+    @Test
+    void rejectsDirectTargetAfterDocumentReplacementEvenWhenGuidAndLayoutMatch() {
+        new Fixture();
+        final var provider = new VerifiedTextureAtlasLayoutProvider(
+                resolver("5.3.02", true), "session-a", new TextureAtlasDataModelCapture(), PROFILE_5_3_02);
+        final var before = provider.current().orElseThrow();
+        final Fixture replacement = new Fixture();
+        assertEquals(before.modelId(), provider.current().orElseThrow().modelId());
+        assertEquals(TextureAtlasLayoutProvider.ApplyOutcome.REJECTED, provider.apply(before, before.currentPlan()));
+        assertEquals(0, replacement.data.applyCount);
+    }
+
+    @Test
+    void noAtlasOrActiveDocumentDoesNotIssueDirectTarget() {
+        final Fixture fixture = new Fixture();
+        final var provider = new VerifiedTextureAtlasLayoutProvider(
+                resolver("5.3.02", true), "session-a", new TextureAtlasDataModelCapture(), PROFILE_5_3_02);
+        fixture.source.textureManager.atlases.clear();
+        assertTrue(provider.current().isEmpty());
+        Host.document = null;
+        assertTrue(provider.current().isEmpty());
+    }
+
+    @Test
+    void undoRedoPreservesRawImageDisplaySelectedAfterLayout() {
+        final Fixture fixture = new Fixture();
+        final var provider = provider(resolver("5.3.02", true), "session-a", fixture);
+        final var before = provider.current().orElseThrow();
+        final var plan = new TextureAtlasLayoutPlan(
+                16,
+                8,
+                1,
+                List.of(
+                        new TextureAtlasPlacement("texture-a", 0, 2, 1, 4, 3, false),
+                        new TextureAtlasPlacement("texture-b", 0, 8, 1, 2, 2, false),
+                        new TextureAtlasPlacement("texture-unused", 0, 12, 1, 1, 1, false)));
+        assertEquals(TextureAtlasLayoutProvider.ApplyOutcome.APPLIED, provider.apply(before, plan));
+        final var manager = fixture.source.textureManager;
+        assertFalse(manager.modelImageMode);
+        // SHOW_MODEL_BY_RAW_IMAGE changes native display mode without adding an Undo entry.
+        manager.modelImageMode = true;
+        for (int cycle = 0; cycle < 3; cycle++) {
+            fixture.document.editMode.undo();
+            assertTrue(manager.modelImageMode, "Undo must not force atlas display back on");
+            fixture.document.editMode.redo();
+            assertTrue(manager.modelImageMode, "Redo must preserve the selected display mode");
+        }
+        assertEquals(6, manager.modelImageInputChangeCount);
+        assertEquals(1, manager.atlasInputChangeCount);
+    }
+
+    @Test
     void projectsCurrentAtlasAndAppliesACompletePlanThroughNativeAtlasTransaction() {
         final Fixture fixture = new Fixture();
         final VerifiedTextureAtlasLayoutProvider provider = provider(resolver("5.3.02", true), "session-a", fixture);
@@ -186,12 +260,27 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
     }
 
     @Test
-    void ignoresCapturedAtlasDataFromABackgroundDocument() {
+    void usesActiveModelInsteadOfCapturedAtlasDataFromABackgroundDocument() {
         final Fixture captured = new Fixture();
         final VerifiedTextureAtlasLayoutProvider provider = provider(resolver("5.3.02", true), "session-a", captured);
+        final var oldTarget = provider.current().orElseThrow();
         final Fixture active = new Fixture();
 
-        assertFalse(provider.current().isPresent());
+        final var current = provider.current().orElseThrow();
+        assertFalse(current.documentId().equals(oldTarget.documentId()));
+        assertEquals(
+                TextureAtlasLayoutProvider.ApplyOutcome.REJECTED, provider.apply(oldTarget, oldTarget.currentPlan()));
+        final var moved = new TextureAtlasLayoutPlan(
+                16,
+                8,
+                1,
+                List.of(
+                        new TextureAtlasPlacement("texture-a", 0, 2, 1, 4, 3, false),
+                        new TextureAtlasPlacement("texture-b", 0, 8, 1, 2, 2, false),
+                        new TextureAtlasPlacement("texture-unused", 0, 12, 1, 1, 1, false)));
+        assertEquals(TextureAtlasLayoutProvider.ApplyOutcome.APPLIED, provider.apply(current, moved));
+        assertEquals(0, captured.data.applyCount);
+        assertEquals(1, active.data.applyCount);
         assertEquals(active.document, Host.document);
     }
 
@@ -417,6 +506,8 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
                     TextureManager.class,
                     "changeInputToAtlas",
                     "()V"));
+            selectors.add(method(
+                    "cubism.texture-atlas.texture-manager.reinit-input", TextureManager.class, "reinitInput", "()V"));
             selectors.add(StaticSelector.classSelector("cubism.texture-atlas.atlas.class", internal(Atlas.class)));
             selectors.add(StaticSelector.constructor(
                     "cubism.texture-atlas.atlas.create",
@@ -717,6 +808,8 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
         final List<Atlas> atlases = new ArrayList<>();
         final TextureManagerHandler handler = new TextureManagerHandler();
         int atlasInputChangeCount;
+        int modelImageInputChangeCount;
+        boolean modelImageMode = true;
 
         public List<Image> images() {
             return images;
@@ -731,7 +824,16 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
         }
 
         public void changeInputToAtlas() {
+            modelImageMode = false;
             atlasInputChangeCount++;
+        }
+
+        public void reinitInput() {
+            if (modelImageMode) {
+                modelImageInputChangeCount++;
+            } else {
+                changeInputToAtlas();
+            }
         }
     }
 

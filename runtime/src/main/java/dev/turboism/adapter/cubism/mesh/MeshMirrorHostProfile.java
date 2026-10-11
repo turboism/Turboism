@@ -21,6 +21,7 @@ public record MeshMirrorHostProfile(
         String mirrorAxisDrawOwner,
         String mirrorAxisDrawMethod,
         String mirrorAxisDrawDescriptor,
+        LegacyAxisDraw legacyAxisDraw,
         ToolEligibility toolEligibility,
         SelectedPointMove selectedPointMove,
         LinkedDeletion linkedDeletion) {
@@ -29,6 +30,21 @@ public record MeshMirrorHostProfile(
 
     /** Exact 5.2.x selected-point movement loop that 5.3.x extends with counterparts. */
     public record SelectedPointMove(String owner, String method, String descriptor) {}
+
+    /**
+     * Selectors for the 5.0/5.1 axis-draw weave. These generations inline the
+     * mirror-axis draw inside the guide-rendering pass {@code C()} instead of a
+     * dedicated {@code a(F,Z,F,CColor)V} method, so the transformer intercepts
+     * the {@code callOrdinal}-th matching draw-line call inside that pass.
+     */
+    public record LegacyAxisDraw(
+            String enclosingOwner,
+            String enclosingMethod,
+            String enclosingDescriptor,
+            String callOwner,
+            String callMethod,
+            String callDescriptor,
+            int callOrdinal) {}
 
     /**
      * Selectors for mirror-linked deletion, which Cubism ships natively on 5.3.x.
@@ -93,8 +109,34 @@ public record MeshMirrorHostProfile(
                 mirrorAxisDrawDescriptor,
                 null,
                 null,
+                null,
                 null);
     }
+
+    /**
+     * Reviewed 5.0.x generations: the mirror selectors share the 5.2 obfuscation
+     * generation, the guide context is {@code context/J}, and the mirror-axis draw
+     * is inlined in its {@code C()} pass, so the legacy axis-draw weave applies.
+     * No native mirror-linked deletion — the backport selectors are installed.
+     */
+    private static final Set<String> REVIEWED_50_VERSIONS = Set.of(
+            ReviewedHostArtifacts.CUBISM_5_0_00_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_0_01_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_0_02_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_0_03_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_0_04_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_0_05_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_0_06_VERSION);
+
+    /**
+     * Reviewed 5.1.x generations: identical to 5.0.x except the guide context is
+     * {@code context/K}.
+     */
+    private static final Set<String> REVIEWED_51_VERSIONS = Set.of(
+            ReviewedHostArtifacts.CUBISM_5_1_00_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_1_01_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_1_02_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_1_03_VERSION);
 
     /**
      * Reviewed 5.2.x generations: the mirror selectors share one obfuscation
@@ -131,6 +173,12 @@ public record MeshMirrorHostProfile(
      * artifact — the version alone is never proof.
      */
     public static Optional<MeshMirrorHostProfile> forReviewedVersion(final String version) {
+        if (REVIEWED_50_VERSIONS.contains(version)) {
+            return Optional.of(reviewed5051("com/live2d/cubism/view/context/J"));
+        }
+        if (REVIEWED_51_VERSIONS.contains(version)) {
+            return Optional.of(reviewed5051("com/live2d/cubism/view/context/K"));
+        }
         if (REVIEWED_52_VERSIONS.contains(version)) {
             return Optional.of(reviewed52());
         }
@@ -153,6 +201,44 @@ public record MeshMirrorHostProfile(
     private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 = ClassPinTable.load("mesh-mirror");
 
     /**
+     * 5.0/5.1 uses the 5.2 mirror selectors with the linked-deletion backport, but the
+     * guide-rendering context has no dedicated axis-draw method: on all eleven reviewed
+     * artifacts the axis line is emitted inline by {@code C()} as the first
+     * {@code a/d.a(d, GVector2, GVector2, CColor, F, F, I, Object)V} call, so the
+     * transformer intercepts that call instead.
+     */
+    static MeshMirrorHostProfile reviewed5051(final String guideContextOwner) {
+        final MeshMirrorHostProfile shared = reviewed52();
+        return new MeshMirrorHostProfile(
+                shared.meshEditorOwner(),
+                shared.mirrorPointMethod(),
+                shared.mirrorAxisPointMethod(),
+                shared.mirrorPointDescriptor(),
+                shared.mirrorHitMethod(),
+                shared.mirrorHitDescriptor(),
+                shared.mirrorWidgetOwner(),
+                shared.mirrorWidgetMethod(),
+                shared.mirrorWidgetDescriptor(),
+                null,
+                null,
+                null,
+                new LegacyAxisDraw(
+                        guideContextOwner,
+                        "C",
+                        "()V",
+                        "com/live2d/graphics3d/a/d",
+                        "a",
+                        "(Lcom/live2d/graphics3d/a/d;"
+                                + "Lcom/live2d/graphics3d/type/GVector2;"
+                                + "Lcom/live2d/graphics3d/type/GVector2;"
+                                + "Lcom/live2d/type/CColor;FFILjava/lang/Object;)V",
+                        0),
+                shared.toolEligibility(),
+                shared.selectedPointMove(),
+                shared.linkedDeletion());
+    }
+
+    /**
      * 5.2.x adds the linked-deletion selectors; 5.3.x must not receive them because it
      * already deletes mirror counterparts natively.
      */
@@ -171,6 +257,7 @@ public record MeshMirrorHostProfile(
                 shared.mirrorAxisDrawOwner(),
                 shared.mirrorAxisDrawMethod(),
                 shared.mirrorAxisDrawDescriptor(),
+                null,
                 new ToolEligibility(
                         "a", "(Lcom/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolMode_MeshEdit_Manual$a;)Z"),
                 new SelectedPointMove(
@@ -217,6 +304,10 @@ public record MeshMirrorHostProfile(
                 "(Lcom/live2d/ui/control/CCheckBox;)Lcom/live2d/ui/container/CVBox;",
                 "com/live2d/cubism/view/context/K",
                 "a",
-                "(FZFLcom/live2d/type/CColor;)V");
+                "(FZFLcom/live2d/type/CColor;)V",
+                null,
+                null,
+                null,
+                null);
     }
 }

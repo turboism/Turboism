@@ -1726,6 +1726,61 @@
       "undoVerification": "EXACT_HOST_VERIFIED",
       "supportedVersions": [],
       "reason": "Staged native PSD replacement routed through the external-psd-edit plugin with its own admission and Undo semantics; not exposed over MCP."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.ModelTextures#textureInput(Ldev/turboism/sdk/cubism/id/ArtMeshId;)Ljava/util/Optional;",
+      "classification": "EXCLUDED_WITH_REASON",
+      "endpoint": "",
+      "operation": "",
+      "effect": "READ",
+      "transactionEligible": false,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": [],
+      "reason": "Exact-version texture input binding read scoped to PSD authoring flows; not an MCP capability."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.ModelTextures#bindModelImage(Ldev/turboism/sdk/cubism/id/ModelImageId;Ldev/turboism/sdk/cubism/id/ArtMeshId;)Ldev/turboism/sdk/cubism/model/ModelImageBinding;",
+      "classification": "EXCLUDED_WITH_REASON",
+      "endpoint": "",
+      "operation": "",
+      "effect": "UNDOABLE_WRITE",
+      "transactionEligible": false,
+      "undoVerification": "EXACT_HOST_VERIFIED",
+      "supportedVersions": [],
+      "reason": "Texture-to-art-mesh binding runs inside the native authoring transaction on exact hosts; no MCP endpoint binds images."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.ModelTextures#registerImageAndBind(Ldev/turboism/sdk/cubism/model/AuthorizedImageContent;Ldev/turboism/sdk/cubism/id/ArtMeshId;)Ldev/turboism/sdk/cubism/model/ModelImageBinding;",
+      "classification": "EXCLUDED_WITH_REASON",
+      "endpoint": "",
+      "operation": "",
+      "effect": "UNDOABLE_WRITE",
+      "transactionEligible": false,
+      "undoVerification": "EXACT_HOST_VERIFIED",
+      "supportedVersions": [],
+      "reason": "Compound authorized-image registration plus binding is an exact-host authoring flow; not exposed over MCP."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.ParameterBindingOperations#interpolation(Ldev/turboism/sdk/cubism/model/ParameterBindingTarget;)Ldev/turboism/sdk/cubism/model/ParameterInterpolation;",
+      "classification": "EXCLUDED_WITH_REASON",
+      "endpoint": "",
+      "operation": "",
+      "effect": "READ",
+      "transactionEligible": false,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": [],
+      "reason": "Interpolation state read is exact-version gated; the MCP binding projection does not surface it."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.ParameterBindingOperations#setInterpolation(Ldev/turboism/sdk/cubism/model/ParameterBindingTarget;Ldev/turboism/sdk/cubism/model/ParameterInterpolation;)V",
+      "classification": "EXCLUDED_WITH_REASON",
+      "endpoint": "",
+      "operation": "",
+      "effect": "UNDOABLE_WRITE",
+      "transactionEligible": false,
+      "undoVerification": "EXACT_HOST_VERIFIED",
+      "supportedVersions": [],
+      "reason": "Interpolation writes are exact-host authoring operations; the legacy bindings apply projection deliberately excludes them."
     }
   ],
   "temporaryPublicExceptions": [

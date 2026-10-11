@@ -65,6 +65,19 @@ public final class VerifiedMethodCallSite implements AutoCloseable {
     }
 
     /**
+     * @return whether {@code target} could be passed to {@link #invoke(Object, Object...)}
+     *     without a receiver-type resolution failure — the site is open, non-static, and
+     *     {@code target} is a non-null instance of the verified declaring class
+     */
+    public boolean acceptsReceiver(final Object target) {
+        final Method resolved = method;
+        return resolved != null
+                && !staticMethod
+                && target != null
+                && resolved.getDeclaringClass().isInstance(target);
+    }
+
+    /**
      * @return whether {@link #close()} has released the underlying reflection
      *     object; a closed site rejects every further invocation rather than
      *     re-resolving
