@@ -788,7 +788,8 @@
       "command": "scripts/preview/run-backup-webdav-host-validation.sh",
       "versions": [
         "5302",
-        "5303"
+        "5303",
+        "5304"
       ],
       "defaultVariant": "standard",
       "variants": {
