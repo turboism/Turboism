@@ -29,92 +29,271 @@ class EditorObjectReadAccessTest {
 
     @org.junit.jupiter.api.Test
     void warpGridChangesJoinOneRootAndCompensatePartialSetterFailure() {
-        final Fixture fixture = new Fixture(); Host.document = fixture.document;
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
         final var aliases = new java.util.ArrayList<>(selectors());
-        aliases.add(method("cubism.editor-history.document.undo-manager", Document.class, "undoManager", desc(GridHistoryManager.class)));
-        aliases.add(StaticSelector.classSelector("cubism.editor-history.manager.class", internal(GridHistoryManager.class)));
-        aliases.add(method("cubism.editor-history.manager.entries", GridHistoryManager.class, "entries", "()Ljava/util/List;"));
+        aliases.add(method(
+                "cubism.editor-history.document.undo-manager",
+                Document.class,
+                "undoManager",
+                desc(GridHistoryManager.class)));
+        aliases.add(StaticSelector.classSelector(
+                "cubism.editor-history.manager.class", internal(GridHistoryManager.class)));
+        aliases.add(method(
+                "cubism.editor-history.manager.entries", GridHistoryManager.class, "entries", "()Ljava/util/List;"));
         aliases.add(method("cubism.editor-history.manager.position", GridHistoryManager.class, "position", "()I"));
         aliases.add(method("cubism.editor-history.manager.can-undo", GridHistoryManager.class, "canUndo", "()Z"));
         aliases.add(method("cubism.editor-history.manager.can-redo", GridHistoryManager.class, "canRedo", "()Z"));
-        aliases.add(StaticSelector.classSelector("cubism.editor-history.entry.class", internal(GridHistoryEntry.class)));
-        aliases.add(method("cubism.editor-history.entry.presentation-name", GridHistoryEntry.class, "label", "()Ljava/lang/String;"));
+        aliases.add(
+                StaticSelector.classSelector("cubism.editor-history.entry.class", internal(GridHistoryEntry.class)));
+        aliases.add(method(
+                "cubism.editor-history.entry.presentation-name",
+                GridHistoryEntry.class,
+                "label",
+                "()Ljava/lang/String;"));
         aliases.add(method("cubism.editor-history.entry.significant", GridHistoryEntry.class, "significant", "()Z"));
-        final var resolver = TestVerifiedResolvers.create("5.3.02", EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
-            java.util.Set.of(EditorObjectReadSelectorContract.CAPABILITY_ID, EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID,
-                "cubism.editor-history.read"), aliases, Host.class.getClassLoader());
-        final var binding = edtCall(() -> new dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding("probe","doc",1,"model",1,Thread.currentThread()));
+        final var resolver = TestVerifiedResolvers.create(
+                "5.3.02",
+                EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
+                java.util.Set.of(
+                        EditorObjectReadSelectorContract.CAPABILITY_ID,
+                        EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID,
+                        "cubism.editor-history.read"),
+                aliases,
+                Host.class.getClassLoader());
+        final var binding = edtCall(
+                () -> new dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding(
+                        "probe", "doc", 1, "model", 1, Thread.currentThread()));
         final var host = new GridRootHost(fixture);
-        final var coordinator = new dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator(host);
-        final var access = new EditorObjectReadAccess(resolver,(identity,model)->{},new EditorMorphTargetAccess(resolver,(identity,model)->{}),null,null,null,coordinator,()->binding);
-        final var warp = access.warpDeformers("session-a",fixture.source,fixture.source.model).find(new DeformerId("WarpFace"));
-        final WarpGrid first = new WarpGrid(1,1,true,List.of(new Point2(0,0),new Point2(2,0),new Point2(0,2),new Point2(2,2)));
-        final WarpGrid second = new WarpGrid(1,1,false,List.of(new Point2(3,4),new Point2(5,4),new Point2(3,6),new Point2(5,6)));
-        final var committed = edtCall(() -> coordinator.execute(binding,dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("Import root"),()->{
-            warp.replaceGrid(first);warp.replaceGrid(second);return null;
-        }));
-        assertEquals(dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome.COMMITTED,committed.outcome(),()->String.valueOf(host.failure));
-        assertEquals(second,warp.grid());assertEquals(1,host.begins);assertEquals(1,fixture.document.editMode.edits.size());
-        assertEquals(2,fixture.document.editMode.edits.get(0).undoAddCount);
+        final var coordinator =
+                new dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator(host);
+        final var access = new EditorObjectReadAccess(
+                resolver,
+                (identity, model) -> {},
+                new EditorMorphTargetAccess(resolver, (identity, model) -> {}),
+                null,
+                null,
+                null,
+                coordinator,
+                () -> binding);
+        final var warp = access.warpDeformers("session-a", fixture.source, fixture.source.model)
+                .find(new DeformerId("WarpFace"));
+        final WarpGrid first = new WarpGrid(
+                1, 1, true, List.of(new Point2(0, 0), new Point2(2, 0), new Point2(0, 2), new Point2(2, 2)));
+        final WarpGrid second = new WarpGrid(
+                1, 1, false, List.of(new Point2(3, 4), new Point2(5, 4), new Point2(3, 6), new Point2(5, 6)));
+        final var committed = edtCall(() -> coordinator.execute(
+                binding, dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("Import root"), () -> {
+                    warp.replaceGrid(first);
+                    warp.replaceGrid(second);
+                    return null;
+                }));
+        assertEquals(
+                dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome.COMMITTED,
+                committed.outcome(),
+                () -> String.valueOf(host.failure));
+        assertEquals(second, warp.grid());
+        assertEquals(1, host.begins);
+        assertEquals(1, fixture.document.editMode.edits.size());
+        assertEquals(2, fixture.document.editMode.edits.get(0).undoAddCount);
         final var before = host.history(binding);
         fixture.failures.failOn(4);
-        final var failed = edtCall(() -> coordinator.execute(binding,dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("Failed root"),()->{warp.replaceGrid(first);return null;}));
-        assertEquals(dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome.ROLLED_BACK,failed.outcome());
-        assertEquals(second,warp.grid());assertEquals(before,host.history(binding));assertEquals(1,fixture.document.editMode.edits.size());
+        final var failed = edtCall(() -> coordinator.execute(
+                binding, dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("Failed root"), () -> {
+                    warp.replaceGrid(first);
+                    return null;
+                }));
+        assertEquals(dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome.ROLLED_BACK, failed.outcome());
+        assertEquals(second, warp.grid());
+        assertEquals(before, host.history(binding));
+        assertEquals(1, fixture.document.editMode.edits.size());
     }
 
     @org.junit.jupiter.api.Test
     void rotationFormsJoinOneRootAndCompensatePartialSetterFailure() {
-        final Fixture fixture = new Fixture(); Host.document = fixture.document;
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
         final var aliases = new java.util.ArrayList<>(selectors());
-        aliases.add(method("cubism.editor-history.document.undo-manager", Document.class, "undoManager", desc(GridHistoryManager.class)));
-        aliases.add(StaticSelector.classSelector("cubism.editor-history.manager.class", internal(GridHistoryManager.class)));
-        aliases.add(method("cubism.editor-history.manager.entries", GridHistoryManager.class, "entries", "()Ljava/util/List;"));
+        aliases.add(method(
+                "cubism.editor-history.document.undo-manager",
+                Document.class,
+                "undoManager",
+                desc(GridHistoryManager.class)));
+        aliases.add(StaticSelector.classSelector(
+                "cubism.editor-history.manager.class", internal(GridHistoryManager.class)));
+        aliases.add(method(
+                "cubism.editor-history.manager.entries", GridHistoryManager.class, "entries", "()Ljava/util/List;"));
         aliases.add(method("cubism.editor-history.manager.position", GridHistoryManager.class, "position", "()I"));
         aliases.add(method("cubism.editor-history.manager.can-undo", GridHistoryManager.class, "canUndo", "()Z"));
         aliases.add(method("cubism.editor-history.manager.can-redo", GridHistoryManager.class, "canRedo", "()Z"));
-        aliases.add(StaticSelector.classSelector("cubism.editor-history.entry.class", internal(GridHistoryEntry.class)));
-        aliases.add(method("cubism.editor-history.entry.presentation-name", GridHistoryEntry.class, "label", "()Ljava/lang/String;"));
+        aliases.add(
+                StaticSelector.classSelector("cubism.editor-history.entry.class", internal(GridHistoryEntry.class)));
+        aliases.add(method(
+                "cubism.editor-history.entry.presentation-name",
+                GridHistoryEntry.class,
+                "label",
+                "()Ljava/lang/String;"));
         aliases.add(method("cubism.editor-history.entry.significant", GridHistoryEntry.class, "significant", "()Z"));
-        final var resolver = TestVerifiedResolvers.create("5.3.02", EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
-            java.util.Set.of(EditorObjectReadSelectorContract.CAPABILITY_ID, EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID,
-                "cubism.editor-history.read"), aliases, Host.class.getClassLoader());
-        final var binding = edtCall(() -> new dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding("probe","doc",1,"model",1,Thread.currentThread()));
+        final var resolver = TestVerifiedResolvers.create(
+                "5.3.02",
+                EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
+                java.util.Set.of(
+                        EditorObjectReadSelectorContract.CAPABILITY_ID,
+                        EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID,
+                        "cubism.editor-history.read"),
+                aliases,
+                Host.class.getClassLoader());
+        final var binding = edtCall(
+                () -> new dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding(
+                        "probe", "doc", 1, "model", 1, Thread.currentThread()));
         final var host = new GridRootHost(fixture);
-        final var coordinator = new dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator(host);
-        final var access = new EditorObjectReadAccess(resolver,(identity,model)->{},new EditorMorphTargetAccess(resolver,(identity,model)->{}),null,null,null,coordinator,()->binding);
-        final var rotation = access.rotationDeformers("session-a",fixture.source,fixture.source.model).find(new DeformerId("RotationHead"));
-        final var first = new RotationDeformerForm(-180,20,30,1,false,false);
-        final var second = new RotationDeformerForm(180,20,30,1,false,false);
-        final var committed = edtCall(() -> coordinator.execute(binding,dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("Import root"),()->{
-            rotation.replaceForm(first);rotation.replaceForm(second);return null;
-        }));
-        assertEquals(dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome.COMMITTED,committed.outcome(),()->String.valueOf(host.failure));
-        assertEquals(second,rotation.form());assertEquals(1,host.begins);assertEquals(1,fixture.document.editMode.edits.size());
-        assertEquals(2,fixture.document.editMode.edits.get(0).undoAddCount);
+        final var coordinator =
+                new dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator(host);
+        final var access = new EditorObjectReadAccess(
+                resolver,
+                (identity, model) -> {},
+                new EditorMorphTargetAccess(resolver, (identity, model) -> {}),
+                null,
+                null,
+                null,
+                coordinator,
+                () -> binding);
+        final var rotation = access.rotationDeformers("session-a", fixture.source, fixture.source.model)
+                .find(new DeformerId("RotationHead"));
+        final var first = new RotationDeformerForm(-180, 20, 30, 1, false, false);
+        final var second = new RotationDeformerForm(180, 20, 30, 1, false, false);
+        final var committed = edtCall(() -> coordinator.execute(
+                binding, dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("Import root"), () -> {
+                    rotation.replaceForm(first);
+                    rotation.replaceForm(second);
+                    return null;
+                }));
+        assertEquals(
+                dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome.COMMITTED,
+                committed.outcome(),
+                () -> String.valueOf(host.failure));
+        assertEquals(second, rotation.form());
+        assertEquals(1, host.begins);
+        assertEquals(1, fixture.document.editMode.edits.size());
+        assertEquals(2, fixture.document.editMode.edits.get(0).undoAddCount);
         final var before = host.history(binding);
         fixture.failures.failOn(4);
-        final var failed = edtCall(() -> coordinator.execute(binding,dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("Failed root"),()->{rotation.replaceForm(first);return null;}));
-        assertEquals(dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome.ROLLED_BACK,failed.outcome());
-        assertEquals(second,rotation.form());assertEquals(before,host.history(binding));assertEquals(1,fixture.document.editMode.edits.size());
+        final var failed = edtCall(() -> coordinator.execute(
+                binding, dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("Failed root"), () -> {
+                    rotation.replaceForm(first);
+                    return null;
+                }));
+        assertEquals(dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome.ROLLED_BACK, failed.outcome());
+        assertEquals(second, rotation.form());
+        assertEquals(before, host.history(binding));
+        assertEquals(1, fixture.document.editMode.edits.size());
     }
 
     public static final class GridHistoryManager {
-        public List<GridHistoryEntry> entries(){return List.of();}public int position(){return 0;}
-        public boolean canUndo(){return false;}public boolean canRedo(){return false;}
+        public List<GridHistoryEntry> entries() {
+            return List.of();
+        }
+
+        public int position() {
+            return 0;
+        }
+
+        public boolean canUndo() {
+            return false;
+        }
+
+        public boolean canRedo() {
+            return false;
+        }
     }
-    public static final class GridHistoryEntry {public String label(){return "grid";}public boolean significant(){return true;}}
-    private static final class GridRootHost implements dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Host {
-        @Override public void undoEditGroup(final dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding expected, final Object edit) {}
-        final Fixture fixture;int begins;Throwable failure;final java.util.ArrayList<dev.turboism.sdk.cubism.history.HistoryEntry> entries=new java.util.ArrayList<>();
-        GridRootHost(Fixture fixture){this.fixture=fixture;}
-        @Override public boolean isCurrent(dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding b){return b.hostThread()==Thread.currentThread();}
-        @Override public dev.turboism.sdk.cubism.history.HistorySnapshot history(dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding b){return new dev.turboism.sdk.cubism.history.HistorySnapshot(dev.turboism.sdk.cubism.history.HistorySnapshot.Availability.AVAILABLE,1,entries.size(),entries.size(),List.copyOf(entries),!entries.isEmpty(),false,"doc","manager");}
-        @Override public Object beginEdit(dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding b,String label){begins++;return fixture.document.editMode.begin(label);}
-        @Override public void endEdit(dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding b,Object edit,boolean abort){fixture.document.editMode.end(abort,null);if(!abort)entries.add(new dev.turboism.sdk.cubism.history.HistoryEntry(entries.size(),"root",true));}
-        @Override public void refresh(dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding b,java.util.Set<dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement> requirements){}
-        @Override public java.util.Optional<String> committedHistoryEntryId(dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding b,dev.turboism.sdk.cubism.history.HistorySnapshot before,dev.turboism.sdk.cubism.history.HistorySnapshot after,String id,String label){return after.position()==before.position()+1?java.util.Optional.of("entry-"+after.position()):java.util.Optional.empty();}
-        @Override public String diagnosticId(String code,Throwable failure){this.failure=failure;return code;}
+
+    public static final class GridHistoryEntry {
+        public String label() {
+            return "grid";
+        }
+
+        public boolean significant() {
+            return true;
+        }
+    }
+
+    private static final class GridRootHost
+            implements dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Host {
+        @Override
+        public void undoEditGroup(
+                final dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding
+                        expected,
+                final Object edit) {}
+
+        final Fixture fixture;
+        int begins;
+        Throwable failure;
+        final java.util.ArrayList<dev.turboism.sdk.cubism.history.HistoryEntry> entries = new java.util.ArrayList<>();
+
+        GridRootHost(Fixture fixture) {
+            this.fixture = fixture;
+        }
+
+        @Override
+        public boolean isCurrent(
+                dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding b) {
+            return b.hostThread() == Thread.currentThread();
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.history.HistorySnapshot history(
+                dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding b) {
+            return new dev.turboism.sdk.cubism.history.HistorySnapshot(
+                    dev.turboism.sdk.cubism.history.HistorySnapshot.Availability.AVAILABLE,
+                    1,
+                    entries.size(),
+                    entries.size(),
+                    List.copyOf(entries),
+                    !entries.isEmpty(),
+                    false,
+                    "doc",
+                    "manager");
+        }
+
+        @Override
+        public Object beginEdit(
+                dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding b,
+                String label) {
+            begins++;
+            return fixture.document.editMode.begin(label);
+        }
+
+        @Override
+        public void endEdit(
+                dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding b,
+                Object edit,
+                boolean abort) {
+            fixture.document.editMode.end(abort, null);
+            if (!abort) entries.add(new dev.turboism.sdk.cubism.history.HistoryEntry(entries.size(), "root", true));
+        }
+
+        @Override
+        public void refresh(
+                dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding b,
+                java.util.Set<dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement> requirements) {}
+
+        @Override
+        public java.util.Optional<String> committedHistoryEntryId(
+                dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator.Binding b,
+                dev.turboism.sdk.cubism.history.HistorySnapshot before,
+                dev.turboism.sdk.cubism.history.HistorySnapshot after,
+                String id,
+                String label) {
+            return after.position() == before.position() + 1
+                    ? java.util.Optional.of("entry-" + after.position())
+                    : java.util.Optional.empty();
+        }
+
+        @Override
+        public String diagnosticId(String code, Throwable failure) {
+            this.failure = failure;
+            return code;
+        }
     }
 
     @org.junit.jupiter.api.Test
@@ -123,11 +302,15 @@ class EditorObjectReadAccessTest {
         Host.document = fixture.document;
         final var resolver = resolver("5.3.02"); // No N1 capability: decoder must fail closed.
         final boolean[] checkingSnapshot = {false};
-        final var access = new EditorObjectReadAccess(resolver, (identity, model) -> {
-            if (checkingSnapshot[0]) assertTrue(javax.swing.SwingUtilities.isEventDispatchThread());
-        }, new EditorMorphTargetAccess(resolver, (identity, model) -> { }), null);
+        final var access = new EditorObjectReadAccess(
+                resolver,
+                (identity, model) -> {
+                    if (checkingSnapshot[0]) assertTrue(javax.swing.SwingUtilities.isEventDispatchThread());
+                },
+                new EditorMorphTargetAccess(resolver, (identity, model) -> {}),
+                null);
         final var mesh = access.drawables("session-a", fixture.source, fixture.source.model)
-            .find(new ArtMeshId("ArtMeshFace"));
+                .find(new ArtMeshId("ArtMeshFace"));
         checkingSnapshot[0] = true;
         assertThrows(UnsupportedOperationException.class, mesh::authoringSnapshot);
         assertThrows(UnsupportedOperationException.class, mesh::evaluationSnapshot);
@@ -686,8 +869,7 @@ class EditorObjectReadAccessTest {
     }
 
     private static <T> T edtCall(final java.util.concurrent.Callable<T> task) {
-        final java.util.concurrent.atomic.AtomicReference<T> ref =
-                new java.util.concurrent.atomic.AtomicReference<>();
+        final java.util.concurrent.atomic.AtomicReference<T> ref = new java.util.concurrent.atomic.AtomicReference<>();
         try {
             javax.swing.SwingUtilities.invokeAndWait(() -> {
                 try {
@@ -992,28 +1174,51 @@ class EditorObjectReadAccessTest {
         Host.document = fixture.document;
         final var all = new java.util.ArrayList<>(selectors());
         all.addAll(List.of(
-            method("cubism.editor-model.art-mesh.calculated-form", ArtMesh.class, "calculatedForm", desc(ArtMeshForm.class)),
-            method("cubism.editor-model.art-mesh.interpolated-form", ArtMesh.class, "calculatedForm", desc(ArtMeshForm.class)),
-            method("cubism.editor-model.drawable-form.coord-type", ArtMeshForm.class, "coordType", desc(Id.class)),
-            method("cubism.editor-model.coord-type.label", Id.class, "value", "()Ljava/lang/String;"),
-            method("cubism.editor-model.model.last-updated-parameter-set", Model.class, "consumed", desc(ParameterSet.class)),
-            method("cubism.editor-model.model.last-updated-time", Model.class, "passTime", "()J"),
-            method("cubism.editor-model.parameter-set.update-version", ParameterSet.class, "version", "()I"),
-            method("cubism.editor-model.parameter.value", Parameter.class, "value", "()F")
-        ));
-        final var resolver = TestVerifiedResolvers.create("5.3.02", EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
-            java.util.Set.of(EditorObjectReadSelectorContract.CAPABILITY_ID,
-                dev.turboism.mapping.verification.selector.EditorArtMeshEvaluationReadSelectorContract.CAPABILITY_ID),
-            all, Host.class.getClassLoader());
+                method(
+                        "cubism.editor-model.art-mesh.calculated-form",
+                        ArtMesh.class,
+                        "calculatedForm",
+                        desc(ArtMeshForm.class)),
+                method(
+                        "cubism.editor-model.art-mesh.interpolated-form",
+                        ArtMesh.class,
+                        "calculatedForm",
+                        desc(ArtMeshForm.class)),
+                method("cubism.editor-model.drawable-form.coord-type", ArtMeshForm.class, "coordType", desc(Id.class)),
+                method("cubism.editor-model.coord-type.label", Id.class, "value", "()Ljava/lang/String;"),
+                method(
+                        "cubism.editor-model.model.last-updated-parameter-set",
+                        Model.class,
+                        "consumed",
+                        desc(ParameterSet.class)),
+                method("cubism.editor-model.model.last-updated-time", Model.class, "passTime", "()J"),
+                method("cubism.editor-model.parameter-set.update-version", ParameterSet.class, "version", "()I"),
+                method("cubism.editor-model.parameter.value", Parameter.class, "value", "()F")));
+        final var resolver = TestVerifiedResolvers.create(
+                "5.3.02",
+                EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
+                java.util.Set.of(
+                        EditorObjectReadSelectorContract.CAPABILITY_ID,
+                        dev.turboism.mapping.verification.selector.EditorArtMeshEvaluationReadSelectorContract
+                                .CAPABILITY_ID),
+                all,
+                Host.class.getClassLoader());
         final boolean[] sampling = {false};
-        final var access = new EditorObjectReadAccess(resolver, (identity, model) -> {
-            if (sampling[0]) assertTrue(javax.swing.SwingUtilities.isEventDispatchThread());
-        }, new EditorMorphTargetAccess(resolver, (identity, model) -> { }), null);
-        final var mesh = access.drawables("session-a", fixture.source, fixture.source.model).find(new ArtMeshId("ArtMeshFace"));
-        fixture.mesh().calculated.positions = new float[]{12, 13, 14, 15, 16, 17};
-        fixture.resetPublishedEffects(); sampling[0] = true;
+        final var access = new EditorObjectReadAccess(
+                resolver,
+                (identity, model) -> {
+                    if (sampling[0]) assertTrue(javax.swing.SwingUtilities.isEventDispatchThread());
+                },
+                new EditorMorphTargetAccess(resolver, (identity, model) -> {}),
+                null);
+        final var mesh = access.drawables("session-a", fixture.source, fixture.source.model)
+                .find(new ArtMeshId("ArtMeshFace"));
+        fixture.mesh().calculated.positions = new float[] {12, 13, 14, 15, 16, 17};
+        fixture.resetPublishedEffects();
+        sampling[0] = true;
         final var result = mesh.evaluationSnapshot();
-        assertEquals(12F, result.calculatedForm().orElseThrow().positions().get(0).x());
+        assertEquals(
+                12F, result.calculatedForm().orElseThrow().positions().get(0).x());
         assertEquals("Canvas", result.calculatedForm().orElseThrow().coordinateType());
         assertEquals(0F, fixture.mesh().form.positions[0], "stored current form unchanged");
         assertEquals(result, mesh.evaluationSnapshot());
@@ -1023,7 +1228,8 @@ class EditorObjectReadAccessTest {
         assertEquals(0, fixture.document.pack.repaintCount);
         fixture.source.model.artMeshes.clear();
         assertThrows(IllegalStateException.class, mesh::evaluationSnapshot);
-        assertEquals(12F, result.calculatedForm().orElseThrow().positions().get(0).x());
+        assertEquals(
+                12F, result.calculatedForm().orElseThrow().positions().get(0).x());
     }
 
     @Test
@@ -1044,16 +1250,13 @@ class EditorObjectReadAccessTest {
         fixture.meshSource().textureInputExtension = extension;
         final var resolver = textureResolver(true);
         final var access = new EditorObjectReadAccess(
-            resolver,
-            (identity, model) -> { },
-            new EditorMorphTargetAccess(resolver, (identity, model) -> { }),
-            null
-        );
+                resolver,
+                (identity, model) -> {},
+                new EditorMorphTargetAccess(resolver, (identity, model) -> {}),
+                null);
         final var mesh = access.drawables("session-a", fixture.source, fixture.source.model)
-            .find(new ArtMeshId("ArtMeshFace"));
-        final IllegalStateException failure = assertThrows(
-            IllegalStateException.class, mesh::textureIndex
-        );
+                .find(new ArtMeshId("ArtMeshFace"));
+        final IllegalStateException failure = assertThrows(IllegalStateException.class, mesh::textureIndex);
         assertTrue(failure.getMessage().contains("Core evaluated data is unavailable"));
     }
 
@@ -1062,31 +1265,48 @@ class EditorObjectReadAccessTest {
         capabilities.add(EditorObjectReadSelectorContract.CAPABILITY_ID);
         if (textureRead) {
             capabilities.add(
-                dev.turboism.mapping.verification.selector.EditorTextureSelectorContract
-                    .READ_CAPABILITY_ID
-            );
+                    dev.turboism.mapping.verification.selector.EditorTextureSelectorContract.READ_CAPABILITY_ID);
         }
         final var all = new java.util.ArrayList<>(selectors());
         all.addAll(textureSelectors());
         return TestVerifiedResolvers.create(
-            "5.3.02",
-            EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
-            capabilities,
-            all,
-            Host.class.getClassLoader()
-        );
+                "5.3.02",
+                EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
+                capabilities,
+                all,
+                Host.class.getClassLoader());
     }
 
     private static List<StaticSelector> textureSelectors() {
         return List.of(
-            method("cubism.editor-model.model-source.texture-manager", ModelSource.class, "textureManager", desc(TexManager.class)),
-            method("cubism.editor-model.texture-manager.all-model-images", TexManager.class, "allModelImages", "()Ljava/util/List;"),
-            method("cubism.editor-model.model-image.guid", TexImage.class, "guid", desc(Id.class)),
-            method("cubism.editor-model.art-mesh-source.texture-input-extension", ArtMeshSource.class, "textureInputExtension", "()Ljava/lang/Object;"),
-            method("cubism.editor-model.texture-input-extension.current-input", TexExt.class, "current", "()Ljava/lang/Object;"),
-            StaticSelector.classSelector("cubism.editor-model.texture-input-model-image.class", internal(TexInput.class)),
-            method("cubism.editor-model.texture-input-model-image.model-image", TexInput.class, "modelImageOrNull", desc(TexImage.class))
-        );
+                method(
+                        "cubism.editor-model.model-source.texture-manager",
+                        ModelSource.class,
+                        "textureManager",
+                        desc(TexManager.class)),
+                method(
+                        "cubism.editor-model.texture-manager.all-model-images",
+                        TexManager.class,
+                        "allModelImages",
+                        "()Ljava/util/List;"),
+                method("cubism.editor-model.model-image.guid", TexImage.class, "guid", desc(Id.class)),
+                method(
+                        "cubism.editor-model.art-mesh-source.texture-input-extension",
+                        ArtMeshSource.class,
+                        "textureInputExtension",
+                        "()Ljava/lang/Object;"),
+                method(
+                        "cubism.editor-model.texture-input-extension.current-input",
+                        TexExt.class,
+                        "current",
+                        "()Ljava/lang/Object;"),
+                StaticSelector.classSelector(
+                        "cubism.editor-model.texture-input-model-image.class", internal(TexInput.class)),
+                method(
+                        "cubism.editor-model.texture-input-model-image.model-image",
+                        TexInput.class,
+                        "modelImageOrNull",
+                        desc(TexImage.class)));
     }
 
     private static List<StaticSelector> selectors() {
@@ -1589,11 +1809,26 @@ class EditorObjectReadAccessTest {
         final EditMode editMode = new EditMode();
         final CompletePack pack = new CompletePack();
         boolean dirty;
-        Document(final ModelSource source) { this.source = source; }
-        public ModelSource modelSource() { return source; }
-        public GridHistoryManager undoManager() { return new GridHistoryManager(); }
-        public EditMode editMode() { return editMode; }
-        public void markDirty() { dirty = true; }
+
+        Document(final ModelSource source) {
+            this.source = source;
+        }
+
+        public ModelSource modelSource() {
+            return source;
+        }
+
+        public GridHistoryManager undoManager() {
+            return new GridHistoryManager();
+        }
+
+        public EditMode editMode() {
+            return editMode;
+        }
+
+        public void markDirty() {
+            dirty = true;
+        }
     }
 
     public static final class Id {
@@ -1965,32 +2200,54 @@ class EditorObjectReadAccessTest {
             failures.setter("invert:" + id.value);
             invertedMask = value;
         }
+
         Object textureInputExtension;
-        public Object textureInputExtension() { return textureInputExtension; }
+
+        public Object textureInputExtension() {
+            return textureInputExtension;
+        }
     }
 
     /** {@code CTextureManager} stand-in: flattened model-image table in atlas order. */
     public static final class TexManager {
         final List<TexImage> all = new java.util.ArrayList<>();
-        public List<TexImage> allModelImages() { return java.util.List.copyOf(all); }
+
+        public List<TexImage> allModelImages() {
+            return java.util.List.copyOf(all);
+        }
     }
     /** {@code CModelImage} stand-in. */
     public static final class TexImage {
         final Id guid;
-        TexImage(final String guid) { this.guid = new Id(guid); }
-        public Id guid() { return guid; }
+
+        TexImage(final String guid) {
+            this.guid = new Id(guid);
+        }
+
+        public Id guid() {
+            return guid;
+        }
     }
     /** {@code CTextureInputExtension} stand-in. */
     public static final class TexExt {
         final java.util.List<Object> inputs = new java.util.ArrayList<>();
         Object current;
-        public Object current() { return current; }
+
+        public Object current() {
+            return current;
+        }
     }
     /** {@code CTextureInput_ModelImage} stand-in. */
     public static final class TexInput {
         final TexImage modelImage;
-        TexInput(final TexImage modelImage) { this.modelImage = modelImage; }
-        public TexImage modelImageOrNull() { return modelImage; }
+
+        TexInput(final TexImage modelImage) {
+            this.modelImage = modelImage;
+        }
+
+        public TexImage modelImageOrNull() {
+            return modelImage;
+        }
     }
 
     public static final class ClipGuidList extends java.util.ArrayList<Id> {
@@ -2031,21 +2288,54 @@ class EditorObjectReadAccessTest {
     public static final class ArtMeshForm extends Form {
         final Failures failures;
         float[] positions = new float[] {0, 0, 1, 0, 0, 1};
-        ArtMeshForm(final Failures failures) { super(0.75F); this.failures = failures; }
-        @Override public int drawOrder() { return 7; }
-        public float[] positions() { return positions.clone(); }
-        public void setPositions(final float[] values) { failures.setter(); positions = values.clone(); }
-        public Id coordType() { assertTrue(javax.swing.SwingUtilities.isEventDispatchThread()); return new Id("Canvas"); }
+
+        ArtMeshForm(final Failures failures) {
+            super(0.75F);
+            this.failures = failures;
+        }
+
+        @Override
+        public int drawOrder() {
+            return 7;
+        }
+
+        public float[] positions() {
+            return positions.clone();
+        }
+
+        public void setPositions(final float[] values) {
+            failures.setter();
+            positions = values.clone();
+        }
+
+        public Id coordType() {
+            assertTrue(javax.swing.SwingUtilities.isEventDispatchThread());
+            return new Id("Canvas");
+        }
     }
 
     public static final class ArtMesh {
         final ArtMeshSource source;
         final ArtMeshForm form;
         final ArtMeshForm calculated = new ArtMeshForm(new Failures());
-        public ArtMeshForm calculatedForm() { assertTrue(javax.swing.SwingUtilities.isEventDispatchThread()); return calculated; }
-        ArtMesh(final ArtMeshSource source) { this.source = source; this.form = new ArtMeshForm(source.failures); }
-        public ArtMeshSource source() { return source; }
-        public ArtMeshForm currentForm() { return form; }
+
+        public ArtMeshForm calculatedForm() {
+            assertTrue(javax.swing.SwingUtilities.isEventDispatchThread());
+            return calculated;
+        }
+
+        ArtMesh(final ArtMeshSource source) {
+            this.source = source;
+            this.form = new ArtMeshForm(source.failures);
+        }
+
+        public ArtMeshSource source() {
+            return source;
+        }
+
+        public ArtMeshForm currentForm() {
+            return form;
+        }
     }
 
     public static class Deformer {
@@ -2240,15 +2530,42 @@ class EditorObjectReadAccessTest {
         final TexManager textureManager = new TexManager();
         Model model;
         int updateCount;
-        public Id guid() { return guid; }
-        public Model currentInstance() { return model; }
-        public List<PartSource> allParts() { return partSources; }
-        public List<ArtMeshSource> allArtMeshes() { return artMeshSources; }
-        public List<ObjectSource> allDeformers() { return deformerSources; }
-        public List<GlueSource> allGlues() { return glueSources; }
-        public TexManager textureManager() { return textureManager; }
-        public ParameterSourceSet parameterSourceSet() { return sourceSet; }
-        public void updateInstances() { updateCount++; }
+
+        public Id guid() {
+            return guid;
+        }
+
+        public Model currentInstance() {
+            return model;
+        }
+
+        public List<PartSource> allParts() {
+            return partSources;
+        }
+
+        public List<ArtMeshSource> allArtMeshes() {
+            return artMeshSources;
+        }
+
+        public List<ObjectSource> allDeformers() {
+            return deformerSources;
+        }
+
+        public List<GlueSource> allGlues() {
+            return glueSources;
+        }
+
+        public TexManager textureManager() {
+            return textureManager;
+        }
+
+        public ParameterSourceSet parameterSourceSet() {
+            return sourceSet;
+        }
+
+        public void updateInstances() {
+            updateCount++;
+        }
     }
 
     public static final class Model {
@@ -2256,19 +2573,42 @@ class EditorObjectReadAccessTest {
         final List<Deformer> deformers = new java.util.ArrayList<>();
         final ParameterSet parameterSet = new ParameterSet();
         final ParameterSet consumed = new ParameterSet();
-        public ParameterSet consumed() { assertTrue(javax.swing.SwingUtilities.isEventDispatchThread()); return consumed; }
-        public long passTime() { assertTrue(javax.swing.SwingUtilities.isEventDispatchThread()); return 1234; }
-        public List<ArtMesh> allArtMeshes() { return artMeshes; }
-        public List<Deformer> allDeformers() { return deformers; }
-        public ParameterSet parameterSet() { return parameterSet; }
+
+        public ParameterSet consumed() {
+            assertTrue(javax.swing.SwingUtilities.isEventDispatchThread());
+            return consumed;
+        }
+
+        public long passTime() {
+            assertTrue(javax.swing.SwingUtilities.isEventDispatchThread());
+            return 1234;
+        }
+
+        public List<ArtMesh> allArtMeshes() {
+            return artMeshes;
+        }
+
+        public List<Deformer> allDeformers() {
+            return deformers;
+        }
+
+        public ParameterSet parameterSet() {
+            return parameterSet;
+        }
     }
 
     public static final class ParameterSet {
-        final List<Parameter> parameters = new java.util.ArrayList<>(
-            List.of(new Parameter("ParamAngleX"), new Parameter("ParamAngleY"))
-        );
-        public List<Parameter> parameters() { return parameters; }
-        public int version() { assertTrue(javax.swing.SwingUtilities.isEventDispatchThread()); return 7; }
+        final List<Parameter> parameters =
+                new java.util.ArrayList<>(List.of(new Parameter("ParamAngleX"), new Parameter("ParamAngleY")));
+
+        public List<Parameter> parameters() {
+            return parameters;
+        }
+
+        public int version() {
+            assertTrue(javax.swing.SwingUtilities.isEventDispatchThread());
+            return 7;
+        }
     }
 
     public static final class ParameterSource {
@@ -2303,10 +2643,24 @@ class EditorObjectReadAccessTest {
     public static final class Parameter {
         final Id id;
         final ParameterSource source;
-        Parameter(String id) { this.id = new Id(id); this.source = new ParameterSource(id); }
-        public Id id() { return id; }
-        public ParameterSource source() { return source; }
-        public float value() { assertTrue(javax.swing.SwingUtilities.isEventDispatchThread()); return 0; }
+
+        Parameter(String id) {
+            this.id = new Id(id);
+            this.source = new ParameterSource(id);
+        }
+
+        public Id id() {
+            return id;
+        }
+
+        public ParameterSource source() {
+            return source;
+        }
+
+        public float value() {
+            assertTrue(javax.swing.SwingUtilities.isEventDispatchThread());
+            return 0;
+        }
     }
 
     private static final class Fixture {

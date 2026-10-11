@@ -397,9 +397,7 @@ public final class TurboismAgent {
 
     static boolean shaderUniformEnabled(
             final dev.turboism.config.RuntimeStartupConfig policy, final boolean requested) {
-        return requested
-                && policy != null
-                && policy.hookEnabled(ShaderUniformHookContributor.HOOK_POLICY_ID);
+        return requested && policy != null && policy.hookEnabled(ShaderUniformHookContributor.HOOK_POLICY_ID);
     }
 
     static boolean shaderUniformRequested(final String option) {

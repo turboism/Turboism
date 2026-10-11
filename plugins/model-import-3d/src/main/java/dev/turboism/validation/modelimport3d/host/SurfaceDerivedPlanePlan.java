@@ -11,7 +11,7 @@ import java.util.Objects;
 /** Derived editable plane, separate from original UV/material provenance and Warp-local
  * positions. No original face, corner, or source attribute is removed by this plan. */
 final class SurfaceDerivedPlanePlan {
-    private SurfaceDerivedPlanePlan() { }
+    private SurfaceDerivedPlanePlan() {}
     // Official SCALE_1 cache aligns dimensions to 64 texels. Raw pixels stay
     // unchanged; normalized UVs use the same rounded reciprocal as its affine.
     static final int IMAGE_SIZE = 576;
@@ -19,22 +19,33 @@ final class SurfaceDerivedPlanePlan {
     static final int GUTTER = 4;
     static final int LATTICE_CELLS = 256;
 
-    record Plan(SurfaceWarpChartPlan.Mesh original, ArtMeshGeometry geometry,
-            List<Point2> defaultLocal, List<Integer> oldToNew, List<Integer> representatives) {
+    record Plan(
+            SurfaceWarpChartPlan.Mesh original,
+            ArtMeshGeometry geometry,
+            List<Point2> defaultLocal,
+            List<Integer> oldToNew,
+            List<Integer> representatives) {
         Plan {
-            Objects.requireNonNull(original); Objects.requireNonNull(geometry);
-            defaultLocal = List.copyOf(defaultLocal); oldToNew = List.copyOf(oldToNew);
+            Objects.requireNonNull(original);
+            Objects.requireNonNull(geometry);
+            defaultLocal = List.copyOf(defaultLocal);
+            oldToNew = List.copyOf(oldToNew);
             representatives = List.copyOf(representatives);
         }
     }
-    private record Attribute(SurfaceProjection.Vertex position, Point2 local) { }
+
+    private record Attribute(SurfaceProjection.Vertex position, Point2 local) {}
 
     static Plan compile(SurfaceWarpChartPlan.Mesh mesh) {
         Objects.requireNonNull(mesh);
         int count = mesh.sourcePositions().size();
-        if (count < 3 || count > 65535 || mesh.warpLocal().size() != count
-                || mesh.sourceUvs().size() != count || mesh.slotIdentities().size() != count
-                || mesh.indices().isEmpty() || mesh.indices().size() % 3 != 0
+        if (count < 3
+                || count > 65535
+                || mesh.warpLocal().size() != count
+                || mesh.sourceUvs().size() != count
+                || mesh.slotIdentities().size() != count
+                || mesh.indices().isEmpty()
+                || mesh.indices().size() % 3 != 0
                 || mesh.indices().size() > 600000
                 || mesh.triangles().size() != mesh.indices().size() / 3)
             throw new IllegalArgumentException("bounded complete original chart required");
@@ -47,11 +58,12 @@ final class SurfaceDerivedPlanePlan {
             var p = mesh.warpLocal().get(i);
             if (!Float.isFinite(p.x()) || !Float.isFinite(p.y()))
                 throw new IllegalArgumentException("finite original Warp-local domain required");
-            minX = Math.min(minX, p.x()); minY = Math.min(minY, p.y());
-            maxX = Math.max(maxX, p.x()); maxY = Math.max(maxY, p.y());
+            minX = Math.min(minX, p.x());
+            minY = Math.min(minY, p.y());
+            maxX = Math.max(maxX, p.x());
+            maxY = Math.max(maxY, p.y());
         }
-        if (!(maxX > minX && maxY > minY))
-            throw new IllegalArgumentException("nonzero chart rectangle required");
+        if (!(maxX > minX && maxY > minY)) throw new IllegalArgumentException("nonzero chart rectangle required");
         var attributes = new LinkedHashMap<Attribute, Integer>();
         var occupied = new HashMap<Point2, Attribute>();
         var positions = new ArrayList<Point2>();
@@ -67,19 +79,22 @@ final class SurfaceDerivedPlanePlan {
             var point = new Point2(x, y);
             var previous = occupied.putIfAbsent(point, key);
             if (previous != null && !previous.equals(key))
-                throw new IllegalArgumentException("integer source plane overlaps distinct original positions; finer charting required");
+                throw new IllegalArgumentException(
+                        "integer source plane overlaps distinct original positions; finer charting required");
             Integer slot = attributes.get(key);
             if (slot == null) {
-                slot = attributes.size(); attributes.put(key, slot);
-                positions.add(point); uvs.add(new Point2(x * (1f / IMAGE_SIZE), y * (1f / IMAGE_SIZE)));
-                local.add(originalLocal); representatives.add(i);
+                slot = attributes.size();
+                attributes.put(key, slot);
+                positions.add(point);
+                uvs.add(new Point2(x * (1f / IMAGE_SIZE), y * (1f / IMAGE_SIZE)));
+                local.add(originalLocal);
+                representatives.add(i);
             }
             remap.add(slot);
         }
         var indices = new ArrayList<Integer>(mesh.indices().size());
         for (int index : mesh.indices()) {
-            if (index < 0 || index >= count)
-                throw new IllegalArgumentException("original corner outside slot domain");
+            if (index < 0 || index >= count) throw new IllegalArgumentException("original corner outside slot domain");
             indices.add(remap.get(index));
         }
         // Degenerate/duplicate/reversed faces remain explicit. The native preview and

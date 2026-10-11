@@ -7,8 +7,8 @@ import dev.turboism.adapter.cubism.editor.transaction.VerifiedEditorAuthoringTra
 import dev.turboism.core.runtime.psd.PsdExportHost;
 import dev.turboism.core.runtime.psd.PsdReplaceHost;
 import dev.turboism.core.runtime.psd.PsdSessionBoundHost;
-import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.history.HistoryAction;
 import dev.turboism.sdk.cubism.history.HistoryChange;
@@ -37,7 +37,6 @@ import dev.turboism.sdk.cubism.psd.PsdFileRevision;
 import dev.turboism.sdk.cubism.psd.PsdReplaceResult;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
-
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -107,9 +106,11 @@ final class EditorTextureAccess {
     private static final String ART_MESH_SOURCE_CLASS = "cubism.editor-model.art-mesh-source.class";
     private static final String SOURCE_ID = "cubism.editor-model.parameter-controllable-source.id";
     private static final String ID_VALUE = "cubism.editor-model.id.value";
-    private static final String LOCKED_IN_HIERARCHY = "cubism.editor-model.parameter-controllable-source.locked-in-hierarchy";
+    private static final String LOCKED_IN_HIERARCHY =
+            "cubism.editor-model.parameter-controllable-source.locked-in-hierarchy";
     private static final String EXTENSIONS = "cubism.editor-model.parameter-controllable-source.extensions";
-    private static final String ALL_PARENT_DEFORMERS = "cubism.editor-model.parameter-controllable-source.all-parent-deformers";
+    private static final String ALL_PARENT_DEFORMERS =
+            "cubism.editor-model.parameter-controllable-source.all-parent-deformers";
     private static final String MESH_TEXTURE_INPUT = "cubism.editor-model.art-mesh-source.texture-input-extension";
     private static final String MESH_TEXTURE = "cubism.editor-model.art-mesh-source.texture";
     private static final String MESH_SET_TEXTURE = "cubism.editor-model.art-mesh-source.set-texture";
@@ -136,11 +137,11 @@ final class EditorTextureAccess {
     private static final String ENV_OUTPUT_IMAGE = "cubism.editor-model.model-image-filter-env.output-image";
     private static final String ENV_OUTPUT_TRANSFORM = "cubism.editor-model.model-image-filter-env.output-transform";
     private static final String ENV_HAS_CURRENT_IMAGE_GUID =
-        "cubism.editor-model.model-image-filter-env.has-current-image-guid";
+            "cubism.editor-model.model-image-filter-env.has-current-image-guid";
     private static final String ENV_CURRENT_IMAGE_GUID =
-        "cubism.editor-model.model-image-filter-env.current-image-guid";
+            "cubism.editor-model.model-image-filter-env.current-image-guid";
     private static final String ENV_SET_CURRENT_IMAGE_GUID =
-        "cubism.editor-model.model-image-filter-env.set-current-image-guid";
+            "cubism.editor-model.model-image-filter-env.set-current-image-guid";
     private static final String FILTER_VALUE_CREATE = "cubism.editor-model.filter-value.create";
     private static final String FILTER_VALUE_ID = "cubism.editor-model.filter-value.id";
     private static final String EMPTY_FILTER_CREATE = "cubism.editor-model.empty-filter.create";
@@ -163,7 +164,7 @@ final class EditorTextureAccess {
 
     private static final String INPUT_CLASS = "cubism.editor-model.texture-input-model-image.class";
     private static final String ATLAS_REGION_INPUT_CLASS =
-        "cubism.editor-model.texture-input-texture-atlas-region.class";
+            "cubism.editor-model.texture-input-texture-atlas-region.class";
     private static final String ATLAS_REGION_GUID = "cubism.editor-model.texture-atlas-guid";
     private static final String EXTENSION_CREATE = "cubism.editor-model.texture-input-extension.create";
     private static final String INPUT_CREATE = "cubism.editor-model.texture-input-model-image.create";
@@ -305,13 +306,11 @@ final class EditorTextureAccess {
 
     private void requireRegisterBindAuthorization() {
         if (!resolver.authorizesFeature(
-            EditorTextureSelectorContract.ADAPTER_SLICE_ID,
-            EditorTextureSelectorContract.REGISTER_BIND_CAPABILITY_ID,
-            EditorTextureSelectorContract.REGISTER_BIND_REQUIRED_ALIASES
-        )) {
+                EditorTextureSelectorContract.ADAPTER_SLICE_ID,
+                EditorTextureSelectorContract.REGISTER_BIND_CAPABILITY_ID,
+                EditorTextureSelectorContract.REGISTER_BIND_REQUIRED_ALIASES)) {
             throw new UnsupportedOperationException(
-                "Model image registration and binding is unavailable without exact verified host evidence."
-            );
+                    "Model image registration and binding is unavailable without exact verified host evidence.");
         }
     }
 
@@ -326,34 +325,20 @@ final class EditorTextureAccess {
             throw new IllegalStateException("The active Cubism document is not a modeling document.");
         }
         final Object activeSource = resolver.invoke(DOCUMENT_MODEL_SOURCE, document);
-        final Object activeModel = activeSource == null
-            ? null
-            : resolver.invoke(MODEL_SOURCE_INSTANCE, activeSource);
+        final Object activeModel = activeSource == null ? null : resolver.invoke(MODEL_SOURCE_INSTANCE, activeSource);
         if (activeSource != source || activeModel != model) {
-            throw new IllegalStateException(
-                "Cubism model reference is stale for the active Editor model generation."
-            );
+            throw new IllegalStateException("Cubism model reference is stale for the active Editor model generation.");
         }
         return document;
     }
 
     private VerifiedEditorAuthoringTransactionHost selfHost(
-        final String identity,
-        final Object source,
-        final Object model,
-        final long generation
-    ) {
+            final String identity, final Object source, final Object model, final long generation) {
         return new VerifiedEditorAuthoringTransactionHost(
-            resolver,
-            () -> new VerifiedEditorAuthoringTransactionHost.NativeBinding(
-                identity,
-                generation,
-                resolveBoundDocument(source, model),
-                source,
-                model
-            ),
-            () -> generation
-        );
+                resolver,
+                () -> new VerifiedEditorAuthoringTransactionHost.NativeBinding(
+                        identity, generation, resolveBoundDocument(source, model), source, model),
+                () -> generation);
     }
 
     private long generationOf(final String identity) {
@@ -364,9 +349,7 @@ final class EditorTextureAccess {
         try {
             return Long.parseLong(identity.substring(separator + 1));
         } catch (NumberFormatException malformed) {
-            throw new IllegalStateException(
-                "Cubism model identity carries no generation.", malformed
-            );
+            throw new IllegalStateException("Cubism model identity carries no generation.", malformed);
         }
     }
 
@@ -390,8 +373,7 @@ final class EditorTextureAccess {
             if (target.value().equals(text)) {
                 if (match != null) {
                     throw new IllegalStateException(
-                        "Cubism art mesh id resolves to multiple sources: " + target.value()
-                    );
+                            "Cubism art mesh id resolves to multiple sources: " + target.value());
                 }
                 match = meshSource;
             }
@@ -425,11 +407,12 @@ final class EditorTextureAccess {
         for (final Object extension : extensionList) {
             if (extension != null && extension == textureInput && !seenTexture) {
                 seenTexture = true;
-            } else if (!seenEditable && extension != null
-                && resolver.isInstance("cubism.editor-model.editable-mesh-extension.class", extension)
-                && resolver.invoke("cubism.editor-model.editable-mesh-extension.owner", extension) == meshSource
-                && Boolean.FALSE.equals(resolver.invoke(
-                    "cubism.editor-model.editable-mesh-extension.locked", extension))) {
+            } else if (!seenEditable
+                    && extension != null
+                    && resolver.isInstance("cubism.editor-model.editable-mesh-extension.class", extension)
+                    && resolver.invoke("cubism.editor-model.editable-mesh-extension.owner", extension) == meshSource
+                    && Boolean.FALSE.equals(
+                            resolver.invoke("cubism.editor-model.editable-mesh-extension.locked", extension))) {
                 seenEditable = true;
             } else {
                 throw new IllegalStateException("Cubism art mesh carries a foreign or locked extension.");
@@ -456,40 +439,37 @@ final class EditorTextureAccess {
      * members in reverse order only when they are still present.
      */
     private EditorUndoContribution registrationContribution(
-        final EditorAuthoringTransactionCoordinator.Binding binding,
-        final String operationId,
-        final Object source,
-        final RegistrationMembers members
-    ) {
+            final EditorAuthoringTransactionCoordinator.Binding binding,
+            final String operationId,
+            final Object source,
+            final RegistrationMembers members) {
         final Object textureManager = textureManager(source);
         final Object[] undoables = new Object[3];
         return new EditorUndoContribution(
-            operationId,
-            binding.modelIdentity() + ":model-image:" + members.modelImageGuidValue,
-            "Turboism: Register Model Image",
-            (edit, transactionLabel) -> {
-                undoables[0] = resolver.construct(UNDO_RAW_CREATE, source, members.wrapper, -1, true);
-                admit(edit, undoables[0]);
-                undoables[1] = resolver.construct(UNDO_GROUP_CREATE, source, members.group, -1, true);
-                admit(edit, undoables[1]);
-                undoables[2] = resolver.construct(UNDO_IMAGE_CREATE, members.group, members.modelImage, -1, true);
-                admit(edit, undoables[2]);
-            },
-            () -> {
-                resolver.invoke(ATLAS_UNDO_FORCE_REDO, undoables[0]);
-                resolver.invoke(ATLAS_UNDO_FORCE_REDO, undoables[1]);
-                resolver.invoke(ATLAS_UNDO_FORCE_REDO, undoables[2]);
-            },
-            () -> members.registered(textureManager),
-            () -> members.unregister(textureManager, undoables),
-            () -> members.unregistered(textureManager),
-            EnumSet.of(
-                EditorRefreshRequirement.MODEL_INSTANCES,
-                EditorRefreshRequirement.MARK_DIRTY,
-                EditorRefreshRequirement.CANVAS
-            ),
-            members.registrationDetail(binding.pluginId(), operationId)
-        );
+                operationId,
+                binding.modelIdentity() + ":model-image:" + members.modelImageGuidValue,
+                "Turboism: Register Model Image",
+                (edit, transactionLabel) -> {
+                    undoables[0] = resolver.construct(UNDO_RAW_CREATE, source, members.wrapper, -1, true);
+                    admit(edit, undoables[0]);
+                    undoables[1] = resolver.construct(UNDO_GROUP_CREATE, source, members.group, -1, true);
+                    admit(edit, undoables[1]);
+                    undoables[2] = resolver.construct(UNDO_IMAGE_CREATE, members.group, members.modelImage, -1, true);
+                    admit(edit, undoables[2]);
+                },
+                () -> {
+                    resolver.invoke(ATLAS_UNDO_FORCE_REDO, undoables[0]);
+                    resolver.invoke(ATLAS_UNDO_FORCE_REDO, undoables[1]);
+                    resolver.invoke(ATLAS_UNDO_FORCE_REDO, undoables[2]);
+                },
+                () -> members.registered(textureManager),
+                () -> members.unregister(textureManager, undoables),
+                () -> members.unregistered(textureManager),
+                EnumSet.of(
+                        EditorRefreshRequirement.MODEL_INSTANCES,
+                        EditorRefreshRequirement.MARK_DIRTY,
+                        EditorRefreshRequirement.CANVAS),
+                members.registrationDetail(binding.pluginId(), operationId));
     }
 
     /**
@@ -501,105 +481,89 @@ final class EditorTextureAccess {
      * manually in the mutation phase without {@code updateArtMeshSourceUvs}.
      */
     private EditorUndoContribution bindingContribution(
-        final EditorAuthoringTransactionCoordinator.Binding binding,
-        final String operationId,
-        final Object meshSource,
-        final Object modelImage,
-        final BindingMembers members
-    ) {
+            final EditorAuthoringTransactionCoordinator.Binding binding,
+            final String operationId,
+            final Object meshSource,
+            final Object modelImage,
+            final BindingMembers members) {
         final Object[] undoables = new Object[3];
         final Object uuUndo = resolver.readStaticField(UU_UNDO_INSTANCE);
         return new EditorUndoContribution(
-            operationId,
-            binding.modelIdentity() + ":art-mesh:" + members.meshId,
-            "Turboism: Bind Model Image",
-            (edit, transactionLabel) -> {
-                undoables[0] = resolver.construct(
-                    UNDO_EXTENSION_CREATE, meshSource, members.extension, -1, true);
-                admit(edit, undoables[0]);
-                undoables[1] = resolver.invoke(
-                    UU_UNDO_CREATE,
-                    uuUndo,
-                    transactionLabel,
-                    Boolean.FALSE,
-                    resolver.createFunctionalArgumentProxy(UU_UNDO_CREATE, 2, ignored -> {
-                        resolver.invoke(MESH_SET_TEXTURE, meshSource, members.newTexture());
-                        return null;
-                    }),
-                    resolver.createFunctionalArgumentProxy(UU_UNDO_CREATE, 3, ignored -> {
-                        resolver.invoke(MESH_SET_TEXTURE, meshSource, members.oldTexture);
-                        return null;
-                    }),
-                    null
-                );
-                admit(edit, undoables[1]);
-                undoables[2] = resolver.invoke(
-                    UU_UNDO_CREATE,
-                    uuUndo,
-                    transactionLabel,
-                    Boolean.FALSE,
-                    resolver.createFunctionalArgumentProxy(UU_UNDO_CREATE, 2, ignored -> {
-                        resolver.invoke(MESH_SET_TEXTURE_STATE, meshSource, members.modelImageState);
-                        return null;
-                    }),
-                    resolver.createFunctionalArgumentProxy(UU_UNDO_CREATE, 3, ignored -> {
-                        resolver.invoke(MESH_SET_TEXTURE_STATE, meshSource, members.oldState);
-                        return null;
-                    }),
-                    null
-                );
-                admit(edit, undoables[2]);
-            },
-            () -> {
-                resolver.invoke(ATLAS_UNDO_FORCE_REDO, undoables[0]);
-                members.publish(meshSource);
-            },
-            () -> members.bound(meshSource),
-            () -> members.unbind(meshSource, undoables[0]),
-            () -> members.unbound(meshSource),
-            EnumSet.of(
-                EditorRefreshRequirement.MODEL_INSTANCES,
-                EditorRefreshRequirement.MARK_DIRTY,
-                EditorRefreshRequirement.CANVAS
-            ),
-            members.bindingDetail(binding.pluginId(), operationId)
-        );
+                operationId,
+                binding.modelIdentity() + ":art-mesh:" + members.meshId,
+                "Turboism: Bind Model Image",
+                (edit, transactionLabel) -> {
+                    undoables[0] = resolver.construct(UNDO_EXTENSION_CREATE, meshSource, members.extension, -1, true);
+                    admit(edit, undoables[0]);
+                    undoables[1] = resolver.invoke(
+                            UU_UNDO_CREATE,
+                            uuUndo,
+                            transactionLabel,
+                            Boolean.FALSE,
+                            resolver.createFunctionalArgumentProxy(UU_UNDO_CREATE, 2, ignored -> {
+                                resolver.invoke(MESH_SET_TEXTURE, meshSource, members.newTexture());
+                                return null;
+                            }),
+                            resolver.createFunctionalArgumentProxy(UU_UNDO_CREATE, 3, ignored -> {
+                                resolver.invoke(MESH_SET_TEXTURE, meshSource, members.oldTexture);
+                                return null;
+                            }),
+                            null);
+                    admit(edit, undoables[1]);
+                    undoables[2] = resolver.invoke(
+                            UU_UNDO_CREATE,
+                            uuUndo,
+                            transactionLabel,
+                            Boolean.FALSE,
+                            resolver.createFunctionalArgumentProxy(UU_UNDO_CREATE, 2, ignored -> {
+                                resolver.invoke(MESH_SET_TEXTURE_STATE, meshSource, members.modelImageState);
+                                return null;
+                            }),
+                            resolver.createFunctionalArgumentProxy(UU_UNDO_CREATE, 3, ignored -> {
+                                resolver.invoke(MESH_SET_TEXTURE_STATE, meshSource, members.oldState);
+                                return null;
+                            }),
+                            null);
+                    admit(edit, undoables[2]);
+                },
+                () -> {
+                    resolver.invoke(ATLAS_UNDO_FORCE_REDO, undoables[0]);
+                    members.publish(meshSource);
+                },
+                () -> members.bound(meshSource),
+                () -> members.unbind(meshSource, undoables[0]),
+                () -> members.unbound(meshSource),
+                EnumSet.of(
+                        EditorRefreshRequirement.MODEL_INSTANCES,
+                        EditorRefreshRequirement.MARK_DIRTY,
+                        EditorRefreshRequirement.CANVAS),
+                members.bindingDetail(binding.pluginId(), operationId));
     }
 
     /** Constructs the unpublished {@code CImageResource} and decodes it exactly once. */
     private Object decodeResource(final AuthorizedImageContent image) {
         final Object colorType = resolver.readStaticField(IMAGE_COLOR_TYPE);
-        final Object resource = resolver.construct(
-            IMAGE_RESOURCE_CREATE, image.copyBytes(), colorType, Boolean.TRUE);
+        final Object resource = resolver.construct(IMAGE_RESOURCE_CREATE, image.copyBytes(), colorType, Boolean.TRUE);
         final Object decoded = resolver.invoke(IMAGE_RESOURCE_IMAGE, resource);
         if (decoded == null) {
             throw new IllegalStateException("Cubism image decode produced no image.");
         }
         final int width = dimension(resource, IMAGE_RESOURCE_WIDTH, "registered image");
         final int height = dimension(resource, IMAGE_RESOURCE_HEIGHT, "registered image");
-        if (width != image.width()
-            || height != image.height()) {
+        if (width != image.width() || height != image.height()) {
             throw new IllegalStateException(
-                "Decoded image dimensions must match declared "
-                    + image.width() + "x"
-                    + image.height() + "."
-            );
+                    "Decoded image dimensions must match declared " + image.width() + "x" + image.height() + ".");
         }
         return resource;
     }
 
     /** Builds the unpublished layered image, wrapper, group, and wired model image. */
-    private RegistrationMembers buildRegistration(
-        final Object source,
-        final AuthorizedImageContent image
-    ) {
+    private RegistrationMembers buildRegistration(final Object source, final AuthorizedImageContent image) {
         final Object resource = decodeResource(image);
         final String name = image.sourceDescription();
-        final Object layered = resolver.construct(
-            LAYERED_IMAGE_CREATE, resource, null, name, name);
+        final Object layered = resolver.construct(LAYERED_IMAGE_CREATE, resource, null, name, name);
         final Object layeredGuid = resolver.invoke(LAYERED_IMAGE_GUID, layered);
-        final Object wrapper = resolver.construct(
-            WRAPPER_CREATE, layered, -1L, -1L, Boolean.FALSE);
+        final Object wrapper = resolver.construct(WRAPPER_CREATE, layered, -1L, -1L, Boolean.FALSE);
         final Object group = resolver.construct(GROUP_CREATE, name);
         resolver.invoke(GROUP_LINK, group, layeredGuid);
         final Object modelImageGuid = resolver.construct(MODEL_IMAGE_GUID_CREATE);
@@ -614,10 +578,14 @@ final class EditorTextureAccess {
         final List<Object> linkedGuids = (List<Object>) linked;
         linkedGuids.add(layeredGuid);
         return new RegistrationMembers(
-            resource, layered, layeredGuid, wrapper, group, modelImage,
-            guidValue(layeredGuid, "raw image"),
-            guidValue(modelImageGuid, "model image")
-        );
+                resource,
+                layered,
+                layeredGuid,
+                wrapper,
+                group,
+                modelImage,
+                guidValue(layeredGuid, "raw image"),
+                guidValue(modelImageGuid, "model image"));
     }
 
     /**
@@ -631,25 +599,27 @@ final class EditorTextureAccess {
         final Object imageOutput = resolver.invoke(ENV_OUTPUT_IMAGE, companion);
         final Object transformOutput = resolver.invoke(ENV_OUTPUT_TRANSFORM, companion);
         final Object filter = resolver.invoke(MODEL_IMAGE_FILTER, modelImage);
-        final Object imageValue = resolver.construct(
-            FILTER_VALUE_CREATE, "Image", resolver.invoke(FILTER_VALUE_ID, imageOutput), null);
-        final Object imageInstance = resolver.invoke(
-            FILTER_SET_ADD, filter, resolver.construct(EMPTY_FILTER_CREATE, imageValue), null);
+        final Object imageValue =
+                resolver.construct(FILTER_VALUE_CREATE, "Image", resolver.invoke(FILTER_VALUE_ID, imageOutput), null);
+        final Object imageInstance =
+                resolver.invoke(FILTER_SET_ADD, filter, resolver.construct(EMPTY_FILTER_CREATE, imageValue), null);
         resolver.invoke(
-            FILTER_INSTANCE_SET_INPUT, imageInstance, imageValue,
-            resolver.construct(CONST_CONNECTOR_CREATE, resource));
+                FILTER_INSTANCE_SET_INPUT,
+                imageInstance,
+                imageValue,
+                resolver.construct(CONST_CONNECTOR_CREATE, resource));
         resolver.invoke(FILTER_SET_CONNECT_OUTPUT, filter, imageInstance, imageValue, imageOutput);
         final Object transformValue = resolver.construct(
-            FILTER_VALUE_CREATE, "Transform", resolver.invoke(FILTER_VALUE_ID, transformOutput), null);
-        final Object transformInstance = resolver.invoke(
-            FILTER_SET_ADD, filter, resolver.construct(EMPTY_FILTER_CREATE, transformValue), null);
+                FILTER_VALUE_CREATE, "Transform", resolver.invoke(FILTER_VALUE_ID, transformOutput), null);
+        final Object transformInstance =
+                resolver.invoke(FILTER_SET_ADD, filter, resolver.construct(EMPTY_FILTER_CREATE, transformValue), null);
         resolver.invoke(
-            FILTER_INSTANCE_SET_INPUT, transformInstance, transformValue,
-            resolver.construct(CONST_CONNECTOR_CREATE, resolver.construct(CAFFINE_CREATE)));
-        resolver.invoke(
-            FILTER_SET_CONNECT_OUTPUT, filter, transformInstance, transformValue, transformOutput);
-        resolver.invoke(FILTER_SET_VERIFY, filter, Boolean.TRUE,
-            resolver.construct(VERIFY_COLLECTOR_CREATE));
+                FILTER_INSTANCE_SET_INPUT,
+                transformInstance,
+                transformValue,
+                resolver.construct(CONST_CONNECTOR_CREATE, resolver.construct(CAFFINE_CREATE)));
+        resolver.invoke(FILTER_SET_CONNECT_OUTPUT, filter, transformInstance, transformValue, transformOutput);
+        resolver.invoke(FILTER_SET_VERIFY, filter, Boolean.TRUE, resolver.construct(VERIFY_COLLECTOR_CREATE));
     }
 
     /**
@@ -668,11 +638,9 @@ final class EditorTextureAccess {
         final Object env = resolver.invoke(MODEL_IMAGE_FILTER_ENV, modelImage);
         resolver.invoke(ENV_SET_CURRENT_IMAGE_GUID, env, layeredGuid);
         if (!Boolean.TRUE.equals(resolver.invoke(ENV_HAS_CURRENT_IMAGE_GUID, env))
-            || !guidValue(layeredGuid, "raw image")
-                .equals(guidValue(resolver.invoke(ENV_CURRENT_IMAGE_GUID, env), "raw image"))) {
-            throw new IllegalStateException(
-                "Cubism model image did not retain its source image identity."
-            );
+                || !guidValue(layeredGuid, "raw image")
+                        .equals(guidValue(resolver.invoke(ENV_CURRENT_IMAGE_GUID, env), "raw image"))) {
+            throw new IllegalStateException("Cubism model image did not retain its source image identity.");
         }
     }
 
@@ -701,13 +669,11 @@ final class EditorTextureAccess {
 
     private void requireTextureInputReadAuthorization() {
         if (!resolver.authorizesFeature(
-            EditorTextureSelectorContract.ADAPTER_SLICE_ID,
-            EditorTextureSelectorContract.READ_CAPABILITY_ID,
-            EditorTextureSelectorContract.TEXTURE_INPUT_OBSERVE_ALIASES
-        )) {
+                EditorTextureSelectorContract.ADAPTER_SLICE_ID,
+                EditorTextureSelectorContract.READ_CAPABILITY_ID,
+                EditorTextureSelectorContract.TEXTURE_INPUT_OBSERVE_ALIASES)) {
             throw new UnsupportedOperationException(
-                "ArtMesh texture input observation is unavailable without exact verified host evidence."
-            );
+                    "ArtMesh texture input observation is unavailable without exact verified host evidence.");
         }
     }
 
@@ -718,11 +684,7 @@ final class EditorTextureAccess {
      * no current input; every other absence of evidence fails closed.
      */
     private Optional<ArtMeshTextureInput> observeTextureInput(
-        final String identity,
-        final Object source,
-        final Object model,
-        final ArtMeshId target
-    ) {
+            final String identity, final Object source, final Object model, final ArtMeshId target) {
         // Runs inside the dispatched EDT closure: the generation/current-model guard
         // is re-verified here so a document switch between dispatch and the read
         // cannot serve observations of a superseded binding.
@@ -742,43 +704,34 @@ final class EditorTextureAccess {
         if (resolver.isInstance(INPUT_CLASS, current)) {
             final Object modelImage = resolver.invoke(INPUT_MODEL_IMAGE, current);
             if (modelImage == null) {
-                throw new IllegalStateException(
-                    "Cubism model-image texture input resolves to no model image."
-                );
+                throw new IllegalStateException("Cubism model-image texture input resolves to no model image.");
             }
             if (!resolver.isInstance("cubism.editor-model.model-image.class", modelImage)) {
-                throw new IllegalStateException(
-                    "Cubism model-image texture input carries an invalid model image."
-                );
+                throw new IllegalStateException("Cubism model-image texture input carries an invalid model image.");
             }
-            final String imageGuid = guidValue(
-                resolver.invoke(MODEL_IMAGE_GUID, modelImage), "model image");
+            final String imageGuid = guidValue(resolver.invoke(MODEL_IMAGE_GUID, modelImage), "model image");
             requireUniqueModelImageMembership(source, imageGuid, modelImage);
             return Optional.of(new ArtMeshTextureInput(
-                target,
-                modelId,
-                generation,
-                ArtMeshTextureInput.Kind.MODEL_IMAGE,
-                Optional.of(new ModelImageId(imageGuid)),
-                Optional.empty()
-            ));
+                    target,
+                    modelId,
+                    generation,
+                    ArtMeshTextureInput.Kind.MODEL_IMAGE,
+                    Optional.of(new ModelImageId(imageGuid)),
+                    Optional.empty()));
         }
         if (resolver.isInstance(ATLAS_REGION_INPUT_CLASS, current)) {
-            final String atlasGuid = guidValue(
-                resolver.invoke(ATLAS_REGION_GUID, current), "texture atlas region");
+            final String atlasGuid = guidValue(resolver.invoke(ATLAS_REGION_GUID, current), "texture atlas region");
             requireUniqueAtlasMembership(source, atlasGuid);
             return Optional.of(new ArtMeshTextureInput(
-                target,
-                modelId,
-                generation,
-                ArtMeshTextureInput.Kind.TEXTURE_ATLAS_REGION,
-                Optional.empty(),
-                Optional.of(new TextureAtlasId(atlasGuid))
-            ));
+                    target,
+                    modelId,
+                    generation,
+                    ArtMeshTextureInput.Kind.TEXTURE_ATLAS_REGION,
+                    Optional.empty(),
+                    Optional.of(new TextureAtlasId(atlasGuid))));
         }
-        throw new IllegalStateException(
-            "Cubism art mesh carries an unknown texture input type: " + current.getClass().getName()
-        );
+        throw new IllegalStateException("Cubism art mesh carries an unknown texture input type: "
+                + current.getClass().getName());
     }
 
     /**
@@ -786,25 +739,22 @@ final class EditorTextureAccess {
      * model's own image table — not dangling, duplicated, or foreign.
      */
     private void requireUniqueModelImageMembership(
-        final Object source,
-        final String imageGuid,
-        final Object boundImage
-    ) {
+            final Object source, final String imageGuid, final Object boundImage) {
         Object unique = null;
         int matches = 0;
         for (final Object image : list(ALL_MODEL_IMAGES, textureManager(source), "model image")) {
             if (!resolver.isInstance("cubism.editor-model.model-image.class", image)) {
                 throw new IllegalStateException("Editor model image collection contains an invalid value.");
             }
-            if (guidValue(resolver.invoke(MODEL_IMAGE_GUID, image), "model image").equals(imageGuid)) {
+            if (guidValue(resolver.invoke(MODEL_IMAGE_GUID, image), "model image")
+                    .equals(imageGuid)) {
                 unique = image;
                 matches++;
             }
         }
         if (matches != 1 || unique != boundImage) {
             throw new IllegalStateException(
-                "Cubism texture input references a model image outside the active model's manager."
-            );
+                    "Cubism texture input references a model image outside the active model's manager.");
         }
     }
 
@@ -825,8 +775,7 @@ final class EditorTextureAccess {
         }
         if (matches != 1) {
             throw new IllegalStateException(
-                "Cubism texture input references a texture atlas outside the active model's manager."
-            );
+                    "Cubism texture input references a texture atlas outside the active model's manager.");
         }
     }
 
@@ -854,15 +803,14 @@ final class EditorTextureAccess {
         private final String modelImageGuidValue;
 
         private RegistrationMembers(
-            final Object resource,
-            final Object layered,
-            final Object layeredGuid,
-            final Object wrapper,
-            final Object group,
-            final Object modelImage,
-            final String rawImageGuidValue,
-            final String modelImageGuidValue
-        ) {
+                final Object resource,
+                final Object layered,
+                final Object layeredGuid,
+                final Object wrapper,
+                final Object group,
+                final Object modelImage,
+                final String rawImageGuidValue,
+                final String modelImageGuidValue) {
             this.resource = resource;
             this.layered = layered;
             this.layeredGuid = layeredGuid;
@@ -875,9 +823,10 @@ final class EditorTextureAccess {
 
         private boolean registered(final Object textureManager) {
             return list(RAW_IMAGES, textureManager, "raw image").contains(wrapper)
-                && list(MODEL_IMAGE_GROUPS, textureManager, "model image group").contains(group)
-                && list(GROUP_IMAGES, group, "model image").contains(modelImage)
-                && resolver.invoke(MODEL_IMAGE_FILTER_ENV, modelImage) != null;
+                    && list(MODEL_IMAGE_GROUPS, textureManager, "model image group")
+                            .contains(group)
+                    && list(GROUP_IMAGES, group, "model image").contains(modelImage)
+                    && resolver.invoke(MODEL_IMAGE_FILTER_ENV, modelImage) != null;
         }
 
         private void unregister(final Object textureManager, final Object[] undoables) {
@@ -894,45 +843,38 @@ final class EditorTextureAccess {
 
         private boolean unregistered(final Object textureManager) {
             return !list(RAW_IMAGES, textureManager, "raw image").contains(wrapper)
-                && !list(MODEL_IMAGE_GROUPS, textureManager, "model image group").contains(group)
-                && !list(GROUP_IMAGES, group, "model image").contains(modelImage);
+                    && !list(MODEL_IMAGE_GROUPS, textureManager, "model image group")
+                            .contains(group)
+                    && !list(GROUP_IMAGES, group, "model image").contains(modelImage);
         }
 
-        private HistoryEntryDetail registrationDetail(
-            final String pluginId,
-            final String operationId
-        ) {
+        private HistoryEntryDetail registrationDetail(final String pluginId, final String operationId) {
             return new HistoryEntryDetail(
-                "Register model image " + modelImageGuidValue,
-                HistoryAction.DetailLevel.FULL,
-                HistoryOrigin.turboism(pluginId, operationId),
-                List.of(
-                    new HistoryTarget("RAW_IMAGE", Optional.of(rawImageGuidValue), Optional.empty()),
-                    new HistoryTarget("MODEL_IMAGE", Optional.of(modelImageGuidValue), Optional.empty())
-                ),
-                List.of(
-                    new HistoryChange(
-                        HistoryChange.Operation.ADD,
-                        Optional.of(0),
-                        Optional.of("rawImage"),
-                        Optional.empty(),
-                        Optional.of(rawImageGuidValue),
-                        new HistoryEditContext(
-                            HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of())
-                    ),
-                    new HistoryChange(
-                        HistoryChange.Operation.ADD,
-                        Optional.of(1),
-                        Optional.of("modelImage"),
-                        Optional.empty(),
-                        Optional.of(modelImageGuidValue),
-                        new HistoryEditContext(
-                            HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of())
-                    )
-                ),
-                Optional.empty(),
-                Optional.empty()
-            );
+                    "Register model image " + modelImageGuidValue,
+                    HistoryAction.DetailLevel.FULL,
+                    HistoryOrigin.turboism(pluginId, operationId),
+                    List.of(
+                            new HistoryTarget("RAW_IMAGE", Optional.of(rawImageGuidValue), Optional.empty()),
+                            new HistoryTarget("MODEL_IMAGE", Optional.of(modelImageGuidValue), Optional.empty())),
+                    List.of(
+                            new HistoryChange(
+                                    HistoryChange.Operation.ADD,
+                                    Optional.of(0),
+                                    Optional.of("rawImage"),
+                                    Optional.empty(),
+                                    Optional.of(rawImageGuidValue),
+                                    new HistoryEditContext(
+                                            HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of())),
+                            new HistoryChange(
+                                    HistoryChange.Operation.ADD,
+                                    Optional.of(1),
+                                    Optional.of("modelImage"),
+                                    Optional.empty(),
+                                    Optional.of(modelImageGuidValue),
+                                    new HistoryEditContext(
+                                            HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()))),
+                    Optional.empty(),
+                    Optional.empty());
         }
     }
 
@@ -948,14 +890,13 @@ final class EditorTextureAccess {
         private final Object[] texture = new Object[1];
 
         private BindingMembers(
-            final String meshId,
-            final Object extension,
-            final Object input,
-            final Object modelImage,
-            final Object oldTexture,
-            final Object oldState,
-            final Object modelImageState
-        ) {
+                final String meshId,
+                final Object extension,
+                final Object input,
+                final Object modelImage,
+                final Object oldTexture,
+                final Object oldState,
+                final Object modelImageState) {
             this.meshId = meshId;
             this.extension = extension;
             this.input = input;
@@ -975,27 +916,25 @@ final class EditorTextureAccess {
          * are deliberately untouched.
          */
         private void publish(final Object meshSource) {
-            final Object param = resolver.invoke(
-                CACHED_PARAM_DEFAULT, resolver.readStaticField(CACHED_PARAM_COMPANION));
+            final Object param =
+                    resolver.invoke(CACHED_PARAM_DEFAULT, resolver.readStaticField(CACHED_PARAM_COMPANION));
             final Object cached = resolver.invoke(INPUT_CACHED_IMAGE, input, param);
-            texture[0] = Objects.requireNonNull(
-                resolver.invoke(CACHED_IMAGE_TEXTURE, cached),
-                "bound texture"
-            );
+            texture[0] = Objects.requireNonNull(resolver.invoke(CACHED_IMAGE_TEXTURE, cached), "bound texture");
             resolver.invoke(MESH_SET_TEXTURE, meshSource, texture[0]);
             resolver.invoke(MESH_SET_TEXTURE_STATE, meshSource, modelImageState);
         }
 
         private boolean bound(final Object meshSource) {
             final Object inputs = resolver.invoke(EXTENSION_INPUTS, extension);
-            if (!(inputs instanceof List<?> inputList) || !inputList.contains(input)
-                || resolver.invoke(MESH_TEXTURE_INPUT, meshSource) != extension
-                || resolver.invoke(EXTENSION_CURRENT_INPUT, extension) != input
-                || resolver.invoke(INPUT_MODEL_IMAGE, input) != modelImage) {
+            if (!(inputs instanceof List<?> inputList)
+                    || !inputList.contains(input)
+                    || resolver.invoke(MESH_TEXTURE_INPUT, meshSource) != extension
+                    || resolver.invoke(EXTENSION_CURRENT_INPUT, extension) != input
+                    || resolver.invoke(INPUT_MODEL_IMAGE, input) != modelImage) {
                 return false;
             }
             return resolver.invoke(MESH_TEXTURE, meshSource) == texture[0]
-                && resolver.invoke(MESH_TEXTURE_STATE, meshSource) == modelImageState;
+                    && resolver.invoke(MESH_TEXTURE_STATE, meshSource) == modelImageState;
         }
 
         private void unbind(final Object meshSource, final Object extensionUndoable) {
@@ -1014,29 +953,26 @@ final class EditorTextureAccess {
         private boolean unbound(final Object meshSource) {
             final Object extensions = resolver.invoke(EXTENSIONS, meshSource);
             return extensions instanceof List<?> list
-                && !list.contains(extension)
-                && resolver.invoke(MESH_TEXTURE, meshSource) == oldTexture
-                && resolver.invoke(MESH_TEXTURE_STATE, meshSource) == oldState;
+                    && !list.contains(extension)
+                    && resolver.invoke(MESH_TEXTURE, meshSource) == oldTexture
+                    && resolver.invoke(MESH_TEXTURE_STATE, meshSource) == oldState;
         }
 
         private HistoryEntryDetail bindingDetail(final String pluginId, final String operationId) {
             return new HistoryEntryDetail(
-                "Bind model image to " + meshId,
-                HistoryAction.DetailLevel.FULL,
-                HistoryOrigin.turboism(pluginId, operationId),
-                List.of(new HistoryTarget("ART_MESH", Optional.of(meshId), Optional.empty())),
-                List.of(new HistoryChange(
-                    HistoryChange.Operation.SET,
-                    Optional.of(0),
-                    Optional.of("textureInput"),
-                    Optional.of("none"),
-                    Optional.of("model-image"),
-                    new HistoryEditContext(
-                        HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of())
-                )),
-                Optional.empty(),
-                Optional.empty()
-            );
+                    "Bind model image to " + meshId,
+                    HistoryAction.DetailLevel.FULL,
+                    HistoryOrigin.turboism(pluginId, operationId),
+                    List.of(new HistoryTarget("ART_MESH", Optional.of(meshId), Optional.empty())),
+                    List.of(new HistoryChange(
+                            HistoryChange.Operation.SET,
+                            Optional.of(0),
+                            Optional.of("textureInput"),
+                            Optional.of("none"),
+                            Optional.of("model-image"),
+                            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()))),
+                    Optional.empty(),
+                    Optional.empty());
         }
     }
 
@@ -1049,9 +985,9 @@ final class EditorTextureAccess {
      */
     Map<String, Integer> decodeOracleSnapshot() {
         return Map.of(
-            "loadedCount", (Integer) resolver.readStaticField(IMAGE_LOADED_COUNT),
-            "loadedBytes", (Integer) resolver.readStaticField(IMAGE_LOADED_BYTES),
-            "byteDataBytes", (Integer) resolver.readStaticField(IMAGE_BYTE_DATA_BYTES));
+                "loadedCount", (Integer) resolver.readStaticField(IMAGE_LOADED_COUNT),
+                "loadedBytes", (Integer) resolver.readStaticField(IMAGE_LOADED_BYTES),
+                "byteDataBytes", (Integer) resolver.readStaticField(IMAGE_BYTE_DATA_BYTES));
     }
 
     private Object textureManager(final Object source) {
@@ -1986,10 +1922,7 @@ final class EditorTextureAccess {
         }
 
         @Override
-        public ModelImageBinding registerImageAndBind(
-            final AuthorizedImageContent image,
-            final ArtMeshId target
-        ) {
+        public ModelImageBinding registerImageAndBind(final AuthorizedImageContent image, final ArtMeshId target) {
             requireRegisterBindAuthorization();
             Objects.requireNonNull(image, "image");
             Objects.requireNonNull(target, "target");
@@ -1997,53 +1930,37 @@ final class EditorTextureAccess {
             return EditorHostThread.dispatch("Model image registration and binding", () -> {
                 image.claim();
                 final long generation = generationOf(identity);
-                final VerifiedEditorAuthoringTransactionHost host =
-                    selfHost(identity, source, model, generation);
+                final VerifiedEditorAuthoringTransactionHost host = selfHost(identity, source, model, generation);
                 final EditorAuthoringTransactionCoordinator active = authoringCoordinator != null
-                    ? authoringCoordinator
-                    : new EditorAuthoringTransactionCoordinator(host);
+                        ? authoringCoordinator
+                        : new EditorAuthoringTransactionCoordinator(host);
                 final EditorAuthoringTransactionCoordinator.Binding binding = bindingSupplier != null
-                    ? bindingSupplier.get()
-                    : host.binding(REGISTER_PLUGIN_ID).orElseThrow(() -> new IllegalStateException(
-                        "Editor authoring binding is unavailable."
-                    ));
+                        ? bindingSupplier.get()
+                        : host.binding(REGISTER_PLUGIN_ID)
+                                .orElseThrow(
+                                        () -> new IllegalStateException("Editor authoring binding is unavailable."));
                 final Object meshSource = resolveArtMeshSource(source, target);
                 final Object existing = requireBindableTarget(meshSource);
                 if (existing != null) {
-                    throw new IllegalStateException(
-                        "Cubism art mesh already carries a texture-input extension."
-                    );
+                    throw new IllegalStateException("Cubism art mesh already carries a texture-input extension.");
                 }
-                return participateOrExecute(
-                    active,
-                    binding,
-                    "Turboism: Register and Bind Model Image",
-                    () -> {
-                        final RegistrationMembers registration = buildRegistration(source, image);
-                        active.mutate(
+                return participateOrExecute(active, binding, "Turboism: Register and Bind Model Image", () -> {
+                    final RegistrationMembers registration = buildRegistration(source, image);
+                    active.mutate(
                             binding,
                             registrationContribution(
-                                binding,
-                                CubismOperation.REGISTER_MODEL_IMAGE.id(),
-                                source,
-                                registration
-                            )
-                        );
-                        final BindingMembers bound = buildBinding(meshSource, registration.modelImage, target);
-                        active.mutate(
+                                    binding, CubismOperation.REGISTER_MODEL_IMAGE.id(), source, registration));
+                    final BindingMembers bound = buildBinding(meshSource, registration.modelImage, target);
+                    active.mutate(
                             binding,
                             bindingContribution(
-                                binding,
-                                CubismOperation.BIND_MODEL_IMAGE.id(),
-                                meshSource,
-                                registration.modelImage,
-                                bound
-                            )
-                        );
-                        return handle(binding, registration.rawImageGuidValue,
-                            registration.modelImageGuidValue, target);
-                    }
-                );
+                                    binding,
+                                    CubismOperation.BIND_MODEL_IMAGE.id(),
+                                    meshSource,
+                                    registration.modelImage,
+                                    bound));
+                    return handle(binding, registration.rawImageGuidValue, registration.modelImageGuidValue, target);
+                });
             });
         }
 
@@ -2053,32 +1970,26 @@ final class EditorTextureAccess {
             Objects.requireNonNull(target, "target");
             modelGuard.requireCurrent(identity, model);
             return EditorHostThread.dispatch(
-                "ArtMesh texture input observation",
-                () -> observeTextureInput(identity, source, model, target)
-            );
+                    "ArtMesh texture input observation", () -> observeTextureInput(identity, source, model, target));
         }
 
         @Override
-        public ModelImageBinding bindModelImage(
-            final ModelImageId image,
-            final ArtMeshId target
-        ) {
+        public ModelImageBinding bindModelImage(final ModelImageId image, final ArtMeshId target) {
             requireRegisterBindAuthorization();
             Objects.requireNonNull(image, "image");
             Objects.requireNonNull(target, "target");
             modelGuard.requireCurrent(identity, model);
             return EditorHostThread.dispatch("Model image binding", () -> {
                 final long generation = generationOf(identity);
-                final VerifiedEditorAuthoringTransactionHost host =
-                    selfHost(identity, source, model, generation);
+                final VerifiedEditorAuthoringTransactionHost host = selfHost(identity, source, model, generation);
                 final EditorAuthoringTransactionCoordinator active = authoringCoordinator != null
-                    ? authoringCoordinator
-                    : new EditorAuthoringTransactionCoordinator(host);
+                        ? authoringCoordinator
+                        : new EditorAuthoringTransactionCoordinator(host);
                 final EditorAuthoringTransactionCoordinator.Binding binding = bindingSupplier != null
-                    ? bindingSupplier.get()
-                    : host.binding(REGISTER_PLUGIN_ID).orElseThrow(() -> new IllegalStateException(
-                        "Editor authoring binding is unavailable."
-                    ));
+                        ? bindingSupplier.get()
+                        : host.binding(REGISTER_PLUGIN_ID)
+                                .orElseThrow(
+                                        () -> new IllegalStateException("Editor authoring binding is unavailable."));
                 final Object meshSource = resolveArtMeshSource(source, target);
                 final Object modelImage = findModelImage(source, image);
                 final Object existing = requireBindableTarget(meshSource);
@@ -2087,38 +1998,24 @@ final class EditorTextureAccess {
                     if (boundImage == modelImage) {
                         return handle(binding, linkedRawImageId(modelImage), image.value(), target);
                     }
-                    throw new IllegalStateException(
-                        "Cubism art mesh is already bound to a different model image."
-                    );
+                    throw new IllegalStateException("Cubism art mesh is already bound to a different model image.");
                 }
-                return participateOrExecute(
-                    active,
-                    binding,
-                    "Turboism: Bind Model Image",
-                    () -> {
-                        final BindingMembers bound = buildBinding(meshSource, modelImage, target);
-                        active.mutate(
+                return participateOrExecute(active, binding, "Turboism: Bind Model Image", () -> {
+                    final BindingMembers bound = buildBinding(meshSource, modelImage, target);
+                    active.mutate(
                             binding,
                             bindingContribution(
-                                binding,
-                                CubismOperation.BIND_MODEL_IMAGE.id(),
-                                meshSource,
-                                modelImage,
-                                bound
-                            )
-                        );
-                        return handle(binding, linkedRawImageId(modelImage), image.value(), target);
-                    }
-                );
+                                    binding, CubismOperation.BIND_MODEL_IMAGE.id(), meshSource, modelImage, bound));
+                    return handle(binding, linkedRawImageId(modelImage), image.value(), target);
+                });
             });
         }
 
         private ModelImageBinding participateOrExecute(
-            final EditorAuthoringTransactionCoordinator active,
-            final EditorAuthoringTransactionCoordinator.Binding binding,
-            final String label,
-            final Supplier<ModelImageBinding> work
-        ) {
+                final EditorAuthoringTransactionCoordinator active,
+                final EditorAuthoringTransactionCoordinator.Binding binding,
+                final String label,
+                final Supplier<ModelImageBinding> work) {
             // mutate validates the binding on every contribution. Exceptions propagate to
             // the owning root; only that root can commit or restore the complete import.
             if (active.hasActiveTransaction()) return work.get();
@@ -2126,51 +2023,40 @@ final class EditorTextureAccess {
         }
 
         /** Builds the unpublished extension/input pair and captures the two bound fields. */
-        private BindingMembers buildBinding(
-            final Object meshSource,
-            final Object modelImage,
-            final ArtMeshId target
-        ) {
+        private BindingMembers buildBinding(final Object meshSource, final Object modelImage, final ArtMeshId target) {
             final Object extension = resolver.construct(EXTENSION_CREATE, meshSource);
             final Object input = resolver.construct(INPUT_CREATE, extension, modelImage);
             resolver.invoke(EXTENSION_ADD_INPUT, extension, input);
             resolver.invoke(EXTENSION_SET_CURRENT, extension, input);
             return new BindingMembers(
-                target.value(),
-                extension,
-                input,
-                modelImage,
-                resolver.invoke(MESH_TEXTURE, meshSource),
-                resolver.invoke(MESH_TEXTURE_STATE, meshSource),
-                resolver.readStaticField(TEXTURE_STATE_MODEL_IMAGE)
-            );
+                    target.value(),
+                    extension,
+                    input,
+                    modelImage,
+                    resolver.invoke(MESH_TEXTURE, meshSource),
+                    resolver.invoke(MESH_TEXTURE_STATE, meshSource),
+                    resolver.readStaticField(TEXTURE_STATE_MODEL_IMAGE));
         }
 
         private ModelImageBinding handle(
-            final EditorAuthoringTransactionCoordinator.Binding binding,
-            final String rawImageGuidValue,
-            final String modelImageGuidValue,
-            final ArtMeshId target
-        ) {
+                final EditorAuthoringTransactionCoordinator.Binding binding,
+                final String rawImageGuidValue,
+                final String modelImageGuidValue,
+                final ArtMeshId target) {
             return new ModelImageBinding(
-                binding.pluginId(),
-                new ModelId(modelIdOf(identity)),
-                binding.modelGeneration(),
-                new RawImageId(rawImageGuidValue),
-                new ModelImageId(modelImageGuidValue),
-                Optional.of(target)
-            );
+                    binding.pluginId(),
+                    new ModelId(modelIdOf(identity)),
+                    binding.modelGeneration(),
+                    new RawImageId(rawImageGuidValue),
+                    new ModelImageId(modelImageGuidValue),
+                    Optional.of(target));
         }
 
         private ModelImageBinding requireCommitted(
-            final AuthoringTransactionResult<ModelImageBinding> result,
-            final String operation
-        ) {
+                final AuthoringTransactionResult<ModelImageBinding> result, final String operation) {
             if (!result.successful()) {
-                throw new IllegalStateException(
-                    "Cubism " + operation + " transaction failed: " + result.outcome()
-                        + result.diagnosticId().map(id -> " [" + id + "]").orElse("")
-                );
+                throw new IllegalStateException("Cubism " + operation + " transaction failed: " + result.outcome()
+                        + result.diagnosticId().map(id -> " [" + id + "]").orElse(""));
             }
             return result.value().orElseThrow();
         }

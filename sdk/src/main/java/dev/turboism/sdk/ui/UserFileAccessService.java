@@ -33,10 +33,7 @@ public interface UserFileAccessService {
      * A larger file returns a bounded value with {@code truncated=true}; a
      * request above this limit returns {@link UserFileErrorCode#SIZE_LIMIT_EXCEEDED}.
      */
-    CompletionStage<UserFileReadResult<byte[]>> readBytes(
-        UserFileHandle handle,
-        int maxBytes
-    );
+    CompletionStage<UserFileReadResult<byte[]>> readBytes(UserFileHandle handle, int maxBytes);
 
     /**
      * Atomically replaces the handle's file content with {@code content} as UTF-8,

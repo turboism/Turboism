@@ -47,12 +47,7 @@ public interface Drawables {
      * @throws UnsupportedOperationException when separate source coordinates are unavailable
      */
     default Drawable createWithSourceGeometry(
-        String name,
-        Part parent,
-        int index,
-        ArtMeshGeometry sourceGeometry,
-        List<Point2> defaultPositions
-    ) {
+            String name, Part parent, int index, ArtMeshGeometry sourceGeometry, List<Point2> defaultPositions) {
         throw unavailable("ArtMesh creation with separate source geometry");
     }
 

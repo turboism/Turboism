@@ -1,8 +1,8 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Arrays;
 import java.util.Objects;
-import dev.turboism.sdk.CubismEditor;
 
 /**
  * Immutable Turboism-owned raster produced by a native Editor offscreen model render.
@@ -31,13 +31,13 @@ public record CubismRenderedPixels(int width, int height, int[] argb) {
         Objects.requireNonNull(argb, "argb");
         if (argb.length != width * height) {
             throw new IllegalArgumentException(
-                "argb length " + argb.length + " does not match " + width + "x" + height
-            );
+                    "argb length " + argb.length + " does not match " + width + "x" + height);
         }
         argb = argb.clone();
     }
 
-    @Override public int[] argb() {
+    @Override
+    public int[] argb() {
         return argb.clone();
     }
 
@@ -49,17 +49,21 @@ public record CubismRenderedPixels(int width, int height, int[] argb) {
         return argb[y * width + x];
     }
 
-    @Override public boolean equals(final Object other) {
+    @Override
+    public boolean equals(final Object other) {
         return other instanceof CubismRenderedPixels pixels
-            && pixels.width == width && pixels.height == height
-            && Arrays.equals(pixels.argb, argb);
+                && pixels.width == width
+                && pixels.height == height
+                && Arrays.equals(pixels.argb, argb);
     }
 
-    @Override public int hashCode() {
+    @Override
+    public int hashCode() {
         return 31 * (31 * width + height) + Arrays.hashCode(argb);
     }
 
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return "CubismRenderedPixels[" + width + "x" + height + "]";
     }
 }

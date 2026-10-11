@@ -1,7 +1,7 @@
 package dev.turboism.sdk.cubism.model;
 
-import java.util.Objects;
 import dev.turboism.sdk.CubismEditor;
+import java.util.Objects;
 
 /**
  * Native extended interpolation settings for one existing parameter binding.
@@ -11,7 +11,11 @@ import dev.turboism.sdk.CubismEditor;
 @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record ParameterInterpolation(Method method, int insertPointCount, float angleScale) {
     /** Interpolation curve family recorded by the host for a parameter binding. */
-    public enum Method { LINEAR, ELLIPSE, SNS_CURVE }
+    public enum Method {
+        LINEAR,
+        ELLIPSE,
+        SNS_CURVE
+    }
 
     public ParameterInterpolation {
         Objects.requireNonNull(method, "method");

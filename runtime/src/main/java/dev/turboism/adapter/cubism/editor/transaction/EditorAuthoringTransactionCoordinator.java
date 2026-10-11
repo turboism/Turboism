@@ -194,10 +194,7 @@ public final class EditorAuthoringTransactionCoordinator {
      * @param contribution changed authoring primitive
      * @throws IllegalStateException when a standalone transaction cannot commit safely
      */
-    public void mutate(
-        final Binding binding,
-        final EditorUndoContribution contribution
-    ) {
+    public void mutate(final Binding binding, final EditorUndoContribution contribution) {
         mutate(binding, contribution, null);
     }
 
@@ -223,8 +220,11 @@ public final class EditorAuthoringTransactionCoordinator {
         Objects.requireNonNull(edit, "edit");
         if (Objects.requireNonNull(key, "key").isBlank()) throw new IllegalArgumentException("empty listener key");
         final EditorAuthoringScope scope = ambient.get();
-        if (scope == null || !binding.isCurrentThread() || !scope.binding().sameScope(binding)
-            || scope.edit() != edit || !current(binding)) {
+        if (scope == null
+                || !binding.isCurrentThread()
+                || !scope.binding().sameScope(binding)
+                || scope.edit() != edit
+                || !current(binding)) {
             throw new IllegalStateException("Root Undo listener must belong to the current native edit.");
         }
         return scope.claimRootUndoListener(key);
@@ -241,8 +241,11 @@ public final class EditorAuthoringTransactionCoordinator {
      */
     public boolean isCreatedTargetRestored(final Binding binding, final Object target) {
         final EditorAuthoringScope scope = ambient.get();
-        return scope != null && binding.isCurrentThread() && scope.binding().sameScope(binding)
-            && current(binding) && scope.createdTargetRestored(target);
+        return scope != null
+                && binding.isCurrentThread()
+                && scope.binding().sameScope(binding)
+                && current(binding)
+                && scope.createdTargetRestored(target);
     }
 
     /**
@@ -256,8 +259,11 @@ public final class EditorAuthoringTransactionCoordinator {
      */
     public boolean ownsArtMeshParentRecovery(final Binding binding, final String targetIdentity) {
         final EditorAuthoringScope scope = ambient.get();
-        return scope != null && binding.isCurrentThread() && scope.binding().sameScope(binding)
-            && current(binding) && scope.ownsArtMeshParentRecovery(targetIdentity);
+        return scope != null
+                && binding.isCurrentThread()
+                && scope.binding().sameScope(binding)
+                && current(binding)
+                && scope.ownsArtMeshParentRecovery(targetIdentity);
     }
 
     private void mutate(final Binding binding, final EditorUndoContribution contribution, final Object createdTarget) {
@@ -269,15 +275,15 @@ public final class EditorAuthoringTransactionCoordinator {
             return;
         }
 
-        final AuthoringTransactionResult<Void> result = execute(
-            checkedBinding,
-            AuthoringTransactionOptions.of(checkedContribution.standaloneLabel()),
-            () -> {
-                apply(Objects.requireNonNull(ambient.get(), "ambient scope"),
-                    checkedBinding, checkedContribution, createdTarget);
-                return null;
-            }
-        );
+        final AuthoringTransactionResult<Void> result =
+                execute(checkedBinding, AuthoringTransactionOptions.of(checkedContribution.standaloneLabel()), () -> {
+                    apply(
+                            Objects.requireNonNull(ambient.get(), "ambient scope"),
+                            checkedBinding,
+                            checkedContribution,
+                            createdTarget);
+                    return null;
+                });
         if (!result.successful()) {
             throw new IllegalStateException("Standalone Editor authoring transaction failed: " + result.outcome()
                     + result.diagnosticId().map(id -> " [" + id + "]").orElse(""));
@@ -370,11 +376,10 @@ public final class EditorAuthoringTransactionCoordinator {
     }
 
     private void apply(
-        final EditorAuthoringScope scope,
-        final Binding binding,
-        final EditorUndoContribution contribution,
-        final Object createdTarget
-    ) {
+            final EditorAuthoringScope scope,
+            final Binding binding,
+            final EditorUndoContribution contribution,
+            final Object createdTarget) {
         if (!scope.binding().sameScope(binding) || !binding.isCurrentThread()) {
             throw new ScopeRejectedException("authoring contribution does not match the ambient scope");
         }
@@ -399,10 +404,7 @@ public final class EditorAuthoringTransactionCoordinator {
     }
 
     private <T> AuthoringTransactionResult<T> recover(
-        final EditorAuthoringScope scope,
-        final Throwable failure,
-        final boolean scopeRejected
-    ) {
+            final EditorAuthoringScope scope, final Throwable failure, final boolean scopeRejected) {
         scope.beginRecovery();
         Throwable recoveryFailure = null;
         if (scope.edit() != null && !scope.editEndAttempted()) {

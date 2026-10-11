@@ -43,7 +43,6 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
@@ -94,8 +93,15 @@ final class EditorObjectReadAccess {
             final EditorObjectHierarchyEditAccess hierarchyEditAccess,
             final EditorAuthoringTransactionCoordinator authoringCoordinator,
             final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding) {
-        this(resolver, currentGuard, morphTargetAccess, evaluatedJoin, null,
-                hierarchyEditAccess, authoringCoordinator, authoringBinding);
+        this(
+                resolver,
+                currentGuard,
+                morphTargetAccess,
+                evaluatedJoin,
+                null,
+                hierarchyEditAccess,
+                authoringCoordinator,
+                authoringBinding);
     }
 
     EditorObjectReadAccess(
@@ -604,24 +610,19 @@ final class EditorObjectReadAccess {
 
         @Override
         public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot authoringSnapshot() {
-            return EditorHostThread.dispatch(
-                    "ArtMesh stored authoring snapshot",
-                    () -> {
-                        final ObjectRef value = current();
-                        return new EditorArtMeshAuthoringReadAccess(resolver)
-                                .read(new ArtMeshId(value.id()), value.source());
-                    });
+            return EditorHostThread.dispatch("ArtMesh stored authoring snapshot", () -> {
+                final ObjectRef value = current();
+                return new EditorArtMeshAuthoringReadAccess(resolver).read(new ArtMeshId(value.id()), value.source());
+            });
         }
 
         @Override
         public dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot evaluationSnapshot() {
-            return EditorHostThread.dispatch(
-                    "ArtMesh calculated-form observation",
-                    () -> {
-                        final ObjectRef value = current();
-                        return new EditorArtMeshEvaluationReadAccess(resolver)
-                                .read(new ArtMeshId(value.id()), value.source(), value.instance(), model);
-                    });
+            return EditorHostThread.dispatch("ArtMesh calculated-form observation", () -> {
+                final ObjectRef value = current();
+                return new EditorArtMeshEvaluationReadAccess(resolver)
+                        .read(new ArtMeshId(value.id()), value.source(), value.instance(), model);
+            });
         }
 
         @Override
@@ -719,8 +720,7 @@ final class EditorObjectReadAccess {
                 public boolean ownsParentRecovery() {
                     return authoringCoordinator != null
                             && authoringCoordinator.ownsArtMeshParentRecovery(
-                                    Objects.requireNonNull(authoringBinding.get()),
-                                    identity + ":artmesh:" + ref.id());
+                                    Objects.requireNonNull(authoringBinding.get()), identity + ":artmesh:" + ref.id());
                 }
             };
         }
@@ -762,8 +762,7 @@ final class EditorObjectReadAccess {
                     contribution -> {
                         requireTransaction.run();
                         authoringCoordinator.mutate(
-                                Objects.requireNonNull(authoringBinding.get(), "authoring binding"),
-                                contribution);
+                                Objects.requireNonNull(authoringBinding.get(), "authoring binding"), contribution);
                     },
                     () -> {
                         current();
@@ -1070,15 +1069,8 @@ final class EditorObjectReadAccess {
                                     "Stored Warp batches require the authoring transaction coordinator");
                         }
                     },
-                    (form, property, label, mutation, applied, compensation, restored) ->
-                            writes.writeWarpKeyforms(
-                                    modelSource,
-                                    current().source(),
-                                    label,
-                                    mutation,
-                                    applied,
-                                    compensation,
-                                    restored));
+                    (form, property, label, mutation, applied, compensation, restored) -> writes.writeWarpKeyforms(
+                            modelSource, current().source(), label, mutation, applied, compensation, restored));
         }
     }
 
@@ -1153,15 +1145,8 @@ final class EditorObjectReadAccess {
                                     "Stored Rotation batches require the authoring transaction coordinator");
                         }
                     },
-                    (form, property, label, mutation, applied, compensation, restored) ->
-                            writes.writeRotationKeyforms(
-                                    modelSource,
-                                    current().source(),
-                                    label,
-                                    mutation,
-                                    applied,
-                                    compensation,
-                                    restored));
+                    (form, property, label, mutation, applied, compensation, restored) -> writes.writeRotationKeyforms(
+                            modelSource, current().source(), label, mutation, applied, compensation, restored));
         }
     }
 
@@ -1314,12 +1299,10 @@ final class EditorObjectReadAccess {
         @Override
         public dev.turboism.sdk.cubism.model.ArtMeshSourceTriangulation previewSourceTriangulation(
                 final ArtMeshGeometry geometry) {
-            return EditorHostThread.dispatch(
-                    "Source triangulation preview",
-                    () -> {
-                        currentGuard.requireCurrent(identity, model);
-                        return new EditorSourceTriangulationAccess(resolver).preview(geometry);
-                    });
+            return EditorHostThread.dispatch("Source triangulation preview", () -> {
+                currentGuard.requireCurrent(identity, model);
+                return new EditorSourceTriangulationAccess(resolver).preview(geometry);
+            });
         }
 
         @Override
@@ -1333,19 +1316,14 @@ final class EditorObjectReadAccess {
                     .map(id -> meshes.stream()
                             .filter(ref -> ref.id().equals(id.value()))
                             .findFirst()
-                            .orElseThrow(() -> new NoSuchElementException(
-                                    "Cubism ArtMesh is absent: " + id.value()))
+                            .orElseThrow(() -> new NoSuchElementException("Cubism ArtMesh is absent: " + id.value()))
                             .source())
                     .toList();
             hierarchyEditAccess.selectArtMeshSources(identity, model, sources);
         }
 
         @Override
-        public Drawable create(
-                final String name,
-                final Part parent,
-                final int index,
-                final ArtMeshGeometry geometry) {
+        public Drawable create(final String name, final Part parent, final int index, final ArtMeshGeometry geometry) {
             return createWithSourceGeometry(
                     name,
                     parent,

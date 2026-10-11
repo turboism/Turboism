@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.interpolation;
 
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -11,7 +12,6 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
-import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 
 /** Internal entrypoint for the pinned 5.3.02/5.3.03 interpolation hook. No host dependency. */
 public final class NativeMeshInterpolationBridge {
@@ -22,58 +22,78 @@ public final class NativeMeshInterpolationBridge {
      * The pinned host classes are byte-identical between 5.3.02 and 5.3.03.
      */
     public static final java.util.Set<String> HOST_SHA256S = java.util.Set.of(
-        ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
-        ReviewedHostArtifacts.CUBISM_5_3_03.sha256()
-    );
-    static final String EXTENSION = "com.live2d.cubism.doc.model.interpolator.extendedInterpolation.CExtendedInterpolationExtension";
+            ReviewedHostArtifacts.CUBISM_5_3_02.sha256(), ReviewedHostArtifacts.CUBISM_5_3_03.sha256());
+
+    static final String EXTENSION =
+            "com.live2d.cubism.doc.model.interpolator.extendedInterpolation.CExtendedInterpolationExtension";
     private static volatile boolean enabled;
     private static volatile boolean coefficientDefault;
     private static final AtomicLong ACCEPTED = new AtomicLong();
     private static final AtomicLong REFUSED = new AtomicLong();
     private static final AtomicLong DIRECT_UPDATE_BINDINGS = new AtomicLong();
     private static final ClassValue<Optional<Access>> ACCESS = new ClassValue<>() {
-        @Override protected Optional<Access> computeValue(Class<?> type) {
-            try { return Optional.of(new Access(type)); }
-            catch (ReflectiveOperationException | java.io.IOException | java.net.URISyntaxException
-                    | java.security.NoSuchAlgorithmException | RuntimeException | LinkageError unsupported) {
+        @Override
+        protected Optional<Access> computeValue(Class<?> type) {
+            try {
+                return Optional.of(new Access(type));
+            } catch (ReflectiveOperationException
+                    | java.io.IOException
+                    | java.net.URISyntaxException
+                    | java.security.NoSuchAlgorithmException
+                    | RuntimeException
+                    | LinkageError unsupported) {
                 return Optional.empty();
             }
         }
     };
 
-    private NativeMeshInterpolationBridge() { }
+    private NativeMeshInterpolationBridge() {}
 
     /** Installer lifecycle switch. Disabling leaves transformed methods on the official path. */
-    public static void enabled(boolean value) { enabled = value; }
+    public static void enabled(boolean value) {
+        enabled = value;
+    }
     /**
      * @return calls that completed the verified coefficient path
      */
-    public static long acceptedCalls() { return ACCEPTED.get(); }
+    public static long acceptedCalls() {
+        return ACCEPTED.get();
+    }
     /**
      * @return calls declined back to the official interpolation
      */
-    public static long refusedCalls() { return REFUSED.get(); }
+    public static long refusedCalls() {
+        return REFUSED.get();
+    }
     /**
      * @return bindings resolved without copying the official list
      */
-    public static long directUpdateBindings() { return DIRECT_UPDATE_BINDINGS.get(); }
-
-    static boolean coefficientsEnabled() {
-        return Boolean.parseBoolean(System.getProperty("turboism.meshInterpolation.coefficients",
-            Boolean.toString(coefficientDefault)));
+    public static long directUpdateBindings() {
+        return DIRECT_UPDATE_BINDINGS.get();
     }
 
-    static void coefficientDefault(boolean value) { coefficientDefault = value; }
+    static boolean coefficientsEnabled() {
+        return Boolean.parseBoolean(
+                System.getProperty("turboism.meshInterpolation.coefficients", Boolean.toString(coefficientDefault)));
+    }
+
+    static void coefficientDefault(boolean value) {
+        coefficientDefault = value;
+    }
 
     /** Returns false only before mutation. Never rerun the official method after a partial write. */
-    public static boolean tryUpdate(Object extension, List<?> target, List<?> source, List<?> keys,
-                                    Object type, float scale) {
+    public static boolean tryUpdate(
+            Object extension, List<?> target, List<?> source, List<?> keys, Object type, float scale) {
         if (!enabled || extension == null) return false;
         Optional<Access> access = ACCESS.get(extension.getClass());
-        if (access.isEmpty()) { REFUSED.incrementAndGet(); return false; }
+        if (access.isEmpty()) {
+            REFUSED.incrementAndGet();
+            return false;
+        }
         try {
             boolean applied = access.get().update(target, source, keys, type, scale);
-            if (applied) ACCEPTED.incrementAndGet(); else REFUSED.incrementAndGet();
+            if (applied) ACCEPTED.incrementAndGet();
+            else REFUSED.incrementAndGet();
             return applied;
         } catch (RuntimeException | Error failure) {
             throw failure;
@@ -92,20 +112,31 @@ public final class NativeMeshInterpolationBridge {
         final MethodHandle radians;
         final java.util.function.Consumer<Object> directUpdated;
 
-        Access(Class<?> extension) throws ReflectiveOperationException, java.io.IOException,
-                java.net.URISyntaxException, java.security.NoSuchAlgorithmException {
+        Access(Class<?> extension)
+                throws ReflectiveOperationException, java.io.IOException, java.net.URISyntaxException,
+                        java.security.NoSuchAlgorithmException {
             if (!extension.getName().equals(EXTENSION)) throw new IllegalArgumentException("extension type");
-            Path artifact = Path.of(extension.getProtectionDomain().getCodeSource().getLocation().toURI()).toRealPath();
+            Path artifact = Path.of(extension
+                            .getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI())
+                    .toRealPath();
             try (var input = Files.newInputStream(artifact)) {
-                if (!HOST_SHA256S.contains(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(input.readAllBytes()))))
+                if (!HOST_SHA256S.contains(HexFormat.of()
+                        .formatHex(MessageDigest.getInstance("SHA-256").digest(input.readAllBytes()))))
                     throw new IllegalArgumentException("unreviewed host artifact");
             }
             ClassLoader loader = extension.getClassLoader();
             formClass = host("com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshForm", loader, artifact);
             keyClass = host(EXTENSION + "$b", loader, artifact);
-            Class<?> typeClass = host("com.live2d.cubism.doc.model.interpolator.extendedInterpolation.ExtendedInterpolationType", loader, artifact);
+            Class<?> typeClass = host(
+                    "com.live2d.cubism.doc.model.interpolator.extendedInterpolation.ExtendedInterpolationType",
+                    loader,
+                    artifact);
             Class<?> vectorClass = host("com.live2d.graphics3d.type.GVector2", loader, artifact);
-            Class<?> calculatorClass = host("com.live2d.cubism.doc.model.interpolator.extendedInterpolation.a", loader, artifact);
+            Class<?> calculatorClass =
+                    host("com.live2d.cubism.doc.model.interpolator.extendedInterpolation.a", loader, artifact);
             Class<?> blendable = host("com.live2d.core.IBlendable", loader, artifact);
             Class<?> constants = host("jp.noids.util.ap", loader, artifact);
             radians = MethodHandles.publicLookup().findStaticGetter(constants, "c", double.class);
@@ -113,7 +144,14 @@ public final class NativeMeshInterpolationBridge {
             positions = method(formClass, "getPositions", float[].class, new Class<?>[0], Object.class);
             owner = method(formClass, "getSource", Object.class, new Class<?>[0], Object.class);
             zero = method(formClass, "zero", void.class, new Class<?>[0], Object.class);
-            blend = method(formClass, "blend", void.class, new Class<?>[]{blendable, float.class}, Object.class, Object.class, float.class);
+            blend = method(
+                    formClass,
+                    "blend",
+                    void.class,
+                    new Class<?>[] {blendable, float.class},
+                    Object.class,
+                    Object.class,
+                    float.class);
             postBlend = method(formClass, "postBlend", void.class, new Class<?>[0], Object.class);
             updated = method(formClass, "setUpdated", void.class, new Class<?>[0], Object.class);
             directUpdated = directUpdate(formClass);
@@ -121,51 +159,95 @@ public final class NativeMeshInterpolationBridge {
             value = method(keyClass, "a", float.class, new Class<?>[0], Object.class);
             interval = method(keyClass, "c", int.class, new Class<?>[0], Object.class);
             fraction = method(keyClass, "d", float.class, new Class<?>[0], Object.class);
-            vector = MethodHandles.publicLookup().findConstructor(vectorClass, MethodType.methodType(void.class))
-                .asType(MethodType.methodType(Object.class));
-            vectorSet = method(vectorClass, "set", void.class, new Class<?>[]{float.class, float.class}, Object.class, float.class, float.class);
+            vector = MethodHandles.publicLookup()
+                    .findConstructor(vectorClass, MethodType.methodType(void.class))
+                    .asType(MethodType.methodType(Object.class));
+            vectorSet = method(
+                    vectorClass,
+                    "set",
+                    void.class,
+                    new Class<?>[] {float.class, float.class},
+                    Object.class,
+                    float.class,
+                    float.class);
             vectorX = method(vectorClass, "getX", float.class, new Class<?>[0], Object.class);
             vectorY = method(vectorClass, "getY", float.class, new Class<?>[0], Object.class);
             calculator = method(typeClass, "b", Object.class, new Class<?>[0], Object.class);
-            initialize = method(calculatorClass, "a", void.class, new Class<?>[]{List.class, boolean.class, List.class, List.class},
-                Object.class, List.class, boolean.class, List.class, List.class);
-            evaluate = method(calculatorClass, "a", Object.class, new Class<?>[]{int.class, float.class, vectorClass},
-                Object.class, int.class, float.class, Object.class);
+            initialize = method(
+                    calculatorClass,
+                    "a",
+                    void.class,
+                    new Class<?>[] {List.class, boolean.class, List.class, List.class},
+                    Object.class,
+                    List.class,
+                    boolean.class,
+                    List.class,
+                    List.class);
+            evaluate = method(
+                    calculatorClass,
+                    "a",
+                    Object.class,
+                    new Class<?>[] {int.class, float.class, vectorClass},
+                    Object.class,
+                    int.class,
+                    float.class,
+                    Object.class);
         }
 
         @SuppressWarnings("unchecked")
         static java.util.function.Consumer<Object> directUpdate(Class<?> form) {
             try {
                 // The lambda retains the exact official per-point setter; only dispatch changes.
-                var lookup=MethodHandles.lookup();
-                var implementation=lookup.unreflect(form.getMethod("setUpdated"));
-                var site=java.lang.invoke.LambdaMetafactory.metafactory(lookup,"accept",
-                    MethodType.methodType(java.util.function.Consumer.class),
-                    MethodType.methodType(void.class,Object.class),implementation,
-                    MethodType.methodType(void.class,form));
-                java.util.function.Consumer<Object> bound=(java.util.function.Consumer<Object>)site.getTarget().invokeExact();
-                DIRECT_UPDATE_BINDINGS.incrementAndGet();return bound;
-            } catch(VirtualMachineError | ThreadDeath fatal) { throw fatal; }
-            catch(Throwable unsupported) { return null; }
+                var lookup = MethodHandles.lookup();
+                var implementation = lookup.unreflect(form.getMethod("setUpdated"));
+                var site = java.lang.invoke.LambdaMetafactory.metafactory(
+                        lookup,
+                        "accept",
+                        MethodType.methodType(java.util.function.Consumer.class),
+                        MethodType.methodType(void.class, Object.class),
+                        implementation,
+                        MethodType.methodType(void.class, form));
+                java.util.function.Consumer<Object> bound =
+                        (java.util.function.Consumer<Object>) site.getTarget().invokeExact();
+                DIRECT_UPDATE_BINDINGS.incrementAndGet();
+                return bound;
+            } catch (VirtualMachineError | ThreadDeath fatal) {
+                throw fatal;
+            } catch (Throwable unsupported) {
+                return null;
+            }
         }
 
-        static Class<?> host(String name, ClassLoader loader, Path artifact) throws ReflectiveOperationException,
-                java.io.IOException, java.net.URISyntaxException {
+        static Class<?> host(String name, ClassLoader loader, Path artifact)
+                throws ReflectiveOperationException, java.io.IOException, java.net.URISyntaxException {
             Class<?> type = Class.forName(name, false, loader);
-            if (type.getClassLoader() != loader || !Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI()).toRealPath().equals(artifact))
-                throw new IllegalArgumentException("mixed host definition " + name);
+            if (type.getClassLoader() != loader
+                    || !Path.of(type.getProtectionDomain()
+                                    .getCodeSource()
+                                    .getLocation()
+                                    .toURI())
+                            .toRealPath()
+                            .equals(artifact)) throw new IllegalArgumentException("mixed host definition " + name);
             return type;
         }
 
-        static MethodHandle method(Class<?> owner, String name, Class<?> result, Class<?>[] parameters, Class<?>... erased)
+        static MethodHandle method(
+                Class<?> owner, String name, Class<?> result, Class<?>[] parameters, Class<?>... erased)
                 throws ReflectiveOperationException {
-            return MethodHandles.publicLookup().unreflect(owner.getMethod(name, parameters))
-                .asType(MethodType.methodType(result, erased));
+            return MethodHandles.publicLookup()
+                    .unreflect(owner.getMethod(name, parameters))
+                    .asType(MethodType.methodType(result, erased));
         }
 
         boolean update(List<?> target, List<?> source, List<?> keys, Object type, float scale) throws Throwable {
-            if (type != ellipse || target == null || source == null || keys == null || target.isEmpty()
-                    || source.size() < 2 || keys.size() != target.size() || !Float.isFinite(scale)) return false;
+            if (type != ellipse
+                    || target == null
+                    || source == null
+                    || keys == null
+                    || target.isEmpty()
+                    || source.size() < 2
+                    || keys.size() != target.size()
+                    || !Float.isFinite(scale)) return false;
             int count = target.size(), size = -1, anchors = 0;
             boolean[] extra = new boolean[count];
             int[] intervals = new int[count], right = new int[count];
@@ -174,16 +256,20 @@ public final class NativeMeshInterpolationBridge {
             for (int i = 0; i < count; i++) {
                 Object key = keys.get(i);
                 if (key == null || key.getClass() != keyClass) return false;
-                extra[i] = (boolean)inserted.invokeExact(key);
-                float knot = (float)value.invokeExact(key) * scale;
+                extra[i] = (boolean) inserted.invokeExact(key);
+                float knot = (float) value.invokeExact(key) * scale;
                 if (!Float.isFinite(knot)) return false;
-                if (!extra[i]) { knots.add(knot); anchors++; }
-                else {
-                    intervals[i] = (int)interval.invokeExact(key); weights[i] = (float)fraction.invokeExact(key);
-                    if (intervals[i] < 0 || intervals[i] >= source.size()-1 || !Float.isFinite(weights[i])) return false;
+                if (!extra[i]) {
+                    knots.add(knot);
+                    anchors++;
+                } else {
+                    intervals[i] = (int) interval.invokeExact(key);
+                    weights[i] = (float) fraction.invokeExact(key);
+                    if (intervals[i] < 0 || intervals[i] >= source.size() - 1 || !Float.isFinite(weights[i]))
+                        return false;
                 }
             }
-            if (extra[0] || extra[count-1] || anchors != source.size()) return false;
+            if (extra[0] || extra[count - 1] || anchors != source.size()) return false;
             Object first = target.get(0);
             if (first == null || first.getClass() != formClass) return false;
             Object mesh = owner.invokeExact(first);
@@ -192,7 +278,7 @@ public final class NativeMeshInterpolationBridge {
             for (int i = 0; i < count; i++) {
                 Object form = target.get(i);
                 if (form == null || form.getClass() != formClass || owner.invokeExact(form) != mesh) return false;
-                dst[i] = (float[])positions.invokeExact(form);
+                dst[i] = (float[]) positions.invokeExact(form);
                 if (dst[i] == null) return false;
                 if (size < 0) size = dst[i].length;
                 if (dst[i].length != size || size == 0 || size % 2 != 0) return false;
@@ -201,13 +287,16 @@ public final class NativeMeshInterpolationBridge {
             for (int i = 0; i < src.length; i++) {
                 Object form = source.get(i);
                 if (form == null || form.getClass() != formClass || owner.invokeExact(form) != mesh) return false;
-                src[i] = (float[])positions.invokeExact(form);
+                src[i] = (float[]) positions.invokeExact(form);
                 if (src[i] == null || src[i].length != size) return false;
                 for (float coordinate : src[i]) if (!Float.isFinite(coordinate)) return false;
                 for (int j = 0; j < count; j++) if (extra[j] && src[i] == dst[j]) return false;
             }
-            int next = count-1;
-            for (int i = count-1; i >= 0; i--) { if (!extra[i]) next = i; right[i] = next; }
+            int next = count - 1;
+            for (int i = count - 1; i >= 0; i--) {
+                if (!extra[i]) next = i;
+                right[i] = next;
+            }
             List<Object> vectors = new ArrayList<>(src.length);
             for (int i = 0; i < src.length; i++) vectors.add(vector.invokeExact());
             Object output = vector.invokeExact();
@@ -215,44 +304,53 @@ public final class NativeMeshInterpolationBridge {
             if (coefficientsEnabled()) {
                 float[] angles = new float[knots.size()];
                 for (int i = 0; i < angles.length; i++) angles[i] = knots.get(i);
-                double angleScale = (double)radians.invokeExact();
+                double angleScale = (double) radians.invokeExact();
                 coefficients = new EllipseWeights[count];
-                for (int i = 0; i < count; i++) if (extra[i])
-                    coefficients[i] = EllipseWeights.prepare(angles, intervals[i], weights[i], angleScale);
+                for (int i = 0; i < count; i++)
+                    if (extra[i])
+                        coefficients[i] = EllipseWeights.prepare(angles, intervals[i], weights[i], angleScale);
             }
-            boolean directUpdates = coefficients != null && directUpdated != null
-                && Boolean.getBoolean("turboism.meshInterpolation.directUpdates");
+            boolean directUpdates = coefficients != null
+                    && directUpdated != null
+                    && Boolean.getBoolean("turboism.meshInterpolation.directUpdates");
             // Every refusal and handle binding finishes above this mutation boundary.
             Object left = first;
             for (int i = 1; i < count; i++) {
                 Object form = target.get(i);
-                if (!extra[i]) { left = form; continue; }
+                if (!extra[i]) {
+                    left = form;
+                    continue;
+                }
                 zero.invokeExact(form);
-                blend.invokeExact(form, left, 1f-weights[i]);
+                blend.invokeExact(form, left, 1f - weights[i]);
                 blend.invokeExact(form, target.get(right[i]), weights[i]);
                 postBlend.invokeExact(form);
             }
             for (int offset = 0; offset < size; offset += 2) {
                 if (coefficients != null) {
-                    for (int i = 0; i < count; i++) if (extra[i]) {
-                        dst[i][offset] = dst[i][offset]*0f + coefficients[i].evaluate(src, offset)*1f;
-                        dst[i][offset+1] = dst[i][offset+1]*0f + coefficients[i].evaluate(src, offset+1)*1f;
-                        if (directUpdates) directUpdated.accept(target.get(i));
-                        else updated.invokeExact(target.get(i));
-                    }
+                    for (int i = 0; i < count; i++)
+                        if (extra[i]) {
+                            dst[i][offset] = dst[i][offset] * 0f + coefficients[i].evaluate(src, offset) * 1f;
+                            dst[i][offset + 1] =
+                                    dst[i][offset + 1] * 0f + coefficients[i].evaluate(src, offset + 1) * 1f;
+                            if (directUpdates) directUpdated.accept(target.get(i));
+                            else updated.invokeExact(target.get(i));
+                        }
                     continue;
                 }
-                for (int i = 0; i < src.length; i++) vectorSet.invokeExact(vectors.get(i), src[i][offset], src[i][offset+1]);
+                for (int i = 0; i < src.length; i++)
+                    vectorSet.invokeExact(vectors.get(i), src[i][offset], src[i][offset + 1]);
                 Object curve = calculator.invokeExact(type);
-                initialize.invokeExact(curve, (List<?>)vectors, true, (List<?>)null, (List<?>)knots);
-                for (int i = 0; i < count; i++) if (extra[i]) {
-                    Object result = evaluate.invokeExact(curve, intervals[i], weights[i], output);
-                    if (result != null) {
-                        dst[i][offset] = dst[i][offset]*0f + (float)vectorX.invokeExact(result)*1f;
-                        dst[i][offset+1] = dst[i][offset+1]*0f + (float)vectorY.invokeExact(result)*1f;
-                        updated.invokeExact(target.get(i));
+                initialize.invokeExact(curve, (List<?>) vectors, true, (List<?>) null, (List<?>) knots);
+                for (int i = 0; i < count; i++)
+                    if (extra[i]) {
+                        Object result = evaluate.invokeExact(curve, intervals[i], weights[i], output);
+                        if (result != null) {
+                            dst[i][offset] = dst[i][offset] * 0f + (float) vectorX.invokeExact(result) * 1f;
+                            dst[i][offset + 1] = dst[i][offset + 1] * 0f + (float) vectorY.invokeExact(result) * 1f;
+                            updated.invokeExact(target.get(i));
+                        }
                     }
-                }
             }
             return true;
         }

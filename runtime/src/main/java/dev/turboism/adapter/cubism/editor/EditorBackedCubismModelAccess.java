@@ -134,12 +134,8 @@ public final class EditorBackedCubismModelAccess
         this.editSessionManager = new RuntimeEditSessionManager(editSessionHost, editScopeGate);
         this.combinedAccess = new EditorParameterCombinedAccess(
                 resolver, this::requireCurrent, this::source, this.authoringCoordinator);
-        this.parameterStructureAccess =
-                new EditorParameterStructureAccess(
-                        resolver,
-                        this::requireCurrent,
-                        this.authoringCoordinator,
-                        this::authoringParticipationBinding);
+        this.parameterStructureAccess = new EditorParameterStructureAccess(
+                resolver, this::requireCurrent, this.authoringCoordinator, this::authoringParticipationBinding);
         this.parameterGroupsAccess =
                 new EditorParameterGroupsAccess(resolver, this::requireCurrent, this.parameterStructureAccess);
         this.defaultKeyformLockAccess =
@@ -1000,19 +996,19 @@ public final class EditorBackedCubismModelAccess
             return modelInstanceAccess.modelEditing(identity, source, model);
         }
 
-        @Override public dev.turboism.sdk.cubism.model.CubismMocExport exportMoc(
-            final dev.turboism.sdk.cubism.model.CubismMocExportSettings settings
-        ) {
+        @Override
+        public dev.turboism.sdk.cubism.model.CubismMocExport exportMoc(
+                final dev.turboism.sdk.cubism.model.CubismMocExportSettings settings) {
             return mocExportAccess.exportMoc(identity, source, model, settings);
         }
 
-        @Override public dev.turboism.sdk.cubism.model.CubismRenderedPixels renderPixels(
-            final int width, final int height
-        ) {
+        @Override
+        public dev.turboism.sdk.cubism.model.CubismRenderedPixels renderPixels(final int width, final int height) {
             return renderPixelsAccess.renderPixels(identity, source, model, width, height);
         }
 
-        @Override public dev.turboism.sdk.cubism.model.ModelTextures textures() {
+        @Override
+        public dev.turboism.sdk.cubism.model.ModelTextures textures() {
             return textureAccess.textures(identity, source, model);
         }
 
@@ -1033,18 +1029,17 @@ public final class EditorBackedCubismModelAccess
             current();
             parameter(model, Objects.requireNonNull(parameterId, "parameterId"));
             return new EditorParameterBindingAccess(
-                resolver,
-                identity,
-                source,
-                model,
-                parameterId,
-                EditorBackedCubismModelAccess.this::requireCurrent,
-                objectReadAccess::parameterBindings,
-                objectReadAccess::bindingTargetSource,
-                EditorBackedCubismModelAccess.this::source,
-                authoringCoordinator,
-                EditorBackedCubismModelAccess.this::authoringParticipationBinding
-            );
+                    resolver,
+                    identity,
+                    source,
+                    model,
+                    parameterId,
+                    EditorBackedCubismModelAccess.this::requireCurrent,
+                    objectReadAccess::parameterBindings,
+                    objectReadAccess::bindingTargetSource,
+                    EditorBackedCubismModelAccess.this::source,
+                    authoringCoordinator,
+                    EditorBackedCubismModelAccess.this::authoringParticipationBinding);
         }
 
         @Override

@@ -28,13 +28,17 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
     void packsActiveModelWithoutOpeningAtlasEditor() {
         final Fixture fixture = new Fixture();
         final var capture = new TextureAtlasDataModelCapture();
-        final var provider = new VerifiedTextureAtlasLayoutProvider(
-                resolver("5.3.02", true), "session-a", capture, PROFILE_5_3_02);
+        final var provider =
+                new VerifiedTextureAtlasLayoutProvider(resolver("5.3.02", true), "session-a", capture, PROFILE_5_3_02);
         final var before = provider.current().orElseThrow();
-        final var plan = new TextureAtlasLayoutPlan(16, 8, 1, List.of(
-                new TextureAtlasPlacement("texture-a", 0, 2, 1, 4, 3, false),
-                new TextureAtlasPlacement("texture-b", 0, 8, 1, 2, 2, false),
-                new TextureAtlasPlacement("texture-unused", 0, 12, 1, 1, 1, false)));
+        final var plan = new TextureAtlasLayoutPlan(
+                16,
+                8,
+                1,
+                List.of(
+                        new TextureAtlasPlacement("texture-a", 0, 2, 1, 4, 3, false),
+                        new TextureAtlasPlacement("texture-b", 0, 8, 1, 2, 2, false),
+                        new TextureAtlasPlacement("texture-unused", 0, 12, 1, 1, 1, false)));
         assertEquals(TextureAtlasLayoutProvider.ApplyOutcome.APPLIED, provider.apply(before, plan));
         assertEquals(plan, provider.current().orElseThrow().currentPlan());
         assertEquals(1, fixture.document.dirtyCount);
@@ -51,8 +55,7 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
         final var before = provider.current().orElseThrow();
         final Fixture replacement = new Fixture();
         assertEquals(before.modelId(), provider.current().orElseThrow().modelId());
-        assertEquals(TextureAtlasLayoutProvider.ApplyOutcome.REJECTED,
-                provider.apply(before, before.currentPlan()));
+        assertEquals(TextureAtlasLayoutProvider.ApplyOutcome.REJECTED, provider.apply(before, before.currentPlan()));
         assertEquals(0, replacement.data.applyCount);
     }
 
@@ -72,10 +75,14 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
         final Fixture fixture = new Fixture();
         final var provider = provider(resolver("5.3.02", true), "session-a", fixture);
         final var before = provider.current().orElseThrow();
-        final var plan = new TextureAtlasLayoutPlan(16, 8, 1, List.of(
-                new TextureAtlasPlacement("texture-a", 0, 2, 1, 4, 3, false),
-                new TextureAtlasPlacement("texture-b", 0, 8, 1, 2, 2, false),
-                new TextureAtlasPlacement("texture-unused", 0, 12, 1, 1, 1, false)));
+        final var plan = new TextureAtlasLayoutPlan(
+                16,
+                8,
+                1,
+                List.of(
+                        new TextureAtlasPlacement("texture-a", 0, 2, 1, 4, 3, false),
+                        new TextureAtlasPlacement("texture-b", 0, 8, 1, 2, 2, false),
+                        new TextureAtlasPlacement("texture-unused", 0, 12, 1, 1, 1, false)));
         assertEquals(TextureAtlasLayoutProvider.ApplyOutcome.APPLIED, provider.apply(before, plan));
         final var manager = fixture.source.textureManager;
         assertFalse(manager.modelImageMode);
@@ -261,12 +268,16 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
 
         final var current = provider.current().orElseThrow();
         assertFalse(current.documentId().equals(oldTarget.documentId()));
-        assertEquals(TextureAtlasLayoutProvider.ApplyOutcome.REJECTED,
-                provider.apply(oldTarget, oldTarget.currentPlan()));
-        final var moved = new TextureAtlasLayoutPlan(16, 8, 1, List.of(
-                new TextureAtlasPlacement("texture-a", 0, 2, 1, 4, 3, false),
-                new TextureAtlasPlacement("texture-b", 0, 8, 1, 2, 2, false),
-                new TextureAtlasPlacement("texture-unused", 0, 12, 1, 1, 1, false)));
+        assertEquals(
+                TextureAtlasLayoutProvider.ApplyOutcome.REJECTED, provider.apply(oldTarget, oldTarget.currentPlan()));
+        final var moved = new TextureAtlasLayoutPlan(
+                16,
+                8,
+                1,
+                List.of(
+                        new TextureAtlasPlacement("texture-a", 0, 2, 1, 4, 3, false),
+                        new TextureAtlasPlacement("texture-b", 0, 8, 1, 2, 2, false),
+                        new TextureAtlasPlacement("texture-unused", 0, 12, 1, 1, 1, false)));
         assertEquals(TextureAtlasLayoutProvider.ApplyOutcome.APPLIED, provider.apply(current, moved));
         assertEquals(0, captured.data.applyCount);
         assertEquals(1, active.data.applyCount);
@@ -496,10 +507,7 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
                     "changeInputToAtlas",
                     "()V"));
             selectors.add(method(
-                    "cubism.texture-atlas.texture-manager.reinit-input",
-                    TextureManager.class,
-                    "reinitInput",
-                    "()V"));
+                    "cubism.texture-atlas.texture-manager.reinit-input", TextureManager.class, "reinitInput", "()V"));
             selectors.add(StaticSelector.classSelector("cubism.texture-atlas.atlas.class", internal(Atlas.class)));
             selectors.add(StaticSelector.constructor(
                     "cubism.texture-atlas.atlas.create",

@@ -1,5 +1,7 @@
 package dev.turboism.userfile;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import dev.turboism.sdk.ui.UserFileLifetime;
 import dev.turboism.sdk.ui.UserFileMode;
 import dev.turboism.sdk.ui.UserFileRequest;
@@ -19,16 +21,17 @@ import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.api.io.TempDir;
-import static org.junit.jupiter.api.Assertions.*;
 
 /** Real modal Swing windows on an isolated display; no Cubism acceptance implied. */
 @EnabledIfEnvironmentVariable(named = "TURBOISM_TEST_SWING_CHOOSER", matches = "1")
 class SwingUserFileGrantSourceDisplayTest {
-    @TempDir Path temporary;
+    @TempDir
+    Path temporary;
 
-    @Test void actualWindowGrantsSelectedFile() throws Exception {
+    @Test
+    void actualWindowGrantsSelectedFile() throws Exception {
         assertFalse(GraphicsEnvironment.isHeadless());
-        Path input = Files.write(temporary.resolve("cube.glb"), new byte[]{1, 2, 3});
+        Path input = Files.write(temporary.resolve("cube.glb"), new byte[] {1, 2, 3});
         try (var source = new SwingUserFileGrantSource()) {
             var result = source.request(request()).toCompletableFuture();
             JFileChooser chooser = awaitChooser();
@@ -43,7 +46,8 @@ class SwingUserFileGrantSourceDisplayTest {
         }
     }
 
-    @Test void actualWindowCancelCreatesNoGrant() throws Exception {
+    @Test
+    void actualWindowCancelCreatesNoGrant() throws Exception {
         try (var source = new SwingUserFileGrantSource()) {
             var result = source.request(request()).toCompletableFuture();
             JFileChooser chooser = awaitChooser();
@@ -53,7 +57,8 @@ class SwingUserFileGrantSourceDisplayTest {
         }
     }
 
-    @Test void closingSourceDismissesActualWindow() throws Exception {
+    @Test
+    void closingSourceDismissesActualWindow() throws Exception {
         try (var source = new SwingUserFileGrantSource()) {
             var result = source.request(request()).toCompletableFuture();
             JFileChooser chooser = awaitChooser();
@@ -64,8 +69,12 @@ class SwingUserFileGrantSourceDisplayTest {
     }
 
     private static UserFileRequest request() {
-        return new UserFileRequest("display-test", "GLB import chooser acceptance", List.of("glb"),
-            UserFileMode.READ, UserFileLifetime.ONE_OPERATION);
+        return new UserFileRequest(
+                "display-test",
+                "GLB import chooser acceptance",
+                List.of("glb"),
+                UserFileMode.READ,
+                UserFileLifetime.ONE_OPERATION);
     }
 
     private static JFileChooser awaitChooser() throws Exception {
@@ -110,6 +119,9 @@ class SwingUserFileGrantSourceDisplayTest {
             bounds.set(new java.awt.Rectangle(window.getLocationOnScreen(), window.getSize()));
         });
         new Robot().waitForIdle();
-        ImageIO.write(new Robot().createScreenCapture(bounds.get()), "png", Path.of(output, name).toFile());
+        ImageIO.write(
+                new Robot().createScreenCapture(bounds.get()),
+                "png",
+                Path.of(output, name).toFile());
     }
 }

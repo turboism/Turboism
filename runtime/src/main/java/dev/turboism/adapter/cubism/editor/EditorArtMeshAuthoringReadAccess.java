@@ -12,14 +12,13 @@ import dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form;
 import dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.MorphKey;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Point2;
-
-import javax.swing.SwingUtilities;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import javax.swing.SwingUtilities;
 
 /** Read-only decoder. Caller must validate the object and read on the same Editor thread. */
 final class EditorArtMeshAuthoringReadAccess {
@@ -44,12 +43,22 @@ final class EditorArtMeshAuthoringReadAccess {
         try {
             geometry = new ArtMeshGeometry(sourcePositions, sourceUvs, sourceIndices);
         } catch (IllegalArgumentException invalid) {
-            throw new IllegalArgumentException("Invalid source geometry for " + id.value()
-                + ": vertices=" + sourcePositions.size() + ", uvs=" + sourceUvs.size()
-                + ", indexCount=" + sourceIndices.size()
-                + ", indexMin=" + sourceIndices.stream().mapToInt(Integer::intValue).min().orElse(-1)
-                + ", indexMax=" + sourceIndices.stream().mapToInt(Integer::intValue).max().orElse(-1)
-                + "; " + invalid.getMessage(), invalid);
+            throw new IllegalArgumentException(
+                    "Invalid source geometry for " + id.value()
+                            + ": vertices=" + sourcePositions.size() + ", uvs=" + sourceUvs.size()
+                            + ", indexCount=" + sourceIndices.size()
+                            + ", indexMin="
+                            + sourceIndices.stream()
+                                    .mapToInt(Integer::intValue)
+                                    .min()
+                                    .orElse(-1)
+                            + ", indexMax="
+                            + sourceIndices.stream()
+                                    .mapToInt(Integer::intValue)
+                                    .max()
+                                    .orElse(-1)
+                            + "; " + invalid.getMessage(),
+                    invalid);
         }
         final Object grid = model("parameter-controllable.keyform-grid", source);
         final var axes = new ArrayList<Axis>();
@@ -59,12 +68,12 @@ final class EditorArtMeshAuthoringReadAccess {
             final var keys = new ArrayList<Float>();
             for (final Object key : list(model("keyform-binding.keys", binding))) keys.add(number(key));
             final Axis axis = new Axis(
-                guid(model("keyform-binding.parameter-guid", binding)),
-                new ParameterId(text(model("id.value", model("keyform-binding.parameter-id", binding)))),
-                number(model("parameter-source.minimum", parameter)),
-                number(model("parameter-source.default", parameter)),
-                number(model("parameter-source.maximum", parameter)), keys
-            );
+                    guid(model("keyform-binding.parameter-guid", binding)),
+                    new ParameterId(text(model("id.value", model("keyform-binding.parameter-id", binding)))),
+                    number(model("parameter-source.minimum", parameter)),
+                    number(model("parameter-source.default", parameter)),
+                    number(model("parameter-source.maximum", parameter)),
+                    keys);
             axes.add(axis);
             if (axisByBinding.put(binding, axis) != null) {
                 throw new IllegalStateException("duplicate native grid binding");
@@ -89,8 +98,7 @@ final class EditorArtMeshAuthoringReadAccess {
                     final Axis axis = axisByBinding.get(binding);
                     if (axis == null) throw new IllegalStateException("cell refers to a foreign grid binding");
                     coordinates.add(new Coordinate(
-                        axis.parameterGuid(), number(semantic("key-on-parameter.value", coordinate))
-                    ));
+                            axis.parameterGuid(), number(semantic("key-on-parameter.value", coordinate))));
                 }
                 cells.add(new Cell(formGuid, coordinates));
             }
@@ -100,10 +108,9 @@ final class EditorArtMeshAuthoringReadAccess {
         for (final Object target : list(model("morph-target-set.morph-targets", set))) {
             final Object key = model("morph-target.key-value", target);
             morphKeys.add(new MorphKey(
-                guid(model("morph-target.parameter-guid", target)),
-                formGuid(model("morph-target.keyform-guid", target)),
-                key == null ? Optional.empty() : Optional.of(number(key))
-            ));
+                    guid(model("morph-target.parameter-guid", target)),
+                    formGuid(model("morph-target.keyform-guid", target)),
+                    key == null ? Optional.empty() : Optional.of(number(key))));
         }
         return new ArtMeshAuthoringSnapshot(id, sourceGuid, geometry, axes, cells, forms, morphKeys);
     }
@@ -112,9 +119,9 @@ final class EditorArtMeshAuthoringReadAccess {
         if (!resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")) throw unavailable();
         for (final String capability : EditorArtMeshAuthoringReadSelectorContract.CAPABILITY_IDS) {
             if (!resolver.authorizesFeature(
-                EditorArtMeshAuthoringReadSelectorContract.ADAPTER_SLICE_ID,
-                capability, EditorArtMeshAuthoringReadSelectorContract.REQUIRED_ALIASES
-            )) throw unavailable();
+                    EditorArtMeshAuthoringReadSelectorContract.ADAPTER_SLICE_ID,
+                    capability,
+                    EditorArtMeshAuthoringReadSelectorContract.REQUIRED_ALIASES)) throw unavailable();
         }
     }
 
@@ -130,8 +137,13 @@ final class EditorArtMeshAuthoringReadAccess {
         return resolver.invoke(SEMANTIC + alias, Objects.requireNonNull(target, alias), arguments);
     }
 
-    private String guid(final Object value) { return text(model("guid.value", value)); }
-    private String formGuid(final Object value) { return text(model("form-guid.value", value)); }
+    private String guid(final Object value) {
+        return text(model("guid.value", value));
+    }
+
+    private String formGuid(final Object value) {
+        return text(model("form-guid.value", value));
+    }
 
     private static String text(final Object value) {
         if (value instanceof String text && !text.isBlank()) return text;

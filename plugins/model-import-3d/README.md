@@ -6,7 +6,7 @@ kind: feature
 status: development
 delivery: development-only
 category: workflow
-tags: 3d, glb, import
+tags: 3d, glb, gltf, obj, import
 turboismApi: "[0.1.0,0.2.0)"
 requiresCubism: true
 interface: embedded

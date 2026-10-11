@@ -38,33 +38,61 @@ final class EditorAuthoringTransactionCoordinatorTest {
         final var removed = new AtomicBoolean();
         final var observed = new AtomicBoolean();
         final var foreign = new EditorAuthoringTransactionCoordinator.Binding(
-            "other-plugin", "other-document", 1, "model-1", 1, Thread.currentThread());
+                "other-plugin", "other-document", 1, "model-1", 1, Thread.currentThread());
         final var result = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("owned creation"), () -> {
-            f.coordinator.mutateCreated(f.binding, target, new EditorUndoContribution(
-                "create", "target", "Create", (edit, label) -> { }, () -> { }, () -> true,
-                () -> removed.set(true), removed::get, Set.of()));
+            f.coordinator.mutateCreated(
+                    f.binding,
+                    target,
+                    new EditorUndoContribution(
+                            "create",
+                            "target",
+                            "Create",
+                            (edit, label) -> {},
+                            () -> {},
+                            () -> true,
+                            () -> removed.set(true),
+                            removed::get,
+                            Set.of()));
             assertFalse(f.coordinator.isCreatedTargetRestored(f.binding, target));
-            f.coordinator.mutate(f.binding, new EditorUndoContribution(
-                "dependent", "target", "Dependent", (edit, label) -> { },
-                () -> removed.set(true), () -> true, () -> { }, () -> {
-                    assertTrue(f.coordinator.isCreatedTargetRestored(f.binding, target));
-                    assertFalse(f.coordinator.isCreatedTargetRestored(f.binding, replacement));
-                    assertFalse(f.coordinator.isCreatedTargetRestored(foreign, target));
-                    observed.set(true);
-                    return true;
-                }, Set.of()));
+            f.coordinator.mutate(
+                    f.binding,
+                    new EditorUndoContribution(
+                            "dependent",
+                            "target",
+                            "Dependent",
+                            (edit, label) -> {},
+                            () -> removed.set(true),
+                            () -> true,
+                            () -> {},
+                            () -> {
+                                assertTrue(f.coordinator.isCreatedTargetRestored(f.binding, target));
+                                assertFalse(f.coordinator.isCreatedTargetRestored(f.binding, replacement));
+                                assertFalse(f.coordinator.isCreatedTargetRestored(foreign, target));
+                                observed.set(true);
+                                return true;
+                            },
+                            Set.of()));
             throw new IllegalStateException("rollback");
         });
         assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
         assertTrue(observed.get());
         assertFalse(f.coordinator.isCreatedTargetRestored(f.binding, target));
         final var next = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("later root"), () -> {
-            f.coordinator.mutate(f.binding, new EditorUndoContribution(
-                "later", "target", "Later", (edit, label) -> { }, () -> { }, () -> true,
-                () -> { }, () -> {
-                    assertFalse(f.coordinator.isCreatedTargetRestored(f.binding, target));
-                    return true;
-                }, Set.of()));
+            f.coordinator.mutate(
+                    f.binding,
+                    new EditorUndoContribution(
+                            "later",
+                            "target",
+                            "Later",
+                            (edit, label) -> {},
+                            () -> {},
+                            () -> true,
+                            () -> {},
+                            () -> {
+                                assertFalse(f.coordinator.isCreatedTargetRestored(f.binding, target));
+                                return true;
+                            },
+                            Set.of()));
             throw new IllegalStateException("rollback later root");
         });
         assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, next.outcome());

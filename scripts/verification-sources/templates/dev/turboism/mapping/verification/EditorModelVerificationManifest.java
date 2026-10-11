@@ -20125,6 +20125,7 @@ public final class EditorModelVerificationManifest {
         values.addAll(EditorRawImagePsdReplaceSelectorContract.REQUIRED_ALIASES);
         values.addAll(CUBISM_52_PROPAGATED_ALIASES);
         values.addAll(CUBISM_52_EXPANDED_AUTHORING_ALIASES);
+        values.add("cubism.texture-atlas.texture-manager.reinit-input");
         return Set.copyOf(values);
     }
 

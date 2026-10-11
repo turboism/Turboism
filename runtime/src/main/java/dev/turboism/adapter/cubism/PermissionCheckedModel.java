@@ -77,8 +77,7 @@ final class PermissionCheckedModel implements CubismModel {
     }
 
     @Override
-    public dev.turboism.sdk.cubism.model.CubismRenderedPixels renderPixels(
-            final int width, final int height) {
+    public dev.turboism.sdk.cubism.model.CubismRenderedPixels renderPixels(final int width, final int height) {
         facade.requireModelRead("model.renderPixels");
         return delegate.renderPixels(width, height);
     }
