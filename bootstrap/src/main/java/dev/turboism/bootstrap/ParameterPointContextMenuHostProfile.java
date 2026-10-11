@@ -11,6 +11,7 @@ record ParameterPointContextMenuHostProfile(String owner, String contextDescript
     private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
     private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
     private static final HostArtifactDigest CUBISM_5303 = ReviewedHostArtifacts.CUBISM_5_3_03;
+    private static final HostArtifactDigest CUBISM_5304 = ReviewedHostArtifacts.CUBISM_5_3_04;
 
     ParameterPointContextMenuHostProfile {
         Objects.requireNonNull(owner, "owner");
@@ -26,6 +27,9 @@ record ParameterPointContextMenuHostProfile(String owner, String contextDescript
         }
         if (CUBISM_5303.equals(artifact)) {
             return forReviewedVersion(ReviewedHostArtifacts.CUBISM_5_3_03_VERSION);
+        }
+        if (CUBISM_5304.equals(artifact)) {
+            return forReviewedVersion(ReviewedHostArtifacts.CUBISM_5_3_04_VERSION);
         }
         return Optional.empty();
     }
@@ -43,6 +47,10 @@ record ParameterPointContextMenuHostProfile(String owner, String contextDescript
             return Optional.of(profile("ab"));
         }
         if (ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(cubismVersion)) {
+            return Optional.of(profile("ac"));
+        }
+        // The Q-menu owner binds identically on 5.3.04 (ac$b.a per the record).
+        if (ReviewedHostArtifacts.CUBISM_5_3_04_VERSION.equals(cubismVersion)) {
             return Optional.of(profile("ac"));
         }
         return Optional.empty();

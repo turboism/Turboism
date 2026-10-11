@@ -14,7 +14,23 @@ public final class EditorRawImagePsdSelectorContract {
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
     /** Reviewed generations carrying every identity, native export and integrity selector. */
     public static final Set<String> SUPPORTED_CUBISM_VERSIONS = Set.of(
+        "5.2.00", "5.2.01", "5.2.02", "5.2.03",
         "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+    );
+
+    /**
+     * Exact installations whose {@code ACLayerEntry} has no {@code isTransparencyShapesLayer}
+     * member: the transparency-shape attribute is unrepresentable on the 5.2 document model, so
+     * nothing exists for the export fidelity comparison to preserve there. The save path is
+     * otherwise identical, so admission requires every other alias on these generations.
+     */
+    public static final Set<String> TRANSPARENCY_SHAPES_ABSENT_VERSIONS = Set.of(
+        "5.2.00", "5.2.01", "5.2.02", "5.2.03"
+    );
+
+    /** Aliases that only the 5.3 layer model carries. */
+    public static final Set<String> TRANSPARENCY_SHAPES_ALIASES = Set.of(
+        "cubism.editor-model.layer-entry.transparency-shapes"
     );
 
     public static final String MODEL_SOURCE_TEXTURE_MANAGER_ALIAS =
