@@ -12,7 +12,7 @@ final class UniformLocationCacheHookContributor extends NativeOptimizationHookCo
 
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
-        if (!UniformLocationHookBridge.enabledByPreference()) {
+        if (!NativeOptimizationPolicy.uniformLocationCacheEnabled(environment)) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }

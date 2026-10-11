@@ -963,6 +963,8 @@ mesa_gl_thread=1
 input_path_elision=1
 upload_elision=1
 uniform_location_cache=1
+model_update_skip=1
+incremental_update=0
 safe_mode=0
 uniform_hook_enabled=1
 deferred_hook_enabled=1
@@ -989,8 +991,15 @@ try:
             not isinstance(item, str) for item in disabled):
         raise ValueError('invalid startup policy')
     preferences = {}
-    for name in ('mesaGlThread', 'inputPathElision', 'uploadElision', 'uniformLocationCache'):
-        value = launcher.get(name, True)
+    for name, default in (
+        ('mesaGlThread', True),
+        ('inputPathElision', True),
+        ('uploadElision', True),
+        ('uniformLocationCache', True),
+        ('modelUpdateSkip', True),
+        ('incrementalUpdate', False),
+    ):
+        value = launcher.get(name, default)
         if type(value) is not bool:
             raise ValueError('invalid launcher boolean')
         preferences[name] = int(value)
@@ -1011,6 +1020,8 @@ while IFS='=' read -r pref_name pref_value; do
     inputPathElision) input_path_elision="$pref_value" ;;
     uploadElision) upload_elision="$pref_value" ;;
     uniformLocationCache) uniform_location_cache="$pref_value" ;;
+    modelUpdateSkip) model_update_skip="$pref_value" ;;
+    incrementalUpdate) incremental_update="$pref_value" ;;
     safeMode) safe_mode="$pref_value" ;;
     uniformHook) uniform_hook_enabled="$pref_value" ;;
     deferredHook) deferred_hook_enabled="$pref_value" ;;
@@ -1038,6 +1049,8 @@ for option in "${jvm_options[@]}"; do
     -Dturboism.optimization.inputPathElision) input_path_elision="$boolean_value" ;;
     -Dturboism.optimization.uploadElision) upload_elision="$boolean_value" ;;
     -Dturboism.optimization.uniformLocationCache) uniform_location_cache="$boolean_value" ;;
+    -Dturboism.optimization.modelUpdateSkip) model_update_skip="$boolean_value" ;;
+    -Dturboism.optimization.incrementalUpdate) incremental_update="$boolean_value" ;;
     -Dturboism.validation.glGetErrorElision)
       validation_error_elision="$boolean_value"; resolved_jvm_options+=("$option") ;;
     *) resolved_jvm_options+=("$option") ;;
@@ -1083,12 +1096,14 @@ if [ "$mesa_gl_thread_reason" != resolved ]; then
 fi
 
 # Both dry-run and the actual JAVA_TOOL_OPTIONS consume this exact resolved list.
-for preference in mesaGlThread inputPathElision uploadElision uniformLocationCache; do
+for preference in mesaGlThread inputPathElision uploadElision uniformLocationCache modelUpdateSkip incrementalUpdate; do
   case "$preference" in
     mesaGlThread) value="$mesa_gl_thread" ;;
     inputPathElision) value="$input_path_elision" ;;
     uploadElision) value="$upload_elision" ;;
     uniformLocationCache) value="$uniform_location_cache" ;;
+    modelUpdateSkip) value="$model_update_skip" ;;
+    incrementalUpdate) value="$incremental_update" ;;
   esac
   literal=false
   [ "$value" = 0 ] || literal=true
@@ -1167,7 +1182,9 @@ if [ "$dry_run" = 1 ]; then
     "localEvidenceDir=$local_evidence_dir" \
     "mesaGlThread=$mesa_gl_thread" \
     "mesaGlThreadReason=$mesa_gl_thread_reason" \
-    "inputPathElision=$input_path_elision"
+    "inputPathElision=$input_path_elision" \
+    "modelUpdateSkip=$model_update_skip" \
+    "incrementalUpdate=$incremental_update"
   for index in "${!resolved_plugins[@]}"; do printf 'plugin.%s=%s\n' "$index" "${resolved_plugins[$index]}"; done
   for index in "${!resolved_home_files[@]}"; do printf 'homeFile.%s=%s\n' "$index" "${resolved_home_files[$index]}"; done
   for index in "${!resolved_home_dirs[@]}"; do printf 'homeDir.%s=%s\n' "$index" "${resolved_home_dirs[$index]}"; done
