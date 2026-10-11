@@ -87,21 +87,21 @@ tool_classes="$work/tool"
 mkdir -p "$tool_classes"
 javac --release 17 -proc:none -implicit:none -Xlint:all -Werror \
   -cp "$tool_asm:$tool_asm_commons:$tool_asm_tree" -d "$tool_classes" \
-  "$root/validation/atlas-image-timing/tools/dev/turboism/validation/atlastiming/tools/RelocateJar.java"
+  "$root/validation/shared/src/dev/turboism/validation/shared/tools/RelocateJar.java"
 
 jar --create --file "$work/slice-classes.jar" -C "$classes" .
 
 shaded_dir="$work/shaded"
 mkdir -p "$shaded_dir"
 java -cp "$tool_classes:$tool_asm:$tool_asm_commons:$tool_asm_tree" \
-  dev.turboism.validation.atlastiming.tools.RelocateJar \
+  dev.turboism.validation.shared.tools.RelocateJar \
   "$deps/asm-9.7.1.jar" "$shaded_dir/asm-relocated.jar" \
   org/objectweb/asm "$shaded_prefix"
 
 relocated_slice="$work/relocated-slice"
 mkdir -p "$relocated_slice"
 java -cp "$tool_classes:$tool_asm:$tool_asm_commons:$tool_asm_tree" \
-  dev.turboism.validation.atlastiming.tools.RelocateJar \
+  dev.turboism.validation.shared.tools.RelocateJar \
   "$work/slice-classes.jar" "$relocated_slice/slice-relocated.jar" \
   org/objectweb/asm "$shaded_prefix"
 

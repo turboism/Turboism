@@ -10,6 +10,16 @@
 # and result files. The runner never launches Cubism's Java main class directly.
 set -euo pipefail
 
+# The standalone recorder is queue-only and has an exact, separate argv protocol.
+# It never enters the Editor/Agent lifecycle below.
+if [[ "${1-}" == "--name" && "${2-}" == "official-core" ]]; then
+  exec python3 -B "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host_validation_official_core.py" "$@"
+fi
+
+if [[ "${1-}" == "--name" && "${2-}" == "official-viewer" ]]; then
+  exec python3 -B "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host_validation_official_viewer.py" "$@"
+fi
+
 # shellcheck source=host-validation-env.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 usage() {
@@ -505,9 +515,9 @@ case "$version" in
       5304) reviewed_jar_sha256='c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d' ;;
     esac
     # The deferred GL error-check seam requires the uniform-location lifecycle
-    # bytecode profile; reviewed only for 5.2.03 and 5.3.00-5.3.04.
+    # bytecode profile; reviewed for the full 5.2 and 5.3 lines (5.2.00-5.2.03, 5.3.00-5.3.04).
     case "$version" in
-      5300|5301|5304) uniform_seam_reviewed=1 ;;
+      5200|5201|5202|5300|5301|5304) uniform_seam_reviewed=1 ;;
       *) uniform_seam_reviewed=0 ;;
     esac
     ;;
@@ -617,6 +627,7 @@ for option in "${jvm_options[@]}" "${remote_pre_launch_args[@]}"; do
   require_safe_text "$option" "JVM or hook option"
 done
 windows_environment_names=()
+exit_diagnostic=0
 for assignment in "${windows_environment[@]}"; do
   require_safe_text "$assignment" "Windows environment assignment"
   [[ "$assignment" =~ ^[A-Za-z_][A-Za-z0-9_]*=.+$ ]] \
@@ -627,6 +638,10 @@ for assignment in "${windows_environment[@]}"; do
   case "$environment_name_normalized" in
     JAVA_TOOL_OPTIONS|_JAVA_OPTIONS|JDK_JAVA_OPTIONS)
       fail "Windows environment assignment may not override $environment_name" ;;
+    TURBOISM_MI3D_EXIT_DIAGNOSTIC)
+      [ "$environment_value" = "1" ] \
+        || fail "Windows environment assignment TURBOISM_MI3D_EXIT_DIAGNOSTIC must be exactly 1"
+      exit_diagnostic=1 ;;
   esac
   for existing_name in "${windows_environment_names[@]}"; do
     [ "$existing_name" != "$environment_name_normalized" ] \
@@ -2379,9 +2394,23 @@ else
 call "$cubism_win\\CubismEditor5.bat" "$win_fixture" > "$win_console" 2>&1
 BAT
 fi
+if [ "$exit_diagnostic" = 1 ]; then
+  # Witness only: record the official BAT return code before anything else can
+  # overwrite ERRORLEVEL, write it once into task evidence, then return it
+  # unchanged. Missing evidence means "not observed"; it never decides the run.
+  win_exit_witness="$(z_path "$evidence_dir/editor-exit.properties")"
+  cat >> "$local_tmp/launch.bat" <<BAT
+set "TURBOISM_MI3D_EDITOR_EXIT_CODE=%ERRORLEVEL%"
+if not exist "$win_exit_witness" (
+  (echo schemaVersion=1&echo taskId=$task_id&echo editorExitCode=%TURBOISM_MI3D_EDITOR_EXIT_CODE%&echo complete=true)>"$win_exit_witness"
+)
+exit /b %TURBOISM_MI3D_EDITOR_EXIT_CODE%
+BAT
+else
 cat >> "$local_tmp/launch.bat" <<'BAT'
 exit /b %ERRORLEVEL%
 BAT
+fi
 run_remote_hook "$remote_pre_launch"
 local_copy_to "$local_tmp/launch.bat" "$task_dir/launch.bat"
 # Whitelist-checked Mesa/Proton debug variables for this job only; every name

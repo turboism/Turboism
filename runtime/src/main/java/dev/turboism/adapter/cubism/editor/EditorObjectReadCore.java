@@ -23,14 +23,24 @@ final class EditorObjectReadCore {
     private final VerifiedMemberResolver resolver;
     private final EditorObjectReadAccess.CurrentGuard currentGuard;
     private final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin;
+    private final java.util.function.Function<String, Boolean> lazyPublish;
 
     EditorObjectReadCore(
             final VerifiedMemberResolver resolver,
             final EditorObjectReadAccess.CurrentGuard currentGuard,
             final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin) {
+        this(resolver, currentGuard, evaluatedJoin, null);
+    }
+
+    EditorObjectReadCore(
+            final VerifiedMemberResolver resolver,
+            final EditorObjectReadAccess.CurrentGuard currentGuard,
+            final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin,
+            final java.util.function.Function<String, Boolean> lazyPublish) {
         this.resolver = resolver;
         this.currentGuard = currentGuard;
         this.evaluatedJoin = evaluatedJoin;
+        this.lazyPublish = lazyPublish;
     }
 
     void requireAuthorized() {
@@ -594,7 +604,19 @@ final class EditorObjectReadCore {
         if (evaluatedJoin == null) {
             throw new IllegalStateException("Core evaluated data is unavailable: no Core evaluated join is installed.");
         }
-        return evaluatedJoin.evaluated(identity).drawable(id);
+        try {
+            return evaluatedJoin.evaluated(identity).drawable(id);
+        } catch (IllegalStateException unavailable) {
+            if (lazyPublish == null
+                    || !unavailable.getMessage().contains("No verified active Core model")) {
+                throw unavailable;
+            }
+            if (!lazyPublish.apply(identity)) {
+                throw unavailable;
+            }
+            // Retried once after a successful lazy publish; any further failure propagates.
+            return evaluatedJoin.evaluated(identity).drawable(id);
+        }
     }
 
     enum Kind {

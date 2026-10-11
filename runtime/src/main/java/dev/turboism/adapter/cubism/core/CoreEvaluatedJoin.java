@@ -53,6 +53,12 @@ public final class CoreEvaluatedJoin {
     public CoreEvaluatedSnapshot evaluated(final String identity) {
         Objects.requireNonNull(identity, "identity");
         synchronized (cacheLock) {
+            if (source.isRefusedPublication(identity)) {
+                throw new IllegalStateException(
+                    "Core evaluated data is unavailable: the active binding's model could not be "
+                        + "published as a verified Core model."
+                );
+            }
             if (cachedIdentity != null && cachedIdentity.equals(identity)) {
                 requireCurrentCoreGeneration(cachedSnapshot.generation());
                 return new CoreEvaluatedSnapshot(cachedSnapshot.generation(), cachedDrawablesById);
@@ -73,6 +79,23 @@ public final class CoreEvaluatedJoin {
      * not reachable from a borrowed model and stays {@link MocConsistency#UNKNOWN}.</p>
      */
     public MocInfo mocInfo() {
+        return mocInfo(null);
+    }
+
+    /**
+     * Returns MOC metadata of the active borrowed Core model for one binding read
+     * identity. A refused publication identity (or any identity derived from it)
+     * fails closed instead of reading whatever unrelated model the source still holds.
+     */
+    public MocInfo mocInfo(final String identity) {
+        synchronized (cacheLock) {
+            if (identity != null && source.isRefusedPublication(identity)) {
+                throw new IllegalStateException(
+                    "Core evaluated data is unavailable: the active binding's model could not be "
+                        + "published as a verified Core model."
+                );
+            }
+        }
         final CoreModelAcquisition acquisition = source.acquire(provider);
         if (!acquisition.isAcquired()) {
             throw failClosed(acquisition.failure().orElseThrow());
@@ -89,6 +112,28 @@ public final class CoreEvaluatedJoin {
             }
             return new MocInfo(mocVersion(result.value().orElseThrow()), MocConsistency.UNKNOWN);
         }
+    }
+
+    /**
+     * Best-effort lazy publication of a resolved Editor document model through the active
+     * source. Returns false when the source cannot accept it (for example when closed).
+     *
+     * <p>A refused publication poisons the publish identity on the shared source: read
+     * identities derived from it ({@code publishIdentity + ":" + generation}) then fail
+     * closed for every join on that source instead of tracing whatever unrelated model
+     * happens to remain published. A later accepted publication under the same identity
+     * clears the refusal inside the source transition.</p>
+     */
+    public boolean tryPublish(final Object model, final String identity) {
+        // Only a receiver of the verified Core model type may be published; anything
+        // else (for example the Editor's document CModel) is refused here rather than
+        // failing every later structural call site with a receiver-type RESOLUTION.
+        final boolean accepted = tracer.acceptsCoreModel(model)
+            && source.tryPublishBorrowedModel(model, identity);
+        if (!accepted) {
+            source.refusePublication(identity);
+        }
+        return accepted;
     }
 
     /**

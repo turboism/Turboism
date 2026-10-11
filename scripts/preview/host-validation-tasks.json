@@ -3771,10 +3771,6 @@
       "description": "Native PSD export observation: readable-v2 or explicit save-only profile; issued handle and stop; no fidelity/replace/external-edit acceptance.",
       "command": "scripts/preview/run-psd-export-observation-host-validation.sh",
       "versions": [
-        "5200",
-        "5201",
-        "5202",
-        "5203",
         "5300",
         "5301",
         "5302",
@@ -3866,6 +3862,82 @@
           "--linux-env",
           "mesa_glthread=false"
         ]
+      }
+    },
+    "acp": {
+      "description": "ACP agent-window stdio MCP validation: the probe opens the Agent window via the action catalog, a scripted fake agent asserts the credential-free stdio attachment and performs one rename through the TurboismMcpBridge with guarded undo restoration, then the host closes normally.",
+      "command": "scripts/preview/run-acp-host-validation.sh",
+      "versions": [
+        "5203",
+        "5302",
+        "5303"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
+    },
+    "official-viewer": {
+      "description": "Official Viewer observation without Turboism; private display and contained queue only.",
+      "command": "scripts/preview/run-official-viewer-host-validation.sh",
+      "versions": [
+        "5302"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1
+      }
+    },
+    "official-core": {
+      "description": "Standalone official Core capture without Editor, Agent or plugins; immutable bundle and contained queue only.",
+      "command": "scripts/preview/run-official-core-host-validation.sh",
+      "versions": [
+        "5302"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1
+      }
+    },
+    "model-import-3d-user-entry": {
+      "description": "Production 3D import menu, real file chooser, native dense bindings and Undo/Redo in a task-owned document.",
+      "command": "scripts/preview/run-model-import-3d-user-entry-host-validation.sh",
+      "versions": [
+        "5203",
+        "5302",
+        "5303"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
+    },
+    "model-import-3d": {
+      "description": "N2 task-new blank model, native ArtMesh/grid snapshot and Undo/Redo investigation; not full importer acceptance.",
+      "command": "scripts/preview/run-model-import-3d-host-validation.sh",
+      "versions": [
+        "5302"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1
       }
     }
   }

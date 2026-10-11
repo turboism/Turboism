@@ -1,0 +1,54 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.model-import-3d-user-entry",
+  "name": "3D Import User Entry Probe",
+  "version": "0.0.0",
+  "description": "Task-only driver of the installed production menu and real file chooser; observes native import and Undo/Redo.",
+  "entrypoints": [
+    "dev.turboism.validation.modelimport3d.host.UserEntryProbe"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    {
+      "name": "Turboism Validation"
+    }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [
+    "dev/turboism/validation/modelimport3d/host/"
+  ],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Observe task-created model, stored forms, grid and native history through SDK."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Create a new task document and micro mesh/parameters; restore with native Undo. Never edit the startup seed."
+    },
+    {
+      "id": "turboism.ui.file-chooser.request",
+      "scope": "application",
+      "reason": "Explicit apple or surface save validation requests one task-owned CMO3 target."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Typed reject-existing SAVE_AS of the imported model in the dedicated validation state directory."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  }
+}

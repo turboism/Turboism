@@ -10,6 +10,11 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 新增
 
+- `acp` 精确实机验证能力加入本机验证队列：test-only 探针在真实 Cubism 会话内经公共 action
+  catalog 打开 ACP Agent 窗口；脚本化 fake agent（默认包 `acp` 入口）断言无凭据的 stdio MCP
+  挂载，并经 token 门控的 `TurboismMcpBridge` 完成一次 rename 写与守护式 undo；SDK 交叉回读
+  复核文档恢复；5.2.03、5.3.02、5.3.03 上宿主正常关闭。
+
 - 将原本仅开发用的 agent 聊天插件重构为通用 `Turboism ACP` 插件
   (`dev.turboism.plugin.acp`)：启动用户安装的 ACP 兼容 agent（Claude Agent ACP、Codex
   ACP、Antigravity、Gemini CLI、OpenCode、Pi、Devin CLI 或自定义命令），支持 PATH 上的

@@ -2,15 +2,15 @@ package dev.turboism.plugin.mcp;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.ConnectException;
+import java.net.HttpURLConnection;
+import java.net.SocketTimeoutException;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpConnectTimeoutException;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -38,8 +38,6 @@ public final class TurboismMcpBridge {
     private static final Pattern ID_PATTERN = Pattern.compile("\"id\"\\s*:\\s*(\"(?:[^\"\\\\]|\\\\.)*\"|-?\\d+)");
     private static final Pattern PROTOCOL_PATTERN = Pattern.compile("\"protocolVersion\"\\s*:\\s*\"([^\"\\\\]+)\"");
 
-    private final HttpClient client =
-            HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     private final Path stateDir;
     private String endpoint;
     private String token;
@@ -59,13 +57,14 @@ public final class TurboismMcpBridge {
         } catch (Throwable failure) {
             // @containment-exempt: a bridge process must report every failure to stderr and
             // exit non-zero; there is no framework logger or fatal-error policy to delegate to.
+            failure.printStackTrace(System.err);
             System.err.println("turboism-mcp-bridge: " + failure);
             System.exit(1);
         }
     }
 
     private static Path stateDirOf(final String[] arguments) {
-        if (arguments != null && arguments.length > 0 && !arguments[0].isBlank()) {
+        if (arguments != null && arguments.length > 0 && arguments[0] != null && !arguments[0].isBlank()) {
             return Path.of(arguments[0]);
         }
         return EMBEDDED_STATE_DIR;
@@ -92,61 +91,86 @@ public final class TurboismMcpBridge {
         final boolean batch = line.strip().startsWith("[");
         final String id = batch ? null : extract(ID_PATTERN, line);
         for (int attempt = 0; attempt < 2; attempt++) {
+            HttpURLConnection connection = null;
             try {
-                final HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(endpoint))
-                        .timeout(Duration.ofSeconds(120))
-                        .header("Content-Type", "application/json")
-                        .header("Accept", "application/json, text/event-stream")
-                        .header("Authorization", "Bearer " + token)
-                        .POST(HttpRequest.BodyPublishers.ofString(line, StandardCharsets.UTF_8));
-                if (sessionId != null) builder.header("MCP-Session-Id", sessionId);
-                if (protocolVersion != null) {
-                    builder.header("MCP-Protocol-Version", protocolVersion);
-                }
-                final HttpResponse<byte[]> response =
-                        client.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray());
-                captureSession(response, line);
-                if (response.statusCode() == 404) {
+                connection = open();
+                writeBody(connection, line);
+                final int status = connection.getResponseCode();
+                final String body = readBody(connection, status);
+                captureSession(connection, line, status, body);
+                if (status == 404) {
                     sessionId = null;
                     protocolVersion = null;
                 }
-                final String body = new String(response.body(), StandardCharsets.UTF_8);
                 if (!body.isEmpty()) return body;
-                return id == null ? null : error(id, "MCP server returned HTTP " + response.statusCode());
-            } catch (ConnectException | HttpConnectTimeoutException unreachable) {
+                return id == null ? null : error(id, "MCP server returned HTTP " + status);
+            } catch (ConnectException | SocketTimeoutException unreachable) {
                 refreshEndpoint();
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return id == null ? null : error(id, "bridge relay was interrupted");
             } catch (IOException | IllegalArgumentException failure) {
                 return id == null ? null : error(id, "bridge relay failure: " + failure);
+            } finally {
+                if (connection != null) connection.disconnect();
             }
         }
         return id == null ? null : error(id, "Turboism MCP server is unreachable");
     }
 
-    private void captureSession(final HttpResponse<byte[]> response, final String request) {
+    private HttpURLConnection open() throws IOException {
+        final HttpURLConnection connection =
+                (HttpURLConnection) URI.create(endpoint).toURL().openConnection();
+        connection.setRequestMethod("POST");
+        connection.setConnectTimeout(5_000);
+        connection.setReadTimeout(120_000);
+        connection.setDoOutput(true);
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setRequestProperty("Accept", "application/json, text/event-stream");
+        connection.setRequestProperty("Authorization", "Bearer " + token);
+        if (sessionId != null) connection.setRequestProperty("MCP-Session-Id", sessionId);
+        if (protocolVersion != null) connection.setRequestProperty("MCP-Protocol-Version", protocolVersion);
+        return connection;
+    }
+
+    private static void writeBody(final HttpURLConnection connection, final String line) throws IOException {
+        final byte[] body = line.getBytes(StandardCharsets.UTF_8);
+        connection.setFixedLengthStreamingMode(body.length);
+        try (OutputStream out = connection.getOutputStream()) {
+            out.write(body);
+        }
+    }
+
+    private static String readBody(final HttpURLConnection connection, final int status) throws IOException {
+        final InputStream stream = status >= 400 ? connection.getErrorStream() : connection.getInputStream();
+        if (stream == null) return "";
+        try (InputStream input = stream) {
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    private void captureSession(
+            final HttpURLConnection connection, final String request, final int status, final String body) {
         if (!"initialize".equals(extract(METHOD_PATTERN, request))) return;
-        if (response.statusCode() != 200) return;
-        response.headers().firstValue("MCP-Session-Id").ifPresent(value -> sessionId = value);
-        final String negotiated = extract(PROTOCOL_PATTERN, new String(response.body(), StandardCharsets.UTF_8));
+        if (status != 200) return;
+        final String header = connection.getHeaderField("MCP-Session-Id");
+        if (header != null && !header.isBlank()) sessionId = header;
+        final String negotiated = extract(PROTOCOL_PATTERN, body);
         if (negotiated != null) protocolVersion = negotiated;
     }
 
     private void closeSession() {
         if (sessionId == null) return;
         try {
-            final HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(endpoint))
-                    .timeout(Duration.ofSeconds(5))
-                    .header("Authorization", "Bearer " + token)
-                    .header("MCP-Session-Id", sessionId)
-                    .method("DELETE", HttpRequest.BodyPublishers.noBody());
+            final HttpURLConnection connection =
+                    (HttpURLConnection) URI.create(endpoint).toURL().openConnection();
+            connection.setRequestMethod("DELETE");
+            connection.setConnectTimeout(5_000);
+            connection.setReadTimeout(5_000);
+            connection.setRequestProperty("Authorization", "Bearer " + token);
+            connection.setRequestProperty("MCP-Session-Id", sessionId);
             if (protocolVersion != null) {
-                builder.header("MCP-Protocol-Version", protocolVersion);
+                connection.setRequestProperty("MCP-Protocol-Version", protocolVersion);
             }
-            client.send(builder.build(), HttpResponse.BodyHandlers.discarding());
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
+            connection.connect();
+            connection.getResponseCode();
         } catch (Exception ignored) {
             // Best effort: the editor may already be shutting down.
         }

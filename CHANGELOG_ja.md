@@ -10,6 +10,13 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 
 ### 追加
 
+- `acp` 精确实機検証ケイパビリティがローカル検証キューに追加：test-only プローブが実際の
+  Cubism セッション内で公開 action catalog 経由で ACP エージェントウィンドウを開き、スクリプト
+  化フェイクエージェント（デフォルトパッケージの `acp` エントリ）が資格情報を含まない stdio
+  MCP アタッチメントを検証し、トークンゲート付き `TurboismMcpBridge` 経由で rename 書き込みと
+  保護付き undo を実行。SDK クロスリードがドキュメントの復元を再確認し、5.2.03・5.3.02・
+  5.3.03 でホストが正常に閉じます。
+
 - 開発専用だったエージェントチャットプラグインを汎用 `Turboism ACP` プラグイン
   (`dev.turboism.plugin.acp`) へ作り替えました。ユーザーがインストールした ACP 対応
   エージェント（Claude Agent ACP、Codex ACP、Antigravity、Gemini CLI、OpenCode、Pi、
