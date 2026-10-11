@@ -277,3 +277,43 @@ rep-r1/r2 全部非 PASS 格子在"启动辅助默认开启"下重投；排除�
 6. **recent-preview:5203（保存链路）**：多缺陷链逐一消除——探针描述符补 `model.read/model.write`（脏化参数写）、`model.observe`（**根因**：生命周期注册表对缺该权限的插件过滤 `on*` 回调，`ModelFileHooks.onModelSaved` 永不分发，生产 recent-preview 插件同受此缺口影响）；菜单遍历改为递归 `JMenu.getPopupMenu()` 子树（`getComponents()` 不可达 popup 内容）；菜单开启检测改用 `JMenu.isPopupMenuVisible` + `setPopupMenuVisible` 兜底（宿主 LAF 在 release 时把 popup 收掉）；保存前 SDK 参数写置脏；菜单点击无保存时经 `EditorCommandService.execute(SAVE)` 升级真实保存（`sdkSave=EXECUTED`）；保存事件按会话 `contentId` 匹配（`model:<hash>`，实测 name 为内部模型名 `测试 混合模式` 而非文件名——原 `fixture.cmo3` 硬编码匹配永不命中）。实机现状：recent-list/直接截图/保存事件(savedEvent=true)/生产缓存(png+index) 全 PASS，**仅 popup 悬停预览未观测**：预览桥 `isCurrentItem` 要求条目处于 `MenuSelectionManager.selectedPath`（实测悬停时 depth=0），程序化开菜单路径不产生该状态——宿主 LAF 下真机点击会收掉 popup，hover 不开子菜单，选择路径无法经真实输入建立；归类 PROBE_DRIFT，证据 `recent-preview/5203-drift-r1/queue-f6b600d33b69429f86adc95adf3bed58/evidence`。
 
 **实机确认汇总**：PASS×9（atlas:5203、update-check:5300、protected-export×3、mcp 5200/5203/5300/5304）；CAPABILITY_BOUNDARY×4（mcp 5000/5006/5100/5103，authoring-transactions 缺席）；PROBE_DRIFT×1（recent-preview:5203 popup 阶段残余）。
+
+## refresh-r1 过期格子刷新轮（2026-10-11，mundane-stingray 集成快照）
+
+目标：刷新 `hostValidation` 中 INFRA_RETRYABLE/NO_EVIDENCE/UNKNOWN/PROBE_DRIFT/FIXTURE_UNSUITABLE 的过期格子。筛选规则：manifest 可运行任务 × 代表版本（5.0→5000/5006、5.1→5100/5103、5.2→5200/5203、5.3→5300/5304）∩ 任务许可版本，排除 10-11 18:00（本地）后队列内同代码 PASS（实际无）。114 个目标类格子 → 31 候选 → 30 spec：26 独立 spec + 4 个 session-standard（合并 texture-relations/clipmask-viewer/separate-save-path/core-owned-moc 等只读步骤族）。bundle 与全部 manual-test 包重建并 LINKED；2 个 spec 在 prepare 静态门禁被拒（parameter-batch-transfer 5000/5100：5.0.00/5.1.00 缺 `cubism.editor-model.write` VERIFIED_STATIC 证据 → SKIP_STATIC admission，如实记录不绕过）。28 个 job 一次入队 FIFO 全部终态，cleanup 全 safe、无 quarantine、无 recover。
+
+**终态：16 PASS / 12 FAIL**（另有 13 个会话步级 PASS 入账）。队列级聚合归因为 SYSTEMIC×4（mcp 5000/5103/5200/5304 同签名 `McpExecutionBridge.awaitUi` host-execution-timeout，4 版本同征且无 PASS → 不重投）、CAPABILITY_BOUNDARY×2、UNKNOWN×6；无"非 SYSTEMIC 的 INFRA_RETRYABLE"，故无 refresh-r2。
+
+### 任务 × 代际结果对比（P=PASS 翻转，B=能力边界，F=仍失败，-=未涉及）
+
+| 任务 | 5.0.x | 5.1.x | 5.2.x | 5.3.x |
+|---|---|---|---|---|
+| animation-timeline | - | - | - | P(5304) |
+| atlas | - | - | P(5203) | - |
+| clipmask-viewer | P(5000/5006 会话) | P(5100 会话) | - | - |
+| core-acquisition | - | P(5103) | P(5203) | - |
+| edit-protocol | - | - | F(5203) | F(5304) |
+| fps | - | P(5103) | - | - |
+| mcp | F(5000 SYSTEMIC) | F(5103 SYSTEMIC) | F(5200 SYSTEMIC,5203 夹具) | F(5304 SYSTEMIC) |
+| parameter | - | - | P(5200) | - |
+| parameter-batch-transfer | 门禁跳过(5000) | 门禁跳过(5100) | - | - |
+| protected-export | - | - | P(5203) | - |
+| psd-export-observation | - | - | F(5200) | B(5300 会话步) |
+| selection-lag | F(5000/5006 输入) | - | - | - |
+| startup-suppression | - | P(5100) | P(5200) | - |
+| theme | - | - | P(5200/5203) | - |
+| update-check | - | P(5103) | - | - |
+| workspace | B(5000 布局provider缺席) | - | P(5200) | - |
+| session-standard | 会话 PASS(5000/5006) | 会话 PASS(5100) | - | 会话 4/5 步 PASS(5300) |
+
+矩阵 PASS 格计数：5.0.x 64→66、5.1.x 37→42、5.2.x 61→69、5.3.x 111→113（净 +17：16 目标格翻转 + 会话步级 texture-relations/separate-save-path/core-owned-moc 等附带刷新）。
+
+**仍失败归因与建议修复点**：
+- mcp 5000/5103/5200/5304（SYSTEMIC）：`McpExecutionBridge.awaitUi` 执行超时，四版本同签名 → 产品/基础设施层 EDT 派发停滞，建议查 MCP 桥 `awaitUi` 在启动辅助应答链后的卡死点。另注意 mcp:5203 单独失败为 `fixture contains no Glue relation`——本轮 prepare 环境缺 `TURBOISM_HOST_VALIDATION_FIXTURE_MCP`（drift-r1 用的 2980dc8c 带 Glue 夹具即 CLIPMASK 覆盖同款文件），该 override 未持久化进 `.env`；其余 20 项断言全 PASS（连接/工具/工作区/纹理保存重开/审计）。建议：把 FIXTURE_MCP(+SHA256) 写入 `.env` 或让 mcp 包装脚本默认选择带 Glue 版本。
+- edit-protocol 5203/5304（UNKNOWN，`conn1 EditBegin → error_InvalidEditOperation`，全版本同征）：根因定位——`EditBegin` 走 `EditToggleApprovalGate` 活体分支（注入「编辑」复选框即批准面），复选框未勾选即拒绝且**永不弹批准对话框**（probe 插件的 "Turboism Edit Session" Swing 应答线程 `dialog.decisions=0`，该路径仅作用于 SwingEditApprovalGate 回退）。harness 缺口：无人驱动注入复选框。建议：probe 插件经 NativeEditToggleInjector 目标复选框程序化置位，或为 toggle-gate 路径加验证专用批准；非产品缺陷（fail-closed 为设计）。
+- selection-lag 5000/5006（UNKNOWN）：`no mouse events observed during interaction (input did not reach the EDT)`，interactionMouseEvents=0——合成输入未达宿主 EDT（Xvfb 输入/窗口聚焦路径），非能力问题。建议查 input 注入与目标窗口映射。
+- psd-export-observation 5200（UNKNOWN）：`SAVED_UNVERIFIED`/`Native readable export without a runtime-issued edit handle`——与会话步 5300 相同类（既定 SDK 可读导出缺口），独立任务规则未归 CAPABILITY_BOUNDARY，建议 triage 规则扩展或探针按 SAVED_UNVERIFIED 归类。
+- workspace 5000（CAPABILITY_BOUNDARY）：5.0.x 无 workspace layout provider（其余断言 PASS），真实边界。
+- parameter-batch-transfer 5000/5100（SKIP_STATIC admission）：5.0.x/5.1.00 无 `cubism.editor-model.write` 静态验证证据，格子维持待办；需先补对应版本 verification 记录再实机。
+- session-standard 5.0.00/5.3.00 矩阵格仍显示旧终态：会话 job 可读步结果时台账只写步级条目、不产生 session-standard 行，该任务格按设计只在"会话无步证据"时更新（ cosmetic 台账覆盖说明，非失败）。
+
