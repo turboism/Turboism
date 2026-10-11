@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.id;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /**
@@ -10,6 +11,7 @@ import java.util.Objects;
  *
  * @param value the host-issued parameter identifier, never {@code null}
  */
+@CubismEditor
 public record ParameterId(String value) {
     public ParameterId {
         value = Objects.requireNonNull(value, "value");

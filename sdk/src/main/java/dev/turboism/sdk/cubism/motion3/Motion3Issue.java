@@ -1,11 +1,14 @@
 package dev.turboism.sdk.cubism.motion3;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /** One finding reported by {@link Motion3Validator}. */
+@CubismEditor
 public record Motion3Issue(Severity severity, String path, String message) {
 
     /** How severe the reported motion3 inconsistency is. */
+    @CubismEditor
     public enum Severity {
         /** The document violates the motion3 format and may fail to load. */
         ERROR,

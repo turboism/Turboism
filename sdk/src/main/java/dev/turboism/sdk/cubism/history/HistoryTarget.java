@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.history;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Stable Turboism-owned projection of one object affected by a history entry. */
+@CubismEditor
 public record HistoryTarget(String type, Optional<String> id, Optional<String> displayName) {
 
     private static final int MAX_TYPE_LENGTH = 64;

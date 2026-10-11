@@ -1,6 +1,9 @@
 package dev.turboism.sdk.cubism.command;
 
+import dev.turboism.sdk.CubismEditor;
+
 /** Configures the Editor external-application integration endpoint. */
+@CubismEditor
 public record EditorExternalAppSettingsRequest(int port, boolean allowRemoteConnections)
         implements EditorParameterizedRequest {
 

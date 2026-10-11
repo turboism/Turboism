@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.command;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Set;
 
 /** Executes the safe typed subset of native Cubism Editor menu operations. */
+@CubismEditor(from = "5.1.00")
 public interface EditorCommandService {
     /** Returns the commands the connected host can currently execute; empty when none apply. */
     Set<EditorCommand> available();

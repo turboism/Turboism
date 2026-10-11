@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.transaction;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -13,6 +14,7 @@ import java.util.Optional;
  * @param diagnosticId stable diagnostic identity for rejected, unavailable, or failed outcomes
  * @param <T> callback result type
  */
+@CubismEditor
 public record AuthoringTransactionResult<T>(
         AuthoringTransactionOutcome outcome,
         Optional<T> value,
