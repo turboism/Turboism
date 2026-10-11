@@ -21,14 +21,14 @@
 | 编辑会话 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 编辑器 UI 表面 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 几何读取 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 编辑历史 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 编辑历史 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 集成桥接 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 网格工具会话 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
 | 网格工具栏贡献 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
 | 其他模型表面 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 模型实例读取 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 模型实例读取 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 建模自定义工具 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
-| 对象层级 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 对象层级 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 参数与绑定 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 参数键编辑 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 参数结构编辑 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -39,7 +39,7 @@
 | 插件 UI 表面 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 项目读取 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 受保护导出 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| PSD 原始图像 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| PSD 原始图像 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 选区编辑 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 启动抑制 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 纹理与原始图像 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -57,7 +57,7 @@
 - `cubism.editor-ui.main-toolbar` (主工具栏集成): 无已验证记录 5.0.00–5.0.06
 - `cubism.editor-ui.top-menu` (顶部菜单集成): 无已验证记录 5.0.00–5.0.06
 - `cubism.geometry.read` (网格几何读取): 无已验证记录 5.0.00–5.1.03
-- `cubism.editor-history.semantic-read` (语义化历史解读): 无已验证记录 5.0.00–5.2.02
+- `cubism.editor-history.semantic-read` (语义化历史解读): 无已验证记录 5.0.00–5.1.03
 - `cubism.integration.edit-api-bridge.dispatch`: 无已验证记录 5.0.00–5.1.01
 - `cubism.integration.external-app-settings.edit-toggle` (外部应用编辑开关): 无已验证记录 5.0.00–5.0.06
 - `cubism.mesh-tool.session` (网格编辑工具会话): 无已验证记录 5.0.00–5.2.02
@@ -67,9 +67,10 @@
 - `cubism.editor-model.default-keyform-lock.write`: 无已验证记录 5.0.00–5.1.03
 - `cubism.editor-model.native-control-appearance.write`: 无已验证记录 5.0.00–5.1.03
 - `cubism.editor-model.write` (编辑器模型写入): 无已验证记录 5.0.00–5.1.03
-- `cubism.editor-model.model-instance.read` (活动模型实例读取): 无已验证记录 5.0.00–5.2.02
+- `cubism.editor-model.model-instance.read` (活动模型实例读取): 无已验证记录 5.0.00–5.1.03
 - `cubism.modeling-tool.selection-brush` (建模选区笔刷): 无已验证记录 5.0.00–5.2.02
 - `cubism.modeling-tool.selection-brush` (建模选区笔刷): 已验证但被契约/pin 收窄（待适配） 5.3.00–5.3.01, 5.3.04
+- `cubism.editor-model.object-hierarchy.apply-deformer-to-children`: 无已验证记录 5.0.00–5.1.03
 - `cubism.editor-model.parameter-combined.write`: 无已验证记录 5.0.00–5.1.03
 - `cubism.editor-model.parameter-definition.write`: 无已验证记录 5.0.00–5.1.03
 - `cubism.editor-model.parameter-structure.write` (参数结构写入): 无已验证记录 5.0.00–5.1.03
@@ -84,8 +85,8 @@
 - `cubism.editor-model.part-inspector.write`: 无已验证记录 5.0.00–5.2.03
 - `cubism.editor-model.part-opacity.write`: 无已验证记录 5.0.00–5.2.03
 - `cubism.protected-export.orchestration` (受保护导出编排): 无已验证记录 5.0.00–5.0.06
-- `cubism.editor-model.psd.raw-image.export`: 无已验证记录 5.0.00–5.2.03
-- `cubism.editor-model.psd.raw-image.replace` (PSD 原始图像替换): 无已验证记录 5.0.00–5.2.03
+- `cubism.editor-model.psd.raw-image.export`: 无已验证记录 5.0.00–5.1.03
+- `cubism.editor-model.psd.raw-image.replace` (PSD 原始图像替换): 无已验证记录 5.0.00–5.1.03
 - `cubism.texture-atlas.auto-layout-hook`: 无已验证记录 5.0.00–5.1.03
 - `cubism.texture-atlas.native-layout-invocation`: 无已验证记录 5.0.00–5.1.03
 
@@ -97,10 +98,10 @@
 |---|---|---|
 | `dev.turboism.sdk.cubism.CubismFacade#authoringTransactions()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.CubismFacade#edit()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorSession()` | method | 5.2.03–5.3.03 |
-| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorUi()` | method | 5.2.03–5.3.03 |
-| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasPolygonLayouts()` | method | 5.2.03–5.3.03 |
-| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#artifacts()` | method | 5.2.03–5.3.04 |
+| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorSession()` | method | 5.2.03–5.3.04 |
+| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorUi()` | method | 5.2.03–5.3.04 |
+| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasPolygonLayouts()` | method | 5.2.03–5.3.04 |
+| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#artifacts()` | method | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#backupAfterSave()` | method | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#backupNow()` | method | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#registerSyncTarget()` | method | 5.1.00–5.3.04 |
@@ -148,17 +149,17 @@
 | `dev.turboism.sdk.cubism.export.ExportSettingsDecision#ExportSettingsDecision()` | method | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.export.Outcome` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AlphaComposition` | type | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.Deformers#applyToChildren()` | method | 5.3.02 |
+| `dev.turboism.sdk.cubism.model.Deformers#applyToChildren()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()` | method | 5.3.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()` | method | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#alphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#maskIds()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setAlphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setMaskIds()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setOpacity()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession` | type | 5.2.00–5.2.02, 5.3.00–5.3.04 |
+| `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi` | type | 5.2.00–5.3.04 |
 
 ## 仅在部分版本可用的 Editor 命令
