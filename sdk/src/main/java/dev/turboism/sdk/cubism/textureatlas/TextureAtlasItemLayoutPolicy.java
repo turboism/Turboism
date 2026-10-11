@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /**
@@ -13,6 +14,7 @@ import java.util.Objects;
  * well). Cubism 5.2/5.3 hosts cannot persist these flags, so callers store them in
  * Turboism-side configuration keyed by model and texture id.</p>
  */
+@CubismEditor
 public record TextureAtlasItemLayoutPolicy(
         String textureId, boolean participate, boolean preserveAngle, boolean preserveScale, boolean preservePosition) {
 

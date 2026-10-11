@@ -1,6 +1,9 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
+
 /** One size bucket in a texture-atlas image size distribution. */
+@CubismEditor
 public record TextureAtlasSizeBucket(int width, int height, int count) {
     public TextureAtlasSizeBucket {
         if (width < 1 || height < 1) {

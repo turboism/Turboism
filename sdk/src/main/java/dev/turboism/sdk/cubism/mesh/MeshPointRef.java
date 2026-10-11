@@ -1,5 +1,7 @@
 package dev.turboism.sdk.cubism.mesh;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * A mesh point as seen by a plugin: a host-assigned identity plus its position.
  *
@@ -7,6 +9,7 @@ package dev.turboism.sdk.cubism.mesh;
  * snapshot and may be stale by the time a contribution is applied, which is why the runtime
  * revalidates every contribution against the live mesh.</p>
  */
+@CubismEditor
 public record MeshPointRef(int id, float x, float y) {
 
     public MeshPointRef {

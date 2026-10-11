@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.psd;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /**
@@ -7,6 +8,7 @@ import java.util.Objects;
  * OPENED means the default application launch was accepted, not that the editor finished loading.
  * STOPPED means owned work has settled; it does not imply deletion of any file.
  */
+@CubismEditor
 public record PsdFileOperationResult(Status status, String diagnostic) {
     public PsdFileOperationResult {
         status = Objects.requireNonNull(status, "status");
@@ -14,6 +16,7 @@ public record PsdFileOperationResult(Status status, String diagnostic) {
     }
 
     /** Outcome of one authorized file-handle operation. */
+    @CubismEditor
     public enum Status {
         OPENED,
         STOPPED,

@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Optional;
 
 /**
@@ -12,6 +13,7 @@ import java.util.Optional;
  * items, respect the declared rotation mode and margins, and transformed outlines
  * must not overlap. Any failure leaves the page untouched.</p>
  */
+@CubismEditor(from = "5.2.00")
 public interface TextureAtlasPolygonLayoutService {
 
     /** Returns the freshly read polygon snapshot of the current page, if available. */

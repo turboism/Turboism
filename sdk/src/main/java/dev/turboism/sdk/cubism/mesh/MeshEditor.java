@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.mesh;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.cubism.model.Drawable;
 
@@ -12,6 +13,7 @@ import dev.turboism.sdk.cubism.model.Drawable;
  * <p><strong>Preview API:</strong> this contract may evolve before stabilization.</p>
  */
 @Incubating
+@CubismEditor(from = "5.2.00")
 public interface MeshEditor {
 
     /** Returns the active ArtMesh; brush projection uses the runtime-owned editable-mesh positions. */

@@ -9139,6 +9139,182 @@
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/export/ExportSettingsDecision.java"
   },
   {
+   "api": "dev.turboism.sdk.cubism.mesh.MeshBrush",
+   "kind": "type",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshBrush.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.mesh.MeshEditParticipation",
+   "kind": "type",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshEditParticipation.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.mesh.MeshEditService",
+   "kind": "type",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshEditService.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.mesh.MeshEditUiService",
+   "kind": "type",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshEditUiService.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.mesh.MeshEditor",
+   "kind": "type",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshEditor.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService",
+   "kind": "type",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshMirrorAxisService.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts",
+   "kind": "type",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshMirrorCounterparts.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation",
+   "kind": "type",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshMirrorMoveParticipation.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility",
+   "kind": "type",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshMirrorToolEligibility.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.mesh.MeshToolContext",
+   "kind": "type",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshToolContext.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.mesh.MeshToolRegistry",
+   "kind": "type",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshToolRegistry.java"
+  },
+  {
    "api": "dev.turboism.sdk.cubism.model.AlphaComposition",
    "kind": "type",
    "versions": [
@@ -9367,6 +9543,90 @@
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/YureDeformConfig.java"
   },
   {
+   "api": "dev.turboism.sdk.cubism.modeling.ModelingBrush",
+   "kind": "type",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/modeling/ModelingBrush.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.modeling.ModelingToolContext",
+   "kind": "type",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/modeling/ModelingToolContext.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.modeling.ModelingToolRegistry",
+   "kind": "type",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/modeling/ModelingToolRegistry.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.psd.PsdEditFile",
+   "kind": "type",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/psd/PsdEditFile.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService",
+   "kind": "type",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/screenshot/ScreenshotCaptureService.java"
+  },
+  {
    "api": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel",
    "kind": "type",
    "versions": [
@@ -9413,6 +9673,22 @@
     "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasEditorUi.java"
+  },
+  {
+   "api": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService",
+   "kind": "type",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasPolygonLayoutService.java"
   }
  ],
  "runtimeGates": [],
@@ -9757,6 +10033,9 @@
      "key": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService",
      "declaredCapability": null,
      "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
       "5.2.03",
       "5.3.00",
       "5.3.01",
@@ -9775,14 +10054,11 @@
       "5.1.00",
       "5.1.01",
       "5.1.02",
-      "5.1.03",
-      "5.2.00",
-      "5.2.01",
-      "5.2.02"
+      "5.1.03"
      ],
      "source": "sdk-api",
      "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/CubismFacade.java"
+      "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasPolygonLayoutService.java"
      ],
      "missingNature": {
       "5.0.00": "unknown",
@@ -9795,10 +10071,7 @@
       "5.1.00": "unknown",
       "5.1.01": "unknown",
       "5.1.02": "unknown",
-      "5.1.03": "unknown",
-      "5.2.00": "unknown",
-      "5.2.01": "unknown",
-      "5.2.02": "unknown"
+      "5.1.03": "unknown"
      }
     }
    ],
@@ -10799,6 +11072,51 @@
       "5.1.02": "unknown",
       "5.1.03": "unknown"
      }
+    },
+    {
+     "key": "dev.turboism.sdk.cubism.psd.PsdEditFile",
+     "declaredCapability": null,
+     "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/psd/PsdEditFile.java"
+     ],
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
+     }
     }
    ],
    "unmappedCapabilities": [],
@@ -11629,6 +11947,276 @@
       "5.1.01": "pending",
       "5.1.02": "pending",
       "5.1.03": "pending"
+     }
+    },
+    {
+     "key": "dev.turboism.sdk.cubism.mesh.MeshEditParticipation",
+     "declaredCapability": null,
+     "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshEditParticipation.java"
+     ],
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
+     }
+    },
+    {
+     "key": "dev.turboism.sdk.cubism.mesh.MeshEditUiService",
+     "declaredCapability": null,
+     "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshEditUiService.java"
+     ],
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
+     }
+    },
+    {
+     "key": "dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService",
+     "declaredCapability": null,
+     "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshMirrorAxisService.java"
+     ],
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
+     }
+    },
+    {
+     "key": "dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts",
+     "declaredCapability": null,
+     "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshMirrorCounterparts.java"
+     ],
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
+     }
+    },
+    {
+     "key": "dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation",
+     "declaredCapability": null,
+     "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshMirrorMoveParticipation.java"
+     ],
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
+     }
+    },
+    {
+     "key": "dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility",
+     "declaredCapability": null,
+     "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshMirrorToolEligibility.java"
+     ],
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
      }
     },
     {
@@ -13210,7 +13798,49 @@
     "5.3.03",
     "5.3.04"
    ],
-   "partialFeatures": [],
+   "partialFeatures": [
+    {
+     "key": "dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService",
+     "declaredCapability": null,
+     "versions": [
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03",
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/screenshot/ScreenshotCaptureService.java"
+     ],
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown"
+     }
+    }
+   ],
    "unmappedCapabilities": [],
    "hostValidation": {
     "recent-preview": {
@@ -13428,6 +14058,141 @@
       "5.1.01": "pending",
       "5.1.02": "pending",
       "5.1.03": "pending"
+     }
+    },
+    {
+     "key": "dev.turboism.sdk.cubism.mesh.MeshBrush",
+     "declaredCapability": null,
+     "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshBrush.java"
+     ],
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
+     }
+    },
+    {
+     "key": "dev.turboism.sdk.cubism.mesh.MeshToolContext",
+     "declaredCapability": null,
+     "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshToolContext.java"
+     ],
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
+     }
+    },
+    {
+     "key": "dev.turboism.sdk.cubism.mesh.MeshToolRegistry",
+     "declaredCapability": null,
+     "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshToolRegistry.java"
+     ],
+     "missingNature": {
+      "5.0.00": "unknown",
+      "5.0.01": "unknown",
+      "5.0.02": "unknown",
+      "5.0.03": "unknown",
+      "5.0.04": "unknown",
+      "5.0.05": "unknown",
+      "5.0.06": "unknown",
+      "5.1.00": "unknown",
+      "5.1.01": "unknown",
+      "5.1.02": "unknown",
+      "5.1.03": "unknown"
      }
     }
    ],
