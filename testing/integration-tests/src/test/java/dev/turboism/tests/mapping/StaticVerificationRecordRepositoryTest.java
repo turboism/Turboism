@@ -22,6 +22,7 @@ import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.MainToolbarVerificationManifest;
 import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
 import dev.turboism.mapping.verification.ProtectedExportVerificationManifest;
+import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.StaticVerificationRecordValidator;
 import dev.turboism.mapping.verification.StatusBarVerificationManifest;
@@ -862,11 +863,9 @@ class StaticVerificationRecordRepositoryTest {
                                     "beb9b253b8f3a0c8f0b7171ea0776ac4d24ab5ae0ffd002d86295577ce8eb248",
                                     26,
                                     ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES,
-                                    VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES,
-                                    VerifiedProjectWorkspaceHostOperations.methodAliasesUsed(),
-                                    difference(
-                                            VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES,
-                                            VerifiedProjectWorkspaceHostOperations.methodAliasesUsed()),
+                                    projectWorkspaceImplementationAliases(),
+                                    projectWorkspaceMemberAliases(),
+                                    projectWorkspaceAttestationClassAliases(),
                                     "cubism-5.2.03-project-workspace",
                                     Path.of(
                                             "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-project-workspace.json"),
@@ -890,11 +889,9 @@ class StaticVerificationRecordRepositoryTest {
                                     ProjectWorkspaceVerificationManifest.RECORD_5_3_02.recordSha256(),
                                     26,
                                     ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES,
-                                    VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES,
-                                    VerifiedProjectWorkspaceHostOperations.methodAliasesUsed(),
-                                    difference(
-                                            VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES,
-                                            VerifiedProjectWorkspaceHostOperations.methodAliasesUsed()),
+                                    projectWorkspaceImplementationAliases(),
+                                    projectWorkspaceMemberAliases(),
+                                    projectWorkspaceAttestationClassAliases(),
                                     "cubism-5.3.02-m14-project-workspace",
                                     Path.of(
                                             "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-m14-project-workspace.json"),
@@ -1278,7 +1275,7 @@ class StaticVerificationRecordRepositoryTest {
                 "1f46c24551b7b5ccc63bb379a4498d5b3166fa20916499ca9b5c8c52da307ba5";
             case "cubism-5.3.03-protected-export" -> "de6066d86686cd3445b921086e7747167cf30b2fa89eb8efe49da064242d99b7";
             case "cubism-5.3.03-project-workspace" ->
-                "f52edde0c7d1a59d5bed7dd693f5a74e6946d0b14bbe9e13fedf2c49e6fa5613";
+                "401e121ca6d06634b04f59737660c2eec95fee37f8603b5eacd86fd74e7c7fa9";
             case "cubism-5.3.03-ui-bounding-box-overlay" ->
                 "fd67451595cbf68ca3084504c730daee3b110577e67852680db64b3a6f81e000";
             case "cubism-5.3.03-ui-control-appearance" ->
@@ -2357,6 +2354,37 @@ class StaticVerificationRecordRepositoryTest {
         final Set<String> intersection = new HashSet<>(left);
         intersection.retainAll(right);
         return Set.copyOf(intersection);
+    }
+
+    /**
+     * Every project-workspace record alias must be claimed by a declared
+     * consumer: the project/workspace slice itself plus the recent-preview
+     * fallback contract ({@link RecentPreviewVerificationManifest#PROJECT_REQUIRED_ALIASES}),
+     * which consumes the view-context members and pins their class attestation
+     * anchor.
+     */
+    private static Set<String> projectWorkspaceImplementationAliases() {
+        return union(
+                VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES,
+                RecentPreviewVerificationManifest.PROJECT_REQUIRED_ALIASES);
+    }
+
+    private static Set<String> projectWorkspaceAttestationClassAliases() {
+        return union(
+                difference(
+                        VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES,
+                        VerifiedProjectWorkspaceHostOperations.methodAliasesUsed()),
+                RecentPreviewVerificationManifest.PROJECT_ATTESTATION_CLASS_ALIASES);
+    }
+
+    private static Set<String> projectWorkspaceMemberAliases() {
+        return difference(projectWorkspaceImplementationAliases(), projectWorkspaceAttestationClassAliases());
+    }
+
+    private static Set<String> union(final Set<String> first, final Set<String> second) {
+        final Set<String> union = new HashSet<>(first);
+        union.addAll(second);
+        return Set.copyOf(union);
     }
 
     private static Set<String> difference(final Set<String> all, final Set<String> excluded) {

@@ -22,8 +22,8 @@ public final class RecentPreviewVerificationManifest {
         "ui.recent-preview.contribute"
     );
 
-    /** Aliases used on the project-workspace plan (subset of its reviewed record). */
-    public static final Set<String> PROJECT_REQUIRED_ALIASES = Set.of(
+    /** Member aliases used on the project-workspace plan (subset of its reviewed record). */
+    public static final Set<String> PROJECT_MEMBER_ALIASES = Set.of(
         "cubism.app-controller.instance",
         "cubism.app-controller.current-document",
         "cubism.app-controller.view-context-history",
@@ -31,6 +31,20 @@ public final class RecentPreviewVerificationManifest {
         "cubism.document.file-content",
         "cubism.file-content.file"
     );
+
+    /** Class attestation anchors this contract pins for the members it invokes. */
+    public static final Set<String> PROJECT_ATTESTATION_CLASS_ALIASES = Set.of(
+        "cubism.view-context.class"
+    );
+
+    /** Aliases used on the project-workspace plan (subset of its reviewed record). */
+    public static final Set<String> PROJECT_REQUIRED_ALIASES = projectRequiredAliases();
+
+    private static Set<String> projectRequiredAliases() {
+        final Set<String> aliases = new java.util.HashSet<>(PROJECT_MEMBER_ALIASES);
+        aliases.addAll(PROJECT_ATTESTATION_CLASS_ALIASES);
+        return Set.copyOf(aliases);
+    }
 
     /** Aliases used on the embedded-panel plan (subset of its reviewed record). */
     public static final Set<String> PANEL_REQUIRED_ALIASES = Set.of(
