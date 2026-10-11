@@ -167,6 +167,7 @@ public final class MainToolbarVerificationManifest {
 
 
 
+
     public static final String ADAPTER_SLICE_ID = "${record:cubism-5.2.03-ui-main-toolbar.json:adapterSliceId}";
     public static final String CAPABILITY_ID = "cubism.editor-ui.main-toolbar";
     public static final Set<String> CAPABILITY_IDS = Set.of(CAPABILITY_ID,
