@@ -15,7 +15,8 @@ import java.util.Set;
  *   <li>{@code CModel.getRenderType()} returns the instance render kind;
  *       {@code com.live2d.graphics3d.rendering.RenderType} is a public enum with
  *       NORMAL(1), PSD_EXPORT(2), ART_PATH(3), ART_PATH_ILLEGAL(4) in both
- *       versions, plus ONION_SKIN_FOR_MODELING(5) in exact 5.3.02 and 5.3.03.</li>
+ *       versions, plus ONION_SKIN_FOR_MODELING(5) on every reviewed 5.3.x
+ *       artifact and absent on every reviewed 5.2.x artifact.</li>
  *   <li>All five instance mutations ({@code createModelInstance},
  *       {@code setCurrentInstance}, {@code setModelEditing}, {@code createRootPart},
  *       {@code removeParameterControllableSource}) are plain field/list mutations
@@ -31,6 +32,11 @@ public final class EditorModelInstanceReadSelectorContract {
     public static final String ADAPTER_SLICE_ID = "${record:cubism-5.2.03-editor-model.json:adapterSliceId}";
 
     public static final String CAPABILITY_ID = "cubism.editor-model.model-instance.read";
+
+    /** Exact installations whose RenderType enum has no ONION_SKIN_FOR_MODELING member. */
+    public static final Set<String> ONION_SKIN_ABSENT_VERSIONS = Set.of(
+        "5.2.00", "5.2.01", "5.2.02", "5.2.03"
+    );
 
     public static final Set<String> ONION_SKIN_ALIASES = Set.of(
         "cubism.editor-model.render-type.onion-skin-for-modeling"
