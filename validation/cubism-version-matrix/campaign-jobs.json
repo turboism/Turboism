@@ -71917,6 +71917,318 @@
     "evidenceDir": "theme/5000-announce-r1/queue-df516cbc514b43a0b74c4fba9f0e2f98/evidence"
    },
    "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "model-update-skip",
+   "version": "5200",
+   "variant": "on-assisted-gl",
+   "jobId": "edd97358-6913-4532-8d4d-c4bb6d8d12d8",
+   "requestKey": "dragfix-r1-mus-5200",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-56ed6886cc314e15849e8006f2ae34f8",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "model-update-skip/5200-dragfix-r1/queue-56ed6886cc314e15849e8006f2ae34f8/evidence"
+   },
+   "triage": {
+    "category": "NO_EVIDENCE",
+    "ruleId": "no-evidence",
+    "signature": null
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "model-update-skip",
+   "version": "5304",
+   "variant": "on-assisted-gl",
+   "jobId": "ec30b9ce-956a-4159-8572-17fc1f13b93f",
+   "requestKey": "dragfix-r1-mus-5304",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-711347e0bf454c20a18761c821dbe051",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "model-update-skip/5304-dragfix-r1/queue-711347e0bf454c20a18761c821dbe051/evidence"
+   },
+   "triage": {
+    "category": "NO_EVIDENCE",
+    "ruleId": "no-evidence",
+    "signature": null
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "incremental-update",
+   "version": "5200",
+   "variant": "on-assisted-gl",
+   "jobId": "7ae1f837-aead-4593-b987-d70554c12578",
+   "requestKey": "dragfix-r1-iu-5200",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-0b7ddf0fb98b4889a775434ccadee4ae",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "incremental-update/5200-dragfix-r1/queue-0b7ddf0fb98b4889a775434ccadee4ae/evidence"
+   },
+   "triage": {
+    "category": "NO_EVIDENCE",
+    "ruleId": "no-evidence",
+    "signature": null
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "incremental-update",
+   "version": "5304",
+   "variant": "on-assisted-gl",
+   "jobId": "33ee165c-21a7-46b7-b231-cc05d990fa9b",
+   "requestKey": "dragfix-r1-iu-5304",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-61a38d528d234a49b66969422b7e5e37",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "incremental-update/5304-dragfix-r1/queue-61a38d528d234a49b66969422b7e5e37/evidence"
+   },
+   "triage": {
+    "category": "NO_EVIDENCE",
+    "ruleId": "no-evidence",
+    "signature": null
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "model-update-skip",
+   "version": "5203",
+   "variant": "on-assisted-gl",
+   "jobId": "9e1c0ba2-4d8e-407e-b4e6-640d7f54f88e",
+   "requestKey": "dragfix-r2-mus-5203",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-a654045306b84cd491ae2800c49f1053",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "model-update-skip/5203-dragfix-r2/queue-a654045306b84cd491ae2800c49f1053/evidence"
+   },
+   "triage": {
+    "category": "ADMISSION_STATIC",
+    "ruleId": "admission-deferred-check-inactive",
+    "signature": null
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "model-update-skip",
+   "version": "5303",
+   "variant": "on-assisted-gl",
+   "jobId": "66fb7605-0d25-4da9-a6b8-cb60b428ffd1",
+   "requestKey": "dragfix-r2-mus-5303",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-5c5b0017666649248538270bdc558820",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "model-update-skip/5303-dragfix-r2/queue-5c5b0017666649248538270bdc558820/evidence"
+   },
+   "triage": {
+    "category": "ADMISSION_STATIC",
+    "ruleId": "admission-deferred-check-inactive",
+    "signature": null
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "incremental-update",
+   "version": "5203",
+   "variant": "on-assisted-gl",
+   "jobId": "1a820d3f-4a6e-4921-96fc-4503e5e84602",
+   "requestKey": "dragfix-r2-iu-5203",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-a2def7a68b4247609d18f8eaebce6784",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "incremental-update/5203-dragfix-r2/queue-a2def7a68b4247609d18f8eaebce6784/evidence"
+   },
+   "triage": {
+    "category": "ADMISSION_STATIC",
+    "ruleId": "admission-deferred-check-inactive",
+    "signature": null
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "incremental-update",
+   "version": "5303",
+   "variant": "on-assisted-gl",
+   "jobId": "64828294-8591-4274-bbc6-a8347740e66b",
+   "requestKey": "dragfix-r2-iu-5303",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-3b2823cb26764d889bc3259bbc11ee22",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "incremental-update/5303-dragfix-r2/queue-3b2823cb26764d889bc3259bbc11ee22/evidence"
+   },
+   "triage": {
+    "category": "ADMISSION_STATIC",
+    "ruleId": "admission-deferred-check-inactive",
+    "signature": null
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "model-update-skip",
+   "version": "5200",
+   "variant": "on-assisted-gl",
+   "jobId": "df2d4cab-1a61-4056-b248-1bc6a5ffcecc",
+   "requestKey": "dragfix-r3-mus-5200",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-96b35efa454941ab949f0b51c2850cc9",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "model-update-skip/5200-dragfix-r3/queue-96b35efa454941ab949f0b51c2850cc9/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "model-update-skip",
+   "version": "5304",
+   "variant": "on-assisted-gl",
+   "jobId": "86fdf174-c27a-44e9-9e3e-a1780b699ca6",
+   "requestKey": "dragfix-r3-mus-5304",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-f5e9e33e2f7f462f96c2afa0bcb56aa5",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "model-update-skip/5304-dragfix-r3/queue-f5e9e33e2f7f462f96c2afa0bcb56aa5/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "incremental-update",
+   "version": "5200",
+   "variant": "on-assisted-gl",
+   "jobId": "49348bb8-6f0d-4d9c-b28e-285aa62a7b20",
+   "requestKey": "dragfix-r3-iu-5200",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-76291e3a1f9b486391f93fd4fb74c81e",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "incremental-update/5200-dragfix-r3/queue-76291e3a1f9b486391f93fd4fb74c81e/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "incremental-update",
+   "version": "5304",
+   "variant": "on-assisted-gl",
+   "jobId": "48b4f6ca-04d1-43c1-a595-9540f885b475",
+   "requestKey": "dragfix-r3-iu-5304",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-62b3f8ac1d5b443e8eff7411c8c55322",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "incremental-update/5304-dragfix-r3/queue-62b3f8ac1d5b443e8eff7411c8c55322/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "model-update-skip",
+   "version": "5203",
+   "variant": "on-assisted",
+   "jobId": "4dd19115-df90-46c3-a3bd-4c8339a43fcd",
+   "requestKey": "dragfix-r4-mus-5203",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-afa189c551d74dd5adb0dd263925747a",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "model-update-skip/5203-dragfix-r4/queue-afa189c551d74dd5adb0dd263925747a/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "incremental-update",
+   "version": "5203",
+   "variant": "on-assisted",
+   "jobId": "682a7eda-1d4e-4a27-b893-37254ee4a248",
+   "requestKey": "dragfix-r4-iu-5203",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-338bbdbee600464d9897f181c2abc360",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "incremental-update/5203-dragfix-r4/queue-338bbdbee600464d9897f181c2abc360/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "model-update-skip",
+   "version": "5303",
+   "variant": "on-assisted",
+   "jobId": "5530ac97-b0de-4d9d-a20a-f2ba5a0f7b92",
+   "requestKey": "dragfix-r4-mus-5303",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-063aa135cbc64deba5199eee02c04caa",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "model-update-skip/5303-dragfix-r4/queue-063aa135cbc64deba5199eee02c04caa/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "incremental-update",
+   "version": "5303",
+   "variant": "on-assisted",
+   "jobId": "5f54d1e6-7a3b-4d34-a3e9-0075ce1ac2d3",
+   "requestKey": "dragfix-r4-iu-5303",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-db74284d400a4f30b0d0965691845b12",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "incremental-update/5303-dragfix-r4/queue-db74284d400a4f30b0d0965691845b12/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
   }
  ]
 }
