@@ -9,6 +9,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HexFormat;
@@ -117,6 +120,72 @@ class PreviewPluginDiscoveryTest {
         }
     }
 
+    @Test
+    void logsUndeclaredCubismVersionSupportForCubismPlugin() throws Exception {
+        final Path home = temporary.resolve("home");
+        final Path plugins = home.resolve("plugins");
+        writeCubismPlugin(plugins.resolve("cubist.jar"), null);
+        final List<LocalPluginRuntime.PluginFailure> failures = new ArrayList<>();
+        final List<String> records = new ArrayList<>();
+
+        try (PreviewLog log = new PreviewLog(
+                home.resolve("logs/turboism.log"),
+                Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+                (level, component, message, failure) -> records.add("[" + level + "][" + component + "] " + message))) {
+            final PreviewPluginCandidate candidate =
+                    new PreviewPluginDiscovery(plugins, log).discover(failures).get(PLUGIN_ID);
+
+            assertNotNull(candidate);
+            assertTrue(failures.isEmpty());
+        }
+        assertTrue(
+                records.stream().anyMatch(line -> line.contains("declares no Cubism Editor version support")),
+                () -> "undeclared-sidecar note must reach the log: " + records);
+    }
+
+    @Test
+    void staysQuietWhenCubismVersionsSidecarIsPresent() throws Exception {
+        final Path home = temporary.resolve("home");
+        final Path plugins = home.resolve("plugins");
+        writeCubismPlugin(plugins.resolve("cubist.jar"), """
+                {"format":"turboism.plugin-cubism-versions/v1","plugin":"dev.example.duplicate",
+                "supportedVersions":["5.2.03","5.3.02"],"fullFeatureVersions":["5.3.02"]}
+                """);
+        final List<LocalPluginRuntime.PluginFailure> failures = new ArrayList<>();
+        final List<String> records = new ArrayList<>();
+
+        try (PreviewLog log = new PreviewLog(
+                home.resolve("logs/turboism.log"),
+                Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+                (level, component, message, failure) -> records.add("[" + level + "][" + component + "] " + message))) {
+            assertNotNull(
+                    new PreviewPluginDiscovery(plugins, log).discover(failures).get(PLUGIN_ID));
+        }
+        assertTrue(
+                records.stream().noneMatch(line -> line.contains("Cubism")),
+                () -> "declared sidecar must not log: " + records);
+    }
+
+    @Test
+    void warnsWhenCubismVersionsSidecarIsMalformed() throws Exception {
+        final Path home = temporary.resolve("home");
+        final Path plugins = home.resolve("plugins");
+        writeCubismPlugin(plugins.resolve("cubist.jar"), "not json");
+        final List<LocalPluginRuntime.PluginFailure> failures = new ArrayList<>();
+        final List<String> records = new ArrayList<>();
+
+        try (PreviewLog log = new PreviewLog(
+                home.resolve("logs/turboism.log"),
+                Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+                (level, component, message, failure) -> records.add("[" + level + "][" + component + "] " + message))) {
+            assertNotNull(
+                    new PreviewPluginDiscovery(plugins, log).discover(failures).get(PLUGIN_ID));
+        }
+        assertTrue(
+                records.stream().anyMatch(line -> line.startsWith("[WARN]") && line.contains("unreadable")),
+                () -> "malformed sidecar must warn: " + records);
+    }
+
     private byte[] contractArtifact() throws Exception {
         final Path sourceRoot = Files.createDirectories(temporary.resolve("src"));
         final Path classes = Files.createDirectories(temporary.resolve("classes"));
@@ -166,6 +235,25 @@ class PreviewPluginDiscoveryTest {
             add(output, "dev/example/Fixture.class", new byte[] {0});
             add(output, "META-INF/turboism/plugin.json", descriptor(version).getBytes(StandardCharsets.UTF_8));
             add(output, "META-INF/turboism/i18n/messages.properties", new byte[0]);
+        }
+    }
+
+    private static void writeCubismPlugin(final Path jar, final String sidecar) throws Exception {
+        Files.createDirectories(jar.getParent());
+        final String descriptor = """
+            {"format":"turboism.plugin.meta","schemaVersion":2,"id":"%s","name":"Fixture","version":"1.0.0",
+            "description":"test","entrypoints":["dev.example.Fixture"],"turboismApi":"[0.1.0,0.2.0)",
+            "authors":[{"name":"Tests"}],"license":"Test","website":"https://turboism.dev","resources":[],
+            "i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]},"dependencies":[],"permissions":[],
+            "capabilities":[],"environment":{"requiresCubism":true,"ui":"none"}}
+            """.formatted(PLUGIN_ID);
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
+            add(output, "dev/example/Fixture.class", new byte[] {0});
+            add(output, "META-INF/turboism/plugin.json", descriptor.getBytes(StandardCharsets.UTF_8));
+            add(output, "META-INF/turboism/i18n/messages.properties", new byte[0]);
+            if (sidecar != null) {
+                add(output, "META-INF/turboism/cubism-versions.json", sidecar.getBytes(StandardCharsets.UTF_8));
+            }
         }
     }
 

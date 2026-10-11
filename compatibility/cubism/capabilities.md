@@ -282,7 +282,7 @@ Latest FINAL result per task × version from `validation/cubism-version-matrix/c
 | `plugin-management-direct-jar-restart` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
 | `plugin-management-direct-jar-stage` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
 | `plugin-ui` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ? |  |  |
-| `project-workspace` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ? |  |  |
+| `project-workspace` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ✓ |  |  |
 | `protected-export` |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |  | ? | ✓ |  | ? | ? | ✓ |
 | `psd` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ◇ | ✓ | ✓ | ✓ | ◇ |
 | `review056` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ? | ? |  |

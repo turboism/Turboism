@@ -45,7 +45,7 @@ push is refused.
 | Gate | What it checks | When to run it |
 | --- | --- | --- |
 | focused compile/test | the narrowest affected `:module:compileJava`, `:module:test --tests '<class>'` | during implementation |
-| `devCheck` | every production `classes` task plus permanent structural boundaries: duplicate Java imports, package layout, module boundaries, code-quality ratchet (Javadoc/digests/naming/assets), repository hygiene, Editor-model alias admission, plugin metadata validation, fx-broker argument contracts, `scripts/` ruff lint | slices that touch structural boundaries, plugin metadata, code-quality ratchets, or repository hygiene |
+| `devCheck` | every production `classes` task plus permanent structural boundaries: duplicate Java imports, package layout, module boundaries, code-quality ratchet (Javadoc/digests/naming/assets), repository hygiene, Editor-model alias admission, version-set monotonicity/registry, SDK Cubism annotation coverage, plugin metadata validation, fx-broker argument contracts, `scripts/` ruff lint | slices that touch structural boundaries, plugin metadata, code-quality ratchets, or repository hygiene |
 | `checkIntegration` | `devCheck` plus packaged and cross-module behavior: async host-read foundation, Cubism Core API inventory/member/selector policies, plugin inspection runtime, first-party plugin metadata and READMEs, distribution protocol contract, preview bundle layout, packaged host-validation bundle checks, preview bootstrap bridge and plugin runtime, external plugin-template consumer check | when a change crosses module, packaging, or preview-agent seams |
 | `checkCompletedCommit` | `checkIntegration` plus every subproject `test`, `:sdk:javadoc`, `spotlessCheck`, `checkThrowableContainment`, `checkLocalizedChangelogs`, official-plugin i18n completeness and README checks, SDK API baseline tool and report, module-boundary/code-quality/hygiene selftests, plugin event reference determinism | once, when a coherent change is ready to land |
 | `checkRelease` | `checkCompletedCommit` plus supply-chain and release-artifact checks: ASM admission and resolved bytecode dependency graph, release tooling selftests, SDK exact-API audits for every anchored baseline — all historical baselines plus the newest live one — and linkage, market release metadata, Java/Windows installer and localization checks | release work only; requires `-PinstallerVersion=<release-version> -PturboismRelease=true` matching the framework version |
@@ -96,6 +96,52 @@ explicitly requested. It is not a per-commit step:
 ```
 
 `checkRelease -PinstallerVersion=<release-version> -PturboismRelease=true` adds supply-chain, historical, Java-installer, and other release-artifact checks and is reserved for release-oriented work. The installer version must exactly match the framework version. Exact-host validation runs only when real-host evidence must be collected or at final feature acceptance; it requires a separately installed, licensed Live2D Cubism Editor and is never part of a default aggregate.
+
+## Cubism version adaptation
+
+Version adaptation is an acceptance condition for every feature, fix, and
+first-party plugin — never implement for a few versions and move on.
+
+- **Cover every reviewed version.** The target is the full set admitted in
+  `runtime/.../ReviewedHostArtifacts.java` (`CUBISM_*_VERSION` constants).
+  Exclude a version only when bytecode evidence proves that Cubism release
+  lacks the feature, and record the evidence in
+  `compatibility/cubism/version-boundaries.json` or
+  `scripts/version-monotonicity-exceptions.json`.
+- **Patch lines are monotonic.** Inside one minor line a newer patch's
+  capability set is a superset of every older patch's (5.3.04 ⊇ 5.3.03 ⊇
+  5.3.02 …). `checkVersionMonotonicity` in `devCheck` enforces upward closure
+  across verification records, annotations, class pins, validation tasks, and
+  literal sets; sanctioned violations live in
+  `scripts/version-monotonicity-exceptions.json` with a `pending` owner or
+  `evidence`.
+- **Derive, do not hand-write.** Review a selector or record on one reference
+  version, then propagate with
+  `python3 scripts/dev/cubism_version_matrix.py propagate --family <F> --from <V> --to all`;
+  resolve obfuscated-name differences with `scripts/dev/cubism_symbol_map.py`,
+  and record a per-version reason for every version the propagation cannot
+  reach. New literal version sets in production sources
+  (`Set.of("5.x.yy", …)`, `SUPPORTED_VERSIONS`, dispatch tables) must be
+  registered in `scripts/version-set-registry.json` with a basis and reason —
+  `checkVersionSetRegistry` fails on unregistered or stale entries.
+- **Annotate SDK API.** New public types and methods under
+  `dev.turboism.sdk.cubism` must carry `@CubismEditor` — on the member or on
+  its owning type. Exact `value` lists admit only the named reviewed
+  versions; `from`/`to` ranges can also satisfy unreviewed
+  compatibility-admitted hosts; `exclude` always removes a version. The
+  legacy backlog is frozen in
+  `sdk/api-contracts/cubism-annotation-baseline.json`; `checkSdkCubismEditorAnnotations`
+  blocks new gaps and shrinks as the backlog is annotated.
+- **First-party plugins** get their supported-version set derived from
+  declared capabilities and SDK usage — it lands in the generated block of
+  each `plugins/*/README*`, in `compatibility/cubism/compatibility-matrix.json`,
+  and in the packaged `META-INF/turboism/cubism-versions.json` sidecar.
+  After any coverage change run
+  `python3 scripts/generate_compatibility_matrix.py`; `checkCompatibilityMatrix`
+  rejects stale generated output.
+- **Real-host confirmation is representative, not exhaustive.** Validate on
+  the lowest and highest patch of each affected minor line, and run the
+  offline preflight `:runtime:admissionPreflightTest` first.
 
 ### Test suite expectations
 
