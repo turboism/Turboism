@@ -180,10 +180,17 @@ def result_properties(*directories: tuple[Path | None, str]) -> dict[str, Any]:
     assertions = sorted(
         key.rsplit(".", 1)[0] for key in merged
         if key.startswith("assertion.") and key.endswith(".status"))
+    status = merged.get("status") or merged.get("terminal")
+    failures = [value for key, value in sorted(merged.items())
+                if re.fullmatch(r"failure\.\d+", key)]
+    if status != "PASS":
+        for key in ("export.diagnostic", "actual"):
+            value = merged.get(key)
+            if value and value != "true":
+                failures.append(value.replace("\\:", ":").replace("\\=", "="))
     return {
-        "status": merged.get("status") or merged.get("terminal"),
-        "failures": [value for key, value in sorted(merged.items())
-                     if re.fullmatch(r"failure\.\d+", key)],
+        "status": status,
+        "failures": failures,
         "decodedErrors": [
             decode_probe_value(value) for key, value in sorted(merged.items())
             if re.fullmatch(r"error(?:\.\d+)?", key)],

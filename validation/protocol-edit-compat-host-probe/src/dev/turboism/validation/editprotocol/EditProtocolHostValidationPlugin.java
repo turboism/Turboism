@@ -8,9 +8,12 @@ import dev.turboism.sdk.plugin.TurboismPlugin;
 
 import dev.turboism.tests.plugin.EditProtocolValidationHostClose;
 
+import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
+import java.awt.Component;
+import java.awt.Container;
 import java.awt.Window;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -53,6 +56,9 @@ public final class EditProtocolHostValidationPlugin implements TurboismPlugin {
     private static final String ENABLED_PROPERTY =
         "turboism.editProtocol.validation.enabled";
     private static final String EDIT_DIALOG_TITLE = "Turboism Edit Session";
+    private static final String EDIT_TOGGLE_MARKER = "dev.turboism.editToggle";
+    private static final String EDIT_TOGGLE_INGRESS_KEY =
+        "dev.turboism.integration.edit-toggle.show-ingress";
     private static final int EXTERNAL_APP_PORT = 22033;
     private static final String RESULT_FILE =
         "edit-protocol-host-validation-result.properties";
@@ -81,6 +87,10 @@ public final class EditProtocolHostValidationPlugin implements TurboismPlugin {
     private volatile Method getAuthMethod;
     private volatile Object authManager;
     private volatile boolean authManagerResolved;
+    private volatile Object toggleDialog;
+    private volatile Component remoteCheckBox;
+    private volatile Method toggleBuildMethod;
+    private volatile boolean toggleDialogResolved;
 
     @Override
     public void init(final PluginContext context) {
@@ -328,7 +338,7 @@ public final class EditProtocolHostValidationPlugin implements TurboismPlugin {
     }
 
     // ------------------------------------------------------------------
-    // Turboism edit-approval dialog auto-answer
+    // Turboism edit-approval toggle & dialog auto-answer
     // ------------------------------------------------------------------
 
     private void answerDialogs() {
@@ -336,6 +346,7 @@ public final class EditProtocolHostValidationPlugin implements TurboismPlugin {
             try {
                 final String mode = readApprovalMode();
                 if (mode != null) {
+                    syncEditToggle(mode);
                     for (final Window window : Window.getWindows()) {
                         if (window instanceof JDialog dialog
                             && dialog.isShowing()
@@ -349,8 +360,122 @@ public final class EditProtocolHostValidationPlugin implements TurboismPlugin {
             } catch (Exception failure) {
                 record("dialog.error=" + failure.getClass().getSimpleName());
             }
-            sleep(100L);
+            sleep(50L);
         }
+    }
+
+    private void syncEditToggle(final String mode) {
+        if (!toggleDialogResolved) {
+            resolveToggleDialog();
+        }
+        final Component remote = remoteCheckBox;
+        if (remote == null) {
+            return;
+        }
+        final boolean desired = !"deny".equals(mode);
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                JCheckBox toggle = findEditToggleCheckBox(remote.getParent());
+                if (toggle == null) {
+                    if (remote.getParent() == null
+                        && toggleDialog != null
+                        && toggleBuildMethod != null) {
+                        try {
+                            toggleBuildMethod.invoke(toggleDialog, new Object[]{null});
+                        } catch (Exception buildFailure) {
+                            record("toggle.build.error="
+                                + buildFailure.getClass().getSimpleName());
+                        }
+                    }
+                    if (findEditToggleCheckBox(remote.getParent()) == null) {
+                        final Object ingress =
+                            System.getProperties().get(EDIT_TOGGLE_INGRESS_KEY);
+                        if (ingress instanceof Runnable runnable) {
+                            runnable.run();
+                        }
+                    }
+                    toggle = findEditToggleCheckBox(remote.getParent());
+                }
+                if (toggle != null && toggle.isSelected() != desired) {
+                    toggle.doClick(0);
+                    final int count = dialogDecisions.incrementAndGet();
+                    if (!desired) {
+                        dialogDenials.incrementAndGet();
+                    }
+                    record("dialog.decision=" + mode + " count=" + count);
+                    record("toggle.decision=" + mode
+                        + " selected=" + toggle.isSelected()
+                        + " count=" + count);
+                    logger.info("EDIT_PROTOCOL_TOGGLE decision=" + mode
+                        + " selected=" + toggle.isSelected());
+                }
+            });
+        } catch (Exception failure) {
+            record("toggle.error=" + failure.getClass().getSimpleName());
+        }
+    }
+
+    private static JCheckBox findEditToggleCheckBox(final Container row) {
+        if (row == null) {
+            return null;
+        }
+        for (final Component child : row.getComponents()) {
+            if (child instanceof JCheckBox box
+                && Boolean.TRUE.equals(box.getClientProperty(EDIT_TOGGLE_MARKER))) {
+                return box;
+            }
+        }
+        return null;
+    }
+
+    private void resolveToggleDialog() {
+        final String name = "com.live2d.cubism.doc.webSocket.y";
+        for (final ClassLoader loader : new ClassLoader[]{
+            Thread.currentThread().getContextClassLoader(),
+            getClass().getClassLoader(),
+            ClassLoader.getSystemClassLoader()}) {
+            if (loader == null) continue;
+            try {
+                final Class<?> dialogClass = Class.forName(name, true, loader);
+                final Field instanceField = dialogClass.getDeclaredField("a");
+                instanceField.setAccessible(true);
+                final Object dialog = instanceField.get(null);
+                final Field remoteField = dialogClass.getDeclaredField("p");
+                remoteField.setAccessible(true);
+                final Object remoteControl = remoteField.get(null);
+                if (remoteControl == null) {
+                    continue;
+                }
+                final Method getJCheckBox =
+                    remoteControl.getClass().getMethod("getJCheckBox");
+                final Object unwrapped = getJCheckBox.invoke(remoteControl);
+                if (!(unwrapped instanceof Component component)) {
+                    continue;
+                }
+                Method buildMethod = null;
+                for (final Method candidate : dialogClass.getDeclaredMethods()) {
+                    if ("b".equals(candidate.getName())
+                        && candidate.getParameterCount() == 1
+                        && candidate.getReturnType() == void.class
+                        && !candidate.getParameterTypes()[0].isPrimitive()
+                        && candidate.getParameterTypes()[0] != String.class) {
+                        candidate.setAccessible(true);
+                        buildMethod = candidate;
+                        break;
+                    }
+                }
+                toggleDialog = dialog;
+                remoteCheckBox = component;
+                toggleBuildMethod = buildMethod;
+                toggleDialogResolved = true;
+                record("toggle.dialog=RESOLVED buildMethod="
+                    + (buildMethod != null));
+                return;
+            } catch (Throwable ignored) {
+                // try the next loader
+            }
+        }
+        record("toggle.dialog=UNRESOLVED");
     }
 
     /** {@return "approve"|"deny" or null when the mode file is absent} */
@@ -390,6 +515,7 @@ public final class EditProtocolHostValidationPlugin implements TurboismPlugin {
         while (enabled && System.currentTimeMillis() < deadline) {
             if (terminalResult(result)) {
                 logger.info("EDIT_PROTOCOL_RESULT observed=" + result.getFileName());
+                syncEditToggle("deny");
                 snapshotHistory("history.after");
                 record("dialog.decisions=" + dialogDecisions.get());
                 record("dialog.denials=" + dialogDenials.get());

@@ -233,6 +233,35 @@ class NativeEditToggleInjectorTest {
     }
 
     @Test
+    void doClickOnInjectedCheckboxDrivesEditToggleApprovalGate() throws Exception {
+        final FakeHost host = new FakeHost();
+        final EditToggleState state = new EditToggleState();
+        final EditToggleApprovalGate gate = new EditToggleApprovalGate(state);
+        final EditConnectionInfo connection = new EditConnectionInfo(true, true, "session", "plugin");
+        final NativeEditToggleInjector injector = NativeEditToggleInjector.fromVerifiedResolver(
+                        host.resolver("5.3.02"), state)
+                .orElseThrow();
+
+        onEdt(() -> {
+            assertTrue(injector.ensureInjected());
+            final JCheckBox edit = findInjected(host.row);
+            assertNotNull(edit);
+            assertFalse(edit.isSelected());
+            assertFalse(gate.requestApproval(connection));
+
+            edit.doClick(0);
+            assertTrue(edit.isSelected());
+            assertTrue(gate.isApproved(connection));
+            assertTrue(gate.requestApproval(connection));
+
+            edit.doClick(0);
+            assertFalse(edit.isSelected());
+            assertFalse(gate.isApproved(connection));
+            assertFalse(gate.requestApproval(connection));
+        });
+    }
+
+    @Test
     void killSwitchSuppressesInjection() throws Exception {
         final FakeHost host = new FakeHost();
         final NativeEditToggleInjector injector = admitted(host);

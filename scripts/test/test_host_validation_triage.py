@@ -263,6 +263,26 @@ class TriageFixture(unittest.TestCase):
         self.assertEqual(record["category"], "CAPABILITY_BOUNDARY")
         self.assertEqual(record["ruleId"], "capability-backup-artifact-absent")
 
+    def test_standalone_psd_export_saved_unverified_is_capability_boundary(self):
+        log = ("2026-10-11T13:01:40Z [INFO] [dev.turboism.validation.textures] "
+               "TEXTURE_RELATIONS_SMOKE_RESULT status=FAIL\n")
+        props = (
+            "status=FAIL\n"
+            "export.status=EXPORTED\n"
+            "export.diagnostic=PSD_NATIVE_EXPORT;status\\=SAVED_UNVERIFIED;"
+            "integrity\\=UNAVAILABLE;readable\\=true;structure\\=false\n"
+            "actual=java.lang.IllegalStateException\\: Native readable export "
+            "without a runtime-issued edit handle was not obtained\n"
+        )
+        add_job(self.tmp, job_id="j-psd",
+                request_key="refresh-r1-psd-export-observation_5200_assisted",
+                state="failed", spec="psd-export-observation:5200@assisted",
+                outcome={"terminalState": "failed", "validationStatus": "FAIL"},
+                log=log, result_props=props)
+        record = self.classify("j-psd")
+        self.assertEqual(record["category"], "CAPABILITY_BOUNDARY")
+        self.assertEqual(record["ruleId"], "capability-psd-export-saved-unverified")
+
     def test_deferred_check_unobserved_is_infra(self):
         # Runner refused before Java produced a runtime log: evidence-only
         # classification beats NO_EVIDENCE.

@@ -71236,8 +71236,8 @@
     "evidenceDir": "psd-export-observation/5200-refresh-r1/queue-2ce93c6d3eb04a6a82030be5a64dd282/evidence"
    },
    "triage": {
-    "category": "UNKNOWN",
-    "ruleId": null,
+    "category": "CAPABILITY_BOUNDARY",
+    "ruleId": "capability-psd-export-saved-unverified",
     "signature": null
    },
    "scope": "cov3 queue-synced terminal evidence"
@@ -71735,6 +71735,96 @@
     "cleanup": "safe",
     "evidenceDir": "session-standard/5300-refresh-r1/queue-90658bfc1a174d4e93a5550f789761fb/evidence",
     "stepDurationMillis": "2004"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "edit-protocol",
+   "version": "5304",
+   "variant": "assisted",
+   "jobId": "0e7955ce-9b4f-4472-aaeb-b2698aa6ad37",
+   "requestKey": "harness-r1-edit-protocol_5304",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-e2b16b5995dd430b9460b3ba1949d24b",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "edit-protocol/5304-harness-r1/queue-e2b16b5995dd430b9460b3ba1949d24b/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "edit-protocol",
+   "version": "5203",
+   "variant": "assisted",
+   "jobId": "637fa697-ddf5-4b56-9a13-eb1d7707d97d",
+   "requestKey": "harness-r1-edit-protocol_5203",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-572cfebb24ec479b8be8d32be1a39269",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "edit-protocol/5203-harness-r1/queue-572cfebb24ec479b8be8d32be1a39269/evidence"
+   },
+   "triage": {
+    "category": "NO_EVIDENCE",
+    "ruleId": "no-evidence",
+    "signature": null
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "edit-protocol",
+   "version": "5203",
+   "variant": "assisted",
+   "jobId": "0d9b006c-9ec1-4e11-948d-0f41c5419937",
+   "requestKey": "harness-r2-edit-protocol_5203",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-35447231c32343848d3eb57ed38299cf",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "edit-protocol/5203-harness-r2/queue-35447231c32343848d3eb57ed38299cf/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "selection-lag",
+   "version": "5000",
+   "variant": "default-assisted-gl",
+   "jobId": "cd2bcd97-f547-4599-af97-d7705b5c1e9f",
+   "requestKey": "harness-r1-selection-lag_5000",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-1f76d8b1daeb4349b28743f128b18bfb",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "selection-lag/5000-harness-r1/queue-1f76d8b1daeb4349b28743f128b18bfb/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "selection-lag",
+   "version": "5006",
+   "variant": "default-assisted-gl",
+   "jobId": "a30944b2-cba5-47f9-a710-777c9c75db3f",
+   "requestKey": "harness-r1-selection-lag_5006",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-a8af7d8d3d5641e89d9ec2b7c574b2b8",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "selection-lag/5006-harness-r1/queue-a8af7d8d3d5641e89d9ec2b7c574b2b8/evidence"
    },
    "scope": "cov3 queue-synced terminal evidence"
   }

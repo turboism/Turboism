@@ -16368,20 +16368,20 @@
     "jobId": "34f0aa6c-b359-4ae2-bbd9-a5fdffda513e"
    },
    "5.2.03": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "UNKNOWN",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "db2f078d-7bc5-4cf6-bea0-bd8244826366"
+    "jobId": "0d9b006c-9ec1-4e11-948d-0f41c5419937"
    },
    "5.3.04": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "UNKNOWN",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "c7d467a8-e0c9-4ba9-a301-1b88adbb9e98"
+    "jobId": "0e7955ce-9b4f-4472-aaeb-b2698aa6ad37"
    }
   },
   "external-psd-edit-pipeline": {
@@ -17548,8 +17548,8 @@
    "5.2.00": {
     "validationStatus": "FAIL",
     "terminalState": "failed",
-    "triageCategory": "UNKNOWN",
-    "triageRule": null,
+    "triageCategory": "CAPABILITY_BOUNDARY",
+    "triageRule": "capability-psd-export-saved-unverified",
     "round": null,
     "jobId": "2f213d7f-b124-45fe-855d-0ecea80fa52f"
    }
@@ -17656,12 +17656,12 @@
   },
   "selection-lag": {
    "5.0.00": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "UNKNOWN",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "ff915670-5a67-4ca2-a3e9-9be8eba03570"
+    "jobId": "cd2bcd97-f547-4599-af97-d7705b5c1e9f"
    },
    "5.0.01": {
     "validationStatus": "FAIL",
@@ -17704,12 +17704,12 @@
     "jobId": "e767e2e3-ad49-4513-8858-a0eea82aface"
    },
    "5.0.06": {
-    "validationStatus": "FAIL",
-    "terminalState": "failed",
-    "triageCategory": "UNKNOWN",
+    "validationStatus": "PASS",
+    "terminalState": "succeeded",
+    "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "fb8f3069-45d6-4a6c-b0c9-962e66b70958"
+    "jobId": "a30944b2-cba5-47f9-a710-777c9c75db3f"
    },
    "5.1.01": {
     "validationStatus": "PASS",
