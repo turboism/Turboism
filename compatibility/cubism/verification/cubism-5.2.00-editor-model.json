@@ -106,7 +106,9 @@
     "cubism.texture-atlas.native-layout-invocation",
     "ui.object-context-menu.contribute",
     "cubism.editor-model.texture.write",
-    "cubism.editor-model.art-mesh.inspector-write"
+    "cubism.editor-model.art-mesh.inspector-write",
+    "cubism.mesh-tool.session",
+    "cubism.modeling-tool.selection-brush"
   ],
   "cubismVersion": "5.2.00",
   "profileId": "cubism-5.2.00",
@@ -11213,6 +11215,13 @@
     ],
     "cubism.editor-model.art-mesh.inspector-write": [
       "declaredGeneration"
+    ],
+    "cubism.mesh-tool.session": [
+      "hook:mesh-tool-session"
+    ],
+    "cubism.modeling-tool.selection-brush": [
+      "hook:mesh-tool-session",
+      "hook:modeling-tool-lifecycle"
     ]
   }
 }
