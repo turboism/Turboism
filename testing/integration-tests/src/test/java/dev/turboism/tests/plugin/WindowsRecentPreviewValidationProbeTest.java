@@ -73,6 +73,18 @@ class WindowsRecentPreviewValidationProbeTest {
     }
 
     @Test
+    void scratchNameDerivesASiblingWorkingName() {
+        assertEquals("fixture-scratch.cmo3", WindowsRecentPreviewValidationProbe.scratchName("fixture.cmo3"));
+        final String taskFixture = "queue-abc4b54fe3484f8796def6c46321b06f.cmo3";
+        assertEquals(
+                "queue-abc4b54fe3484f8796def6c46321b06f-scratch.cmo3",
+                WindowsRecentPreviewValidationProbe.scratchName(taskFixture));
+        assertEquals("noext-scratch", WindowsRecentPreviewValidationProbe.scratchName("noext"));
+        assertEquals("fixture-scratch.cmo3", WindowsRecentPreviewValidationProbe.scratchName(null));
+        assertEquals("fixture-scratch.cmo3", WindowsRecentPreviewValidationProbe.scratchName("  "));
+    }
+
+    @Test
     void savedModelNameMatchesFixtureStemOrFullName() {
         assertTrue(WindowsRecentPreviewValidationProbe.matchesFixtureName("fixture.cmo3"));
         assertTrue(WindowsRecentPreviewValidationProbe.matchesFixtureName("fixture"));
@@ -206,7 +218,9 @@ class WindowsRecentPreviewValidationProbeTest {
         fields.put("recentCount", "4");
         fields.put("idOpaque", "true");
         fields.put("pathAbsolute", "true");
-        fields.put("pathEndsWithFixture", "true");
+        fields.put("workingName", "fixture-scratch.cmo3");
+        fields.put("scratchOpened", "true");
+        fields.put("pathEndsWithWorking", "true");
         fields.put("directCaptureWidth", "150");
         fields.put("directCaptureHeight", "150");
         fields.put("directPngSha256", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
