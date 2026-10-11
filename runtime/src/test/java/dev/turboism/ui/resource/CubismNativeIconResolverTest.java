@@ -21,7 +21,7 @@ class CubismNativeIconResolverTest {
     Path temporary;
 
     @Test
-    void catalogHasExactlyTheReviewedEightyVariantsAndTwoArtifacts() {
+    void catalogHasExactlyTheReviewedEightyVariantsAndNineArtifacts() {
         assertEquals(80, CubismNativeIconCatalog.resources().size());
         for (var entry : CubismNativeIconCatalog.resources().entrySet()) {
             final NativeIconVariant key = entry.getKey();
@@ -47,12 +47,24 @@ class CubismNativeIconResolverTest {
             }
         }
         assertSame(
+                dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_2_00,
+                CubismNativeIconCatalog.artifact("5.2.00").orElseThrow());
+        assertSame(
                 dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_2_03,
                 CubismNativeIconCatalog.artifact("5.2.03").orElseThrow());
         assertSame(
                 dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_3_02,
                 CubismNativeIconCatalog.artifact("5.3.02").orElseThrow());
-        assertTrue(CubismNativeIconCatalog.artifact("5.3.03").isEmpty());
+        assertSame(
+                dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_3_04,
+                CubismNativeIconCatalog.artifact("5.3.04").orElseThrow());
+        assertEquals(
+                9L,
+                dev.turboism.mapping.verification.ReviewedHostArtifacts.reviewedCubismVersions().stream()
+                        .filter(version ->
+                                CubismNativeIconCatalog.artifact(version).isPresent())
+                        .count());
+        assertTrue(CubismNativeIconCatalog.artifact("5.1.03").isEmpty());
         assertTrue(CubismNativeIconCatalog.artifact("5.3").isEmpty());
         assertThrows(
                 UnsupportedOperationException.class,

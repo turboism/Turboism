@@ -78,7 +78,7 @@ public interface ModelTextures {
      * {@link PsdExportResult.Status#UNAVAILABLE} result. The default never invokes a file
      * handle or accepts a caller-supplied path.</p>
      */
-    @CubismEditor({"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
+    @CubismEditor({"5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     default CompletionStage<PsdExportResult> exportRawImagePsd(final RawImageId source) {
         Objects.requireNonNull(source, "source");
         return CompletableFuture.completedFuture(new PsdExportResult(
@@ -100,7 +100,7 @@ public interface ModelTextures {
      * {@link PsdReplaceResult.Status#UNAVAILABLE} result. The default does not inspect or
      * invoke either opaque argument.</p>
      */
-    @CubismEditor({"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
+    @CubismEditor({"5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     default CompletionStage<PsdReplaceResult> replaceRawImagePsd(
             final RawImageId target, final PsdEditFile file, final PsdFileRevision revision) {
         Objects.requireNonNull(target, "target");

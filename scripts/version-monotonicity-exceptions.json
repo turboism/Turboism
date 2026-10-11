@@ -117,38 +117,6 @@
       "pending": "gap-mesh-modeling"
     },
     {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/CubismFacade.java",
-      "site": "5.2.03,5.3.00,5.3.01,5.3.02,5.3.03",
-      "missing": ["5.3.04"],
-      "reason": "textureAtlasPolygonLayouts/textureAtlasEditorSession/textureAtlasEditorUi admit {5.2.03, 5.3.00-5.3.03} and silently exclude 5.3.04.",
-      "pending": "gap-small-admissions"
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Deformers.java",
-      "site": "5.3.02",
-      "missing": ["5.3.03", "5.3.04"],
-      "reason": "applyToChildren is annotated 5.3.02-only though the native command exists on 5.3.x (SDK and runtime disagree).",
-      "pending": "gap-small-admissions"
-    },
-    {
-      "kind": "java-annotation",
-      "path": "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasEditorSession.java",
-      "site": "5.2.00,5.2.01,5.2.02,5.3.00,5.3.01,5.3.02,5.3.03,5.3.04",
-      "missing": ["5.2.03"],
-      "reason": "The session annotation covers every reviewed version except 5.2.03, whose editor-view shape differs.",
-      "pending": "gap-small-admissions"
-    },
-    {
-      "kind": "java-set",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorObjectHierarchyEditAccess.java",
-      "site": "5.0.00,5.0.01,5.0.02,5.0.03,5.0.04,5.0.05,5.0.06,5.1.00,5.1.01,5.1.02,5.1.03,5.2.00,5.2.01,5.2.02,5.3.00,5.3.01,5.3.02,5.3.04",
-      "missing": ["5.2.03", "5.3.03"],
-      "reason": "The applyToChildrenAuthorized admission set punches holes at 5.2.03 and 5.3.03 while admitting their neighbours.",
-      "pending": "gap-small-admissions"
-    },
-    {
       "kind": "java-set",
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgePreparation.java",
       "site": "5.2.03,5.3.02,5.3.03",
@@ -253,14 +221,6 @@
       "pending": "gap-mesh-modeling"
     },
     {
-      "kind": "java-set",
-      "path": "bootstrap/src/main/java/dev/turboism/bootstrap/VerifiedProtectedExportHookInstaller.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": ["5.3.04"],
-      "reason": "Protected-export chooser redirect supports {5.2.03, 5.3.02, 5.3.03} but not 5.3.04.",
-      "pending": "gap-small-admissions"
-    },
-    {
       "kind": "java-file",
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshMirrorHostProfile.java",
       "site": "5.2.03,5.3.02,5.3.03",
@@ -291,38 +251,6 @@
       "missing": ["5.3.04"],
       "reason": "Triangulation-hash fix pins only 5.3.03 though it applies wherever the bytes match (all of 5.3.x).",
       "pending": "gap-optimization-pins"
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/ui/resource/CubismNativeIconCatalog.java",
-      "site": "5.2.03,5.3.02",
-      "missing": ["5.3.03", "5.3.04"],
-      "reason": "Native icon resources pin only the {5.2.03, 5.3.02} artifacts.",
-      "pending": "gap-small-admissions"
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/mapping/verification/EditorModelAdmissionEvidence.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": ["5.3.04"],
-      "reason": "forResolver throws for a 5.3.04 resolver because the embedded editor-model manifest only carries {5.2.03, 5.3.02, 5.3.03} records.",
-      "pending": "gap-small-admissions"
-    },
-    {
-      "kind": "java-file",
-      "path": "bootstrap/src/main/java/dev/turboism/bootstrap/ObjectContextMenuHostProfile.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": ["5.3.04"],
-      "reason": "Object context-menu profile returns Optional.empty() for 5.3.04.",
-      "pending": "gap-small-admissions"
-    },
-    {
-      "kind": "java-file",
-      "path": "bootstrap/src/main/java/dev/turboism/bootstrap/ParameterPointContextMenuHostProfile.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": ["5.3.04"],
-      "reason": "Parameter-point context-menu profile returns Optional.empty() for 5.3.04.",
-      "pending": "gap-small-admissions"
     },
     {
       "kind": "java-file",

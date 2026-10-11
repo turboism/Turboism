@@ -503,7 +503,10 @@ def required_aliases(
             else tex["REMOVE_RAW_IMAGE_ALIASES"]
         )
     inst = constants["EditorModelInstanceReadSelectorContract"]
-    if capability == inst["CAPABILITY_ID"] and cubism_version == "5.2.03":
+    if (
+        capability == inst["CAPABILITY_ID"]
+        and cubism_version in inst["ONION_SKIN_ABSENT_VERSIONS"]
+    ):
         aliases -= set(inst["ONION_SKIN_ALIASES"])
     session = constants["EditorEditSessionSelectorContract"]
     if capability.startswith("cubism.editor-model.edit."):
@@ -1038,7 +1041,10 @@ def refresh_editor_model(constants: dict, editor: dict, families: dict) -> None:
                 # selectors from the derived inventory into an additive refresh.
                 # Both PSD contracts and the source relation contract are
                 # included together, preserving replacement's export dependency.
-                scoped_aliases.update(contract["REQUIRED_ALIASES"])
+                required = set(contract["REQUIRED_ALIASES"])
+                if version in contract.get("TRANSPARENCY_SHAPES_ABSENT_VERSIONS", ()):
+                    required -= set(contract["TRANSPARENCY_SHAPES_ALIASES"])
+                scoped_aliases.update(required)
         derived_aliases = {selector["alias"] for selector in derived["selectors"]}
         if not scoped_aliases <= derived_aliases:
             raise ValueError(f"incomplete refreshed feature selectors: {version}")

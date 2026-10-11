@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorRawImagePsdSelectorContract;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -229,9 +230,15 @@ final class EditorRawImagePsdIntegrityAccess {
                     string(resolver.invoke("cubism.editor-model.psd-blend.key", psdBlend), "PSD blend key");
             final boolean clipping =
                     bool(resolver.invoke("cubism.editor-model.layer-entry.clipping", entry), "layer clipping");
-            final boolean transparencyShapes = bool(
-                    resolver.invoke("cubism.editor-model.layer-entry.transparency-shapes", entry),
-                    "transparency-shape state");
+            // The 5.2 layer model has no isTransparencyShapesLayer member: where the record
+            // carries no such alias the attribute is unrepresentable, not unobserved.
+            final boolean transparencyShapes = resolver.authorizesFeature(
+                            EditorRawImagePsdSelectorContract.ADAPTER_SLICE_ID,
+                            EditorRawImagePsdSelectorContract.CAPABILITY_ID,
+                            EditorRawImagePsdSelectorContract.TRANSPARENCY_SHAPES_ALIASES)
+                    && bool(
+                            resolver.invoke("cubism.editor-model.layer-entry.transparency-shapes", entry),
+                            "transparency-shape state");
             return new LayerAttributes(
                     true,
                     opacity255,

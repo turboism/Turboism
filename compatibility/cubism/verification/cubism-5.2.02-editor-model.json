@@ -6,6 +6,7 @@
   "capabilityIds": [
     "cubism.editor-history.move",
     "cubism.editor-history.read",
+    "cubism.editor-history.semantic-read",
     "cubism.editor-model.animation-eval",
     "cubism.editor-model.animation-playback",
     "cubism.editor-model.animation-scene-edit",
@@ -59,12 +60,14 @@
     "cubism.editor-model.edit.session.get-is-edit-approval",
     "cubism.editor-model.edit.session.notify-undo-cancel",
     "cubism.editor-model.glue-inspector.write",
+    "cubism.editor-model.model-instance.read",
     "cubism.editor-model.model-name.write",
     "cubism.editor-model.model-profile.read",
     "cubism.editor-model.morph-target.read",
     "cubism.editor-model.morph-target.write",
     "cubism.editor-model.native-control-appearance.read",
     "cubism.editor-model.native-control-appearance.write",
+    "cubism.editor-model.object-hierarchy.apply-deformer-to-children",
     "cubism.editor-model.object-hierarchy.art-mesh.create",
     "cubism.editor-model.object-hierarchy.edit",
     "cubism.editor-model.object-hierarchy.rename",
@@ -105,6 +108,8 @@
     "cubism.texture-atlas.layout.write",
     "cubism.texture-atlas.native-layout-invocation",
     "ui.object-context-menu.contribute",
+    "cubism.editor-model.psd.raw-image.export",
+    "cubism.editor-model.psd.raw-image.replace",
     "cubism.editor-model.texture.write",
     "cubism.editor-model.art-mesh.inspector-write"
   ],
@@ -10911,6 +10916,9 @@
     "cubism.editor-history.read": [
       "hook:native-edit-begin"
     ],
+    "cubism.editor-history.semantic-read": [
+      "hook:native-edit-begin"
+    ],
     "cubism.editor-model.animation-eval": [
       "declaredGeneration"
     ],
@@ -11070,6 +11078,9 @@
     "cubism.editor-model.glue-inspector.write": [
       "declaredGeneration"
     ],
+    "cubism.editor-model.model-instance.read": [
+      "structure"
+    ],
     "cubism.editor-model.model-name.write": [
       "declaredGeneration"
     ],
@@ -11087,6 +11098,9 @@
     ],
     "cubism.editor-model.native-control-appearance.write": [
       "hook:control-appearance"
+    ],
+    "cubism.editor-model.object-hierarchy.apply-deformer-to-children": [
+      "declaredGeneration"
     ],
     "cubism.editor-model.object-hierarchy.art-mesh.create": [
       "declaredGeneration"
@@ -11212,6 +11226,12 @@
       "structure"
     ],
     "cubism.editor-model.art-mesh.inspector-write": [
+      "declaredGeneration"
+    ],
+    "cubism.editor-model.psd.raw-image.export": [
+      "declaredGeneration"
+    ],
+    "cubism.editor-model.psd.raw-image.replace": [
       "declaredGeneration"
     ]
   }

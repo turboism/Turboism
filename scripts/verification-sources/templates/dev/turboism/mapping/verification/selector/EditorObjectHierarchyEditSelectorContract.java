@@ -21,7 +21,7 @@ public final class EditorObjectHierarchyEditSelectorContract {
         "cubism.editor-model.object-hierarchy.art-mesh.create";
 
 
-    /** Candidate-only capability for the exact Cubism 5.3.02 apply-to-children command. */
+    /** Capability for the apply-deformer-to-children native command on the reviewed 5.2/5.3 artifacts. */
     public static final String APPLY_TO_CHILDREN_CAPABILITY_ID =
         "cubism.editor-model.object-hierarchy.apply-deformer-to-children";
 
@@ -192,10 +192,7 @@ public final class EditorObjectHierarchyEditSelectorContract {
     );
 
 
-    /** Exact aliases required by the 5.3.02 apply-to-children candidate. */
-    public static final Set<String> APPLY_TO_CHILDREN_5302_ONLY_ALIASES = Set.of(
-        "cubism.editor-model.app-controller.command-delete-deformer-and-set-param"
-    );
+    /** Exact aliases required by the apply-to-children command on every reviewed 5.2/5.3 artifact. */
     public static final Set<String> APPLY_TO_CHILDREN_REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.app-controller.instance",
         "cubism.editor-model.app-controller.current-document",

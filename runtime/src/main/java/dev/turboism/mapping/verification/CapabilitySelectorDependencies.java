@@ -353,6 +353,10 @@ final class CapabilitySelectorDependencies {
                 result,
                 EditorObjectHierarchyEditSelectorContract.RENAME_CAPABILITY_ID,
                 EditorObjectHierarchyEditSelectorContract.RENAME_REQUIRED_ALIASES);
+        add(
+                result,
+                EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_CAPABILITY_ID,
+                EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_REQUIRED_ALIASES);
         add(result, EditorObjectReadSelectorContract.CAPABILITY_ID, EditorObjectReadSelectorContract.REQUIRED_ALIASES);
         add(
                 result,
@@ -564,7 +568,8 @@ final class CapabilitySelectorDependencies {
                             : EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES);
         }
         if (capability.equals(EditorModelInstanceReadSelectorContract.CAPABILITY_ID)
-                && record.cubismVersion().equals("5.2.03")) {
+                && EditorModelInstanceReadSelectorContract.ONION_SKIN_ABSENT_VERSIONS.contains(
+                        record.cubismVersion())) {
             aliases.removeAll(EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES);
         }
         if (capability.startsWith("cubism.editor-model.edit.")) {
