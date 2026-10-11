@@ -1,10 +1,12 @@
 package dev.turboism.sdk.cubism.modeling;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.cubism.mesh.SelectionMode;
 
 /** SDK-only ordinary modeling tool. Callbacks run on the EDT without runtime locks held. */
 @Incubating
+@CubismEditor
 public interface ModelingTool {
     /** Plugin-local identity. */
     String id();

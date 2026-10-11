@@ -1,11 +1,13 @@
 package dev.turboism.sdk.cubism.screenshot;
 
+import dev.turboism.sdk.CubismEditor;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Objects;
 import javax.imageio.ImageIO;
 
 /** Decodable PNG preview image with its pixel dimensions. */
+@CubismEditor
 public record ScreenshotImage(int width, int height, byte[] png) {
     private static final int MAX_PNG_BYTES = 1024 * 1024;
     private static final byte[] PNG_SIGNATURE = {(byte) 137, 80, 78, 71, 13, 10, 26, 10};

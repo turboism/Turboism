@@ -1,6 +1,9 @@
 package dev.turboism.sdk.cubism.mesh;
 
+import dev.turboism.sdk.CubismEditor;
+
 /** Session-scoped angle of Cubism's mesh-edit mirror axis. */
+@CubismEditor(from = "5.2.00")
 public interface MeshMirrorAxisService {
 
     /** Returns the current mirror-axis angle in degrees for this session. */

@@ -1,5 +1,7 @@
 package dev.turboism.sdk.cubism.mirror;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * Direction of a whole-object Warp Deformer mirror copy.
  *
@@ -8,6 +10,7 @@ package dev.turboism.sdk.cubism.mirror;
  * control-point bounding-box center; horizontal directions use a horizontal axis, vertical
  * directions use a vertical axis.</p>
  */
+@CubismEditor
 public enum WarpMirrorDirection {
     /** Source = left of the vertical axis; the right half is overwritten by its mirror. */
     LEFT_TO_RIGHT,

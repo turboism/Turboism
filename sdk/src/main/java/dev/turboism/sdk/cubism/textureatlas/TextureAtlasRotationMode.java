@@ -1,5 +1,7 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * Rotation freedom granted to a polygon packing backend.
  *
@@ -8,6 +10,7 @@ package dev.turboism.sdk.cubism.textureatlas;
  * additionally tries 90-degree steps (four candidates), and {@code FREE} searches
  * arbitrary angles.</p>
  */
+@CubismEditor
 public enum TextureAtlasRotationMode {
     NONE,
     QUARTER,

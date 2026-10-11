@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Closed result for a texture-atlas layout apply attempt. */
+@CubismEditor
 public record TextureAtlasLayoutApplyResult(
         Optional<TextureAtlasLayoutApplyStatus> status,
         Optional<TextureAtlasLayoutFailureCode> failureCode,

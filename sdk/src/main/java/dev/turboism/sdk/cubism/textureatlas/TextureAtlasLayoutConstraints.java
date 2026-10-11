@@ -1,5 +1,7 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * Host-independent bounds and policy for producing an atlas layout plan.
  *
@@ -17,6 +19,7 @@ package dev.turboism.sdk.cubism.textureatlas;
  * @param allowScaling whether current-page scale may differ from one
  * @param singlePageOptions current-page scale policy, or {@code null} for complete-atlas authoring
  */
+@CubismEditor
 public record TextureAtlasLayoutConstraints(
         int pageWidth,
         int pageHeight,
