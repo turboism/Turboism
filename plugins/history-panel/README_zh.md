@@ -45,7 +45,7 @@ interface: embedded
 
 <!-- compatibility:begin -->
 **Cubism Editor 版本支持（自动生成）：** 全部审核版本.
-- 语义化历史解读 仅 5.2.03–5.3.04
+- 语义化历史解读 仅 5.2.03–5.3.04（更早版本 Cubism 本身无此功能）
 - 嵌入式面板停靠 不适用于 5.0.00–5.0.06
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->

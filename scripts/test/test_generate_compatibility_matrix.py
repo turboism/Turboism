@@ -33,7 +33,7 @@ package dev.turboism.mesh;
 import java.util.Set;
 public final class MeshToolSessionSelectorContract {
     public static final String CAPABILITY_ID = "cubism.mesh-tool.session";
-    public static final Set<String> SUPPORTED_VERSIONS = Set.of("5.2.00");
+    public static final Set<String> SUPPORTED_VERSIONS = Set.of("5.0.00", "5.2.00");
 }
 """
 
@@ -230,6 +230,25 @@ def build_tree(root: Path) -> None:
     )
     _write(
         root,
+        "scripts/version-monotonicity-exceptions.json",
+        json.dumps(
+            {
+                "format": "turboism.version-monotonicity-exceptions/v1",
+                "exceptions": [
+                    {
+                        "kind": "java-set",
+                        "path": "runtime/src/main/java/example/Contract.java",
+                        "site": "5.0.00,5.2.00",
+                        "missing": ["5.1.00"],
+                        "reason": "Contract admits only 5.2.00; fix in flight.",
+                        "pending": "gap-fixture",
+                    }
+                ],
+            }
+        ),
+    )
+    _write(
+        root,
         "validation/cubism-version-matrix/campaign-jobs.json",
         json.dumps(
             {
@@ -286,7 +305,7 @@ class MatrixTest(unittest.TestCase):
         )
         # Verified on all three but the selector contract narrows admission.
         self.assertEqual(
-            ["5.2.00"], caps["cubism.mesh-tool.session"]["admitted"]
+            ["5.0.00", "5.2.00"], caps["cubism.mesh-tool.session"]["admitted"]
         )
         self.assertEqual(["5.2.00"], caps["cubism.editor-model.write"]["admitted"])
 
@@ -309,11 +328,11 @@ class MatrixTest(unittest.TestCase):
     def test_plugin_supported_and_deltas(self) -> None:
         plugin = self.plugin()
         self.assertEqual(list(VERSIONS), plugin["supportedVersions"])
-        self.assertEqual(["5.2.00"], plugin["fullFeatureVersions"])
+        self.assertEqual(["5.0.00", "5.2.00"], plugin["fullFeatureVersions"])
         notes = {n["key"]: n["versions"] for n in plugin["partialFeatures"]}
         # The declared capability resolves to the single capabilityId it
         # aliases; the note keys on that id.
-        self.assertEqual(["5.2.00"], notes["cubism.mesh-tool.session"])
+        self.assertEqual(["5.0.00", "5.2.00"], notes["cubism.mesh-tool.session"])
         # The referenced SDK accessor narrows svc() to 5.1.00+.
         self.assertEqual(
             ["5.1.00", "5.2.00"],
@@ -327,6 +346,31 @@ class MatrixTest(unittest.TestCase):
         self.assertNotIn("5.2.00", tasks)  # cancelled jobs are not terminal
         host = self.plugin()["hostValidation"]["toy"]
         self.assertIn("5.1.00", host)
+
+    def test_missing_nature_classification(self) -> None:
+        plugin = self.plugin()
+        notes = {n["key"]: n for n in plugin["partialFeatures"]}
+        nature = notes["cubism.mesh-tool.session"]["missingNature"]
+        # 5.1.00 is an interior hole (admitted on 5.0.00 and 5.2.00); the
+        # java-set exception whose site equals the admitted set marks it as
+        # pending adaptation.
+        self.assertEqual("pending", nature["5.1.00"])
+
+    def test_triage_bucketing_hides_noise_on_user_page(self) -> None:
+        plugin = self.plugin()
+        user_cell = GEN._host_cell(
+            plugin["hostValidation"], self.matrix["reviewedVersions"], "en",
+            user=True,
+        )
+        dev_cell = GEN._host_cell(
+            plugin["hostValidation"], self.matrix["reviewedVersions"], "en",
+            user=False,
+        )
+        self.assertIn("host-verified 5.0.00", user_cell)
+        # The untriaged FAIL on 5.1.00 is pending noise: hidden on the user
+        # page, shown as unconfirmed to developers.
+        self.assertNotIn("5.1.00", user_cell)
+        self.assertIn("5.1.00", dev_cell)
 
     def test_rendered_docs(self) -> None:
         zh = GEN.render_plugins_doc(self.matrix, "zh")

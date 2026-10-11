@@ -86,6 +86,8 @@ INTERCEPTOR = Path(
 )
 CLASS_PINS_DIR = Path("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins")
 CAMPAIGN_JOBS = Path("validation/cubism-version-matrix/campaign-jobs.json")
+CAMPAIGN_INVENTORY = Path("validation/cubism-version-matrix/inventory.json")
+MONOTONICITY_EXCEPTIONS = Path("scripts/version-monotonicity-exceptions.json")
 PLUGIN_DESCRIPTOR = Path("src/main/resources/META-INF/turboism/plugin.json")
 
 BLOCK_BEGIN = "<!-- compatibility:begin -->"
@@ -252,6 +254,16 @@ TASK_PLUGIN_ALIASES = {
     "fps": "perf-stats",
     "psd-clip-mask": "psd-clip-mask-import",
     "atlas": "atlas-maxrects-bssf",
+    "atlas-polygon": "atlas-dalsoo-polygon",
+    "external-psd-edit-pipeline": "external-psd-edit",
+    "external-psd-fixture-preparation": "external-psd-edit",
+    "semantic-history-native-ui": "history-panel",
+    "semantic-history-primary": "history-panel",
+    "selection-brush-manual": "selection-brush",
+    "selection-brush-coordinate-manual": "selection-brush",
+    "selection-brush-round-manual": "selection-brush",
+    "boundingbox-warp-mirror-manual": "boundingbox-warp-mirror",
+    "acp": "acp",
 }
 
 # Campaign task base names -> capability group key for the developer matrix
@@ -718,6 +730,78 @@ FEATURE_LABELS: dict[str, dict[str, str]] = {
         "ja": "編集履歴",
         "ko": "편집 기록",
     },
+    "dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd": {
+        "en": "Export PSD raw image",
+        "zh": "导出 PSD 原图",
+        "ja": "PSD 原画像のエクスポート",
+        "ko": "PSD 원본 이미지 내보내기",
+    },
+    "dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd": {
+        "en": "Replace PSD raw image",
+        "zh": "替换 PSD 原图",
+        "ja": "PSD 原画像の置き換え",
+        "ko": "PSD 원본 이미지 교체",
+    },
+    "dev.turboism.sdk.cubism.export.ExportSettingsContributionService": {
+        "en": "Export settings contribution",
+        "zh": "导出设置贡献",
+        "ja": "エクスポート設定贡献",
+        "ko": "내보내기 설정 기여",
+    },
+    "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel": {
+        "en": "Atlas editor panel",
+        "zh": "图集编辑器面板",
+        "ja": "アトラスエディタパネル",
+        "ko": "아틀라스 편집기 패널",
+    },
+    "dev.turboism.sdk.cubism.command.EditorCommandService#available": {
+        "en": "Editor command availability",
+        "zh": "编辑器命令可用性",
+        "ja": "Editor コマンド利用可否",
+        "ko": "Editor 명령 사용 가능 여부",
+    },
+    "dev.turboism.sdk.cubism.command.EditorCommandService#execute": {
+        "en": "Editor command execution",
+        "zh": "编辑器命令执行",
+        "ja": "Editor コマンド実行",
+        "ko": "Editor 명령 실행",
+    },
+    "dev.turboism.sdk.cubism.backup.EditorAutoBackupService#artifacts": {
+        "en": "Auto-backup artifacts",
+        "zh": "自动备份工件",
+        "ja": "自動バックアップ成果物",
+        "ko": "자동 백업 아티팩트",
+    },
+    "dev.turboism.sdk.cubism.backup.EditorAutoBackupService#backupAfterSave": {
+        "en": "Save-triggered auto-backup",
+        "zh": "保存触发的自动备份",
+        "ja": "保存時の自動バックアップ",
+        "ko": "저장 시 자동 백업",
+    },
+    "turboism.textures.write": {
+        "en": "MCP texture writes",
+        "zh": "MCP 纹理写入",
+        "ja": "MCP テクスチャ書き込み",
+        "ko": "MCP 텍스처 쓰기",
+    },
+    "turboism.editor_commands.execute": {
+        "en": "MCP editor command execution",
+        "zh": "MCP 编辑器命令执行",
+        "ja": "MCP Editor コマンド実行",
+        "ko": "MCP Editor 명령 실행",
+    },
+    "turboism.transaction.execute": {
+        "en": "MCP transaction execution",
+        "zh": "MCP 编辑事务执行",
+        "ja": "MCP トランザクション実行",
+        "ko": "MCP 트랜잭션 실행",
+    },
+    "turboism://host/editor-commands": {
+        "en": "MCP editor-command listing",
+        "zh": "MCP 编辑器命令清单",
+        "ja": "MCP Editor コマンド一覧",
+        "ko": "MCP Editor 명령 목록",
+    },
 }
 
 STRINGS = {
@@ -735,25 +819,31 @@ STRINGS = {
         "col_deltas": "Feature deltas",
         "col_host": "Real-host validation",
         "all_versions": "all reviewed versions",
-        "full_feature": "full feature set",
+        "full_feature_since": "full feature set requires {min}+",
+        "full_feature_only": "full feature set only on {versions}",
         "no_cubism": "initializes without Cubism",
+        "gap_pending": "{versions} pending adaptation",
+        "gap_boundary": "{versions} the Cubism version itself lacks the feature",
+        "gap_boundary_prefix": "earlier Cubism versions lack the feature entirely",
+        "gap_unknown": "{versions} unconfirmed",
         "license_note_title": "FREE / PRO licence note",
         "license_note": (
-            "Every Cubism Editor install on this machine starts under the FREE "
-            "licence: saving then stays subject to the FREE parameter-count "
-            "limit. Choosing the PRO trial lifts that limit. Turboism plugin "
-            "compatibility is unaffected by the licence tier — the limit "
-            "constrains what the editor may save, not which APIs the runtime "
-            "admits."
+            "When Cubism runs under a FREE licence, saving is subject to the "
+            "FREE parameter-count limit; a PRO licence (including the PRO "
+            "trial) lifts it. Turboism plugin version support is independent "
+            "of the licence tier — the limit constrains what the editor may "
+            "save, not which APIs the runtime admits."
         ),
         "validation_legend": (
-            "Real-host column: the latest FINAL campaign result per task and "
-            "version in `validation/cubism-version-matrix/campaign-jobs.json`. "
-            "A version without a finished probe stays unlisted — static review "
-            "is the baseline everywhere."
+            "Real-host column: latest FINAL campaign result per task and "
+            "version from `validation/cubism-version-matrix/campaign-jobs.json`, "
+            "classified by triage. Infrastructure retries, probe drift, and "
+            "inconclusive runs are never listed; unprobed versions stay blank — "
+            "static review is the baseline everywhere."
         ),
         "host_pass": "host-verified",
-        "host_fail": "known failing",
+        "host_boundary": "confirmed boundary",
+        "host_pending": "unconfirmed",
         "host_unknown": "inconclusive",
         "generated_notice": "Generated by `scripts/generate_compatibility_matrix.py`; regenerate after version-coverage changes (`--check` is enforced by `devCheck`).",
         "only_versions": "only on",
@@ -773,22 +863,28 @@ STRINGS = {
         "col_deltas": "版本差异",
         "col_host": "实机验证",
         "all_versions": "全部审核版本",
-        "full_feature": "全部功能",
+        "full_feature_since": "完整功能需 {min} 及以上",
+        "full_feature_only": "完整功能仅 {versions}",
         "no_cubism": "可在无 Cubism 下初始化",
+        "gap_pending": "{versions} 尚未适配",
+        "gap_boundary": "{versions} 为 Cubism 本身无此功能",
+        "gap_boundary_prefix": "更早版本 Cubism 本身无此功能",
+        "gap_unknown": "{versions} 待确认",
         "license_note_title": "FREE / PRO 许可说明",
         "license_note": (
-            "本机上所有 Cubism Editor 安装均以 FREE 许可启动：此时保存受 FREE"
-            " 参数上限约束；选择 PRO 试用后不受该上限限制。Turboism 插件的兼容性"
-            "与许可层级无关——上限约束的是编辑器允许保存的内容，而非运行时准入"
-            "的 API。"
+            "Cubism 以 FREE 许可运行时，保存受 FREE 参数数量等限制；使用 PRO"
+            "（含 PRO 试用）则无此限制。Turboism 插件的版本支持与许可层级无关"
+            "——限制约束的是编辑器允许保存的内容，而非运行时准入的 API。"
         ),
         "validation_legend": (
             "实机验证列：取自 `validation/cubism-version-matrix/campaign-jobs.json`"
-            " 中每个任务×版本的最新 FINAL 结果。未列出表示该版本尚无完成的实机"
-            "探测——静态审核始终是所有版本的基线。"
+            " 中每个任务×版本的最新 FINAL 结果并按 triage 分类。基础设施重试、"
+            "探针漂移与不确定结果一律不列出；无探测版本留空——静态审核始终是"
+            "所有版本的基线。"
         ),
         "host_pass": "实机验证通过",
-        "host_fail": "已知失败",
+        "host_boundary": "确认边界",
+        "host_pending": "待确认",
         "host_unknown": "结果不确定",
         "generated_notice": "由 `scripts/generate_compatibility_matrix.py` 生成；版本覆盖变化后请重新生成（`--check` 已由 `devCheck` 强制执行）。",
         "only_versions": "仅",
@@ -809,23 +905,30 @@ STRINGS = {
         "col_deltas": "バージョン差分",
         "col_host": "実機検証",
         "all_versions": "全レビュー済みバージョン",
-        "full_feature": "全機能",
+        "full_feature_since": "全機能は {min} 以降が必要",
+        "full_feature_only": "全機能は {versions} のみ",
         "no_cubism": "Cubism なしでも初期化可能",
+        "gap_pending": "{versions} は未対応（適合作業中）",
+        "gap_boundary": "{versions} では Cubism 自体に機能なし",
+        "gap_boundary_prefix": "それ以前の Cubism バージョンには機能自体がない",
+        "gap_unknown": "{versions} は未確認",
         "license_note_title": "FREE / PRO ライセンスについて",
         "license_note": (
-            "本機上のすべての Cubism Editor インストールは FREE ライセンスとして"
-            "起動します。この場合、保存は FREE のパラメータ数上限の対象です。PRO"
-            " トライアルを選択すると上限が解除されます。Turboism プラグインの"
-            "互換性はライセンス階層の影響を受けません。上限はランタイムが許可する"
-            " API ではなく、エディタが保存できる内容に適用されます。"
+            "Cubism を FREE ライセンスで実行すると、保存は FREE のパラメータ数"
+            "などの制限を受けます。PRO（PRO トライアルを含む）ではこの制限は"
+            "ありません。Turboism プラグインのバージョン対応はライセンス階層"
+            "とは無関係です。制限はランタイムが許可する API ではなく、エディタ"
+            "が保存できる内容に適用されます。"
         ),
         "validation_legend": (
-            "実機検証列：`validation/cubism-version-matrix/campaign-jobs.json` の各"
-            "タスク×バージョンの最新 FINAL 結果。未記載のバージョンは完了した実機"
-            "プローブがないことを意味し、静的レビューが常に基線です。"
+            "実機検証列：`validation/cubism-version-matrix/campaign-jobs.json` の"
+            "タスク×バージョン別最新 FINAL 結果を triage で分類したもの。インフラ"
+            "再試行・プローブドリフト・不確定な結果は表示しません。プローブ未実施"
+            "のバージョンは空欄で、静的レビューが常に基線です。"
         ),
         "host_pass": "実機検証済み",
-        "host_fail": "既知の失敗",
+        "host_boundary": "確認済み境界",
+        "host_pending": "未確認",
         "host_unknown": "不確定",
         "generated_notice": "`scripts/generate_compatibility_matrix.py` により生成。バージョンカバレッジ変更後は再生成してください（`--check` は `devCheck` で強制されます）。",
         "only_versions": "のみ",
@@ -846,22 +949,29 @@ STRINGS = {
         "col_deltas": "버전별 차이",
         "col_host": "실기 검증",
         "all_versions": "모든 검토 버전",
-        "full_feature": "전체 기능",
+        "full_feature_since": "전체 기능은 {min} 이상 필요",
+        "full_feature_only": "전체 기능은 {versions}에서만",
         "no_cubism": "Cubism 없이도 초기화 가능",
+        "gap_pending": "{versions} 미적용(적응 작업 중)",
+        "gap_boundary": "{versions}은 Cubism 자체에 기능 없음",
+        "gap_boundary_prefix": "이전 Cubism 버전에는 기능 자체가 없음",
+        "gap_unknown": "{versions} 미확인",
         "license_note_title": "FREE / PRO 라이선스 안내",
         "license_note": (
-            "이 시스템의 모든 Cubism Editor 설치는 FREE 라이선스로 시작합니다. 이 "
-            "경우 저장은 FREE 파라미터 수 제한을 받습니다. PRO 체험을 선택하면 제한이"
-            " 해제됩니다. Turboism 플러그인 호환성은 라이선스 등급과 무관하며, 제한은"
-            " 런타임이 허용하는 API가 아니라 편집기가 저장할 수 있는 내용에 적용됩니다."
+            "Cubism을 FREE 라이선스로 실행하면 저장이 FREE 파라미터 수 등의 제한을 "
+            "받습니다. PRO(PRO 체험 포함)에서는 이 제한이 없습니다. Turboism 플러그인의"
+            " 버전 지원은 라이선스 등급과 무관하며, 제한은 런타임이 허용하는 API가 "
+            "아니라 편집기가 저장할 수 있는 내용에 적용됩니다."
         ),
         "validation_legend": (
             "실기 검증 열: `validation/cubism-version-matrix/campaign-jobs.json`의 "
-            "태스크×버전별 최신 FINAL 결과입니다. 표시되지 않은 버전은 완료된 실기 "
-            "프로브가 없다는 뜻이며, 정적 검토가 항상 기준선입니다."
+            "태스크×버전별 최신 FINAL 결과를 triage로 분류한 것입니다. 인프라 재시도·"
+            "프로브 드리프트·불확실한 결과는 표시하지 않으며, 프로브가 없는 버전은 "
+            "빈 칸입니다. 정적 검토가 항상 기준선입니다."
         ),
         "host_pass": "실기 검증 통과",
-        "host_fail": "알려진 실패",
+        "host_boundary": "확인된 경계",
+        "host_pending": "미확인",
         "host_unknown": "불확실",
         "generated_notice": "`scripts/generate_compatibility_matrix.py`로 생성됨. 버전 커버리지 변경 후 다시 생성하세요(`--check`는 `devCheck`에서 강제됨).",
         "only_versions": "에서만",
@@ -935,7 +1045,9 @@ DEV_STRINGS = {
         "tasks_note": (
             "Latest FINAL result per task × version from "
             "`validation/cubism-version-matrix/campaign-jobs.json`, grouped by "
-            "capability area."
+            "capability area. " + "✓ PASS · ◇ confirmed boundary "
+            "(CAPABILITY_BOUNDARY/ADMISSION_STATIC) · ? unconfirmed (infra "
+            "retry, probe drift, fixture unsuitable, unknown, untriaged)."
         ),
         "col_task": "Task",
     },
@@ -989,7 +1101,9 @@ DEV_STRINGS = {
         "tasks_heading": "实机验证任务",
         "tasks_note": (
             "取自 `validation/cubism-version-matrix/campaign-jobs.json` 中每个"
-            "任务×版本的最新 FINAL 结果，按能力域归组。"
+            "任务×版本的最新 FINAL 结果，按能力域归组。✓ 通过 · ◇ 确认边界"
+            "（CAPABILITY_BOUNDARY/ADMISSION_STATIC）· ? 待确认（基础设施"
+            "重试、探针漂移、夹具不适用、未知或未分类）。"
         ),
         "col_task": "任务",
     },
@@ -1050,6 +1164,8 @@ DEV_STRINGS = {
         "tasks_note": (
             "`validation/cubism-version-matrix/campaign-jobs.json` のタスク×"
             "バージョン別最新 FINAL 結果をケイパビリティ領域別に集約。"
+            "✓ 合格 · ◇ 確認済み境界（CAPABILITY_BOUNDARY/ADMISSION_STATIC）"
+            "· ? 未確認（インフラ再試行・ドリフト・不適・不明・未分類）。"
         ),
         "col_task": "タスク",
     },
@@ -1106,7 +1222,9 @@ DEV_STRINGS = {
         "tasks_heading": "실기 검증 태스크",
         "tasks_note": (
             "`validation/cubism-version-matrix/campaign-jobs.json`의 태스크×버전별 "
-            "최신 FINAL 결과를 capability 영역별로 집계."
+            "최신 FINAL 결과를 capability 영역별로 집계. ✓ 통과 · ◇ 확인된 경계"
+            "(CAPABILITY_BOUNDARY/ADMISSION_STATIC) · ? 미확인(인프라 재시도, "
+            "드리프트, 부적합, 불명 또는 미분류)."
         ),
         "col_task": "태스크",
     },
@@ -1379,7 +1497,7 @@ def parse_sdk_annotations(root: Path, reviewed: list[str]) -> tuple[list[dict], 
                         return_fqn = f"{package}.{bare}"
                 if return_fqn:
                     accessor_map.setdefault(return_fqn, []).append(
-                        {"api": api, "versions": versions}
+                        {"api": api, "versions": versions, "file": rel}
                     )
             entries.append(
                 {"api": api, "kind": kind, "versions": sorted(versions, key=version_key), "file": rel}
@@ -1557,13 +1675,117 @@ def load_campaign(root: Path, reviewed: list[str]) -> dict[str, dict[str, dict]]
         terminal = result.get("terminalState")
         if validation is None:
             validation = {"succeeded": "PASS", "failed": "FAIL"}.get(terminal)
+        triage = job.get("triage") or {}
         latest.setdefault(task, {})[version] = {
             "validationStatus": validation,
             "terminalState": terminal,
+            "triageCategory": triage.get("category"),
+            "triageRule": triage.get("ruleId"),
             "round": job.get("round"),
             "jobId": job.get("jobId"),
         }
     return latest
+
+
+# Triage categories that denote a real capability boundary (the feature is
+# absent on that host), versus noise that must never surface as a failure on
+# the user-facing page.
+BOUNDARY_TRIAGE = frozenset({"CAPABILITY_BOUNDARY", "ADMISSION_STATIC"})
+PENDING_TRIAGE = frozenset(
+    {
+        "INFRA_RETRYABLE",
+        "SYSTEMIC",
+        "PROBE_DRIFT",
+        "FIXTURE_UNSUITABLE",
+        "UNKNOWN",
+        "NO_EVIDENCE",
+    }
+)
+
+
+def load_monotonicity_exceptions(root: Path) -> list[dict]:
+    """Sanctioned upward-closure violations used to label the nature of a
+    version gap: entries with `pending` are adaptation work in flight; entries
+    with `evidence` are deliberate, real boundaries."""
+    path = root / MONOTONICITY_EXCEPTIONS
+    if not path.is_file():
+        return []
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    entries = []
+    for entry in doc.get("exceptions", []):
+        entries.append(
+            {
+                "kind": entry.get("kind"),
+                "path": entry.get("path"),
+                "site": entry.get("site"),
+                "missing": set(entry.get("missing", [])),
+                "pending": bool(entry.get("pending")),
+                "evidence": bool(entry.get("evidence")),
+            }
+        )
+    return entries
+
+
+def classify_gap(
+    missing: set[str],
+    versions: set[str],
+    exceptions: list[dict],
+    *,
+    pins: set[str] | None = None,
+    source_files: set[str] | None = None,
+    capabilities: set[str] | None = None,
+    task_site: str | None = None,
+) -> dict[str, str]:
+    """Classify every missing version: 'boundary' (the host genuinely lacks
+    the feature or an evidence-sanctioned exclusion), 'pending' (adaptation in
+    flight per a sanctioned exception), or 'unknown'.
+
+    A missing version earlier than every admitted version is a boundary by
+    construction — the feature did not exist yet. Interior and trailing gaps
+    need a scoped exception to be called pending or boundary; unmatched gaps
+    stay unknown rather than guessing.
+    """
+    pins = pins or set()
+    source_files = source_files or set()
+    capabilities = capabilities or set()
+    result: dict[str, str] = {}
+    earliest = min(versions, key=version_key) if versions else ""
+    for version in sorted(missing, key=version_key):
+        if earliest and version_key(version) < version_key(earliest):
+            result[version] = "boundary"
+            continue
+        matched: str | None = None
+        for exc in exceptions:
+            kind = exc["kind"]
+            if kind == "verification-record":
+                # `missing` lists capability ids, not versions; the site
+                # transition "a>b" names the version at which they dropped.
+                transition = re.findall(r"\d+\.\d+\.\d+", exc["site"] or "")
+                applies = (
+                    bool(capabilities & exc["missing"])
+                    and transition[-1:] == [version]
+                )
+            else:
+                if version not in exc["missing"]:
+                    continue
+                if kind == "class-pins":
+                    applies = (exc["site"] or "").removesuffix(".json") in pins
+                elif kind == "host-validation-task":
+                    applies = exc["site"] == task_site
+                else:
+                    # java-set / java-file / java-annotation: match the
+                    # declaring file, or an identical observed version set.
+                    site_set = set(
+                        re.findall(r"\d+\.\d+\.\d+", exc["site"] or "")
+                    )
+                    applies = (
+                        exc["path"] in source_files or site_set == versions
+                    )
+            if applies:
+                matched = "pending" if exc["pending"] else "boundary"
+                break
+        result[version] = matched or "unknown"
+    return result
 
 
 def task_base(task: str) -> str:
@@ -1635,6 +1857,7 @@ def build_matrix(root: Path) -> dict:
     class_pins = load_class_pins(root)
     runtime_gates = load_runtime_gates(root)
     campaign = load_campaign(root, reviewed)
+    exceptions = load_monotonicity_exceptions(root)
 
     admitted = {cap: admitted_versions(cap, caps, gates) for cap in caps}
 
@@ -1669,8 +1892,24 @@ def build_matrix(root: Path) -> dict:
                     if len(resolved["capabilities"]) == 1
                     else declared
                 )
+                gate_files = sorted(
+                    {
+                        g["source"].split(":")[0]
+                        for c in resolved["capabilities"]
+                        for g in gates.get(c, [])
+                    }
+                )
                 feature_notes.append(
-                    _note(key, declared, available, reviewed_set, "capability")
+                    _note(
+                        key,
+                        declared,
+                        available,
+                        reviewed_set,
+                        "capability",
+                        pins=sorted(resolved["pins"]),
+                        capabilities=resolved["capabilities"],
+                        sourceFiles=gate_files,
+                    )
                 )
         # Capability namespaces named after the plugin directory are the
         # plugin's feature itself (e.g. cubism.protected-export.*).
@@ -1679,7 +1918,18 @@ def build_matrix(root: Path) -> dict:
                 functional_sets.append(admitted[cap])
                 if admitted[cap] != reviewed_set:
                     feature_notes.append(
-                        _note(cap, None, admitted[cap], reviewed_set, "family-prefix")
+                        _note(
+                            cap,
+                            None,
+                            admitted[cap],
+                            reviewed_set,
+                            "family-prefix",
+                            capabilities=[cap],
+                            sourceFiles=sorted(
+                                g["source"].split(":")[0]
+                                for g in gates.get(cap, [])
+                            ),
+                        )
                     )
         all_java = "\n".join(plugin["javaTexts"])
         seen_keys: set[str] = set()
@@ -1691,16 +1941,21 @@ def build_matrix(root: Path) -> dict:
             for accessor in accessors:
                 accessor_return[accessor["api"]] = return_fqn
         for ref in plugin["sdkRefs"]:
-            constraints: list[tuple[str, set[str]]] = []
+            constraints: list[tuple[str, set[str], str | None]] = []
             if ref in type_annotations:
-                constraints.append((ref, type_annotations[ref]))
+                ref_file = next(
+                    e["file"] for e in sdk_entries if e["api"] == ref
+                )
+                constraints.append((ref, type_annotations[ref], ref_file))
             for accessor in accessor_map.get(ref, []):
                 method_name = accessor["api"].split("#")[-1].rstrip("()")
                 if not re.search(rf"\.{re.escape(method_name)}\s*\(", all_java):
                     continue
                 # The surfaced feature is the accessor's return type, so the
                 # note keys on the referenced type rather than the accessor.
-                constraints.append((ref, set(accessor["versions"])))
+                constraints.append(
+                    (ref, set(accessor["versions"]), accessor["file"])
+                )
             for entry in sdk_entries:
                 if entry["kind"] != "method" or entry["api"].split("#")[0] != ref:
                     continue
@@ -1710,20 +1965,29 @@ def build_matrix(root: Path) -> dict:
                     continue
                 member = entry["api"].split("#")[-1].rstrip("()")
                 if re.search(rf"\.{re.escape(member)}\s*\(", all_java):
-                    constraints.append((entry["api"], set(entry["versions"])))
+                    constraints.append(
+                        (entry["api"], set(entry["versions"]), entry["file"])
+                    )
             req = required_caps.get(ref)
             if req:
                 narrowed = set(reviewed)
                 for cap in req:
                     narrowed &= admitted.get(cap, set())
                 if narrowed != reviewed_set:
-                    constraints.append((ref, narrowed))
-            for api, versions in constraints:
+                    constraints.append((ref, narrowed, str(INTERCEPTOR)))
+            for api, versions, file in constraints:
                 if not versions or versions == reviewed_set or api in seen_keys:
                     continue
                 seen_keys.add(api)
                 feature_notes.append(
-                    _note(api, None, versions, reviewed_set, "sdk-api")
+                    _note(
+                        api,
+                        None,
+                        versions,
+                        reviewed_set,
+                        "sdk-api",
+                        sourceFiles=[file] if file else [],
+                    )
                 )
         coverage_groups: dict[tuple[str, str], dict] = {}
         for entry in plugin["coverage"]:
@@ -1775,6 +2039,40 @@ def build_matrix(root: Path) -> dict:
                     reviewed_set - set(existing["versions"]), key=version_key
                 )
                 existing["source"] = f'{existing["source"]}+{note["source"]}'
+                for scope_key in ("pins", "capabilities", "sourceFiles"):
+                    existing[scope_key] = sorted(
+                        set(existing.get(scope_key, []))
+                        | set(note.get(scope_key, []))
+                    )
+        for note in merged.values():
+            note["missingNature"] = classify_gap(
+                set(note["missingOn"]),
+                set(note["versions"]),
+                exceptions,
+                pins=set(note.get("pins", [])),
+                source_files=set(note.get("sourceFiles", [])),
+                capabilities=set(note.get("capabilities", [])),
+                task_site=plugin["directory"],
+            )
+        supported_gaps = classify_gap(
+            reviewed_set - supported,
+            supported,
+            exceptions,
+            pins={
+                pin for note in merged.values() for pin in note.get("pins", [])
+            },
+            source_files={
+                f
+                for note in merged.values()
+                for f in note.get("sourceFiles", [])
+            },
+            capabilities={
+                c
+                for note in merged.values()
+                for c in note.get("capabilities", [])
+            },
+            task_site=plugin["directory"],
+        )
         tasks = {
             task: versions
             for task, versions in campaign.items()
@@ -1787,6 +2085,7 @@ def build_matrix(root: Path) -> dict:
                 "directory": plugin["directory"],
                 "requiresCubism": plugin["requiresCubism"],
                 "supportedVersions": sorted(supported, key=version_key),
+                "supportedGaps": supported_gaps,
                 "fullFeatureVersions": sorted(full_feature, key=version_key),
                 "partialFeatures": sorted(
                     merged.values(),
@@ -1861,41 +2160,98 @@ def _display_fallback(key: str) -> str:
     return key
 
 
-def _feature_text(note: dict, locale: str, reviewed: list[str]) -> str:
+def _has_label(key: str) -> bool:
+    return (
+        key in FEATURE_LABELS or key.rstrip("()") in FEATURE_LABELS
+    )
+
+
+def _gap_suffix(note: dict, locale: str, reviewed: list[str]) -> str:
+    """Annotate missing versions with their classified nature.
+
+    Missing versions below the earliest supported version are a pure leading
+    prefix — the feature did not exist yet — and collapse into a single
+    boundary phrase instead of a long version list.
+    """
+    nature = note.get("missingNature") or {}
+    if not nature:
+        return ""
+    s = STRINGS[locale]
+    versions = set(note.get("versions") or [])
+    earliest = min(versions, key=version_key) if versions else ""
+    boundary = [v for v, n in nature.items() if n == "boundary"]
+    prefix_only = bool(earliest) and bool(boundary) and all(
+        version_key(v) < version_key(earliest) for v in boundary
+    )
+    parts = []
+    pending = [v for v, n in nature.items() if n == "pending"]
+    unknown = [v for v, n in nature.items() if n == "unknown"]
+    interior_boundary = [
+        v
+        for v in boundary
+        if not earliest or version_key(v) >= version_key(earliest)
+    ]
+    for kind, key, listed in (
+        ("pending", "gap_pending", pending),
+        ("boundary", "gap_boundary", interior_boundary),
+        ("unknown", "gap_unknown", unknown),
+    ):
+        if listed:
+            parts.append(s[key].format(versions=compact_ranges(listed, reviewed)))
+    if boundary and prefix_only:
+        parts.append(s["gap_boundary_prefix"])
+    return "（" + "；".join(parts) + "）" if parts else ""
+
+
+def _feature_text(
+    note: dict, locale: str, reviewed: list[str], *, user: bool = False
+) -> str | None:
+    if user and not _has_label(note["key"]):
+        return None
     label = localized(note["key"], locale, _display_fallback(note["key"]))
     s = STRINGS[locale]
     versions = note["versions"]
     if not versions:
         return f"{label} —"
     if len(versions) <= len(reviewed) // 2:
-        return f"{label} {s['only_versions']} {compact_ranges(versions, reviewed)}"
+        return (
+            f"{label} {s['only_versions']} "
+            f"{compact_ranges(versions, reviewed)}{_gap_suffix(note, locale, reviewed)}"
+        )
     return f"{label} {s['not_on']} {compact_ranges(note['missingOn'], reviewed)}"
 
 
-def _host_cell(tasks: dict[str, dict], reviewed: list[str], locale: str) -> str:
+def _host_cell(
+    tasks: dict[str, dict], reviewed: list[str], locale: str, *, user: bool
+) -> str:
     if not tasks:
         return "—"
     passed: set[str] = set()
-    failed: set[str] = set()
-    unknown: set[str] = set()
+    boundary: set[str] = set()
+    pending: set[str] = set()
     for versions in tasks.values():
         for version, result in versions.items():
             status = result.get("validationStatus") or ""
+            category = result.get("triageCategory") or ""
             if status == "PASS":
                 passed.add(version)
-            elif status.startswith("FAIL"):
-                failed.add(version)
-            else:
-                unknown.add(version)
+            elif category in BOUNDARY_TRIAGE:
+                boundary.add(version)
+            elif status or category:
+                pending.add(version)
+            # Jobs with neither verdict nor triage carry no signal at all.
     s = STRINGS[locale]
     parts = []
     if passed:
         parts.append(f"{s['host_pass']} {compact_ranges(passed, reviewed)}")
-    if failed - passed:
-        parts.append(f"{s['host_fail']} {compact_ranges(failed - passed, reviewed)}")
-    if unknown - passed - failed:
+    if boundary - passed:
         parts.append(
-            f"{s['host_unknown']} {compact_ranges(unknown - passed - failed, reviewed)}"
+            f"{s['host_boundary']} {compact_ranges(boundary - passed, reviewed)}"
+        )
+    if not user and pending - passed - boundary:
+        parts.append(
+            f"{s['host_pending']} "
+            f"{compact_ranges(pending - passed - boundary, reviewed)}"
         )
     return "<br>".join(parts) if parts else "—"
 
@@ -1924,23 +2280,39 @@ def render_plugins_doc(matrix: dict, locale: str) -> str:
         if versions == reviewed:
             version_text = s["all_versions"]
         elif versions:
-            version_text = compact_ranges(versions, reviewed)
+            version_text = compact_ranges(versions, reviewed) + _gap_suffix(
+                {
+                    "missingNature": plugin.get("supportedGaps", {}),
+                    "versions": versions,
+                },
+                locale,
+                reviewed,
+            )
         else:
             version_text = "—"
         notes = []
-        if not plugin["requiresCubism"]:
-            notes.append(s["no_cubism"])
-        full = plugin["fullFeatureVersions"]
-        if full and full != versions:
-            notes.append(
-                f"{s['full_feature']}: {compact_ranges(full, reviewed)}"
-            )
-        notes.extend(
-            _feature_text(note, locale, reviewed)
-            for note in plugin["partialFeatures"][:5]
-        )
+        full = set(plugin["fullFeatureVersions"])
+        if full and full != set(versions):
+            if full == {v for v in reviewed if version_key(v) >= version_key(min(full, key=version_key))}:
+                notes.append(
+                    s["full_feature_since"].format(
+                        min=min(full, key=version_key)
+                    )
+                )
+            else:
+                notes.append(
+                    s["full_feature_only"].format(
+                        versions=compact_ranges(full, reviewed)
+                    )
+                )
+        for note in plugin["partialFeatures"][:5]:
+            text = _feature_text(note, locale, reviewed, user=True)
+            if text:
+                notes.append(text)
         deltas = "<br>".join(notes) if notes else "—"
-        host = _host_cell(plugin["hostValidation"], reviewed, locale)
+        host = _host_cell(
+            plugin["hostValidation"], reviewed, locale, user=True
+        )
         lines.append(
             f"| `{plugin['directory']}` | {version_text} | {deltas} | {host} |"
         )
@@ -2074,9 +2446,16 @@ def render_capabilities_doc(matrix: dict, locale: str) -> str:
         group = TASK_GROUP_ALIASES.get(task_base(task), task_base(task))
         cells = group_rows.setdefault(group, {})
         for version, result in versions.items():
-            mark = {"PASS": "✓", "FAIL": "✗"}.get(
-                result.get("validationStatus"), "?"
-            )
+            status = result.get("validationStatus") or ""
+            category = result.get("triageCategory") or ""
+            if status == "PASS":
+                mark = "✓"
+            elif category in BOUNDARY_TRIAGE:
+                mark = "◇"
+            elif status or category:
+                mark = "?"
+            else:
+                continue
             if cells.get(version) != "✓":
                 cells[version] = mark
     for group in sorted(group_rows):
@@ -2094,14 +2473,23 @@ def readme_block(plugin: dict, locale: str, reviewed: list[str]) -> str:
         if versions == reviewed
         else compact_ranges(versions, reviewed)
     )
+    gap_suffix = _gap_suffix(
+        {
+            "missingNature": plugin.get("supportedGaps", {}),
+            "versions": versions,
+        },
+        locale,
+        reviewed,
+    )
     doc_name = f"plugins{DOC_SUFFIX[locale]}.md"
     parts = [
         BLOCK_BEGIN,
-        f"{s['readme_intro']} {version_text}.",
+        f"{s['readme_intro']} {version_text}{gap_suffix}.",
     ]
     parts.extend(
-        f"- {_feature_text(note, locale, reviewed)}"
+        f"- {text}"
         for note in plugin["partialFeatures"][:3]
+        if (text := _feature_text(note, locale, reviewed, user=True))
     )
     parts.append(
         f"{s['readme_more']}: [compatibility matrix](../../compatibility/cubism/{doc_name})"

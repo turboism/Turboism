@@ -6,40 +6,40 @@ Every row is generated from the reviewed compatibility data in this repository. 
 
 ## FREE / PRO licence note
 
-Every Cubism Editor install on this machine starts under the FREE licence: saving then stays subject to the FREE parameter-count limit. Choosing the PRO trial lifts that limit. Turboism plugin compatibility is unaffected by the licence tier — the limit constrains what the editor may save, not which APIs the runtime admits.
+When Cubism runs under a FREE licence, saving is subject to the FREE parameter-count limit; a PRO licence (including the PRO trial) lifts it. Turboism plugin version support is independent of the licence tier — the limit constrains what the editor may save, not which APIs the runtime admits.
 
 | Plugin | Supported versions | Feature deltas | Real-host validation |
 |---|---|---|---|
-| `acp` | all reviewed versions | — | — |
-| `atlas-dalsoo-polygon` | all reviewed versions | Polygon-aware atlas layout only on 5.2.03–5.3.03 | — |
-| `atlas-maxrects-bssf` | all reviewed versions | — | host-verified 5.2.03<br>known failing 5.3.03 |
-| `bounding-box` | all reviewed versions | initializes without Cubism | — |
-| `boundingbox-warp-mirror` | all reviewed versions | — | known failing 5.2.03, 5.3.02–5.3.03 |
-| `clipmask-viewer` | all reviewed versions | Embedded panel docking not on 5.0.00–5.0.06<br>Top menu integration not on 5.0.00–5.0.06 | host-verified 5.0.00, 5.0.06–5.1.00, 5.1.03–5.2.00, 5.3.00, 5.3.04<br>known failing 5.0.01–5.0.05, 5.1.01–5.1.02, 5.2.01–5.2.03, 5.3.01–5.3.03 |
-| `command-palette` | 5.1.00–5.3.04 | Top menu integration not on 5.0.00–5.0.06 | — |
+| `acp` | all reviewed versions | — | host-verified 5.2.03, 5.3.02–5.3.03 |
+| `atlas-dalsoo-polygon` | all reviewed versions | Polygon-aware atlas layout only on 5.2.03–5.3.03（5.3.04 pending adaptation；earlier Cubism versions lack the feature entirely） | host-verified 5.2.03, 5.3.02–5.3.03 |
+| `atlas-maxrects-bssf` | all reviewed versions | — | — |
+| `bounding-box` | all reviewed versions | — | — |
+| `boundingbox-warp-mirror` | all reviewed versions | — | host-verified 5.2.03, 5.3.03 |
+| `clipmask-viewer` | all reviewed versions | Embedded panel docking not on 5.0.00–5.0.06<br>Top menu integration not on 5.0.00–5.0.06 | host-verified 5.1.03–5.2.00, 5.2.03–5.3.00, 5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
+| `command-palette` | 5.1.00–5.3.04（earlier Cubism versions lack the feature entirely） | Top menu integration not on 5.0.00–5.0.06 | — |
 | `context-menu` | all reviewed versions | — | — |
 | `cubism-tab-filter` | all reviewed versions | — | — |
-| `demo` | all reviewed versions | initializes without Cubism | — |
-| `external-psd-edit` | 5.3.00–5.3.04 | PSD raw-image replace only on 5.3.00–5.3.04<br>ModelTextures#exportRawImagePsd() only on 5.3.00–5.3.04<br>ModelTextures#replaceRawImagePsd() only on 5.3.00–5.3.04 | — |
-| `history-panel` | all reviewed versions | initializes without Cubism<br>full feature set: 5.2.03–5.3.04<br>Semantic history decoding only on 5.2.03–5.3.04<br>Embedded panel docking not on 5.0.00–5.0.06 | — |
-| `mcp` | all reviewed versions | full feature set: 5.2.00–5.3.04<br>textures.write only on 5.2.03–5.3.04<br>Parameter writes only on 5.2.00–5.3.04<br>Authoring transactions (grouped undo writes) only on 5.2.00–5.3.04<br>transaction.execute only on 5.2.00–5.3.04<br>Top menu integration not on 5.0.00–5.0.06 | host-verified 5.2.00–5.2.01, 5.2.03–5.3.04<br>known failing 5.0.00, 5.0.02, 5.0.06–5.1.00, 5.1.03, 5.2.02 |
-| `mesh-edit-mirror-axis-enhance` | all reviewed versions | full feature set: 5.2.03, 5.3.02–5.3.03<br>Mesh mirror axis-angle enhancement only on 5.2.03, 5.3.02–5.3.03<br>Mesh toolbar contribution only on 5.2.03, 5.3.02–5.3.03<br>Mesh geometry read only on 5.2.00–5.3.04 | — |
-| `palette-label-style` | all reviewed versions | full feature set: 5.2.00–5.3.04<br>Editor model writes only on 5.2.00–5.3.04 | — |
-| `parameter` | all reviewed versions | full feature set: 5.2.00–5.3.04<br>Editor model writes only on 5.2.00–5.3.04<br>Authoring transactions (grouped undo writes) only on 5.2.00–5.3.04 | host-verified 5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.03<br>known failing 5.2.01–5.2.02, 5.3.01, 5.3.04 |
-| `parameter-batch-transfer` | all reviewed versions | full feature set: 5.2.00–5.3.04<br>Editor model writes only on 5.2.00–5.3.04 | host-verified 5.2.00–5.3.01, 5.3.03–5.3.04<br>known failing 5.0.00–5.1.03 |
-| `perf-stats` | all reviewed versions | Embedded panel docking not on 5.0.00–5.0.06 | host-verified 5.0.00–5.0.04, 5.0.06, 5.1.01–5.1.02, 5.2.03, 5.3.02–5.3.04<br>known failing 5.0.05, 5.1.03, 5.2.01–5.2.02, 5.3.01 |
+| `demo` | all reviewed versions | — | — |
+| `external-psd-edit` | 5.3.00–5.3.04（earlier Cubism versions lack the feature entirely） | PSD raw-image replace only on 5.3.00–5.3.04（earlier Cubism versions lack the feature entirely）<br>Export PSD raw image only on 5.3.00–5.3.04（earlier Cubism versions lack the feature entirely）<br>Replace PSD raw image only on 5.3.00–5.3.04（earlier Cubism versions lack the feature entirely） | host-verified 5.3.02 |
+| `history-panel` | all reviewed versions | full feature set requires 5.2.03+<br>Semantic history decoding only on 5.2.03–5.3.04（earlier Cubism versions lack the feature entirely）<br>Embedded panel docking not on 5.0.00–5.0.06 | — |
+| `mcp` | all reviewed versions | full feature set requires 5.2.00+<br>MCP texture writes only on 5.2.03–5.3.04（earlier Cubism versions lack the feature entirely）<br>Parameter writes only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）<br>Authoring transactions (grouped undo writes) only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）<br>MCP transaction execution only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）<br>Top menu integration not on 5.0.00–5.0.06 | host-verified 5.2.00–5.2.01, 5.3.00<br>confirmed boundary 5.0.06–5.1.00 |
+| `mesh-edit-mirror-axis-enhance` | all reviewed versions | full feature set only on 5.2.03, 5.3.02–5.3.03<br>Mesh mirror axis-angle enhancement only on 5.2.03, 5.3.02–5.3.03（5.3.04 pending adaptation；5.3.00–5.3.01 unconfirmed；earlier Cubism versions lack the feature entirely）<br>Mesh toolbar contribution only on 5.2.03, 5.3.02–5.3.03（5.3.04 pending adaptation；5.3.00–5.3.01 unconfirmed；earlier Cubism versions lack the feature entirely）<br>Mesh geometry read only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely） | — |
+| `palette-label-style` | all reviewed versions | full feature set requires 5.2.00+<br>Editor model writes only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely） | — |
+| `parameter` | all reviewed versions | full feature set requires 5.2.00+<br>Editor model writes only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）<br>Authoring transactions (grouped undo writes) only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely） | host-verified 5.2.03, 5.3.02, 5.3.04<br>confirmed boundary 5.3.00–5.3.01 |
+| `parameter-batch-transfer` | all reviewed versions | full feature set requires 5.2.00+<br>Editor model writes only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely） | host-verified 5.2.00–5.3.04<br>confirmed boundary 5.0.02–5.0.06, 5.1.01–5.1.03 |
+| `perf-stats` | all reviewed versions | Embedded panel docking not on 5.0.00–5.0.06 | host-verified 5.0.00–5.0.06, 5.1.01–5.1.02, 5.2.03, 5.3.02–5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
 | `physics-editor` | all reviewed versions | — | — |
 | `project-inspector` | all reviewed versions | — | — |
-| `project-panel` | all reviewed versions | initializes without Cubism | — |
-| `protected-export` | 5.1.00–5.3.04 | Protected-export orchestration not on 5.0.00–5.0.06<br>cubism.export.ExportSettingsContributionService not on 5.0.00–5.0.06 | host-verified 5.1.00, 5.1.03–5.2.00, 5.2.03–5.3.00, 5.3.04 |
-| `psd-clip-mask-import` | all reviewed versions | Embedded panel docking not on 5.0.00–5.0.06 | host-verified 5.0.00–5.1.00, 5.1.02–5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04<br>known failing 5.1.01, 5.2.01–5.2.02, 5.3.01 |
-| `psd-import` | all reviewed versions | initializes without Cubism | — |
-| `recent-preview` | all reviewed versions | — | known failing 5.2.03, 5.3.02 |
+| `project-panel` | all reviewed versions | — | — |
+| `protected-export` | 5.1.00–5.3.04（earlier Cubism versions lack the feature entirely） | Protected-export orchestration not on 5.0.00–5.0.06<br>Export settings contribution not on 5.0.00–5.0.06 | host-verified 5.1.00, 5.1.03–5.2.00, 5.3.00, 5.3.04 |
+| `psd-clip-mask-import` | all reviewed versions | Embedded panel docking not on 5.0.00–5.0.06 | host-verified 5.0.00–5.1.00, 5.1.02–5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
+| `psd-import` | all reviewed versions | — | — |
+| `recent-preview` | all reviewed versions | — | — |
 | `scene-palette-enhancer` | all reviewed versions | — | — |
-| `selection-brush` | 5.2.03, 5.3.02–5.3.03 | Mesh-edit custom tools only on 5.2.03, 5.3.02–5.3.03<br>Modeling selection brush only on 5.2.03, 5.3.02–5.3.03 | known failing 5.2.03, 5.3.02–5.3.03 |
-| `texture-atlas-stats` | all reviewed versions | Native atlas editor session access only on 5.2.00–5.2.02, 5.3.00–5.3.04<br>cubism.textureatlas.TextureAtlasEditorPanel only on 5.2.00–5.3.04<br>Native atlas editor UI contribution only on 5.2.00–5.3.04 | — |
-| `ui-theme` | all reviewed versions | initializes without Cubism | host-verified 5.0.00–5.1.01, 5.1.03–5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04<br>known failing 5.1.02, 5.2.01–5.2.02, 5.3.01 |
-| `warp-deformer-alt-symmetry` | all reviewed versions | full feature set: 5.2.03, 5.3.02–5.3.03<br>Warp mirror only on 5.2.03, 5.3.02–5.3.03 | host-verified 5.2.03, 5.3.02–5.3.03 |
-| `webdav-backup` | all reviewed versions | EditorAutoBackupService#artifacts() only on 5.2.03–5.3.04<br>EditorAutoBackupService#backupAfterSave() not on 5.0.00–5.0.06 | host-verified 5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04<br>known failing 5.1.00–5.1.03, 5.2.01–5.2.02, 5.3.01 |
+| `selection-brush` | 5.2.03, 5.3.02–5.3.03（5.3.04 pending adaptation；5.3.00–5.3.01 unconfirmed；earlier Cubism versions lack the feature entirely） | Mesh-edit custom tools only on 5.2.03, 5.3.02–5.3.03（5.3.04 pending adaptation；5.3.00–5.3.01 unconfirmed；earlier Cubism versions lack the feature entirely）<br>Modeling selection brush only on 5.2.03, 5.3.02–5.3.03（5.3.04 pending adaptation；5.3.00–5.3.01 unconfirmed；earlier Cubism versions lack the feature entirely） | host-verified 5.2.03, 5.3.02–5.3.03 |
+| `texture-atlas-stats` | all reviewed versions | Native atlas editor session access only on 5.2.00–5.2.02, 5.3.00–5.3.04（5.2.03 pending adaptation；earlier Cubism versions lack the feature entirely）<br>Atlas editor panel only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）<br>Native atlas editor UI contribution only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely） | — |
+| `ui-theme` | all reviewed versions | — | host-verified 5.0.00–5.1.01, 5.1.03, 5.2.02, 5.3.03<br>confirmed boundary 5.3.00–5.3.01, 5.3.04 |
+| `warp-deformer-alt-symmetry` | all reviewed versions | full feature set only on 5.2.03, 5.3.02–5.3.03<br>Warp mirror only on 5.2.03, 5.3.02–5.3.03（5.3.04 pending adaptation；5.3.00–5.3.01 unconfirmed；earlier Cubism versions lack the feature entirely） | host-verified 5.2.03, 5.3.02–5.3.03 |
+| `webdav-backup` | all reviewed versions | Auto-backup artifacts only on 5.2.03–5.3.04（earlier Cubism versions lack the feature entirely）<br>Save-triggered auto-backup not on 5.0.00–5.0.06 | host-verified 5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04<br>confirmed boundary 5.1.00–5.1.01, 5.1.03, 5.2.01–5.2.02, 5.3.01 |
 
-Real-host column: the latest FINAL campaign result per task and version in `validation/cubism-version-matrix/campaign-jobs.json`. A version without a finished probe stays unlisted — static review is the baseline everywhere.
+Real-host column: latest FINAL campaign result per task and version from `validation/cubism-version-matrix/campaign-jobs.json`, classified by triage. Infrastructure retries, probe drift, and inconclusive runs are never listed; unprobed versions stay blank — static review is the baseline everywhere.
