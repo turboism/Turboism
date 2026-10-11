@@ -69,6 +69,55 @@ publishes a `HelloEvent` that the plugin's own subscriber logs.
 6. Any non-class file outside `META-INF/` (images, schemas, data) must live
    under a prefix listed in `resources`; undeclared resources are rejected.
 
+## Cubism Editor version support
+
+Turboism hosts run different Cubism Editor versions, and every Cubism-facing
+SDK API declares the versions it supports with `@CubismEditor` — an exact
+`value` list admits only the named reviewed versions, `from`/`to` ranges can
+also satisfy unreviewed compatibility-admitted hosts, and `exclude` always
+removes a version. The full per-API matrix is generated into
+`compatibility/cubism/compatibility-matrix.json` (developer view:
+`compatibility/cubism/capabilities.md`) in the Turboism repository.
+
+Query availability instead of assuming it:
+
+- Facade accessors hand out fail-closed `unavailable()` sentinels for
+  surfaces the current host cannot serve; probe `isAvailable()` before use.
+- Calling an API gated to a different Editor version throws
+  `CubismEditorApiUnavailableException`; its `supportedVersions()` tells you
+  which versions admit the call. Catch it at feature boundaries and degrade
+  gracefully — hide the menu entry, disable the action, or fall back to a
+  supported API — rather than letting the exception reach the user.
+
+```java
+context.services().find(EditorCommandService.class).ifPresent(commands -> {
+    if (commands.isAvailable()) {
+        commands.execute(EditorCommand.ADD_SCENE);
+    }
+});
+```
+
+Declare your plugin's supported set by shipping
+`META-INF/turboism/cubism-versions.json` in the JAR:
+
+```json
+{
+  "format": "turboism.plugin-cubism-versions/v1",
+  "plugin": "dev.example.hello",
+  "supportedVersions": ["5.2.03", "5.3.02", "5.3.03", "5.3.04"],
+  "fullFeatureVersions": ["5.3.02", "5.3.03", "5.3.04"]
+}
+```
+
+The declaration is informational and never blocks loading: a `requiresCubism`
+plugin without the file is treated as *undeclared* and the loader logs a
+single note (a malformed file logs a warning the same way). First-party
+plugins in the Turboism repository do not write this file by hand — the
+compatibility-matrix generator derives it from declared capabilities and SDK
+usage and writes it for them. Derive yours the same way: cover every Editor
+version your code paths actually verify, and prefer `isAvailable()` probes
+over narrowing the declared set.
+
 ## Event subscriptions
 
 The template subscribes imperatively via `context.eventBus().subscribe(...)`,

@@ -77,6 +77,17 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
   `ActionRegistry.Action.defaultShortcut()`과 새로운
   `Action.of(id, label, shortcut, handler)` 오버로드로 플러그인은 사용자가 다시 바인딩할 수 있는 기본 단축키를 선언할 수 있습니다. 코어 셸은 창 액션에 기본 키를 선언합니다(설정 Ctrl+Alt+S, 플러그인 Ctrl+Alt+P, 로그 Ctrl+Alt+L, 키바인딩 Ctrl+Shift+K). 퍼스트파티 메시 검사, 히스토리 토글, 데모 액션도 SDK 예시로 기본 키를 제공합니다. 행의 단축키 셀을 더블 클릭하면 키 캡처 대화 상자가 바로 열립니다.
 
+- 모든 퍼스트파티 플러그인 JAR 에 이제 플러그인이 지원하는 Cubism Editor 버전을 선언하는
+  파생 `META-INF/turboism/cubism-versions.json` 이 포함됩니다. 호환성 매트릭스 생성기가
+  검토 데이터로부터 `compatibility/cubism/compatibility-matrix.json` 과 함께 생성하므로
+  선언이 실제 코드 사용에서 벗어나지 않습니다. 서드파티 플러그인도 같은 사이드카를 포함할 수
+  있으며, 파일이 없는 `requiresCubism` 플러그인은 이전과 같이 로드되고 로드 시 "미선언"으로
+  한 번 기록됩니다. `devCheck` 에 버전 적응 게이트 두 개가 추가되었습니다:
+  `checkSdkCubismEditorAnnotations` 는 `dev.turboism.sdk.cubism` 의 새 공개 API 에
+  `@CubismEditor` 를 요구하고(기존 표면은 `sdk/api-contracts/cubism-annotation-baseline.json`
+  에 동결), `checkVersionSetRegistry` 는 프로덕션 소스의 모든 리터럴 Cubism 버전 집합이
+  `scripts/version-set-registry.json` 에 근거와 이유와 함께 등록되도록 요구합니다.
+
 ### 제거
 
 - 관리형 fx 런타임을 완전히 제거했습니다. 에이전트 바이너리 번들/다운로드, 런타임
