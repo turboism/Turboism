@@ -1152,32 +1152,35 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private static final long ITEM_DEADLINE_MILLIS = 30_000L;
 
     /**
-     * Activates the host window for menu work: a real click on the title bar —
-     * the gesture a window manager always treats as raise+focus — then a bounded
-     * poll for {@code isActive}. The scratch-opened window never takes OS
-     * activation from {@code toFront}/{@code requestFocus} hints under Wine,
-     * which lets the host LAF collapse posted popups before the Recent submenu
-     * can be located. Falls back to the save phase's content-center click when
-     * the title click leaves the window inactive; callers proceed either way
-     * because real menu clicks have succeeded on never-active windows.
+     * Activates the host window for menu work without stealing document-view
+     * focus: nothing is clicked while the window is already active, the save
+     * phase's content-center click is tried first, and the title-bar click —
+     * the gesture a window manager always treats as raise+focus — is kept as
+     * the last resort. Order matters: on 5.2.03 focusing the frame chrome made
+     * the verified current-document chain report null, which the preview
+     * bridge's capture target-guard rejects, so a gratuitous title-bar click
+     * can itself suppress the hover popup. Callers proceed either way because
+     * real menu clicks have succeeded on never-active windows.
      */
     private void activateWindowForMenus(final Robot robot, final Window host) throws Exception {
-        final Point titlePoint = onEdt(() -> {
-            final Point topLeft = host.getLocationOnScreen();
-            return new Point(topLeft.x + host.getWidth() / 2, topLeft.y + TITLE_BAR_CLICK_OFFSET);
-        });
-        clickAt(robot, titlePoint);
-        robot.waitForIdle();
-        boolean active = false;
-        final long deadline = System.nanoTime() + WINDOW_ACTIVATE_POLL_MILLIS * 1_000_000L;
-        while (System.nanoTime() < deadline) {
-            active = Boolean.TRUE.equals(onEdt(host::isActive));
-            if (active) break;
-            Thread.sleep(200L);
-        }
+        boolean active = Boolean.TRUE.equals(onEdt(host::isActive));
         if (!active) {
             recoverSaveFocus(host);
             active = onEdt(() -> saveFocusSnapshot(host)[0]);
+        }
+        if (!active) {
+            final Point titlePoint = onEdt(() -> {
+                final Point topLeft = host.getLocationOnScreen();
+                return new Point(topLeft.x + host.getWidth() / 2, topLeft.y + TITLE_BAR_CLICK_OFFSET);
+            });
+            clickAt(robot, titlePoint);
+            robot.waitForIdle();
+            final long deadline = System.nanoTime() + WINDOW_ACTIVATE_POLL_MILLIS * 1_000_000L;
+            while (System.nanoTime() < deadline) {
+                active = Boolean.TRUE.equals(onEdt(host::isActive));
+                if (active) break;
+                Thread.sleep(200L);
+            }
         }
         context.logger().info("Recent preview popup window active=" + active);
     }
