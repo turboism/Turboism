@@ -494,6 +494,62 @@ val checkVersionSetCompleteness by tasks.registering(Exec::class) {
 }
 
 /*
+ * Patch releases inside one Cubism minor line are downward compatible: a newer
+ * patch's capability set is a superset of every older patch's. Any version set
+ * that names a version must therefore also name every higher admitted patch of
+ * the same line. The gate enforces that upward closure across verification
+ * records, hard-coded Java sets and annotations, class-pin tables, host
+ * validation task versions, and MCP coverage lists, with an explicit exception
+ * ledger for sanctioned regressions.
+ */
+val checkVersionMonotonicitySelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed fixtures for patch-line version-set monotonicity."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/check_version_monotonicity.py",
+        "scripts/test/test_check_version_monotonicity.py"
+    )
+    verificationStamp()
+    commandLine(
+        "python3", "-m", "unittest",
+        "scripts.test.test_check_version_monotonicity",
+        "-v"
+    )
+}
+
+val checkVersionMonotonicity by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Fails when a Cubism version set skips a higher patch of the same minor line."
+    dependsOn(checkVersionMonotonicitySelfTest)
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/check_version_monotonicity.py",
+        "scripts/version-monotonicity-exceptions.json",
+        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
+        "scripts/preview/host-validation-tasks.json",
+        "plugins/mcp/src/main/resources/META-INF/turboism/mcp-sdk-coverage.json",
+        fileTree("compatibility/cubism/verification") { include("*.json") },
+        fileTree("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins") {
+            include("*.json")
+        },
+        fileTree("sdk/src/main") { include("**/*.java") },
+        fileTree("runtime/src/main") { include("**/*.java") },
+        fileTree("bootstrap/src/main") { include("**/*.java") },
+        fileTree("core-contract/src/main") { include("**/*.java") },
+        fileTree("event-processor/src/main") { include("**/*.java") },
+        fileTree("graal-host/src/main") { include("**/*.java") },
+        fileTree("buildSrc/src/main") { include("**/*.java") },
+        fileTree("packaging/java-installer/listener-src") { include("**/*.java") },
+        fileTree("templates") { include("**/*.java") },
+        fileTree("scripts/verification-sources/templates") { include("**/*.java") },
+        fileTree("plugins") { include("*/src/main/**/*.java") }
+    )
+    verificationStamp()
+    commandLine("python3", "scripts/check_version_monotonicity.py", rootDir.absolutePath)
+}
+
+/*
  * Class-pin JSON tables are generated/maintained by generate_class_pins.py;
  * the self-test proves update/check/dry-run semantics fail closed against
  * fixture JARs so the tool can be trusted during host-version onboarding.
@@ -853,6 +909,7 @@ val devCheck by tasks.registering {
         "checkPythonLint",
         checkRepositoryHygiene,
         checkEditorModelAliases,
+        checkVersionMonotonicity,
         "validatePluginMeta",
         ":runtime:checkHeadlessRuntimeClasspath",
         ":runtime:admissionPreflightTest"
