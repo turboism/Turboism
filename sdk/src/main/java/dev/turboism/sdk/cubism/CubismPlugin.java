@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.hook.AnimationFileHooks;
 import dev.turboism.sdk.cubism.hook.DeformerHooks;
 import dev.turboism.sdk.cubism.hook.DrawableHooks;
@@ -17,6 +18,7 @@ import dev.turboism.sdk.plugin.TurboismPlugin;
  * is based on the inherited hook interfaces; no callback registration is
  * required.</p>
  */
+@CubismEditor
 public interface CubismPlugin
         extends TurboismPlugin,
                 ParameterHooks,

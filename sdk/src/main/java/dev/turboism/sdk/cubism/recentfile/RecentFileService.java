@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.recentfile;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 
 /** Read-only projection of the host's Recent Files menu (merged with the current project). */
+@CubismEditor(from = "5.1.00")
 public interface RecentFileService {
 
     /**

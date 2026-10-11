@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.event;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.event.TurboismEvent;
 import java.util.Objects;
 
@@ -10,6 +11,7 @@ import java.util.Objects;
  * {@code CubismModel} is deliberately not exposed because observation delivery may occur after the
  * host callback returns.</p>
  */
+@CubismEditor
 public sealed interface ModelUpdateEvent extends TurboismEvent
         permits ModelUpdateEvent.Before, ModelUpdateEvent.On, ModelUpdateEvent.After {
 

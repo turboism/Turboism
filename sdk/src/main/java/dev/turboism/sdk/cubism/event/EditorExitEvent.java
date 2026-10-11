@@ -1,11 +1,13 @@
 package dev.turboism.sdk.cubism.event;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.EditorExitResult;
 import dev.turboism.sdk.cubism.EditorLifecycleSnapshot;
 import dev.turboism.sdk.event.TurboismEvent;
 import java.util.Objects;
 
 /** Typed states of one Cubism Editor exit request. */
+@CubismEditor
 public sealed interface EditorExitEvent extends TurboismEvent
         permits EditorExitEvent.Before, EditorExitEvent.On, EditorExitEvent.After {
 

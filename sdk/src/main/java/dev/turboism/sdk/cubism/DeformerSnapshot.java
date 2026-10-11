@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -17,6 +18,7 @@ import java.util.Optional;
  * @param parentId identifier of the enclosing deformer, empty for a root-level deformer
  * @param childIds unmodifiable copy of the identifiers of directly nested deformers, in host order
  */
+@CubismEditor
 public record DeformerSnapshot(
         String id, String name, DeformerType type, Optional<String> parentId, List<String> childIds)
         implements ModelObjectSnapshot {
