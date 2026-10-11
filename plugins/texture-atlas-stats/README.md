@@ -44,9 +44,9 @@ Shows total and current-texture model-image counts in Cubism's native texture-at
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions.
-- Native atlas editor session access only on 5.2.00–5.2.02, 5.3.00–5.3.04（5.2.03 pending adaptation；earlier Cubism versions lack the feature entirely）
-- Atlas editor panel only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）
-- Native atlas editor UI contribution only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）
+- Native atlas editor session access only on 5.2.00–5.2.02, 5.3.00–5.3.04（5.2.03 pending adaptation；5.0.00–5.1.03 unconfirmed）
+- Atlas editor panel only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）
+- Native atlas editor UI contribution only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 

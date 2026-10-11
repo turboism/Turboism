@@ -44,7 +44,7 @@ interface: embedded
 
 <!-- compatibility:begin -->
 **Cubism Editor 版本支持（自动生成）：** 全部审核版本.
-- 编辑器模型写入 仅 5.2.00–5.3.04（更早版本 Cubism 本身无此功能）
+- 编辑器模型写入 仅 5.2.00–5.3.04（5.0.00–5.1.03 待确认）
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->
 
