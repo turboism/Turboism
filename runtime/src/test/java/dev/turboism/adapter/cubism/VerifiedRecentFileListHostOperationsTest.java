@@ -133,4 +133,35 @@ class VerifiedRecentFileListHostOperationsTest {
                 VerifiedRecentFileListHostOperations.idFor(current),
                 operations.current().orElseThrow());
     }
+
+    @Test
+    void currentFallsBackToLastActiveDocumentWhenViewFocusIsLost() throws Exception {
+        final Path current = Files.createTempFile("recent-preview-unfocused", ".cmo3");
+        final Path recentOnly = Files.createTempFile("recent-preview-recent", ".cmo3");
+        final VerifiedRecentFileListHostOperations operations = new VerifiedRecentFileListHostOperations(
+                projectResolver("5.2.03", getClass().getClassLoader()),
+                panelResolver("5.2.03", getClass().getClassLoader()));
+        // 5.2 hosts report a null current document once focus sits on the frame
+        // chrome; the last activated view context still names the same document.
+        ProjectHost.setRoot(projectChain(current, false));
+        PanelHost.setRoot(panelChain(recentMenu(recentOnly)));
+
+        assertEquals(
+                VerifiedRecentFileListHostOperations.idFor(current),
+                operations.current().orElseThrow(),
+                "the last activated document view must stand in for a focus-cleared current document");
+        final List<RecentFileSummary> listed = operations.list();
+        assertEquals(current.getFileName().toString(), listed.get(0).displayName());
+    }
+
+    @Test
+    void currentStaysEmptyWhenViewFocusIsLostAndHistoryIsEmpty() {
+        final VerifiedRecentFileListHostOperations operations = new VerifiedRecentFileListHostOperations(
+                projectResolver("5.2.03", getClass().getClassLoader()),
+                panelResolver("5.2.03", getClass().getClassLoader()));
+        ProjectHost.setRoot(RecentPreviewHostFixture.emptyProjectChain());
+        PanelHost.setRoot(null);
+
+        assertTrue(operations.current().isEmpty(), "an empty view-context history must fail closed");
+    }
 }

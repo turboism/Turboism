@@ -31,11 +31,18 @@ final class RecentMenuChain {
 
     static final String PROJECT_APP_INSTANCE = "cubism.app-controller.instance";
     static final String CURRENT_DOCUMENT = "cubism.app-controller.current-document";
+    static final String VIEW_CONTEXT_HISTORY = "cubism.app-controller.view-context-history";
+    static final String VIEW_CONTEXT_DOCUMENT = "cubism.view-context.document";
     static final String DOCUMENT_FILE_CONTENT = "cubism.document.file-content";
     static final String FILE_CONTENT_FILE = "cubism.file-content.file";
 
-    static final Set<String> PROJECT_ALIASES =
-            Set.of(PROJECT_APP_INSTANCE, CURRENT_DOCUMENT, DOCUMENT_FILE_CONTENT, FILE_CONTENT_FILE);
+    static final Set<String> PROJECT_ALIASES = Set.of(
+            PROJECT_APP_INSTANCE,
+            CURRENT_DOCUMENT,
+            VIEW_CONTEXT_HISTORY,
+            VIEW_CONTEXT_DOCUMENT,
+            DOCUMENT_FILE_CONTENT,
+            FILE_CONTENT_FILE);
 
     static final Set<String> PANEL_ALIASES = Set.of(
             PANEL_APP_INSTANCE, PANEL_MAIN_FRAME, MAIN_FRAME_WINDOW, WINDOW_MENU_BAR, MENU_BAR_MENUS, MENU_SWING);
@@ -53,16 +60,41 @@ final class RecentMenuChain {
         return panelResolver.invoke(MAIN_FRAME_WINDOW, mainFrame);
     }
 
-    /** Current project file path via the verified project chain; null when unsaved/unavailable. */
+    /**
+     * Current project file path via the verified project chain; null when unsaved/unavailable.
+     *
+     * <p>The current-document member reads the focused view context, which reviewed 5.2
+     * hosts clear once focus leaves the document view (e.g. a title-bar click before
+     * File→Recent). In that case the verified view-context history still names the most
+     * recently activated document view, so its document is used instead — the same
+     * document the host considers current once focus returns. The fallback stays
+     * fail-closed: an empty history or an unresolvable document still yields null.</p>
+     */
     static Path currentProjectPath(final VerifiedMemberResolver projectResolver) {
         final Object app = projectResolver.invokeStatic(PROJECT_APP_INSTANCE);
-        final Object document = projectResolver.invoke(CURRENT_DOCUMENT, app);
+        Object document = app == null ? null : projectResolver.invoke(CURRENT_DOCUMENT, app);
+        if (document == null) document = lastActiveDocument(projectResolver, app);
         if (document == null) return null;
         final Object content = projectResolver.invoke(DOCUMENT_FILE_CONTENT, document);
         if (content == null) return null;
         final Object raw = projectResolver.invoke(FILE_CONTENT_FILE, content);
         if (!(raw instanceof File file)) return null;
         return normalizeExistingProject(file.toPath());
+    }
+
+    /**
+     * Document of the most recently activated view context. The host moves each
+     * activated context to the tail of its view-context history and removes closed
+     * documents' contexts, so the last element is the document the user last worked
+     * in even while no view holds focus. Null when the history is empty, is not the
+     * verified list shape, or its tail context is null.
+     */
+    private static Object lastActiveDocument(final VerifiedMemberResolver projectResolver, final Object app) {
+        if (app == null) return null;
+        final Object history = projectResolver.readField(VIEW_CONTEXT_HISTORY, app);
+        if (!(history instanceof List<?> contexts) || contexts.isEmpty()) return null;
+        final Object context = contexts.get(contexts.size() - 1);
+        return context == null ? null : projectResolver.invoke(VIEW_CONTEXT_DOCUMENT, context);
     }
 
     /** Paths of the existing files listed in the Recent menu, in menu order. */
