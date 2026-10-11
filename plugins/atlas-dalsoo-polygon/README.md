@@ -59,6 +59,12 @@ supported hosts (`5.2.00`–`5.3.04`).
 - **Interface mode:** `none`.
 - **Plugin dependencies:** None declared.
 
+<!-- compatibility:begin -->
+**Cubism Editor version support (generated):** all reviewed versions.
+- Polygon-aware atlas layout only on 5.2.03–5.3.03
+Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
+<!-- compatibility:end -->
+
 ## Honest limits
 
 - **Outline fallback.** When a host item exposes no usable contour, the item

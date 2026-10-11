@@ -44,6 +44,13 @@ Projects the active document's native Undo history into a floating semantic time
 - **Interface mode:** `embedded`.
 - **Plugin dependencies:** None declared.
 
+<!-- compatibility:begin -->
+**Cubism Editor version support (generated):** all reviewed versions.
+- Semantic history decoding only on 5.2.03–5.3.04
+- Embedded panel docking not on 5.0.00–5.0.06
+Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
+<!-- compatibility:end -->
+
 ## Install and enable
 
 This plugin is included in Turboism Full releases. Install a Full package, then enable or disable it in **Plugin Management**. Its native history actions remain subject to the exact Cubism version and active-document availability shown by the panel.

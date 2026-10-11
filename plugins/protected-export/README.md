@@ -30,6 +30,13 @@ interface: none
 - **Models:** Only eligible models are admitted. Models with unsupported families, non-stored keyforms, degenerate geometry, or missing pairs are vetoed with a blocker reason instead of partially exported.
 - **Interface mode:** `none` — the plugin drives the export through framework actions and reports through notifications and logs.
 
+<!-- compatibility:begin -->
+**Cubism Editor version support (generated):** 5.1.00–5.3.04.
+- Protected-export orchestration not on 5.0.00–5.0.06
+- cubism.export.ExportSettingsContributionService not on 5.0.00–5.0.06
+Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
+<!-- compatibility:end -->
+
 ## Install and enable
 
 This official plugin is a **store candidate**, not yet a published store listing. Until marketplace publication, install it through Turboism's official release packaging, then enable it in **Plugin Management**. Disable or uninstall it from the same window when the workflow is not needed.

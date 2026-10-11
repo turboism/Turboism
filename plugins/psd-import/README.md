@@ -43,6 +43,11 @@ An SDK-only migration shell for the legacy PSD Import feature. It is not a funct
 - **Interface mode:** `none`.
 - **Plugin dependencies:** None declared.
 
+<!-- compatibility:begin -->
+**Cubism Editor version support (generated):** all reviewed versions.
+Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
+<!-- compatibility:end -->
+
 ## Install and enable
 
 This is a **development-only** migration shell. It is not a marketplace listing, release plugin, or supported end-user installation. Do not install it expecting PSD import functionality. The separate PSD Clip Mask Import module is the current development-only workflow for importing confirmed PSD clipping relationships.
