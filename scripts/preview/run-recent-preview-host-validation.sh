@@ -39,8 +39,9 @@ if [ -z "$runner" ] || [ ! -f "$runner" ]; then
   exit 2
 fi
 
-# Ctrl+S may rewrite the task-scoped fixture copy, so --require-fixture-unchanged
-# is intentionally not passed; the runner still verifies the source fixture hash.
+# The probe saves a task-private working copy under turboism-home/state, never
+# the delivered fixture copy, so the runner's unconditional copied-fixture
+# invariant holds; --require-fixture-unchanged needs no separate opt-in.
 exec bash "$runner" \
   --name recent-preview \
   --version "$version" \
