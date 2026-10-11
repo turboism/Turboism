@@ -67,9 +67,7 @@ class VerifiedIncrementalUpdateInstallerTest {
         final String prior = System.getProperty(IncrementalUpdateBridge.ENABLE_PROPERTY);
         System.clearProperty(IncrementalUpdateBridge.ENABLE_PROPERTY);
         try {
-            Files.writeString(
-                    home.resolve("config.json"),
-                    """
+            Files.writeString(home.resolve("config.json"), """
                     {"format":"turboism.runtime.config","schemaVersion":1,"worktreeId":"inc-test","launcher":{"incrementalUpdate":true}}
                     """);
             final HookEnvironment env = HookEnvironment.builder()

@@ -67,9 +67,7 @@ class VerifiedModelUpdateSkipInstallerTest {
         final String prior = System.getProperty(ModelUpdateSkipBridge.ENABLE_PROPERTY);
         System.clearProperty(ModelUpdateSkipBridge.ENABLE_PROPERTY);
         try {
-            Files.writeString(
-                    home.resolve("config.json"),
-                    """
+            Files.writeString(home.resolve("config.json"), """
                     {"format":"turboism.runtime.config","schemaVersion":1,"worktreeId":"mus-test","launcher":{"modelUpdateSkip":false}}
                     """);
             final HookEnvironment env = HookEnvironment.builder()

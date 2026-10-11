@@ -164,13 +164,7 @@ public class ModelUpdateSkipBridgeTest {
                                 m(g("getLastModifiedTime", "()J", "lastModified"))))
                 .add(
                         N + "doc/modeling/CModelingEditMode_Main",
-                        emit(
-                                N + "doc/modeling/CModelingEditMode_Main",
-                                N + "doc/ACEditMode",
-                                null,
-                                f(),
-                                f(),
-                                m()))
+                        emit(N + "doc/modeling/CModelingEditMode_Main", N + "doc/ACEditMode", null, f(), f(), m()))
                 .add(
                         C + "CEViewContext",
                         emit(

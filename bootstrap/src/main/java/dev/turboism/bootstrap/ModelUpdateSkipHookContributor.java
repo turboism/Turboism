@@ -1,7 +1,5 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge;
-
 /** Contributor for the verified unchanged-frame model update skip optimization. */
 final class ModelUpdateSkipHookContributor extends NativeOptimizationHookContributor {
 
