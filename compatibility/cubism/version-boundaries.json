@@ -145,6 +145,18 @@
    "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03","5.2.00","5.2.01","5.2.02","5.2.03","5.3.00","5.3.01","5.3.02","5.3.03","5.3.04"],
    "reason": "Dead constant: the id exists in no reviewed jar.",
    "source": "feature-gap audit class (a)"
+  },
+  {
+   "id": "cubism.geometry.read",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03"],
+   "reason": "Core deformer/glue geometry read requires com/live2d/sdk/cubism/core/CubismDeformers and CubismGlues plus CubismModel.getDeformers/getGlues; both classes are absent from Live2DCubismCore.jar on all reviewed 5.0/5.1 builds and first appear in 5.2.00.",
+   "source": "bytecode review: Live2DCubismCore.jar class listing 5.0.00-5.1.03 vs 5.2.00"
+  },
+  {
+   "id": "cubism.modeling-tool.selection-brush",
+   "absentOn": ["5.0.00","5.0.01","5.0.02","5.0.03","5.0.04","5.0.05","5.0.06","5.1.00","5.1.01","5.1.02","5.1.03"],
+   "reason": "Selection-brush ingress requires com/live2d/cubism/CEAppCtrl.getCurrentViewContextChangedListeners()Ljava/util/ArrayList; and the currentViewContextChangedListeners field; both are absent on all reviewed 5.0/5.1 jars and first appear in 5.2.00 (the modeling-tool view listener API was added in 5.2).",
+   "source": "bytecode review: CEAppCtrl member listing 5.0.00-5.1.03 vs 5.2.00"
   }
  ]
 }
