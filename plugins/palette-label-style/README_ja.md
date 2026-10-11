@@ -76,6 +76,7 @@ interface: embedded
 | `turboism.cubism.model.write` | `application` | デフォーマタブ背景メニュー用にネイティブなデフォーマラベル色を書き込みます。 |
 | `turboism.cubism.model.read` | `application` | 選択されたパレットオブジェクトを解決し、モデルを開いた際に保存済みの色を再適用します。 |
 | `turboism.cubism.project.read` | `application` | プロジェクトごとのラベル色永続化のため、アクティブなプロジェクト ID を解決します。 |
+| `turboism.cubism.model.observe` | `application` | モデルのオープン/作成ライフサイクルコールバックを受け取り、保存済みのラベル色を再適用します。未宣言の場合、ライフサイクルレジストリがこれらをフィルタリングします。 |
 | `turboism.file.read` | `application` | 再適用のために、プロジェクトごとに保存されたラベル色を読み取ります。 |
 | `turboism.file.write` | `application` | 各適用またはクリアの後、プロジェクトごとのラベルテキスト/背景色を永続化します。 |
 

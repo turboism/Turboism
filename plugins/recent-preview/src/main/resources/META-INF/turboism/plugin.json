@@ -22,6 +22,11 @@
   "dependencies": [],
   "permissions": [
     {
+      "id": "turboism.cubism.model.observe",
+      "scope": "application",
+      "reason": "Receives ModelFileHooks open/save lifecycle callbacks that trigger bounded preview captures; undeclared, the lifecycle registry filters them out."
+    },
+    {
       "id": "turboism.cubism.recent-file.read",
       "scope": "application",
       "reason": "Lists the host Recent Files projection to key the preview cache by opaque file id."
