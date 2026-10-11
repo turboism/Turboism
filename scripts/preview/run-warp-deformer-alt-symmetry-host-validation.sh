@@ -42,9 +42,9 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   shift
 fi
 case "$version" in
-  5203|5302|5303) ;;
+  5200|5201|5202|5203|5300|5301|5302|5303|5304) ;;
   *)
-    echo "error: warp-deformer Alt-symmetry host validation supports only 5203, 5302 and 5303" >&2
+    echo "error: warp-deformer Alt-symmetry host validation requires a reviewed 5.2/5.3 version" >&2
     exit 2
     ;;
 esac
