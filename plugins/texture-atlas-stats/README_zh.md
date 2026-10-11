@@ -44,9 +44,9 @@ interface: swing
 
 <!-- compatibility:begin -->
 **Cubism Editor 版本支持（自动生成）：** 全部审核版本.
-- 原生纹理图集编辑器会话访问 仅 5.2.00–5.2.02, 5.3.00–5.3.04
-- cubism.textureatlas.TextureAtlasEditorPanel 仅 5.2.00–5.3.04
-- 原生纹理图集编辑器 UI 贡献 仅 5.2.00–5.3.04
+- 原生纹理图集编辑器会话访问 仅 5.2.00–5.2.02, 5.3.00–5.3.04（5.2.03 尚未适配；更早版本 Cubism 本身无此功能）
+- 图集编辑器面板 仅 5.2.00–5.3.04（更早版本 Cubism 本身无此功能）
+- 原生纹理图集编辑器 UI 贡献 仅 5.2.00–5.3.04（更早版本 Cubism 本身无此功能）
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->
 

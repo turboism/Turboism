@@ -44,7 +44,7 @@ Transfers parameter bindings from one selected ArtMesh or Deformer to multiple t
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions.
-- Editor model writes only on 5.2.00–5.3.04
+- Editor model writes only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 

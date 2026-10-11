@@ -45,7 +45,7 @@ interface: embedded
 
 <!-- compatibility:begin -->
 **Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
-- 履歴の意味的デコード のみ 5.2.03–5.3.04
+- 履歴の意味的デコード のみ 5.2.03–5.3.04（それ以前の Cubism バージョンには機能自体がない）
 - 埋め込みパネル docking 対象外 5.0.00–5.0.06
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
 <!-- compatibility:end -->
