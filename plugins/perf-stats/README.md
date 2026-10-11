@@ -44,7 +44,6 @@ Displays live Cubism CPU, FPS, JVM memory, and garbage-collection statistics.
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions.
-- Embedded panel docking not on 5.0.00–5.0.06
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 

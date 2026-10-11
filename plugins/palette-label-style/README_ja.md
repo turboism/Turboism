@@ -44,7 +44,6 @@ interface: embedded
 
 <!-- compatibility:begin -->
 **Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
-- エディタモデル書き込み のみ 5.2.00–5.3.04（5.0.00–5.1.03 は未確認）
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
 <!-- compatibility:end -->
 

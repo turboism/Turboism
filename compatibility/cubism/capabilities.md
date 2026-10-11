@@ -21,17 +21,17 @@ Legend: ✓ every capability in the group admitted · ◐ partially admitted · 
 | Edit session | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Editor UI surfaces | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Geometry read | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Editor history | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Editor history | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Integration bridges | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Mesh tool session | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Mesh tool session | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Mesh toolbar contribution | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Other model surfaces | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Model instance read | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Modeling custom tools | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Object hierarchy | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Parameters & bindings | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Other model surfaces | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Model instance read | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Modeling custom tools | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Object hierarchy | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Parameters & bindings | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Parameter key editing | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Parameter structure editing | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Parameter structure editing | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Parts & inspector | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Part/object editing | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Performance stats | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -39,11 +39,11 @@ Legend: ✓ every capability in the group admitted · ◐ partially admitted · 
 | Plugin UI surfaces | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Project read | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Protected export | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| PSD raw image | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| PSD raw image | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Selection editing | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Startup suppression | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Textures & raw images | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Texture atlas | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Texture atlas | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Undo revert | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Warp deformer mirror | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Workspace | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -53,40 +53,18 @@ Legend: ✓ every capability in the group admitted · ◐ partially admitted · 
 - `cubism.editor-model.auto-yure.read`: no verified record 5.0.00–5.0.06
 - `cubism.autobackup.backup` (Auto-backup creation): no verified record 5.0.00–5.0.06
 - `cubism.autobackup.settings`: no verified record 5.0.00–5.0.06
-- `cubism.editor-ui.embedded-panel` (Embedded panel docking): no verified record 5.0.00–5.0.06
 - `cubism.editor-ui.main-toolbar` (Main toolbar integration): no verified record 5.0.00–5.0.06
 - `cubism.editor-ui.top-menu` (Top menu integration): no verified record 5.0.00–5.0.06
 - `cubism.geometry.read` (Mesh geometry read): no verified record 5.0.00–5.1.03
-- `cubism.editor-history.semantic-read` (Semantic history decoding): no verified record 5.0.00–5.1.03
 - `cubism.integration.edit-api-bridge.dispatch`: no verified record 5.0.00–5.1.01
 - `cubism.integration.external-app-settings.edit-toggle` (External-app editing toggle): no verified record 5.0.00–5.0.06
-- `cubism.mesh-tool.session` (Mesh-edit tool session): no verified record 5.0.00–5.1.03
+- `cubism.mesh-tool.session` (Mesh-edit tool session): no verified record 5.0.00–5.2.02
 - `ui.mesh-toolbar.contribute` (Mesh toolbar contribution): no verified record 5.0.00–5.0.06
 - `ui.mesh-toolbar.contribute` (Mesh toolbar contribution): verified but narrowed by contract/pins (adaptation pending) 5.1.00–5.1.03
-- `cubism.editor-model.default-keyform-lock.write`: no verified record 5.0.00–5.1.03
-- `cubism.editor-model.native-control-appearance.write`: no verified record 5.0.00–5.1.03
-- `cubism.editor-model.write` (Editor model writes): no verified record 5.0.00–5.1.03
-- `cubism.editor-model.model-instance.read` (Live model-instance read): no verified record 5.0.00–5.1.03
-- `cubism.modeling-tool.selection-brush` (Modeling selection brush): no verified record 5.0.00–5.1.03
-- `cubism.editor-model.object-hierarchy.apply-deformer-to-children`: no verified record 5.0.00–5.1.03
-- `cubism.editor-model.parameter-combined.write`: no verified record 5.0.00–5.1.03
-- `cubism.editor-model.parameter-definition.write`: no verified record 5.0.00–5.1.03
-- `cubism.editor-model.parameter-structure.write` (Parameter structure writes): no verified record 5.0.00–5.1.03
-- `cubism.editor-model.edit.parameter-structure.add-parameter`: no verified record 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.add-parameter-group`: no verified record 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.delete-parameter`: no verified record 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.delete-parameter-group`: no verified record 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.edit-parameter`: no verified record 5.0.00–5.1.03
-- `cubism.editor-model.edit.parameter-structure.edit-parameter-group`: no verified record 5.0.00–5.1.01
-- `cubism.editor-model.edit.parameter-structure.move-parameter`: no verified record 5.0.00–5.1.03
-- `cubism.editor-model.edit.parameter-structure.move-parameter-group`: no verified record 5.0.00–5.1.01
+- `cubism.modeling-tool.selection-brush` (Modeling selection brush): no verified record 5.0.00–5.2.02
 - `cubism.editor-model.part-inspector.write`: no verified record 5.0.00–5.2.03
 - `cubism.editor-model.part-opacity.write`: no verified record 5.0.00–5.2.03
 - `cubism.protected-export.orchestration` (Protected-export orchestration): no verified record 5.0.00–5.0.06
-- `cubism.editor-model.psd.raw-image.export`: no verified record 5.0.00–5.1.03
-- `cubism.editor-model.psd.raw-image.replace` (PSD raw-image replace): no verified record 5.0.00–5.1.03
-- `cubism.texture-atlas.auto-layout-hook`: no verified record 5.0.00–5.1.03
-- `cubism.texture-atlas.native-layout-invocation`: no verified record 5.0.00–5.1.03
 
 ## SDK surfaces with version restrictions
 
