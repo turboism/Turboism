@@ -44,8 +44,11 @@ final class LazyTriangulationEdgePreparation {
     private static final String BASELINE_52 = "d0fac0cd2c2092db163db7b78bffd011713f2bef17279b08ab088af4e7d27d92";
     private static final String BASELINE_53 = "40d0754026a7a2fb7c491e95144b9d8a1a605d7aee44579cb20bb2363962f8e6";
     private static final String FACE_53 = "91963e179b498e470b9d474a27b876dd4a5a7ee714941cb530a7cd5202924a88";
+    private static final String FACE_52 = "2c91d3fe923c5e013df09973356487db7f25297dcc109cf942a8c859d4359d51";
     private static final String HASH_PATCHED_FACE_53 =
             "24a55d75f73956454aa5df6d7b9f8e15b30643bc41480632527655d11936d26a";
+    private static final String HASH_PATCHED_FACE_52 =
+            "ec88bfa1fa61f41e2998d53588faa2d680c4b1cafd6d4e87ac7e06d61ef18f39";
 
     private LazyTriangulationEdgePreparation() {}
 
@@ -123,7 +126,7 @@ final class LazyTriangulationEdgePreparation {
                         ? "db8f5480f42194291b900032ab570b585abef98f6c21080d913609d7b94abbaa"
                         : "0df5034248eaf674cc1bce9e836c440d03c9a68fefdcf1330c8fc07f001136f9");
         values.put(T, "57f673e5133cbbc57f068f4822ec3c0df9924054aacbda27c38c85eead057299");
-        values.put(L, family52 ? "2c91d3fe923c5e013df09973356487db7f25297dcc109cf942a8c859d4359d51" : FACE_53);
+        values.put(L, family52 ? FACE_52 : FACE_53);
         values.put(
                 R,
                 family52
@@ -142,9 +145,10 @@ final class LazyTriangulationEdgePreparation {
             return TriangleListEdgeBuilderPatcher.dependencyFingerprint(definition);
         }
         String observed = TriangulationDefinitionFingerprint.runtimeOf(definition);
-        // Exact whole-definition alternative produced by the existing reviewed hash patch.
+        // Exact whole-definition alternatives produced by the existing reviewed hash patch.
         // No member is omitted: further hash/getter/field changes still fail the comparison.
-        return observed.equals(HASH_PATCHED_FACE_53) ? FACE_53 : observed;
+        if (observed.equals(HASH_PATCHED_FACE_53)) return FACE_53;
+        return observed.equals(HASH_PATCHED_FACE_52) ? FACE_52 : observed;
     }
 
     private record Plan(

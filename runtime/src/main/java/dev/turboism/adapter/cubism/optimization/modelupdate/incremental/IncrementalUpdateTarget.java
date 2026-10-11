@@ -55,12 +55,47 @@ public record IncrementalUpdateTarget(
     /** Obfuscated {@code CArtMeshForm} owner of the mesh interpolation body. */
     public static final String MESH_FORM = "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshForm";
 
+    private static final IncrementalUpdateTarget CUBISM_5200 = new IncrementalUpdateTarget(
+            ReviewedHostArtifacts.CUBISM_5_2_00,
+            "5.2.00",
+            "com/live2d/cubism/view/at",
+            "com/live2d/cubism/doc/model/ay",
+            "com/live2d/cubism/view/context/bI");
+
+    private static final IncrementalUpdateTarget CUBISM_5201 = new IncrementalUpdateTarget(
+            ReviewedHostArtifacts.CUBISM_5_2_01,
+            "5.2.01",
+            "com/live2d/cubism/view/at",
+            "com/live2d/cubism/doc/model/ay",
+            "com/live2d/cubism/view/context/bI");
+
+    private static final IncrementalUpdateTarget CUBISM_5202 = new IncrementalUpdateTarget(
+            ReviewedHostArtifacts.CUBISM_5_2_02,
+            "5.2.02",
+            "com/live2d/cubism/view/at",
+            "com/live2d/cubism/doc/model/ay",
+            "com/live2d/cubism/view/context/bI");
+
     private static final IncrementalUpdateTarget CUBISM_5203 = new IncrementalUpdateTarget(
             ReviewedHostArtifacts.CUBISM_5_2_03,
             "5.2.03",
             "com/live2d/cubism/view/au",
             "com/live2d/cubism/doc/model/ay",
             "com/live2d/cubism/view/context/bL");
+
+    private static final IncrementalUpdateTarget CUBISM_5300 = new IncrementalUpdateTarget(
+            ReviewedHostArtifacts.CUBISM_5_3_00,
+            "5.3.00",
+            "com/live2d/cubism/view/ay",
+            "com/live2d/cubism/doc/model/ax",
+            "com/live2d/cubism/view/context/bK");
+
+    private static final IncrementalUpdateTarget CUBISM_5301 = new IncrementalUpdateTarget(
+            ReviewedHostArtifacts.CUBISM_5_3_01,
+            "5.3.01",
+            "com/live2d/cubism/view/ay",
+            "com/live2d/cubism/doc/model/ax",
+            "com/live2d/cubism/view/context/bK");
 
     private static final IncrementalUpdateTarget CUBISM_5302 = new IncrementalUpdateTarget(
             ReviewedHostArtifacts.CUBISM_5_3_02,
@@ -76,18 +111,34 @@ public record IncrementalUpdateTarget(
             "com/live2d/cubism/doc/model/ax",
             "com/live2d/cubism/view/context/bL");
 
+    private static final IncrementalUpdateTarget CUBISM_5304 = new IncrementalUpdateTarget(
+            ReviewedHostArtifacts.CUBISM_5_3_04,
+            "5.3.04",
+            "com/live2d/cubism/view/ay",
+            "com/live2d/cubism/doc/model/az",
+            "com/live2d/cubism/view/context/bM");
+
     /** The reviewed target for a host artifact digest, or empty when unsupported. */
     public static Optional<IncrementalUpdateTarget> of(final HostArtifactDigest digest) {
         Objects.requireNonNull(digest, "digest");
-        if (CUBISM_5203.digest().equals(digest)) return Optional.of(CUBISM_5203);
-        if (CUBISM_5302.digest().equals(digest)) return Optional.of(CUBISM_5302);
-        if (CUBISM_5303.digest().equals(digest)) return Optional.of(CUBISM_5303);
+        for (final IncrementalUpdateTarget target : all()) {
+            if (target.digest().equals(digest)) return Optional.of(target);
+        }
         return Optional.empty();
     }
 
     /** Every reviewed target, oldest supported version first. */
     public static List<IncrementalUpdateTarget> all() {
-        return List.of(CUBISM_5203, CUBISM_5302, CUBISM_5303);
+        return List.of(
+                CUBISM_5200,
+                CUBISM_5201,
+                CUBISM_5202,
+                CUBISM_5203,
+                CUBISM_5300,
+                CUBISM_5301,
+                CUBISM_5302,
+                CUBISM_5303,
+                CUBISM_5304);
     }
 
     /**

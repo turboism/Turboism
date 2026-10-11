@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -537,9 +538,8 @@ final class TriangulationEdgeIndexExactHostShapeTest {
         byte[] original = readEntry(
                 legacyEvidence().resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar"),
                 MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME + ".class");
-        assertEquals(
-                MeshTriangulationHashTransformer.REVIEWED_CLASS_SHA256,
-                MeshTriangulationHashTransformer.sha256(original));
+        assertTrue(MeshTriangulationHashTransformer.REVIEWED_CLASS_SHA256S.contains(
+                MeshTriangulationHashTransformer.sha256(original)));
         byte[] patched = new MeshTriangulationHashTransformer()
                 .transform(null, MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, original);
         assertNotNull(patched);

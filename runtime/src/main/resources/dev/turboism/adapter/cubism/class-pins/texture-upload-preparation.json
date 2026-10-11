@@ -1,11 +1,26 @@
 {
-  "5.3.02": {
-    "com/live2d/graphics3d/shader/A": "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a"
+  "5.2.00": {
+    "com/live2d/graphics3d/shader/y": "fe103c4a7eaec57261eaefcbdf3c02d489a97d25422db69409e68ce6c22154fc"
+  },
+  "5.2.01": {
+    "com/live2d/graphics3d/shader/y": "fe103c4a7eaec57261eaefcbdf3c02d489a97d25422db69409e68ce6c22154fc"
+  },
+  "5.2.02": {
+    "com/live2d/graphics3d/shader/y": "fe103c4a7eaec57261eaefcbdf3c02d489a97d25422db69409e68ce6c22154fc"
+  },
+  "5.2.03": {
+    "com/live2d/graphics3d/shader/y": "fe103c4a7eaec57261eaefcbdf3c02d489a97d25422db69409e68ce6c22154fc"
   },
   "5.3.00": {
     "com/live2d/graphics3d/shader/A": "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a"
   },
   "5.3.01": {
+    "com/live2d/graphics3d/shader/A": "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a"
+  },
+  "5.3.02": {
+    "com/live2d/graphics3d/shader/A": "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a"
+  },
+  "5.3.03": {
     "com/live2d/graphics3d/shader/A": "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a"
   },
   "5.3.04": {
