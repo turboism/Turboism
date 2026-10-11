@@ -15,6 +15,7 @@ import dev.turboism.sdk.storage.StorageRoot;
 import dev.turboism.sdk.storage.StorageWriteResult;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Frame;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Robot;
@@ -24,13 +25,19 @@ import java.awt.event.KeyEvent;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -79,6 +86,13 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private static final long MENU_OPEN_SETTLE_MILLIS = 300L;
     private static final long MENU_OPEN_RETRY_GAP_MILLIS = 500L;
     private static final int MENU_OPEN_ATTEMPTS = 4;
+    private static final long DOCUMENT_OPEN_DEADLINE_MILLIS = 120_000L;
+    private static final long DOCUMENT_CLOSE_DEADLINE_MILLIS = 30_000L;
+    private static final long WINDOW_ACTIVATE_POLL_MILLIS = 10_000L;
+    private static final int TITLE_BAR_CLICK_OFFSET = 15;
+    private static final String SCRATCH_DIRECTORY = "work";
+    private static final String SCRATCH_NAME_SUFFIX = "-scratch";
+    private static final String MODELING_DOCUMENT_CLASS = "com.live2d.cubism.doc.modeling.CModelingDocument";
     private static final Set<String> SAVE_LABELS = Set.of("save", "保存", "上書き保存", "저장");
     private static final long ROW_SETTLE_MILLIS = 1_500L;
     private static final long SDK_SAVE_ESCALATION_MILLIS = 5_000L;
@@ -105,15 +119,17 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private volatile boolean resultPublished;
     private volatile String hostVersion;
     private volatile String fixtureName = "fixture.cmo3";
+    private volatile String workingName = "fixture-scratch.cmo3";
     private volatile String runId = "unknown";
     private volatile int recentCount;
     private volatile boolean idOpaque;
     private volatile boolean pathAbsolute;
-    private volatile boolean pathEndsWithFixture;
+    private volatile boolean pathEndsWithWorking;
     private volatile int directCaptureWidth;
     private volatile int directCaptureHeight;
     private volatile String directPngSha256 = "";
     private volatile int directPngColors;
+    private volatile boolean scratchOpened;
     private volatile boolean savedEventMatched;
     private volatile boolean productionCachePng;
     private volatile boolean productionIndex;
@@ -122,7 +138,8 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private final AtomicReference<RecentFileId> recentId = new AtomicReference<>();
     private final AtomicReference<String> savedContentName = new AtomicReference<>();
     private volatile String expectedSavedContentId;
-    private volatile String fixturePath;
+    private volatile Path workingPath;
+    private volatile Object hostApp;
 
     @Override
     public void init(final PluginContext context) {
@@ -158,7 +175,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         }
         final String expected = expectedSavedContentId;
         final boolean matched =
-                expected != null ? expected.equals(model.contentId()) : matchesFixtureName(model.name(), fixtureName);
+                expected != null ? expected.equals(model.contentId()) : matchesFixtureName(model.name(), workingName);
         if (matched) {
             savedContentName.compareAndSet(null, model.name());
         }
@@ -174,8 +191,10 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             phase = "config";
             hostVersion = System.getProperty("turboism.validation.hostVersion");
             fixtureName = System.getProperty("turboism.validation.fixtureName", "fixture.cmo3");
+            workingName = scratchName(fixtureName);
             runId = System.getProperty("turboism.validation.runId", "unknown");
             hostCloseRoute(hostVersion);
+            openScratchDocument();
             validateRecentList();
             final RecentFileId id = recentId.get();
             validateDirectCapture(id);
@@ -203,37 +222,237 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         }
     }
 
+    // --- phase (a0): task-private scratch document --------------------------------
+
+    /**
+     * Redirects every later phase at a task-private working copy: the runner
+     * copies the fixture under the task directory and the host opens it at
+     * launch, so a real save would rewrite that copied fixture and trip the
+     * runner's unconditional copied-fixture-unchanged invariant. The probe
+     * copies the delivered fixture into the plugin state directory, closes the
+     * launch document and reopens the copy through the same
+     * {@code CEAppCtrl.command_open(File, boolean)} entry the launch argument
+     * and the reviewed mcp save/reopen flow map to (async=false, the synchronous
+     * open the mcp persistence probe drives on these exact hosts). The working
+     * copy carries a distinct file name so the recent-list entry, the
+     * File->Recent menu item and the active-document leaf all match
+     * unambiguously; paths are never logged.
+     */
+    private void openScratchDocument() throws Exception {
+        phase = "scratch-open";
+        final String launchPath = awaitRecentEntry(fixtureName)
+                .path()
+                .orElseThrow(() -> new IllegalStateException("recent file summary carries no path"));
+        final Path fixture = Path.of(launchPath);
+        final Path scratchDirectory = context.paths().stateDir().resolve(SCRATCH_DIRECTORY);
+        Files.createDirectories(scratchDirectory);
+        final Path scratch = scratchDirectory.resolve(workingName);
+        if (scratch.toAbsolutePath().normalize().equals(fixture.toAbsolutePath().normalize())) {
+            throw new IllegalStateException("scratch path must differ from the delivered fixture path");
+        }
+        Files.copy(fixture, scratch, StandardCopyOption.REPLACE_EXISTING);
+        awaitOwnedDocument(fixture, "launch fixture");
+        closeOwnedDocument(fixture);
+        commandOpen(scratch);
+        workingPath = scratch;
+        scratchOpened = true;
+        context.logger().info("Recent preview scratch document opened workingName=" + workingName);
+    }
+
+    /** The sibling working name derived from the delivered fixture name. */
+    static String scratchName(final String fixtureName) {
+        final String base = fixtureName == null || fixtureName.isBlank() ? "fixture.cmo3" : fixtureName;
+        final int dot = base.lastIndexOf('.');
+        return dot < 0
+                ? base + SCRATCH_NAME_SUFFIX
+                : base.substring(0, dot) + SCRATCH_NAME_SUFFIX + base.substring(dot);
+    }
+
+    /**
+     * Whether the owned file is the active document with a usable model. Polls
+     * tolerate a busy EDT (the host load keeps it occupied) until the caller's
+     * deadline cuts the wait.
+     */
+    private boolean documentReady(final Path expected) {
+        try {
+            return Boolean.TRUE.equals(onEdt(() -> ownedFile(currentDocument(), expected)
+                    && context.cubism().activeModel().isPresent()));
+        } catch (Exception busy) {
+            return false;
+        }
+    }
+
+    private void awaitOwnedDocument(final Path expected, final String stage) throws Exception {
+        final long deadline = System.nanoTime() + DOCUMENT_OPEN_DEADLINE_MILLIS * 1_000_000L;
+        while (System.nanoTime() < deadline) {
+            if (documentReady(expected)) return;
+            Thread.sleep(POLL_MILLIS);
+        }
+        throw new IllegalStateException("the " + stage + " document did not become the ready active document");
+    }
+
+    /**
+     * Closes the launch document through the reviewed native
+     * {@code closeFile(boolean, boolean)} call, then requires the host to reach
+     * the no-document state before the scratch open (the same ordering the mcp
+     * persistence flow relies on).
+     */
+    private void closeOwnedDocument(final Path expected) throws Exception {
+        onEdt(
+                () -> {
+                    final Object document = currentDocument();
+                    if (!ownedFile(document, expected)) {
+                        throw new IllegalStateException("refusing to close a different active document");
+                    }
+                    final Object closed = invoke(
+                            document.getClass().getMethod("closeFile", boolean.class, boolean.class),
+                            document,
+                            false,
+                            false);
+                    if (!Boolean.TRUE.equals(closed)) {
+                        throw new IllegalStateException("native task document close failed");
+                    }
+                    return null;
+                },
+                DOCUMENT_CLOSE_DEADLINE_MILLIS);
+        final long deadline = System.nanoTime() + DOCUMENT_CLOSE_DEADLINE_MILLIS * 1_000_000L;
+        while (System.nanoTime() < deadline) {
+            if (noActiveDocument()) return;
+            Thread.sleep(POLL_MILLIS);
+        }
+        throw new IllegalStateException("the launch document did not close");
+    }
+
+    private boolean noActiveDocument() {
+        try {
+            return Boolean.TRUE.equals(onEdt(() -> currentDocument() == null));
+        } catch (Exception busy) {
+            return false;
+        }
+    }
+
+    private void commandOpen(final Path scratch) throws Exception {
+        onEdt(
+                () -> {
+                    if (currentDocument() != null) {
+                        throw new IllegalStateException("cannot open while another document is active");
+                    }
+                    invoke(
+                            hostApp().getClass().getMethod("command_open", File.class, boolean.class),
+                            hostApp(),
+                            scratch.toFile(),
+                            false);
+                    return null;
+                },
+                DOCUMENT_OPEN_DEADLINE_MILLIS);
+        awaitOwnedDocument(scratch, "scratch");
+    }
+
+    private Object currentDocument() throws Exception {
+        return invoke(hostApp().getClass().getMethod("getCurrentDoc"), hostApp());
+    }
+
+    /**
+     * The exact host application instance through {@code CEAppCtrl}: the same
+     * loader-walking lookup the mcp persistence probe uses, with the clipmask
+     * probe's {@code _instance} field fallback for hosts lacking the synthetic
+     * companion accessor.
+     */
+    private Object hostApp() throws Exception {
+        Object app = hostApp;
+        if (app == null) {
+            final Set<ClassLoader> loaders = new LinkedHashSet<>();
+            for (ClassLoader loader = getClass().getClassLoader(); loader != null; loader = loader.getParent()) {
+                loaders.add(loader);
+            }
+            loaders.add(ClassLoader.getSystemClassLoader());
+            for (Frame frame : Frame.getFrames()) {
+                loaders.add(frame.getClass().getClassLoader());
+            }
+            Class<?> appClass = null;
+            for (ClassLoader loader : loaders) {
+                if (loader == null) continue;
+                try {
+                    appClass = Class.forName("com.live2d.cubism.CEAppCtrl", false, loader);
+                    break;
+                } catch (ClassNotFoundException absent) {
+                    // Try another already-present host loader.
+                }
+            }
+            if (appClass == null) {
+                throw new IllegalStateException("exact host application class is unavailable");
+            }
+            try {
+                app = invoke(appClass.getMethod("access$get_instance$cp"), null);
+            } catch (NoSuchMethodException missingAccessor) {
+                final Field instance = appClass.getDeclaredField("_instance");
+                instance.setAccessible(true);
+                app = instance.get(null);
+            }
+            if (app == null) {
+                throw new IllegalStateException("exact host application instance is unavailable");
+            }
+            hostApp = app;
+        }
+        return app;
+    }
+
+    /** The same owned-file identity check as McpTexturePersistenceProbe.requireFile. */
+    private static boolean ownedFile(final Object document, final Path expected) throws Exception {
+        if (document == null
+                || !MODELING_DOCUMENT_CLASS.equals(document.getClass().getName())) {
+            return false;
+        }
+        final Object file = invoke(document.getClass().getMethod("getFile"), document);
+        try {
+            return file instanceof File && Files.isSameFile(((File) file).toPath(), expected);
+        } catch (java.io.IOException unreadable) {
+            return false;
+        }
+    }
+
+    /** Reflection invoke that unwraps the real cause, matching the mcp probe. */
+    private static Object invoke(final Method method, final Object target, final Object... arguments) throws Exception {
+        try {
+            return method.invoke(target, arguments);
+        } catch (InvocationTargetException failure) {
+            final Throwable cause = failure.getCause();
+            if (cause instanceof Exception exception) throw exception;
+            if (cause instanceof Error error) throw error;
+            throw failure;
+        }
+    }
+
     // --- phase (a): recent list ------------------------------------------------
 
     private void validateRecentList() throws Exception {
         phase = "recent-list";
-        final RecentFileSummary fixture = awaitRecentListFixture();
+        final RecentFileSummary working = awaitRecentEntry(workingName);
         recentCount = context.services()
                 .find(RecentFileService.class)
                 .orElse(RecentFileService.unavailable())
                 .list()
                 .size();
-        final String idValue = fixture.id().value();
+        final String idValue = working.id().value();
         idOpaque = isOpaqueHexId(idValue);
         if (!idOpaque) {
             throw new IllegalStateException("recent file id is not opaque 64-lowercase-hex");
         }
         final String path =
-                fixture.path().orElseThrow(() -> new IllegalStateException("recent file summary carries no path"));
+                working.path().orElseThrow(() -> new IllegalStateException("recent file summary carries no path"));
         pathAbsolute = isAbsolutePath(path);
-        pathEndsWithFixture = endsWithSeparator(path, fixtureName);
-        if (!pathAbsolute || !pathEndsWithFixture) {
-            throw new IllegalStateException("recent file path is not absolute or does not end with the fixture name");
+        pathEndsWithWorking = endsWithSeparator(path, workingName);
+        if (!pathAbsolute || !pathEndsWithWorking) {
+            throw new IllegalStateException("recent file path is not absolute or does not end with the working name");
         }
-        recentId.set(fixture.id());
-        fixturePath = path;
+        recentId.set(working.id());
         context.logger()
-                .info("Recent preview recent-list displayName=" + fixture.displayName()
+                .info("Recent preview recent-list displayName=" + working.displayName()
                         + " idOpaque=" + idOpaque + " pathAbsolute=" + pathAbsolute
-                        + " pathEndsWithFixture=" + pathEndsWithFixture + " recentCount=" + recentCount);
+                        + " pathEndsWithWorking=" + pathEndsWithWorking + " recentCount=" + recentCount);
     }
 
-    private RecentFileSummary awaitRecentListFixture() throws Exception {
+    private RecentFileSummary awaitRecentEntry(final String displayName) throws Exception {
         final long deadline = System.nanoTime() + RECENT_LIST_DEADLINE_MILLIS * 1_000_000L;
         while (System.nanoTime() < deadline) {
             final List<RecentFileSummary> files = context.services()
@@ -241,13 +460,13 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                     .orElse(RecentFileService.unavailable())
                     .list();
             for (RecentFileSummary file : files) {
-                if (fixtureName.equals(file.displayName())) {
+                if (displayName.equals(file.displayName())) {
                     return file;
                 }
             }
             Thread.sleep(POLL_MILLIS);
         }
-        throw new IllegalStateException("recent-file list did not expose the fixture entry");
+        throw new IllegalStateException("recent-file list did not expose the " + displayName + " entry");
     }
 
     // --- phase (b): direct capture ---------------------------------------------
@@ -327,12 +546,12 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
 
     private void validateSavedEvent(final RecentFileId id) throws Exception {
         phase = "save";
-        if (fixturePath == null) {
-            throw new IllegalStateException("recent file path was not captured before the save phase");
+        final Path working = workingPath;
+        if (working == null) {
+            throw new IllegalStateException("the scratch working path was not captured before the save phase");
         }
-        final Path fixture = Path.of(fixturePath);
-        final long baselineModifiedMillis = Files.getLastModifiedTime(fixture).toMillis();
-        final long baselineSize = Files.size(fixture);
+        final long baselineModifiedMillis = Files.getLastModifiedTime(working).toMillis();
+        final long baselineSize = Files.size(working);
         final Window target = onEdt(() -> selectHostWindow(Window.getWindows()));
         onEdt(() -> {
             target.toFront();
@@ -340,13 +559,13 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             return null;
         });
         recoverSaveFocus(target);
-        ensureFixtureDocumentActive(target);
+        ensureWorkingDocumentActive(target);
         expectedSavedContentId = context.cubism()
                 .activeDocument()
                 .flatMap(dev.turboism.sdk.cubism.DocumentSnapshot::contentId)
                 .orElse(null);
         dirtyDocumentForSave();
-        final String savePath = triggerMenuSave(fixture, baselineModifiedMillis, baselineSize);
+        final String savePath = triggerMenuSave(working, baselineModifiedMillis, baselineSize);
         final long deadline = System.nanoTime() + SAVED_EVENT_DEADLINE_MILLIS * 1_000_000L;
         boolean fileModified = false;
         while (System.nanoTime() < deadline) {
@@ -354,7 +573,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                 savedEventMatched = true;
                 break;
             }
-            if (!fileModified && fileModifiedSince(fixture, baselineModifiedMillis, baselineSize)) {
+            if (!fileModified && fileModifiedSince(working, baselineModifiedMillis, baselineSize)) {
                 fileModified = true;
             }
             Thread.sleep(POLL_MILLIS);
@@ -365,8 +584,8 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             phase = failurePhase;
             throw new IllegalStateException(
                     "save-event".equals(failurePhase)
-                            ? "fixture file was saved but ModelFileHooks.onModelSaved did not fire"
-                            : "typed ModelFileHooks.onModelSaved was not observed and the fixture file was not modified");
+                            ? "working file was saved but ModelFileHooks.onModelSaved did not fire"
+                            : "typed ModelFileHooks.onModelSaved was not observed and the working file was not modified");
         }
         context.logger().info("Recent preview saved event matched=" + savedEventMatched);
     }
@@ -440,12 +659,12 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     }
 
     /**
-     * Whether the active document is the task file. The snapshot's relativePath
-     * leaf is the sanitized backing-file name ({@code documents/<id>/<fileName>}),
-     * so comparing it against the fixture name detects a session-restored
-     * document that reopened after the launch-arg file and took the active slot.
+     * Whether the active document is the task working file. The snapshot's
+     * relativePath leaf is the sanitized backing-file name
+     * ({@code documents/<id>/<fileName>}), so comparing it against the working
+     * name detects a session-restored document that took the active slot.
      */
-    private boolean activeDocumentIsFixture() {
+    private boolean activeDocumentIsWorking() {
         try {
             return context.cubism()
                     .activeDocument()
@@ -453,7 +672,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                         final String relativePath = document.relativePath();
                         final int slash = relativePath.lastIndexOf('/');
                         final String leaf = slash >= 0 ? relativePath.substring(slash + 1) : relativePath;
-                        return fixtureName.equals(leaf);
+                        return workingName.equals(leaf);
                     })
                     .orElse(false);
         } catch (RuntimeException unavailable) {
@@ -462,15 +681,15 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     }
 
     /**
-     * Session restore can reopen an earlier document after the launch-arg file,
-     * leaving it active — the save below would then dirty and save that document
-     * instead of the task file (observed on 5.2.03: a stale recent entry's file
-     * captured the whole save). Re-selecting the fixture entry in File -> Recent
-     * through the real menu path focuses its already-open document.
+     * Session restore can reopen an earlier document and leave it active — the
+     * save below would then dirty and save that document instead of the working
+     * file (observed on 5.2.03: a stale recent entry's file captured the whole
+     * save). Re-selecting the working entry in File -> Recent through the real
+     * menu path focuses its already-open document.
      */
-    private void ensureFixtureDocumentActive(final Window host) throws Exception {
-        if (activeDocumentIsFixture()) return;
-        context.logger().info("Recent preview save active-document=mismatch; activating fixture via recent menu");
+    private void ensureWorkingDocumentActive(final Window host) throws Exception {
+        if (activeDocumentIsWorking()) return;
+        context.logger().info("Recent preview save active-document=mismatch; activating working via recent menu");
         final Robot robot = new Robot();
         if (!ensureFileMenuOpen(robot, host)) {
             openFileMenu(robot, host);
@@ -487,18 +706,18 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                 });
             }
         }
-        final Point item = awaitMenuPoint(robot, this::fixtureItemPoint, ITEM_DEADLINE_MILLIS);
+        final Point item = awaitMenuPoint(robot, this::workingItemPoint, ITEM_DEADLINE_MILLIS);
         clickAt(robot, item);
         final long deadline = System.nanoTime() + DOCUMENT_ACTIVATE_MILLIS * 1_000_000L;
         while (System.nanoTime() < deadline) {
-            if (activeDocumentIsFixture()) {
-                context.logger().info("Recent preview save active-document=fixture");
+            if (activeDocumentIsWorking()) {
+                context.logger().info("Recent preview save active-document=working");
                 return;
             }
             robot.waitForIdle();
             Thread.sleep(POLL_MILLIS);
         }
-        throw new IllegalStateException("active document is not the fixture document after recent-menu activation");
+        throw new IllegalStateException("active document is not the working document after recent-menu activation");
     }
 
     /**
@@ -854,7 +1073,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private void validatePopup(final RecentFileId id) throws Exception {
         phase = "popup";
         final Robot robot = new Robot();
-        final Window host = onEdt(() -> selectHostWindow(Window.getWindows()));
+        final Window host = onEdt(() -> selectMenuHostWindow(Window.getWindows()));
         onEdt(() -> {
             host.toFront();
             host.requestFocus();
@@ -862,6 +1081,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         });
         robot.waitForIdle();
         Thread.sleep(600L);
+        activateWindowForMenus(robot, host);
 
         if (!ensureFileMenuOpen(robot, host)) {
             openFileMenu(robot, host);
@@ -870,7 +1090,9 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         try {
             recent = awaitMenuPoint(robot, this::recentMenuPoint, SUBMENU_DEADLINE_MILLIS);
         } catch (IllegalStateException missing) {
-            context.logger().info("Recent preview popup menu items: " + onEdt(this::menuItemDescriptors));
+            context.logger()
+                    .info("Recent preview popup menu items: " + onEdt(this::menuItemDescriptors) + " windows="
+                            + onEdt(this::windowDiagnostics));
             throw missing;
         }
         moveTo(robot, recent);
@@ -889,9 +1111,11 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         }
         final Point item;
         try {
-            item = awaitMenuPoint(robot, this::fixtureItemPoint, ITEM_DEADLINE_MILLIS);
+            item = awaitMenuPoint(robot, this::workingItemPoint, ITEM_DEADLINE_MILLIS);
         } catch (IllegalStateException missing) {
-            context.logger().info("Recent preview popup menu items: " + onEdt(this::menuItemDescriptors));
+            context.logger()
+                    .info("Recent preview popup menu items: " + onEdt(this::menuItemDescriptors) + " windows="
+                            + onEdt(this::windowDiagnostics));
             throw missing;
         }
         moveTo(robot, item);
@@ -909,7 +1133,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             }
             if (System.nanoTime() >= nextEscalation) {
                 escalations++;
-                selectFixtureItemForPreview();
+                selectWorkingItemForPreview();
                 nextEscalation = System.nanoTime() + POPUP_ESCALATE_RETRY_MILLIS * 1_000_000L;
             }
             Thread.sleep(POLL_MILLIS);
@@ -926,6 +1150,102 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
 
     private static final long SUBMENU_DEADLINE_MILLIS = 30_000L;
     private static final long ITEM_DEADLINE_MILLIS = 30_000L;
+
+    /**
+     * Activates the host window for menu work: a real click on the title bar —
+     * the gesture a window manager always treats as raise+focus — then a bounded
+     * poll for {@code isActive}. The scratch-opened window never takes OS
+     * activation from {@code toFront}/{@code requestFocus} hints under Wine,
+     * which lets the host LAF collapse posted popups before the Recent submenu
+     * can be located. Falls back to the save phase's content-center click when
+     * the title click leaves the window inactive; callers proceed either way
+     * because real menu clicks have succeeded on never-active windows.
+     */
+    private void activateWindowForMenus(final Robot robot, final Window host) throws Exception {
+        final Point titlePoint = onEdt(() -> {
+            final Point topLeft = host.getLocationOnScreen();
+            return new Point(topLeft.x + host.getWidth() / 2, topLeft.y + TITLE_BAR_CLICK_OFFSET);
+        });
+        clickAt(robot, titlePoint);
+        robot.waitForIdle();
+        boolean active = false;
+        final long deadline = System.nanoTime() + WINDOW_ACTIVATE_POLL_MILLIS * 1_000_000L;
+        while (System.nanoTime() < deadline) {
+            active = Boolean.TRUE.equals(onEdt(host::isActive));
+            if (active) break;
+            Thread.sleep(200L);
+        }
+        if (!active) {
+            recoverSaveFocus(host);
+            active = onEdt(() -> saveFocusSnapshot(host)[0]);
+        }
+        context.logger().info("Recent preview popup window active=" + active);
+    }
+
+    /**
+     * The largest window that carries a File-labelled menu — a leftover
+     * document-less frame (e.g. the start page shown between the launch
+     * document close and the scratch open) is never selected even when it is
+     * bigger, since its File menu cannot expose the Recent submenu. Falls back
+     * to {@link #selectHostWindow} when no menu-carrying window exists.
+     */
+    static Window selectMenuHostWindow(final Window[] windows) {
+        Window target = null;
+        long largestArea = -1L;
+        for (final Window window : windows) {
+            if (window instanceof java.awt.Dialog
+                    || !window.isDisplayable()
+                    || !window.isVisible()
+                    || !hasFileMenu(window)) {
+                continue;
+            }
+            final long area = (long) window.getWidth() * window.getHeight();
+            if (area > largestArea) {
+                target = window;
+                largestArea = area;
+            }
+        }
+        return target != null ? target : selectHostWindow(windows);
+    }
+
+    /** Whether the window's menu bar carries a File-labelled top-level menu. */
+    private static boolean hasFileMenu(final Window host) {
+        final JMenuBar bar = findComponent(host, JMenuBar.class);
+        if (bar == null) return false;
+        for (int index = 0; index < bar.getMenuCount(); index++) {
+            final JMenu menu = bar.getMenu(index);
+            if (menu != null && FILE_LABELS.contains(normalizeLabel(menu.getText()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Bounded per-window state dump for menu failures — class, bounds,
+     * showing/active/focused, File-menu presence and whether the frame title
+     * carries the working file stem. Never logs paths or raw titles.
+     */
+    private String windowDiagnostics() {
+        final String stem;
+        final int dot = workingName.lastIndexOf('.');
+        stem = dot < 0 ? workingName : workingName.substring(0, dot);
+        final List<String> entries = new java.util.ArrayList<>();
+        for (final Window window : Window.getWindows()) {
+            String titleMatch = "n/a";
+            if (window instanceof Frame frame && frame.getTitle() != null) {
+                titleMatch = String.valueOf(frame.getTitle().contains(stem));
+            }
+            entries.add(window.getClass().getSimpleName()
+                    + " " + window.getWidth() + "x" + window.getHeight()
+                    + " showing=" + window.isShowing()
+                    + " active=" + window.isActive()
+                    + " focused=" + window.isFocused()
+                    + " fileMenu=" + hasFileMenu(window)
+                    + " titleMatch=" + titleMatch);
+        }
+        return entries.toString();
+    }
 
     private void openFileMenu(final Robot robot, final Window host) throws Exception {
         final Point fileMenu = onEdt(() -> fileMenuPoint(host));
@@ -985,9 +1305,9 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         return null;
     }
 
-    private Point fixtureItemPoint() {
+    private Point workingItemPoint() {
         for (Window window : Window.getWindows()) {
-            final JMenuItem item = findMenuItemFor(window, fixtureName);
+            final JMenuItem item = findMenuItemFor(window, workingName);
             if (item != null && item.isShowing()) {
                 return centerOf(item);
             }
@@ -995,46 +1315,46 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         return null;
     }
 
-    private static JMenuItem findMenuItemFor(final Component root, final String fixtureName) {
+    private static JMenuItem findMenuItemFor(final Component root, final String workingName) {
         if (root instanceof JMenuItem item && item.isShowing()) {
             final String text = Objects.toString(item.getText(), "");
             final String command = Objects.toString(item.getActionCommand(), "");
-            if (matchesFixtureText(text, fixtureName) || matchesFixtureText(command, fixtureName)) {
+            if (matchesFixtureText(text, workingName) || matchesFixtureText(command, workingName)) {
                 return item;
             }
         }
         for (Component child : menuChildren(root)) {
-            final JMenuItem found = findMenuItemFor(child, fixtureName);
+            final JMenuItem found = findMenuItemFor(child, workingName);
             if (found != null) return found;
         }
         return null;
     }
 
     /**
-     * The fixture item anywhere in the menu model, even when its popup is not
+     * The working item anywhere in the menu model, even when its popup is not
      * posted — unlike {@link #findMenuItemFor} no showing check applies, because
      * selecting the item through {@code MenuSelectionManager} posts the chain.
      */
-    private static JMenuItem findMenuItemInModel(final Component root, final String fixtureName) {
+    private static JMenuItem findMenuItemInModel(final Component root, final String workingName) {
         if (root instanceof JMenuItem item && !(root instanceof JMenu)) {
             final String text = Objects.toString(item.getText(), "");
             final String command = Objects.toString(item.getActionCommand(), "");
-            if (matchesFixtureText(text, fixtureName) || matchesFixtureText(command, fixtureName)) {
+            if (matchesFixtureText(text, workingName) || matchesFixtureText(command, workingName)) {
                 return item;
             }
         }
         for (Component child : menuChildren(root)) {
-            final JMenuItem found = findMenuItemInModel(child, fixtureName);
+            final JMenuItem found = findMenuItemInModel(child, workingName);
             if (found != null) return found;
         }
         return null;
     }
 
-    private static boolean matchesFixtureText(final String value, final String fixtureName) {
+    private static boolean matchesFixtureText(final String value, final String workingName) {
         if (value.isEmpty()) return false;
         final String normalized = value.trim();
-        if (normalized.equals(fixtureName)) return true;
-        return normalized.endsWith("/" + fixtureName) || normalized.endsWith("\\" + fixtureName);
+        if (normalized.equals(workingName)) return true;
+        return normalized.endsWith("/" + workingName) || normalized.endsWith("\\" + workingName);
     }
 
     /** The showing File->Recent submenu component, or null. */
@@ -1081,15 +1401,15 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
      * selects the item (the state the bridge's rollover/selected ChangeListener
      * and selection-path reconcile observe), then dispatches a real
      * MOUSE_ENTERED to the item so the bridge's hover listener also runs. The
-     * fixture item is located in the menu model even when its popup is not
+     * working item is located in the menu model even when its popup is not
      * posted yet, so a previously closed menu chain is re-established.
-     * Returns whether a fixture item was found to select.
+     * Returns whether a working item was found to select.
      */
-    private boolean selectFixtureItemForPreview() {
+    private boolean selectWorkingItemForPreview() {
         try {
             return Boolean.TRUE.equals(onEdt(() -> {
                 for (Window window : Window.getWindows()) {
-                    final JMenuItem item = findMenuItemInModel(window, fixtureName);
+                    final JMenuItem item = findMenuItemInModel(window, workingName);
                     if (item == null) continue;
                     final List<MenuElement> path = new java.util.ArrayList<>();
                     path.add(0, item);
@@ -1216,10 +1536,12 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             fields.put("runId", runId);
             fields.put("hostVersion", hostVersion);
             fields.put("fixtureName", fixtureName);
+            fields.put("workingName", workingName);
+            fields.put("scratchOpened", String.valueOf(scratchOpened));
             fields.put("recentCount", String.valueOf(recentCount));
             fields.put("idOpaque", String.valueOf(idOpaque));
             fields.put("pathAbsolute", String.valueOf(pathAbsolute));
-            fields.put("pathEndsWithFixture", String.valueOf(pathEndsWithFixture));
+            fields.put("pathEndsWithWorking", String.valueOf(pathEndsWithWorking));
             fields.put("directCaptureWidth", String.valueOf(directCaptureWidth));
             fields.put("directCaptureHeight", String.valueOf(directCaptureHeight));
             fields.put("directPngSha256", directPngSha256);
@@ -1618,6 +1940,10 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     }
 
     private static <T> T onEdt(final Callable<T> call) throws Exception {
+        return onEdt(call, 5_000L);
+    }
+
+    private static <T> T onEdt(final Callable<T> call, final long timeoutMillis) throws Exception {
         if (SwingUtilities.isEventDispatchThread()) return call.call();
         final AtomicReference<T> result = new AtomicReference<>();
         final AtomicReference<Exception> failure = new AtomicReference<>();
@@ -1631,8 +1957,8 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                 completed.countDown();
             }
         });
-        if (!completed.await(5L, TimeUnit.SECONDS)) {
-            throw new IllegalStateException("Cubism EDT did not accept the probe within 5 seconds.");
+        if (!completed.await(timeoutMillis, TimeUnit.MILLISECONDS)) {
+            throw new IllegalStateException("Cubism EDT did not accept the probe within " + timeoutMillis + " ms.");
         }
         if (failure.get() != null) throw failure.get();
         return result.get();
