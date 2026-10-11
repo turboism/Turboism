@@ -11,7 +11,7 @@ final class IncrementalUpdateHookContributor extends NativeOptimizationHookContr
 
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
-        if (!IncrementalUpdateBridge.flagEnabled()) {
+        if (!NativeOptimizationPolicy.incrementalUpdateEnabled(environment)) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }

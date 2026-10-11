@@ -66,13 +66,16 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
 
     private static final String MV = "com.live2d.cubism.view.context.CEViewContext_ModelingView";
     private static final String DOC = "com.live2d.cubism.doc.modeling.CModelingDocument";
+    private static final String EM = "com.live2d.cubism.doc.ACEditMode";
     private static final String MF = "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshForm";
     private static final String PF = "com.live2d.cubism.doc.model.drawable.artPath.CArtPathForm";
     private static final String AS = "com.live2d.cubism.setting.AppSetting";
     private static final String FT = "com.live2d.cubism.doc.animation.formAnimation.t";
 
+    private static volatile boolean configuredDefault = true;
+
     private final ModelUpdateSkipTarget target;
-    private final Class<?> modelingViewType, modelingDocumentType, meshFormType, pathFormType;
+    private final Class<?> modelingViewType, modelingDocumentType, editModeType, meshFormType, pathFormType;
     private final MethodHandle getParameterSet,
             getLastUpdatedParameterSet,
             getAllDrawables,
@@ -86,6 +89,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
             getDevelopSetting,
             getAppearanceSetting,
             getCurrentEditMode,
+            isEditModeEditing,
             isRandomPose,
             isExternalApp,
             isRecording,
@@ -184,6 +188,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         this.target = target;
         modelingViewType = Class.forName(MV, false, loader);
         modelingDocumentType = Class.forName(DOC, false, loader);
+        editModeType = Class.forName(EM, false, loader);
         meshFormType = Class.forName(MF, false, loader);
         pathFormType = Class.forName(PF, false, loader);
         final Map<Dep, MethodHandle> handles = resolve(target, loader);
@@ -200,6 +205,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         getDevelopSetting = handles.get(dep(CX, "getDevelopSetting"));
         getAppearanceSetting = handles.get(dep(CX, "getAppearanceSetting"));
         getCurrentEditMode = handles.get(dep(CX, "getCurrentEditMode"));
+        isEditModeEditing = handles.get(dep(EM, "isEditing"));
         isRandomPose = handles.get(dep(MV, "isRandomPoseAnimation"));
         isExternalApp = handles.get(dep(MV, "isExternalAppAnimation"));
         isRecording = handles.get(dep(MV, "isRecording"));
@@ -336,10 +342,16 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         }
     }
 
-    /** The optimization is enabled unless the property is set to {@code false}. */
+    /** Updates the persisted-config fallback used when {@link #ENABLE_PROPERTY} is unset. */
+    public static void setConfiguredDefault(final boolean enabled) {
+        configuredDefault = enabled;
+    }
+
+    /** The optimization is enabled unless the property or persisted config is set to {@code false}. */
     public static boolean flagEnabled() {
         try {
-            return !"false".equalsIgnoreCase(System.getProperty(ENABLE_PROPERTY));
+            final String explicit = System.getProperty(ENABLE_PROPERTY);
+            return explicit == null ? configuredDefault : !"false".equalsIgnoreCase(explicit);
         } catch (SecurityException denied) {
             return false;
         }
@@ -485,7 +497,9 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         }
         final boolean formGate = ctx != null && (boolean) formAnimationGate.invokeExact(formAnimationInstance, ctx);
         final Object source = model != null ? (Object) getSource.invokeExact(model) : null;
-        final boolean editing = source != null && (boolean) isModelEditing.invokeExact(source);
+        final boolean editModeActive =
+                editMode != null && editModeType.isInstance(editMode) && (boolean) isEditModeEditing.invokeExact(editMode);
+        final boolean editing = (source != null && (boolean) isModelEditing.invokeExact(source)) || editModeActive;
         boolean ucPresent = update != null,
                 ucAValue = false,
                 ucBValue = false,
@@ -753,6 +767,7 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
     public synchronized void close() {
         active.set(false);
         skippedFrame.set(false);
+        configuredDefault = true;
         final Properties properties = installedProperties;
         installedProperties = null;
         if (properties != null)
