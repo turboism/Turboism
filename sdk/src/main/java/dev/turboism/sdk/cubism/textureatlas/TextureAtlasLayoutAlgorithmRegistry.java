@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.plugin.Registration;
 import java.util.List;
 import java.util.Objects;
@@ -20,6 +21,7 @@ import java.util.Optional;
  * than failing. Planners that return {@code null} or throw are also converted to
  * native fallback; plugin failures never escape into the host.</p>
  */
+@CubismEditor(from = "5.0.00")
 public interface TextureAtlasLayoutAlgorithmRegistry {
 
     /**

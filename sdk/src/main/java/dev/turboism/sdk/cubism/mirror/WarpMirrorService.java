@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.mirror;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 
 /**
@@ -15,6 +16,7 @@ import java.util.List;
  * implementation returns {@link WarpMirrorOutcome#BLOCKED} with
  * {@link WarpMirrorBlockerCode#UNAVAILABLE}.</p>
  */
+@CubismEditor(from = "5.0.00")
 public interface WarpMirrorService {
 
     /**

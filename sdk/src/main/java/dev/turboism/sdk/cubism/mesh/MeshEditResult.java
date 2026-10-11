@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.mesh;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 
@@ -10,6 +11,7 @@ import java.util.Objects;
  * changed, and {@code rejected} carries a reason per item the runtime refused, most often a
  * stale id that no longer exists in the live mesh.</p>
  */
+@CubismEditor
 public record MeshEditResult(boolean accepted, List<String> rejected, String failureReason) {
 
     public MeshEditResult {

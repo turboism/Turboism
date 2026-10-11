@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.mirror;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 
@@ -13,6 +14,7 @@ import java.util.Objects;
  * @param blockers typed rejection details; empty for {@link WarpMirrorOutcome#APPLIED}
  *        and {@link WarpMirrorOutcome#NO_CHANGE}
  */
+@CubismEditor
 public record WarpMirrorResult(
         WarpMirrorOutcome outcome,
         int changedPointCount,

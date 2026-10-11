@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.psd;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import java.util.Objects;
 import java.util.Optional;
@@ -18,6 +19,7 @@ import java.util.Optional;
  * @param file authorized handle on success, empty on failure
  * @param initialRevision initial export baseline, not an external save notification
  */
+@CubismEditor
 public record PsdExportResult(
         Status status,
         String diagnostic,
@@ -40,6 +42,7 @@ public record PsdExportResult(
     }
 
     /** Outcome of one raw-image export request. */
+    @CubismEditor
     public enum Status {
         EXPORTED,
         UNAVAILABLE,

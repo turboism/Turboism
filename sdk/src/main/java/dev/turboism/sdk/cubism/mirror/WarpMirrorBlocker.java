@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.mirror;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /**
@@ -8,6 +9,7 @@ import java.util.Objects;
  * @param code machine-readable rejection code
  * @param reason human-readable diagnostic, never {@code null}
  */
+@CubismEditor
 public record WarpMirrorBlocker(WarpMirrorBlockerCode code, String reason) {
     public WarpMirrorBlocker {
         code = Objects.requireNonNull(code, "code");

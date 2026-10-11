@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 
@@ -14,6 +15,7 @@ import java.util.Objects;
  * may stitch them with minimal bridge edges for a single simple polygon but must
  * never inflate them.</p>
  */
+@CubismEditor
 public record TextureAtlasOutline(List<double[][]> rings) {
 
     public TextureAtlasOutline {

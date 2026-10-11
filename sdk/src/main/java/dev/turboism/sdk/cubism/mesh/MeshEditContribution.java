@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.mesh;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 
@@ -10,6 +11,7 @@ import java.util.Objects;
  * mesh and applies it itself, so plugin code cannot directly mutate host geometry. The participant
  * that produces this value still runs synchronously; see {@link MeshEditParticipant}.</p>
  */
+@CubismEditor
 public record MeshEditContribution(List<MeshPointRef> points, List<MeshEdgeRef> edges) {
 
     private static final MeshEditContribution NONE = new MeshEditContribution(List.of(), List.of());
