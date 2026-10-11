@@ -23,11 +23,11 @@
 | 几何读取 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 编辑历史 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 集成桥接 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 网格工具会话 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
-| 网格工具栏贡献 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
+| 网格工具会话 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 网格工具栏贡献 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 其他模型表面 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 模型实例读取 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 建模自定义工具 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
+| 建模自定义工具 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 对象层级 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 参数与绑定 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 参数键编辑 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -60,16 +60,14 @@
 - `cubism.editor-history.semantic-read` (语义化历史解读): 无已验证记录 5.0.00–5.1.03
 - `cubism.integration.edit-api-bridge.dispatch`: 无已验证记录 5.0.00–5.1.01
 - `cubism.integration.external-app-settings.edit-toggle` (外部应用编辑开关): 无已验证记录 5.0.00–5.0.06
-- `cubism.mesh-tool.session` (网格编辑工具会话): 无已验证记录 5.0.00–5.2.02
-- `cubism.mesh-tool.session` (网格编辑工具会话): 已验证但被契约/pin 收窄（待适配） 5.3.00–5.3.01, 5.3.04
+- `cubism.mesh-tool.session` (网格编辑工具会话): 无已验证记录 5.0.00–5.1.03
 - `ui.mesh-toolbar.contribute` (网格工具栏贡献): 无已验证记录 5.0.00–5.0.06
-- `ui.mesh-toolbar.contribute` (网格工具栏贡献): 已验证但被契约/pin 收窄（待适配） 5.1.00–5.2.02, 5.3.00–5.3.01, 5.3.04
+- `ui.mesh-toolbar.contribute` (网格工具栏贡献): 已验证但被契约/pin 收窄（待适配） 5.1.00–5.1.03
 - `cubism.editor-model.default-keyform-lock.write`: 无已验证记录 5.0.00–5.1.03
 - `cubism.editor-model.native-control-appearance.write`: 无已验证记录 5.0.00–5.1.03
 - `cubism.editor-model.write` (编辑器模型写入): 无已验证记录 5.0.00–5.1.03
 - `cubism.editor-model.model-instance.read` (活动模型实例读取): 无已验证记录 5.0.00–5.1.03
-- `cubism.modeling-tool.selection-brush` (建模选区笔刷): 无已验证记录 5.0.00–5.2.02
-- `cubism.modeling-tool.selection-brush` (建模选区笔刷): 已验证但被契约/pin 收窄（待适配） 5.3.00–5.3.01, 5.3.04
+- `cubism.modeling-tool.selection-brush` (建模选区笔刷): 无已验证记录 5.0.00–5.1.03
 - `cubism.editor-model.object-hierarchy.apply-deformer-to-children`: 无已验证记录 5.0.00–5.1.03
 - `cubism.editor-model.parameter-combined.write`: 无已验证记录 5.0.00–5.1.03
 - `cubism.editor-model.parameter-definition.write`: 无已验证记录 5.0.00–5.1.03
@@ -223,15 +221,14 @@
 | class-pins/`image-archive-reuse.json` | `ClassPinTable` | 5.3.00–5.3.02, 5.3.04 |
 | class-pins/`incremental-update.json` | `ClassPinTable` | 5.2.03, 5.3.02–5.3.03 |
 | class-pins/`matrix-scratch.json` | `ClassPinTable` | 5.2.00–5.3.04 |
-| class-pins/`mesh-mirror.json` | `ClassPinTable` | 5.2.03, 5.3.02–5.3.03 |
+| class-pins/`mesh-mirror.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`mesh-triangulation-hash.json` | `ClassPinTable` | 5.3.03 |
 | class-pins/`model-update-skip.json` | `ClassPinTable` | 5.2.03, 5.3.02–5.3.03 |
 | class-pins/`startup-suppression.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`texture-upload-preparation.json` | `ClassPinTable` | 5.3.00–5.3.02, 5.3.04 |
 | class-pins/`uniform-location-lifecycle.json` | `ClassPinTable` | 5.2.03–5.3.04 |
-| class-pins/`warp-alt-mirror.json` | `ClassPinTable` | 5.2.03, 5.3.02–5.3.03 |
+| class-pins/`warp-alt-mirror.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`warp-position-projection.json` | `ClassPinTable` | 5.3.00–5.3.02 |
-| `runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolSessionHostProfile.java` | `SUPPORTED_VERSIONS` | 5.2.03, 5.3.02–5.3.03 |
 
 ## 版本单调性原则
 

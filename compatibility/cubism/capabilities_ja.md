@@ -23,11 +23,11 @@
 | ジオメトリ読み取り | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 編集履歴 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 統合ブリッジ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| メッシュツールセッション | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
-| メッシュツールバー贡献 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
+| メッシュツールセッション | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| メッシュツールバー贡献 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | その他のモデルサーフェス | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | モデルインスタンス読み取り | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| モデリングカスタムツール | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
+| モデリングカスタムツール | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | オブジェクト階層 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | パラメータとバインド | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | パラメータキー編集 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -60,16 +60,14 @@
 - `cubism.editor-history.semantic-read` (履歴の意味的デコード): 検証済みレコードなし 5.0.00–5.1.03
 - `cubism.integration.edit-api-bridge.dispatch`: 検証済みレコードなし 5.0.00–5.1.01
 - `cubism.integration.external-app-settings.edit-toggle` (外部アプリ編集トグル): 検証済みレコードなし 5.0.00–5.0.06
-- `cubism.mesh-tool.session` (メッシュ編集ツールセッション): 検証済みレコードなし 5.0.00–5.2.02
-- `cubism.mesh-tool.session` (メッシュ編集ツールセッション): 検証済みだがコントラクト/pin で縮小（適合待ち） 5.3.00–5.3.01, 5.3.04
+- `cubism.mesh-tool.session` (メッシュ編集ツールセッション): 検証済みレコードなし 5.0.00–5.1.03
 - `ui.mesh-toolbar.contribute` (メッシュツールバー贡献): 検証済みレコードなし 5.0.00–5.0.06
-- `ui.mesh-toolbar.contribute` (メッシュツールバー贡献): 検証済みだがコントラクト/pin で縮小（適合待ち） 5.1.00–5.2.02, 5.3.00–5.3.01, 5.3.04
+- `ui.mesh-toolbar.contribute` (メッシュツールバー贡献): 検証済みだがコントラクト/pin で縮小（適合待ち） 5.1.00–5.1.03
 - `cubism.editor-model.default-keyform-lock.write`: 検証済みレコードなし 5.0.00–5.1.03
 - `cubism.editor-model.native-control-appearance.write`: 検証済みレコードなし 5.0.00–5.1.03
 - `cubism.editor-model.write` (エディタモデル書き込み): 検証済みレコードなし 5.0.00–5.1.03
 - `cubism.editor-model.model-instance.read` (アクティブモデルインスタンス読み取り): 検証済みレコードなし 5.0.00–5.1.03
-- `cubism.modeling-tool.selection-brush` (モデリング選択ブラシ): 検証済みレコードなし 5.0.00–5.2.02
-- `cubism.modeling-tool.selection-brush` (モデリング選択ブラシ): 検証済みだがコントラクト/pin で縮小（適合待ち） 5.3.00–5.3.01, 5.3.04
+- `cubism.modeling-tool.selection-brush` (モデリング選択ブラシ): 検証済みレコードなし 5.0.00–5.1.03
 - `cubism.editor-model.object-hierarchy.apply-deformer-to-children`: 検証済みレコードなし 5.0.00–5.1.03
 - `cubism.editor-model.parameter-combined.write`: 検証済みレコードなし 5.0.00–5.1.03
 - `cubism.editor-model.parameter-definition.write`: 検証済みレコードなし 5.0.00–5.1.03
@@ -223,15 +221,14 @@
 | class-pins/`image-archive-reuse.json` | `ClassPinTable` | 5.3.00–5.3.02, 5.3.04 |
 | class-pins/`incremental-update.json` | `ClassPinTable` | 5.2.03, 5.3.02–5.3.03 |
 | class-pins/`matrix-scratch.json` | `ClassPinTable` | 5.2.00–5.3.04 |
-| class-pins/`mesh-mirror.json` | `ClassPinTable` | 5.2.03, 5.3.02–5.3.03 |
+| class-pins/`mesh-mirror.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`mesh-triangulation-hash.json` | `ClassPinTable` | 5.3.03 |
 | class-pins/`model-update-skip.json` | `ClassPinTable` | 5.2.03, 5.3.02–5.3.03 |
 | class-pins/`startup-suppression.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`texture-upload-preparation.json` | `ClassPinTable` | 5.3.00–5.3.02, 5.3.04 |
 | class-pins/`uniform-location-lifecycle.json` | `ClassPinTable` | 5.2.03–5.3.04 |
-| class-pins/`warp-alt-mirror.json` | `ClassPinTable` | 5.2.03, 5.3.02–5.3.03 |
+| class-pins/`warp-alt-mirror.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`warp-position-projection.json` | `ClassPinTable` | 5.3.00–5.3.02 |
-| `runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolSessionHostProfile.java` | `SUPPORTED_VERSIONS` | 5.2.03, 5.3.02–5.3.03 |
 
 ## バージョン単調性の原則
 

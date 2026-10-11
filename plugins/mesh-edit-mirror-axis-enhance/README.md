@@ -44,9 +44,9 @@ Inspects mesh and deformer state and adds a bounded mirror-axis angle control to
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions.
-- Mesh mirror axis-angle enhancement only on 5.2.03, 5.3.02–5.3.03（5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04 pending adaptation）
-- Mesh toolbar contribution only on 5.2.03, 5.3.02–5.3.03（5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04 pending adaptation）
 - Mesh geometry read only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）
+- Mesh mirror axis-angle enhancement only on 5.2.00–5.3.04（5.0.00–5.1.03 pending adaptation）
+- Mesh toolbar contribution only on 5.2.00–5.3.04（5.0.00–5.1.03 pending adaptation）
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 
