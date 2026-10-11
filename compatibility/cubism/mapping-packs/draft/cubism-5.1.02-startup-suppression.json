@@ -17,11 +17,11 @@
     "capabilityIds": [
       "cubism.startup.suppression"
     ],
-    "verificationRecordSha256": "84c46b802a99075807d8f71d0f4065f320b3325f9bcbdec63a3a73098a8e3b99"
+    "verificationRecordSha256": "9931684491d30efced3b97aa9731d72e23d498cb3a0bee94513a37e486c0e4ab"
   },
   "entries": [
     {
-      "semanticName": "cubism.mapping.v5_1_02.startup_suppression.class.app",
+      "semanticName": "cubism.mapping.v5_2_03.startup_suppression.class.app",
       "kind": "class",
       "owner": "startup-suppression-hook",
       "name": "cubism.startup-suppression.app.class",
@@ -41,13 +41,13 @@
       },
       "x.review": {
         "recordAlias": "cubism.startup-suppression.app.class",
-        "recordMappingId": "cubism.mapping.v5_1_02.startup_suppression.class.app",
+        "recordMappingId": "cubism.mapping.v5_2_03.startup_suppression.class.app",
         "exactArtifactSha256": "0567130093015c969d32b91c6a48d4603c28c8224c6a14fa969491f8974f63ca",
-        "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
+        "provenance": "exact classfile verification on the reviewed 5.1.02 artifact via cubism_version_matrix"
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_1_02.startup_suppression.method.startup",
+      "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.startup",
       "kind": "method",
       "owner": "startup-suppression-hook",
       "name": "cubism.startup-suppression.app.startup",
@@ -68,13 +68,13 @@
       },
       "x.review": {
         "recordAlias": "cubism.startup-suppression.app.startup",
-        "recordMappingId": "cubism.mapping.v5_1_02.startup_suppression.method.startup",
+        "recordMappingId": "cubism.mapping.v5_2_03.startup_suppression.method.startup",
         "exactArtifactSha256": "0567130093015c969d32b91c6a48d4603c28c8224c6a14fa969491f8974f63ca",
-        "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
+        "provenance": "exact classfile verification on the reviewed 5.1.02 artifact via cubism_version_matrix"
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_1_02.startup_suppression.method.splash_factory",
+      "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.splash_factory",
       "kind": "method",
       "owner": "startup-suppression-hook",
       "name": "cubism.startup-suppression.app.splash-factory",
@@ -95,13 +95,13 @@
       },
       "x.review": {
         "recordAlias": "cubism.startup-suppression.app.splash-factory",
-        "recordMappingId": "cubism.mapping.v5_1_02.startup_suppression.method.splash_factory",
+        "recordMappingId": "cubism.mapping.v5_2_03.startup_suppression.method.splash_factory",
         "exactArtifactSha256": "0567130093015c969d32b91c6a48d4603c28c8224c6a14fa969491f8974f63ca",
-        "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
+        "provenance": "exact classfile verification on the reviewed 5.1.02 artifact via cubism_version_matrix"
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_1_02.startup_suppression.class.app_ctrl",
+      "semanticName": "cubism.mapping.v5_2_03.startup_suppression.class.app_ctrl",
       "kind": "class",
       "owner": "startup-suppression-hook",
       "name": "cubism.startup-suppression.app-controller.class",
@@ -121,13 +121,13 @@
       },
       "x.review": {
         "recordAlias": "cubism.startup-suppression.app-controller.class",
-        "recordMappingId": "cubism.mapping.v5_1_02.startup_suppression.class.app_ctrl",
+        "recordMappingId": "cubism.mapping.v5_2_03.startup_suppression.class.app_ctrl",
         "exactArtifactSha256": "0567130093015c969d32b91c6a48d4603c28c8224c6a14fa969491f8974f63ca",
-        "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
+        "provenance": "exact classfile verification on the reviewed 5.1.02 artifact via cubism_version_matrix"
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_1_02.startup_suppression.method.update_check",
+      "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.update_check",
       "kind": "method",
       "owner": "startup-suppression-hook",
       "name": "cubism.startup-suppression.app-controller.update-check",
@@ -148,13 +148,13 @@
       },
       "x.review": {
         "recordAlias": "cubism.startup-suppression.app-controller.update-check",
-        "recordMappingId": "cubism.mapping.v5_1_02.startup_suppression.method.update_check",
+        "recordMappingId": "cubism.mapping.v5_2_03.startup_suppression.method.update_check",
         "exactArtifactSha256": "0567130093015c969d32b91c6a48d4603c28c8224c6a14fa969491f8974f63ca",
-        "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
+        "provenance": "exact classfile verification on the reviewed 5.1.02 artifact via cubism_version_matrix"
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_1_02.startup_suppression.method.show_information",
+      "semanticName": "cubism.mapping.v5_2_03.startup_suppression.method.show_information",
       "kind": "method",
       "owner": "startup-suppression-hook",
       "name": "cubism.startup-suppression.app-controller.show-information",
@@ -175,9 +175,9 @@
       },
       "x.review": {
         "recordAlias": "cubism.startup-suppression.app-controller.show-information",
-        "recordMappingId": "cubism.mapping.v5_1_02.startup_suppression.method.show_information",
+        "recordMappingId": "cubism.mapping.v5_2_03.startup_suppression.method.show_information",
         "exactArtifactSha256": "0567130093015c969d32b91c6a48d4603c28c8224c6a14fa969491f8974f63ca",
-        "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
+        "provenance": "exact classfile verification on the reviewed 5.1.02 artifact via cubism_version_matrix"
       }
     }
   ]
