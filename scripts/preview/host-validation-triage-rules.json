@@ -127,6 +127,12 @@
    "advice": "the fixture loaded but contains no clip-mask relationships (fixture.clipMasks BLOCKED); rerun with a mask-bearing fixture instead of retrying"
   },
   {
+   "id": "fixture-no-glue-relation",
+   "category": "FIXTURE_UNSUITABLE",
+   "when": {"failureText": "fixture contains no Glue relation"},
+   "advice": "the mcp standard variant requires a Glue-bearing fixture but the resolved fixture has none (mcp result error=); set TURBOISM_HOST_VALIDATION_FIXTURE_MCP or TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK to the mask/Glue-bearing fixture instead of retrying"
+  },
+  {
    "id": "capability-backup-artifact-absent",
    "category": "CAPABILITY_BOUNDARY",
    "when": {"failureText": "backupNow failed|auto-backup completion timeout|auto-backup backup directory is unavailable"},
