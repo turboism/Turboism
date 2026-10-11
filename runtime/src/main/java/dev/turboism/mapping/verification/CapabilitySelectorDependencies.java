@@ -1,7 +1,5 @@
 package dev.turboism.mapping.verification;
 
-import dev.turboism.adapter.cubism.mesh.MeshToolSessionSelectorContract;
-import dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAnimationReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAnimationSceneOperationSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAnimationTimelineEditSelectorContract;
@@ -481,11 +479,6 @@ final class CapabilitySelectorDependencies {
                 result,
                 EditorHistorySemanticSelectorContract.CAPABILITY_ID,
                 EditorHistorySemanticSelectorContract.REQUIRED_ALIASES);
-        add(result, MeshToolSessionSelectorContract.CAPABILITY_ID, MeshToolSessionSelectorContract.REQUIRED_ALIASES);
-        add(
-                result,
-                ModelingSelectionSelectorContract.CAPABILITY_ID,
-                ModelingSelectionSelectorContract.REQUIRED_ALIASES);
         add(
                 result,
                 EditorSelectionReadSelectorContract.CAPABILITY_ID,
