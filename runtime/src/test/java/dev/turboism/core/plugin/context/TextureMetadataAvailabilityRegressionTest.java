@@ -41,8 +41,10 @@ final class TextureMetadataAvailabilityRegressionTest {
     }
 
     @Test
-    void declaredVersionsBelowTheFloorRejectAllWritesBeforeTheDelegate() {
-        for (String version : List.of("5.1.99", "5.2.02", "4.9.99")) {
+    void declaredVersionsOutsideTheReviewedWriteSetRejectAllWritesBeforeTheDelegate() {
+        // The texture write contract admits every reviewed version; declared versions
+        // outside that set — below the floor or unreviewed patches — are rejected first.
+        for (String version : List.of("4.9.99", "5.1.99", "5.3.99")) {
             final RecordingTextures delegate = new RecordingTextures();
             final ModelTextures textures = wrapped(version, delegate);
             assertThrows(CubismEditorApiUnavailableException.class, () -> textures.addModelImageGroup("group"));
@@ -57,6 +59,20 @@ final class TextureMetadataAvailabilityRegressionTest {
             assertThrows(
                     CubismEditorApiUnavailableException.class, () -> textures.removeRawImage(new RawImageId("raw")));
             assertEquals(0, delegate.writes);
+        }
+    }
+
+    @Test
+    void everyReviewedVersionAdmitsAllFiveTextureWrites() {
+        for (String version : CubismEditorAvailabilityPolicy.reviewedVersions()) {
+            final RecordingTextures delegate = new RecordingTextures();
+            final ModelTextures textures = wrapped(version, delegate);
+            textures.addModelImageGroup("group");
+            textures.removeModelImage(new ModelImageId("image"));
+            textures.addTextureAtlas("atlas", 64, 64);
+            textures.removeTextureAtlas(new TextureAtlasId("atlas"));
+            textures.removeRawImage(new RawImageId("raw"));
+            assertEquals(5, delegate.writes, version + " must admit the verified texture writes");
         }
     }
 

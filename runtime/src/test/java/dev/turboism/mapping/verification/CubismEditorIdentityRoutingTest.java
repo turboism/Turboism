@@ -3,6 +3,7 @@ package dev.turboism.mapping.verification;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -10,21 +11,21 @@ import org.junit.jupiter.api.Test;
 class CubismEditorIdentityRoutingTest {
 
     @Test
-    void exact5303ArtifactAgreesWithEditorProfileAndStaticRecords() {
+    void exact5303ArtifactAgreesWithEditorProfileAndStaticRecords() throws Exception {
         final HostArtifactDigest artifact = ReviewedHostArtifacts.CUBISM_5_3_03;
 
         assertEquals("5.3.03", EditorModelVerificationManifest.resourceProfileForArtifact(artifact));
         assertManifest(
                 EditorModelVerificationManifest.forArtifact(artifact),
                 "cubism-5.3.03.editor-model.static",
-                "ba3d1c7c4d593d78ab2cb46bf3af96fc3f9c6f264df84b1035d466ad44da51aa",
+                recordDigest("compatibility/cubism/verification/cubism-5.3.03-editor-model.json"),
                 EditorModelVerificationManifest.ADAPTER_SLICE_ID,
                 EditorModelVerificationManifest.cubism5303Capabilities(),
                 EditorModelVerificationManifest.cubism5303StaticAliases());
         assertManifest(
                 ProjectWorkspaceVerificationManifest.forArtifact(artifact),
                 "m15.cubism-5.3.03.project-workspace.static",
-                "f52edde0c7d1a59d5bed7dd693f5a74e6946d0b14bbe9e13fedf2c49e6fa5613",
+                recordDigest("compatibility/cubism/verification/cubism-5.3.03-project-workspace.json"),
                 ProjectWorkspaceVerificationManifest.ADAPTER_SLICE_ID,
                 ProjectWorkspaceVerificationManifest.CAPABILITY_IDS,
                 ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES);
@@ -48,6 +49,21 @@ class CubismEditorIdentityRoutingTest {
                                 Path.of("missing-record"),
                                 Path.of("missing-artifact"),
                                 ClassLoader.getPlatformClassLoader()));
+    }
+
+    private static String recordDigest(final String repositoryPath) throws Exception {
+        return HostArtifactDigest.from(projectRoot().resolve(repositoryPath)).sha256();
+    }
+
+    private static Path projectRoot() {
+        Path current = Path.of("").toAbsolutePath().normalize();
+        while (current != null && !Files.isRegularFile(current.resolve("settings.gradle.kts"))) {
+            current = current.getParent();
+        }
+        if (current == null) {
+            throw new IllegalStateException("project root is unavailable");
+        }
+        return current;
     }
 
     private static void assertManifest(
