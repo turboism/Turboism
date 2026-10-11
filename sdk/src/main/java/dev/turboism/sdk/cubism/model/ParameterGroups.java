@@ -1,10 +1,12 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import java.util.List;
 import java.util.NoSuchElementException;
 
 /** Parameter folders in one Editor model. */
+@CubismEditor(from = "5.0.00")
 public interface ParameterGroups {
 
     /** Returns all groups in stable pre-order, starting with the root group. */

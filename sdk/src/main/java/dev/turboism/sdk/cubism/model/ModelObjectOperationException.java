@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /** Stable failure classification for model-object automation. */
+@CubismEditor
 public final class ModelObjectOperationException extends RuntimeException {
 
     /** Stable failure classification callers should branch on instead of parsing messages. */

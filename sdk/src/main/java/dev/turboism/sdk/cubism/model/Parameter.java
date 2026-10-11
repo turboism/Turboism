@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.ui.appearance.model.ParameterAppearance;
 import java.util.List;
@@ -21,6 +22,7 @@ import java.util.Optional;
  * {@link dev.turboism.sdk.cubism.edit.EditParameterNode} is a node of the incubating
  * edit-session structure tree.
  */
+@CubismEditor(from = "5.0.00")
 public interface Parameter {
 
     /** Returns this parameter's stable identity within the model. */

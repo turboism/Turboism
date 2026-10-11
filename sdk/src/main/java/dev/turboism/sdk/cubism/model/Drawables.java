@@ -1,10 +1,12 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import java.util.List;
 import java.util.NoSuchElementException;
 
 /** Drawables in one Cubism model. */
+@CubismEditor(from = "5.0.00")
 public interface Drawables {
 
     /** Returns every drawable in the model, in host order. */

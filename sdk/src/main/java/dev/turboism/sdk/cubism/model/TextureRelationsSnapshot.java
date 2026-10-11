@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import java.util.List;
@@ -14,6 +15,7 @@ import java.util.Optional;
  * unavailable snapshot is deliberately not represented by an available empty
  * graph.</p>
  */
+@CubismEditor
 public record TextureRelationsSnapshot(
         Availability availability,
         String binding,

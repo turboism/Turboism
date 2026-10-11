@@ -1,6 +1,9 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
+
 /** Immutable indexed integer sequence. */
+@CubismEditor
 public interface IntSequence {
 
     /** Returns the number of elements. */

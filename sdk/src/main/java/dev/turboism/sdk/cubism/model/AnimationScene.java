@@ -1,10 +1,12 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 /** Read-only projection of one scene inside an {@link AnimationDocument}. */
+@CubismEditor(from = "5.0.00")
 public interface AnimationScene {
 
     /** Scene name shown in the scene list. */

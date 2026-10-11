@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import java.util.List;
 import java.util.Objects;
@@ -9,6 +10,7 @@ import java.util.Optional;
  * One animated attribute on an {@link AnimationTrack}: an effect slot that
  * carries a keyed value sequence.
  */
+@CubismEditor(from = "5.0.00")
 public interface AnimationAttribute {
 
     /** Host attribute identifier, opaque and stable within the scene. */
