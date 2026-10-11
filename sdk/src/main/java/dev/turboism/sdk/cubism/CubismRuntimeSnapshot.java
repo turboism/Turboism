@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -20,6 +21,7 @@ import java.util.Optional;
  * @param artMeshes unmodifiable copy of the model's art meshes
  * @param deformers unmodifiable copy of the model's deformers
  */
+@CubismEditor
 public record CubismRuntimeSnapshot(
         Optional<ProjectSnapshot> project,
         Optional<DocumentSnapshot> document,

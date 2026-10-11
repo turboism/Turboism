@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 
 /**
@@ -11,6 +12,7 @@ import java.util.List;
  * @param textureIds unmodifiable copy of the identifiers of the textures packed into this atlas;
  *     carries no placement information, only membership
  */
+@CubismEditor
 public record TextureAtlasSnapshot(String atlasId, int width, int height, List<String> textureIds) {
     /**
      * Validates the record components.

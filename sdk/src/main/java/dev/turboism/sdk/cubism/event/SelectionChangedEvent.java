@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.event;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.event.TurboismEvent;
 import java.util.Objects;
@@ -14,6 +15,7 @@ import java.util.Objects;
  * baseline rather than native object-selection pushes; see {@code sdk/event-coverage.md}
  * for the supported-origins statement.</p>
  */
+@CubismEditor
 public record SelectionChangedEvent(SelectionSummary previousSelection, SelectionSummary currentSelection)
         implements TurboismEvent {
     public SelectionChangedEvent {

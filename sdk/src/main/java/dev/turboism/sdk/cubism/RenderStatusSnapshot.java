@@ -1,5 +1,7 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * Immutable snapshot of the host viewport's rendering state.
  *
@@ -8,6 +10,7 @@ package dev.turboism.sdk.cubism;
  * @param framesPerSecond measured frame rate; must not be negative
  * @param rendererName host-reported name of the renderer backend; must not be blank
  */
+@CubismEditor
 public record RenderStatusSnapshot(boolean rendering, double framesPerSecond, String rendererName) {
     /**
      * Validates the record components.

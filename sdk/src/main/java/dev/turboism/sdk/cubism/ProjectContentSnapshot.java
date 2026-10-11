@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
@@ -12,6 +13,7 @@ import java.util.Optional;
  * that owns one or more scene documents. Layered image/PSD project entries are not ordinary
  * {@code IFileContent}, but they may own an IMAGE editor document and source resources.</p>
  */
+@CubismEditor
 public record ProjectContentSnapshot(
         String contentId,
         String name,

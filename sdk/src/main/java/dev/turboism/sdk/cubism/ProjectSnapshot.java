@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
@@ -12,6 +13,7 @@ import java.util.Optional;
  * files, layered image/PSD resources, game-data files, and other reviewed project entries;
  * documents are their currently available editor views.</p>
  */
+@CubismEditor
 public record ProjectSnapshot(
         String projectId,
         String name,

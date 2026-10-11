@@ -1,10 +1,12 @@
 package dev.turboism.sdk.cubism.event;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.event.TurboismEvent;
 import java.util.Objects;
 
 /** Typed states of the semantic Part opacity set-value event family. */
+@CubismEditor
 public sealed interface PartOpacityEvent extends TurboismEvent
         permits PartOpacityEvent.Before, PartOpacityEvent.On, PartOpacityEvent.After {
 
@@ -57,6 +59,7 @@ public sealed interface PartOpacityEvent extends TurboismEvent
         }
 
         /** One Runtime-owned mutable callback scope. */
+        @CubismEditor
         public static final class Callback implements AutoCloseable {
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;

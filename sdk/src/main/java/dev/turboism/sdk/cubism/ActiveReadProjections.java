@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Optional;
 
 /**
@@ -10,6 +11,7 @@ import java.util.Optional;
  * default methods so the derived-read logic has a single source of truth.
  * Not part of the stable plugin API surface.</p>
  */
+@CubismEditor
 public final class ActiveReadProjections {
 
     private ActiveReadProjections() {}
