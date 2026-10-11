@@ -70,6 +70,7 @@ The manifest declares `cubism.psd.external-edit` for the ArtMesh-to-PSD editing 
 
 - `turboism.cubism.model.read` — read texture relations to resolve ArtMeshes to raw images and to validate session bindings.
 - `turboism.cubism.model.write` — apply the native explicit-target raw-image replacement on each stable save.
+- `turboism.cubism.model.observe` — receive model-close and editor-exit lifecycle callbacks that stop external edit sessions; undeclared, the lifecycle registry filters them out.
 - `turboism.file.read` — read the runtime-issued temporary PSD revision for replacement.
 - `turboism.file.write` — export the complete raw PSD into the runtime-owned temporary file.
 - `turboism.process.run` — open the temporary PSD with the operating system's default PSD application.

@@ -1,10 +1,13 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.core.event.PluginEventOwnerKey;
 import dev.turboism.sdk.cubism.EditorLifecycleSnapshot;
+import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.hook.EditorLifecycleHooks;
+import dev.turboism.sdk.cubism.hook.ModelFileHooks;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -46,6 +49,83 @@ class ProjectLifecycleHookRegistryTest {
         scheduler.shutdown();
     }
 
+    @Test
+    void registerWithoutObserveWarnsAboutSuppressedLifecycleOverrides() throws Exception {
+        final ProjectLifecycleHookRegistry registry = new ProjectLifecycleHookRegistry(
+                new ProjectFileLifecycleCoordinator(), new EditorLifecycleCoordinator());
+        final RecordingLogger logger = new RecordingLogger();
+        final DisposableScope scope = new DisposableScope();
+
+        registry.register(descriptor(List.of()), List.of(new ModelPlugin(), new PassiveModelHooks()), logger, scope);
+
+        assertEquals(1, logger.warnings.size());
+        final String warning = logger.warnings.get(0);
+        assertTrue(warning.contains("plugin-editor"), warning);
+        assertTrue(warning.contains(PermissionIds.TURBOISM_CUBISM_MODEL_OBSERVE), warning);
+        assertTrue(warning.contains("onModelSaved"), warning);
+        scope.close();
+    }
+
+    @Test
+    void registerWithoutObserveStaysQuietWhenNoLifecycleCallbackIsOverridden() throws Exception {
+        final ProjectLifecycleHookRegistry registry = new ProjectLifecycleHookRegistry(
+                new ProjectFileLifecycleCoordinator(), new EditorLifecycleCoordinator());
+        final RecordingLogger logger = new RecordingLogger();
+        final DisposableScope scope = new DisposableScope();
+
+        registry.register(descriptor(List.of()), List.of(new PassiveModelHooks()), logger, scope);
+
+        assertTrue(logger.warnings.isEmpty(), () -> String.join("\n", logger.warnings));
+        scope.close();
+    }
+
+    @Test
+    void registerWithObserveDoesNotWarnAboutSuppressedOverrides() throws Exception {
+        final ProjectLifecycleHookRegistry registry = new ProjectLifecycleHookRegistry(
+                new ProjectFileLifecycleCoordinator(), new EditorLifecycleCoordinator());
+        final RecordingLogger logger = new RecordingLogger();
+        final DisposableScope scope = new DisposableScope();
+        final dev.turboism.core.runtime.RuntimeScheduler scheduler = testScheduler();
+        final dev.turboism.core.event.RuntimeEventBroker broker =
+                new dev.turboism.core.event.RuntimeEventBroker(scheduler);
+        final PluginEventOwnerKey owner = broker.admit("plugin-editor").key();
+
+        registry.register(descriptor(), List.of(new ModelPlugin()), logger, scope, broker, owner);
+
+        assertTrue(logger.warnings.isEmpty(), () -> String.join("\n", logger.warnings));
+        scope.close();
+        scheduler.shutdown();
+    }
+
+    private static final class ModelPlugin implements TurboismPlugin, ModelFileHooks {
+        @Override
+        public void onModelSaved(final ProjectContentSnapshot model) {}
+    }
+
+    /** Implements the hook interface but overrides nothing, like a defaulted CubismPlugin. */
+    private static final class PassiveModelHooks implements TurboismPlugin, ModelFileHooks {}
+
+    private static final class RecordingLogger implements PluginLogger {
+        private final List<String> warnings = new CopyOnWriteArrayList<>();
+
+        @Override
+        public void debug(final String message) {}
+
+        @Override
+        public void info(final String message) {}
+
+        @Override
+        public void warn(final String message) {
+            warnings.add(message);
+        }
+
+        @Override
+        public void error(final String message) {}
+
+        @Override
+        public void error(final String message, final Throwable throwable) {}
+    }
+
     private static final class EditorPlugin implements TurboismPlugin, EditorLifecycleHooks {
         private final String id;
         private final List<String> events;
@@ -62,6 +142,10 @@ class ProjectLifecycleHookRegistryTest {
     }
 
     private static PluginDescriptor descriptor() {
+        return descriptor(List.of(PermissionIds.TURBOISM_CUBISM_MODEL_OBSERVE));
+    }
+
+    private static PluginDescriptor descriptor(final List<String> permissionIds) {
         return new PluginDescriptor() {
             @Override
             public String id() {
@@ -135,22 +219,26 @@ class ProjectLifecycleHookRegistryTest {
 
             @Override
             public List<PermissionRef> permissions() {
-                return List.of(new PermissionRef() {
-                    @Override
-                    public String id() {
-                        return PermissionIds.TURBOISM_CUBISM_MODEL_OBSERVE;
-                    }
+                final List<PermissionRef> refs = new java.util.ArrayList<>();
+                for (String id : permissionIds) {
+                    refs.add(new PermissionRef() {
+                        @Override
+                        public String id() {
+                            return id;
+                        }
 
-                    @Override
-                    public String scope() {
-                        return "runtime";
-                    }
+                        @Override
+                        public String scope() {
+                            return "runtime";
+                        }
 
-                    @Override
-                    public Optional<String> reason() {
-                        return Optional.empty();
-                    }
-                });
+                        @Override
+                        public Optional<String> reason() {
+                            return Optional.empty();
+                        }
+                    });
+                }
+                return List.copyOf(refs);
             }
 
             @Override
