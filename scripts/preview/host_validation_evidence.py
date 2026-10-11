@@ -125,6 +125,16 @@ def terminal_result(paths: dict[str, Any]) -> dict[str, Any]:
 def finalize(job: dict[str, Any], descriptor: dict[str, Any], prepared_root: Path,
              directory: Path, preliminary: dict[str, Any] | None, proof: dict[str, Any],
              runner_exit: int | None, requested: str | None = None) -> dict[str, Any]:
+    if descriptor.get("taskSpec") in ("official-core:5302", "official-viewer:5302"):
+        # Load the frozen helper, never a mutable source-checkout implementation.
+        import types
+        helper_name = "host_validation_official_core.py" if descriptor["taskSpec"] == "official-core:5302" else "host_validation_official_viewer.py"
+        helper = prepared_root / "tool/scripts/preview" / helper_name
+        module = types.ModuleType("official_core_finalizer_snapshot")
+        module.__file__ = str(helper)
+        exec(compile(helper.read_bytes(), str(helper), "exec"), module.__dict__)
+        return module.finalize(job, descriptor, prepared_root, directory, preliminary,
+                               proof, runner_exit, requested)
     identity = {"jobId": job["job_id"], "attemptId": job["attempt_id"],
                 "runId": job["run_id"], "preparedDigest": job["digest"]}
     if type(proof.get("schemaVersion")) is not int or proof["schemaVersion"] != 1 or proof.get("cleanup") != "safe" or any(

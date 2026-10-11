@@ -71,12 +71,50 @@ class EditorObjectReadSelectorContractTest {
                 EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
                 EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID,
                 EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_REQUIRED_ALIASES));
+        assertTrue(resolver.authorizesFeature(
+                EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
+                EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID,
+                EditorObjectHierarchyEditSelectorContract.ART_MESH_SELECT_5302_ALIASES));
+        assertTrue(resolver.authorizesFeature(
+                EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
+                EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID,
+                EditorObjectHierarchyEditSelectorContract.ART_MESH_PART_CREATE_5302_REQUIRED_ALIASES));
+        for (final String capability : dev.turboism.mapping.verification.selector
+                .EditorArtMeshAuthoringReadSelectorContract.CAPABILITY_IDS) {
+            assertTrue(resolver.authorizesFeature(
+                    dev.turboism.mapping.verification.selector.EditorArtMeshAuthoringReadSelectorContract.ADAPTER_SLICE_ID,
+                    capability,
+                    dev.turboism.mapping.verification.selector.EditorArtMeshAuthoringReadSelectorContract.REQUIRED_ALIASES));
+        }
+        assertTrue(resolver.authorizesFeature(
+                dev.turboism.mapping.verification.selector.EditorArtMeshKeyformSelectorContract.ADAPTER_SLICE_ID,
+                dev.turboism.mapping.verification.selector.EditorArtMeshKeyformSelectorContract.CAPABILITY_ID,
+                dev.turboism.mapping.verification.selector.EditorArtMeshKeyformSelectorContract.REQUIRED_ALIASES));
+        assertTrue(resolver.authorizesFeature(
+                dev.turboism.mapping.verification.selector.EditorArtMeshEvaluationReadSelectorContract.ADAPTER_SLICE_ID,
+                dev.turboism.mapping.verification.selector.EditorArtMeshEvaluationReadSelectorContract.CAPABILITY_ID,
+                dev.turboism.mapping.verification.selector.EditorArtMeshEvaluationReadSelectorContract.REQUIRED_ALIASES));
+        assertTrue(resolver.authorizesFeature(
+                dev.turboism.mapping.verification.selector.EditorArtMeshMorphSelectorContract.ADAPTER_SLICE_ID,
+                dev.turboism.mapping.verification.selector.EditorArtMeshMorphSelectorContract.CAPABILITY_ID,
+                dev.turboism.mapping.verification.selector.EditorArtMeshMorphSelectorContract.REQUIRED_ALIASES));
+        assertTrue(resolver.authorizesFeature(
+                dev.turboism.mapping.verification.selector.EditorArtMeshMorphSelectorContract.ADAPTER_SLICE_ID,
+                dev.turboism.mapping.verification.selector.EditorArtMeshMorphSelectorContract.CAPABILITY_ID,
+                dev.turboism.mapping.verification.selector.EditorArtMeshMorphSelectorContract.DRAW_ORDER_REQUIRED_ALIASES));
         if (evidenceDirectory.equals("Cubism-5.3.02")) {
             assertTrue(resolver.authorizesFeature(
                     EditorObjectWriteSelectorContract.ADAPTER_SLICE_ID,
                     EditorObjectWriteSelectorContract.CLIP_MASK_CAPABILITY_ID,
                     EditorObjectWriteSelectorContract.CLIP_MASK_REQUIRED_ALIASES));
         }
+    }
+
+    /** Dedicated exact-version entry: the ordinary test task excludes licensed evidence tests. */
+    @org.junit.jupiter.api.Test
+    void exact5302AuthoringSnapshotContract() throws Exception {
+        exactRecordVerifiesTheCompleteObjectReadContract(
+            "Cubism-5.3.02", "cubism-5.3.02-editor-model.json");
     }
 
     private static Path locateProjectRoot() {

@@ -381,7 +381,7 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
         }
     }
 
-    private static boolean containsDirectFilterPanel(final Container container) {
+    static boolean containsDirectFilterPanel(final Container container) {
         for (Component child : container.getComponents()) {
             if (child instanceof JComponent component && "turboismPaletteFilterPanel".equals(component.getName())) {
                 return true;
@@ -390,7 +390,7 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
         return false;
     }
 
-    private static boolean isParameterToolbar(final Container container) {
+    static boolean isParameterToolbar(final Container container) {
         final List<AbstractButton> buttons = new ArrayList<>();
         collectButtons(container, 2, buttons);
         if (buttons.size() != 3) return false;
@@ -417,7 +417,7 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
         return add && folder && delete;
     }
 
-    private static void collectButtons(final Component component, final int depth, final List<AbstractButton> buttons) {
+    static void collectButtons(final Component component, final int depth, final List<AbstractButton> buttons) {
         if (component == null || depth < 0) return;
         if (component instanceof AbstractButton button) {
             buttons.add(button);
@@ -451,7 +451,7 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
         return builder.toString();
     }
 
-    private static PaletteProbe palette(final List<PaletteProbe> palettes, final String kind) {
+    static PaletteProbe palette(final List<PaletteProbe> palettes, final String kind) {
         for (PaletteProbe palette : palettes) {
             if (kind.equals(palette.kind)) {
                 return palette;
@@ -460,7 +460,7 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
         return null;
     }
 
-    private static boolean filtersReady(final List<PaletteProbe> palettes, final List<String> required) {
+    static boolean filtersReady(final List<PaletteProbe> palettes, final List<String> required) {
         for (String kind : required) {
             final PaletteProbe probe = palette(palettes, kind.trim());
             if (probe == null || !probe.filterBoxFound) {
@@ -495,7 +495,7 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
         return result.get();
     }
 
-    private static boolean paletteKindFound(final List<PaletteProbe> probes, final String kind) {
+    static boolean paletteKindFound(final List<PaletteProbe> probes, final String kind) {
         for (PaletteProbe probe : probes) {
             if (kind.equals(probe.kind)) {
                 return true;
@@ -570,7 +570,7 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
 
     /** Finds the filter box near a palette root: the field is attached to the palette's toolbar,
      *  which sits outside the content subtree, so we search sibling subtrees upward. */
-    private static JTextField findFilterFieldNear(final JComponent root) {
+    static JTextField findFilterFieldNear(final JComponent root) {
         Component current = root;
         int hops = 0;
         while (current != null && current.getParent() != null && hops < 16) {
@@ -590,7 +590,7 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
         return null;
     }
 
-    private static JTextField findFilterField(final Component component) {
+    static JTextField findFilterField(final Component component) {
         if (component instanceof JTextField field && FIELD_NAME.equals(field.getName())) {
             return field;
         }
@@ -788,7 +788,7 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
         return pane.getDocument().getDefaultRootElement().getElementCount();
     }
 
-    private static final class PaletteProbe {
+    static final class PaletteProbe {
         final String kind;
         final boolean filterBoxFound;
         final String placeholder;

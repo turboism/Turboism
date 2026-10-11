@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.CubismEditor;
+import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.id.TextureAtlasId;
@@ -158,4 +159,63 @@ public interface ModelTextures {
         "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
     })
     void removeRawImage(RawImageId id);
+
+    /**
+     * Registers one authorized image as a raw layered image plus model image and
+     * binds it to an unbound ArtMesh inside a single Editor authoring
+     * transaction (registration contribution before the binding contribution).
+     *
+     * <p>The image grant is consumed by the call. The target must be an
+     * existing, unlocked, unbound ArtMesh with no extension and no parent
+     * deformer. On any rejection or partial failure the model is left
+     * untouched.</p>
+     *
+     * @return the detached registration/binding handle
+     */
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    default ModelImageBinding registerImageAndBind(
+        final AuthorizedImageContent image,
+        final ArtMeshId target
+    ) {
+        throw unavailable("Model image registration and binding");
+    }
+
+    /**
+     * Binds an already-registered model image to an unbound ArtMesh.
+     *
+     * <p>Binding the same image to the same ArtMesh again is a no-change
+     * operation that touches no native state. Binding a different image to an
+     * ArtMesh that already carries a texture-input extension, or any extension
+     * not created by this slice, is rejected.</p>
+     *
+     * @return the detached binding handle
+     */
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    default ModelImageBinding bindModelImage(
+        final ModelImageId image,
+        final ArtMeshId target
+    ) {
+        throw unavailable("Model image binding");
+    }
+
+    /**
+     * Observes the native texture input currently bound to one ArtMesh.
+     *
+     * <p>Reads the mesh's texture-input extension and reports the authored resource
+     * it resolves to — a model image or a texture atlas region — under the active
+     * model generation. The observation is detached: it never exposes host objects
+     * and is not a write token. An empty result means the mesh genuinely carries no
+     * extension or no current input; a missing target, an unresolvable or foreign
+     * resource, or an unknown input kind fails instead of reporting unbound. This
+     * is authoring binding identity, not a render texture index and not proof of
+     * sampling.</p>
+     */
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    default Optional<ArtMeshTextureInput> textureInput(final ArtMeshId target) {
+        throw unavailable("ArtMesh texture input observation");
+    }
+
+    private static UnsupportedOperationException unavailable(final String feature) {
+        return new UnsupportedOperationException(feature + " is unavailable.");
+    }
 }

@@ -1482,18 +1482,32 @@ public final class NativeMeshMirrorBridge {
     static Object activeMeshEditMode() {
         try {
             final Object viewContext = activeMeshViewContext();
-            return viewContext == null ? null : property(viewContext, "currentEditMode");
+            if (viewContext == null) {
+                diagnostic("MESH_EDIT_MODE_UNAVAILABLE reason=NO_VIEW_CONTEXT panel=" + (CURRENT_PANEL.get() != null));
+                return null;
+            }
+            final Object mode = property(viewContext, "currentEditMode");
+            diagnostic("MESH_EDIT_MODE_OBSERVED class=" + (mode == null ? "null" : mode.getClass().getName()));
+            return mode;
         } catch (ReflectiveOperationException | RuntimeException failure) {
+            diagnostic("MESH_EDIT_MODE_UNAVAILABLE reason=" + failure.getClass().getName());
             return null;
         }
     }
 
-    /** The current mesh action pack ({@code Z}), which owns the native edit envelope. */
+    /** The current mesh action pack, which owns the native edit envelope. */
     static Object activeMeshActionPack() {
         try {
             final Object viewContext = activeMeshViewContext();
             if (viewContext == null) return null;
-            return invoke(viewContext, "getLastActionPack");
+            final Object cached = invoke(viewContext, "getLastActionPack");
+            final Object mode = property(viewContext, "currentEditMode");
+            if (actionPackOwnsEditMode(cached, mode)) return cached;
+            final Object refreshed = PopupMeshUndoContract.refresh(viewContext, cached);
+            diagnostic("MESH_EDIT_ACTION_PACK cached=" + (cached == null ? "null" : cached.getClass().getName())
+                + " refreshed=" + (refreshed == null ? "null" : refreshed.getClass().getName())
+                + " ownsMode=" + actionPackOwnsEditMode(refreshed, mode));
+            return refreshed;
         } catch (ReflectiveOperationException | RuntimeException failure) {
             return null;
         }
@@ -1503,6 +1517,9 @@ public final class NativeMeshMirrorBridge {
     static boolean actionPackOwnsEditMode(final Object actionPack, final Object editMode) {
         if (actionPack == null || editMode == null) return false;
         try {
+            if (PopupMeshUndoContract.admitted(actionPack)) {
+                return PopupMeshUndoContract.owns(actionPack, editMode);
+            }
             return call(actionPack, "aP", NO_PARAMS) == editMode;
         } catch (ReflectiveOperationException | RuntimeException failure) {
             return false;
@@ -1530,7 +1547,12 @@ public final class NativeMeshMirrorBridge {
     }
 
     /** Installs the host's canonical live-mesh SimpleUndo snapshots before direct mutations. */
-    static void snapshotMeshesForUndo(final Object actionPack, final String label) throws ReflectiveOperationException {
+    static void snapshotMeshesForUndo(final Object actionPack, final String label, final Object group)
+        throws ReflectiveOperationException {
+        if (PopupMeshUndoContract.admitted(actionPack)) {
+            PopupMeshUndoContract.snapshot(actionPack, label, group);
+            return;
+        }
         final Method snapshot = declaredMethod(actionPack.getClass(), "d", String.class);
         if (snapshot == null) throw new NoSuchMethodException("mesh snapshot helper");
         snapshot.invoke(actionPack, label);
@@ -1592,17 +1614,18 @@ public final class NativeMeshMirrorBridge {
     static boolean canMovePoint(final Object point) throws ReflectiveOperationException {
         final Object current = call(point, "getPos", NO_PARAMS);
         if (current == null) return false;
-        return vectorConstructor(current.getClass()) != null
-                && movePointMethod(point.getClass(), current.getClass()) != null;
+        final Method move = movePointMethod(point.getClass(), current.getClass());
+        return move != null && vectorConstructor(move.getParameterTypes()[0]) != null;
     }
 
     static void movePoint(final Object point, final float x, final float y) throws ReflectiveOperationException {
         final Object current = call(point, "getPos", NO_PARAMS);
         if (current == null) throw new NoSuchMethodException("mesh point position");
-        final Constructor<?> vector = vectorConstructor(current.getClass());
-        if (vector == null) throw new NoSuchMethodException("mesh point vector construction");
         final Method move = movePointMethod(point.getClass(), current.getClass());
         if (move == null) throw new NoSuchMethodException("mesh point movement");
+        // Native getPos() returns MPoint2, but moveToOnLocal accepts GVector2.
+        final Constructor<?> vector = vectorConstructor(move.getParameterTypes()[0]);
+        if (vector == null) throw new NoSuchMethodException("mesh point vector construction");
         move.invoke(point, vector.newInstance(x, y), 1.0f);
     }
 

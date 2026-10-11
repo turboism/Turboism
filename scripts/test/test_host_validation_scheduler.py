@@ -39,6 +39,7 @@ class HostValidationSchedulerTest(unittest.TestCase):
 
     def test_manifest_covers_supported_wrappers_and_resource_boundaries(self) -> None:
         expected = {
+            "acp",
             "animation-timeline",
             "atlas",
             "backup",
@@ -55,7 +56,11 @@ class HostValidationSchedulerTest(unittest.TestCase):
             "host-locale",
             "incremental-update",
             "mcp",
+            "model-import-3d",
+            "model-import-3d-user-entry",
             "model-update-skip",
+            "official-core",
+            "official-viewer",
             "parameter",
             "parameter-batch-transfer",
             "protected-export",
