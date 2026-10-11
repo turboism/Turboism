@@ -1,5 +1,7 @@
 package dev.turboism.sdk.cubism.event;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * Typed catalog of Cubism model and Editor operations that may emit a
  * {@code before -> invoke -> on -> after} lifecycle.
@@ -10,6 +12,7 @@ package dev.turboism.sdk.cubism.event;
  * <p>A catalog entry does not enable a host hook or claim host-version support;
  * only a verified runtime producer may emit it.</p>
  */
+@CubismEditor
 public enum CubismOperation {
 
     /** Changes the Editor default-keyform lock. */

@@ -1,11 +1,13 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Snapshot of one animation file and its scene documents. */
+@CubismEditor
 public record AnimationSnapshot(
         String animationId,
         String name,

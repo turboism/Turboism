@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /**
@@ -8,6 +9,7 @@ import java.util.Objects;
  * <p>Carries a stable diagnostic code alongside the message so callers can branch on the failure
  * without parsing text.</p>
  */
+@CubismEditor
 public class CubismServiceException extends Exception {
 
     private final String code;

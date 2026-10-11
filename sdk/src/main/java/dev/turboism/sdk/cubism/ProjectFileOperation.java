@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Immutable request observed before a model or animation file-content operation. */
+@CubismEditor
 public record ProjectFileOperation(
         ProjectContentKind kind,
         ProjectFileOperationType operation,

@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -11,6 +12,7 @@ import java.util.Optional;
  * <p>The structured fields are the stable diagnostic contract. The exception
  * message is intended for humans and must not be parsed.</p>
  */
+@CubismEditor
 public final class CubismEditorApiUnavailableException extends UnsupportedOperationException {
 
     private final String apiId;
