@@ -1,0 +1,2031 @@
+{
+ "format": "turboism.version-set-registry/v1",
+ "comment": "Sanctioned literal Cubism version sets in production sources. Every collection literal or file-level residual set of exact versions must be registered here with an audit basis and reason; unregistered sites fail checkVersionSetRegistry, and stale entries fail too. Regenerate with `python3 scripts/check_version_set_registry.py --update` and fill in the basis/reason of each new site.",
+ "sites": [
+  {
+   "kind": "collection",
+   "path": "bootstrap/src/main/java/dev/turboism/bootstrap/VerifiedControlAppearanceHookInstaller.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Literal version table derived from verification records; the set names the reviewed versions this surface admits."
+  },
+  {
+   "kind": "collection",
+   "path": "bootstrap/src/main/java/dev/turboism/bootstrap/VerifiedProtectedExportHookInstaller.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Literal version table derived from verification records; the set names the reviewed versions this surface admits."
+  },
+  {
+   "kind": "collection",
+   "path": "plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpGlueDomain.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "MCP domain supported-version table derived from the SDK coverage manifest and review data."
+  },
+  {
+   "kind": "collection",
+   "path": "plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpHistoryCommandDomain.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "MCP domain supported-version table derived from the SDK coverage manifest and review data."
+  },
+  {
+   "kind": "collection",
+   "path": "plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpTextureDomain.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "MCP domain supported-version table derived from the SDK coverage manifest and review data."
+  },
+  {
+   "kind": "collection",
+   "path": "plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpTextureDomain.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "MCP domain supported-version table derived from the SDK coverage manifest and review data."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorModelStatisticsAccess.java",
+   "versions": [
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Literal version table derived from verification records; the set names the reviewed versions this surface admits."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/history/VerifiedNativeEditBeginHookInstaller.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Literal version table derived from verification records; the set names the reviewed versions this surface admits."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/integration/NativeEditToggleInjector.java",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Literal version table derived from verification records; the set names the reviewed versions this surface admits."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/integration/VerifiedEditApiDispatchInstaller.java",
+   "versions": [
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Literal version table derived from verification records; the set names the reviewed versions this surface admits."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/integration/VerifiedEditToggleHookInstaller.java",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Literal version table derived from verification records; the set names the reviewed versions this surface admits."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgePreparation.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Literal version table derived from verification records; the set names the reviewed versions this surface admits."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshMirrorHostProfile.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshMirrorHostProfile.java",
+   "versions": [
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolSessionSelectorContract.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Selector contract admission set derived from verification records; the contract admits the capability on exactly these reviewed versions."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/modeling/ModelingSelectionSelectorContract.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Selector contract admission set derived from verification records; the contract admits the capability on exactly these reviewed versions."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/glerror/GlGetErrorElisionTarget.java",
+   "versions": [
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/modelupdate/ModelUpdateSkipTarget.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/modelupdate/incremental/IncrementalUpdateTarget.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/uploadelision/SkippedFrameUploadElisionTarget.java",
+   "versions": [
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/startup/StartupSuppressionProfile.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/VerifiedTextureAtlasSelectorContract.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Selector contract admission set derived from verification records; the contract admits the capability on exactly these reviewed versions."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/warpalt/WarpAltMirrorHostProfile.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/warpalt/WarpAltMirrorHostProfile.java",
+   "versions": [
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/core/plugin/context/CubismEditorAvailabilityPolicy.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "canonical",
+   "reason": "Mandated restatement of the reviewed set for SDK annotation resolution; equality enforced by checkVersionSetCompleteness."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/exportsettings/ExportSettingsHostProfile.java",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/exportsettings/VerifiedProtectedExportHostOperations.java",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Literal version table derived from verification records; the set names the reviewed versions this surface admits."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "canonical",
+   "reason": "Canonical admitted-version declaration; every other surface restates it (checkVersionSetCompleteness).",
+   "count": 2
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/ui/filter/DeformerNodeSourceProfile.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/ui/filter/DeformerNodeSourceProfile.java",
+   "versions": [
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
+  },
+  {
+   "kind": "collection",
+   "path": "runtime/src/main/java/dev/turboism/ui/mesh/MeshToolbarSelectorContract.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Selector contract admission set derived from verification records; the contract admits the capability on exactly these reviewed versions."
+  },
+  {
+   "kind": "collection",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ClipMaskVerificationManifest.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Verification manifest record-version table derived from the verification records it admits."
+  },
+  {
+   "kind": "collection",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ProjectWorkspaceVerificationManifest.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Verification manifest record-version table derived from the verification records it admits."
+  },
+  {
+   "kind": "collection",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/StartupSuppressionVerificationManifest.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Verification manifest record-version table derived from the verification records it admits."
+  },
+  {
+   "kind": "collection",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/StatusBarVerificationManifest.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Verification manifest record-version table derived from the verification records it admits."
+  },
+  {
+   "kind": "collection",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Selector contract admission set derived from verification records; the contract admits the capability on exactly these reviewed versions."
+  },
+  {
+   "kind": "collection",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorModelInstanceReadSelectorContract.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "basis": "task-scoped",
+   "reason": "CUBISM_5_3_03_VERSION is a dispatch constant for the 5.3.03 record's onion-skin shape, not an admission set."
+  },
+  {
+   "kind": "collection",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorRawImagePsdReplaceSelectorContract.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Selector contract admission set derived from verification records; the contract admits the capability on exactly these reviewed versions."
+  },
+  {
+   "kind": "collection",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorRawImagePsdSelectorContract.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Selector contract admission set derived from verification records; the contract admits the capability on exactly these reviewed versions."
+  },
+  {
+   "kind": "collection",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorRawImagePsdSelectorContract.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Selector contract admission set derived from verification records; the contract admits the capability on exactly these reviewed versions."
+  },
+  {
+   "kind": "collection",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorTextureRelationsSelectorContract.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Selector contract admission set derived from verification records; the contract admits the capability on exactly these reviewed versions."
+  },
+  {
+   "kind": "collection",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorTextureSelectorContract.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Selector contract admission set derived from verification records; the contract admits the capability on exactly these reviewed versions."
+  },
+  {
+   "kind": "collection",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommand.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Exact-version command catalog: each command's supported set is reviewed data, enforced by checkVersionMonotonicity."
+  },
+  {
+   "kind": "collection",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommand.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Exact-version command catalog: each command's supported set is reviewed data, enforced by checkVersionMonotonicity.",
+   "count": 169
+  },
+  {
+   "kind": "collection",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommand.java",
+   "versions": [
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Exact-version command catalog: each command's supported set is reviewed data, enforced by checkVersionMonotonicity."
+  },
+  {
+   "kind": "collection",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommand.java",
+   "versions": [
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Exact-version command catalog: each command's supported set is reviewed data, enforced by checkVersionMonotonicity."
+  },
+  {
+   "kind": "collection",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommand.java",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Exact-version command catalog: each command's supported set is reviewed data, enforced by checkVersionMonotonicity.",
+   "count": 2
+  },
+  {
+   "kind": "collection",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommand.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Exact-version command catalog: each command's supported set is reviewed data, enforced by checkVersionMonotonicity.",
+   "count": 12
+  },
+  {
+   "kind": "collection",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommand.java",
+   "versions": [
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Exact-version command catalog: each command's supported set is reviewed data, enforced by checkVersionMonotonicity.",
+   "count": 3
+  },
+  {
+   "kind": "collection",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommand.java",
+   "versions": [
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Exact-version command catalog: each command's supported set is reviewed data, enforced by checkVersionMonotonicity.",
+   "count": 5
+  },
+  {
+   "kind": "collection",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommand.java",
+   "versions": [
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Exact-version command catalog: each command's supported set is reviewed data, enforced by checkVersionMonotonicity."
+  },
+  {
+   "kind": "collection",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorFileCommand.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Exact-version command catalog: each command's supported set is reviewed data, enforced by checkVersionMonotonicity.",
+   "count": 12
+  },
+  {
+   "kind": "collection",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorFileCommand.java",
+   "versions": [
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Exact-version command catalog: each command's supported set is reviewed data, enforced by checkVersionMonotonicity."
+  },
+  {
+   "kind": "collection",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorFileCommand.java",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Exact-version command catalog: each command's supported set is reviewed data, enforced by checkVersionMonotonicity."
+  },
+  {
+   "kind": "collection",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorParameterizedCommand.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "basis": "verification-derived",
+   "reason": "Exact-version command catalog: each command's supported set is reviewed data, enforced by checkVersionMonotonicity."
+  },
+  {
+   "kind": "collection",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorParameterizedCommand.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Exact-version command catalog: each command's supported set is reviewed data, enforced by checkVersionMonotonicity.",
+   "count": 53
+  },
+  {
+   "kind": "collection",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorParameterizedCommand.java",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Exact-version command catalog: each command's supported set is reviewed data, enforced by checkVersionMonotonicity.",
+   "count": 4
+  },
+  {
+   "kind": "collection",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorParameterizedCommand.java",
+   "versions": [
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Exact-version command catalog: each command's supported set is reviewed data, enforced by checkVersionMonotonicity."
+  },
+  {
+   "kind": "collection",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorParameterizedCommand.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Exact-version command catalog: each command's supported set is reviewed data, enforced by checkVersionMonotonicity.",
+   "count": 3
+  },
+  {
+   "kind": "collection",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorParameterizedCommand.java",
+   "versions": [
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Exact-version command catalog: each command's supported set is reviewed data, enforced by checkVersionMonotonicity.",
+   "count": 2
+  },
+  {
+   "kind": "collection",
+   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorParameterizedCommand.java",
+   "versions": [
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Exact-version command catalog: each command's supported set is reviewed data, enforced by checkVersionMonotonicity.",
+   "count": 3
+  },
+  {
+   "kind": "file",
+   "path": "bootstrap/src/main/java/dev/turboism/bootstrap/ObjectContextMenuHostProfile.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
+  },
+  {
+   "kind": "file",
+   "path": "bootstrap/src/main/java/dev/turboism/bootstrap/ParameterPointContextMenuHostProfile.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
+  },
+  {
+   "kind": "file",
+   "path": "bootstrap/src/main/java/dev/turboism/bootstrap/PerformanceFpsHookInstaller.java",
+   "versions": [
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "task-scoped",
+   "reason": "Named arms are fast paths; the fallback admits every reviewed version (see monotonicity exception)."
+  },
+  {
+   "kind": "file",
+   "path": "bootstrap/src/main/java/dev/turboism/bootstrap/VerifiedPerformanceProbeInstaller.java",
+   "versions": [
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Literal version table derived from verification records; the set names the reviewed versions this surface admits."
+  },
+  {
+   "kind": "file",
+   "path": "plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpGlueDomain.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "MCP domain supported-version table derived from the SDK coverage manifest and review data."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/core/CorePublicApiProviderFactory.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02"
+   ],
+   "basis": "task-scoped",
+   "reason": "Identity switch that passes every admitted version through; the arms exist only for profile-id divergence."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/core/CoreVersionExpectation.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "canonical",
+   "reason": "Canonical reviewed-version expectation table for Core API admission."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorTextureReplacementDiagnostic.java",
+   "versions": [
+    "5.3.02"
+   ],
+   "basis": "task-scoped",
+   "reason": "Property-gated diagnostic authored and reviewed against the exact 5.3.02 host; a tool, not an admission set."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/filechooser/FileChooserHistoryHostProfile.java",
+   "versions": [
+    "5.2.03"
+   ],
+   "basis": "task-scoped",
+   "reason": "Task-scoped host profile pin for the exact-host file-chooser validation lane."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/composite/CanvasCompositeElisionTarget.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/glerror/GlGetErrorElisionTarget.java",
+   "versions": [
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/modelupdate/ModelUpdateSkipTarget.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/modelupdate/incremental/IncrementalUpdateTarget.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/uniform/UniformLocationLifecycleTransformer.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/uploadelision/SkippedFrameUploadElisionTarget.java",
+   "versions": [
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/cache/AtlasCacheReuseTarget.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/image/AtlasTileBboxTarget.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/exportsettings/ExportSettingsHostProfile.java",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/exportsettings/ProtectedExportChooserProfile.java",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/mapping/verification/CorePublicApiTrustRoots.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "canonical",
+   "reason": "Canonical trust root binding reviewed versions to Core API artifacts."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedCubismReleases.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "canonical",
+   "reason": "Canonical reviewed release identity table (version -> declared build)."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "canonical",
+   "reason": "Canonical admitted-version declaration; every other surface restates it (checkVersionSetCompleteness)."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/mapping/verification/VerifiedEditorModelResolverFactory.java",
+   "versions": [
+    "5.3.03"
+   ],
+   "basis": "task-scoped",
+   "reason": "Selects the optional 5.3.03 validation-candidate runtime scope; not an admission set (see monotonicity exception)."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/ui/resource/CubismNativeIconCatalog.java",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Literal version table derived from verification records; the set names the reviewed versions this surface admits."
+  },
+  {
+   "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/ui/workspace/WorkspaceControlAdmission.java",
+   "versions": [
+    "5.2.03",
+    "5.3.02",
+    "5.3.03"
+   ],
+   "basis": "task-scoped",
+   "reason": "Slice-id dispatch keys; authorizes() admits every reviewed version (see monotonicity exception)."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/AutoBackupVerificationManifest.java",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Verification manifest record-version table derived from the verification records it admits."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/BoundingBoxOverlayButtonVerificationManifest.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Verification manifest record-version table derived from the verification records it admits."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ClipMaskVerificationManifest.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Verification manifest record-version table derived from the verification records it admits."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ControlAppearanceVerificationManifest.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Verification manifest record-version table derived from the verification records it admits."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/EditorModelVerificationManifest.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Verification manifest record-version table derived from the verification records it admits."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/EmbeddedPanelVerificationManifest.java",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Verification manifest record-version table derived from the verification records it admits."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/FileChooserHistoryVerificationManifest.java",
+   "versions": [
+    "5.3.03"
+   ],
+   "basis": "task-scoped",
+   "reason": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/MainToolbarVerificationManifest.java",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Verification manifest record-version table derived from the verification records it admits."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/NativeControlAppearancePersistenceVerificationManifest.java",
+   "versions": [
+    "5.3.03"
+   ],
+   "basis": "task-scoped",
+   "reason": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ParameterLifecycleVerificationManifest.java",
+   "versions": [
+    "5.3.03"
+   ],
+   "basis": "task-scoped",
+   "reason": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/PerformanceFpsVerificationManifest.java",
+   "versions": [
+    "5.3.03"
+   ],
+   "basis": "task-scoped",
+   "reason": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ProjectLifecycleVerificationManifest.java",
+   "versions": [
+    "5.3.03"
+   ],
+   "basis": "task-scoped",
+   "reason": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ProjectWorkspaceVerificationManifest.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Verification manifest record-version table derived from the verification records it admits."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/ProtectedExportVerificationManifest.java",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Verification manifest record-version table derived from the verification records it admits."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/StartupSuppressionVerificationManifest.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Verification manifest record-version table derived from the verification records it admits."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/StatusBarVerificationManifest.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Verification manifest record-version table derived from the verification records it admits."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/TextureAtlasVerificationManifest.java",
+   "versions": [
+    "5.3.03"
+   ],
+   "basis": "task-scoped",
+   "reason": "Task-scoped runtime admission for the exact-host 5.3.03 validation lane."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/TopMenuVerificationManifest.java",
+   "versions": [
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Verification manifest record-version table derived from the verification records it admits."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/WorkspaceControlVerificationManifest.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "verification-derived",
+   "reason": "Verification manifest record-version table derived from the verification records it admits."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorModelInstanceReadSelectorContract.java",
+   "versions": [
+    "5.3.03"
+   ],
+   "basis": "task-scoped",
+   "reason": "CUBISM_5_3_03_VERSION is a dispatch constant for the 5.3.03 record's onion-skin shape, not an admission set."
+  }
+ ]
+}

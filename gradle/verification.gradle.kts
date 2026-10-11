@@ -541,6 +541,7 @@ val checkCompatibilityMatrix by tasks.registering(Exec::class) {
         fileTree("plugins") {
             include("*/src/main/resources/META-INF/turboism/plugin.json")
             include("*/src/main/resources/META-INF/turboism/*-coverage.json")
+            include("*/src/main/resources/META-INF/turboism/cubism-versions.json")
             include("*/src/main/java/**/*.java")
             include("README*.md")
         }
@@ -606,6 +607,95 @@ val checkVersionMonotonicity by tasks.registering(Exec::class) {
     )
     verificationStamp()
     commandLine("python3", "scripts/check_version_monotonicity.py", rootDir.absolutePath)
+}
+
+/*
+ * Monotonicity only proves a version set is upward-closed; it never asks why
+ * the set exists. The registry gate goes further: every literal Cubism
+ * version set in production sources — collection literals and per-file
+ * residual tokens outside @CubismEditor annotations — must be registered in
+ * scripts/version-set-registry.json with an audit basis and reason, so a new
+ * hand-written admission list cannot appear silently. Stale registrations
+ * fail too, so the ledger cannot rot.
+ */
+val checkVersionSetRegistrySelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed fixtures for the literal version-set registry."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/check_version_set_registry.py",
+        "scripts/check_version_monotonicity.py",
+        "scripts/test/test_check_version_set_registry.py"
+    )
+    verificationStamp()
+    commandLine(
+        "python3", "-m", "unittest",
+        "scripts.test.test_check_version_set_registry",
+        "-v"
+    )
+}
+
+val checkVersionSetRegistry by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Fails when a literal Cubism version set is not in the registry."
+    dependsOn(checkVersionSetRegistrySelfTest)
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/check_version_set_registry.py",
+        "scripts/check_version_monotonicity.py",
+        "scripts/version-set-registry.json",
+        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
+        fileTree("sdk/src/main") { include("**/*.java") },
+        fileTree("runtime/src/main") { include("**/*.java") },
+        fileTree("bootstrap/src/main") { include("**/*.java") },
+        fileTree("core-contract/src/main") { include("**/*.java") },
+        fileTree("event-processor/src/main") { include("**/*.java") },
+        fileTree("graal-host/src/main") { include("**/*.java") },
+        fileTree("buildSrc/src/main") { include("**/*.java") },
+        fileTree("packaging/java-installer/listener-src") { include("**/*.java") },
+        fileTree("templates") { include("**/*.java") },
+        fileTree("scripts/verification-sources/templates") { include("**/*.java") },
+        fileTree("plugins") { include("*/src/main/**/*.java") }
+    )
+    verificationStamp()
+    commandLine("python3", "scripts/check_version_set_registry.py", rootDir.absolutePath)
+}
+
+/*
+ * Every public type under dev.turboism.sdk.cubism declares host-facing API and
+ * must carry @CubismEditor — on itself, an enclosing type, or an interface
+ * parent. sdk/api-contracts/cubism-annotation-baseline.json freezes the legacy
+ * backlog; the gate fails on any new unannotated type and on stale baseline
+ * entries, so the backlog can only shrink.
+ */
+val checkSdkCubismEditorAnnotationsSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed fixtures for the SDK @CubismEditor annotation baseline."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/check_sdk_cubism_annotations.py",
+        "scripts/test/test_check_sdk_cubism_annotations.py"
+    )
+    verificationStamp()
+    commandLine(
+        "python3", "-m", "unittest",
+        "scripts.test.test_check_sdk_cubism_annotations",
+        "-v"
+    )
+}
+
+val checkSdkCubismEditorAnnotations by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Fails when a public dev.turboism.sdk.cubism type lacks @CubismEditor coverage."
+    dependsOn(checkSdkCubismEditorAnnotationsSelfTest)
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/check_sdk_cubism_annotations.py",
+        "sdk/api-contracts/cubism-annotation-baseline.json",
+        fileTree("sdk/src/main/java") { include("**/*.java") }
+    )
+    verificationStamp()
+    commandLine("python3", "scripts/check_sdk_cubism_annotations.py", rootDir.absolutePath)
 }
 
 /*
@@ -970,6 +1060,8 @@ val devCheck by tasks.registering {
         checkRepositoryHygiene,
         checkEditorModelAliases,
         checkVersionMonotonicity,
+        checkVersionSetRegistry,
+        checkSdkCubismEditorAnnotations,
         "validatePluginMeta",
         ":runtime:checkHeadlessRuntimeClasspath",
         ":runtime:admissionPreflightTest"
