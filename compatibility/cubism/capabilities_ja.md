@@ -332,14 +332,14 @@
 | `external-psd-fixture-preparation` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
 | `glcanvas` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |
 | `guard-5302` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
-| `incremental-update` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
+| `incremental-update` |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ |  |  | ✓ | ✓ | ✓ |
 | `integration` | ◇ |  | ? |  |  |  | ◇ | ◇ |  |  | ? | ✓ | ✓ | ? | ? | ✓ | ? | ? | ? | ✓ |
 | `media-perf` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |
 | `mesh-edit` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ? | ? |  |
 | `model-import-3d` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
 | `model-import-3d-n2` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
 | `model-import-3d-user-entry` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
-| `model-update-skip` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
+| `model-update-skip` |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ |  |  | ✓ | ✓ | ✓ |
 | `modeling-tool` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
 | `native-resource` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
 | `official-core` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
