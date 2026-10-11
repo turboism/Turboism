@@ -144,7 +144,8 @@ STARTUP_DIALOG_SIGNATURE = re.compile(
     r"Start as FREE version|Start PRO Version|newer version|"
     r"new version has been released|News and Release Notes|"
     r"limited period of 42 days|Trial license will expire|"
-    r"Parameters allowed per object|meeting the restrictions"
+    r"Parameters allowed per object|meeting the restrictions|"
+    r"AnnouncementDialog|appCtrlImpl\.ui\.dialog\.a"
 )
 STARTUP_DIALOG_ACTUATION = re.compile(
     r"\bdoClick\b|\.setValue\(|keyPress|keyRelease|VK_ENTER|VK_ESCAPE|"

@@ -137,6 +137,10 @@ public final class SessionCoordinatorPlugin implements TurboismPlugin {
             try {
                 SwingUtilities.invokeAndWait(() -> {
                     try {
+                        if (startupHelper != null) {
+                            final String action = NativeFreeStartup.select();
+                            if (action != null) logger.info("SESSION_" + action);
+                        }
                         ready.set(context.cubism().isHostPresent()
                                 && context.cubism().activeDocument().isPresent());
                     } catch (IllegalStateException unavailable) {
@@ -165,6 +169,10 @@ public final class SessionCoordinatorPlugin implements TurboismPlugin {
         final AtomicReference<String> verdict = new AtomicReference<>(null);
         try {
             SwingUtilities.invokeAndWait(() -> {
+                if (startupHelper != null) {
+                    final String action = NativeFreeStartup.select();
+                    if (action != null) logger.info("SESSION_" + action);
+                }
                 for (final Window window : Window.getWindows()) {
                     if (window instanceof Dialog dialog && dialog.isModal() && dialog.isVisible()) {
                         verdict.set("modal dialog visible: " + dialog.getTitle());

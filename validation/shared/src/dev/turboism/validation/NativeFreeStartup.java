@@ -13,6 +13,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import javax.swing.AbstractButton;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -33,6 +35,25 @@ public final class NativeFreeStartup {
     /** News windows already closed once; bounds the evidence line to one per instance. */
     private static final Set<Window> CLOSED_NEWS_WINDOWS =
             Collections.synchronizedSet(Collections.newSetFromMap(new IdentityHashMap<>()));
+    private static final String ANNOUNCEMENT_DIALOG_CLASS =
+            "com.live2d.cubism.appCtrlImpl.ui.dialog.a";
+    private static final String ANNOUNCEMENT_STAGE_FIELD = "d";
+    private static final String JAVAFX_PLATFORM_CLASS = "javafx.application.Platform";
+    private static final String UUCONFIG_CLASS = "com.live2d.util.UUConfig";
+    private static final String UUCONFIG_INSTANCE_FIELD = "a";
+    private static final String UUCONFIG_WRITE_METHOD = "b";
+    private static final String ANNOUNCEMENT_DO_NOT_SHOW_TODAY_KEY =
+            "AnnouncementDialog_DoNotShowAgainToday";
+    private static final String ANNOUNCEMENT_LAST_OPENED_DATE_KEY =
+            "AnnouncementDialog_LastOpenedDate";
+    private static final int ANNOUNCEMENT_SUPPRESSED_DATE = 99991231;
+    private static final long ANNOUNCEMENT_HIDE_WAIT_MILLIS = 250L;
+    /** Announcement stages already hidden; maps stage instance to last hide attempt millis. */
+    private static final Map<Object, Long> HIDDEN_ANNOUNCEMENT_STAGES =
+            Collections.synchronizedMap(new IdentityHashMap<>());
+    /** Attempt budget per announcement stage instance. */
+    private static final Map<Object, Integer> ANNOUNCEMENT_STAGE_ATTEMPTS =
+            Collections.synchronizedMap(new WeakHashMap<>());
 
     /** How long after the last trial-flow action to keep dumping window inventories. */
     private static final long TRIAL_OBSERVATION_MILLIS = 120_000L;
@@ -660,6 +681,10 @@ public final class NativeFreeStartup {
                     return action;
                 }
             }
+            final String announcementAction = dismissAnnouncementStageIfPresent();
+            if (announcementAction != null) {
+                return announcementAction;
+            }
             return homeNewsClosed ? "HOME_NEWS_DIALOG_CLOSED" : null;
         } finally {
             emitTrialWindowObservation();
@@ -755,5 +780,166 @@ public final class NativeFreeStartup {
             }
         }
         return false;
+    }
+
+    /**
+     * Detects and hides the Cubism 5.0.x JavaFX announcement stage
+     * ({@code com.live2d.cubism.appCtrlImpl.ui.dialog.a.d}) when present.
+     *
+     * <p>Cubism 5.0.00–5.0.06 launches a JavaFX {@code Stage} in the background on
+     * startup whose {@code onShown} callback disables the main Swing {@code JFrame}
+     * and {@code JMenuBar}; because a JavaFX {@code Stage} is not an AWT
+     * {@link Window}, {@link Window#getWindows()} never lists it. Hiding the stage
+     * on the JavaFX thread via {@code Platform.runLater(stage::hide)} invokes the
+     * native {@code onHiding} callback to restore the main frame and menu bar
+     * without calling {@code setEnabled(true)} directly. The {@code UUConfig}
+     * do-not-show keys are also written best-effort into the task-isolated home's
+     * configuration so the dialog does not re-open during the same task run. When
+     * the class or field is absent or {@code null}, this method is a no-op.</p>
+     */
+    static String dismissAnnouncementStageIfPresent() {
+        return dismissAnnouncementStageIfPresent(candidateClassLoaders());
+    }
+
+    static String dismissAnnouncementStageIfPresent(final Iterable<ClassLoader> loaders) {
+        if (loaders == null) return null;
+        for (final ClassLoader loader : loaders) {
+            if (loader == null) continue;
+            final Object stage = findAnnouncementStage(loader);
+            if (stage == null || !shouldHideAnnouncementStage(stage)) continue;
+            suppressAnnouncementConfigBestEffort(loader);
+            if (hideJavaFxStage(stage, loader)) {
+                return "ANNOUNCEMENT_STAGE_HIDDEN";
+            }
+        }
+        return null;
+    }
+
+    private static Object findAnnouncementStage(final ClassLoader loader) {
+        try {
+            final Class<?> dialogClass =
+                    Class.forName(ANNOUNCEMENT_DIALOG_CLASS, false, loader);
+            final var stageField = dialogClass.getDeclaredField(ANNOUNCEMENT_STAGE_FIELD);
+            stageField.setAccessible(true);
+            return stageField.get(null);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static boolean shouldHideAnnouncementStage(final Object stage) {
+        final int attempts = ANNOUNCEMENT_STAGE_ATTEMPTS.getOrDefault(stage, 0);
+        if (attempts >= MAX_DELIVERY_ATTEMPTS) {
+            return false;
+        }
+        final Long lastAttempt = HIDDEN_ANNOUNCEMENT_STAGES.get(stage);
+        if (lastAttempt == null) {
+            return true;
+        }
+        if (System.currentTimeMillis() - lastAttempt < DELIVERY_VERIFY_MILLIS) {
+            return false;
+        }
+        return Boolean.TRUE.equals(queryStageShowing(stage));
+    }
+
+    private static Boolean queryStageShowing(final Object stage) {
+        try {
+            final Object showing = stage.getClass().getMethod("isShowing").invoke(stage);
+            if (showing instanceof Boolean flag) return flag;
+        } catch (Throwable ignored) {
+            // Synthetic test stages may omit isShowing().
+        }
+        return null;
+    }
+
+    /**
+     * Writes the native announcement-dialog suppression keys into {@code UUConfig}
+     * when present. In validation runs {@code user.home}/{@code APPDATA} is bound to
+     * the task-isolated Proton prefix / home, so this only updates task-local
+     * configuration and never touches a user profile.
+     */
+    private static void suppressAnnouncementConfigBestEffort(final ClassLoader loader) {
+        try {
+            final Class<?> configClass = Class.forName(UUCONFIG_CLASS, true, loader);
+            final var instanceField = configClass.getDeclaredField(UUCONFIG_INSTANCE_FIELD);
+            instanceField.setAccessible(true);
+            final Object config = instanceField.get(null);
+            if (config == null) return;
+            final var writeMethod =
+                    configClass.getMethod(UUCONFIG_WRITE_METHOD, String.class, Object.class);
+            writeMethod.invoke(config, ANNOUNCEMENT_DO_NOT_SHOW_TODAY_KEY, Boolean.TRUE);
+            writeMethod.invoke(
+                    config,
+                    ANNOUNCEMENT_LAST_OPENED_DATE_KEY,
+                    Integer.valueOf(ANNOUNCEMENT_SUPPRESSED_DATE));
+        } catch (Throwable ignored) {
+            // UUConfig absent or signature differs on this build; stage hide still proceeds.
+        }
+    }
+
+    private static boolean hideJavaFxStage(final Object stage, final ClassLoader fallbackLoader) {
+        try {
+            final Class<?> platformClass = loadClass(
+                    JAVAFX_PLATFORM_CLASS, stage.getClass().getClassLoader(), fallbackLoader);
+            final var runLater = platformClass.getMethod("runLater", Runnable.class);
+            final var hideMethod = stage.getClass().getMethod("hide");
+            HIDDEN_ANNOUNCEMENT_STAGES.put(stage, System.currentTimeMillis());
+            ANNOUNCEMENT_STAGE_ATTEMPTS.merge(stage, 1, Integer::sum);
+            final CountDownLatch hidden = new CountDownLatch(1);
+            try {
+                runLater.invoke(null, (Runnable) () -> {
+                    try {
+                        hideMethod.invoke(stage);
+                    } catch (Throwable ignored) {
+                        HIDDEN_ANNOUNCEMENT_STAGES.remove(stage);
+                    } finally {
+                        hidden.countDown();
+                    }
+                });
+            } catch (Throwable invokeFailure) {
+                HIDDEN_ANNOUNCEMENT_STAGES.remove(stage);
+                return false;
+            }
+            hidden.await(ANNOUNCEMENT_HIDE_WAIT_MILLIS, TimeUnit.MILLISECONDS);
+            return HIDDEN_ANNOUNCEMENT_STAGES.containsKey(stage);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return HIDDEN_ANNOUNCEMENT_STAGES.containsKey(stage);
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static Class<?> loadClass(
+            final String name, final ClassLoader primary, final ClassLoader fallback)
+            throws ClassNotFoundException {
+        if (primary != null) {
+            try {
+                return Class.forName(name, false, primary);
+            } catch (ClassNotFoundException ignored) {
+                // try fallback loader
+            }
+        }
+        return Class.forName(name, false, fallback);
+    }
+
+    private static List<ClassLoader> candidateClassLoaders() {
+        final List<ClassLoader> loaders = new ArrayList<>();
+        for (Window window : Window.getWindows()) {
+            final ClassLoader loader = window.getClass().getClassLoader();
+            if (loader != null && !loaders.contains(loader)) {
+                loaders.add(loader);
+            }
+        }
+        for (ClassLoader fallback : new ClassLoader[] {
+            Thread.currentThread().getContextClassLoader(),
+            NativeFreeStartup.class.getClassLoader(),
+            ClassLoader.getSystemClassLoader()
+        }) {
+            if (fallback != null && !loaders.contains(fallback)) {
+                loaders.add(fallback);
+            }
+        }
+        return loaders;
     }
 }
