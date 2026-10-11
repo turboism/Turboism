@@ -145,6 +145,15 @@ public class ModelUpdateSkipBridgeTest {
                         emit("com/live2d/cubism/doc/IDocument", "interface", null, f(), f(), m()))
                 .add("com/live2d/doc/IEditMode", emit("com/live2d/doc/IEditMode", "interface", null, f(), f(), m()))
                 .add(
+                        N + "doc/ACEditMode",
+                        emit(
+                                N + "doc/ACEditMode",
+                                null,
+                                new String[] {"com/live2d/doc/IEditMode"},
+                                f("editing:Z"),
+                                f(),
+                                m(g("isEditing", "()Z", "editing"))))
+                .add(
                         N + "doc/modeling/CModelingDocument",
                         emit(
                                 N + "doc/modeling/CModelingDocument",
@@ -157,8 +166,8 @@ public class ModelUpdateSkipBridgeTest {
                         N + "doc/modeling/CModelingEditMode_Main",
                         emit(
                                 N + "doc/modeling/CModelingEditMode_Main",
+                                N + "doc/ACEditMode",
                                 null,
-                                new String[] {"com/live2d/doc/IEditMode"},
                                 f(),
                                 f(),
                                 m()))
@@ -640,6 +649,14 @@ public class ModelUpdateSkipBridgeTest {
                 set(world.source, "editing", true);
                 assertFalse(predicate().test(world.args()), "model editing");
                 set(world.source, "editing", false);
+
+                set(field(world.view, "editMode"), "editing", true);
+                assertFalse(predicate().test(world.args()), "interactive editMode editing (e.g. warp deformer drag)");
+                after().accept(world.model);
+                set(field(world.view, "editMode"), "editing", false);
+                assertFalse(predicate().test(world.args()), "first frame after editMode drag ends must not skip");
+                after().accept(world.model);
+                assertTrue(predicate().test(world.args()), "idle after post-drag baseline skips again");
 
                 set(world.ax, "a", true);
                 assertFalse(predicate().test(world.args()), "mesh-edit context");

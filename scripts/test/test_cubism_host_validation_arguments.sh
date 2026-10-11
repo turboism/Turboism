@@ -142,19 +142,31 @@ grep -Fq 'mesaGlThread=1' "$tmp/proton-defaults.out" \
   || fail 'absent launcher.mesaGlThread must default on under Proton'
 grep -Fq 'inputPathElision=1' "$tmp/proton-defaults.out" \
   || fail 'absent launcher.inputPathElision must default on under Proton'
+grep -Fq 'modelUpdateSkip=1' "$tmp/proton-defaults.out" \
+  || fail 'absent launcher.modelUpdateSkip must default on'
+grep -Fq 'incrementalUpdate=0' "$tmp/proton-defaults.out" \
+  || fail 'absent launcher.incrementalUpdate must default off'
 grep -Fq 'TURBOISM_PROTON=1' "$tmp/proton-defaults.out" \
   || fail 'managed Proton marker missing from the default export set'
 grep -Fq 'mesa_glthread=true' "$tmp/proton-defaults.out" \
   || fail 'default-on mesaGlThread must export mesa_glthread=true'
 
 # Explicit config false always wins over the Proton default.
-printf '{"launcher":{"mesaGlThread":false,"inputPathElision":false}}\n' \
+printf '{"launcher":{"mesaGlThread":false,"inputPathElision":false,"modelUpdateSkip":false,"incrementalUpdate":true}}\n' \
   > "$tmp/off-config.json"
 "${base[@]}" --home-config "$tmp/off-config.json" > "$tmp/proton-off.out"
 grep -Fq 'mesaGlThread=0' "$tmp/proton-off.out" \
   || fail 'explicit launcher.mesaGlThread=false must disable the option'
 grep -Fq 'inputPathElision=0' "$tmp/proton-off.out" \
   || fail 'explicit launcher.inputPathElision=false must disable the option'
+grep -Fq 'modelUpdateSkip=0' "$tmp/proton-off.out" \
+  || fail 'explicit launcher.modelUpdateSkip=false must disable the option'
+grep -Fq 'incrementalUpdate=1' "$tmp/proton-off.out" \
+  || fail 'explicit launcher.incrementalUpdate=true must enable the option'
+grep -Eq '^jvmOption\.[0-9]+=-Dturboism.optimization.modelUpdateSkip=false$' "$tmp/proton-off.out" \
+  || fail 'explicit launcher.modelUpdateSkip=false must emit JVM option'
+grep -Eq '^jvmOption\.[0-9]+=-Dturboism.optimization.incrementalUpdate=true$' "$tmp/proton-off.out" \
+  || fail 'explicit launcher.incrementalUpdate=true must emit JVM option'
 if grep -Fq 'linuxEnvironment' "$tmp/proton-off.out" \
    && grep -Fq 'mesa_glthread=true' "$tmp/proton-off.out"; then
   fail 'explicit opt-out must not export mesa_glthread=true'

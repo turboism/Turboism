@@ -290,9 +290,17 @@ public final class UniformLocationHookBridge implements AutoCloseable {
                 STATS_PROPERTY);
     }
 
-    /** Returns the default-on preference; explicit false or malformed overrides disable reuse. */
+    private static volatile boolean configuredDefault = true;
+
+    /** Updates the persisted-config fallback used when {@link #ENABLE_PROPERTY} is unset. */
+    public static void setConfiguredDefault(final boolean enabled) {
+        configuredDefault = enabled;
+    }
+
+    /** Returns the default-on preference; explicit false, persisted config false or malformed overrides disable reuse. */
     public static boolean enabledByPreference() {
-        return Boolean.parseBoolean(System.getProperty(ENABLE_PROPERTY, "true"));
+        final String explicit = System.getProperty(ENABLE_PROPERTY);
+        return explicit == null ? configuredDefault : Boolean.parseBoolean(explicit);
     }
 
     /** Confirms complete, installer-attested shared program mutation coverage. */
@@ -682,6 +690,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     public synchronized void close() {
         closed = true;
         installed = false;
+        configuredDefault = true;
         frameSupported = false;
         cache.close();
         mutations.clear();
