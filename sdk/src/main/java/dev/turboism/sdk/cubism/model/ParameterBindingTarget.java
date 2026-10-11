@@ -1,10 +1,12 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import java.util.Objects;
 
 /** Typed identity of an Editor object that owns a parameter binding. */
+@CubismEditor
 public record ParameterBindingTarget(ParameterBindingTargetType type, String id) {
     public ParameterBindingTarget {
         type = Objects.requireNonNull(type, "type");

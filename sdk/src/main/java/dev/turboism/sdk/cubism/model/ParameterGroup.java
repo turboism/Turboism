@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.ui.appearance.model.ParameterGroupAppearance;
@@ -7,6 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 /** One folder in the Editor parameter hierarchy. */
+@CubismEditor(from = "5.0.00")
 public interface ParameterGroup {
 
     /** Returns this folder's stable identity. */

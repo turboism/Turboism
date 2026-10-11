@@ -1,11 +1,13 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.TextureAtlasId;
 import java.util.Objects;
 import java.util.Optional;
 
 /** One ordered ArtMesh texture input, retaining model-image, atlas, and unknown kinds. */
+@CubismEditor
 public record TextureInputBinding(
         Kind kind,
         Optional<ModelImageId> modelImageId,

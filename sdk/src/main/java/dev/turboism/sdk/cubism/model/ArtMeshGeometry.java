@@ -1,10 +1,12 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 /** Immutable complete ArtMesh geometry committed as one Editor operation. */
+@CubismEditor
 public record ArtMeshGeometry(List<Point2> positions, List<Point2> uvs, List<Integer> triangleIndices) {
 
     public ArtMeshGeometry {

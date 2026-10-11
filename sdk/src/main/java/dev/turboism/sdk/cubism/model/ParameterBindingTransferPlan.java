@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import java.util.List;
 import java.util.Objects;
@@ -13,6 +14,7 @@ import java.util.Objects;
  * negating each key value when inversion is requested. Ordinary {@code transfer}
  * consumers retain their existing native reversal semantics.
  */
+@CubismEditor
 public record ParameterBindingTransferPlan(
         ParameterId sourceParameterId,
         ParameterId targetParameterId,

@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
 /** One keyframe on an {@link AnimationAttribute} curve. */
+@CubismEditor(from = "5.0.00")
 public interface AnimationKeyframe {
 
     /** Frame position of this key in scene frames. */

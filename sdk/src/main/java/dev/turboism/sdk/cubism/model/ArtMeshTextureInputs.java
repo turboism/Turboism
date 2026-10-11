@@ -1,11 +1,13 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import java.util.List;
 import java.util.Objects;
 import java.util.OptionalInt;
 
 /** Ordered texture-input projection for one ArtMesh. */
+@CubismEditor
 public record ArtMeshTextureInputs(ArtMeshId id, List<TextureInputBinding> inputs, OptionalInt currentInputIndex) {
     public ArtMeshTextureInputs {
         id = Objects.requireNonNull(id, "id");

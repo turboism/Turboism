@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.NoSuchElementException;
 
 /** Parts in one Cubism model. */
+@CubismEditor(from = "5.0.00")
 public interface Parts {
 
     /** Returns every Part in the model, in host order. */
