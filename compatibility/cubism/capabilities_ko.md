@@ -146,6 +146,17 @@
 | `dev.turboism.sdk.cubism.export.ExportSettingsContributionService.Unavailable` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.export.ExportSettingsDecision#ExportSettingsDecision()` | method | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.export.Outcome` | type | 5.1.00–5.3.04 |
+| `dev.turboism.sdk.cubism.mesh.MeshBrush` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.mesh.MeshEditParticipation` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.mesh.MeshEditService` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.mesh.MeshEditUiService` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.mesh.MeshEditor` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.mesh.MeshToolContext` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.mesh.MeshToolRegistry` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AlphaComposition` | type | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Deformers#applyToChildren()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()` | method | 5.3.00–5.3.04 |
@@ -156,9 +167,15 @@
 | `dev.turboism.sdk.cubism.model.Part#setAlphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setMaskIds()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setOpacity()` | method | 5.3.00–5.3.04 |
+| `dev.turboism.sdk.cubism.modeling.ModelingBrush` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.modeling.ModelingToolContext` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.modeling.ModelingToolRegistry` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.psd.PsdEditFile` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService` | type | 5.2.00–5.3.04 |
 
 ## 일부 버전에서만 사용 가능한 Editor 명령
 

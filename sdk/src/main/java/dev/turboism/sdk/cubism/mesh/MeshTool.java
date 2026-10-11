@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.mesh;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.Incubating;
 
 /**
@@ -11,6 +12,7 @@ import dev.turboism.sdk.Incubating;
  * <p><strong>Preview API:</strong> this contract may evolve before stabilization.</p>
  */
 @Incubating
+@CubismEditor
 public interface MeshTool {
     /** Returns the plugin-generation-local tool identifier. */
     String id();

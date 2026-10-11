@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 
 /**
@@ -11,6 +12,7 @@ import java.util.List;
  * treated as failures. Items whose policy excludes them or fixes their position
  * keep their issued transform.</p>
  */
+@CubismEditor
 public interface TextureAtlasPolygonPlanner {
 
     /**

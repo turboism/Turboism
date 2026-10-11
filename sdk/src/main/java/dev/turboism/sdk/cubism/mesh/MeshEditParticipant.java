@@ -1,5 +1,7 @@
 package dev.turboism.sdk.cubism.mesh;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * Called synchronously while the host is deleting mesh geometry, before anything is removed.
  *
@@ -10,6 +12,7 @@ package dev.turboism.sdk.cubism.mesh;
  * code while the callback has synchronous access to an edit backed by live host geometry.</p>
  */
 @FunctionalInterface
+@CubismEditor
 public interface MeshEditParticipant {
 
     /**

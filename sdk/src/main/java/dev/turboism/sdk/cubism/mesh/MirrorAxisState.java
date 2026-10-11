@@ -1,11 +1,14 @@
 package dev.turboism.sdk.cubism.mesh;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * The mirror axis as it stands during one edit.
  *
  * <p>{@code enabled} reflects the host's own mirror toggle, not a Turboism setting. A plugin
  * deciding whether to contribute should consult this rather than inventing its own condition.</p>
  */
+@CubismEditor
 public record MirrorAxisState(boolean enabled, float angleDegrees) {
 
     public MirrorAxisState {

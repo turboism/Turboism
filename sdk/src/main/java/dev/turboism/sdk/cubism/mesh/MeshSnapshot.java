@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.mesh;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 
@@ -10,6 +11,7 @@ import java.util.Objects;
  * builds one only for the overridable counterpart path. The framework's default resolution
  * never needs it.</p>
  */
+@CubismEditor
 public record MeshSnapshot(List<MeshPointRef> points, List<MeshEdgeRef> edges) {
 
     public MeshSnapshot {

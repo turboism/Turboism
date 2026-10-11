@@ -1,5 +1,7 @@
 package dev.turboism.sdk.cubism.psd;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * Opaque save-version token issued for a runtime-owned PSD edit file.
  *
@@ -8,4 +10,5 @@ package dev.turboism.sdk.cubism.psd;
  * No path, file contents or native host object is exposed. A token represents a stable staged
  * input, not the continuously changing external editor file.</p>
  */
+@CubismEditor
 public interface PsdFileRevision {}

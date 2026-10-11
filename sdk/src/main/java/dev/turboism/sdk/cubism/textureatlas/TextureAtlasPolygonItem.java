@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /**
@@ -13,6 +14,7 @@ import java.util.Objects;
  * never been placed. {@code currentlyPlaced} tells whether the item currently sits
  * inside the page (versus the overflow list).</p>
  */
+@CubismEditor
 public record TextureAtlasPolygonItem(
         String textureId,
         int width,

@@ -1,6 +1,9 @@
 package dev.turboism.sdk.cubism.mirror;
 
+import dev.turboism.sdk.CubismEditor;
+
 /** Typed reason a {@link WarpMirrorRequest} was rejected or could not complete. */
+@CubismEditor
 public enum WarpMirrorBlockerCode {
     /** The mirror capability is not admitted on this host/version. */
     UNAVAILABLE,

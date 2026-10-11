@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -15,6 +16,7 @@ import java.util.Optional;
  * carries planner-emitted key/value facts such as the chosen backend, attempt
  * counts, or conservative outline handling.</p>
  */
+@CubismEditor
 public record TextureAtlasPolygonPlan(
         int pageWidth,
         int pageHeight,

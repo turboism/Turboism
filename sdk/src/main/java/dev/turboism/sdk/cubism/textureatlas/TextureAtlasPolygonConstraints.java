@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /**
@@ -12,6 +13,7 @@ import java.util.Objects;
  * {@code rotationMode}; per-item {@code preserveAngle}/{@code preserveScale} flags
  * further restrict it.</p>
  */
+@CubismEditor
 public record TextureAtlasPolygonConstraints(
         int pageWidth,
         int pageHeight,

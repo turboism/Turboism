@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 
 /**
@@ -12,6 +13,7 @@ import java.util.List;
  * fallback and ignore the flag.</p>
  */
 @FunctionalInterface
+@CubismEditor
 public interface TextureAtlasLayoutPlanner {
 
     /**
