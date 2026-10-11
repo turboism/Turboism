@@ -51,10 +51,10 @@ Right-click ArtMeshes to edit their complete raw PSD in the operating system's d
 - The temporary PSD is a rebuilt document, not a byte copy of the source asset.
 
 <!-- compatibility:begin -->
-**Cubism Editor version support (generated):** 5.3.00–5.3.04（5.0.00–5.2.03 pending adaptation）.
-- PSD raw-image replace only on 5.3.00–5.3.04（5.0.00–5.2.03 pending adaptation）
-- Export PSD raw image only on 5.3.00–5.3.04（5.0.00–5.2.03 unconfirmed）
-- Replace PSD raw image only on 5.3.00–5.3.04（5.0.00–5.2.03 unconfirmed）
+**Cubism Editor version support (generated):** 5.2.00–5.3.04（5.0.00–5.1.03 pending adaptation）.
+- PSD raw-image replace only on 5.2.00–5.3.04（5.0.00–5.1.03 pending adaptation）
+- Export PSD raw image only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）
+- Replace PSD raw image only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 

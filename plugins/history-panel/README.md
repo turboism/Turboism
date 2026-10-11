@@ -46,7 +46,7 @@ Projects the active document's native Undo history into a floating semantic time
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions.
-- Semantic history decoding only on 5.2.03–5.3.04（5.0.00–5.2.02 unconfirmed）
+- Semantic history decoding only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）
 - Embedded panel docking not on 5.0.00–5.0.06
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->

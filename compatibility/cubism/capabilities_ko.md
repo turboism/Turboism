@@ -21,14 +21,14 @@
 | 편집 세션 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 에디터 UI 표면 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 지오메트리 읽기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 편집 기록 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 편집 기록 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 통합 브리지 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 메시 도구 세션 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
 | 메시 도구 모음 기여 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
 | 기타 모델 표면 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 모델 인스턴스 읽기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 모델 인스턴스 읽기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 모델링 사용자 도구 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ |
-| 오브젝트 계층 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 오브젝트 계층 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 파라미터와 바인딩 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 파라미터 키 편집 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 파라미터 구조 편집 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -39,7 +39,7 @@
 | 플러그인 UI 표면 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 프로젝트 읽기 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 보호된 내보내기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| PSD 원본 이미지 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| PSD 원본 이미지 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 선택 편집 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 시작 억제 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 텍스처와 원본 이미지 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -57,7 +57,7 @@
 - `cubism.editor-ui.main-toolbar` (메인 도구 모음 통합): 검증된 레코드 없음 5.0.00–5.0.06
 - `cubism.editor-ui.top-menu` (상단 메뉴 통합): 검증된 레코드 없음 5.0.00–5.0.06
 - `cubism.geometry.read` (메시 지오메트리 읽기): 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-history.semantic-read` (기록의 의미적 디코딩): 검증된 레코드 없음 5.0.00–5.2.02
+- `cubism.editor-history.semantic-read` (기록의 의미적 디코딩): 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.integration.edit-api-bridge.dispatch`: 검증된 레코드 없음 5.0.00–5.1.01
 - `cubism.integration.external-app-settings.edit-toggle` (외부 앱 편집 토글): 검증된 레코드 없음 5.0.00–5.0.06
 - `cubism.mesh-tool.session` (메시 편집 도구 세션): 검증된 레코드 없음 5.0.00–5.2.02
@@ -67,9 +67,10 @@
 - `cubism.editor-model.default-keyform-lock.write`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.native-control-appearance.write`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.write` (에디터 모델 쓰기): 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-model.model-instance.read` (활성 모델 인스턴스 읽기): 검증된 레코드 없음 5.0.00–5.2.02
+- `cubism.editor-model.model-instance.read` (활성 모델 인스턴스 읽기): 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.modeling-tool.selection-brush` (모델링 선택 브러시): 검증된 레코드 없음 5.0.00–5.2.02
 - `cubism.modeling-tool.selection-brush` (모델링 선택 브러시): 검증됐으나 계약/핀으로 축소(적응 대기) 5.3.00–5.3.01, 5.3.04
+- `cubism.editor-model.object-hierarchy.apply-deformer-to-children`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.parameter-combined.write`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.parameter-definition.write`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.parameter-structure.write` (파라미터 구조 쓰기): 검증된 레코드 없음 5.0.00–5.1.03
@@ -84,8 +85,8 @@
 - `cubism.editor-model.part-inspector.write`: 검증된 레코드 없음 5.0.00–5.2.03
 - `cubism.editor-model.part-opacity.write`: 검증된 레코드 없음 5.0.00–5.2.03
 - `cubism.protected-export.orchestration` (보호된 내보내기 오케스트레이션): 검증된 레코드 없음 5.0.00–5.0.06
-- `cubism.editor-model.psd.raw-image.export`: 검증된 레코드 없음 5.0.00–5.2.03
-- `cubism.editor-model.psd.raw-image.replace` (PSD 원본 이미지 교체): 검증된 레코드 없음 5.0.00–5.2.03
+- `cubism.editor-model.psd.raw-image.export`: 검증된 레코드 없음 5.0.00–5.1.03
+- `cubism.editor-model.psd.raw-image.replace` (PSD 원본 이미지 교체): 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.texture-atlas.auto-layout-hook`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.texture-atlas.native-layout-invocation`: 검증된 레코드 없음 5.0.00–5.1.03
 
@@ -97,10 +98,10 @@
 |---|---|---|
 | `dev.turboism.sdk.cubism.CubismFacade#authoringTransactions()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.CubismFacade#edit()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorSession()` | method | 5.2.03–5.3.03 |
-| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorUi()` | method | 5.2.03–5.3.03 |
-| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasPolygonLayouts()` | method | 5.2.03–5.3.03 |
-| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#artifacts()` | method | 5.2.03–5.3.04 |
+| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorSession()` | method | 5.2.03–5.3.04 |
+| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorUi()` | method | 5.2.03–5.3.04 |
+| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasPolygonLayouts()` | method | 5.2.03–5.3.04 |
+| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#artifacts()` | method | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#backupAfterSave()` | method | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#backupNow()` | method | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#registerSyncTarget()` | method | 5.1.00–5.3.04 |
@@ -148,17 +149,17 @@
 | `dev.turboism.sdk.cubism.export.ExportSettingsDecision#ExportSettingsDecision()` | method | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.export.Outcome` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AlphaComposition` | type | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.Deformers#applyToChildren()` | method | 5.3.02 |
+| `dev.turboism.sdk.cubism.model.Deformers#applyToChildren()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()` | method | 5.3.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()` | method | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#alphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#maskIds()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setAlphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setMaskIds()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setOpacity()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession` | type | 5.2.00–5.2.02, 5.3.00–5.3.04 |
+| `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi` | type | 5.2.00–5.3.04 |
 
 ## 일부 버전에서만 사용 가능한 Editor 명령
