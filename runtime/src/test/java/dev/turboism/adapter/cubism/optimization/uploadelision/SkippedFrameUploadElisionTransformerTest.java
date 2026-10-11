@@ -427,7 +427,7 @@ public class SkippedFrameUploadElisionTransformerTest {
             assertEquals(1, t.matches());
             assertEquals(2, t.guarded());
         }
-        assertEquals(2, SkippedFrameUploadElisionTarget.all().size());
+        assertEquals(3, SkippedFrameUploadElisionTarget.all().size());
         assertTrue(
                 SkippedFrameUploadElisionTarget.of(ReviewedHostArtifacts.CUBISM_5_2_03)
                         .isEmpty(),

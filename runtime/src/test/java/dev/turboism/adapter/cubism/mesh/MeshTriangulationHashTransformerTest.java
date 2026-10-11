@@ -27,7 +27,8 @@ final class MeshTriangulationHashTransformerTest {
     void patchesTheReviewedShapeAndKeepsHashesPermutationInvariant() throws Exception {
         final byte[] fixture = fixtureClassBytes();
         final String digest = MeshTriangulationHashTransformer.sha256(fixture);
-        final MeshTriangulationHashTransformer transformer = new MeshTriangulationHashTransformer(digest);
+        final MeshTriangulationHashTransformer transformer =
+                new MeshTriangulationHashTransformer(java.util.Set.of(digest));
 
         final byte[] patched =
                 transformer.transform(null, MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, fixture);
@@ -84,8 +85,8 @@ final class MeshTriangulationHashTransformerTest {
     void refusesTheReviewedDigestWhenTheShapeIsUnexpected() {
         // Same pinned digest, but the class no longer has the reviewed constant-return body.
         final byte[] unexpected = new ClassWriter(0).toByteArray();
-        final MeshTriangulationHashTransformer transformer =
-                new MeshTriangulationHashTransformer(MeshTriangulationHashTransformer.sha256(unexpected));
+        final MeshTriangulationHashTransformer transformer = new MeshTriangulationHashTransformer(
+                java.util.Set.of(MeshTriangulationHashTransformer.sha256(unexpected)));
 
         assertNull(transformer.transform(
                 null, MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, unexpected));

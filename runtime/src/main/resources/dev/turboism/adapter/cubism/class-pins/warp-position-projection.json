@@ -1,11 +1,35 @@
 {
-  "5.3.02": {
-    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension": "399a05605ebb2e837434e5b8be7fa84c4cb5d24adc09f7e5546214471380e39f",
-    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm": "174959b444c2a5c13bbd05962b98824a67a7cb1a363f583e5d6e129bea12c117",
+  "5.2.00": {
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm": "8dfc6d6e42f2b73ca66fb52f75e8215016294e36bdc7454a5c95eb05a0af5778",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource": "bc576d7cfc484eaa94c5e1780a072eb8af3d8e2cfbc2c884f5439d6e95dfddb8",
     "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension": "399a05605ebb2e837434e5b8be7fa84c4cb5d24adc09f7e5546214471380e39f",
     "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
-    "com/live2d/graphics3d/type/f": "637f0fe0bd219c97230573415541d09110892fdfccc63c2f6e6728b9aa1b2d9e",
-    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource": "b4f6c06285ec42dc90fb17ca03fb37994ccc11b3749da5624e63160c48b1566f"
+    "com/live2d/graphics3d/type/f": "637f0fe0bd219c97230573415541d09110892fdfccc63c2f6e6728b9aa1b2d9e"
+  },
+  "5.2.01": {
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm": "8dfc6d6e42f2b73ca66fb52f75e8215016294e36bdc7454a5c95eb05a0af5778",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource": "bc576d7cfc484eaa94c5e1780a072eb8af3d8e2cfbc2c884f5439d6e95dfddb8",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension": "399a05605ebb2e837434e5b8be7fa84c4cb5d24adc09f7e5546214471380e39f",
+    "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
+    "com/live2d/graphics3d/type/f": "637f0fe0bd219c97230573415541d09110892fdfccc63c2f6e6728b9aa1b2d9e"
+  },
+  "5.2.02": {
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm": "8dfc6d6e42f2b73ca66fb52f75e8215016294e36bdc7454a5c95eb05a0af5778",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource": "bc576d7cfc484eaa94c5e1780a072eb8af3d8e2cfbc2c884f5439d6e95dfddb8",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension": "399a05605ebb2e837434e5b8be7fa84c4cb5d24adc09f7e5546214471380e39f",
+    "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
+    "com/live2d/graphics3d/type/f": "637f0fe0bd219c97230573415541d09110892fdfccc63c2f6e6728b9aa1b2d9e"
+  },
+  "5.2.03": {
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm": "8dfc6d6e42f2b73ca66fb52f75e8215016294e36bdc7454a5c95eb05a0af5778",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource": "bc576d7cfc484eaa94c5e1780a072eb8af3d8e2cfbc2c884f5439d6e95dfddb8",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension": "399a05605ebb2e837434e5b8be7fa84c4cb5d24adc09f7e5546214471380e39f",
+    "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
+    "com/live2d/graphics3d/type/f": "637f0fe0bd219c97230573415541d09110892fdfccc63c2f6e6728b9aa1b2d9e"
   },
   "5.3.00": {
     "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension": "399a05605ebb2e837434e5b8be7fa84c4cb5d24adc09f7e5546214471380e39f",
@@ -22,5 +46,29 @@
     "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
     "com/live2d/graphics3d/type/f": "637f0fe0bd219c97230573415541d09110892fdfccc63c2f6e6728b9aa1b2d9e",
     "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource": "b4f6c06285ec42dc90fb17ca03fb37994ccc11b3749da5624e63160c48b1566f"
+  },
+  "5.3.02": {
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension": "399a05605ebb2e837434e5b8be7fa84c4cb5d24adc09f7e5546214471380e39f",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm": "174959b444c2a5c13bbd05962b98824a67a7cb1a363f583e5d6e129bea12c117",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
+    "com/live2d/graphics3d/type/f": "637f0fe0bd219c97230573415541d09110892fdfccc63c2f6e6728b9aa1b2d9e",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource": "b4f6c06285ec42dc90fb17ca03fb37994ccc11b3749da5624e63160c48b1566f"
+  },
+  "5.3.03": {
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm": "174959b444c2a5c13bbd05962b98824a67a7cb1a363f583e5d6e129bea12c117",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource": "5d8bc747966f4201f092c288e83dc158dba30fbc9309dbb988dbc4da37d9307a",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension": "399a05605ebb2e837434e5b8be7fa84c4cb5d24adc09f7e5546214471380e39f",
+    "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
+    "com/live2d/graphics3d/type/f": "637f0fe0bd219c97230573415541d09110892fdfccc63c2f6e6728b9aa1b2d9e"
+  },
+  "5.3.04": {
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm": "784976e7ac84653753fea861fbf39fd158df527e9fa9b55d23ac9adc6ba1384c",
+    "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource": "5d8bc747966f4201f092c288e83dc158dba30fbc9309dbb988dbc4da37d9307a",
+    "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef": "e1dfde3066a17def1caa66052431793af47c04523b3347bb93572160ac97369d",
+    "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension": "84cb135271fa56a7bba23db075693c59b028a0b6f0326d5f52a2591c48935fa0",
+    "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
+    "com/live2d/graphics3d/type/f": "637f0fe0bd219c97230573415541d09110892fdfccc63c2f6e6728b9aa1b2d9e"
   }
 }

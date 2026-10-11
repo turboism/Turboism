@@ -20,11 +20,36 @@ import org.objectweb.asm.*;
 
 class WarpPositionProjectionArtifactTest {
     @Test
-    void exactConsumerTransformsWithoutChangingOtherMethods() throws Exception {
-        String configured = System.getProperty("turboism.test.cubism5302Jar", "");
-        assumeTrue(!configured.isBlank(), "exact local artifact not configured");
+    void exact5302ConsumerTransformsWithoutChangingOtherMethods() throws Exception {
+        exercise(ReviewedHostArtifacts.CUBISM_5_3_02, "5.3.02");
+    }
+
+    @Test
+    void exact5203ConsumerTransformsWithoutChangingOtherMethods() throws Exception {
+        exercise(ReviewedHostArtifacts.CUBISM_5_2_03, "5.2.03");
+    }
+
+    @Test
+    void exact5303ConsumerTransformsWithoutChangingOtherMethods() throws Exception {
+        exercise(ReviewedHostArtifacts.CUBISM_5_3_03, "5.3.03");
+    }
+
+    @Test
+    void exact5304ConsumerTransformsWithoutChangingOtherMethods() throws Exception {
+        exercise(ReviewedHostArtifacts.CUBISM_5_3_04, "5.3.04");
+    }
+
+    private static void exercise(final HostArtifactDigest expected, final String version) throws Exception {
+        String configured = System.getProperty("turboism.test.cubism" + version.replace(".", "") + "Jar", "");
+        if (configured.isBlank()) {
+            final String ref = System.getProperty(
+                    "turboism.test.cubismRefDir", System.getenv().getOrDefault("TURBOISM_CUBISM_REF", ""));
+            assumeTrue(!ref.isBlank(), "exact " + version + " artifact not configured");
+            configured =
+                    Path.of(ref).resolve(version).resolve("Live2D_Cubism.jar").toString();
+        }
         Path artifact = Path.of(configured);
-        assertEquals(ReviewedHostArtifacts.CUBISM_5_3_02, HostArtifactDigest.from(artifact));
+        assertEquals(expected, HostArtifactDigest.from(artifact));
         URL[] urls;
         try (var files = Files.walk(artifact.getParent())) {
             urls = files.filter(p -> p.toString().endsWith(".jar"))
@@ -37,7 +62,7 @@ class WarpPositionProjectionArtifactTest {
                     })
                     .toArray(URL[]::new);
         }
-        try (var loader = new URLClassLoader(urls, getClass().getClassLoader());
+        try (var loader = new URLClassLoader(urls, WarpPositionProjectionArtifactTest.class.getClassLoader());
                 var jar = new JarFile(artifact.toFile())) {
             byte[] bytes;
             try (var input = jar.getInputStream(jar.getJarEntry(WarpPositionProjectionTransformer.TARGET + ".class"))) {
@@ -72,6 +97,6 @@ class WarpPositionProjectionArtifactTest {
                         method[0]);
             assertTrue(methods.size() > 5);
         }
-        assertEquals(ReviewedHostArtifacts.CUBISM_5_3_02, HostArtifactDigest.from(artifact));
+        assertEquals(expected, HostArtifactDigest.from(artifact));
     }
 }
