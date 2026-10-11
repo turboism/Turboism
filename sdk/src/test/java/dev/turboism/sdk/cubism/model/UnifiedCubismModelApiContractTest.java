@@ -100,12 +100,12 @@ class UnifiedCubismModelApiContractTest {
     }
 
     @Test
-    void deformersApplyToChildrenIsExact5302SurfaceWithFailClosedDefault() throws Exception {
+    void deformersApplyToChildrenIsAReviewed52And53SurfaceWithFailClosedDefault() throws Exception {
         final Method method = Deformers.class.getMethod("applyToChildren", Deformer.class);
         assertEquals(void.class, method.getReturnType());
         assertTrue(method.isDefault());
         assertEquals(
-                List.of("5.3.02"),
+                List.of("5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"),
                 List.of(method.getAnnotation(dev.turboism.sdk.CubismEditor.class)
                         .value()));
 

@@ -164,6 +164,7 @@ public enum EditorParameterizedCommand {
     SHOW_EFFECT_SETTING_DIALOG(Set.of(
             "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
             "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04")),
+    // The 5.3 rename of SHOW_SHOW_LABEL_COPY_DIALOG: same label-copy dialog command, new id.
     SHOW_LABEL_COPY_DIALOG(Set.of("5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04")),
     SHOW_MORPH_TARGET_CONSTRAINT_EDIT_DIALOG(Set.of(
             "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
@@ -174,6 +175,7 @@ public enum EditorParameterizedCommand {
     SHOW_ROTATE3D_SETTING_DIALOG(Set.of(
             "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01",
             "5.3.02", "5.3.03", "5.3.04")),
+    // The 5.0/5.1/5.2 id of the label-copy dialog command; renamed to SHOW_LABEL_COPY_DIALOG in 5.3.
     SHOW_SHOW_LABEL_COPY_DIALOG(Set.of(
             "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
             "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03")),
@@ -231,7 +233,8 @@ public enum EditorParameterizedCommand {
      * @param cubismVersion an exact Editor version string such as {@code "5.2.03"}; compared for
      *     equality, never parsed as a range
      * @return whether this command was observed on that version; a few constants are
-     *     version-exclusive (for example {@code FADE_SETTING} on 5.3.02 only)
+     *     version-exclusive — for example {@code SHOW_LABEL_COPY_DIALOG} exists only on the
+     *     5.3 line, where it renamed the 5.2-and-below {@code SHOW_SHOW_LABEL_COPY_DIALOG}
      */
     public boolean supports(final String cubismVersion) {
         return supportedVersions.contains(cubismVersion);

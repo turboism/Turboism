@@ -7,20 +7,27 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
-/** Static evidence only: logical-16 PNGs in the two exact reviewed artifacts, not bundled assets. */
+/** Static evidence only: logical-16 PNGs in the nine exact reviewed 5.2/5.3 artifacts, not bundled assets. */
 final class CubismNativeIconCatalog {
     private CubismNativeIconCatalog() {}
 
     static Optional<HostArtifactDigest> artifact(final String version) {
         return switch (version) {
+            case ReviewedHostArtifacts.CUBISM_5_2_00_VERSION -> Optional.of(ReviewedHostArtifacts.CUBISM_5_2_00);
+            case ReviewedHostArtifacts.CUBISM_5_2_01_VERSION -> Optional.of(ReviewedHostArtifacts.CUBISM_5_2_01);
+            case ReviewedHostArtifacts.CUBISM_5_2_02_VERSION -> Optional.of(ReviewedHostArtifacts.CUBISM_5_2_02);
             case ReviewedHostArtifacts.CUBISM_5_2_03_VERSION -> Optional.of(ReviewedHostArtifacts.CUBISM_5_2_03);
+            case ReviewedHostArtifacts.CUBISM_5_3_00_VERSION -> Optional.of(ReviewedHostArtifacts.CUBISM_5_3_00);
+            case ReviewedHostArtifacts.CUBISM_5_3_01_VERSION -> Optional.of(ReviewedHostArtifacts.CUBISM_5_3_01);
             case ReviewedHostArtifacts.CUBISM_5_3_02_VERSION -> Optional.of(ReviewedHostArtifacts.CUBISM_5_3_02);
+            case ReviewedHostArtifacts.CUBISM_5_3_03_VERSION -> Optional.of(ReviewedHostArtifacts.CUBISM_5_3_03);
+            case ReviewedHostArtifacts.CUBISM_5_3_04_VERSION -> Optional.of(ReviewedHostArtifacts.CUBISM_5_3_04);
             default -> Optional.empty();
         };
     }
 
     // Rows: object, theme, disabled, then SHA-256 for scales 100/125/150/175/200.
-    // All eighty PNG hashes and dimensions were independently compared in both pinned JARs.
+    // All eighty PNG hashes and dimensions were independently compared in all nine pinned JARs.
     private static final String PINS = """
         ART_MESH LIGHT false 149ef063dc6ef431de062a1876592eeaed1940c4d0097c528f62a7d6252c0698 e76aad83969af2b0597714ada1b65817b547def930b377ee23b7ae8b4d0ce151 956783653db3224e20a4fc8574421eb1b1731549427487edb6c579f01efd1df3 f5d8194e751283474b67adbe5c3d26e9c5b9d047850888b1cdfdcb90a2bde5ee fe49aaab0358e638bdbd0399f0667467429bd5a6a231c13c9c555d9156368647
         ART_MESH LIGHT true 9bef98387b111507874d432eaa8a6f0890cd4f625fa504893e751ad88455c14b 12a17c136d2d8abf528515c37a211ba6a44215ddbec5b2eaf4294bc7d8e43507 d23d8932dd81d83df28e2c62febf92b13f17f03f9923919df5ea290b6f0d18c1 7a79f7b1b1f2c43e94344a3e0bffb6c079b2ef6b3edef1043ae23a001cfb0ee7 36fc5b5633ab264637ba2f7b977ccd5d4e08436e77cbbf294a8ff3b9254d3477

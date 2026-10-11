@@ -32,6 +32,24 @@ import java.util.Optional;
  */
 final class EditorRawImagePsdAccess {
     private final VerifiedMemberResolver resolver;
+
+    private java.util.Set<String> requiredAliases() {
+        if (supportsTransparencyShapes()) {
+            return EditorRawImagePsdSelectorContract.REQUIRED_ALIASES;
+        }
+        final java.util.HashSet<String> aliases =
+                new java.util.HashSet<>(EditorRawImagePsdSelectorContract.REQUIRED_ALIASES);
+        aliases.removeAll(EditorRawImagePsdSelectorContract.TRANSPARENCY_SHAPES_ALIASES);
+        return java.util.Set.copyOf(aliases);
+    }
+
+    private boolean supportsTransparencyShapes() {
+        return resolver.authorizesFeature(
+                EditorRawImagePsdSelectorContract.ADAPTER_SLICE_ID,
+                EditorRawImagePsdSelectorContract.CAPABILITY_ID,
+                EditorRawImagePsdSelectorContract.TRANSPARENCY_SHAPES_ALIASES);
+    }
+
     private final EditorObjectReadAccess.CurrentGuard currentGuard;
     private final EditorRawImagePsdIntegrityAccess integrityAccess;
     private final EditorRawImagePsdSourceBinding sourceBinding;
@@ -65,7 +83,7 @@ final class EditorRawImagePsdAccess {
         if (!resolver.authorizesFeature(
                 EditorRawImagePsdSelectorContract.ADAPTER_SLICE_ID,
                 EditorRawImagePsdSelectorContract.CAPABILITY_ID,
-                EditorRawImagePsdSelectorContract.REQUIRED_ALIASES)) {
+                requiredAliases())) {
             return ExportResult.unavailable(
                     target, "PSD raw-image export lacks the complete exact selector authorization");
         }
@@ -111,7 +129,7 @@ final class EditorRawImagePsdAccess {
         if (!resolver.authorizesFeature(
                 EditorRawImagePsdSelectorContract.ADAPTER_SLICE_ID,
                 EditorRawImagePsdSelectorContract.CAPABILITY_ID,
-                EditorRawImagePsdSelectorContract.REQUIRED_ALIASES)) {
+                requiredAliases())) {
             return ExportResult.unavailable(
                     target, "PSD raw-image export lacks the complete exact selector authorization");
         }

@@ -29,9 +29,9 @@ public final class VerifiedTextureAtlasSelectorContract {
 
     public static final Set<String> DIALOG_INJECTION_ALIASES = TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES;
 
-    // The statistics view contribution is verified on 5.2.00-5.2.02 and every 5.3 profile:
-    // the 5.2.03 artifact (and every profile below 5.2) uses a differently structured editor
-    // view, so those profiles carry an empty statistics set.
+    // The statistics view contribution is verified on every 5.2 and 5.3 profile: the four
+    // selectors bind the same members on all nine artifacts. Every profile below 5.2 uses a
+    // differently structured editor view, so those profiles carry an empty statistics set.
     public static final Set<String> STATISTICS_ALIASES = TextureAtlasSelectorContract.STATISTICS_ALIASES;
 
     /**
@@ -110,7 +110,7 @@ public final class VerifiedTextureAtlasSelectorContract {
                             AUTO_LAYOUT_HOOK_ALIASES,
                             NATIVE_INVOCATION_ALIASES,
                             DIALOG_INJECTION_ALIASES,
-                            Set.of())),
+                            STATISTICS_ALIASES)),
             Map.entry(
                     "5.3.00",
                     new Profile(

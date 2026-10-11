@@ -32,7 +32,7 @@ class EditorRawImagePsdReplaceAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
+    @ValueSource(strings = {"5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     void invokesTheExplicitFiveArgumentEntryOnceOnTheHostThreadAndLeavesUndoToNative(
             final String version, @TempDir final Path temp) throws Exception {
         final Path stage = readyStage(temp);

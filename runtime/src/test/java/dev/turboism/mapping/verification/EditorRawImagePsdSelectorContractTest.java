@@ -28,7 +28,7 @@ class EditorRawImagePsdSelectorContractTest {
             PROJECT_ROOT.resolve("compatibility/cubism/mapping-packs/draft/cubism-5.3.02-editor-model-read.json");
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
+    @ValueSource(strings = {"5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     void exactRecordsVerifyEveryPsdExportAndParseSelector(final String version) throws Exception {
         final Path recordPath =
                 PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-" + version + "-editor-model.json");
@@ -49,10 +49,14 @@ class EditorRawImagePsdSelectorContractTest {
             final var resolver = new VerifiedEditorModelResolverFactory().create(recordPath, artifact, loader);
             assertTrue(EditorRawImagePsdSelectorContract.SUPPORTED_CUBISM_VERSIONS.contains(version));
             assertTrue(resolver.isExactCubismVersion(version));
+            final Set<String> required = new HashSet<>(EditorRawImagePsdSelectorContract.REQUIRED_ALIASES);
+            if (EditorRawImagePsdSelectorContract.TRANSPARENCY_SHAPES_ABSENT_VERSIONS.contains(version)) {
+                required.removeAll(EditorRawImagePsdSelectorContract.TRANSPARENCY_SHAPES_ALIASES);
+            }
             assertTrue(resolver.authorizesFeature(
                     EditorRawImagePsdSelectorContract.ADAPTER_SLICE_ID,
                     EditorRawImagePsdSelectorContract.CAPABILITY_ID,
-                    EditorRawImagePsdSelectorContract.REQUIRED_ALIASES));
+                    required));
         }
     }
 
@@ -197,15 +201,27 @@ class EditorRawImagePsdSelectorContractTest {
     }
 
     @Test
-    void psdCapabilityAndSelectorsAreAdmittedOnlyForReviewed53Generations() {
+    void psdCapabilityAndSelectorsAreAdmittedForReviewedGenerations() {
         final var manifest5302 = EditorModelVerificationManifest.forArtifact(ReviewedHostArtifacts.CUBISM_5_3_02);
         final var manifest52 = EditorModelVerificationManifest.forArtifact(ReviewedHostArtifacts.CUBISM_5_2_03);
+        final var manifest5200 = EditorModelVerificationManifest.forArtifact(ReviewedHostArtifacts.CUBISM_5_2_00);
         final var manifest5303 = EditorModelVerificationManifest.forArtifact(ReviewedHostArtifacts.CUBISM_5_3_03);
+        final java.util.Set<String> transparencyAbsent =
+                new java.util.HashSet<>(EditorRawImagePsdSelectorContract.REQUIRED_ALIASES);
+        transparencyAbsent.removeAll(EditorRawImagePsdSelectorContract.TRANSPARENCY_SHAPES_ALIASES);
 
         assertTrue(manifest5302.capabilityIds().contains(EditorRawImagePsdSelectorContract.CAPABILITY_ID));
         assertTrue(manifest5302.requiredAliases().containsAll(EditorRawImagePsdSelectorContract.REQUIRED_ALIASES));
-        assertFalse(manifest52.capabilityIds().contains(EditorRawImagePsdSelectorContract.CAPABILITY_ID));
-        assertFalse(manifest52.requiredAliases().containsAll(EditorRawImagePsdSelectorContract.REQUIRED_ALIASES));
+        assertTrue(manifest52.capabilityIds().contains(EditorRawImagePsdSelectorContract.CAPABILITY_ID));
+        assertTrue(manifest52.requiredAliases().containsAll(transparencyAbsent));
+        assertFalse(manifest52
+                .requiredAliases()
+                .containsAll(EditorRawImagePsdSelectorContract.TRANSPARENCY_SHAPES_ALIASES));
+        assertTrue(manifest5200.capabilityIds().contains(EditorRawImagePsdSelectorContract.CAPABILITY_ID));
+        assertTrue(manifest5200.requiredAliases().containsAll(transparencyAbsent));
+        assertFalse(manifest5200
+                .requiredAliases()
+                .containsAll(EditorRawImagePsdSelectorContract.TRANSPARENCY_SHAPES_ALIASES));
         assertTrue(manifest5303.capabilityIds().contains(EditorRawImagePsdSelectorContract.CAPABILITY_ID));
         assertTrue(manifest5303.requiredAliases().containsAll(EditorRawImagePsdSelectorContract.REQUIRED_ALIASES));
     }

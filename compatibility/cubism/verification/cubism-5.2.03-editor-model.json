@@ -68,6 +68,7 @@
     "cubism.editor-model.morph-target.write",
     "cubism.editor-model.native-control-appearance.read",
     "cubism.editor-model.native-control-appearance.write",
+    "cubism.editor-model.object-hierarchy.apply-deformer-to-children",
     "cubism.editor-model.object-hierarchy.art-mesh.create",
     "cubism.editor-model.object-hierarchy.edit",
     "cubism.editor-model.object-hierarchy.rename",
@@ -108,6 +109,8 @@
     "cubism.texture-atlas.layout.write",
     "cubism.texture-atlas.native-layout-invocation",
     "ui.object-context-menu.contribute",
+    "cubism.editor-model.psd.raw-image.export",
+    "cubism.editor-model.psd.raw-image.replace",
     "cubism.editor-model.selection.read",
     "cubism.mesh-tool.session",
     "cubism.modeling-tool.selection-brush"
@@ -11013,6 +11016,9 @@
     "cubism.editor-model.native-control-appearance.write": [
       "hook:control-appearance"
     ],
+    "cubism.editor-model.object-hierarchy.apply-deformer-to-children": [
+      "declaredGeneration"
+    ],
     "cubism.editor-model.object-hierarchy.art-mesh.create": [
       "declaredGeneration"
     ],
@@ -11142,6 +11148,12 @@
     "cubism.modeling-tool.selection-brush": [
       "hook:mesh-tool-session",
       "hook:modeling-tool-lifecycle"
+    ],
+    "cubism.editor-model.psd.raw-image.export": [
+      "declaredGeneration"
+    ],
+    "cubism.editor-model.psd.raw-image.replace": [
+      "declaredGeneration"
     ]
   }
 }
