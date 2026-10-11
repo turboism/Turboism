@@ -84,7 +84,18 @@ class MeshToolSessionSelectorContractTest {
     void freezesTheCompleteAliasAndCapabilityContract() {
         assertEquals("cubism.mesh-tool.session", MeshToolSessionSelectorContract.CAPABILITY_ID);
         assertEquals(EXPECTED, MeshToolSessionSelectorContract.REQUIRED_ALIASES);
-        assertEquals(Set.of("5.2.03", "5.3.02", "5.3.03"), MeshToolSessionSelectorContract.SUPPORTED_VERSIONS);
+        assertEquals(
+                Set.of(
+                        "5.2.00",
+                        "5.2.01",
+                        "5.2.02",
+                        "5.2.03",
+                        "5.3.00",
+                        "5.3.01",
+                        "5.3.02",
+                        "5.3.03",
+                        "5.3.04"),
+                MeshToolSessionSelectorContract.SUPPORTED_VERSIONS);
         assertEquals("adapter.editor-model.readwrite", MeshToolSessionSelectorContract.ADAPTER_SLICE_ID);
     }
 

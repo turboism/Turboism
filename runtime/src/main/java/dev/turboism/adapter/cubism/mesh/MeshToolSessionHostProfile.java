@@ -16,7 +16,7 @@ public record MeshToolSessionHostProfile(
         String modelingDocumentOwnerInternalName,
         String setEditModeMethod,
         String setEditModeDescriptor) {
-    private static final Set<String> SUPPORTED_VERSIONS = Set.of("5.2.03", "5.3.02", "5.3.03");
+    private static final Set<String> SUPPORTED_VERSIONS = MeshToolSessionSelectorContract.SUPPORTED_VERSIONS;
 
     public MeshToolSessionHostProfile {
         editorVersion = requireText(editorVersion, "editorVersion");
