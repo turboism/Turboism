@@ -23,8 +23,8 @@
 | 지오메트리 읽기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 편집 기록 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 통합 브리지 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 메시 도구 세션 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 메시 도구 모음 기여 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 메시 도구 세션 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 메시 도구 모음 기여 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 기타 모델 표면 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ◐ |
 | 모델 인스턴스 읽기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 모델링 사용자 도구 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -57,15 +57,11 @@
 - `cubism.autobackup.backup` (자동 백업 생성): 검증된 레코드 없음 5.0.00–5.0.06
 - `cubism.autobackup.settings`: 검증된 레코드 없음 5.0.00–5.0.06
 - `cubism.editor-ui.embedded-panel` (임베디드 패널 도킹): 검증된 레코드 없음 5.0.00–5.0.06
-- `cubism.editor-ui.main-toolbar` (메인 도구 모음 통합): 검증된 레코드 없음 5.0.00–5.0.06
 - `cubism.editor-ui.top-menu` (상단 메뉴 통합): 검증된 레코드 없음 5.0.00–5.0.06
 - `cubism.geometry.read` (메시 지오메트리 읽기): 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-history.semantic-read` (기록의 의미적 디코딩): 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.integration.edit-api-bridge.dispatch`: 검증된 레코드 없음 5.0.00–5.1.01
 - `cubism.integration.external-app-settings.edit-toggle` (외부 앱 편집 토글): 검증된 레코드 없음 5.0.00–5.0.06
-- `cubism.mesh-tool.session` (메시 편집 도구 세션): 검증된 레코드 없음 5.0.00–5.1.03
-- `ui.mesh-toolbar.contribute` (메시 도구 모음 기여): 검증된 레코드 없음 5.0.00–5.0.06
-- `ui.mesh-toolbar.contribute` (메시 도구 모음 기여): 검증됐으나 계약/핀으로 축소(적응 대기) 5.1.00–5.1.03
 - `cubism.editor-model.default-keyform-lock.write`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.moc-export.read`: 검증된 레코드 없음 5.0.00–5.3.01, 5.3.04
 - `cubism.editor-model.native-control-appearance.write`: 검증된 레코드 없음 5.0.00–5.1.03
@@ -289,13 +285,13 @@
 | class-pins/`image-archive-reuse.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`incremental-update.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`matrix-scratch.json` | `ClassPinTable` | 5.2.00–5.3.04 |
-| class-pins/`mesh-mirror.json` | `ClassPinTable` | 5.2.00–5.3.04 |
+| class-pins/`mesh-mirror.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`mesh-triangulation-hash.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`model-update-skip.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`startup-suppression.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`texture-upload-preparation.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`uniform-location-lifecycle.json` | `ClassPinTable` | 5.2.00–5.3.04 |
-| class-pins/`warp-alt-mirror.json` | `ClassPinTable` | 5.2.00–5.3.04 |
+| class-pins/`warp-alt-mirror.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`warp-position-projection.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 
 ## 버전 단조성 원칙

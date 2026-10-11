@@ -23,8 +23,8 @@
 | ジオメトリ読み取り | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 編集履歴 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 統合ブリッジ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| メッシュツールセッション | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| メッシュツールバー贡献 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| メッシュツールセッション | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| メッシュツールバー贡献 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | その他のモデルサーフェス | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ◐ |
 | モデルインスタンス読み取り | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | モデリングカスタムツール | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -57,15 +57,11 @@
 - `cubism.autobackup.backup` (自動バックアップ作成): 検証済みレコードなし 5.0.00–5.0.06
 - `cubism.autobackup.settings`: 検証済みレコードなし 5.0.00–5.0.06
 - `cubism.editor-ui.embedded-panel` (埋め込みパネル docking): 検証済みレコードなし 5.0.00–5.0.06
-- `cubism.editor-ui.main-toolbar` (メインツールバー統合): 検証済みレコードなし 5.0.00–5.0.06
 - `cubism.editor-ui.top-menu` (トップメニュー統合): 検証済みレコードなし 5.0.00–5.0.06
 - `cubism.geometry.read` (メッシュジオメトリ読み取り): 検証済みレコードなし 5.0.00–5.1.03
 - `cubism.editor-history.semantic-read` (履歴の意味的デコード): 検証済みレコードなし 5.0.00–5.1.03
 - `cubism.integration.edit-api-bridge.dispatch`: 検証済みレコードなし 5.0.00–5.1.01
 - `cubism.integration.external-app-settings.edit-toggle` (外部アプリ編集トグル): 検証済みレコードなし 5.0.00–5.0.06
-- `cubism.mesh-tool.session` (メッシュ編集ツールセッション): 検証済みレコードなし 5.0.00–5.1.03
-- `ui.mesh-toolbar.contribute` (メッシュツールバー贡献): 検証済みレコードなし 5.0.00–5.0.06
-- `ui.mesh-toolbar.contribute` (メッシュツールバー贡献): 検証済みだがコントラクト/pin で縮小（適合待ち） 5.1.00–5.1.03
 - `cubism.editor-model.default-keyform-lock.write`: 検証済みレコードなし 5.0.00–5.1.03
 - `cubism.editor-model.moc-export.read`: 検証済みレコードなし 5.0.00–5.3.01, 5.3.04
 - `cubism.editor-model.native-control-appearance.write`: 検証済みレコードなし 5.0.00–5.1.03
@@ -289,13 +285,13 @@
 | class-pins/`image-archive-reuse.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`incremental-update.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`matrix-scratch.json` | `ClassPinTable` | 5.2.00–5.3.04 |
-| class-pins/`mesh-mirror.json` | `ClassPinTable` | 5.2.00–5.3.04 |
+| class-pins/`mesh-mirror.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`mesh-triangulation-hash.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`model-update-skip.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`startup-suppression.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`texture-upload-preparation.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`uniform-location-lifecycle.json` | `ClassPinTable` | 5.2.00–5.3.04 |
-| class-pins/`warp-alt-mirror.json` | `ClassPinTable` | 5.2.00–5.3.04 |
+| class-pins/`warp-alt-mirror.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`warp-position-projection.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 
 ## バージョン単調性の原則

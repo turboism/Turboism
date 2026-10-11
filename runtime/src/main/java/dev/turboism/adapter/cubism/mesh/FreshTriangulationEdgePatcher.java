@@ -13,7 +13,13 @@ final class FreshTriangulationEdgePatcher implements Opcodes {
     private static final String CONTAINS = LIST + ".contains(Ljava/lang/Object;)Z";
     private static final Set<String> PINS = Set.of(
             "ef4a5eb2f0e1b0ac0295f76146a513a326729cfe4526884104cbb27978c52543",
-            "5aa7031e3726355fde25d6d4412f0a295a3725cb8e510a3076007f3270445f0d");
+            "5aa7031e3726355fde25d6d4412f0a295a3725cb8e510a3076007f3270445f0d",
+            // Reviewed 5.0.00-02 raw caller bytes.
+            "8b41fd0cd91b8d69f5ed57159dc592a0384a97bdc5fcb99e93953893d984eeca",
+            // Reviewed 5.0.03-05 raw caller bytes.
+            "70605f37a6b5a91efcac13e7e836eda01c0fe52bc7628c5ec63225de824eadf5",
+            // Reviewed 5.0.06 and 5.1.00-03 raw caller bytes.
+            "0361e54535558881636ff21914e4c37812d84931a4d6d75e873934fb130452cc");
 
     private FreshTriangulationEdgePatcher() {}
 

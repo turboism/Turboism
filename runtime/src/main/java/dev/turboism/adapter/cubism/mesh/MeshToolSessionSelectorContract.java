@@ -6,9 +6,10 @@ import java.util.Set;
 public final class MeshToolSessionSelectorContract {
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
     public static final String CAPABILITY_ID = "cubism.mesh-tool.session";
-    /** Reviewed 5.2/5.3 generations carrying the complete mesh-tool session contract. */
-    public static final Set<String> SUPPORTED_VERSIONS =
-            Set.of("5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04");
+    /** Reviewed generations carrying the complete mesh-tool session contract. */
+    public static final Set<String> SUPPORTED_VERSIONS = Set.of(
+            "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+            "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04");
 
     public static final String APPLICATION_INSTANCE = "cubism.editor-model.app-controller.instance";
     public static final String APPLICATION_CURRENT_DOCUMENT = "cubism.editor-model.app-controller.current-document";

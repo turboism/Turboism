@@ -153,7 +153,14 @@ private val runtimePackageRules = listOf(
  * Accepted layering debt, one entry per file. Each waiver names the file relative to
  * {@code runtime/src/main/java/dev/turboism/} plus the direction it is allowed to keep.
  */
-private val runtimePackageWaivers = mapOf<String, Set<String>>()
+private val runtimePackageWaivers = mapOf(
+    // The selector contracts for the mesh-tool session and modeling selection-brush
+    // adapters live under dev.turboism.adapter.cubism.* (they are runtime admission
+    // contracts, not verification manifests). Reusing their CAPABILITY_ID and
+    // REQUIRED_ALIASES keeps capability requirements single-sourced; relocating the
+    // contracts into mapping.verification.selector is the deferred consolidation.
+    "mapping/verification/CapabilitySelectorDependencies.java" to setOf("adapter"),
+)
 
 private fun checkModuleBoundaries(project: Project) {
     val state = BoundaryState(project.logger)
