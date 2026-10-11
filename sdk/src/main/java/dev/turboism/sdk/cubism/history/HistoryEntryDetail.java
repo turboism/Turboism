@@ -1,10 +1,12 @@
 package dev.turboism.sdk.cubism.history;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Immutable semantic detail attached to one history entry. */
+@CubismEditor
 public record HistoryEntryDetail(
         String summary,
         HistoryAction.DetailLevel detailLevel,

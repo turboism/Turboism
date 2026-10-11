@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.history;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /** Stable, Turboism-owned identity of one native Cubism Undo-history entry. */
+@CubismEditor
 public record HistoryEntryId(String value) {
 
     /** Maximum public length of an opaque history-entry identity. */

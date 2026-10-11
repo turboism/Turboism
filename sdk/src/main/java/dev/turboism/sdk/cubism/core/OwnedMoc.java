@@ -1,5 +1,7 @@
 package dev.turboism.sdk.cubism.core;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * Plugin-owned Cubism Core MOC handle built from {@code .moc3} bytes.
  *
@@ -7,6 +9,7 @@ package dev.turboism.sdk.cubism.core;
  * native handle identity, and model instantiation. Closing the MOC releases the Core
  * {@code CubismMoc} instance; every model instantiated from it is closed first.</p>
  */
+@CubismEditor(from = "5.0.00")
 public interface OwnedMoc extends AutoCloseable {
 
     /** MOC format version diagnosed from the loaded bytes. */

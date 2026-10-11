@@ -1,6 +1,9 @@
 package dev.turboism.sdk.cubism.core;
 
+import dev.turboism.sdk.CubismEditor;
+
 /** Normalized semantic Cubism Core version. */
+@CubismEditor
 public record CoreVersion(int major, int minor, int patch) {
 
     public CoreVersion {

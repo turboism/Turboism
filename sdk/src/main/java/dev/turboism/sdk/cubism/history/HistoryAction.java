@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.history;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Structured, immutable detail for a history entry when its semantics are known safely. */
+@CubismEditor
 public record HistoryAction(
         Kind kind,
         String targetType,
@@ -27,12 +29,14 @@ public record HistoryAction(
     }
 
     /** The semantic operation kind a history entry performed; {@code UNKNOWN} when unrecognized. */
+    @CubismEditor
     public enum Kind {
         SET_PARAMETER_VALUE,
         UNKNOWN
     }
 
     /** How much trusted detail a history entry carries. */
+    @CubismEditor
     public enum DetailLevel {
         FULL,
         PARTIAL,

@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.history;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 
 /** Immutable state of the active document's native Undo history. */
+@CubismEditor
 public record HistorySnapshot(
         Availability availability,
         long generation,
@@ -72,6 +74,7 @@ public record HistorySnapshot(
     }
 
     /** Whether the host's Undo history could be read at all. */
+    @CubismEditor
     public enum Availability {
         AVAILABLE,
         UNAVAILABLE

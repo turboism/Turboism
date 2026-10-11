@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.history;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -7,6 +8,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /** Trusted semantic location at which one history change applies. */
+@CubismEditor
 public record HistoryEditContext(Kind kind, Optional<String> formId, List<HistoryParameterCoordinate> coordinates) {
 
     private static final int MAX_FORM_ID_LENGTH = 256;
@@ -71,6 +73,7 @@ public record HistoryEditContext(Kind kind, Optional<String> formId, List<Histor
     }
 
     /** Scope of a semantic history change. */
+    @CubismEditor
     public enum Kind {
         OBJECT,
         DEFAULT_FORM,
