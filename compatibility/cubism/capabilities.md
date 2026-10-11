@@ -265,7 +265,7 @@ Latest FINAL result per task × version from `validation/cubism-version-matrix/c
 | `glcanvas` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |
 | `guard-5302` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
 | `incremental-update` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
-| `integration` | ? |  | ? |  |  |  | ◇ | ◇ |  |  | ? | ✓ | ✓ | ? | ? | ✓ | ? | ? | ? | ? |
+| `integration` | ? |  | ? |  |  |  | ◇ | ◇ |  |  | ? | ? | ✓ | ? | ? | ✓ | ? | ? | ? | ? |
 | `media-perf` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |
 | `mesh-edit` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ? | ? |  |
 | `model-import-3d` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
@@ -282,9 +282,9 @@ Latest FINAL result per task × version from `validation/cubism-version-matrix/c
 | `plugin-management-direct-jar-restart` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
 | `plugin-management-direct-jar-stage` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
 | `plugin-ui` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ? |  |  |
-| `project-workspace` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ? |  |  |
+| `project-workspace` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ✓ |  |  |
 | `protected-export` |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |  | ? | ✓ |  | ? | ? | ✓ |
-| `psd` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ◇ | ✓ | ✓ | ✓ | ◇ |
+| `psd` |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ✓ | ◇ | ✓ | ✓ | ✓ | ✓ |
 | `review056` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ? | ? |  |
 | `selection-brush-coordinate-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |  |  |  |
 | `selection-brush-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |  |  |  |
