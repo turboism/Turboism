@@ -3,7 +3,7 @@ package dev.turboism.sdk.cubism.model;
 import dev.turboism.sdk.CubismEditor;
 
 /** One Rotation Deformer exposed through Editor authoring semantics. */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface RotationDeformer extends Deformer {
 
     /** Returns the deformer pivot's base angle, in degrees. */

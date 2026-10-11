@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 /** One track on an {@link AnimationScene} timeline. */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface AnimationTrack {
 
     /** Host-assigned track guid string. */

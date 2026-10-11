@@ -3,7 +3,7 @@ package dev.turboism.sdk.cubism.core;
 import dev.turboism.sdk.CubismEditor;
 
 /** Permission-checked MOC byte inspection service. */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface MocInspector {
 
     /** Returns the newest MOC format version the runtime understands. */

@@ -16,7 +16,7 @@ import java.util.List;
  * complete drawable relations, glues and deformers. Unsupported read families throw
  * {@link UnsupportedOperationException}; they never report missing native data as empty lists.</p>
  */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface OwnedModel extends AutoCloseable {
 
     /** Core native handle of the owned {@code CubismModel} instance. */

@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 /** One Cubism deformer. */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface Deformer {
 
     /** Returns this Deformer's stable identity within the model. */

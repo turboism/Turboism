@@ -4,7 +4,7 @@ import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.RawImageId;
 
 /** Read-only projection of one raw layered image registered on the model. */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface RawTexture {
 
     /** Returns this raw image's stable identity. */

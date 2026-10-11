@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /** Read-only projection of one scene inside an {@link AnimationDocument}. */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface AnimationScene {
 
     /** Scene name shown in the scene list. */

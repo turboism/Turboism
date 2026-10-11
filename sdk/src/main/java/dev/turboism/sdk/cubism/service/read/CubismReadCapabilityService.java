@@ -29,7 +29,7 @@ import java.util.Optional;
  * <p>This service groups typed model and Editor read families used by plugins. Implementations must return immutable SDK DTOs and must not
  * expose raw host objects, Swing/AWT handles, adapter classes, or hook state.</p>
  */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface CubismReadCapabilityService {
 
     /**

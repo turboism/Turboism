@@ -3,7 +3,7 @@ package dev.turboism.sdk.cubism.model;
 import dev.turboism.sdk.CubismEditor;
 
 /** Read-only projection of one physics settings source document. */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface PhysicsSettingsSource {
 
     /** Returns the source document's identifier text. */

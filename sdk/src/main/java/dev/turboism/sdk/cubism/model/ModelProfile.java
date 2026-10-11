@@ -3,7 +3,7 @@ package dev.turboism.sdk.cubism.model;
 import dev.turboism.sdk.CubismEditor;
 
 /** Immutable Editor model profile metrics for one Cubism model generation. */
-@CubismEditor(from = "5.0.00")
+@CubismEditor
 public interface ModelProfile {
 
     /** Returns the Editor pixels-per-unit for the model canvas. */
