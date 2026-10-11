@@ -1,8 +1,8 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
-import dev.turboism.sdk.CubismEditor;
 
 /**
  * Authorized PNG image content for one model-image registration.
@@ -26,9 +26,7 @@ public final class AuthorizedImageContent {
     /** Required decoded height in pixels for this slice. */
     public static final int REQUIRED_HEIGHT = 128;
 
-    private static final byte[] PNG_SIGNATURE = {
-        (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
-    };
+    private static final byte[] PNG_SIGNATURE = {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
     private static final int IHDR_LENGTH = 13;
     private static final int IHDR_OFFSET = 8;
     private static final int IHDR_WIDTH_OFFSET = IHDR_OFFSET + 8;
@@ -56,10 +54,7 @@ public final class AuthorizedImageContent {
      *     budget, is not a PNG, or does not declare exactly
      *     {@value #REQUIRED_WIDTH}×{@value #REQUIRED_HEIGHT}
      */
-    public static AuthorizedImageContent of(
-        final byte[] pngBytes,
-        final String sourceDescription
-    ) {
+    public static AuthorizedImageContent of(final byte[] pngBytes, final String sourceDescription) {
         return ofDimensions(pngBytes, sourceDescription, REQUIRED_WIDTH, REQUIRED_HEIGHT);
     }
 
@@ -70,8 +65,7 @@ public final class AuthorizedImageContent {
      * The runtime must verify decoded dimensions against this declaration.
      */
     public static AuthorizedImageContent ofDimensions(
-        final byte[] pngBytes, final String sourceDescription, final int width, final int height
-    ) {
+            final byte[] pngBytes, final String sourceDescription, final int width, final int height) {
         if (width <= 0 || height <= 0 || (long) width * height > MAX_RGBA_BYTES / 4L) {
             throw new IllegalArgumentException("image dimensions must be positive within the RGBA budget");
         }
@@ -81,8 +75,7 @@ public final class AuthorizedImageContent {
         }
         if (copy.length > MAX_PNG_BYTES) {
             throw new IllegalArgumentException(
-                "image content exceeds the " + MAX_PNG_BYTES + "-byte PNG container budget"
-            );
+                    "image content exceeds the " + MAX_PNG_BYTES + "-byte PNG container budget");
         }
         validatePngHeader(copy, width, height);
         final String description = Objects.requireNonNull(sourceDescription, "sourceDescription");
@@ -107,36 +100,39 @@ public final class AuthorizedImageContent {
         }
         final int ihdrLength = int32(bytes, IHDR_OFFSET);
         if (ihdrLength != IHDR_LENGTH
-            || bytes[IHDR_OFFSET + 4] != 'I' || bytes[IHDR_OFFSET + 5] != 'H'
-            || bytes[IHDR_OFFSET + 6] != 'D' || bytes[IHDR_OFFSET + 7] != 'R') {
+                || bytes[IHDR_OFFSET + 4] != 'I'
+                || bytes[IHDR_OFFSET + 5] != 'H'
+                || bytes[IHDR_OFFSET + 6] != 'D'
+                || bytes[IHDR_OFFSET + 7] != 'R') {
             throw new IllegalArgumentException("image content is not a well-formed PNG");
         }
         final int width = int32(bytes, IHDR_WIDTH_OFFSET);
         final int height = int32(bytes, IHDR_HEIGHT_OFFSET);
         if (width != expectedWidth || height != expectedHeight) {
             throw new IllegalArgumentException(
-                "image dimensions must match declared " + expectedWidth + "x" + expectedHeight
-            );
+                    "image dimensions must match declared " + expectedWidth + "x" + expectedHeight);
         }
         if ((long) width * height * 4L > MAX_RGBA_BYTES) {
-            throw new IllegalArgumentException(
-                "decoded image exceeds the " + MAX_RGBA_BYTES + "-byte RGBA budget"
-            );
+            throw new IllegalArgumentException("decoded image exceeds the " + MAX_RGBA_BYTES + "-byte RGBA budget");
         }
     }
 
     private static int int32(final byte[] bytes, final int offset) {
         return ((bytes[offset] & 0xFF) << 24)
-            | ((bytes[offset + 1] & 0xFF) << 16)
-            | ((bytes[offset + 2] & 0xFF) << 8)
-            | (bytes[offset + 3] & 0xFF);
+                | ((bytes[offset + 1] & 0xFF) << 16)
+                | ((bytes[offset + 2] & 0xFF) << 8)
+                | (bytes[offset + 3] & 0xFF);
     }
 
     /** Declared PNG width, verified again after native decoding. */
-    public int width() { return width; }
+    public int width() {
+        return width;
+    }
 
     /** Declared PNG height, verified again after native decoding. */
-    public int height() { return height; }
+    public int height() {
+        return height;
+    }
 
     /** Container size in bytes. */
     public int byteCount() {

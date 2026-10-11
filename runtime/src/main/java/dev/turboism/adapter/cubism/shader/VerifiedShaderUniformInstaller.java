@@ -7,13 +7,15 @@ import java.util.function.Consumer;
 /** Single-owner installer for the verified shader uniform-location reuse hook. */
 public final class VerifiedShaderUniformInstaller {
     private static final AtomicBoolean OWNED = new AtomicBoolean();
-    private VerifiedShaderUniformInstaller() { }
+
+    private VerifiedShaderUniformInstaller() {}
 
     /** Owns the transformer registration until closed. */
     public static final class Installation implements AutoCloseable {
         private final Instrumentation instrumentation;
         private final ShaderUniformTransformer transformer;
         private final AtomicBoolean closed = new AtomicBoolean();
+
         Installation(Instrumentation instrumentation, ShaderUniformTransformer transformer) {
             this.instrumentation = instrumentation;
             this.transformer = transformer;
@@ -24,14 +26,21 @@ public final class VerifiedShaderUniformInstaller {
          *
          * @return {@code true} when the host shader class was patched on first definition
          */
-        public boolean patched() { return transformer.patched(); }
+        public boolean patched() {
+            return transformer.patched();
+        }
 
-        @Override public void close() {
+        @Override
+        public void close() {
             if (!closed.compareAndSet(false, true)) return;
             NativeShaderUniformBridge.enabled(false);
-            try { instrumentation.removeTransformer(transformer); }
-            catch (RuntimeException ignored) { /* Disabled bridge keeps existing definitions on the official path. */ }
-            finally { OWNED.set(false); }
+            try {
+                instrumentation.removeTransformer(transformer);
+            } catch (RuntimeException ignored) {
+                /* Disabled bridge keeps existing definitions on the official path. */
+            } finally {
+                OWNED.set(false);
+            }
         }
     }
 
@@ -52,7 +61,10 @@ public final class VerifiedShaderUniformInstaller {
         boolean registered = false;
         try {
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-                if (loaded.getName().equals(ShaderUniformTransformer.OWNER.replace('/', '.'))) { OWNED.set(false); return null; }
+                if (loaded.getName().equals(ShaderUniformTransformer.OWNER.replace('/', '.'))) {
+                    OWNED.set(false);
+                    return null;
+                }
             }
             instrumentation.addTransformer(transformer, false);
             registered = true;
@@ -60,7 +72,10 @@ public final class VerifiedShaderUniformInstaller {
             return new Installation(instrumentation, transformer);
         } catch (RuntimeException | LinkageError failure) {
             if (registered) {
-                try { instrumentation.removeTransformer(transformer); } catch (RuntimeException ignored) { }
+                try {
+                    instrumentation.removeTransformer(transformer);
+                } catch (RuntimeException ignored) {
+                }
             }
             NativeShaderUniformBridge.enabled(false);
             OWNED.set(false);

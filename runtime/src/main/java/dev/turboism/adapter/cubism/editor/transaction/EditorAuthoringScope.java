@@ -4,8 +4,8 @@ import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import java.util.ArrayList;
 import java.util.EnumSet;
-import java.util.IdentityHashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -79,15 +79,19 @@ final class EditorAuthoringScope {
         createdTargets.put(Objects.requireNonNull(target), contribution);
     }
 
-    void beginRecovery() { recovering = true; }
+    void beginRecovery() {
+        recovering = true;
+    }
 
     boolean claimRootUndoListener(final String key) {
         return rootUndoListenerKeys.add(key);
     }
 
     boolean ownsArtMeshParentRecovery(final String targetIdentity) {
-        return recovering && contributions.stream().anyMatch(c ->
-            c.operationId().equals("cubism.art-mesh.set-target-deformer") && c.targetIdentity().equals(targetIdentity));
+        return recovering
+                && contributions.stream()
+                        .anyMatch(c -> c.operationId().equals("cubism.art-mesh.set-target-deformer")
+                                && c.targetIdentity().equals(targetIdentity));
     }
 
     boolean createdTargetRestored(final Object target) {

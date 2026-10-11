@@ -27,8 +27,8 @@ public interface RotationDeformer extends Deformer {
     }
 
     /** Compare-and-set existing non-default ordinary forms, preserving grid and source identities. */
-    default void setOrdinaryKeyformForms(RotationAuthoringSnapshot expected, java.util.List<RotationKeyformForm> edits) {
+    default void setOrdinaryKeyformForms(
+            RotationAuthoringSnapshot expected, java.util.List<RotationKeyformForm> edits) {
         throw new UnsupportedOperationException("Stored Rotation form editing is unavailable.");
     }
-
 }

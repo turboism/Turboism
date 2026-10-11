@@ -1,13 +1,12 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.TextureAtlasId;
-
 import java.util.Objects;
 import java.util.Optional;
-import dev.turboism.sdk.CubismEditor;
 
 /**
  * Detached observation of the native texture input currently bound to one ArtMesh.
@@ -29,13 +28,12 @@ import dev.turboism.sdk.CubismEditor;
  */
 @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record ArtMeshTextureInput(
-    ArtMeshId artMeshId,
-    ModelId modelId,
-    long modelGeneration,
-    Kind kind,
-    Optional<ModelImageId> modelImageId,
-    Optional<TextureAtlasId> textureAtlasId
-) {
+        ArtMeshId artMeshId,
+        ModelId modelId,
+        long modelGeneration,
+        Kind kind,
+        Optional<ModelImageId> modelImageId,
+        Optional<TextureAtlasId> textureAtlasId) {
 
     /** Which authored resource kind the observed input resolves to. */
     public enum Kind {
@@ -62,14 +60,13 @@ public record ArtMeshTextureInput(
         switch (kind) {
             case MODEL_IMAGE -> {
                 if (modelImageId.isEmpty() || textureAtlasId.isPresent()) {
-                    throw new IllegalArgumentException(
-                        "MODEL_IMAGE input requires a model image id and no atlas id");
+                    throw new IllegalArgumentException("MODEL_IMAGE input requires a model image id and no atlas id");
                 }
             }
             case TEXTURE_ATLAS_REGION -> {
                 if (textureAtlasId.isEmpty() || modelImageId.isPresent()) {
                     throw new IllegalArgumentException(
-                        "TEXTURE_ATLAS_REGION input requires a texture atlas id and no model image id");
+                            "TEXTURE_ATLAS_REGION input requires a texture atlas id and no model image id");
                 }
             }
         }

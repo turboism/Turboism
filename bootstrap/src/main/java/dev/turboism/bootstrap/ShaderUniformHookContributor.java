@@ -36,19 +36,16 @@ final class ShaderUniformHookContributor implements HookContributor {
         return environment.startupPolicy() != null
                 && TurboismAgent.shaderUniformEnabled(
                         environment.startupPolicy(),
-                        TurboismAgent.shaderUniformRequested(
-                                System.getProperty("turboism.shaderUniform.enabled")));
+                        TurboismAgent.shaderUniformRequested(System.getProperty("turboism.shaderUniform.enabled")));
     }
 
     @Override
     public AutoCloseable install(final HookEnvironment environment) throws Exception {
         try {
             return dev.turboism.adapter.cubism.shader.VerifiedShaderUniformInstaller.install(
-                    environment.instrumentation(),
-                    code -> RuntimeDiagnostics.debug("shader-uniform", code));
+                    environment.instrumentation(), code -> RuntimeDiagnostics.debug("shader-uniform", code));
         } catch (final RuntimeException | LinkageError failure) {
-            RuntimeDiagnostics.error(
-                    "shader-uniform", "Shader uniform optimization admission declined", failure);
+            RuntimeDiagnostics.error("shader-uniform", "Shader uniform optimization admission declined", failure);
             return () -> {};
         }
     }

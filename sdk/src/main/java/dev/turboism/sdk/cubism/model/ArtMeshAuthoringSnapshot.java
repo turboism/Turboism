@@ -1,14 +1,13 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.ParameterId;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import dev.turboism.sdk.CubismEditor;
 
 /**
  * Detached stored authoring values, not an evaluated shape or a writable target handle.
@@ -18,14 +17,13 @@ import dev.turboism.sdk.CubismEditor;
  */
 @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record ArtMeshAuthoringSnapshot(
-    ArtMeshId artMeshId,
-    String sourceGuid,
-    ArtMeshGeometry sourceGeometry,
-    List<Axis> axes,
-    List<Cell> cells,
-    List<Form> forms,
-    List<MorphKey> morphKeys
-) {
+        ArtMeshId artMeshId,
+        String sourceGuid,
+        ArtMeshGeometry sourceGeometry,
+        List<Axis> axes,
+        List<Cell> cells,
+        List<Form> forms,
+        List<MorphKey> morphKeys) {
     public ArtMeshAuthoringSnapshot {
         Objects.requireNonNull(artMeshId, "artMeshId");
         sourceGuid = identity(sourceGuid);
@@ -70,9 +68,12 @@ public record ArtMeshAuthoringSnapshot(
 
     /** An ordinary grid axis. Different GUIDs may legitimately have the same parameter ID. */
     public record Axis(
-        String parameterGuid, ParameterId parameterId,
-        float minimum, float defaultValue, float maximum, List<Float> keys
-    ) {
+            String parameterGuid,
+            ParameterId parameterId,
+            float minimum,
+            float defaultValue,
+            float maximum,
+            List<Float> keys) {
         public Axis {
             parameterGuid = identity(parameterGuid);
             Objects.requireNonNull(parameterId, "parameterId");

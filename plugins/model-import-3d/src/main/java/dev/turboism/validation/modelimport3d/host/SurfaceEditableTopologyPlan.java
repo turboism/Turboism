@@ -13,7 +13,7 @@ import java.util.function.Function;
 /** Bounded native-engine planning. Splits only contiguous source faces, preserving
  * their painter sequence and provenance. A preview is not an editing acceptance. */
 final class SurfaceEditableTopologyPlan {
-    private SurfaceEditableTopologyPlan() { }
+    private SurfaceEditableTopologyPlan() {}
 
     record Limits(int maximumParts, int maximumQueries, int maximumTotalSlots) {
         Limits {
@@ -23,16 +23,25 @@ final class SurfaceEditableTopologyPlan {
     }
 
     record Part(int firstFace, int endFace, List<Integer> sourceSlots, ArtMeshGeometry geometry) {
-        Part { sourceSlots = List.copyOf(sourceSlots); Objects.requireNonNull(geometry); }
+        Part {
+            sourceSlots = List.copyOf(sourceSlots);
+            Objects.requireNonNull(geometry);
+        }
     }
 
     record Plan(List<Part> parts, int nativeQueries, int totalSlots) {
-        Plan { parts = List.copyOf(parts); }
+        Plan {
+            parts = List.copyOf(parts);
+        }
     }
 
-    static Plan compile(ArtMeshGeometry source, Limits limits,
+    static Plan compile(
+            ArtMeshGeometry source,
+            Limits limits,
             Function<ArtMeshGeometry, ArtMeshSourceTriangulation> nativePreview) {
-        Objects.requireNonNull(source); Objects.requireNonNull(limits); Objects.requireNonNull(nativePreview);
+        Objects.requireNonNull(source);
+        Objects.requireNonNull(limits);
+        Objects.requireNonNull(nativePreview);
         if (source.triangleIndices().isEmpty()) throw new IllegalArgumentException("source faces required");
         var planner = new Planner(source, limits, nativePreview);
         planner.split(0, source.triangleIndices().size() / 3, true);
@@ -62,9 +71,10 @@ final class SurfaceEditableTopologyPlan {
         final List<Part> parts = new ArrayList<>();
         int queries, slots;
 
-        Planner(ArtMeshGeometry source, Limits limits,
-                Function<ArtMeshGeometry, ArtMeshSourceTriangulation> preview) {
-            this.source = source; this.limits = limits; this.preview = preview;
+        Planner(ArtMeshGeometry source, Limits limits, Function<ArtMeshGeometry, ArtMeshSourceTriangulation> preview) {
+            this.source = source;
+            this.limits = limits;
+            this.preview = preview;
         }
 
         void split(int start, int end, boolean whole) {
@@ -74,19 +84,21 @@ final class SurfaceEditableTopologyPlan {
             queries++;
             var actual = Objects.requireNonNull(preview.apply(candidate.geometry()), "native topology result");
             boolean exact = candidate.geometry().positions().equals(actual.positions())
-                && faces(candidate.geometry().triangleIndices()).equals(faces(actual.triangleIndices()));
+                    && faces(candidate.geometry().triangleIndices()).equals(faces(actual.triangleIndices()));
             if (!exact) {
                 if (end - start == 1)
                     throw new IllegalArgumentException("native source plane rejects original face " + start
-                        + "; a different source plane and texture mapping are required");
+                            + "; a different source plane and texture mapping are required");
                 int middle = start + (end - start) / 2;
-                split(start, middle, false); split(middle, end, false);
+                split(start, middle, false);
+                split(middle, end, false);
                 return;
             }
             if (parts.size() >= limits.maximumParts()
                     || candidate.sourceSlots().size() > limits.maximumTotalSlots() - slots)
                 throw new IllegalArgumentException("editable topology parts/slots budget exceeded");
-            parts.add(candidate); slots += candidate.sourceSlots().size();
+            parts.add(candidate);
+            slots += candidate.sourceSlots().size();
         }
 
         Part part(int start, int end, boolean whole) {

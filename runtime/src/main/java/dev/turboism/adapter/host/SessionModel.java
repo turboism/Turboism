@@ -302,8 +302,7 @@ final class SessionModel implements CubismModel {
     }
 
     @Override
-    public dev.turboism.sdk.cubism.model.CubismRenderedPixels renderPixels(
-            final int width, final int height) {
+    public dev.turboism.sdk.cubism.model.CubismRenderedPixels renderPixels(final int width, final int height) {
         return host.current(generation, model -> model.renderPixels(width, height), delegate);
     }
 }

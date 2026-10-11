@@ -514,11 +514,10 @@ class HostSessionPluginContextIntegrationTest {
 
             final CubismModel model = context.cubism().model().active();
             assertEquals(new ModelId("compat-session-model"), model.id());
-            // Exact-version texture surfaces deny the unreviewed 5.3.99 host even though the
-            // texture-read capability was admitted through the compatibility binding.
-            assertThrows(
-                    dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
-                    () -> model.textures().rawImages());
+            final var texture = model.textures().rawImages().get(0);
+            assertEquals(new dev.turboism.sdk.cubism.id.RawImageId("raw"), texture.id());
+            assertEquals("Fixture texture", texture.name());
+            assertEquals(512, texture.width());
             assertThrows(
                     dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
                     () -> model.textures().addModelImageGroup("blocked"));
@@ -585,11 +584,9 @@ class HostSessionPluginContextIntegrationTest {
 
     @Test
     void runtimeDependencyLossReachesAlreadyAcquiredSdkHandles() {
-        // Exact-version texture surfaces deny the unreviewed 5.3.99 host outright, so the
-        // capability-revocation flow is exercised on the range-permitted model-read surface.
         final var resolver = compatibilityBoundResolver(java.util.Map.of(
-                "cubism.editor-model.read", List.of("hook:test-model-hook"),
-                "cubism.editor-model.texture.read", List.of("structure")));
+                "cubism.editor-model.read", List.of("structure"),
+                "cubism.editor-model.texture.read", List.of("hook:test-texture-hook")));
         final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
         final HostSession session = new HostSession(
                 () -> Optional.ofNullable(current.get()),
@@ -605,22 +602,24 @@ class HostSessionPluginContextIntegrationTest {
             current.set(compatibilityDescriptor("runtime-dependency"));
             assertEquals(HostSession.State.ACTIVE, session.refresh());
             final CubismModel model = context.cubism().model().active();
-            assertEquals(new ModelId("runtime-dependency-model"), model.id());
+            final var textures = model.textures();
+            assertEquals(1, textures.rawImages().size());
 
-            resolver.deferCapabilitiesRequiringHook("test-model-hook");
-            assertFalse(session.admittedCubismCapabilities().contains("cubism.editor-model.read"));
-            assertThrows(dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class, model::id);
-            resolver.completeHookBinding("test-model-hook");
-            assertEquals(new ModelId("runtime-dependency-model"), model.id());
+            resolver.deferCapabilitiesRequiringHook("test-texture-hook");
+            assertFalse(session.admittedCubismCapabilities().contains("cubism.editor-model.texture.read"));
+            assertThrows(dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class, textures::rawImages);
+            resolver.completeHookBinding("test-texture-hook");
+            assertEquals(1, textures.rawImages().size());
 
-            resolver.disableCapabilitiesRequiringHook("test-model-hook");
-            resolver.completeHookBinding("test-model-hook");
+            resolver.disableCapabilitiesRequiringHook("test-texture-hook");
+            resolver.completeHookBinding("test-texture-hook");
 
-            assertFalse(session.admittedCubismCapabilities().contains("cubism.editor-model.read"));
-            assertThrows(dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class, model::id);
-            assertTrue(
-                    session.admittedCubismCapabilities().contains("cubism.editor-model.texture.read"),
-                    "unrelated admitted capabilities remain admitted");
+            assertFalse(session.admittedCubismCapabilities().contains("cubism.editor-model.texture.read"));
+            assertThrows(dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class, textures::rawImages);
+            assertEquals(
+                    new ModelId("runtime-dependency-model"),
+                    model.id(),
+                    "unrelated admitted capabilities remain callable");
         } finally {
             session.close();
             scheduler.shutdown();

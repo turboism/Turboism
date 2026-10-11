@@ -72,9 +72,9 @@ public final class VerifiedMethodCallSite implements AutoCloseable {
     public boolean acceptsReceiver(final Object target) {
         final Method resolved = method;
         return resolved != null
-            && !staticMethod
-            && target != null
-            && resolved.getDeclaringClass().isInstance(target);
+                && !staticMethod
+                && target != null
+                && resolved.getDeclaringClass().isInstance(target);
     }
 
     /**

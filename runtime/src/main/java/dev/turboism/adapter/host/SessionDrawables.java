@@ -11,8 +11,8 @@ import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.Part;
-import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.PartId;
+import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.ui.appearance.model.DrawableAppearance;
 import java.util.List;
 import java.util.Objects;
@@ -68,6 +68,7 @@ final class SessionDrawables implements Drawables {
     public void remove(final Drawable drawable) {
         host.guardedVoid(generation, () -> delegate.remove(host.unwrapDrawable(generation, drawable)));
     }
+
     @Override
     public Drawable createWithSourceGeometry(
             final String name,
@@ -83,18 +84,13 @@ final class SessionDrawables implements Drawables {
                         modelGeneration,
                         modelId,
                         delegate.createWithSourceGeometry(
-                                name,
-                                host.unwrapPart(generation, parent),
-                                index,
-                                sourceGeometry,
-                                defaultPositions)));
+                                name, host.unwrapPart(generation, parent), index, sourceGeometry, defaultPositions)));
     }
 
     @Override
     public ArtMeshSourceTriangulation previewSourceTriangulation(final ArtMeshGeometry geometry) {
         return host.guarded(
-                generation,
-                () -> delegate.previewSourceTriangulation(Objects.requireNonNull(geometry, "geometry")));
+                generation, () -> delegate.previewSourceTriangulation(Objects.requireNonNull(geometry, "geometry")));
     }
 
     @Override
@@ -469,8 +465,7 @@ final class SessionDrawable implements Drawable {
     @Override
     public dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform morphKeyform(
             final String parameterGuid, final float keyValue) {
-        return guardedMorphKeyform(
-                host.guarded(generation, () -> delegate.morphKeyform(parameterGuid, keyValue)));
+        return guardedMorphKeyform(host.guarded(generation, () -> delegate.morphKeyform(parameterGuid, keyValue)));
     }
 
     @Override

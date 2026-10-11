@@ -235,13 +235,14 @@ final class HttpUpdateTransportTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     void responseCompletionDoesNotWaitForConnectionTeardown(final boolean oversized) throws Exception {
-        final BlockingDisconnectConnection connection = new BlockingDisconnectConnection(
-            new ByteArrayInputStream(bytes("redirect-body")));
+        final BlockingDisconnectConnection connection =
+                new BlockingDisconnectConnection(new ByteArrayInputStream(bytes("redirect-body")));
         ((FakeConnection) connection).responseCode = oversized ? 200 : 302;
         if (oversized) ((FakeConnection) connection).contentLength = (long) UpdateDiscoveryParser.MAX_BYTES + 1L;
         try {
             final var result = transport(Duration.ofSeconds(2), connection)
-                .fetch(Optional.empty()).toCompletableFuture();
+                    .fetch(Optional.empty())
+                    .toCompletableFuture();
             if (oversized) {
                 assertThrows(ExecutionException.class, () -> result.get(2, TimeUnit.SECONDS));
             } else {

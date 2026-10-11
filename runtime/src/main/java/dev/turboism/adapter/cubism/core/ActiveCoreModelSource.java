@@ -25,8 +25,7 @@ interface ActiveCoreModelSource extends AutoCloseable {
      * a previously published model belonging to a different binding. The default ignores it;
      * sources that can hold a borrowed model override this (see {@link BorrowedCoreModelSource}).
      */
-    default void refusePublication(String identity) {
-    }
+    default void refusePublication(String identity) {}
 
     /**
      * Reports whether {@code identity} equals or derives from ({@code refused + ":"}) a publish

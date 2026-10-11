@@ -1,13 +1,12 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
-
 import java.util.Objects;
 import java.util.Optional;
-import dev.turboism.sdk.CubismEditor;
 
 /**
  * Result handle for one model-image registration or texture binding.
@@ -29,13 +28,12 @@ import dev.turboism.sdk.CubismEditor;
  */
 @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record ModelImageBinding(
-    String scope,
-    ModelId modelId,
-    long modelGeneration,
-    RawImageId rawImageId,
-    ModelImageId modelImageId,
-    Optional<ArtMeshId> artMeshId
-) {
+        String scope,
+        ModelId modelId,
+        long modelGeneration,
+        RawImageId rawImageId,
+        ModelImageId modelImageId,
+        Optional<ArtMeshId> artMeshId) {
 
     /** Validates one detached result handle. */
     public ModelImageBinding {

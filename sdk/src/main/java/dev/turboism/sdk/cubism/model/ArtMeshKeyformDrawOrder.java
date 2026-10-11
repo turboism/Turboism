@@ -1,13 +1,13 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
-import dev.turboism.sdk.CubismEditor;
 
 /** One existing non-default ordinary form's draw order in a compare-and-set batch. */
 @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
-public record ArtMeshKeyformDrawOrder(List<ArtMeshAuthoringSnapshot.Coordinate> coordinates,
-        String formGuid, int drawOrder) {
+public record ArtMeshKeyformDrawOrder(
+        List<ArtMeshAuthoringSnapshot.Coordinate> coordinates, String formGuid, int drawOrder) {
     public ArtMeshKeyformDrawOrder {
         coordinates = List.copyOf(coordinates);
         formGuid = Objects.requireNonNull(formGuid, "formGuid");

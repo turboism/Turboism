@@ -259,6 +259,9 @@ final class RuntimeEditSessionManagerTest {
     @Test
     void diagnosticIdKeepsTheFailureClassAndSummaryInRuntimeLogs() {
         final List<String> records = new ArrayList<>();
+        // Records emitted before a sink is installed are buffered and replayed to the
+        // next installer; drop them so this assertion counts only the live warning.
+        RuntimeDiagnostics.clear();
         RuntimeDiagnostics.install(
                 (level, component, message, failure) -> records.add(level + "|" + component + "|" + message));
         try {

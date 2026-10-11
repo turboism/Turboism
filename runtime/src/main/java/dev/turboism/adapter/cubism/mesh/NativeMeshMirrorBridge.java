@@ -1487,7 +1487,8 @@ public final class NativeMeshMirrorBridge {
                 return null;
             }
             final Object mode = property(viewContext, "currentEditMode");
-            diagnostic("MESH_EDIT_MODE_OBSERVED class=" + (mode == null ? "null" : mode.getClass().getName()));
+            diagnostic("MESH_EDIT_MODE_OBSERVED class="
+                    + (mode == null ? "null" : mode.getClass().getName()));
             return mode;
         } catch (ReflectiveOperationException | RuntimeException failure) {
             diagnostic("MESH_EDIT_MODE_UNAVAILABLE reason=" + failure.getClass().getName());
@@ -1504,9 +1505,11 @@ public final class NativeMeshMirrorBridge {
             final Object mode = property(viewContext, "currentEditMode");
             if (actionPackOwnsEditMode(cached, mode)) return cached;
             final Object refreshed = PopupMeshUndoContract.refresh(viewContext, cached);
-            diagnostic("MESH_EDIT_ACTION_PACK cached=" + (cached == null ? "null" : cached.getClass().getName())
-                + " refreshed=" + (refreshed == null ? "null" : refreshed.getClass().getName())
-                + " ownsMode=" + actionPackOwnsEditMode(refreshed, mode));
+            diagnostic("MESH_EDIT_ACTION_PACK cached="
+                    + (cached == null ? "null" : cached.getClass().getName())
+                    + " refreshed="
+                    + (refreshed == null ? "null" : refreshed.getClass().getName())
+                    + " ownsMode=" + actionPackOwnsEditMode(refreshed, mode));
             return refreshed;
         } catch (ReflectiveOperationException | RuntimeException failure) {
             return null;
@@ -1548,7 +1551,7 @@ public final class NativeMeshMirrorBridge {
 
     /** Installs the host's canonical live-mesh SimpleUndo snapshots before direct mutations. */
     static void snapshotMeshesForUndo(final Object actionPack, final String label, final Object group)
-        throws ReflectiveOperationException {
+            throws ReflectiveOperationException {
         if (PopupMeshUndoContract.admitted(actionPack)) {
             PopupMeshUndoContract.snapshot(actionPack, label, group);
             return;

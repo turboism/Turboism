@@ -280,8 +280,8 @@ public interface Drawable {
      * @throws UnsupportedOperationException for default forms or unavailable verified authoring
      */
     @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
-    default void setOrdinaryKeyformPositions(final ArtMeshAuthoringSnapshot expected,
-            final List<ArtMeshKeyformPositions> edits) {
+    default void setOrdinaryKeyformPositions(
+            final ArtMeshAuthoringSnapshot expected, final List<ArtMeshKeyformPositions> edits) {
         throw unavailable("ArtMesh ordinary keyform position batch");
     }
 
@@ -289,8 +289,8 @@ public interface Drawable {
      * Writes only existing non-default ordinary form draw orders in one bounded
      * compare-and-set contribution. Positions, geometry and other forms stay unchanged.
      */
-    default void setOrdinaryKeyformDrawOrders(final ArtMeshAuthoringSnapshot expected,
-            final List<ArtMeshKeyformDrawOrder> edits) {
+    default void setOrdinaryKeyformDrawOrders(
+            final ArtMeshAuthoringSnapshot expected, final List<ArtMeshKeyformDrawOrder> edits) {
         throw unavailable("ArtMesh ordinary keyform draw order batch");
     }
 

@@ -167,14 +167,25 @@
 | `dev.turboism.sdk.cubism.mesh.MeshToolContext` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.mesh.MeshToolRegistry` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AlphaComposition` | type | 5.3.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot#ArtMeshAuthoringSnapshot()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot#ArtMeshEvaluationSnapshot()` | method | 5.2.03, 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.ArtMeshKeyform` | type | 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder#ArtMeshKeyformDrawOrder()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions#ArtMeshKeyformPositions()` | method | 5.2.03, 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform` | type | 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform#setDrawOrder()` | method | 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ArtMeshSourceTriangulation#ArtMeshSourceTriangulation()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ArtMeshTextureInput#ArtMeshTextureInput()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.AuthorizedImageContent` | type | 5.2.03, 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.AutoYure` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AutoYureBinding` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AutoYureConfig` | type | 5.1.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.CubismExportTexture#CubismExportTexture()` | method | 5.3.02 |
+| `dev.turboism.sdk.cubism.model.CubismMocExport#CubismMocExport()` | method | 5.3.02 |
+| `dev.turboism.sdk.cubism.model.CubismMocExportSettings#CubismMocExportSettings()` | method | 5.3.02 |
 | `dev.turboism.sdk.cubism.model.CubismModel#exportMoc()` | method | 5.3.02 |
 | `dev.turboism.sdk.cubism.model.CubismModel#renderPixels()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.CubismRenderedPixels#CubismRenderedPixels()` | method | 5.2.03, 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.Deformers#applyToChildren()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Drawable#authoringSnapshot()` | method | 5.2.03, 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.Drawable#createMorphKeyform()` | method | 5.3.02–5.3.03 |
@@ -183,19 +194,25 @@
 | `dev.turboism.sdk.cubism.model.Drawable#ordinaryKeyform()` | method | 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Drawable#setOrdinaryKeyformPositions()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ModelImageBinding#ModelImageBinding()` | method | 5.2.03, 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.ModelInstance` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelTextures#bindModelImage()` | method | 5.2.03, 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelTextures#registerImageAndBind()` | method | 5.2.03, 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelTextures#textureInput()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ParameterInterpolation#ParameterInterpolation()` | method | 5.2.03, 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.Part#alphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#maskIds()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setAlphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setMaskIds()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setOpacity()` | method | 5.3.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.RotationAuthoringSnapshot#RotationAuthoringSnapshot()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.RotationKeyformForm#RotationKeyformForm()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot#WarpAuthoringSnapshot()` | method | 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.WarpDeformer#authoringSnapshot()` | method | 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.WarpDeformer#setOrdinaryKeyformPositions()` | method | 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.WarpKeyformPositions#WarpKeyformPositions()` | method | 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.YureDeformConfig` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.modeling.ModelingBrush` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.modeling.ModelingToolContext` | type | 5.2.00–5.3.04 |

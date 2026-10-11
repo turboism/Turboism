@@ -5,11 +5,11 @@ import dev.turboism.adapter.cubism.editor.history.EditorHistoryMetadataRegistry;
 import dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt;
 import dev.turboism.sdk.cubism.history.HistoryAction;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +27,6 @@ import java.util.function.Supplier;
  * abort can still close the exact edit mode even if the active document changes.</p>
  */
 public final class VerifiedEditorAuthoringTransactionHost implements EditorAuthoringTransactionCoordinator.Host {
-
 
     private final VerifiedMemberResolver resolver;
     private final Supplier<NativeBinding> current;
@@ -313,12 +312,10 @@ public final class VerifiedEditorAuthoringTransactionHost implements EditorAutho
             detail = "VerifiedAccess[" + access.alias() + "/" + access.failureKind() + "]";
         } else {
             detail = failure.getClass().getSimpleName()
-                + (raw == null || raw.isBlank() ? " (no message)" : ": " + sanitize(raw));
+                    + (raw == null || raw.isBlank() ? " (no message)" : ": " + sanitize(raw));
         }
         final String combined = prefix + ": " + detail;
-        return combined.length() <= MAX_DIAGNOSTIC_LENGTH
-            ? combined
-            : combined.substring(0, MAX_DIAGNOSTIC_LENGTH);
+        return combined.length() <= MAX_DIAGNOSTIC_LENGTH ? combined : combined.substring(0, MAX_DIAGNOSTIC_LENGTH);
     }
 
     private static String sanitize(final String message) {
@@ -335,9 +332,7 @@ public final class VerifiedEditorAuthoringTransactionHost implements EditorAutho
     /** Mirrors {@link AuthoringTransactionReceipt#MAX_ID_LENGTH} without an SDK import cycle. */
     private static final int MAX_DIAGNOSTIC_LENGTH = AuthoringTransactionReceipt.MAX_ID_LENGTH;
 
-    private NativeBinding currentFor(
-        final EditorAuthoringTransactionCoordinator.Binding expected
-    ) {
+    private NativeBinding currentFor(final EditorAuthoringTransactionCoordinator.Binding expected) {
         final NativeBinding active = Objects.requireNonNull(current.get(), "current binding");
         if (expected.documentGeneration() != active.generation()
                 || expected.modelGeneration() != active.generation()

@@ -1,14 +1,13 @@
 package dev.turboism.adapter.cubism.mesh;
 
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -124,8 +123,8 @@ final class NativeMeshMirrorBridgeTest {
         ui.contributeMirrorAxisAngleControl(angleControl());
 
         // Force the real attach diagnostic writer between iterator creation and traversal.
-        javax.swing.SwingUtilities.invokeAndWait(() ->
-            NativeMeshMirrorBridge.install(new RuntimeMeshMirrorAxisService(), ui));
+        javax.swing.SwingUtilities.invokeAndWait(
+                () -> NativeMeshMirrorBridge.install(new RuntimeMeshMirrorAxisService(), ui));
         final List<String> observed = new ArrayList<>();
         snapshot.forEachRemaining(observed::add);
         assertEquals(1, count(observed, stage("DEFERRED_ATTACH_PENDING")));

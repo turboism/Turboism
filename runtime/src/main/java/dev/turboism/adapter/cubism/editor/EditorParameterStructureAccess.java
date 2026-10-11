@@ -3,8 +3,8 @@ package dev.turboism.adapter.cubism.editor;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;
-import dev.turboism.mapping.verification.selector.EditorParameterStructureSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorParameterStructureSelectorContract;
 import dev.turboism.sdk.cubism.history.HistoryAction;
 import dev.turboism.sdk.cubism.history.HistoryChange;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
@@ -52,8 +52,7 @@ final class EditorParameterStructureAccess {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
         if ((authoringCoordinator == null) != (authoringBinding == null)) {
-            throw new IllegalArgumentException(
-                    "authoringCoordinator and authoringBinding must be supplied together");
+            throw new IllegalArgumentException("authoringCoordinator and authoringBinding must be supplied together");
         }
         this.authoringCoordinator = authoringCoordinator;
         this.authoringBinding = authoringBinding;
@@ -191,8 +190,14 @@ final class EditorParameterStructureAccess {
         }
         if (authoringCoordinator.hasActiveTransaction()) {
             for (int i = 0; i < hostSources.size(); i++) {
-                writeCreatedParameter(identity, source, model, parentGroup,
-                    hostSources.get(i), definitions.get(i).id(), undoSuppliers.get(i));
+                writeCreatedParameter(
+                        identity,
+                        source,
+                        model,
+                        parentGroup,
+                        hostSources.get(i),
+                        definitions.get(i).id(),
+                        undoSuppliers.get(i));
             }
         } else {
             writeBatch(identity, source, model, "Turboism: Create Parameters", undoSuppliers);
@@ -636,71 +641,83 @@ final class EditorParameterStructureAccess {
 
     /** Owns the eager native add before admission can fail; never opens a nested edit. */
     private void writeCreatedParameter(
-        final String identity,
-        final Object source,
-        final Object model,
-        final Object parentGroup,
-        final Object hostSource,
-        final ParameterId parameterId,
-        final Supplier<Object> add
-    ) {
+            final String identity,
+            final Object source,
+            final Object model,
+            final Object parentGroup,
+            final Object hostSource,
+            final ParameterId parameterId,
+            final Supplier<Object> add) {
         requireHostThread("Cubism parameter structure write");
         modelGuard.requireCurrent(identity, model);
         requireAuthorization(
-            EditorParameterStructureSelectorContract.TRANSACTION_CREATE_REQUIRED_ALIASES,
-            "Transactional parameter creation requires verified recovery and source readback."
-        );
+                EditorParameterStructureSelectorContract.TRANSACTION_CREATE_REQUIRED_ALIASES,
+                "Transactional parameter creation requires verified recovery and source readback.");
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         activeDocumentFor(source, app);
         final var binding = Objects.requireNonNull(authoringBinding.get(), "authoring binding");
         final Object[] undo = new Object[1];
         final Object hostId = resolver.construct("cubism.editor-model.parameter-id.create", parameterId.value());
         final Object sourceSet = resolver.invoke("cubism.editor-model.model-source.parameter-source-set", source);
-        final Supplier<Object> registered = () -> resolver.invoke(
-            "cubism.editor-model.parameter-source-set.get-by-id", sourceSet, hostId);
-        authoringCoordinator.mutate(binding, new EditorUndoContribution(
-            "cubism.parameter.create", binding.modelIdentity() + ":parameter:" + parameterId.value(),
-            "Turboism: Create Parameter",
-            (edit, label) -> {
-                modelGuard.requireCurrent(identity, model);
-                activeDocumentFor(source, app);
-                undo[0] = add.get();
-                if (!Boolean.TRUE.equals(resolver.invoke(
-                    "cubism.editor-model.undo.add", edit, undo[0], Boolean.TRUE))) {
-                    throw new IllegalStateException("Cubism rejected parameter creation Undo entry.");
-                }
-                final Object listener = resolver.createFunctionalProxy(
-                    "cubism.editor-model.undo-listener.class", ignored -> {
-                        resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-                        refresh(app);
-                        return null;
-                    });
-                requireListenerAccepted(resolver.invoke(
-                    "cubism.editor-model.undo.add-listener", undo[0], listener), "Create Parameter");
-            },
-            () -> {
-                modelGuard.requireCurrent(identity, model);
-                activeDocumentFor(source, app);
-                // Later binding writers in this same root must see the new parameter now.
-                resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-            },
-            () -> registered.get() == hostSource && hasChild(parentGroup, hostSource)
-                && findSource(source, model, parameterId) == hostSource,
-            () -> {
-                if (undo[0] != null) resolver.invoke("cubism.editor-model.undo.execute-undo", undo[0]);
-                resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-            },
-            () -> registered.get() == null && !hasChild(parentGroup, hostSource),
-            Set.of(EditorRefreshRequirement.MODEL_INSTANCES, EditorRefreshRequirement.PARAMETER_PALETTE,
-                EditorRefreshRequirement.CANVAS, EditorRefreshRequirement.MARK_DIRTY),
-            new HistoryEntryDetail(
-                "Create Parameter " + parameterId.value(), HistoryAction.DetailLevel.PARTIAL,
-                HistoryOrigin.turboism(binding.pluginId(), "cubism.parameter.create"),
-                List.of(new HistoryTarget("PARAMETER", Optional.of(parameterId.value()), Optional.empty())),
-                List.of(new HistoryChange(HistoryChange.Operation.ADD, Optional.of(0),
-                    Optional.of("parameter"), Optional.empty(), Optional.of(parameterId.value()))),
-                Optional.empty(), Optional.of("history.detail.parameter-definition-unrecorded"))
-        ));
+        final Supplier<Object> registered =
+                () -> resolver.invoke("cubism.editor-model.parameter-source-set.get-by-id", sourceSet, hostId);
+        authoringCoordinator.mutate(
+                binding,
+                new EditorUndoContribution(
+                        "cubism.parameter.create",
+                        binding.modelIdentity() + ":parameter:" + parameterId.value(),
+                        "Turboism: Create Parameter",
+                        (edit, label) -> {
+                            modelGuard.requireCurrent(identity, model);
+                            activeDocumentFor(source, app);
+                            undo[0] = add.get();
+                            if (!Boolean.TRUE.equals(
+                                    resolver.invoke("cubism.editor-model.undo.add", edit, undo[0], Boolean.TRUE))) {
+                                throw new IllegalStateException("Cubism rejected parameter creation Undo entry.");
+                            }
+                            final Object listener = resolver.createFunctionalProxy(
+                                    "cubism.editor-model.undo-listener.class", ignored -> {
+                                        resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+                                        refresh(app);
+                                        return null;
+                                    });
+                            requireListenerAccepted(
+                                    resolver.invoke("cubism.editor-model.undo.add-listener", undo[0], listener),
+                                    "Create Parameter");
+                        },
+                        () -> {
+                            modelGuard.requireCurrent(identity, model);
+                            activeDocumentFor(source, app);
+                            // Later binding writers in this same root must see the new parameter now.
+                            resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+                        },
+                        () -> registered.get() == hostSource
+                                && hasChild(parentGroup, hostSource)
+                                && findSource(source, model, parameterId) == hostSource,
+                        () -> {
+                            if (undo[0] != null) resolver.invoke("cubism.editor-model.undo.execute-undo", undo[0]);
+                            resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+                        },
+                        () -> registered.get() == null && !hasChild(parentGroup, hostSource),
+                        Set.of(
+                                EditorRefreshRequirement.MODEL_INSTANCES,
+                                EditorRefreshRequirement.PARAMETER_PALETTE,
+                                EditorRefreshRequirement.CANVAS,
+                                EditorRefreshRequirement.MARK_DIRTY),
+                        new HistoryEntryDetail(
+                                "Create Parameter " + parameterId.value(),
+                                HistoryAction.DetailLevel.PARTIAL,
+                                HistoryOrigin.turboism(binding.pluginId(), "cubism.parameter.create"),
+                                List.of(new HistoryTarget(
+                                        "PARAMETER", Optional.of(parameterId.value()), Optional.empty())),
+                                List.of(new HistoryChange(
+                                        HistoryChange.Operation.ADD,
+                                        Optional.of(0),
+                                        Optional.of("parameter"),
+                                        Optional.empty(),
+                                        Optional.of(parameterId.value()))),
+                                Optional.empty(),
+                                Optional.of("history.detail.parameter-definition-unrecorded"))));
     }
 
     private boolean hasChild(final Object parentGroup, final Object hostSource) {

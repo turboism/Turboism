@@ -10,7 +10,6 @@ import dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form;
 import dev.turboism.sdk.cubism.model.ArtMeshKeyform;
 import dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions;
 import dev.turboism.sdk.cubism.model.Point2;
-
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -25,9 +24,18 @@ import java.util.function.Supplier;
 final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
     @FunctionalInterface
     interface Writer {
-        void write(Object form, String property, String label, Runnable mutation, BooleanSupplier applied,
-                   Runnable compensation, BooleanSupplier restored);
-        default boolean ownsParentRecovery() { return false; }
+        void write(
+                Object form,
+                String property,
+                String label,
+                Runnable mutation,
+                BooleanSupplier applied,
+                Runnable compensation,
+                BooleanSupplier restored);
+
+        default boolean ownsParentRecovery() {
+            return false;
+        }
     }
 
     private final VerifiedMemberResolver resolver;
@@ -41,20 +49,30 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
     private final Writer writer;
 
     static ArtMeshKeyform open(
-        final VerifiedMemberResolver resolver, final ArtMeshId id, final Supplier<Object> currentSource,
-        final List<Coordinate> coordinates, final Runnable requireTransaction, final Writer writer
-    ) {
+            final VerifiedMemberResolver resolver,
+            final ArtMeshId id,
+            final Supplier<Object> currentSource,
+            final List<Coordinate> coordinates,
+            final Runnable requireTransaction,
+            final Writer writer) {
         final List<Coordinate> input = List.copyOf(coordinates);
-        return EditorHostThread.dispatch("ArtMesh ordinary keyform lookup", () ->
-            new EditorArtMeshKeyformAccess(resolver, id, currentSource, input, requireTransaction, writer));
+        return EditorHostThread.dispatch(
+                "ArtMesh ordinary keyform lookup",
+                () -> new EditorArtMeshKeyformAccess(resolver, id, currentSource, input, requireTransaction, writer));
     }
 
-    static void writeBatch(final VerifiedMemberResolver resolver, final ArtMeshId id,
-            final Supplier<Object> currentSource, final ArtMeshAuthoringSnapshot expected,
-            final List<ArtMeshKeyformPositions> edits, final Runnable requireTransaction, final Writer writer) {
+    static void writeBatch(
+            final VerifiedMemberResolver resolver,
+            final ArtMeshId id,
+            final Supplier<Object> currentSource,
+            final ArtMeshAuthoringSnapshot expected,
+            final List<ArtMeshKeyformPositions> edits,
+            final Runnable requireTransaction,
+            final Writer writer) {
         Objects.requireNonNull(expected, "expected");
         final var input = List.copyOf(edits);
-        if (input.size() > 4096 || input.stream().mapToLong(e -> e.positions().size()).sum() > 2_000_000) {
+        if (input.size() > 4096
+                || input.stream().mapToLong(e -> e.positions().size()).sum() > 2_000_000) {
             throw new IllegalArgumentException("keyform batch exceeds target/vertex budget");
         }
         EditorHostThread.dispatch("ArtMesh ordinary keyform position batch", () -> {
@@ -63,31 +81,43 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
             final Object source = currentSource.get();
             if (!new EditorArtMeshAuthoringReadAccess(resolver).read(id, source).equals(expected)) throw stale();
             final var defaults = expected.axes().stream()
-                .map(a -> new Coordinate(a.parameterGuid(), a.defaultValue())).toList();
-            final var access = new EditorArtMeshKeyformAccess(resolver, id, currentSource, defaults, requireTransaction, writer);
+                    .map(a -> new Coordinate(a.parameterGuid(), a.defaultValue()))
+                    .toList();
+            final var access =
+                    new EditorArtMeshKeyformAccess(resolver, id, currentSource, defaults, requireTransaction, writer);
             if (access.source != source || !access.layout.equals(expected)) throw stale();
             access.writeBatch(input);
             return null;
         });
     }
 
-    static void writeOrders(final VerifiedMemberResolver resolver, final ArtMeshId id,
-            final Supplier<Object> currentSource, final ArtMeshAuthoringSnapshot expected,
+    static void writeOrders(
+            final VerifiedMemberResolver resolver,
+            final ArtMeshId id,
+            final Supplier<Object> currentSource,
+            final ArtMeshAuthoringSnapshot expected,
             final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder> edits,
-            final Runnable requireTransaction, final Writer writer) {
+            final Runnable requireTransaction,
+            final Writer writer) {
         Objects.requireNonNull(expected, "expected");
         final var input = List.copyOf(edits);
-        if (input.size() > 4096 || (long) input.size() * expected.sourceGeometry().positions().size() > 2_000_000)
+        if (input.size() > 4096
+                || (long) input.size() * expected.sourceGeometry().positions().size() > 2_000_000)
             throw new IllegalArgumentException("keyform batch exceeds target/vertex budget");
         EditorHostThread.dispatch("ArtMesh ordinary draw order batch", () -> {
-            requireWriteAuthorized(resolver); requireTransaction.run();
+            requireWriteAuthorized(resolver);
+            requireTransaction.run();
             final Object source = currentSource.get();
             if (!new EditorArtMeshAuthoringReadAccess(resolver).read(id, source).equals(expected)) throw stale();
-            final var defaults = expected.axes().stream().map(a -> new Coordinate(a.parameterGuid(), a.defaultValue())).toList();
-            final var access = new EditorArtMeshKeyformAccess(resolver, id, currentSource, defaults, requireTransaction, writer);
+            final var defaults = expected.axes().stream()
+                    .map(a -> new Coordinate(a.parameterGuid(), a.defaultValue()))
+                    .toList();
+            final var access =
+                    new EditorArtMeshKeyformAccess(resolver, id, currentSource, defaults, requireTransaction, writer);
             if (access.source != source || !access.layout.equals(expected)) throw stale();
             final var orders = new HashMap<String, Integer>();
-            final var forms = new HashMap<String, Form>(); expected.forms().forEach(f -> forms.put(f.formGuid(), f));
+            final var forms = new HashMap<String, Form>();
+            expected.forms().forEach(f -> forms.put(f.formGuid(), f));
             final var positions = new java.util.ArrayList<ArtMeshKeyformPositions>();
             for (var edit : input) {
                 final var before = forms.get(edit.formGuid());
@@ -109,19 +139,23 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
         final var cells = new HashMap<Map<String, Float>, Cell>();
         final var references = new HashMap<String, Integer>();
         for (var cell : layout.cells()) {
-            if (cells.put(tuple(cell.coordinates()), cell) != null) throw new IllegalArgumentException("duplicate grid tuple");
+            if (cells.put(tuple(cell.coordinates()), cell) != null)
+                throw new IllegalArgumentException("duplicate grid tuple");
             references.merge(cell.formGuid(), 1, Integer::sum);
         }
         layout.morphKeys().forEach(k -> references.merge(k.formGuid(), 1, Integer::sum));
         final var replacements = new HashMap<String, List<Point2>>();
         for (var edit : edits) {
             final var coordinates = tuple(edit.coordinates());
-            if (coordinates.size() != layout.axes().size() || layout.axes().stream().anyMatch(a ->
-                    !coordinates.containsKey(a.parameterGuid()) || !a.keys().contains(coordinates.get(a.parameterGuid())))) {
+            if (coordinates.size() != layout.axes().size()
+                    || layout.axes().stream()
+                            .anyMatch(a -> !coordinates.containsKey(a.parameterGuid())
+                                    || !a.keys().contains(coordinates.get(a.parameterGuid())))) {
                 throw new IllegalArgumentException("batch requires every declared parameter/key");
             }
             final var cell = cells.get(coordinates);
-            if (cell == null || !cell.formGuid().equals(edit.formGuid())
+            if (cell == null
+                    || !cell.formGuid().equals(edit.formGuid())
                     || !Integer.valueOf(1).equals(references.get(edit.formGuid()))) {
                 throw new IllegalArgumentException("missing, mismatched or shared batch target");
             }
@@ -133,31 +167,53 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
                 throw new IllegalArgumentException("duplicate batch target or wrong vertex count");
             }
         }
-        final var expected = new ArtMeshAuthoringSnapshot(layout.artMeshId(), layout.sourceGuid(), layout.sourceGeometry(),
-            layout.axes(), layout.cells(), layout.forms().stream().map(f -> new Form(f.formGuid(),
-                replacements.getOrDefault(f.formGuid(), f.positions()), orders.getOrDefault(f.formGuid(), f.drawOrder()))).toList(), layout.morphKeys());
+        final var expected = new ArtMeshAuthoringSnapshot(
+                layout.artMeshId(),
+                layout.sourceGuid(),
+                layout.sourceGeometry(),
+                layout.axes(),
+                layout.cells(),
+                layout.forms().stream()
+                        .map(f -> new Form(
+                                f.formGuid(),
+                                replacements.getOrDefault(f.formGuid(), f.positions()),
+                                orders.getOrDefault(f.formGuid(), f.drawOrder())))
+                        .toList(),
+                layout.morphKeys());
         if (expected.equals(layout)) return;
         final Map<String, Object> nativeForms = nativeForms();
-        if (!nativeForms.keySet().equals(layout.forms().stream().map(Form::formGuid).collect(java.util.stream.Collectors.toSet()))) {
+        if (!nativeForms
+                .keySet()
+                .equals(layout.forms().stream().map(Form::formGuid).collect(java.util.stream.Collectors.toSet()))) {
             throw stale();
         }
-        writer.write(form, orders.isEmpty() ? "keyformPositionsBatch" : "keyformDrawOrdersBatch",
-            orders.isEmpty() ? "Set ArtMesh ordinary keyform positions" : "Set ArtMesh ordinary keyform draw orders", () -> {
-            if (!read().equals(layout)) throw stale();
-            requireFormIdentities(nativeForms);
-            for (var old : layout.forms()) {
-                final var positions = replacements.get(old.formGuid());
-                if (positions != null && !positions.equals(old.positions())) setNativePositions(nativeForms.get(old.formGuid()), positions);
-                final var order = orders.get(old.formGuid());
-                if (order != null && order != old.drawOrder()) setNativeDrawOrder(nativeForms.get(old.formGuid()), order);
-            }
-        }, () -> {
-            requireFormIdentities(nativeForms);
-            return read().equals(expected);
-        }, () -> {
-            requireFormIdentities(nativeForms);
-            restoreSnapshot(layout);
-        }, () -> read().equals(layout));
+        writer.write(
+                form,
+                orders.isEmpty() ? "keyformPositionsBatch" : "keyformDrawOrdersBatch",
+                orders.isEmpty()
+                        ? "Set ArtMesh ordinary keyform positions"
+                        : "Set ArtMesh ordinary keyform draw orders",
+                () -> {
+                    if (!read().equals(layout)) throw stale();
+                    requireFormIdentities(nativeForms);
+                    for (var old : layout.forms()) {
+                        final var positions = replacements.get(old.formGuid());
+                        if (positions != null && !positions.equals(old.positions()))
+                            setNativePositions(nativeForms.get(old.formGuid()), positions);
+                        final var order = orders.get(old.formGuid());
+                        if (order != null && order != old.drawOrder())
+                            setNativeDrawOrder(nativeForms.get(old.formGuid()), order);
+                    }
+                },
+                () -> {
+                    requireFormIdentities(nativeForms);
+                    return read().equals(expected);
+                },
+                () -> {
+                    requireFormIdentities(nativeForms);
+                    restoreSnapshot(layout);
+                },
+                () -> read().equals(layout));
     }
 
     private Map<String, Object> nativeForms() {
@@ -175,15 +231,19 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
 
     private void requireFormIdentities(final Map<String, Object> expected) {
         final var current = nativeForms();
-        if (!current.keySet().equals(expected.keySet()) || expected.entrySet().stream().anyMatch(e -> current.get(e.getKey()) != e.getValue())) {
+        if (!current.keySet().equals(expected.keySet())
+                || expected.entrySet().stream().anyMatch(e -> current.get(e.getKey()) != e.getValue())) {
             throw stale();
         }
     }
 
     private EditorArtMeshKeyformAccess(
-        final VerifiedMemberResolver resolver, final ArtMeshId id, final Supplier<Object> currentSource,
-        final List<Coordinate> coordinates, final Runnable requireTransaction, final Writer writer
-    ) {
+            final VerifiedMemberResolver resolver,
+            final ArtMeshId id,
+            final Supplier<Object> currentSource,
+            final List<Coordinate> coordinates,
+            final Runnable requireTransaction,
+            final Writer writer) {
         this.resolver = Objects.requireNonNull(resolver);
         this.id = Objects.requireNonNull(id);
         this.currentSource = Objects.requireNonNull(currentSource);
@@ -195,25 +255,29 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
         this.form = nativeForm(selection.formGuid());
     }
 
-    @Override public List<Coordinate> coordinates() {
+    @Override
+    public List<Coordinate> coordinates() {
         return EditorHostThread.dispatch("ArtMesh keyform coordinates", () -> {
             checked();
             return selection.coordinates();
         });
     }
 
-    @Override public Form snapshot() {
+    @Override
+    public Form snapshot() {
         return EditorHostThread.dispatch("ArtMesh keyform snapshot", () -> target(checked()));
     }
 
-    @Override public boolean defaultKeyform() {
+    @Override
+    public boolean defaultKeyform() {
         return EditorHostThread.dispatch("ArtMesh default keyform identity", () -> {
             checked();
             return selection.formGuid().equals(selection.defaultFormGuid());
         });
     }
 
-    @Override public void setPositions(final List<Point2> positions) {
+    @Override
+    public void setPositions(final List<Point2> positions) {
         final List<Point2> input = List.copyOf(positions);
         EditorHostThread.dispatch("ArtMesh stored keyform position edit", () -> {
             requireWriteAuthorized();
@@ -227,13 +291,18 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
                 throw new IllegalArgumentException("keyform vertex count differs from source topology");
             }
             if (old.positions().equals(input)) return null;
-            write(before, withPositions(before, selection.formGuid(), input), "keyformPositions",
-                "Set ArtMesh keyform positions", () -> setNativePositions(form, input));
+            write(
+                    before,
+                    withPositions(before, selection.formGuid(), input),
+                    "keyformPositions",
+                    "Set ArtMesh keyform positions",
+                    () -> setNativePositions(form, input));
             return null;
         });
     }
 
-    @Override public void setDrawOrder(final int drawOrder) {
+    @Override
+    public void setDrawOrder(final int drawOrder) {
         if (drawOrder < 0 || drawOrder > 1000) {
             throw new IllegalArgumentException("keyform draw order must be between 0 and 1000");
         }
@@ -245,21 +314,46 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
                 throw new UnsupportedOperationException("default keyform draw order editing is not available");
             }
             if (target(before).drawOrder() == drawOrder) return null;
-            final var forms = before.forms().stream().map(value -> value.formGuid().equals(selection.formGuid())
-                ? new Form(value.formGuid(), value.positions(), drawOrder) : value).toList();
-            final var expected = new ArtMeshAuthoringSnapshot(before.artMeshId(), before.sourceGuid(),
-                before.sourceGeometry(), before.axes(), before.cells(), forms, before.morphKeys());
-            write(before, expected, "drawOrder", "Set ArtMesh keyform draw order",
-                () -> setNativeDrawOrder(form, drawOrder));
+            final var forms = before.forms().stream()
+                    .map(value -> value.formGuid().equals(selection.formGuid())
+                            ? new Form(value.formGuid(), value.positions(), drawOrder)
+                            : value)
+                    .toList();
+            final var expected = new ArtMeshAuthoringSnapshot(
+                    before.artMeshId(),
+                    before.sourceGuid(),
+                    before.sourceGeometry(),
+                    before.axes(),
+                    before.cells(),
+                    forms,
+                    before.morphKeys());
+            write(
+                    before,
+                    expected,
+                    "drawOrder",
+                    "Set ArtMesh keyform draw order",
+                    () -> setNativeDrawOrder(form, drawOrder));
             return null;
         });
     }
 
-    private void write(final ArtMeshAuthoringSnapshot before, final ArtMeshAuthoringSnapshot expected,
-                       final String property, final String label, final Runnable mutation) {
-        writer.write(form, property, label + " [" + selection.formGuid() + "]",
-            () -> { checked(); mutation.run(); }, () -> read().equals(expected),
-            () -> restoreSnapshot(before), () -> read().equals(before));
+    private void write(
+            final ArtMeshAuthoringSnapshot before,
+            final ArtMeshAuthoringSnapshot expected,
+            final String property,
+            final String label,
+            final Runnable mutation) {
+        writer.write(
+                form,
+                property,
+                label + " [" + selection.formGuid() + "]",
+                () -> {
+                    checked();
+                    mutation.run();
+                },
+                () -> read().equals(expected),
+                () -> restoreSnapshot(before),
+                () -> read().equals(before));
     }
 
     private void restoreSnapshot(final ArtMeshAuthoringSnapshot before) {
@@ -275,7 +369,9 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
         // Never repair default/shared/morph/non-grid forms or uncertain structural side effects.
         for (int i = 0; i < before.forms().size(); i++) {
             final Form old = before.forms().get(i);
-            if (!writer.ownsParentRecovery() && !Integer.valueOf(1).equals(references.get(old.formGuid())) && !old.equals(now.forms().get(i))) {
+            if (!writer.ownsParentRecovery()
+                    && !Integer.valueOf(1).equals(references.get(old.formGuid()))
+                    && !old.equals(now.forms().get(i))) {
                 return; // Complete restored() remains false; the coordinator reports recovery failure.
             }
         }
@@ -293,8 +389,9 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
 
     private ArtMeshAuthoringSnapshot checked() {
         final ArtMeshAuthoringSnapshot now = read();
-        if (!sameLayout(layout, now) || !selection.equals(select(now, selection.coordinates()))
-            || nativeForm(selection.formGuid()) != form) throw stale();
+        if (!sameLayout(layout, now)
+                || !selection.equals(select(now, selection.coordinates()))
+                || nativeForm(selection.formGuid()) != form) throw stale();
         return now;
     }
 
@@ -337,17 +434,20 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
     }
 
     private static void requireWriteAuthorized(final VerifiedMemberResolver resolver) {
-        if (!resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03") || !resolver.authorizesFeature(
-            EditorArtMeshKeyformSelectorContract.ADAPTER_SLICE_ID,
-            EditorArtMeshKeyformSelectorContract.CAPABILITY_ID,
-            EditorArtMeshKeyformSelectorContract.REQUIRED_ALIASES)) {
+        if (!resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")
+                || !resolver.authorizesFeature(
+                        EditorArtMeshKeyformSelectorContract.ADAPTER_SLICE_ID,
+                        EditorArtMeshKeyformSelectorContract.CAPABILITY_ID,
+                        EditorArtMeshKeyformSelectorContract.REQUIRED_ALIASES)) {
             throw new UnsupportedOperationException("verified stored keyform editing is unavailable");
         }
     }
 
     private Form target(final ArtMeshAuthoringSnapshot snapshot) {
-        return snapshot.forms().stream().filter(value -> value.formGuid().equals(selection.formGuid()))
-            .findFirst().orElseThrow(EditorArtMeshKeyformAccess::stale);
+        return snapshot.forms().stream()
+                .filter(value -> value.formGuid().equals(selection.formGuid()))
+                .findFirst()
+                .orElseThrow(EditorArtMeshKeyformAccess::stale);
     }
 
     static Selection select(final ArtMeshAuthoringSnapshot snapshot, final List<Coordinate> coordinates) {
@@ -385,8 +485,12 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
         if (references.get(target.formGuid()) != 1 || references.get(base.formGuid()) != 1) {
             throw new IllegalArgumentException("ordinary keyform aliases another cell or morph target");
         }
-        return new Selection(coordinates.stream().sorted(Comparator.comparing(Coordinate::parameterGuid)).toList(),
-            target.formGuid(), base.formGuid());
+        return new Selection(
+                coordinates.stream()
+                        .sorted(Comparator.comparing(Coordinate::parameterGuid))
+                        .toList(),
+                target.formGuid(),
+                base.formGuid());
     }
 
     private static Map<String, Float> tuple(final List<Coordinate> coordinates) {
@@ -400,24 +504,35 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
     }
 
     static boolean sameLayout(final ArtMeshAuthoringSnapshot before, final ArtMeshAuthoringSnapshot after) {
-        return before.artMeshId().equals(after.artMeshId()) && before.sourceGuid().equals(after.sourceGuid())
-            && before.sourceGeometry().equals(after.sourceGeometry()) && before.axes().equals(after.axes())
-            && before.cells().equals(after.cells()) && before.morphKeys().equals(after.morphKeys())
-            && before.forms().stream().map(Form::formGuid).toList()
-                .equals(after.forms().stream().map(Form::formGuid).toList());
+        return before.artMeshId().equals(after.artMeshId())
+                && before.sourceGuid().equals(after.sourceGuid())
+                && before.sourceGeometry().equals(after.sourceGeometry())
+                && before.axes().equals(after.axes())
+                && before.cells().equals(after.cells())
+                && before.morphKeys().equals(after.morphKeys())
+                && before.forms().stream()
+                        .map(Form::formGuid)
+                        .toList()
+                        .equals(after.forms().stream().map(Form::formGuid).toList());
     }
 
     private static ArtMeshAuthoringSnapshot withPositions(
-        final ArtMeshAuthoringSnapshot snapshot, final String guid, final List<Point2> positions
-    ) {
-        return new ArtMeshAuthoringSnapshot(snapshot.artMeshId(), snapshot.sourceGuid(), snapshot.sourceGeometry(),
-            snapshot.axes(), snapshot.cells(), snapshot.forms().stream().map(form -> form.formGuid().equals(guid)
-                ? new Form(guid, positions, form.drawOrder()) : form).toList(), snapshot.morphKeys());
+            final ArtMeshAuthoringSnapshot snapshot, final String guid, final List<Point2> positions) {
+        return new ArtMeshAuthoringSnapshot(
+                snapshot.artMeshId(),
+                snapshot.sourceGuid(),
+                snapshot.sourceGeometry(),
+                snapshot.axes(),
+                snapshot.cells(),
+                snapshot.forms().stream()
+                        .map(form -> form.formGuid().equals(guid) ? new Form(guid, positions, form.drawOrder()) : form)
+                        .toList(),
+                snapshot.morphKeys());
     }
 
     private static IllegalStateException stale() {
         return new IllegalStateException("stored ArtMesh keyform reference or layout is stale");
     }
 
-    record Selection(List<Coordinate> coordinates, String formGuid, String defaultFormGuid) { }
+    record Selection(List<Coordinate> coordinates, String formGuid, String defaultFormGuid) {}
 }
