@@ -165,6 +165,8 @@ public final class TopMenuVerificationManifest {
 
 
 
+
+
     public static final String ADAPTER_SLICE_ID = "${record:cubism-5.2.03-ui-top-menu.json:adapterSliceId}";
     public static final String CAPABILITY_ID = "cubism.editor-ui.top-menu";
     public static final Set<String> CAPABILITY_IDS = Set.of(CAPABILITY_ID);

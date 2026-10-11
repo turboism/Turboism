@@ -5659,7 +5659,7 @@
       "descriptor": "()Ljava/lang/Iterable;"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.constructor.eval_flags_create",
+      "semanticName": "cubism.mapping.v5_1_03.editor_model.constructor.eval_flags_create",
       "kind": "constructor",
       "owner": "editor-model-animation-eval",
       "name": "cubism.editor-model.eval-flags.create",
@@ -9407,7 +9407,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.model-handler_move-parameter",
+      "semanticName": "cubism.mapping.v5_1_03.editor_model.method.model-handler_move-parameter",
       "kind": "method",
       "owner": "turboism-mapping",
       "name": "cubism.editor-model.model-handler.move-parameter",
@@ -9428,7 +9428,7 @@
       },
       "x.review": {
         "recordAlias": "cubism.editor-model.model-handler.move-parameter",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.method.model-handler_move-parameter",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.model-handler_move-parameter",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
@@ -13300,7 +13300,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.parameter-group-handler_add-group-child",
+      "semanticName": "cubism.mapping.v5_0_06.editor_model.method.parameter-group-handler_add-group-child",
       "kind": "method",
       "owner": "turboism-mapping",
       "name": "cubism.editor-model.parameter-group-handler.add-group-child",
@@ -13321,13 +13321,13 @@
       },
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-group-handler.add-group-child",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.method.parameter-group-handler_add-group-child",
+        "recordMappingId": "cubism.mapping.v5_0_06.editor_model.method.parameter-group-handler_add-group-child",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.parameter-group-handler_add-parameter-child",
+      "semanticName": "cubism.mapping.v5_0_06.editor_model.method.parameter-group-handler_add-parameter-child",
       "kind": "method",
       "owner": "turboism-mapping",
       "name": "cubism.editor-model.parameter-group-handler.add-parameter-child",
@@ -13348,13 +13348,13 @@
       },
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-group-handler.add-parameter-child",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.method.parameter-group-handler_add-parameter-child",
+        "recordMappingId": "cubism.mapping.v5_0_06.editor_model.method.parameter-group-handler_add-parameter-child",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.class.parameter-group-handler_class",
+      "semanticName": "cubism.mapping.v5_0_06.editor_model.class.parameter-group-handler_class",
       "kind": "class",
       "owner": "editor-model-read",
       "name": "cubism.editor-model.parameter-group-handler.class",
@@ -13373,13 +13373,13 @@
       },
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-group-handler.class",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.class.parameter-group-handler_class",
+        "recordMappingId": "cubism.mapping.v5_0_06.editor_model.class.parameter-group-handler_class",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.parameter-group-handler_remove-descendant",
+      "semanticName": "cubism.mapping.v5_0_06.editor_model.method.parameter-group-handler_remove-descendant",
       "kind": "method",
       "owner": "turboism-mapping",
       "name": "cubism.editor-model.parameter-group-handler.remove-descendant",
@@ -13400,7 +13400,7 @@
       },
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-group-handler.remove-descendant",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.method.parameter-group-handler_remove-descendant",
+        "recordMappingId": "cubism.mapping.v5_0_06.editor_model.method.parameter-group-handler_remove-descendant",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
@@ -13566,7 +13566,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.parameter-group_handler",
+      "semanticName": "cubism.mapping.v5_0_06.editor_model.method.parameter-group_handler",
       "kind": "method",
       "owner": "turboism-mapping",
       "name": "cubism.editor-model.parameter-group.handler",
@@ -13587,7 +13587,7 @@
       },
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-group.handler",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.method.parameter-group_handler",
+        "recordMappingId": "cubism.mapping.v5_0_06.editor_model.method.parameter-group_handler",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
@@ -13938,7 +13938,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.class.parameter_operation",
+      "semanticName": "cubism.mapping.v5_1_03.editor_model.class.parameter_operation",
       "kind": "class",
       "owner": "editor-model-readwrite",
       "name": "cubism.editor-model.parameter-operation.class",
@@ -13957,13 +13957,13 @@
       },
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-operation.class",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.class.parameter_operation",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.class.parameter_operation",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.parameter_property_editor",
+      "semanticName": "cubism.mapping.v5_1_03.editor_model.method.parameter_property_editor",
       "kind": "method",
       "owner": "editor-model-parameter-definition-write",
       "name": "cubism.editor-model.parameter-operation.property-editor",
@@ -13984,13 +13984,13 @@
       "descriptor": "(Lcom/live2d/cubism/view/palette/parameter/m;)Lcom/live2d/cubism/view/palette/parameter/a/b;",
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-operation.property-editor",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.method.parameter_property_editor",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_property_editor",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.parameter_refresh",
+      "semanticName": "cubism.mapping.v5_1_03.editor_model.method.parameter_refresh",
       "kind": "method",
       "owner": "editor-model-parameter-definition-write",
       "name": "cubism.editor-model.parameter-operation.refresh",
@@ -14011,13 +14011,13 @@
       "descriptor": "(Z)V",
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-operation.refresh",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.method.parameter_refresh",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_refresh",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.parameter_rows",
+      "semanticName": "cubism.mapping.v5_1_03.editor_model.method.parameter_rows",
       "kind": "method",
       "owner": "editor-model-read",
       "name": "cubism.editor-model.parameter-operation.rows",
@@ -14038,13 +14038,13 @@
       "descriptor": "()Lcom/live2d/type/CArrayList;",
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-operation.rows",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.method.parameter_rows",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_rows",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.parameter_set_value",
+      "semanticName": "cubism.mapping.v5_1_03.editor_model.method.parameter_set_value",
       "kind": "method",
       "owner": "editor-model-readwrite",
       "name": "cubism.editor-model.parameter-operation.set-value",
@@ -14065,13 +14065,13 @@
       "descriptor": "(Lcom/live2d/cubism/doc/model/param/CParameterSource;F)V",
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-operation.set-value",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.method.parameter_set_value",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_set_value",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.parameter_validator",
+      "semanticName": "cubism.mapping.v5_0_06.editor_model.method.parameter_validator",
       "kind": "method",
       "owner": "editor-model-parameter-definition-write",
       "name": "cubism.editor-model.parameter-operation.validator",
@@ -14092,7 +14092,7 @@
       "descriptor": "(Lcom/live2d/cubism/view/palette/parameter/m;)Lcom/live2d/cubism/view/palette/parameter/a/k;",
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-operation.validator",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.method.parameter_validator",
+        "recordMappingId": "cubism.mapping.v5_0_06.editor_model.method.parameter_validator",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
@@ -14123,7 +14123,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.parameter_operation",
+      "semanticName": "cubism.mapping.v5_1_03.editor_model.method.parameter_operation",
       "kind": "method",
       "owner": "editor-model-readwrite",
       "name": "cubism.editor-model.parameter-palette-view.operation",
@@ -14144,7 +14144,7 @@
       "descriptor": "()Lcom/live2d/cubism/view/palette/parameter/m;",
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-palette-view.operation",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.method.parameter_operation",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_operation",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
@@ -14281,7 +14281,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.constructor.parameter_refresh_callback",
+      "semanticName": "cubism.mapping.v5_0_06.editor_model.constructor.parameter_refresh_callback",
       "kind": "constructor",
       "owner": "editor-model-parameter-definition-write",
       "name": "cubism.editor-model.parameter-refresh-callback.create",
@@ -14302,7 +14302,7 @@
       "descriptor": "(Lcom/live2d/cubism/view/palette/parameter/m;)V",
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-refresh-callback.create",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.constructor.parameter_refresh_callback",
+        "recordMappingId": "cubism.mapping.v5_0_06.editor_model.constructor.parameter_refresh_callback",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
@@ -15079,7 +15079,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.parameter_allow_repeat",
+      "semanticName": "cubism.mapping.v5_0_06.editor_model.method.parameter_allow_repeat",
       "kind": "method",
       "owner": "editor-model-parameter-definition-write",
       "name": "cubism.editor-model.parameter-validator.allow-repeat",
@@ -15100,13 +15100,13 @@
       "descriptor": "(Lcom/live2d/cubism/doc/model/param/CParameterSource;Z)Z",
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-validator.allow-repeat",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.method.parameter_allow_repeat",
+        "recordMappingId": "cubism.mapping.v5_0_06.editor_model.method.parameter_allow_repeat",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.class.parameter_validator",
+      "semanticName": "cubism.mapping.v5_0_06.editor_model.class.parameter_validator",
       "kind": "class",
       "owner": "editor-model-parameter-definition-write",
       "name": "cubism.editor-model.parameter-validator.class",
@@ -15125,13 +15125,13 @@
       },
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-validator.class",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.class.parameter_validator",
+        "recordMappingId": "cubism.mapping.v5_0_06.editor_model.class.parameter_validator",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.parameter_default_affects_morph_target",
+      "semanticName": "cubism.mapping.v5_0_06.editor_model.method.parameter_default_affects_morph_target",
       "kind": "method",
       "owner": "editor-model-parameter-definition-write",
       "name": "cubism.editor-model.parameter-validator.default-change-affects-morph-target",
@@ -15152,13 +15152,13 @@
       "descriptor": "(Lcom/live2d/cubism/doc/model/param/CParameterSource;F)Z",
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-validator.default-change-affects-morph-target",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.method.parameter_default_affects_morph_target",
+        "recordMappingId": "cubism.mapping.v5_0_06.editor_model.method.parameter_default_affects_morph_target",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.parameter_keys_outside_range",
+      "semanticName": "cubism.mapping.v5_0_06.editor_model.method.parameter_keys_outside_range",
       "kind": "method",
       "owner": "editor-model-parameter-definition-write",
       "name": "cubism.editor-model.parameter-validator.keys-outside-range",
@@ -15179,13 +15179,13 @@
       "descriptor": "(Lcom/live2d/type/CParameterGuid;FF)Z",
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-validator.keys-outside-range",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.method.parameter_keys_outside_range",
+        "recordMappingId": "cubism.mapping.v5_0_06.editor_model.method.parameter_keys_outside_range",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.parameter_reject_type_change",
+      "semanticName": "cubism.mapping.v5_0_06.editor_model.method.parameter_reject_type_change",
       "kind": "method",
       "owner": "editor-model-parameter-definition-write",
       "name": "cubism.editor-model.parameter-validator.reject-type-change",
@@ -15206,13 +15206,13 @@
       "descriptor": "(Lcom/live2d/cubism/doc/model/param/CParameterSource;ZZ)Z",
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-validator.reject-type-change",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.method.parameter_reject_type_change",
+        "recordMappingId": "cubism.mapping.v5_0_06.editor_model.method.parameter_reject_type_change",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.parameter_supports_type",
+      "semanticName": "cubism.mapping.v5_0_06.editor_model.method.parameter_supports_type",
       "kind": "method",
       "owner": "editor-model-parameter-definition-write",
       "name": "cubism.editor-model.parameter-validator.supports-type",
@@ -15233,13 +15233,13 @@
       "descriptor": "(Z)Z",
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-validator.supports-type",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.method.parameter_supports_type",
+        "recordMappingId": "cubism.mapping.v5_0_06.editor_model.method.parameter_supports_type",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.parameter_valid_id",
+      "semanticName": "cubism.mapping.v5_0_06.editor_model.method.parameter_valid_id",
       "kind": "method",
       "owner": "editor-model-parameter-definition-write",
       "name": "cubism.editor-model.parameter-validator.valid-id",
@@ -15260,7 +15260,7 @@
       "descriptor": "(Ljava/lang/String;)Z",
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-validator.valid-id",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.method.parameter_valid_id",
+        "recordMappingId": "cubism.mapping.v5_0_06.editor_model.method.parameter_valid_id",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
@@ -19541,7 +19541,7 @@
       "descriptor": "()Lcom/live2d/cubism/doc/animation/movie/track/ICMvTrack_Source;"
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.track_instance_update",
+      "semanticName": "cubism.mapping.v5_1_03.editor_model.method.track_instance_update",
       "kind": "method",
       "owner": "editor-model-animation-eval",
       "name": "cubism.editor-model.track-instance.update",
@@ -21980,7 +21980,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.native_data_impl",
+      "semanticName": "cubism.mapping.v5_1_03.editor_model.method.native_data_impl",
       "kind": "method",
       "owner": "texture-atlas-authoring",
       "name": "cubism.texture-atlas.native.data.impl",
@@ -22001,7 +22001,7 @@
       "intermediary": "",
       "x.review": {
         "recordAlias": "cubism.texture-atlas.native.data.impl",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.method.native_data_impl",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.native_data_impl",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
@@ -22142,7 +22142,7 @@
       }
     },
     {
-      "semanticName": "cubism.mapping.v5_0_05.editor_model.method.native_impl_container",
+      "semanticName": "cubism.mapping.v5_1_03.editor_model.method.native_impl_container",
       "kind": "method",
       "owner": "texture-atlas-authoring",
       "name": "cubism.texture-atlas.native.impl.container",
@@ -22163,7 +22163,7 @@
       "intermediary": "",
       "x.review": {
         "recordAlias": "cubism.texture-atlas.native.impl.container",
-        "recordMappingId": "cubism.mapping.v5_0_05.editor_model.method.native_impl_container",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.native_impl_container",
         "exactArtifactSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
         "provenance": "exact classfile verification on the reviewed 5.0.05 artifact via cubism_version_matrix"
       }
@@ -23770,7 +23770,7 @@
     "selectorCount": 938,
     "capabilityCount": 103,
     "validationNotes": "DRAFT only. Every selector is statically checked against the exact 5.0.05 JAR by kind/owner/name/descriptor/access. Runtime/host behavior is not claimed because no host was started.",
-    "verificationRecordSha256": "e5321d5024fa07cf12b9280bd0654c496029c244d7b84ac55ddafb576280cd1e",
+    "verificationRecordSha256": "9bf314dfe6a6bcd1cceddc12fe79feb0e6d6c4c337cc3ac645871e2df11fcf57",
     "capabilityIds": [
       "cubism.editor-history.move",
       "cubism.editor-history.read",

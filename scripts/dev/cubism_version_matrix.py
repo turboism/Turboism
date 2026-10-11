@@ -716,6 +716,62 @@ def contract_constants() -> dict[str, dict[str, object]]:
             name: (v["v"] if v["t"] == "s" else frozenset(v["v"]))
             for name, v in fields.items()
         }
+    # Runtime-side admission contracts referenced by
+    # CapabilitySelectorDependencies.add(...) entries. They live outside the
+    # template tree, so their literals are folded in from source instead of
+    # being compiled.
+    table.update(runtime_contract_constants())
+    # Capability -> declared SUPPORTED_VERSIONS for runtime-side contracts;
+    # emitted records must not advertise a capability outside its contract.
+    versions: dict[str, frozenset] = {}
+    for cls in _RUNTIME_CONTRACT_FILES:
+        simple = cls.rsplit("/", 1)[-1].removesuffix(".java")
+        fields = table[simple]
+        cap = fields.get("CAPABILITY_ID")
+        supported = fields.get("SUPPORTED_VERSIONS")
+        if isinstance(cap, str) and isinstance(supported, frozenset):
+            versions[cap] = supported
+    table["_capabilitySupportedVersions"] = versions
+    return table
+
+
+_RUNTIME_CONTRACT_FILES = (
+    "dev/turboism/adapter/cubism/mesh/MeshToolSessionSelectorContract.java",
+    "dev/turboism/adapter/cubism/modeling/ModelingSelectionSelectorContract.java",
+)
+
+
+def runtime_contract_constants() -> dict[str, dict[str, object]]:
+    """Extract String/Set-of-String constants from runtime-only contracts."""
+    table: dict[str, dict[str, object]] = {}
+    for relative in _RUNTIME_CONTRACT_FILES:
+        path = ROOT / "runtime/src/main/java" / relative
+        text = path.read_text(encoding="utf-8")
+        fields: dict[str, object] = {}
+        for match in re.finditer(
+            r'public static final String (\w+) =\s*"([^"]+)"', text
+        ):
+            fields[match.group(1)] = match.group(2)
+        for match in re.finditer(
+            r"public static final Set<String> (\w+) =\s*Set\.of\(([^;]+?)\);",
+            text,
+            re.DOTALL,
+        ):
+            values = []
+            for token in re.findall(r'"([^"]+)"|(\b[A-Z][A-Z0-9_]*\b)', match.group(2)):
+                literal, constant = token
+                if literal:
+                    values.append(literal)
+                else:
+                    resolved = fields.get(constant)
+                    if resolved is None:
+                        raise ValueError(
+                            f"unresolvable runtime contract constant: {constant} in {relative}"
+                        )
+                    values.append(resolved)
+            fields[match.group(1)] = frozenset(values)
+        simple = relative.rsplit("/", 1)[-1].removesuffix(".java")
+        table[simple] = fields
     return table
 
 
@@ -940,7 +996,6 @@ def derive_editor_model_record(
         variant.update(overrides)
         if verify_selector(jar, variant) == "VERIFIED_STATIC":
             chosen[alias] = variant
-    full_universe = len(chosen) == len(universe)
     merged = [chosen[a] for a in sorted(chosen)]
 
     merged_surviving = set(chosen)
@@ -953,10 +1008,21 @@ def derive_editor_model_record(
                 continue
             conditions_by_cap[capability] = record_conditions.get(capability, [])
             cap_order.append(capability)
+    supported_versions = constants.get("_capabilitySupportedVersions") or {}
     capabilities = []
     for capability in cap_order:
+        declared = supported_versions.get(capability)
+        if declared is not None and version not in declared:
+            continue
         if capability not in editor:
-            if not full_universe:
+            # Unlisted capabilities conservatively require a complete source
+            # record that declares them: keep only when some declaring
+            # record's entire selector set survives on this jar.
+            if not any(
+                capability in source["capabilityIds"]
+                and {s["alias"] for s in source["selectors"]} <= merged_surviving
+                for _source_version, source in sources
+            ):
                 continue
         else:
             required = required_aliases(
@@ -1013,8 +1079,12 @@ def derive_record(
     else:
         selectors = [s for s in source["selectors"] if s["alias"] in surviving]
         record_conditions = source.get("capabilityConditions") or {}
+        supported_versions = constants.get("_capabilitySupportedVersions") or {}
         capabilities = []
         for capability in source["capabilityIds"]:
+            declared = supported_versions.get(capability)
+            if declared is not None and version not in declared:
+                continue
             listed = capability in editor
             if not listed and not full:
                 # Unlisted capabilities conservatively require the entire

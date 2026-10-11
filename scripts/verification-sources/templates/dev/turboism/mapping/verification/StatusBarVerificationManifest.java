@@ -255,6 +255,8 @@ public final class StatusBarVerificationManifest {
 
 
 
+
+
     public static final String ADAPTER_SLICE_ID = "${record:cubism-5.2.03-ui-status-bar.json:adapterSliceId}";
     public static final String CAPABILITY_ID = "ui.status.notify";
     public static final Set<String> CAPABILITY_IDS = Set.of(CAPABILITY_ID, "ui.canvas.hint");

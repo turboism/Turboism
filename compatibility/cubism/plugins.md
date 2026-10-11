@@ -36,7 +36,7 @@ When Cubism runs under a FREE licence, saving is subject to the FREE parameter-c
 | `psd-import` | all reviewed versions | — | — |
 | `recent-preview` | all reviewed versions | — | host-verified 5.2.03 |
 | `scene-palette-enhancer` | all reviewed versions | — | — |
-| `selection-brush` | 5.2.03–5.3.04（5.0.00–5.2.02 pending adaptation） | Mesh-edit custom tools only on 5.2.03–5.3.04（5.0.00–5.2.02 pending adaptation）<br>Modeling selection brush only on 5.2.03–5.3.04（5.0.00–5.2.02 pending adaptation） | host-verified 5.2.03, 5.3.02–5.3.03 |
+| `selection-brush` | 5.2.00–5.3.04（5.0.00–5.1.03 pending adaptation） | Mesh-edit custom tools only on 5.2.00–5.3.04（5.0.00–5.1.03 pending adaptation）<br>Modeling selection brush only on 5.2.00–5.3.04（5.0.00–5.1.03 pending adaptation） | host-verified 5.2.03, 5.3.02–5.3.03 |
 | `texture-atlas-stats` | all reviewed versions | Atlas editor panel only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Native atlas editor session access only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Native atlas editor UI contribution only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed） | — |
 | `ui-theme` | all reviewed versions | — | host-verified 5.0.00–5.1.01, 5.1.03, 5.2.02, 5.3.03<br>confirmed boundary 5.3.00–5.3.01, 5.3.04 |
 | `warp-deformer-alt-symmetry` | all reviewed versions | full feature set requires 5.2.00+<br>Warp mirror only on 5.2.00–5.3.04（5.0.00–5.1.03 pending adaptation） | host-verified 5.2.03, 5.3.02–5.3.03 |
