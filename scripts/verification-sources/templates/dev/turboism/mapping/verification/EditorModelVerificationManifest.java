@@ -12314,6 +12314,7 @@ public final class EditorModelVerificationManifest {
         return Set.of(
             "cubism.editor-history.move",
             "cubism.editor-history.read",
+            "cubism.editor-history.semantic-read",
             "cubism.editor-model.animation-eval",
             "cubism.editor-model.animation-playback",
             "cubism.editor-model.animation-scene-edit",
@@ -13407,6 +13408,7 @@ public final class EditorModelVerificationManifest {
         return Set.of(
             "cubism.editor-history.move",
             "cubism.editor-history.read",
+            "cubism.editor-history.semantic-read",
             "cubism.editor-model.animation-eval",
             "cubism.editor-model.animation-playback",
             "cubism.editor-model.animation-scene-edit",
@@ -14500,6 +14502,7 @@ public final class EditorModelVerificationManifest {
         return Set.of(
             "cubism.editor-history.move",
             "cubism.editor-history.read",
+            "cubism.editor-history.semantic-read",
             "cubism.editor-model.animation-eval",
             "cubism.editor-model.animation-playback",
             "cubism.editor-model.animation-scene-edit",
