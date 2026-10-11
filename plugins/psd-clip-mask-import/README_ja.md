@@ -43,6 +43,12 @@ interface: embedded
 - **インターフェースモード:** `embedded`。
 - **プラグインの依存関係:** 宣言されていません。
 
+<!-- compatibility:begin -->
+**Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
+- 埋め込みパネル docking 対象外 5.0.00–5.0.06
+完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
+<!-- compatibility:end -->
+
 ## インストールと有効化
 
 このプラグインは Turboism Full リリースに含まれます。Full パッケージをインストールし、**プラグイン管理**で有効にしてください。現在の厳密なバージョンのホストが、レビュー済みの必要サービスをすべて提供する場合にのみ操作と書き込みを利用できます。

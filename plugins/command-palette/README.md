@@ -46,6 +46,12 @@ Opens a Ctrl+K launcher over the Editor's supported menu commands and other plug
 - **Interface mode:** `swing`.
 - **Plugin dependencies:** None declared.
 
+<!-- compatibility:begin -->
+**Cubism Editor version support (generated):** 5.1.00–5.3.04.
+- Top menu integration not on 5.0.00–5.0.06
+Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
+<!-- compatibility:end -->
+
 ## Install and enable
 
 This official plugin is under development and not yet part of release packaging. Build it with `./gradlew :plugins:command-palette:jar`, place the jar in the Turboism `plugins/` directory, then enable it in **Plugin Management**. Disable or uninstall it from the same window when the workflow is not needed.

@@ -42,6 +42,11 @@ Cubism の Physics Settings グループリストに、すべて選択の操作�
 - **インターフェースモード:** `swing`。
 - **プラグイン依存関係:** 宣言されていません。
 
+<!-- compatibility:begin -->
+**Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
+完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
+<!-- compatibility:end -->
+
 ## インストールと有効化
 
 この公式プラグインは**ストア候補**であり、まだ公開済みのストア掲載ではありません。マーケットプレイスで公開されるまで、Turboism の公式リリースパッケージからインストールし、**Plugin Management** で有効にしてください。このワークフローが不要な場合は、同じウィンドウから無効化またはアンインストールしてください。

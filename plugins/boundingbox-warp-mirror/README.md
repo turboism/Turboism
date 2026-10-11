@@ -54,6 +54,11 @@ mirror), which is untouched by this plugin.
 - Direction labels describe the actual result; the legacy dialog's inverted left/right
   wiring is intentionally corrected.
 
+<!-- compatibility:begin -->
+**Cubism Editor version support (generated):** all reviewed versions.
+Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
+<!-- compatibility:end -->
+
 ## Install and enable
 
 Bundled with the Turboism distribution. Enable or disable the plugin from the plugin
