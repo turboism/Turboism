@@ -497,8 +497,9 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         }
         final boolean formGate = ctx != null && (boolean) formAnimationGate.invokeExact(formAnimationInstance, ctx);
         final Object source = model != null ? (Object) getSource.invokeExact(model) : null;
-        final boolean editModeActive =
-                editMode != null && editModeType.isInstance(editMode) && (boolean) isEditModeEditing.invokeExact(editMode);
+        final boolean editModeActive = editMode != null
+                && editModeType.isInstance(editMode)
+                && (boolean) isEditModeEditing.invokeExact(editMode);
         final boolean editing = (source != null && (boolean) isModelEditing.invokeExact(source)) || editModeActive;
         boolean ucPresent = update != null,
                 ucAValue = false,

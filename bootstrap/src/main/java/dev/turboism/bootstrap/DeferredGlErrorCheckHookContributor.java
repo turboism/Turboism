@@ -1,6 +1,5 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.optimization.deferred.DeferredGlErrorCheckTransformer;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.runtime.log.RuntimeDiagnostics;

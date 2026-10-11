@@ -1,7 +1,5 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge;
-import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionBridge;
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionTransformer;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 
