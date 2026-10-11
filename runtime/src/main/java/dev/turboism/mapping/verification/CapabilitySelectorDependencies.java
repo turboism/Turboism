@@ -1,5 +1,7 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.adapter.cubism.mesh.MeshToolSessionSelectorContract;
+import dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAnimationReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAnimationSceneOperationSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAnimationTimelineEditSelectorContract;
@@ -477,6 +479,11 @@ final class CapabilitySelectorDependencies {
                 EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
                 EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES);
         add(result, EditorWarpMirrorSelectorContract.CAPABILITY_ID, EditorWarpMirrorSelectorContract.REQUIRED_ALIASES);
+        add(result, MeshToolSessionSelectorContract.CAPABILITY_ID, MeshToolSessionSelectorContract.REQUIRED_ALIASES);
+        add(
+                result,
+                ModelingSelectionSelectorContract.CAPABILITY_ID,
+                ModelingSelectionSelectorContract.REQUIRED_ALIASES);
         // Texture-atlas features bind to their own alias groups instead of the whole record so an
         // unrelated selector failure cannot collateral-drop them (5.3.04 lost all five to a single
         // context-menu rename). Statistics stays profile-gated, never a capability requirement.
