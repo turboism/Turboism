@@ -124,6 +124,8 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
 
         final boolean[] transformed = {false};
         final boolean[] linkedInjected = {false};
+        final int[] legacyAxisCalls = {0};
+        final boolean[] legacyAxisInjected = {false};
         try {
             final ClassReader reader = new ClassReader(classfileBuffer);
             final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES) {
@@ -217,6 +219,35 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
                                         final String callName,
                                         final String callDescriptor,
                                         final boolean isInterface) {
+                                    if (kind == Kind.LEGACY_DRAW) {
+                                        final MeshMirrorHostProfile.LegacyAxisDraw legacy = profile.legacyAxisDraw();
+                                        if (legacy != null
+                                                && callOwner.equals(legacy.callOwner())
+                                                && callName.equals(legacy.callMethod())
+                                                && callDescriptor.equals(legacy.callDescriptor())) {
+                                            if (legacyAxisCalls[0] == legacy.callOrdinal()) {
+                                                // The stack already carries the draw operands; the
+                                                // bridge redraws the custom axis or runs the native
+                                                // call reflectively. Any other matching call belongs
+                                                // to a different guide and is left untouched.
+                                                visitMethodInsn(
+                                                        Opcodes.INVOKESTATIC,
+                                                        BRIDGE,
+                                                        "legacyAxisDraw",
+                                                        "(Ljava/lang/Object;Ljava/lang/Object;"
+                                                                + "Ljava/lang/Object;Ljava/lang/Object;"
+                                                                + "FFILjava/lang/Object;)V",
+                                                        false);
+                                                legacyAxisInjected[0] = true;
+                                                legacyAxisCalls[0]++;
+                                                return;
+                                            }
+                                            legacyAxisCalls[0]++;
+                                        }
+                                        super.visitMethodInsn(
+                                                callOpcode, callOwner, callName, callDescriptor, isInterface);
+                                        return;
+                                    }
                                     final MeshMirrorHostProfile.LinkedDeletion linked = profile.linkedDeletion();
                                     if (linked == null) {
                                         super.visitMethodInsn(
@@ -381,6 +412,14 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
                         "MESH_MIRROR_LINKED_DELETION_NOT_INJECTED owner=" + className);
                 return null;
             }
+            // Same rule for the legacy axis draw: matching C() is not proof that the axis
+            // draw call was intercepted, so a silent no-op must fail closed as well.
+            if (isLegacyAxisDrawOwner(className) && !legacyAxisInjected[0]) {
+                reject(
+                        Outcome.LEGACY_AXIS_DRAW_NOT_INJECTED,
+                        "MESH_MIRROR_LEGACY_AXIS_DRAW_NOT_INJECTED owner=" + className);
+                return null;
+            }
             final byte[] transformedBytes = writer.toByteArray();
             outcome(Outcome.TARGET_TRANSFORMED, "MESH_MIRROR_TARGET_TRANSFORMED owner=" + className);
             if (!active.get()) return null;
@@ -507,9 +546,15 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         if (owner.equals(profile.mirrorWidgetOwner())
                 && name.equals(profile.mirrorWidgetMethod())
                 && descriptor.equals(profile.mirrorWidgetDescriptor())) return Kind.WIDGET;
-        if (owner.equals(profile.mirrorAxisDrawOwner())
+        if (profile.mirrorAxisDrawOwner() != null
+                && owner.equals(profile.mirrorAxisDrawOwner())
                 && name.equals(profile.mirrorAxisDrawMethod())
                 && descriptor.equals(profile.mirrorAxisDrawDescriptor())) return Kind.DRAW;
+        final MeshMirrorHostProfile.LegacyAxisDraw legacy = profile.legacyAxisDraw();
+        if (legacy != null
+                && owner.equals(legacy.enclosingOwner())
+                && name.equals(legacy.enclosingMethod())
+                && descriptor.equals(legacy.enclosingDescriptor())) return Kind.LEGACY_DRAW;
         final MeshMirrorHostProfile.SelectedPointMove move = profile.selectedPointMove();
         if (move != null
                 && owner.equals(move.owner())
@@ -538,10 +583,18 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
                         || linked.eraserActionOwner().equals(owner));
     }
 
+    private boolean isLegacyAxisDrawOwner(final String owner) {
+        final MeshMirrorHostProfile.LegacyAxisDraw legacy = profile.legacyAxisDraw();
+        return legacy != null && legacy.enclosingOwner().equals(owner);
+    }
+
     private boolean isTargetOwner(final String owner) {
         if (profile.meshEditorOwner().equals(owner)
                 || profile.mirrorWidgetOwner().equals(owner)
-                || profile.mirrorAxisDrawOwner().equals(owner)) return true;
+                || (profile.mirrorAxisDrawOwner() != null
+                        && profile.mirrorAxisDrawOwner().equals(owner))) return true;
+        final MeshMirrorHostProfile.LegacyAxisDraw legacy = profile.legacyAxisDraw();
+        if (legacy != null && legacy.enclosingOwner().equals(owner)) return true;
         final MeshMirrorHostProfile.SelectedPointMove move = profile.selectedPointMove();
         if (move != null && move.owner().equals(owner)) return true;
         final MeshMirrorHostProfile.LinkedDeletion linked = profile.linkedDeletion();
@@ -575,6 +628,8 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         TARGET_UNCHANGED,
         /** The target transformed but the optional linked-deletion methods were not injected. */
         LINKED_DELETION_NOT_INJECTED,
+        /** The enclosing guide pass matched but the legacy axis-draw call was not intercepted. */
+        LEGACY_AXIS_DRAW_NOT_INJECTED,
         /** The class was defined by a ClassLoader other than the admitted one. */
         LOADER_MISMATCH,
         /** The class's code source did not digest-match the admitted artifact. */
@@ -598,6 +653,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         TOOL_ELIGIBILITY,
         WIDGET,
         DRAW,
+        LEGACY_DRAW,
         SELECTED_POINT_MOVE,
         POINT_DELETE,
         EDGE_DELETE,

@@ -12,6 +12,7 @@ import dev.turboism.sdk.cubism.mesh.MirrorAxisState;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -282,6 +283,93 @@ public final class NativeMeshMirrorBridge {
         } catch (ReflectiveOperationException | RuntimeException failure) {
             return false;
         }
+    }
+
+    /**
+     * Handles the 5.0/5.1 inlined axis draw: those generations emit the mirror-axis
+     * segment through the shared draw-line helper inside the guide pass instead of a
+     * dedicated method, so the weave replaces that call. With a custom axis active the
+     * resolved segment is redrawn through the same host helper; otherwise the original
+     * call is re-issued verbatim so native rendering is unchanged.
+     */
+    public static void legacyAxisDraw(
+            final Object drawer,
+            final Object start,
+            final Object end,
+            final Object color,
+            final float first,
+            final float second,
+            final int flags,
+            final Object defaults) {
+        final Binding binding = INSTALLED.get();
+        try {
+            if (binding != null
+                    && binding.enabled
+                    && binding.axis.currentAngleDegrees() != 0.0f
+                    && drawer != null
+                    && start != null
+                    && end != null) {
+                final float startX = coordinate(start, "getX");
+                final float startY = coordinate(start, "getY");
+                final float endX = coordinate(end, "getX");
+                final float endY = coordinate(end, "getY");
+                final boolean vertical = Math.abs(endX - startX) < 0.0001f;
+                final float axisValue = vertical ? startX : startY;
+                MeshMirrorGeometry.Point pivot = canvasCenter(CURRENT_PANEL.get());
+                if (pivot == null) {
+                    pivot = new MeshMirrorGeometry.Point((startX + endX) * 0.5f, (startY + endY) * 0.5f);
+                }
+                binding.axis.observeAxis(axisValue, vertical, pivot.x(), pivot.y());
+                final MeshMirrorGeometry.Line line = binding.axis.resolveLine();
+                if (line != null) {
+                    final float radius = (float) Math.hypot(endX - startX, endY - startY) * 0.5f;
+                    final Object resolvedStart = vector(
+                            start,
+                            new MeshMirrorGeometry.Point(
+                                    line.anchor().x() - line.direction().x() * radius,
+                                    line.anchor().y() - line.direction().y() * radius));
+                    final Object resolvedEnd = vector(
+                            start,
+                            new MeshMirrorGeometry.Point(
+                                    line.anchor().x() + line.direction().x() * radius,
+                                    line.anchor().y() + line.direction().y() * radius));
+                    invokeLegacyAxisCall(drawer, resolvedStart, resolvedEnd, color, first, second, flags, defaults);
+                    return;
+                }
+            }
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            // The native segment is drawn below when the custom path is unavailable.
+        }
+        try {
+            invokeLegacyAxisCall(drawer, start, end, color, first, second, flags, defaults);
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            diagnostic("LEGACY_AXIS_DRAW_FAILED reason=" + failure.getClass().getName());
+        }
+    }
+
+    /** Re-issues the intercepted host draw-line call with identical argument order. */
+    private static void invokeLegacyAxisCall(
+            final Object drawer,
+            final Object start,
+            final Object end,
+            final Object color,
+            final float first,
+            final float second,
+            final int flags,
+            final Object defaults)
+            throws ReflectiveOperationException {
+        if (drawer == null) throw new NoSuchMethodException("drawer");
+        for (final Method method : MethodHandleCache.declaredOverloads(drawer.getClass(), "a", 8)) {
+            if (!Modifier.isStatic(method.getModifiers())) continue;
+            try {
+                if (!method.canAccess(null)) method.setAccessible(true);
+                method.invoke(null, drawer, start, end, color, first, second, flags, defaults);
+                return;
+            } catch (IllegalArgumentException ignored) {
+                // Try the next overload.
+            }
+        }
+        throw new NoSuchMethodException(drawer.getClass().getName() + "#a");
     }
 
     private static Object adjust(
