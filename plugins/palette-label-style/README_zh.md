@@ -76,6 +76,7 @@ interface: embedded
 | `turboism.cubism.model.write` | `application` | 为变形器标签背景菜单写入原生变形器标签颜色。 |
 | `turboism.cubism.model.read` | `application` | 解析选定调色板对象，并在模型打开时重新应用已持久化的颜色。 |
 | `turboism.cubism.project.read` | `application` | 解析活动项目 ID，以便按项目持久化标签颜色。 |
+| `turboism.cubism.model.observe` | `application` | 接收模型打开/创建生命周期回调以重新应用已持久化的标签颜色；未声明时，生命周期注册表会将这些回调过滤掉。 |
 | `turboism.file.read` | `application` | 读取已持久化的按项目标签颜色以供重新应用。 |
 | `turboism.file.write` | `application` | 每次应用或清除后持久化按项目标签文字/背景颜色。 |
 

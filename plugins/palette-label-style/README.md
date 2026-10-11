@@ -76,6 +76,7 @@ This official plugin is a **store candidate**, not yet a published store listing
 | `turboism.cubism.model.write` | `application` | Write native deformer label colors for the Deformer tab background menu. |
 | `turboism.cubism.model.read` | `application` | Resolve selected palette objects and replay persisted colors on model open. |
 | `turboism.cubism.project.read` | `application` | Resolve the active project id for per-project label color persistence. |
+| `turboism.cubism.model.observe` | `application` | Receive model open/create lifecycle callbacks that replay persisted label colors; undeclared, the lifecycle registry filters them out. |
 | `turboism.file.read` | `application` | Read persisted per-project label colors for replay. |
 | `turboism.file.write` | `application` | Persist per-project label text/background colors after each apply or clear. |
 
