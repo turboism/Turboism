@@ -111,7 +111,7 @@ VERSION_CONSTANT_RE = re.compile(
     r'CUBISM_\d+_\d+_\d+_VERSION\s*=\s*"(\d+\.\d+\.\d+)"'
 )
 ANNOTATION_RE = re.compile(
-    r"@(?:dev\.turboism\.sdk\.)?CubismEditor\s*\((.*?)\)", re.DOTALL
+    r"@(?:dev\.turboism\.sdk\.)?CubismEditor\b(?:\s*\((.*?)\))?", re.DOTALL
 )
 QUOTED_VERSIONS_RE = re.compile(r'"(\d+\.\d+\.\d+)"')
 IMPORT_RE = re.compile(r"^import\s+([\w.]+)\s*;", re.MULTILINE)
@@ -1481,19 +1481,28 @@ def parse_sdk_annotations(root: Path, reviewed: list[str]) -> tuple[list[dict], 
         package_match = PACKAGE_RE.search(text)
         package = package_match.group(1) if package_match else ""
         imports = {m.split(".")[-1]: m for m in IMPORT_RE.findall(text)}
-        spans = _type_spans(_strip_java(text))
+        stripped = _strip_java(text)
+        spans = _type_spans(stripped)
         for match in ANNOTATION_RE.finditer(text):
-            versions = _parse_annotation_args(match.group(1), reviewed)
+            if stripped[match.start()] != "@":
+                continue
+            raw_args = match.group(1)
+            versions = _parse_annotation_args(raw_args or "", reviewed)
             tail = text[match.end() : match.end() + 400].lstrip()
             enclosing = [s for s in spans if s[1] < match.start() < s[2]]
             enclosing.sort(key=lambda s: s[1])
             owner_chain = [s[0] for s in enclosing]
-            type_match = re.match(
-                r"(?:public\s+|protected\s+|private\s+|final\s+|abstract\s+|"
+            type_pattern = (
+                r"(?:@[\w.]+(?:\s*\([^)]*\))?\s+|"
+                r"public\s+|protected\s+|private\s+|final\s+|abstract\s+|"
                 r"static\s+|sealed\s+|non-sealed\s+)*"
-                r"(?:class|interface|enum|@interface)\s+(\w+)",
-                tail,
+                r"(?:class|interface|enum|@interface|record)\s+(\w+)"
+                if raw_args is None
+                else r"(?:public\s+|protected\s+|private\s+|final\s+|abstract\s+|"
+                r"static\s+|sealed\s+|non-sealed\s+)*"
+                r"(?:class|interface|enum|@interface)\s+(\w+)"
             )
+            type_match = re.match(type_pattern, tail)
             if type_match and not enclosing:
                 api = f"{package}.{type_match.group(1)}"
                 kind = "type"
