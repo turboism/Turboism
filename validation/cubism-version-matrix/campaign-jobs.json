@@ -71737,6 +71737,62 @@
     "stepDurationMillis": "2004"
    },
    "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "mcp",
+   "version": "5304",
+   "variant": "standard",
+   "jobId": "717972f0-2359-438b-8ea3-2df234f87062",
+   "requestKey": "mcpfix-r1-mcp_5304_standard",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-7a20883af24342229afeb85068ec863e",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "mcp/5304-mcpfix-r1/queue-7a20883af24342229afeb85068ec863e/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "mcp",
+   "version": "5200",
+   "variant": "standard",
+   "jobId": "e0dd8c3a-9a0b-44a9-b7f9-9f3a7d5f2507",
+   "requestKey": "mcpfix-r1-mcp_5200_standard",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-55eaa2fdaa24464abaf8a72b6d87131b",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "mcp/5200-mcpfix-r1/queue-55eaa2fdaa24464abaf8a72b6d87131b/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "mcp",
+   "version": "5000",
+   "variant": "standard",
+   "jobId": "d92e248d-a8be-4f10-96f1-0a19f0c59134",
+   "requestKey": "mcpfix-r1-mcp_5000_standard",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-41b0fa486d93405ea47b859ebf66d8ac",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "mcp/5000-mcpfix-r1/queue-41b0fa486d93405ea47b859ebf66d8ac/evidence"
+   },
+   "triage": {
+    "category": "CAPABILITY_BOUNDARY",
+    "ruleId": "capability-authoring-transactions-unavailable",
+    "signature": "dev.turboism.plugin.mcp.McpExecutionBridge$ExecutionFailure: MCP operation timed out before host execution"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
   }
  ]
 }

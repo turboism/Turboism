@@ -317,3 +317,14 @@ rep-r1/r2 全部非 PASS 格子在"启动辅助默认开启"下重投；排除�
 - parameter-batch-transfer 5000/5100（SKIP_STATIC admission）：5.0.x/5.1.00 无 `cubism.editor-model.write` 静态验证证据，格子维持待办；需先补对应版本 verification 记录再实机。
 - session-standard 5.0.00/5.3.00 矩阵格仍显示旧终态：会话 job 可读步结果时台账只写步级条目、不产生 session-standard 行，该任务格按设计只在"会话无步证据"时更新（ cosmetic 台账覆盖说明，非失败）。
 
+
+## mcpfix-r1：mcp 夹具回退修复实机复核
+
+refresh-r1 mcp 四版"SYSTEMIC awaitUi 超时"经证据复核为台账误归因：同一 `ui.schedule TIMED_OUT LIGHTWEIGHT` + 单次 `modelSnapshotGet` awaitUi 超时在 drift-r1 的 PASS 运行中逐字出现（客户端在模态进度框解除后重试），且 mcp 属 `SELF_RESPONDING_STARTUP_TASKS`（standard 变体，探针自带应答器），与启动辅助默认化/注解/runtime 改动无关。真正 FAIL 为全部五版 `error=ValidationFailure: the exact-host fixture contains no Glue relation`——refresh-r1 prepare 环境缺 `TURBOISM_HOST_VALIDATION_FIXTURE_MCP`，回退到共享 57c4854b 夹具。
+
+修复：mcp standard 变体夹具解析改为 `FIXTURE_MCP` → `FIXTURE_CLIPMASK`（同款 2980dc8c 带 Glue 文档）→ 版本化选择的顺序回退；`fixture_path_for` 静态门禁同步；新增 `fixture-no-glue-relation` triage 规则（FIXTURE_UNSUITABLE），避免结果文件 `error=` 行再被超时签名遮蔽。单测覆盖门禁回退与包装脚本顺序。
+
+实机（mcpfix-r1，standard）：
+- mcp:5304 PASS（job 717972f0；fixture 2980dc8c，unchanged/identity/normalExit 全 true，cleanup safe）
+- mcp:5200 PASS（job e0dd8c3a；同上）
+- mcp:5000 FAIL（job d92e248d）——`cubism.authoring.transactions.unavailable`，与 drift-r1 5000 完全同签名，为 5.0.00 既定能力边界（triage CAPABILITY_BOUNDARY），非回归；夹具源/副本 2980dc8c 未变。未重试（确定性边界）。
