@@ -503,7 +503,10 @@ def required_aliases(
             else tex["REMOVE_RAW_IMAGE_ALIASES"]
         )
     inst = constants["EditorModelInstanceReadSelectorContract"]
-    if capability == inst["CAPABILITY_ID"] and cubism_version == "5.2.03":
+    if (
+        capability == inst["CAPABILITY_ID"]
+        and cubism_version in inst["ONION_SKIN_ABSENT_VERSIONS"]
+    ):
         aliases -= set(inst["ONION_SKIN_ALIASES"])
     session = constants["EditorEditSessionSelectorContract"]
     if capability.startswith("cubism.editor-model.edit."):
