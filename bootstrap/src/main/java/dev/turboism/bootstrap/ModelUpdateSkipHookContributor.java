@@ -1,7 +1,5 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.optimization.modelupdate.ModelUpdateSkipBridge;
-
 /** Contributor for the verified unchanged-frame model update skip optimization. */
 final class ModelUpdateSkipHookContributor extends NativeOptimizationHookContributor {
 
@@ -11,7 +9,7 @@ final class ModelUpdateSkipHookContributor extends NativeOptimizationHookContrib
 
     @Override
     AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
-        if (!ModelUpdateSkipBridge.flagEnabled()) {
+        if (!NativeOptimizationPolicy.modelUpdateSkipEnabled(environment)) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }

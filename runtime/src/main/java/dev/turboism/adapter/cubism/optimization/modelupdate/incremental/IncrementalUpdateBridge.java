@@ -73,6 +73,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     private static final String CP = "com.live2d.cubism.doc.model.param.CParameter";
     private static final String CX = "com.live2d.cubism.view.context.CEViewContext";
     private static final String DOC = "com.live2d.cubism.doc.modeling.CModelingDocument";
+    private static final String EM = "com.live2d.cubism.doc.ACEditMode";
     private static final String ACD = "com.live2d.cubism.doc.model.deformer.ACDeformer";
     private static final String CAM = "com.live2d.cubism.doc.model.drawable.artMesh.CArtMesh";
     private static final String MF = "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshForm";
@@ -82,8 +83,10 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     private static final String SP = "com.live2d.graphics.splineCurve.CSplineCurvePoint";
     private static final String GV = "com.live2d.graphics3d.type.GVector2";
 
+    private static volatile boolean configuredDefault = false;
+
     private final IncrementalUpdateTarget target;
-    private final Class<?> modelingDocumentType, meshFormType, pathFormType;
+    private final Class<?> modelingDocumentType, editModeType, meshFormType, pathFormType;
     private final MethodHandle getSkipInterpolation,
             setSkipInterpolation,
             getAllDeformers,
@@ -97,6 +100,8 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             paramValue,
             getLastModifiedTime,
             getDoc,
+            getCurrentEditMode,
+            isEditModeEditing,
             getDirty,
             setDirty,
             deformerInterpolatedForm,
@@ -143,7 +148,9 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     private final Set<Object> changedForms = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Set<Object> markedDeformers = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Set<Object> visited = Collections.newSetFromMap(new IdentityHashMap<>());
-    private volatile boolean epochFull, epochUnsafe, priorSkipInterpolation;
+    private volatile boolean epochFull, epochUnsafe, priorSkipInterpolation, previousEditing;
+    private volatile Object lastDocument;
+    private volatile long lastDocumentModified = Long.MIN_VALUE;
     private volatile byte[] previousDigest, previousInputs, currentInputs;
     private volatile boolean previousNarrowed;
     private volatile Properties installedProperties;
@@ -159,6 +166,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             throws ReflectiveOperationException {
         this.target = target;
         modelingDocumentType = Class.forName(DOC, false, loader);
+        editModeType = Class.forName(EM, false, loader);
         meshFormType = Class.forName(MF, false, loader);
         pathFormType = Class.forName(PF, false, loader);
         final Map<Dep, MethodHandle> handles = resolve(target, loader);
@@ -176,6 +184,8 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         paramValue = handles.get(dep(CP, "getValue"));
         getLastModifiedTime = handles.get(dep(DOC, "getLastModifiedTime"));
         getDoc = handles.get(dep(CX, "getDoc"));
+        getCurrentEditMode = handles.get(dep(CX, "getCurrentEditMode"));
+        isEditModeEditing = handles.get(dep(EM, "isEditing"));
         getDirty = handles.get(dep(ACD, "getDirtyDeformedForm"));
         setDirty = handles.get(dep(ACD, "setDirtyDeformedForm"));
         deformerInterpolatedForm = handles.get(dep(ACD, "getInterpolatedForm"));
@@ -295,10 +305,16 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         }
     }
 
+    /** Updates the persisted-config fallback used when {@link #ENABLE_PROPERTY} is unset. */
+    public static void setConfiguredDefault(final boolean enabled) {
+        configuredDefault = enabled;
+    }
+
     /** Returns true only for an explicit experimental opt-in; missing or malformed values stay native. */
     public static boolean flagEnabled() {
         try {
-            return Boolean.getBoolean(ENABLE_PROPERTY);
+            final String explicit = System.getProperty(ENABLE_PROPERTY);
+            return explicit == null ? configuredDefault : Boolean.parseBoolean(explicit);
         } catch (SecurityException denied) {
             return false;
         }
@@ -309,8 +325,9 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     }
 
     /**
-     * Update-core entry: starts a fresh epoch, decides whether probe forces a full update,
-     * applies the host skip flag and recomputes the per-model unsafe-input check.
+     * Update-core entry: starts a fresh epoch, decides whether probe or active interactive
+     * authoring forces a full update, applies the host skip flag and recomputes the per-model
+     * unsafe-input check.
      */
     private void beginUpdate(final Object args) {
         try {
@@ -323,9 +340,23 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             markedDeformers.clear();
             childMap = null;
             childMapModel = null;
+            final Object editMode = ctx == null ? null : (Object) getCurrentEditMode.invokeExact(ctx);
+            final boolean editing = editMode != null
+                    && editModeType.isInstance(editMode)
+                    && (boolean) isEditModeEditing.invokeExact(editMode);
+            Object document = ctx == null ? null : (Object) getDoc.invokeExact(ctx);
+            if (!modelingDocumentType.isInstance(document)) document = null;
+            final long documentModified =
+                    document == null ? Long.MIN_VALUE : (long) getLastModifiedTime.invokeExact(document);
+            final boolean documentChanged =
+                    document != null && document == lastDocument && documentModified != lastDocumentModified;
+            lastDocument = document;
+            lastDocumentModified = documentModified;
+            final boolean authoringFull = editing || previousEditing || documentChanged;
+            previousEditing = editing;
             final boolean enabled = enabled();
             final boolean probe = Boolean.getBoolean(PROBE_PROPERTY);
-            epochFull = !enabled || (probe && (epochs.sum() & 1L) == 1L);
+            epochFull = !enabled || authoringFull || (probe && (epochs.sum() & 1L) == 1L);
             setSkipInterpolation.invokeExact(updaterInstance, (Object) Boolean.valueOf(enabled && !epochFull));
             epochUnsafe = !enabled || unsafe(model);
             if (probe) {
@@ -554,6 +585,11 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         Object document = ctx == null ? null : (Object) getDoc.invokeExact(ctx);
         if (!modelingDocumentType.isInstance(document)) document = null;
         putLong(md, buffer, document == null ? Long.MIN_VALUE : (long) getLastModifiedTime.invokeExact(document));
+        final Object editMode = ctx == null ? null : (Object) getCurrentEditMode.invokeExact(ctx);
+        final boolean editing = editMode != null
+                && editModeType.isInstance(editMode)
+                && (boolean) isEditModeEditing.invokeExact(editMode);
+        putInt(md, buffer, editing ? 1 : 0);
         buffer.flip();
         md.update(buffer);
         return md.digest();
@@ -724,6 +760,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     @Override
     public synchronized void close() {
         active.set(false);
+        configuredDefault = false;
         try {
             setSkipInterpolation.invokeExact(updaterInstance, (Object) Boolean.valueOf(priorSkipInterpolation));
         } catch (Throwable failure) {
