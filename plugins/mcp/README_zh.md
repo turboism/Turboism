@@ -43,6 +43,14 @@ interface: swing
 - **接口模式：** `swing`，提供本地 MCP 连接信息窗口。
 - **插件依赖项：** 未声明。
 
+<!-- compatibility:begin -->
+**Cubism Editor 版本支持（自动生成）：** 全部审核版本.
+- textures.write 仅 5.2.03–5.3.04
+- 参数写入 仅 5.2.00–5.3.04
+- 编辑事务（成组撤销写入） 仅 5.2.00–5.3.04
+完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
+<!-- compatibility:end -->
+
 ## 安装与启用
 
 1. 通过 Turboism 的官方发布包和**插件管理**安装并启用插件。

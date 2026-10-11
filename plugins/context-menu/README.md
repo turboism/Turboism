@@ -42,6 +42,11 @@ Provides an SDK migration shell and lifecycle inventory for the legacy Context M
 - **Interface mode:** `swing`.
 - **Plugin dependencies:** None declared.
 
+<!-- compatibility:begin -->
+**Cubism Editor version support (generated):** all reviewed versions.
+Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
+<!-- compatibility:end -->
+
 ## Install and enable
 
 This is a **development-only** module, not a published store listing or release-delivery plugin. Load it only through the repository's development runtime and enable it in **Plugin Management** while validating the legacy feature's lifecycle model.

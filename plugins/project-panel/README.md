@@ -43,6 +43,11 @@ An SDK-only migration shell for Project Panel lifecycle-state work. It currently
 - **Interface mode:** `none`.
 - **Plugin dependencies:** None declared.
 
+<!-- compatibility:begin -->
+**Cubism Editor version support (generated):** all reviewed versions.
+Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
+<!-- compatibility:end -->
+
 ## Install and enable
 
 This is a **development-only** migration module. It is not a marketplace listing, release plugin, or end-user Project Panel. It may be included in a development runtime to exercise its internal lifecycle/configuration boundary, but enabling it does not display a panel or add a command.

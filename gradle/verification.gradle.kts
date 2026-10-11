@@ -494,6 +494,65 @@ val checkVersionSetCompleteness by tasks.registering(Exec::class) {
 }
 
 /*
+ * The compatibility matrix JSON, the localized compatibility Markdown pages, and
+ * the generated blocks inside plugin READMEs are derived artifacts: every
+ * version set comes from the verification records, selector contracts, SDK
+ * annotations, and campaign results. The check task regenerates them in
+ * memory and fails on drift, so a coverage change must be followed by one
+ * generator run instead of hand-editing the outputs.
+ */
+val checkCompatibilityMatrixSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs synthetic-tree fixtures for the compatibility matrix generator."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/generate_compatibility_matrix.py",
+        "scripts/test/test_generate_compatibility_matrix.py"
+    )
+    verificationStamp()
+    commandLine(
+        "python3", "-m", "unittest",
+        "scripts.test.test_generate_compatibility_matrix",
+        "-v"
+    )
+}
+
+val checkCompatibilityMatrix by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Fails when generated compatibility artifacts drift from the reviewed data."
+    dependsOn(checkCompatibilityMatrixSelfTest)
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/generate_compatibility_matrix.py",
+        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
+        "runtime/src/main/java/dev/turboism/core/plugin/context/CubismEditorApiAvailabilityInterceptor.java",
+        "validation/cubism-version-matrix/campaign-jobs.json",
+        "validation/cubism-version-matrix/inventory.json",
+        "compatibility/cubism/compatibility-matrix.json",
+        fileTree("compatibility/cubism/verification") { include("*.json") },
+        fileTree("scripts/verification-sources/families") { include("*.json") },
+        fileTree("scripts/verification-sources/templates") { include("**/*.java") },
+        fileTree("sdk/src/main/java") { include("**/*.java") },
+        fileTree("runtime/src/main/java") { include("**/*.java") },
+        fileTree("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins") {
+            include("*.json")
+        },
+        fileTree("compatibility/cubism") { include("*.md") },
+        fileTree("plugins") {
+            include("*/src/main/resources/META-INF/turboism/plugin.json")
+            include("*/src/main/resources/META-INF/turboism/*-coverage.json")
+            include("*/src/main/java/**/*.java")
+            include("README*.md")
+        }
+    )
+    verificationStamp()
+    commandLine(
+        "python3", "scripts/generate_compatibility_matrix.py",
+        "--check", "--root", rootDir.absolutePath
+    )
+}
+
+/*
  * Patch releases inside one Cubism minor line are downward compatible: a newer
  * patch's capability set is a superset of every older patch's. Any version set
  * that names a version must therefore also name every higher admitted patch of
@@ -907,6 +966,7 @@ val devCheck by tasks.registering {
         "checkCodeQuality",
         "checkThrowableContainment",
         "checkPythonLint",
+        "checkCompatibilityMatrix",
         checkRepositoryHygiene,
         checkEditorModelAliases,
         checkVersionMonotonicity,

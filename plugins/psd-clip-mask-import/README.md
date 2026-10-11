@@ -43,6 +43,12 @@ Imports ordered PSD clipping relationships into ArtMesh clip-mask assignments af
 - **Interface mode:** `embedded`.
 - **Plugin dependencies:** None declared.
 
+<!-- compatibility:begin -->
+**Cubism Editor version support (generated):** all reviewed versions.
+- Embedded panel docking not on 5.0.00–5.0.06
+Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
+<!-- compatibility:end -->
+
 ## Install and enable
 
 This plugin is included in Turboism Full releases. Install a Full package and enable it through **Plugin Management**. Its action and panel section are registered in the runtime disposable scope, and writes remain unavailable unless the active exact-version host exposes every required reviewed service.

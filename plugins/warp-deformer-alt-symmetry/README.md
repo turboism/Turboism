@@ -51,6 +51,12 @@ control points, with a canvas-strip mirror-axis button and a drawing-area hint.
 - **Interface mode:** `none`.
 - **Plugin dependencies:** None declared.
 
+<!-- compatibility:begin -->
+**Cubism Editor version support (generated):** all reviewed versions.
+- Warp mirror only on 5.2.03, 5.3.02–5.3.03
+Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
+<!-- compatibility:end -->
+
 ## Install and enable
 
 This is a **development-only** module, not a published store listing or

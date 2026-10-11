@@ -33,6 +33,11 @@ Agent 会話ウィンドウと Agent 設定ウィンドウを開き、ユーザ�
 - MCP ツールを使う場合は、同梱の `dev.turboism.plugin.mcp` プラグインが Turboism MCP サーバーを提供します。
 - インストール済みの Cubism Editor ホストが必要です。スタンドアロンプレビュー内では動作しません。
 
+<!-- compatibility:begin -->
+**Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
+完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
+<!-- compatibility:end -->
+
 ## インストールと有効化
 
 - このプラグインは Turboism に同梱され、既定で有効です。

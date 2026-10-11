@@ -42,6 +42,13 @@ Cubism のバックアップ成果物を、ユーザーが設定した WebDAV �
 - **インターフェースモード:** `swing`。
 - **プラグインの依存関係:** 宣言されていません。
 
+<!-- compatibility:begin -->
+**Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
+- EditorAutoBackupService#artifacts() のみ 5.2.03–5.3.04
+- EditorAutoBackupService#backupAfterSave() 対象外 5.0.00–5.0.06
+完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
+<!-- compatibility:end -->
+
 ## インストールと有効化
 
 この公式プラグインは**ストア候補**であり、まだストアリスティングとして公開されていません。マーケットプレイス公開までは Turboism の公式リリースパッケージからインストールし、**プラグイン管理**で有効にしてください。ワークフローが不要な場合は、同じウィンドウから無効化またはアンインストールできます。
