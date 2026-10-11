@@ -72,7 +72,10 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
         /** Returns this role's independently verified exact-version class name. */
         public String owner(HostArtifactDigest editor) {
             if (!supportedEditor(editor)) throw new IllegalArgumentException("unreviewed uniform lifecycle Editor");
-            return this == ERROR && ReviewedHostArtifacts.CUBISM_5_2_03.equals(editor)
+            return this == ERROR
+                            && ReviewedHostArtifacts.cubismVersionOf(editor)
+                                    .map(UniformLocationLifecycleTransformer::isCubism52)
+                                    .orElse(false)
                     ? "com/live2d/graphics3d/shader/y"
                     : owner;
         }
@@ -85,9 +88,7 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
             if (!supportedEditorVersion(editorVersion)) {
                 throw new IllegalArgumentException("unreviewed uniform lifecycle Editor");
             }
-            return this == ERROR && ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(editorVersion)
-                    ? "com/live2d/graphics3d/shader/y"
-                    : owner;
+            return this == ERROR && isCubism52(editorVersion) ? "com/live2d/graphics3d/shader/y" : owner;
         }
         /** Returns the fixed target method descriptors. */
         public Map<String, String> methods() {
@@ -160,12 +161,22 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
 
     /** Returns whether a declared Editor version has a reviewed lifecycle mapping. */
     public static boolean supportedEditorVersion(String editorVersion) {
-        return ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(editorVersion)
+        return ReviewedHostArtifacts.CUBISM_5_2_00_VERSION.equals(editorVersion)
+                || ReviewedHostArtifacts.CUBISM_5_2_01_VERSION.equals(editorVersion)
+                || ReviewedHostArtifacts.CUBISM_5_2_02_VERSION.equals(editorVersion)
+                || ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(editorVersion)
                 || ReviewedHostArtifacts.CUBISM_5_3_00_VERSION.equals(editorVersion)
                 || ReviewedHostArtifacts.CUBISM_5_3_01_VERSION.equals(editorVersion)
                 || ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(editorVersion)
                 || ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(editorVersion)
                 || ReviewedHostArtifacts.CUBISM_5_3_04_VERSION.equals(editorVersion);
+    }
+
+    private static boolean isCubism52(String editorVersion) {
+        return ReviewedHostArtifacts.CUBISM_5_2_00_VERSION.equals(editorVersion)
+                || ReviewedHostArtifacts.CUBISM_5_2_01_VERSION.equals(editorVersion)
+                || ReviewedHostArtifacts.CUBISM_5_2_02_VERSION.equals(editorVersion)
+                || ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(editorVersion);
     }
 
     /**
