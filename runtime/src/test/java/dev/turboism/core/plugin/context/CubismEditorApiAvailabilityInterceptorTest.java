@@ -174,6 +174,39 @@ class CubismEditorApiAvailabilityInterceptorTest {
     }
 
     @Test
+    void bareDeclarationImposesNoFloorWithoutVerifiedHostAndCannotEraseParentRestriction() {
+        final AtomicInteger bareCalls = new AtomicInteger();
+        final BareCarrier bare = proxy((BareCarrier) bareCalls::incrementAndGet, BareCarrier.class, Optional.empty());
+        assertDoesNotThrow(bare::unconstrained);
+        assertEquals(1, bareCalls.get());
+        assertThrows(CubismEditorApiUnavailableException.class, bare::restrictedDescendant);
+        assertEquals(1, bareCalls.get());
+
+        final AtomicInteger childCalls = new AtomicInteger();
+        final BareChildOfRestricted parentRestricted = proxy(
+                (BareChildOfRestricted) childCalls::incrementAndGet, BareChildOfRestricted.class, Optional.empty());
+        assertThrows(CubismEditorApiUnavailableException.class, parentRestricted::call);
+        assertEquals(0, childCalls.get());
+    }
+
+    @CubismEditor
+    interface BareCarrier {
+        void unconstrained();
+
+        @CubismEditor(from = "5.0.00")
+        default void restrictedDescendant() {
+            unconstrained();
+        }
+    }
+
+    @CubismEditor
+    interface BareChildOfRestricted extends OpenParent {
+        @CubismEditor
+        @Override
+        void call();
+    }
+
+    @Test
     void cubismHistoryFacadeAndReturnedApiAreAvailableOnReviewed5203Host() {
         final AtomicInteger calls = new AtomicInteger();
         final dev.turboism.sdk.cubism.CubismFacade delegate = new dev.turboism.sdk.cubism.CubismFacade() {
