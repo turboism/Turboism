@@ -65,6 +65,25 @@ public record WarpAltMirrorHostProfile(
         String inputIngressDescriptor) {
 
     /**
+     * Reviewed 5.0.x/5.1.x generations sharing the 5.2.03 obfuscation generation: every
+     * profile selector resolves to the same member names, including the
+     * {@code L()V} strip mount pass — bytecode-identical to the 5.2.x mount on
+     * every reviewed 5.0/5.1 jar.
+     */
+    private static final Set<String> REVIEWED_50_51_VERSIONS = Set.of(
+            ReviewedHostArtifacts.CUBISM_5_0_00_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_0_01_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_0_02_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_0_03_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_0_04_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_0_05_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_0_06_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_1_00_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_1_01_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_1_02_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_1_03_VERSION);
+
+    /**
      * Reviewed 5.2.x generations sharing the 5.2.03 obfuscation generation: every
      * profile selector resolves to the same member names, including the
      * {@code L()V} strip mount pass.
@@ -99,7 +118,7 @@ public record WarpAltMirrorHostProfile(
      * artifact — the version alone is never proof.
      */
     public static Optional<WarpAltMirrorHostProfile> forReviewedVersion(final String version) {
-        if (REVIEWED_52_VERSIONS.contains(version)) {
+        if (REVIEWED_50_51_VERSIONS.contains(version) || REVIEWED_52_VERSIONS.contains(version)) {
             return Optional.of(reviewed5203());
         }
         if (REVIEWED_53_VERSIONS.contains(version)) {
