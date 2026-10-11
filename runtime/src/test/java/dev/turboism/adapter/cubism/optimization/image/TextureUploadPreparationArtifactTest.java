@@ -23,11 +23,33 @@ import org.objectweb.asm.Opcodes;
 class TextureUploadPreparationArtifactTest {
     @Test
     void exactFactoryTransformsAndOtherOverloadRemainsUnchanged() throws Exception {
-        String configured = System.getProperty("turboism.test.cubism5302Jar", "");
-        assumeTrue(!configured.isBlank(), "exact local artifact not configured");
+        exercise(ReviewedHostArtifacts.CUBISM_5_3_02, "5.3.02", TextureUploadPreparationTransformer.TARGET);
+    }
+
+    @Test
+    void exact5203FactoryOnShaderYTransformsWithoutChangingTheJar() throws Exception {
+        exercise(ReviewedHostArtifacts.CUBISM_5_2_03, "5.2.03", TextureUploadPreparationTransformer.TARGET_52);
+    }
+
+    @Test
+    void exact5303FactoryTransformsWithoutChangingTheJar() throws Exception {
+        exercise(ReviewedHostArtifacts.CUBISM_5_3_03, "5.3.03", TextureUploadPreparationTransformer.TARGET);
+    }
+
+    private static void exercise(final HostArtifactDigest expected, final String version, final String owner)
+            throws Exception {
+        String configured = System.getProperty("turboism.test.cubism" + version.replace(".", "") + "Jar", "");
+        if (configured.isBlank()) {
+            final String ref = System.getProperty(
+                    "turboism.test.cubismRefDir", System.getenv().getOrDefault("TURBOISM_CUBISM_REF", ""));
+            assumeTrue(!ref.isBlank(), "exact " + version + " artifact not configured");
+            configured =
+                    Path.of(ref).resolve(version).resolve("Live2D_Cubism.jar").toString();
+        }
         Path artifact = Path.of(configured);
         assertTrue(Files.isRegularFile(artifact));
-        assertEquals(ReviewedHostArtifacts.CUBISM_5_3_02, HostArtifactDigest.from(artifact));
+        assertEquals(expected, HostArtifactDigest.from(artifact));
+        assertEquals(owner, TextureUploadPreparationTransformer.ownerForVersion(version));
         URL[] urls;
         try (var files = Files.walk(artifact.getParent())) {
             urls = files.filter(path -> path.toString().endsWith(".jar"))
@@ -40,26 +62,22 @@ class TextureUploadPreparationArtifactTest {
                     })
                     .toArray(URL[]::new);
         }
-        try (var loader = new URLClassLoader(urls, getClass().getClassLoader());
+        try (var loader = new URLClassLoader(urls, TextureUploadPreparationArtifactTest.class.getClassLoader());
                 var jar = new JarFile(artifact.toFile())) {
             byte[] bytes;
-            try (var input =
-                    jar.getInputStream(jar.getJarEntry(TextureUploadPreparationTransformer.TARGET + ".class"))) {
+            try (var input = jar.getInputStream(jar.getJarEntry(owner + ".class"))) {
                 bytes = input.readAllBytes();
             }
-            var transformer = new TextureUploadPreparationTransformer(loader, artifact, bytes);
+            var transformer = new TextureUploadPreparationTransformer(loader, artifact, bytes, owner);
             var domain = new ProtectionDomain(
                     new CodeSource(artifact.toUri().toURL(), (java.security.cert.Certificate[]) null), null);
-            byte[] transformed = transformer.transform(
-                    null, loader, TextureUploadPreparationTransformer.TARGET, null, domain, bytes);
+            byte[] transformed = transformer.transform(null, loader, owner, null, domain, bytes);
             assertNotNull(transformed, transformer.failure());
             assertEquals(1, transformer.matches());
             String other = "(Lcom/live2d/graphics3d/a;Lcom/live2d/graphics/CWritableImage;ZZLjava/lang/String;)I";
-            var otherShape = ReviewedMethodShape.read(bytes, TextureUploadPreparationTransformer.TARGET, "a", other);
+            var otherShape = ReviewedMethodShape.read(bytes, owner, "a", other);
             assertNotNull(otherShape, "the unmodified overload must exist in the reviewed artifact");
-            assertEquals(
-                    otherShape,
-                    ReviewedMethodShape.read(transformed, TextureUploadPreparationTransformer.TARGET, "a", other));
+            assertEquals(otherShape, ReviewedMethodShape.read(transformed, owner, "a", other));
             ClassWriter changed = new ClassWriter(0);
             new ClassReader(bytes)
                     .accept(
@@ -81,10 +99,9 @@ class TextureUploadPreparationArtifactTest {
                                 }
                             },
                             0);
-            assertNull(transformer.transform(
-                    null, loader, TextureUploadPreparationTransformer.TARGET, null, domain, changed.toByteArray()));
+            assertNull(transformer.transform(null, loader, owner, null, domain, changed.toByteArray()));
             assertNotNull(transformer.failure());
         }
-        assertEquals(ReviewedHostArtifacts.CUBISM_5_3_02, HostArtifactDigest.from(artifact));
+        assertEquals(expected, HostArtifactDigest.from(artifact));
     }
 }

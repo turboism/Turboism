@@ -1,5 +1,29 @@
 {
+  "5.2.00": {
+    "com/live2d/graphics3d/editableMesh/triangulation/l": "1fbcf0dc4cac94a02a943e1032c8e1b350aac9b357ac2590541ba5dd03e3cf47"
+  },
+  "5.2.01": {
+    "com/live2d/graphics3d/editableMesh/triangulation/l": "1fbcf0dc4cac94a02a943e1032c8e1b350aac9b357ac2590541ba5dd03e3cf47"
+  },
+  "5.2.02": {
+    "com/live2d/graphics3d/editableMesh/triangulation/l": "1fbcf0dc4cac94a02a943e1032c8e1b350aac9b357ac2590541ba5dd03e3cf47"
+  },
+  "5.2.03": {
+    "com/live2d/graphics3d/editableMesh/triangulation/l": "1fbcf0dc4cac94a02a943e1032c8e1b350aac9b357ac2590541ba5dd03e3cf47"
+  },
+  "5.3.00": {
+    "com/live2d/graphics3d/editableMesh/triangulation/l": "6f06427c59d3907fe0d4ec80c72a318410d2e5169e18a8263ddfaa526813bd90"
+  },
+  "5.3.01": {
+    "com/live2d/graphics3d/editableMesh/triangulation/l": "6f06427c59d3907fe0d4ec80c72a318410d2e5169e18a8263ddfaa526813bd90"
+  },
+  "5.3.02": {
+    "com/live2d/graphics3d/editableMesh/triangulation/l": "6f06427c59d3907fe0d4ec80c72a318410d2e5169e18a8263ddfaa526813bd90"
+  },
   "5.3.03": {
+    "com/live2d/graphics3d/editableMesh/triangulation/l": "6f06427c59d3907fe0d4ec80c72a318410d2e5169e18a8263ddfaa526813bd90"
+  },
+  "5.3.04": {
     "com/live2d/graphics3d/editableMesh/triangulation/l": "6f06427c59d3907fe0d4ec80c72a318410d2e5169e18a8263ddfaa526813bd90"
   }
 }

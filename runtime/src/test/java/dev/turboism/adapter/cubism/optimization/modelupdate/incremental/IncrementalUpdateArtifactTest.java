@@ -32,10 +32,45 @@ import org.objectweb.asm.Opcodes;
 class IncrementalUpdateArtifactTest {
 
     @Test
+    void cubism5200EntryAndDependenciesAreAdmitted() throws Exception {
+        exercise(
+                IncrementalUpdateTarget.of(ReviewedHostArtifacts.CUBISM_5_2_00).orElseThrow(),
+                "turboism.test.cubism5200Jar");
+    }
+
+    @Test
+    void cubism5201EntryAndDependenciesAreAdmitted() throws Exception {
+        exercise(
+                IncrementalUpdateTarget.of(ReviewedHostArtifacts.CUBISM_5_2_01).orElseThrow(),
+                "turboism.test.cubism5201Jar");
+    }
+
+    @Test
+    void cubism5202EntryAndDependenciesAreAdmitted() throws Exception {
+        exercise(
+                IncrementalUpdateTarget.of(ReviewedHostArtifacts.CUBISM_5_2_02).orElseThrow(),
+                "turboism.test.cubism5202Jar");
+    }
+
+    @Test
     void cubism5203EntryAndDependenciesAreAdmitted() throws Exception {
         exercise(
                 IncrementalUpdateTarget.of(ReviewedHostArtifacts.CUBISM_5_2_03).orElseThrow(),
                 "turboism.test.cubism5203Jar");
+    }
+
+    @Test
+    void cubism5300EntryAndDependenciesAreAdmitted() throws Exception {
+        exercise(
+                IncrementalUpdateTarget.of(ReviewedHostArtifacts.CUBISM_5_3_00).orElseThrow(),
+                "turboism.test.cubism5300Jar");
+    }
+
+    @Test
+    void cubism5301EntryAndDependenciesAreAdmitted() throws Exception {
+        exercise(
+                IncrementalUpdateTarget.of(ReviewedHostArtifacts.CUBISM_5_3_01).orElseThrow(),
+                "turboism.test.cubism5301Jar");
     }
 
     @Test
@@ -52,9 +87,24 @@ class IncrementalUpdateArtifactTest {
                 "turboism.test.cubism5303Jar");
     }
 
+    @Test
+    void cubism5304EntryAndDependenciesAreAdmitted() throws Exception {
+        exercise(
+                IncrementalUpdateTarget.of(ReviewedHostArtifacts.CUBISM_5_3_04).orElseThrow(),
+                "turboism.test.cubism5304Jar");
+    }
+
     private static void exercise(final IncrementalUpdateTarget target, final String property) throws Exception {
-        final String configured = System.getProperty(property, "");
-        assumeTrue(!configured.isBlank(), "exact " + target.version() + " artifact not configured");
+        String configured = System.getProperty(property, "");
+        if (configured.isBlank()) {
+            final String ref = System.getProperty(
+                    "turboism.test.cubismRefDir", System.getenv().getOrDefault("TURBOISM_CUBISM_REF", ""));
+            assumeTrue(!ref.isBlank(), "exact " + target.version() + " artifact not configured");
+            configured = Path.of(ref)
+                    .resolve(target.version())
+                    .resolve("Live2D_Cubism.jar")
+                    .toString();
+        }
         final Path artifact = Path.of(configured);
         assertEquals(target.digest(), HostArtifactDigest.from(artifact), "artifact identity");
         final URL[] urls;
