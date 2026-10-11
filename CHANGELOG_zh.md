@@ -63,6 +63,16 @@ Turboism 的所有重要变更都记录在本文件中。
   `ActionRegistry.Action.defaultShortcut()` 与新的
   `Action.of(id, label, shortcut, handler)` 重载允许插件声明可被用户改绑的默认快捷键。核心 shell 为其窗口动作声明了默认键（设置 Ctrl+Alt+S、插件 Ctrl+Alt+P、日志 Ctrl+Alt+L、快捷键窗口 Ctrl+Shift+K），第一方的网格检查、历史面板与演示动作也带默认键作为 SDK 示例。双击某行的快捷键单元格可直接打开按键捕获对话框。
 
+- 每个第一方插件 JAR 现在都携带派生的 `META-INF/turboism/cubism-versions.json`，声明该插件
+  支持的 Cubism Editor 版本；该文件由兼容矩阵生成器依据审查数据与
+  `compatibility/cubism/compatibility-matrix.json` 一并生成，声明不会与代码实际用法漂移。
+  第三方插件可自行打包同名文件；未打包且声明 `requiresCubism` 的插件照旧加载，并在加载时
+  记录一条“未声明”日志。`devCheck` 新增两条版本适配门禁：
+  `checkSdkCubismEditorAnnotations` 要求 `dev.turboism.sdk.cubism` 下新增公共 API 必须带
+  `@CubismEditor`（存量面冻结于 `sdk/api-contracts/cubism-annotation-baseline.json`）；
+  `checkVersionSetRegistry` 要求生产源码中每个字面量 Cubism 版本集合都在
+  `scripts/version-set-registry.json` 中登记依据与理由。
+
 ### 移除
 
 - 彻底移除托管 fx 运行时：不再捆绑或下载任何 agent 二进制，移除运行时清单/哈希钉死、

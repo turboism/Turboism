@@ -89,6 +89,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   first-party mesh-inspect, history-toggle and demo actions ship declared defaults as SDK
   examples. Double-clicking a row's shortcut cell opens the capture dialog directly.
 
+- Every first-party plugin JAR now ships a derived `META-INF/turboism/cubism-versions.json`
+  declaring the Cubism Editor versions the plugin supports; the compatibility-matrix generator
+  writes it from review data alongside `compatibility/cubism/compatibility-matrix.json`, so the
+  declaration can never drift from what the code actually uses. Third-party plugins may ship the
+  same sidecar; a `requiresCubism` plugin without one loads exactly as before and is logged once
+  as "undeclared". Two new `devCheck` gates enforce the version-adaptation policy:
+  `checkSdkCubismEditorAnnotations` requires `@CubismEditor` on new public
+  `dev.turboism.sdk.cubism` API (the legacy surface is frozen in
+  `sdk/api-contracts/cubism-annotation-baseline.json`), and `checkVersionSetRegistry` requires
+  every literal Cubism version set in production sources to be registered with a basis and reason
+  in `scripts/version-set-registry.json`.
+
 ### Removed
 
 - Removed the managed fx runtime entirely: no bundled or downloaded agent binaries, no runtime

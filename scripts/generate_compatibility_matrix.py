@@ -41,6 +41,10 @@ Outputs (all deterministic — no timestamps — so ``--check`` byte-compares):
   admission pins, and the monotonicity note.
 - A ``<!-- compatibility:begin --> ... <!-- compatibility:end -->`` block in
   every ``plugins/*/README*.md`` compatibility section.
+- ``plugins/*/src/main/resources/META-INF/turboism/cubism-versions.json`` —
+  the same derived supported-version set packaged inside each first-party
+  plugin JAR as the machine-readable declaration third-party plugins may
+  ship by hand.
 
 The only hand-maintained tables here are *name* mappings (plugin capability
 ids -> verification capability ids, campaign task names -> plugins/groups,
@@ -2638,6 +2642,21 @@ def render_all(root: Path) -> dict[str, str]:
         )
     for plugin in matrix["plugins"]:
         module = root / "plugins" / plugin["directory"]
+        outputs[
+            str(
+                module.relative_to(root)
+                / "src/main/resources/META-INF/turboism/cubism-versions.json"
+            )
+        ] = json.dumps(
+            {
+                "format": "turboism.plugin-cubism-versions/v1",
+                "plugin": plugin["id"],
+                "supportedVersions": plugin["supportedVersions"],
+                "fullFeatureVersions": plugin["fullFeatureVersions"],
+            },
+            ensure_ascii=False,
+            indent=1,
+        ) + "\n"
         for readme_name in README_HEADINGS:
             path = module / readme_name
             if not path.is_file():
