@@ -50,7 +50,7 @@ Legend: ✓ every capability in the group admitted · ◐ partially admitted · 
 
 - `cubism.editor-model.animation-eval`: no verified record 5.0.00–5.1.03
 - `cubism.editor-model.animation-timeline.write`: no verified record 5.0.00–5.1.03
-- `cubism.editor-model.auto-yure.read`: no verified record 5.0.00–5.0.06
+- `cubism.editor-model.auto-yure.read` (Auto sway (yure) read): no verified record 5.0.00–5.0.06
 - `cubism.autobackup.backup` (Auto-backup creation): no verified record 5.0.00–5.0.06
 - `cubism.autobackup.settings`: no verified record 5.0.00–5.0.06
 - `cubism.editor-ui.embedded-panel` (Embedded panel docking): no verified record 5.0.00–5.0.06
@@ -80,8 +80,8 @@ Legend: ✓ every capability in the group admitted · ◐ partially admitted · 
 - `cubism.editor-model.edit.parameter-structure.edit-parameter-group`: no verified record 5.0.00–5.1.01
 - `cubism.editor-model.edit.parameter-structure.move-parameter`: no verified record 5.0.00–5.1.03
 - `cubism.editor-model.edit.parameter-structure.move-parameter-group`: no verified record 5.0.00–5.1.01
-- `cubism.editor-model.part-inspector.write`: no verified record 5.0.00–5.2.03
-- `cubism.editor-model.part-opacity.write`: no verified record 5.0.00–5.2.03
+- `cubism.editor-model.part-inspector.write` (Part inspector writes): no verified record 5.0.00–5.2.03
+- `cubism.editor-model.part-opacity.write` (Part opacity writes): no verified record 5.0.00–5.2.03
 - `cubism.protected-export.orchestration` (Protected-export orchestration): no verified record 5.0.00–5.0.06
 - `cubism.editor-model.psd.raw-image.export`: no verified record 5.0.00–5.1.03
 - `cubism.editor-model.psd.raw-image.replace` (PSD raw-image replace): no verified record 5.0.00–5.1.03
@@ -192,52 +192,121 @@ Only surfaces whose `@CubismEditor` resolves to a strict subset of the reviewed 
 
 Only commands whose admitted set differs from the full reviewed set are listed. The runtime gate is `EditorCommand#supports`.
 
-| Command | Enum | Versions | Nature |
+| Command | Enum | Versions | Nature | Official introduction |
+|---|---|---|---|---|
+| `ADJUST_BOUNDING_BOX_ANGLE` | EditorCommand | 5.2.03–5.3.04 | boundary | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `DELETE_DEFORMER_ORIGINAL_SHAPE` | EditorCommand | 5.2.00–5.3.04 | boundary | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `ENABLE_PLAYBACK_CACHE` | EditorCommand | 5.2.00–5.3.04 | boundary | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `EXPAND_WARPDEFORMER` | EditorCommand | 5.3.00–5.3.04 | boundary | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `HIDE_OR_RESTORE_PALETTE` | EditorCommand | 5.0.03–5.3.04 | boundary | [5.0.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/) |
+| `MESH_EDIT_RESET` | EditorCommand | 5.3.02–5.3.04 | boundary | [5.3.02](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `MOVE_END` | EditorCommand | — | boundary | — |
+| `MOVE_END_WORKSPACE` | EditorCommand | — | boundary | — |
+| `OPEN_FAQ_PAGE` | EditorCommand | 5.0.00–5.2.03 | boundary | — |
+| `PARAM_CONTROLLER_CONVERT_TO_LINE_PARAM_CTRL` | EditorCommand | 5.2.00–5.3.04 | boundary | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `PARAM_CONTROLLER_LINE_PARAM_CTRL_REVERSE_DIRECTION` | EditorCommand | 5.2.00–5.3.04 | boundary | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `PARAM_CONTROLLER_PREVIEW_BAKE` | EditorCommand | 5.2.00–5.3.04 | boundary | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `PARAM_CONTROLLER_SPLIT_LINE_PARAM_CTRL` | EditorCommand | 5.2.00–5.3.04 | boundary | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `PART_PALETTE_CMD_CHANGE_VISIBLE_GUIDE_IMAGE` | EditorCommand | 5.2.00–5.3.04 | boundary | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `SELECT_CHILD_ELEMENTS_OF_DEFORMER` | EditorCommand | 5.2.03–5.3.04 | boundary | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `SELECT_OBJECT_BY_CURRENT_KEY_VALUE` | EditorCommand | 5.2.00–5.3.04 | boundary | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `SETTING_GUIDES_MODELING_ADD_CENTER` | EditorCommand | 5.3.00–5.3.04 | boundary | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `SHOW_ARTMESH_POINT` | EditorCommand | 5.1.00–5.3.04 | boundary | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
+| `SHOW_DEFAULT_ZOOM` | EditorCommand | 5.3.00–5.3.04 | boundary | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `SHOW_FULL_SCENE` | EditorCommand | 5.3.00–5.3.04 | boundary | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `SHOW_HOME_DIALOG` | EditorCommand | 5.1.00–5.3.04 | boundary | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
+| `SHOW_PARAM_CONTROLLER_TARGET_TRACKING` | EditorCommand | 5.2.00–5.3.04 | boundary | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `SHOW_PARAM_CTRL_MARKER` | EditorCommand | 5.2.00–5.3.04 | boundary | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `SHOW_POPUP_HOVERING_OBJECT` | EditorCommand | 5.2.03–5.3.04 | boundary | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `SWITCH_HIGHTLIGHT_CONFLICT_POLYGON` | EditorCommand | 5.3.00–5.3.04 | boundary | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `SWITCH_LOOP_EDITING_SUPPORT` | EditorCommand | 5.2.00–5.3.04 | boundary | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `SYNC_PARAMETERS_ACROSS_TABS` | EditorCommand | 5.0.05–5.3.04 | boundary | [5.0.05](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/) |
+| `UPDATE_DEFORMER_ORIGINAL_SHAPE` | EditorCommand | 5.2.00–5.3.04 | boundary | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `AUTO_CREATE_DEFORMERS` | EditorParameterizedCommand | 5.1.00–5.3.04 | boundary | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
+| `CHANGE_ALL_MESH_DRAW_ORDER` | EditorParameterizedCommand | 5.2.03–5.3.04 | boundary | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `CHANGE_MESH_DRAW_ORDER` | EditorParameterizedCommand | 5.2.03–5.3.04 | boundary | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `CREATE_YURE` | EditorParameterizedCommand | 5.1.00–5.3.04 | boundary | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
+| `DISPLAY_MULTI_PASTE_SHAPE_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 | boundary | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `EXTERNAL_APP_SETTING` | EditorParameterizedCommand | 5.1.00–5.3.04 | boundary | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
+| `FADE_SETTING` | EditorParameterizedCommand | 5.3.00–5.3.04 | boundary | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `OPEN_PARAMETER_GROUP_SETTING` | EditorParameterizedCommand | 5.1.02–5.3.04 | boundary | [5.1.02](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
+| `PARAM_CONTROLLER_DISPLAY_SETTING_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 | boundary | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `PARAM_CTRL_CALC_ORDER_SETTING_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 | boundary | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `REFLECT_FADE` | EditorParameterizedCommand | 5.3.00–5.3.04 | boundary | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `SHOW_LABEL_COPY_DIALOG` | EditorParameterizedCommand | 5.3.00–5.3.04 | boundary | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `SHOW_ROTATE3D_SETTING_DIALOG` | EditorParameterizedCommand | 5.1.00–5.3.04 | boundary | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
+| `SHOW_SHOW_LABEL_COPY_DIALOG` | EditorParameterizedCommand | 5.0.00–5.2.03 | boundary | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `IMPORT_SCENE_FROM_ANIMATION` | EditorFileCommand | 5.0.03–5.3.04 | boundary | [5.0.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/) |
+| `EXPORT_AS_TEMPLATE` | EditorFileCommand | 5.1.00–5.3.04 | boundary | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
+
+## Confirmed version boundaries
+
+Proven host boundaries where Cubism Editor itself lacks the feature, verified against official update history and reviewed bytecode.
+
+| Surface / ID | Absent versions | Official introduction | Reason |
 |---|---|---|---|
-| `ADJUST_BOUNDING_BOX_ANGLE` | EditorCommand | 5.2.03–5.3.04 | boundary |
-| `DELETE_DEFORMER_ORIGINAL_SHAPE` | EditorCommand | 5.2.00–5.3.04 | unconfirmed |
-| `ENABLE_PLAYBACK_CACHE` | EditorCommand | 5.2.00–5.3.04 | unconfirmed |
-| `EXPAND_WARPDEFORMER` | EditorCommand | 5.3.00–5.3.04 | boundary |
-| `HIDE_OR_RESTORE_PALETTE` | EditorCommand | 5.0.03–5.3.04 | unconfirmed |
-| `MESH_EDIT_RESET` | EditorCommand | 5.3.02–5.3.04 | boundary |
-| `MOVE_END` | EditorCommand | — | boundary |
-| `MOVE_END_WORKSPACE` | EditorCommand | — | boundary |
-| `OPEN_FAQ_PAGE` | EditorCommand | 5.0.00–5.2.03 | boundary |
-| `PARAM_CONTROLLER_CONVERT_TO_LINE_PARAM_CTRL` | EditorCommand | 5.2.00–5.3.04 | unconfirmed |
-| `PARAM_CONTROLLER_LINE_PARAM_CTRL_REVERSE_DIRECTION` | EditorCommand | 5.2.00–5.3.04 | unconfirmed |
-| `PARAM_CONTROLLER_PREVIEW_BAKE` | EditorCommand | 5.2.00–5.3.04 | unconfirmed |
-| `PARAM_CONTROLLER_SPLIT_LINE_PARAM_CTRL` | EditorCommand | 5.2.00–5.3.04 | unconfirmed |
-| `PART_PALETTE_CMD_CHANGE_VISIBLE_GUIDE_IMAGE` | EditorCommand | 5.2.00–5.3.04 | unconfirmed |
-| `SELECT_CHILD_ELEMENTS_OF_DEFORMER` | EditorCommand | 5.2.03–5.3.04 | boundary |
-| `SELECT_OBJECT_BY_CURRENT_KEY_VALUE` | EditorCommand | 5.2.00–5.3.04 | unconfirmed |
-| `SETTING_GUIDES_MODELING_ADD_CENTER` | EditorCommand | 5.3.00–5.3.04 | boundary |
-| `SHOW_ARTMESH_POINT` | EditorCommand | 5.1.00–5.3.04 | unconfirmed |
-| `SHOW_DEFAULT_ZOOM` | EditorCommand | 5.3.00–5.3.04 | boundary |
-| `SHOW_FULL_SCENE` | EditorCommand | 5.3.00–5.3.04 | boundary |
-| `SHOW_HOME_DIALOG` | EditorCommand | 5.1.00–5.3.04 | unconfirmed |
-| `SHOW_PARAM_CONTROLLER_TARGET_TRACKING` | EditorCommand | 5.2.00–5.3.04 | unconfirmed |
-| `SHOW_PARAM_CTRL_MARKER` | EditorCommand | 5.2.00–5.3.04 | unconfirmed |
-| `SHOW_POPUP_HOVERING_OBJECT` | EditorCommand | 5.2.03–5.3.04 | boundary |
-| `SWITCH_HIGHTLIGHT_CONFLICT_POLYGON` | EditorCommand | 5.3.00–5.3.04 | boundary |
-| `SWITCH_LOOP_EDITING_SUPPORT` | EditorCommand | 5.2.00–5.3.04 | unconfirmed |
-| `SYNC_PARAMETERS_ACROSS_TABS` | EditorCommand | 5.0.05–5.3.04 | unconfirmed |
-| `UPDATE_DEFORMER_ORIGINAL_SHAPE` | EditorCommand | 5.2.00–5.3.04 | unconfirmed |
-| `AUTO_CREATE_DEFORMERS` | EditorParameterizedCommand | 5.1.00–5.3.04 | unconfirmed |
-| `CHANGE_ALL_MESH_DRAW_ORDER` | EditorParameterizedCommand | 5.2.03–5.3.04 | boundary |
-| `CHANGE_MESH_DRAW_ORDER` | EditorParameterizedCommand | 5.2.03–5.3.04 | boundary |
-| `CREATE_YURE` | EditorParameterizedCommand | 5.1.00–5.3.04 | unconfirmed |
-| `DISPLAY_MULTI_PASTE_SHAPE_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 | unconfirmed |
-| `EXTERNAL_APP_SETTING` | EditorParameterizedCommand | 5.1.00–5.3.04 | unconfirmed |
-| `FADE_SETTING` | EditorParameterizedCommand | 5.3.00–5.3.04 | boundary |
-| `OPEN_PARAMETER_GROUP_SETTING` | EditorParameterizedCommand | 5.1.02–5.3.04 | unconfirmed |
-| `PARAM_CONTROLLER_DISPLAY_SETTING_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 | unconfirmed |
-| `PARAM_CTRL_CALC_ORDER_SETTING_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 | unconfirmed |
-| `REFLECT_FADE` | EditorParameterizedCommand | 5.3.00–5.3.04 | boundary |
-| `SHOW_LABEL_COPY_DIALOG` | EditorParameterizedCommand | 5.3.00–5.3.04 | boundary |
-| `SHOW_ROTATE3D_SETTING_DIALOG` | EditorParameterizedCommand | 5.1.00–5.3.04 | unconfirmed |
-| `SHOW_SHOW_LABEL_COPY_DIALOG` | EditorParameterizedCommand | 5.0.00–5.2.03 | unconfirmed |
-| `IMPORT_SCENE_FROM_ANIMATION` | EditorFileCommand | 5.0.03–5.3.04 | unconfirmed |
-| `EXPORT_AS_TEMPLATE` | EditorFileCommand | 5.1.00–5.3.04 | unconfirmed |
+| `dev.turboism.sdk.cubism.model.AlphaComposition` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Alpha composition (blend modes) was introduced in Cubism 5.3. |
+| `dev.turboism.sdk.cubism.model.Part#maskIds` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Part mask-id access requires the 5.3 inspector schema. |
+| `dev.turboism.sdk.cubism.model.Part#alphaComposition` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Alpha composition exists only on Cubism 5.3. |
+| `dev.turboism.sdk.cubism.model.Part#setAlphaComposition` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Alpha composition exists only on Cubism 5.3. |
+| `dev.turboism.sdk.cubism.model.Part#setOpacity` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Part opacity writes through the inspector are 5.3-only. |
+| `dev.turboism.sdk.cubism.core.CoreCapabilities#parameterRepeat` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Core parameterRepeat support is 5.3-only. |
+| `cubism.editor-model.part-inspector.write` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | The extended part-inspector write schema (mask/alpha fields) exists only on 5.3. |
+| `command:ADJUST_BOUNDING_BOX_ANGLE` | 5.0.00–5.2.02 | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.03. |
+| `command:SELECT_CHILD_ELEMENTS_OF_DEFORMER` | 5.0.00–5.2.02 | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.03. |
+| `command:SHOW_POPUP_HOVERING_OBJECT` | 5.0.00–5.2.02 | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.03. |
+| `command:CHANGE_ALL_MESH_DRAW_ORDER` | 5.0.00–5.2.02 | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.03. |
+| `command:CHANGE_MESH_DRAW_ORDER` | 5.0.00–5.2.02 | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.03. |
+| `command:EXPAND_WARPDEFORMER` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Command is 5.3-only. |
+| `command:SETTING_GUIDES_MODELING_ADD_CENTER` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Command is 5.3-only. |
+| `command:SHOW_DEFAULT_ZOOM` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Command is 5.3-only. |
+| `command:SHOW_FULL_SCENE` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Command is 5.3-only. |
+| `command:SWITCH_HIGHTLIGHT_CONFLICT_POLYGON` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Command is 5.3-only. |
+| `command:FADE_SETTING` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Command is 5.3-only (renamed from the 5.2 label-copy command). |
+| `command:REFLECT_FADE` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Command is 5.3-only. |
+| `command:SHOW_LABEL_COPY_DIALOG` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | 5.3 rename of the 5.2 SHOW_SHOW_LABEL_COPY_DIALOG command. |
+| `command:MESH_EDIT_RESET` | 5.0.00–5.3.01 | [5.3.02](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Command added in Cubism 5.3.02. |
+| `command:OPEN_FAQ_PAGE` | 5.3.00–5.3.04 | — | Command was dropped in Cubism 5.3 (present through 5.2.03). |
+| `command:MOVE_END` | 5.0.00–5.3.04 | — | Dead constant: the id exists in no reviewed jar. |
+| `command:MOVE_END_WORKSPACE` | 5.0.00–5.3.04 | — | Dead constant: the id exists in no reviewed jar. |
+| `cubism.editor-model.auto-yure.read` | 5.0.00–5.0.06 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) | Auto sway (Yure) was introduced in Cubism 5.1.00. |
+| `cubism.editor-model.part-opacity.write` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Part opacity writes through the inspector were introduced in Cubism 5.3.00. |
+| `cubism.integration.external-app-settings.edit-toggle` | 5.0.00–5.0.06 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) | External application integration was introduced in Cubism 5.1.00. |
+| `cubism.integration.edit-api-bridge.dispatch` | 5.0.00–5.0.06 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) | External application integration WebSocket dispatch was introduced in Cubism 5.1.00. |
+| `dev.turboism.sdk.cubism.model.AutoYure` | 5.0.00–5.0.06 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) | Auto sway (Yure) was introduced in Cubism 5.1.00. |
+| `dev.turboism.sdk.cubism.model.AutoYureBinding` | 5.0.00–5.0.06 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) | Auto sway (Yure) was introduced in Cubism 5.1.00. |
+| `dev.turboism.sdk.cubism.model.AutoYureConfig` | 5.0.00–5.0.06 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) | Auto sway (Yure) was introduced in Cubism 5.1.00. |
+| `dev.turboism.sdk.cubism.model.YureDeformConfig` | 5.0.00–5.0.06 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) | Auto sway (Yure) was introduced in Cubism 5.1.00. |
+| `dev.turboism.sdk.cubism.CubismFacade#edit` | 5.0.00–5.0.06 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) | External application edit API was introduced in Cubism 5.1.00. |
+| `dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Alpha composition (blend modes) was introduced in Cubism 5.3.00. |
+| `dev.turboism.sdk.cubism.model.Part#setMaskIds` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Part clipping masks (offscreen drawing) were introduced in Cubism 5.3.00. |
+| `command:HIDE_OR_RESTORE_PALETTE` | 5.0.00–5.0.02 | [5.0.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/) | Command added in Cubism 5.0.03 (replacing 5.0.00–5.0.02 CMD_HIDE_PALETTE). |
+| `command:IMPORT_SCENE_FROM_ANIMATION` | 5.0.00–5.0.02 | [5.0.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/) | Command added in Cubism 5.0.03. |
+| `command:SYNC_PARAMETERS_ACROSS_TABS` | 5.0.00–5.0.04 | [5.0.05](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/) | Command added in Cubism 5.0.05 (replacing 5.0.00–5.0.04 CMD_CHANGE_SYNC_PARAMETER_TO_SAME_MODEL). |
+| `command:AUTO_CREATE_DEFORMERS` | 5.0.00–5.0.06 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) | Command added in Cubism 5.1.00 (automatic deformer generation). |
+| `command:CREATE_YURE` | 5.0.00–5.0.06 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) | Command added in Cubism 5.1.00 (Auto Sway / Yure generation). |
+| `command:EXPORT_AS_TEMPLATE` | 5.0.00–5.0.06 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) | Command added in Cubism 5.1.00 (modeling template enhancements). |
+| `command:EXTERNAL_APP_SETTING` | 5.0.00–5.0.06 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) | Command added in Cubism 5.1.00 (external application integration). |
+| `command:SHOW_ARTMESH_POINT` | 5.0.00–5.0.06 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) | Command added in Cubism 5.1.00 (show/hide mesh vertices). |
+| `command:SHOW_HOME_DIALOG` | 5.0.00–5.0.06 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) | Command added in Cubism 5.1.00 (Home dialog). |
+| `command:SHOW_ROTATE3D_SETTING_DIALOG` | 5.0.00–5.0.06 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) | Command added in Cubism 5.1.00 (3D rotation expression). |
+| `command:OPEN_PARAMETER_GROUP_SETTING` | 5.0.00–5.1.01 | [5.1.02](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) | Command added in Cubism 5.1.02. |
+| `command:DELETE_DEFORMER_ORIGINAL_SHAPE` | 5.0.00–5.1.03 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.00 (restore original shape support for deformers). |
+| `command:DISPLAY_MULTI_PASTE_SHAPE_DIALOG` | 5.0.00–5.1.03 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.00 (special paste shape dialog). |
+| `command:ENABLE_PLAYBACK_CACHE` | 5.0.00–5.1.03 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.00. |
+| `command:PARAM_CONTROLLER_CONVERT_TO_LINE_PARAM_CTRL` | 5.0.00–5.1.03 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.00 (parameter controllers in animation). |
+| `command:PARAM_CONTROLLER_DISPLAY_SETTING_DIALOG` | 5.0.00–5.1.03 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.00 (parameter controllers in animation). |
+| `command:PARAM_CONTROLLER_LINE_PARAM_CTRL_REVERSE_DIRECTION` | 5.0.00–5.1.03 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.00 (parameter controllers in animation). |
+| `command:PARAM_CONTROLLER_PREVIEW_BAKE` | 5.0.00–5.1.03 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.00 (parameter controllers in animation). |
+| `command:PARAM_CONTROLLER_SPLIT_LINE_PARAM_CTRL` | 5.0.00–5.1.03 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.00 (parameter controllers in animation). |
+| `command:PARAM_CTRL_CALC_ORDER_SETTING_DIALOG` | 5.0.00–5.1.03 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.00 (parameter controllers in animation). |
+| `command:PART_PALETTE_CMD_CHANGE_VISIBLE_GUIDE_IMAGE` | 5.0.00–5.1.03 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.00. |
+| `command:SELECT_OBJECT_BY_CURRENT_KEY_VALUE` | 5.0.00–5.1.03 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.00 (select objects associated with parameter keys). |
+| `command:SHOW_PARAM_CONTROLLER_TARGET_TRACKING` | 5.0.00–5.1.03 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.00 (parameter controllers in animation). |
+| `command:SHOW_PARAM_CTRL_MARKER` | 5.0.00–5.1.03 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.00 (parameter controllers in animation). |
+| `command:SWITCH_LOOP_EDITING_SUPPORT` | 5.0.00–5.1.03 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.00 (loop editing support). |
+| `command:UPDATE_DEFORMER_ORIGINAL_SHAPE` | 5.0.00–5.1.03 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.00 (restore original shape support for deformers). |
+| `command:SHOW_SHOW_LABEL_COPY_DIALOG` | 5.3.00–5.3.04 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | 5.0–5.2 command id renamed to SHOW_LABEL_COPY_DIALOG in Cubism 5.3.00. |
 
 ## Runtime admission pins
 
