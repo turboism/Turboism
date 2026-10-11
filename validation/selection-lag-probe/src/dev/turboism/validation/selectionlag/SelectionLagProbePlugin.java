@@ -89,7 +89,6 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
         this.context = context;
         this.logger = context.logger();
         this.stateDir = context.paths().stateDir();
-        suppressAnnouncementConfigBestEffort();
         final Thread probe = new Thread(this::runWhenFlagged, "selection-lag-host-probe");
         probe.setDaemon(true);
         probe.start();
@@ -161,7 +160,6 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
             final EdtSampler sampler = new EdtSampler(edtThreadId, thresholdMillis);
             sampler.start();
             try {
-                dismissAnnouncementStageIfPresent();
                 sampler.setPhase(Phase.BASELINE);
                 Thread.sleep(BASELINE_MILLIS);
 
@@ -261,19 +259,20 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
         int stableCount = 0;
         Rectangle latest = null;
         while (System.currentTimeMillis() < deadline) {
-            dismissAnnouncementStageIfPresent();
-            final boolean modalShowing = onHostThread(() -> {
+            final boolean readyForInput = onHostThread(() -> {
                 for (Window window : Window.getWindows()) {
                     if (window instanceof java.awt.Dialog dialog
                             && dialog.isShowing()
                             && dialog.isModal()) {
-                        return true;
+                        return false;
                     }
                 }
-                return false;
+                final Window selected =
+                    selectTargetWindow(Window.getWindows(), result.fixtureName);
+                return selected != null && selected.isEnabled();
             });
             latest = findHostWindow(result);
-            if (!modalShowing && latest != null) {
+            if (readyForInput && latest != null) {
                 if (latest.equals(previous)) {
                     stableCount++;
                     if (stableCount >= 2) {
@@ -355,147 +354,10 @@ public final class SelectionLagProbePlugin implements TurboismPlugin {
     // Robot interaction: select-and-drag path
     // ------------------------------------------------------------------
 
-    /**
-     * Cubism 5.0.x opens an announcement JavaFX Stage whose onShown callback
-     * calls {@code JFrame.setEnabled(false)} on the main editor frame, which
-     * causes Win32/Wine to drop all synthetic mouse input to the editor window.
-     * Hiding the stage on the JavaFX thread triggers its onHiding callback and
-     * restores input delivery.
-     */
-    private void suppressAnnouncementConfigBestEffort() {
-        for (final ClassLoader loader : candidateClassLoaders()) {
-            try {
-                final Class<?> configClass =
-                    Class.forName("com.live2d.util.UUConfig", true, loader);
-                final var instanceField = configClass.getDeclaredField("a");
-                instanceField.setAccessible(true);
-                final Object config = instanceField.get(null);
-                final var writeMethod =
-                    configClass.getMethod("b", String.class, Object.class);
-                writeMethod.invoke(config, "AnnouncementDialog_DoNotShowAgainToday", Boolean.TRUE);
-                writeMethod.invoke(
-                    config, "AnnouncementDialog_LastOpenedDate", Integer.valueOf(99991231));
-                return;
-            } catch (Throwable ignored) {
-                // next loader
-            }
-        }
-    }
-
-    private void dismissAnnouncementStageIfPresent() {
-        final long waitDeadline = System.currentTimeMillis() + 3_000L;
-        while (System.currentTimeMillis() < waitDeadline) {
-            Object stage = findAnnouncementStage();
-            if (stage != null) {
-                hideJavaFxStage(stage);
-                return;
-            }
-            if (!isJavaFxLauncherStarting()) {
-                return;
-            }
-            try {
-                Thread.sleep(100L);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        }
-    }
-
-    private static boolean isJavaFxLauncherStarting() {
-        for (Thread thread : Thread.getAllStackTraces().keySet()) {
-            final String name = thread.getName();
-            if (thread.isAlive()
-                    && ("JavaFX-Launcher".equals(name)
-                        || "JavaFX Application Thread".equals(name))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private Object findAnnouncementStage() {
-        for (final ClassLoader loader : candidateClassLoaders()) {
-            try {
-                final Class<?> dialogClass = Class.forName(
-                    "com.live2d.cubism.appCtrlImpl.ui.dialog.a", false, loader);
-                final var stageField = dialogClass.getDeclaredField("d");
-                stageField.setAccessible(true);
-                final Object stage = stageField.get(null);
-                if (stage != null) {
-                    return stage;
-                }
-            } catch (Throwable ignored) {
-                // not loaded on this classloader or version (5.1+ uses Swing Home dialog)
-            }
-        }
-        return null;
-    }
-
-    private void hideJavaFxStage(final Object stage) {
-        try {
-            final ClassLoader loader = stage.getClass().getClassLoader();
-            final Class<?> platformClass =
-                Class.forName("javafx.application.Platform", false, loader);
-            final var runLater = platformClass.getMethod("runLater", Runnable.class);
-            final var hideMethod = stage.getClass().getMethod("hide");
-            final CountDownLatch hidden = new CountDownLatch(1);
-            runLater.invoke(null, (Runnable) () -> {
-                try {
-                    hideMethod.invoke(stage);
-                } catch (Throwable ignored) {
-                    // best effort
-                } finally {
-                    hidden.countDown();
-                }
-            });
-            hidden.await(3_000L, TimeUnit.MILLISECONDS);
-            logger.info("SELECTION_LAG_ANNOUNCEMENT_STAGE_HIDDEN");
-        } catch (Throwable ignored) {
-            // best effort
-        }
-    }
-
-    private List<ClassLoader> candidateClassLoaders() {
-        final List<ClassLoader> loaders = new ArrayList<>();
-        try {
-            onHostThread(() -> {
-                for (Window window : Window.getWindows()) {
-                    final ClassLoader loader = window.getClass().getClassLoader();
-                    if (loader != null && !loaders.contains(loader)) {
-                        loaders.add(loader);
-                    }
-                }
-                return null;
-            });
-        } catch (Exception ignored) {
-            // fallback to thread/system loaders below
-        }
-        for (ClassLoader fallback : new ClassLoader[] {
-            Thread.currentThread().getContextClassLoader(),
-            getClass().getClassLoader(),
-            ClassLoader.getSystemClassLoader()
-        }) {
-            if (fallback != null && !loaders.contains(fallback)) {
-                loaders.add(fallback);
-            }
-        }
-        return loaders;
-    }
-
     private void activateHostWindow(final String fixtureName) throws Exception {
-        dismissAnnouncementStageIfPresent();
         onHostThread(() -> {
             final Window target = selectTargetWindow(Window.getWindows(), fixtureName);
             if (target != null) {
-                if (!target.isEnabled()) {
-                    target.setEnabled(true);
-                }
-                if (target instanceof javax.swing.JFrame frame
-                        && frame.getJMenuBar() != null
-                        && !frame.getJMenuBar().isEnabled()) {
-                    frame.getJMenuBar().setEnabled(true);
-                }
                 target.toFront();
                 target.requestFocus();
             }

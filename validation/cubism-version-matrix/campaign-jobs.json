@@ -71883,6 +71883,40 @@
     "signature": "dev.turboism.plugin.mcp.McpExecutionBridge$ExecutionFailure: MCP operation timed out before host execution"
    },
    "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "selection-lag",
+   "version": "5000",
+   "variant": "default-assisted-gl",
+   "jobId": "e4da9843-8a3e-4fd1-8324-9e375b551f01",
+   "requestKey": "announce-r1-selection-lag_5000",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-b2910ef97683439395e96318e8082477",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "selection-lag/5000-announce-r1/queue-b2910ef97683439395e96318e8082477/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "theme",
+   "version": "5000",
+   "variant": "assisted",
+   "jobId": "05042173-618f-433a-96e1-7605b788c1c0",
+   "requestKey": "announce-r1-theme_5000",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-df516cbc514b43a0b74c4fba9f0e2f98",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "theme/5000-announce-r1/queue-df516cbc514b43a0b74c4fba9f0e2f98/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
   }
  ]
 }
