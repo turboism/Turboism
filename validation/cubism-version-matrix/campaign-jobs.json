@@ -70639,6 +70639,252 @@
     "signature": null
    },
    "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-export-observation",
+   "version": "5203",
+   "variant": "assisted",
+   "jobId": "04d1c154-d646-44f1-9f96-a2cafc7f0545",
+   "requestKey": "gapsmall-r1-psdobs-5203",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-6872ff5d0eef428fbb0b28e64ff55e08",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "psd-export-observation/5203-gapsmall-r1/queue-6872ff5d0eef428fbb0b28e64ff55e08/evidence"
+   },
+   "triage": {
+    "category": "UNKNOWN",
+    "ruleId": null,
+    "signature": null
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "mcp",
+   "version": "5200",
+   "variant": "standard",
+   "jobId": "d16117a7-dee5-4798-ab43-6d87add91c39",
+   "requestKey": "gapsmall-r1-mcp-5200",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-74e6d4cdf08d4c5bb91203f70c7d2064",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "mcp/5200-gapsmall-r1/queue-74e6d4cdf08d4c5bb91203f70c7d2064/evidence"
+   },
+   "triage": {
+    "category": "INFRA_RETRYABLE",
+    "ruleId": "infra-host-execution-timeout",
+    "signature": "dev.turboism.plugin.mcp.McpExecutionBridge$ExecutionFailure: MCP operation timed out before host execution"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-export-observation",
+   "version": "5200",
+   "variant": "assisted",
+   "jobId": "e9c53cae-0f02-4dc1-9777-027970cb256b",
+   "requestKey": "gapsmall-r1-psdexport-5200",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-abb0018c6e104ed8bb77d698454dd5e0",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "psd-export-observation/5200-gapsmall-r1/queue-abb0018c6e104ed8bb77d698454dd5e0/evidence"
+   },
+   "triage": {
+    "category": "UNKNOWN",
+    "ruleId": null,
+    "signature": null
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "backup",
+   "version": "5200",
+   "variant": "default-assisted",
+   "jobId": "5f3af1ea-a0c8-4821-a6db-847e22f13584",
+   "requestKey": "gapsmall-r1-backup-5200",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-07e537b4790d4994a0e143122c2db658",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "backup/5200-gapsmall-r1/queue-07e537b4790d4994a0e143122c2db658/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "atlas",
+   "version": "5203",
+   "variant": "geometry-100-new-assisted-gl",
+   "jobId": "d342946e-fefb-4cdc-9bbc-9adce242101b",
+   "requestKey": "gapsmall-r1-atlas-5203",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-76673e299cbe44f59301c27194730e0e",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "atlas/5203-gapsmall-r1-geometry-100-new-parallel-false/queue-76673e299cbe44f59301c27194730e0e/evidence"
+   },
+   "triage": {
+    "category": "NO_EVIDENCE",
+    "ruleId": "no-evidence",
+    "signature": null
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "edit",
+   "version": "5304",
+   "variant": "assisted",
+   "jobId": "364a3a46-7f19-4074-8986-8c89ab559b7f",
+   "requestKey": "gapsmall-r1-edit-5304",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-982ee7ab213f45f493216301d99ddcca",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "edit/5304-gapsmall-r1-matrix/queue-982ee7ab213f45f493216301d99ddcca/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "mcp",
+   "version": "5304",
+   "variant": "standard",
+   "jobId": "c4af2aae-99a7-4c19-b2a9-c4471856eae1",
+   "requestKey": "gapsmall-r1-mcp-5304",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-0ef1c8cf465240cabe3b1839569c807a",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "mcp/5304-gapsmall-r1/queue-0ef1c8cf465240cabe3b1839569c807a/evidence"
+   },
+   "triage": {
+    "category": "INFRA_RETRYABLE",
+    "ruleId": "infra-host-execution-timeout",
+    "signature": "dev.turboism.plugin.mcp.McpExecutionBridge$ExecutionFailure: MCP operation timed out before host execution"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-export-observation",
+   "version": "5203",
+   "variant": "saved-only-assisted",
+   "jobId": "487dc3f6-716b-4a21-b9de-e13b21a812a4",
+   "requestKey": "gapsmall-r1-psdobs-5203-r2",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-54d6b721453e4dc7b3fb00b6e510f9db",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "psd-export-observation/5203-gapsmall-r1/queue-54d6b721453e4dc7b3fb00b6e510f9db/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "psd-export-observation",
+   "version": "5304",
+   "variant": "saved-only-assisted",
+   "jobId": "b9fb74fb-5b3a-4187-a7ec-a1f726927709",
+   "requestKey": "gapsmall-r1-psdobs-5304",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-772fc5a492c24a7fbe901a9c78fdf377",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "psd-export-observation/5304-gapsmall-r1/queue-772fc5a492c24a7fbe901a9c78fdf377/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "protected-export",
+   "version": "5304",
+   "variant": "dialog-assisted",
+   "jobId": "2a17799a-0eca-4788-a0d9-d22f6940cd89",
+   "requestKey": "gapsmall-r1-pex-5304",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-b99b81fbba01464ba14d873bdce15d3d",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "protected-export/5304-gapsmall-r1/queue-b99b81fbba01464ba14d873bdce15d3d/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "backup",
+   "version": "5200",
+   "variant": "default-assisted",
+   "jobId": "8d89deda-7de7-4373-b5da-19f9bbe0cee9",
+   "requestKey": "gapsmall-r1-backup5200",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-c090497ec78c45cfb7c0fa8cac6c467a",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "backup/5200-gapsmall-r1/queue-c090497ec78c45cfb7c0fa8cac6c467a/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "edit",
+   "version": "5304",
+   "variant": "assisted",
+   "jobId": "c30f5311-85e4-43e7-a44d-4b2cf6749b29",
+   "requestKey": "gapsmall-r1-edit5304",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-acfde4f89cd04155a1c184af14b726ff",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "edit/5304-gapsmall-r1-matrix/queue-acfde4f89cd04155a1c184af14b726ff/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "edit",
+   "version": "5203",
+   "variant": "assisted",
+   "jobId": "56b6e1d5-7c3a-4015-a14b-5b7ed221e115",
+   "requestKey": "gapsmall-r1-edit5203",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-a5bca7bfeefb4060acd0f621fe3921d4",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "edit/5203-gapsmall-r1-matrix/queue-a5bca7bfeefb4060acd0f621fe3921d4/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
   }
  ]
 }
