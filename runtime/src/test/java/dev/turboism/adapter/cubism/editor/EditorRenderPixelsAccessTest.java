@@ -56,6 +56,21 @@ class EditorRenderPixelsAccessTest {
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> access("5.5.00").renderPixels("model", fixture.source, fixture.model, 4, 2));
+        // Generations whose Editor-model record does not admit the capability.
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> access("5.1.03").renderPixels("model", fixture.source, fixture.model, 4, 2));
+    }
+
+    @Test
+    void rendersOnEveryAdmittedGeneration() {
+        for (String version : EditorRenderPixelsSelectorContract.SUPPORTED_CUBISM_VERSIONS) {
+            final Fixture fixture = new Fixture();
+            final CubismRenderedPixels pixels =
+                    access(version).renderPixels("model", fixture.source, fixture.model, 4, 2);
+            assertEquals(0xFF102030, pixels.argbAt(1, 1), version);
+            assertTrue(fixture.image.flushed, version);
+        }
     }
 
     @Test

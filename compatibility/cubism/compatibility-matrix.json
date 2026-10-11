@@ -5011,7 +5011,22 @@
     "5.3.03",
     "5.3.04"
    ],
-   "narrowedBy": []
+   "narrowedBy": [
+    {
+     "source": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorRenderPixelsSelectorContract.java:SUPPORTED_CUBISM_VERSIONS",
+     "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ]
+    }
+   ]
   },
   {
    "id": "cubism.editor-model.rotation-deformer.parameter-bindings.write",
@@ -10564,9 +10579,15 @@
    "api": "dev.turboism.sdk.cubism.model.CubismModel#renderPixels()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
+    "5.3.00",
+    "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismModel.java"
   },
@@ -10574,9 +10595,15 @@
    "api": "dev.turboism.sdk.cubism.model.CubismRenderedPixels#CubismRenderedPixels()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
+    "5.3.00",
+    "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismRenderedPixels.java"
   },
