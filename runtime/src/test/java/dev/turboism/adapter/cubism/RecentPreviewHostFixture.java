@@ -43,6 +43,7 @@ public final class RecentPreviewHostFixture {
                                 "viewContextHistory",
                                 "Ljava/util/ArrayList;",
                                 0x0012),
+                        StaticSelector.classSelector("cubism.view-context.class", viewContextOwner),
                         StaticSelector.method(
                                 "cubism.view-context.document",
                                 viewContextOwner,
