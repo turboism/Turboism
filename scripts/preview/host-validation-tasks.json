@@ -2757,9 +2757,15 @@
       "description": "Selection Brush gestures, native selection, real input, lifecycle and invariant verification.",
       "command": "scripts/preview/run-mesh-edit-host-validation.sh",
       "versions": [
+        "5200",
+        "5201",
+        "5202",
         "5203",
+        "5300",
+        "5301",
         "5302",
-        "5303"
+        "5303",
+        "5304"
       ],
       "defaultVariant": "standard",
       "variants": {

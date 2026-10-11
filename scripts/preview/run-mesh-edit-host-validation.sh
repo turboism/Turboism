@@ -17,7 +17,7 @@ case "$mode" in
   matrix|persistence) ;;
   selection-brush)
     version="${1:-}"
-    case "$version" in 5203|5302|5303) ;; *) echo 'error: selection-brush requires 5203, 5302, or 5303' >&2; exit 2 ;; esac
+    case "$version" in 5200|5201|5202|5203|5300|5301|5302|5303|5304) ;; *) echo 'error: selection-brush requires a reviewed 5.2/5.3 version' >&2; exit 2 ;; esac
     shift
     ;;
   *) echo "error: unsupported mode: $mode" >&2; exit 2 ;;

@@ -5,6 +5,7 @@ import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /** Exact selector tuple recovered from the reviewed legacy 5.2/5.3 path. */
 public record MeshMirrorHostProfile(
@@ -23,14 +24,14 @@ public record MeshMirrorHostProfile(
         ToolEligibility toolEligibility,
         SelectedPointMove selectedPointMove,
         LinkedDeletion linkedDeletion) {
-    /** Exact 5.2.03 selector for the native mirror/subtool eligibility predicate. */
+    /** Exact 5.2.x selector for the native mirror/subtool eligibility predicate. */
     public record ToolEligibility(String method, String descriptor) {}
 
-    /** Exact 5.2.03 selected-point movement loop that 5.3.02 extends with counterparts. */
+    /** Exact 5.2.x selected-point movement loop that 5.3.x extends with counterparts. */
     public record SelectedPointMove(String owner, String method, String descriptor) {}
 
     /**
-     * Selectors for mirror-linked deletion, which Cubism ships natively from 5.3.02.
+     * Selectors for mirror-linked deletion, which Cubism ships natively on 5.3.x.
      * Null on hosts that already have it, so the transformer never double-applies.
      *
      * <p>Each action names the enclosing method to transform plus the inner call to
@@ -95,17 +96,32 @@ public record MeshMirrorHostProfile(
                 null);
     }
 
-    private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
-    private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
-    private static final HostArtifactDigest CUBISM_5303 = ReviewedHostArtifacts.CUBISM_5_3_03;
+    /**
+     * Reviewed 5.2.x generations: the mirror selectors share one obfuscation
+     * generation and none of these hosts delete mirror counterparts natively, so
+     * every 5.2 profile carries the linked-deletion backport selectors.
+     */
+    private static final Set<String> REVIEWED_52_VERSIONS = Set.of(
+            ReviewedHostArtifacts.CUBISM_5_2_00_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_2_01_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_2_02_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_2_03_VERSION);
+
+    /**
+     * Reviewed 5.3.x generations: the same selector tuple as 5.2, but every one
+     * of these hosts deletes mirror counterparts natively, so no backport
+     * selectors are installed.
+     */
+    private static final Set<String> REVIEWED_53_VERSIONS = Set.of(
+            ReviewedHostArtifacts.CUBISM_5_3_00_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_3_01_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_3_04_VERSION);
 
     /** Returns the exact reviewed selector profile for the artifact, if it is supported. */
     public static Optional<MeshMirrorHostProfile> forArtifact(final HostArtifactDigest artifact) {
-        if (CUBISM_52.equals(artifact)) return Optional.of(reviewed52());
-        if (CUBISM_53.equals(artifact) || CUBISM_5303.equals(artifact)) {
-            return Optional.of(reviewed52And53());
-        }
-        return Optional.empty();
+        return ReviewedHostArtifacts.cubismVersionOf(artifact).flatMap(MeshMirrorHostProfile::forReviewedVersion);
     }
 
     /**
@@ -115,11 +131,10 @@ public record MeshMirrorHostProfile(
      * artifact — the version alone is never proof.
      */
     public static Optional<MeshMirrorHostProfile> forReviewedVersion(final String version) {
-        if (ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(version)) {
+        if (REVIEWED_52_VERSIONS.contains(version)) {
             return Optional.of(reviewed52());
         }
-        if (ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(version)
-                || ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(version)) {
+        if (REVIEWED_53_VERSIONS.contains(version)) {
             return Optional.of(reviewed52And53());
         }
         return Optional.empty();
@@ -127,8 +142,9 @@ public record MeshMirrorHostProfile(
 
     /**
      * SHA-256 of every host class this hook transforms or calls into, keyed by
-     * internal name, for every reviewed generation. 5.2.03 additionally pins the
-     * linked-deletion action and edit-mode classes its backport weaves.
+     * internal name, for every reviewed generation. The 5.2.x generations
+     * additionally pin the linked-deletion action and edit-mode classes their
+     * backport weaves.
      */
     public static Map<String, Map<String, String>> reviewedClassSha256() {
         return REVIEWED_CLASS_SHA256;
@@ -137,7 +153,7 @@ public record MeshMirrorHostProfile(
     private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 = ClassPinTable.load("mesh-mirror");
 
     /**
-     * 5.2.03 adds the linked-deletion selectors; 5.3.02 must not receive them because it
+     * 5.2.x adds the linked-deletion selectors; 5.3.x must not receive them because it
      * already deletes mirror counterparts natively.
      */
     static MeshMirrorHostProfile reviewed52() {
