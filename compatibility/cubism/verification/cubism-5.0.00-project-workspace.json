@@ -67,6 +67,39 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_03.project_workspace.field.view_context_history",
+      "alias": "cubism.app-controller.view-context-history",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+      "memberName": "viewContextHistory",
+      "descriptor": "Ljava/util/ArrayList;",
+      "requiredAccessFlags": 18,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.project_workspace.class.view_context",
+      "alias": "cubism.view-context.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.project_workspace.method.view_context_document",
+      "alias": "cubism.view-context.document",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+      "memberName": "getDoc",
+      "descriptor": "()Lcom/live2d/cubism/doc/IDocument;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_03.project_workspace.method.main_frame",
       "alias": "cubism.app-controller.main-frame",
       "kind": "method",

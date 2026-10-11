@@ -249,6 +249,7 @@ public final class ProjectWorkspaceVerificationManifest {
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.app-controller.class",
         "cubism.project.class",
+        "cubism.view-context.class",
         "cubism.document.class",
         "cubism.file-content.class",
         "cubism.main-frame.class",
@@ -259,6 +260,8 @@ public final class ProjectWorkspaceVerificationManifest {
         "cubism.app-controller.instance",
         "cubism.app-controller.current-project",
         "cubism.app-controller.current-document",
+        "cubism.app-controller.view-context-history",
+        "cubism.view-context.document",
         "cubism.app-controller.main-frame",
         "cubism.project.documents",
         "cubism.document.file-content",
