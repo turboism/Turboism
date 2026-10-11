@@ -21104,7 +21104,7 @@
       "entryUnionCount": 696
     },
     "selectorCount": 994,
-    "capabilityCount": 111,
+    "capabilityCount": 112,
     "capabilityIds": [
       "cubism.editor-history.move",
       "cubism.editor-history.read",
@@ -21170,6 +21170,7 @@
       "cubism.editor-model.morph-target.write",
       "cubism.editor-model.native-control-appearance.read",
       "cubism.editor-model.native-control-appearance.write",
+      "cubism.editor-model.object-hierarchy.apply-deformer-to-children",
       "cubism.editor-model.object-hierarchy.art-mesh.create",
       "cubism.editor-model.object-hierarchy.edit",
       "cubism.editor-model.object-hierarchy.rename",
@@ -21218,7 +21219,7 @@
       "cubism.editor-model.part-inspector.id-write",
       "cubism.editor-model.part-opacity.read"
     ],
-    "verificationRecordSha256": "7857cb3cb5bd3405b2986dc6e1fb8840cf3b6e810b985a90743c7536a92cb840",
+    "verificationRecordSha256": "93864fe15753497ea9b602892ee6703d6441701397f6fd10814fa4bdf4020864",
     "artifactName": "Live2D_Cubism.jar",
     "artifactSize": 41922739,
     "profileId": "cubism-5.3.02",
