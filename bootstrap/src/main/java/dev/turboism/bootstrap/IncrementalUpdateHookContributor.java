@@ -1,7 +1,5 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateBridge;
-
 /** Contributor for the verified incremental model update optimization. */
 final class IncrementalUpdateHookContributor extends NativeOptimizationHookContributor {
 

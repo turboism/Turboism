@@ -1,6 +1,5 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.optimization.inputpath.InputPathElisionBridge;
 import dev.turboism.adapter.cubism.optimization.inputpath.InputPathElisionTransformer;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 

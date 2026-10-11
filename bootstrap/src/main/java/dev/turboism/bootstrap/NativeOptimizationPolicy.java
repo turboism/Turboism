@@ -23,14 +23,17 @@ final class NativeOptimizationPolicy {
     }
 
     private static Path home(final HookEnvironment environment) {
-        return environment != null && environment.options() != null ? environment.options().home() : null;
+        return environment != null && environment.options() != null
+                ? environment.options().home()
+                : null;
     }
 
     static boolean modelUpdateSkipEnabled(final HookEnvironment environment) {
         if (System.getProperty(ModelUpdateSkipBridge.ENABLE_PROPERTY) != null) {
             return ModelUpdateSkipBridge.flagEnabled();
         }
-        final boolean enabled = RuntimeStartupConfig.readLauncherOptimization(home(environment), "modelUpdateSkip", true);
+        final boolean enabled =
+                RuntimeStartupConfig.readLauncherOptimization(home(environment), "modelUpdateSkip", true);
         ModelUpdateSkipBridge.setConfiguredDefault(enabled);
         return enabled;
     }
