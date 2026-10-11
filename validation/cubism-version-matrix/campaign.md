@@ -317,3 +317,12 @@ rep-r1/r2 全部非 PASS 格子在"启动辅助默认开启"下重投；排除�
 - parameter-batch-transfer 5000/5100（SKIP_STATIC admission）：5.0.x/5.1.00 无 `cubism.editor-model.write` 静态验证证据，格子维持待办；需先补对应版本 verification 记录再实机。
 - session-standard 5.0.00/5.3.00 矩阵格仍显示旧终态：会话 job 可读步结果时台账只写步级条目、不产生 session-standard 行，该任务格按设计只在"会话无步证据"时更新（ cosmetic 台账覆盖说明，非失败）。
 
+## harness-r1/r2 探针驱动与归因补齐轮（2026-10-11，fix-probe-harness-gaps）
+
+针对 refresh-r1 暴露的三个非产品验证驱动/归因缺口修复并实机复核：
+
+1. **edit-protocol 5203/5304（`EditToggleApprovalGate` 活体复选框驱动）**：根因——051 将编辑批准面迁移至原生外部应用设置对话框（`com.live2d.cubism.doc.webSocket.y`）注入的「编辑」复选框（`dev.turboism.editToggle`），但探针仅通过 typed command 启动 22033 服务，从未构建该对话框（`y.p` 未挂载父容器）也未勾选复选框；且客户端 S6 拒绝断言在第二次 `EditBegin` 前即恢复 `approval.mode=approve`，与活体非锁存语义不一致。修复：`EditProtocolHostValidationPlugin` 在 EDT 按需调用 `y.b(null)` 触发 `VerifiedEditToggleHookInstaller` 注入钩子，定位带 `dev.turboism.editToggle` 标记的 `JCheckBox` 并通过 `doClick(0)` 走真实 Swing `ItemEvent` 同步 `approval.mode`（终态关闭前复原为未勾选），生产 `EditToggleApprovalGate` 零改动；客户端 `protocol_edit_host_probe.py` 增加 `await_edit_approval` 轮询同步并在 `deny` 窗口内完成双重拒绝断言。实机：`edit-protocol:5304`（harness-r1，job `0e7955ce`）与 `edit-protocol:5203`（harness-r2，job `0d9b006c`；r1 为 Proton 启动瞬态退出）全部 **PASS**（P0/S1–S6/R 全绿，`dialog.decisions=4`、`dialog.denials=2`）。
+2. **selection-lag 5000/5006（5.0.x JavaFX 公告窗禁用主窗体与输入激活）**：根因——① Cubism 5.0.00–5.0.06 启动时拉起 JavaFX `AnnouncementDialog`（`com.live2d.cubism.appCtrlImpl.ui.dialog.a.d`），其 `Stage.setOnShown` 回调将主窗体 `CFrame$b.setEnabled(false)` 及菜单栏禁用，导致 Win32/Wine 丢弃一切合成鼠标输入（且 `Stage` 非 AWT `Window`，不被 `Window.getWindows()` 枚举）；② 原 `activateHostWindow` 对所有 `Window.getWindows()` 顺序调用 `toFront()` 把排在主窗体后的非模态框置顶，且 5.0.x 负 Y 边界（`y=-30`）下 `window.y + 30 = 0` 落在屏幕顶边。修复：`SelectionLagProbePlugin` 写入 `AnnouncementDialog` 免打扰配置并在 JavaFX 线程调用 `Stage.hide()` 触发原生 `onHiding` 恢复主窗体启用态，等待主窗体无模态阻塞且边界稳定，仅对匹配夹具的目标主窗体 `setEnabled(true)`/`toFront()`/`requestFocus()`，标题栏激活点 Y 下界钳制到可见区（`max(window.y + 30, 20)`）并在正式采样前带事件回执重试。实机：`selection-lag:5000`（harness-r1，job `cd2bcd97`，`interactionMouseEvents=52`）与 `selection-lag:5006`（harness-r1，job `a30944b2`，`interactionMouseEvents=66`）全部 **PASS**。
+3. **triage 独立任务 `psd-export-observation` `SAVED_UNVERIFIED` 规则**：根因——独立任务 `relations-result.properties` 将诊断与错误写在 `export.diagnostic` 与 `actual` 键而非 `failure.N`，`result_properties` 未提取导致规则无法命中。修复：`host_validation_triage.py` 在非 PASS 结果中提取 `export.diagnostic`/`actual`，`host-validation-triage-rules.json` 新增 `capability-psd-export-saved-unverified` 归入 `CAPABILITY_BOUNDARY`，补齐单测并同步台账与兼容矩阵。
+
+

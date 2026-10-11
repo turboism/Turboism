@@ -520,6 +520,37 @@ class NativeContractTest(unittest.TestCase):
             conn.close()
 
 
+class LiveToggleMockHost(MockHost):
+    """Simulates the 051 EditToggleApprovalGate: edit approval is a live global
+    state driven by the probe plugin's approval.mode file rather than a
+    per-connection latch."""
+
+    def __init__(self, home: Path) -> None:
+        super().__init__()
+        self.home = home
+
+    def _toggle_enabled(self) -> bool:
+        mode_file = self.home / "state" / probe.PLUGIN_ID / "approval.mode"
+        try:
+            return mode_file.read_text(encoding="utf-8").strip() != "deny"
+        except OSError:
+            return False
+
+    def default_respond(self, conn: MockConnection, request: dict) -> list[dict]:
+        method = request.get("Method")
+        if method == "GetIsEditApproval":
+            if conn.index not in self.registered:
+                return [self.error(request, "PluginNotRegistered")]
+            return [self.response(request, {"Result": self._toggle_enabled()})]
+        if method in ("EditBegin", "EditEnd", "EditParameter", "EditParameterGroup"):
+            if (request.get("Version") == "1.1.0"
+                    and request.get("Type") == "Request"
+                    and conn.index in self.registered
+                    and not self._toggle_enabled()):
+                return [self.error(request, "InvalidEditOperation")]
+        return super().default_respond(conn, request)
+
+
 class MatrixTest(unittest.TestCase):
     def test_full_matrix_pass(self):
         host = MockHost()
@@ -539,6 +570,20 @@ class MatrixTest(unittest.TestCase):
             for line in result.splitlines():
                 if line.startswith("assertion."):
                     self.assertIn(".status=", line)
+
+    def test_full_matrix_pass_with_live_toggle_approval(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            host = LiveToggleMockHost(home)
+            self.addCleanup(host.close)
+            p = make_probe(home, host)
+            rc = p.run()
+            result = (home / "state" / probe.RESULT_FILE).read_text()
+            self.assertEqual(rc, 0, result)
+            self.assertIn("status=PASS", result)
+            self.assertIn("assertion.s1.edit-begin.result.status=PASS", result)
+            self.assertIn("assertion.s6.edit-approval.denied.status=PASS", result)
+            self.assertIn("assertion.s6.edit-approval.latched.status=PASS", result)
 
     def test_connect_failure_writes_fail(self):
         os.environ["TURBOISM_EDIT_PROTOCOL_PORT"] = "1"
