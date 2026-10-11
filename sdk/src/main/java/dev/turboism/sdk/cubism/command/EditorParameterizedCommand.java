@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.command;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Set;
 
 /** Closed inventory of typed operations awaiting or using command-specific request records. */
+@CubismEditor
 public enum EditorParameterizedCommand {
     ADD_PARAMETER_FOR_ROTATION_DEFORMER(Set.of(
             "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
@@ -198,6 +200,7 @@ public enum EditorParameterizedCommand {
     private final Set<String> supportedVersions;
 
     /** Whether a command constant already has a verified typed request contract behind it. */
+    @CubismEditor
     public enum Availability {
         EVIDENCE_REQUIRED,
         TYPED_CONTRACT_VERIFIED

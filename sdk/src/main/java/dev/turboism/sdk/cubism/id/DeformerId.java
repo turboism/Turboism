@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.id;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /**
@@ -11,6 +12,7 @@ import java.util.Objects;
  *
  * @param value the host-issued deformer identifier, never {@code null}
  */
+@CubismEditor
 public record DeformerId(String value) {
     public DeformerId {
         value = Objects.requireNonNull(value, "value");

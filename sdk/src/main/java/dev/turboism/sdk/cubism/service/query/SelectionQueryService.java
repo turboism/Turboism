@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.service.query;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.CubismServiceException;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import java.util.List;
@@ -11,6 +12,7 @@ import java.util.List;
  * calls may need to be made from the host thread and fail with {@link CubismServiceException} when
  * the host is unavailable.
  */
+@CubismEditor(from = "5.0.00")
 public interface SelectionQueryService {
 
     /**

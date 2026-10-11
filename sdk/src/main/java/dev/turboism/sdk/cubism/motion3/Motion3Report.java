@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.motion3;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 
 /** Outcome of {@link Motion3Validator#validate(byte[])}. */
+@CubismEditor
 public record Motion3Report(List<Motion3Issue> issues) {
 
     public Motion3Report {

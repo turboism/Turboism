@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.transaction;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /**
@@ -7,6 +8,7 @@ import java.util.Objects;
  *
  * @param label user-visible label associated with the single native Undo entry when a change commits
  */
+@CubismEditor
 public record AuthoringTransactionOptions(String label) {
 
     /** Maximum number of Java characters accepted in a transaction label. */

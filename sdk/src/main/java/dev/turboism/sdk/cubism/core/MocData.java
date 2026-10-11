@@ -1,8 +1,10 @@
 package dev.turboism.sdk.cubism.core;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 
 /** Defensive-copy wrapper for MOC bytes submitted for inspection. */
+@CubismEditor
 public final class MocData {
     private final byte[] bytes;
 

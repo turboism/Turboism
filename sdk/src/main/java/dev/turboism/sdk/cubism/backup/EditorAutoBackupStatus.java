@@ -1,5 +1,7 @@
 package dev.turboism.sdk.cubism.backup;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * Immutable per-document auto-backup snapshot (host {@code IFileContent} view).
  *
@@ -7,6 +9,7 @@ package dev.turboism.sdk.cubism.backup;
  * event counterpart {@link BackupDocumentStatus}: it names the document but
  * never exposes the document's host file path.</p>
  */
+@CubismEditor
 public record EditorAutoBackupStatus(
         String documentName, long lastAutoBackupTimeMillis, long lastSavedTimeMillis, boolean modifiedAfterSaving) {
 

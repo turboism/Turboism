@@ -1,6 +1,9 @@
 package dev.turboism.sdk.cubism.core;
 
+import dev.turboism.sdk.CubismEditor;
+
 /** Version-neutral MOC format version. */
+@CubismEditor
 public enum MocVersion {
     UNKNOWN,
     V3_0,

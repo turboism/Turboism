@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.backup;
 
+import dev.turboism.sdk.CubismEditor;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -18,6 +19,7 @@ import java.io.InputStream;
  * save-triggered artifacts): reads refuse symbolic links and reject artifacts
  * that would resolve outside that issuing directory.</p>
  */
+@CubismEditor
 public interface BackupArtifactHandle {
 
     /**

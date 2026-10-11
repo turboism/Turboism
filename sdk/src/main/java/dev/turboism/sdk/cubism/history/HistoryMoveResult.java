@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism.history;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Result of attempting to move the active document's native history cursor. */
+@CubismEditor
 public record HistoryMoveResult(Outcome outcome, HistorySnapshot snapshot, Optional<String> diagnosticId) {
 
     public HistoryMoveResult {
@@ -22,6 +24,7 @@ public record HistoryMoveResult(Outcome outcome, HistorySnapshot snapshot, Optio
      * determined — whether or not the move threw — and the returned snapshot may
      * itself report {@code UNAVAILABLE}.
      */
+    @CubismEditor
     public enum Outcome {
         MOVED,
         NO_CHANGE,

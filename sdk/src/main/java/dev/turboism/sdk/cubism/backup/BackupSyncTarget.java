@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.backup;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 
@@ -13,6 +14,7 @@ import java.util.Objects;
  * isolated: the backup result is never corrupted by a target failure (the
  * runtime records the failure and continues).</p>
  */
+@CubismEditor
 public interface BackupSyncTarget {
 
     /**

@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.transaction;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import java.util.Objects;
 import java.util.Optional;
@@ -17,6 +18,7 @@ import java.util.Optional;
  * @param historyAfter native history snapshot captured after commit or recovery
  * @param historyEntryId stable Turboism identity of the committed history entry, when one exists
  */
+@CubismEditor
 public record AuthoringTransactionReceipt(
         String transactionId,
         String label,

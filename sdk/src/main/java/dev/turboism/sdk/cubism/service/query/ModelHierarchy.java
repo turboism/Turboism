@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.service.query;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,6 +21,7 @@ import java.util.Optional;
  * @param nodesById lookup index over {@code nodes}; unmodifiable. When built by the two-argument
  *                  constructor, later nodes sharing an id win.
  */
+@CubismEditor
 public record ModelHierarchy(
         HierarchyNode rootNode, List<HierarchyNode> nodes, Map<ModelObjectId, HierarchyNode> nodesById) {
     public ModelHierarchy(HierarchyNode rootNode, List<HierarchyNode> nodes) {
