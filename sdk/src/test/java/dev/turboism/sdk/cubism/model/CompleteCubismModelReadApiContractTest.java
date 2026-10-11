@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
+import dev.turboism.sdk.cubism.id.ModelId;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
@@ -24,6 +25,7 @@ class CompleteCubismModelReadApiContractTest {
                 "deformers",
                 "drawables",
                 "editLevel",
+                "exportMoc",
                 "glues",
                 "id",
                 "mocInfo",
@@ -39,6 +41,7 @@ class CompleteCubismModelReadApiContractTest {
                 "physicsSettings",
                 "profile",
                 "psdDocuments",
+                "renderPixels",
                 "replaceArtMeshClipMasks",
                 "rotationDeformers",
                 "setDefaultKeyformLocked",
@@ -48,6 +51,8 @@ class CompleteCubismModelReadApiContractTest {
                 "textures",
                 "update",
                 "warpDeformers");
+        assertMethods(
+                CubismRenderedPixels.class, "argb", "argbAt", "equals", "hashCode", "height", "toString", "width");
         assertMethods(Canvas.class, "heightPixels", "originXPixels", "originYPixels", "pixelsPerUnit", "widthPixels");
         assertMethods(
                 Part.class,
@@ -84,12 +89,15 @@ class CompleteCubismModelReadApiContractTest {
                 "visibleInHierarchy");
         assertMethods(
                 Drawable.class,
+                "authoringSnapshot",
                 "blendMode",
                 "constantFlag",
+                "createMorphKeyform",
                 "culling",
                 "doubleSided",
                 "drawOrder",
                 "dynamicFlag",
+                "evaluationSnapshot",
                 "evaluationState",
                 "geometry",
                 "getCombinedParameterBindings",
@@ -106,9 +114,11 @@ class CompleteCubismModelReadApiContractTest {
                 "lockedInHierarchy",
                 "maskIds",
                 "masks",
+                "morphKeyform",
                 "morphTargets",
                 "multiplyColor",
                 "name",
+                "ordinaryKeyform",
                 "parameterIds",
                 "parameters",
                 "parentDeformerId",
@@ -140,7 +150,9 @@ class CompleteCubismModelReadApiContractTest {
                 "vertexPositions",
                 "vertexUvs",
                 "visible",
-                "visibleInHierarchy");
+                "visibleInHierarchy",
+                "setOrdinaryKeyformPositions",
+                "setOrdinaryKeyformDrawOrders");
         assertMethods(
                 Deformer.class,
                 "getCombinedParameterBindings",
@@ -196,8 +208,16 @@ class CompleteCubismModelReadApiContractTest {
                 "uncombine",
                 "updateDefinition");
         assertMethods(ParameterGroup.class, "childGroupIds", "id", "name", "parameterIds", "parentId", "rename", "ui");
-        assertDeclaredMethods(WarpDeformer.class, "grid", "replaceGrid");
-        assertDeclaredMethods(RotationDeformer.class, "baseAngle", "form", "replaceForm", "setBaseAngle");
+        assertDeclaredMethods(
+                WarpDeformer.class, "grid", "replaceGrid", "authoringSnapshot", "setOrdinaryKeyformPositions");
+        assertDeclaredMethods(
+                RotationDeformer.class,
+                "baseAngle",
+                "form",
+                "replaceForm",
+                "setBaseAngle",
+                "authoringSnapshot",
+                "setOrdinaryKeyformForms");
         assertMethods(
                 Glue.class,
                 "drawableA",
@@ -217,9 +237,91 @@ class CompleteCubismModelReadApiContractTest {
                 "setName");
         assertMethods(Parts.class, "add", "all", "copy", "create", "find", "remove");
         assertMethods(Deformers.class, "all", "applyToChildren", "createRotation", "createWarp", "find", "remove");
-        assertMethods(Drawables.class, "all", "create", "find", "remove");
+        assertMethods(
+                Drawables.class,
+                "all",
+                "create",
+                "createWithSourceGeometry",
+                "find",
+                "previewSourceTriangulation",
+                "remove",
+                "select");
+        assertMethods(
+                ModelTextures.class,
+                "addModelImageGroup",
+                "addTextureAtlas",
+                "bindModelImage",
+                "exportRawImagePsd",
+                "modelImageGroups",
+                "rawImages",
+                "registerImageAndBind",
+                "relations",
+                "removeModelImage",
+                "removeRawImage",
+                "removeTextureAtlas",
+                "replaceRawImagePsd",
+                "sources",
+                "textureAtlases",
+                "textureInput");
+        assertMethods(
+                ArtMeshTextureInput.class,
+                "artMeshId",
+                "equals",
+                "hashCode",
+                "kind",
+                "modelGeneration",
+                "modelId",
+                "modelImageId",
+                "textureAtlasId",
+                "toString");
+        assertEquals(
+                java.util.Optional.class,
+                ModelTextures.class.getMethod("textureInput", ArtMeshId.class).getReturnType());
+        assertEquals(
+                java.util.Set.of("MODEL_IMAGE", "TEXTURE_ATLAS_REGION"),
+                Arrays.stream(ArtMeshTextureInput.Kind.class.getEnumConstants())
+                        .map(Enum::name)
+                        .collect(java.util.stream.Collectors.toSet()));
+        assertEquals(ArtMeshId.class, returnType(ArtMeshTextureInput.class, "artMeshId"));
+        assertEquals(ModelId.class, returnType(ArtMeshTextureInput.class, "modelId"));
+        assertEquals(long.class, returnType(ArtMeshTextureInput.class, "modelGeneration"));
+        assertEquals(ArtMeshTextureInput.Kind.class, returnType(ArtMeshTextureInput.class, "kind"));
+        assertEquals(java.util.Optional.class, returnType(ArtMeshTextureInput.class, "modelImageId"));
+        assertEquals(java.util.Optional.class, returnType(ArtMeshTextureInput.class, "textureAtlasId"));
 
         assertEquals(ArtMeshId.class, returnType(Drawable.class, "id"));
+        assertEquals(ArtMeshAuthoringSnapshot.class, returnType(Drawable.class, "authoringSnapshot"));
+        assertEquals(ArtMeshEvaluationSnapshot.class, returnType(Drawable.class, "evaluationSnapshot"));
+        assertEquals(
+                ArtMeshKeyform.class,
+                Drawable.class
+                        .getMethod("ordinaryKeyform", java.util.List.class)
+                        .getReturnType());
+        assertEquals(
+                void.class,
+                Drawable.class
+                        .getMethod("setOrdinaryKeyformPositions", ArtMeshAuthoringSnapshot.class, java.util.List.class)
+                        .getReturnType());
+        assertMethods(
+                ArtMeshKeyform.class, "coordinates", "snapshot", "defaultKeyform", "setPositions", "setDrawOrder");
+        assertEquals(
+                ArtMeshMorphKeyform.class,
+                Drawable.class
+                        .getMethod("morphKeyform", String.class, float.class)
+                        .getReturnType());
+        assertEquals(
+                ArtMeshMorphKeyform.class,
+                Drawable.class
+                        .getMethod("createMorphKeyform", String.class, float.class)
+                        .getReturnType());
+        assertMethods(
+                ArtMeshMorphKeyform.class,
+                "parameterGuid",
+                "keyValue",
+                "snapshot",
+                "baseSnapshot",
+                "setPositions",
+                "setDrawOrder");
         assertEquals(DeformerId.class, returnType(Deformer.class, "id"));
         assertEquals(int.class, IntSequence.class.getMethod("get", int.class).getReturnType());
     }

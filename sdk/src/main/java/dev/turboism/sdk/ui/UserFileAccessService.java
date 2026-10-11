@@ -29,7 +29,9 @@ public interface UserFileAccessService {
     CompletionStage<UserFileReadResult<String>> readUtf8(UserFileHandle handle, int maxBytes);
 
     /**
-     * Reads up to {@code maxBytes} of the handle's file as raw bytes, asynchronously.
+     * Reads at most {@code maxBytes} bytes, with a maximum request of 16 MiB.
+     * A larger file returns a bounded value with {@code truncated=true}; a
+     * request above this limit returns {@link UserFileErrorCode#SIZE_LIMIT_EXCEEDED}.
      */
     CompletionStage<UserFileReadResult<byte[]>> readBytes(UserFileHandle handle, int maxBytes);
 

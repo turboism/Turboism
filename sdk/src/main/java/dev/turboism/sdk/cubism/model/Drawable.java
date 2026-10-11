@@ -224,6 +224,108 @@ public interface Drawable {
     }
 
     /**
+     * Reads detached source geometry, stored forms, grid rows and morph identities together.
+     * Unlike {@link #geometry()}, this does not substitute the currently evaluated keyform.
+     * The result is historical data, not a writable target or proof of morph-key semantics.
+     *
+     * @throws UnsupportedOperationException when exact-version stored authoring reads are unavailable
+     */
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    default ArtMeshAuthoringSnapshot authoringSnapshot() {
+        throw unavailable("ArtMesh stored authoring snapshot");
+    }
+
+    /**
+     * Observes the Editor's last calculated form and parameter-consumption metadata without
+     * triggering evaluation. The detached result does not assert freshness or success.
+     * Requires the verified 5.3.02 default Offscreen/EDT rendering configuration.
+     *
+     * @throws UnsupportedOperationException when this read or rendering configuration is unsupported
+     */
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    default ArtMeshEvaluationSnapshot evaluationSnapshot() {
+        throw unavailable("ArtMesh calculated-form observation");
+    }
+
+    /**
+     * Locates one existing ordinary keyform by its complete parameter-GUID tuple.
+     * Coordinate order is irrelevant; omitted, duplicate and undeclared keys are rejected.
+     * The exact default tuple must exist, and the selected form must not be shared with
+     * another ordinary cell or morph target. No keys are created and no sliders are moved.
+     * A default reference is readable, but its positions cannot be edited through this method.
+     *
+     * @param coordinates every bound ordinary parameter's GUID and exact key value
+     * @return a generation-bound stored-form reference, not an evaluated shape
+     * @throws IllegalArgumentException for invalid or ambiguous coordinates/layout
+     * @throws java.util.NoSuchElementException when the existing tuple is missing
+     * @throws UnsupportedOperationException when exact-version keyform access is unavailable
+     */
+    @CubismEditor({"5.3.02", "5.3.03"})
+    default ArtMeshKeyform ordinaryKeyform(final List<ArtMeshAuthoringSnapshot.Coordinate> coordinates) {
+        throw unavailable("ArtMesh ordinary keyform");
+    }
+
+    /**
+     * Writes a bounded batch of existing non-default ordinary forms in one authoring contribution.
+     * The complete current authoring state must equal {@code expected}; every edit must identify
+     * an independent form by both its complete parameter-GUID tuple and existing form GUID.
+     * Source geometry, topology, UVs, draw orders and unselected forms remain unchanged.
+     * All targets are validated before mutation. Equal positions are a no-op. Native Undo/Redo
+     * and transaction rollback cover the batch together. No keys or objects are created.
+     *
+     * @param expected detached state read from this mesh before planning the edits
+     * @param edits at most 4096 distinct targets and 2000000 total vertex positions
+     * @throws IllegalStateException when the expected state or owning generation is stale
+     * @throws IllegalArgumentException for invalid, duplicate, shared or mismatched targets
+     * @throws UnsupportedOperationException for default forms or unavailable verified authoring
+     */
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    default void setOrdinaryKeyformPositions(
+            final ArtMeshAuthoringSnapshot expected, final List<ArtMeshKeyformPositions> edits) {
+        throw unavailable("ArtMesh ordinary keyform position batch");
+    }
+
+    /**
+     * Writes only existing non-default ordinary form draw orders in one bounded
+     * compare-and-set contribution. Positions, geometry and other forms stay unchanged.
+     */
+    default void setOrdinaryKeyformDrawOrders(
+            final ArtMeshAuthoringSnapshot expected, final List<ArtMeshKeyformDrawOrder> edits) {
+        throw unavailable("ArtMesh ordinary keyform draw order batch");
+    }
+
+    /**
+     * Locates an existing, non-basic morph key by native parameter GUID and exact key value.
+     * Requires the supported root/ordinary-grid domain described by {@link ArtMeshMorphKeyform}.
+     * Does not create keys, move sliders, or interpret zero/null as a writable basic key.
+     * @param parameterGuid native parameter GUID in this model, not its display ID
+     * @param keyValue positive non-basic key in (0, 1], outside the native snap epsilon
+     * @return a generation- and membership-bound reference
+     * @throws java.util.NoSuchElementException when the parameter or key does not exist
+     * @throws IllegalArgumentException for an invalid key or identity
+     * @throws UnsupportedOperationException when this exact-version domain is unsupported
+     */
+    @CubismEditor({"5.3.02", "5.3.03"})
+    default ArtMeshMorphKeyform morphKeyform(final String parameterGuid, final float keyValue) {
+        throw unavailable("ArtMesh morph keyform");
+    }
+
+    /**
+     * Creates one absent non-basic morph key using native absolute-form interpolation for its seed.
+     * Requires the member-snapshot authoring transaction protocol; never silently reuses a key.
+     * Parameter creation is a separate operation. Reacquire earlier references after creating siblings.
+     * @param parameterGuid native GUID of an existing normalized, non-repeating morph parameter
+     * @param keyValue positive key in (0, 1], not conflicting within native snap epsilon
+     * @return a reference to the new member, not an evaluated shape
+     * @throws java.util.NoSuchElementException when the parameter does not exist
+     * @throws IllegalArgumentException for an invalid or conflicting key
+     * @throws UnsupportedOperationException when the member transaction protocol is unavailable
+     */
+    @CubismEditor({"5.3.02", "5.3.03"})
+    default ArtMeshMorphKeyform createMorphKeyform(final String parameterGuid, final float keyValue) {
+        throw unavailable("ArtMesh morph key creation");
+    }
+    /**
      * Returns this ArtMesh's authoring geometry (Inspector {@code PointInfo} projection).
      *
      * <p>{@code positions()} is read from the ArtMesh's <em>current keyform</em>

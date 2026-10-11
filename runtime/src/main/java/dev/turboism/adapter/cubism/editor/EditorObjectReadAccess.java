@@ -6,6 +6,7 @@ import dev.turboism.adapter.cubism.editor.EditorObjectReadCore.*;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
 import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
@@ -42,6 +43,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /** Exact-version Editor projection for ArtMesh, Deformer, and Glue authoring reads. */
@@ -63,13 +65,24 @@ final class EditorObjectReadAccess {
     private final EditorObjectInspectorAccess inspector;
 
     private final EditorObjectHierarchyEditAccess hierarchyEditAccess;
+    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
+    private final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding;
 
     EditorObjectReadAccess(
             final VerifiedMemberResolver resolver,
             final CurrentGuard currentGuard,
             final EditorMorphTargetAccess morphTargetAccess,
             final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin) {
-        this(resolver, currentGuard, morphTargetAccess, evaluatedJoin, null, null, null);
+        this(resolver, currentGuard, morphTargetAccess, evaluatedJoin, null, null, null, null);
+    }
+
+    EditorObjectReadAccess(
+            final VerifiedMemberResolver resolver,
+            final CurrentGuard currentGuard,
+            final EditorMorphTargetAccess morphTargetAccess,
+            final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin,
+            final java.util.function.Function<String, Boolean> lazyPublish) {
+        this(resolver, currentGuard, morphTargetAccess, evaluatedJoin, lazyPublish, null, null, null);
     }
 
     EditorObjectReadAccess(
@@ -80,10 +93,30 @@ final class EditorObjectReadAccess {
             final EditorObjectHierarchyEditAccess hierarchyEditAccess,
             final EditorAuthoringTransactionCoordinator authoringCoordinator,
             final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding) {
+        this(
+                resolver,
+                currentGuard,
+                morphTargetAccess,
+                evaluatedJoin,
+                null,
+                hierarchyEditAccess,
+                authoringCoordinator,
+                authoringBinding);
+    }
+
+    EditorObjectReadAccess(
+            final VerifiedMemberResolver resolver,
+            final CurrentGuard currentGuard,
+            final EditorMorphTargetAccess morphTargetAccess,
+            final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin,
+            final java.util.function.Function<String, Boolean> lazyPublish,
+            final EditorObjectHierarchyEditAccess hierarchyEditAccess,
+            final EditorAuthoringTransactionCoordinator authoringCoordinator,
+            final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.currentGuard = Objects.requireNonNull(currentGuard, "currentGuard");
         this.morphTargetAccess = Objects.requireNonNull(morphTargetAccess, "morphTargetAccess");
-        this.core = new EditorObjectReadCore(resolver, currentGuard, evaluatedJoin);
+        this.core = new EditorObjectReadCore(resolver, currentGuard, evaluatedJoin, lazyPublish);
         this.writes = new EditorObjectWriteAccess(
                 resolver, core, hierarchyEditAccess, authoringCoordinator, authoringBinding);
         this.inspector = new EditorObjectInspectorAccess(
@@ -91,6 +124,8 @@ final class EditorObjectReadAccess {
         this.clipMasks = new EditorObjectClipMaskAccess(resolver, currentGuard, core, writes);
         this.bindingReads = new EditorObjectBindingReadAccess(resolver, morphTargetAccess, core);
         this.hierarchyEditAccess = hierarchyEditAccess;
+        this.authoringCoordinator = authoringCoordinator;
+        this.authoringBinding = authoringBinding;
         if ((authoringCoordinator == null) != (authoringBinding == null)) {
             throw new IllegalArgumentException("authoringCoordinator and authoringBinding must be supplied together");
         }
@@ -572,6 +607,172 @@ final class EditorObjectReadAccess {
                     .filter(binding -> bindingReads.parameterCombined(model, binding.parameterId()))
                     .toList();
         }
+
+        @Override
+        public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot authoringSnapshot() {
+            return EditorHostThread.dispatch("ArtMesh stored authoring snapshot", () -> {
+                final ObjectRef value = current();
+                return new EditorArtMeshAuthoringReadAccess(resolver).read(new ArtMeshId(value.id()), value.source());
+            });
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot evaluationSnapshot() {
+            return EditorHostThread.dispatch("ArtMesh calculated-form observation", () -> {
+                final ObjectRef value = current();
+                return new EditorArtMeshEvaluationReadAccess(resolver)
+                        .read(new ArtMeshId(value.id()), value.source(), value.instance(), model);
+            });
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.model.ArtMeshKeyform ordinaryKeyform(
+                final List<dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Coordinate> coordinates) {
+            return EditorArtMeshKeyformAccess.open(
+                    resolver,
+                    new ArtMeshId(ref.id()),
+                    () -> current().source(),
+                    coordinates,
+                    () -> {
+                        if (authoringCoordinator == null
+                                || !resolver.authorizesFeature(
+                                        "adapter.editor-model.readwrite",
+                                        "cubism.editor-history.read",
+                                        EditorHistoryReadSelectorContract.REQUIRED_ALIASES)) {
+                            throw new UnsupportedOperationException(
+                                    "Stored keyform edits require the authoring transaction coordinator.");
+                        }
+                    },
+                    keyformWriter());
+        }
+
+        @Override
+        public void setOrdinaryKeyformPositions(
+                final dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
+                final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions> edits) {
+            EditorArtMeshKeyformAccess.writeBatch(
+                    resolver,
+                    new ArtMeshId(ref.id()),
+                    () -> current().source(),
+                    expected,
+                    edits,
+                    () -> {
+                        if (authoringCoordinator == null
+                                || !resolver.authorizesFeature(
+                                        "adapter.editor-model.readwrite",
+                                        "cubism.editor-history.read",
+                                        EditorHistoryReadSelectorContract.REQUIRED_ALIASES)) {
+                            throw new UnsupportedOperationException(
+                                    "Stored keyform batches require the authoring transaction coordinator.");
+                        }
+                    },
+                    keyformWriter());
+        }
+
+        @Override
+        public void setOrdinaryKeyformDrawOrders(
+                final dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
+                final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder> edits) {
+            EditorArtMeshKeyformAccess.writeOrders(
+                    resolver,
+                    new ArtMeshId(ref.id()),
+                    () -> current().source(),
+                    expected,
+                    edits,
+                    () -> {
+                        if (authoringCoordinator == null
+                                || !resolver.authorizesFeature(
+                                        "adapter.editor-model.readwrite",
+                                        "cubism.editor-history.read",
+                                        EditorHistoryReadSelectorContract.REQUIRED_ALIASES)) {
+                            throw new UnsupportedOperationException(
+                                    "Stored keyform batches require the authoring transaction coordinator.");
+                        }
+                    },
+                    keyformWriter());
+        }
+
+        private EditorArtMeshKeyformAccess.Writer keyformWriter() {
+            return new EditorArtMeshKeyformAccess.Writer() {
+                @Override
+                public void write(
+                        final Object form,
+                        final String property,
+                        final String label,
+                        final Runnable mutation,
+                        final BooleanSupplier applied,
+                        final Runnable compensation,
+                        final BooleanSupplier restored) {
+                    writes.writeArtMeshProperty(
+                            EditorObjectWriteAccess.UndoKind.KEYFORM_EDIT,
+                            modelSource,
+                            current().source(),
+                            form,
+                            property,
+                            label,
+                            mutation,
+                            applied,
+                            compensation,
+                            restored);
+                }
+
+                @Override
+                public boolean ownsParentRecovery() {
+                    return authoringCoordinator != null
+                            && authoringCoordinator.ownsArtMeshParentRecovery(
+                                    Objects.requireNonNull(authoringBinding.get()), identity + ":artmesh:" + ref.id());
+                }
+            };
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform morphKeyform(
+                final String parameterGuid, final float keyValue) {
+            return morphKeyform(parameterGuid, keyValue, false);
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform createMorphKeyform(
+                final String parameterGuid, final float keyValue) {
+            return morphKeyform(parameterGuid, keyValue, true);
+        }
+
+        private dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform morphKeyform(
+                final String parameterGuid, final float keyValue, final boolean create) {
+            final Runnable requireTransaction = () -> {
+                if (authoringCoordinator == null
+                        || !resolver.authorizesFeature(
+                                "adapter.editor-model.readwrite",
+                                "cubism.editor-history.read",
+                                EditorHistoryReadSelectorContract.REQUIRED_ALIASES)) {
+                    throw new UnsupportedOperationException(
+                            "Morph edits require the authoring transaction coordinator.");
+                }
+            };
+            return EditorArtMeshMorphAccess.open(
+                    resolver,
+                    new ArtMeshId(ref.id()),
+                    () -> current().source(),
+                    modelSource,
+                    model,
+                    parameterGuid,
+                    keyValue,
+                    create,
+                    requireTransaction,
+                    contribution -> {
+                        requireTransaction.run();
+                        authoringCoordinator.mutate(
+                                Objects.requireNonNull(authoringBinding.get(), "authoring binding"), contribution);
+                    },
+                    () -> {
+                        current();
+                        resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+                        writes.refresh(
+                                resolver.invokeStatic("cubism.editor-model.app-controller.instance"),
+                                Kind.ART_MESH,
+                                true);
+                    });
+        }
     }
 
     private abstract class DeformerView implements Deformer, EditorNativeObjectRef {
@@ -839,6 +1040,38 @@ final class EditorObjectReadAccess {
             final DeformerRef value = current();
             writes.replaceWarpGrid(modelSource, value, grid);
         }
+
+        @Override
+        public dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot authoringSnapshot() {
+            return EditorHostThread.dispatch(
+                    "Warp stored authoring snapshot",
+                    () -> new EditorWarpAuthoringReadAccess(resolver)
+                            .read(new DeformerId(ref.id()), current().source()));
+        }
+
+        @Override
+        public void setOrdinaryKeyformPositions(
+                final dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot expected,
+                final List<dev.turboism.sdk.cubism.model.WarpKeyformPositions> edits) {
+            EditorWarpKeyformAccess.writeBatch(
+                    resolver,
+                    new DeformerId(ref.id()),
+                    () -> current().source(),
+                    expected,
+                    edits,
+                    () -> {
+                        if (authoringCoordinator == null
+                                || !resolver.authorizesFeature(
+                                        "adapter.editor-model.readwrite",
+                                        "cubism.editor-history.read",
+                                        EditorHistoryReadSelectorContract.REQUIRED_ALIASES)) {
+                            throw new UnsupportedOperationException(
+                                    "Stored Warp batches require the authoring transaction coordinator");
+                        }
+                    },
+                    (form, property, label, mutation, applied, compensation, restored) -> writes.writeWarpKeyforms(
+                            modelSource, current().source(), label, mutation, applied, compensation, restored));
+        }
     }
 
     private final class EditorRotation extends DeformerView implements RotationDeformer {
@@ -881,6 +1114,39 @@ final class EditorObjectReadAccess {
         public void replaceForm(final RotationDeformerForm form) {
             final DeformerRef value = current();
             writes.replaceRotationForm(modelSource, value, form);
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.model.RotationAuthoringSnapshot authoringSnapshot() {
+            return EditorHostThread.dispatch(
+                    "Rotation stored authoring snapshot",
+                    () -> new EditorRotationAuthoringReadAccess(resolver)
+                            .read(new DeformerId(ref.id()), current().source()));
+        }
+
+        @Override
+        public void setOrdinaryKeyformForms(
+                final dev.turboism.sdk.cubism.model.RotationAuthoringSnapshot expected,
+                final List<dev.turboism.sdk.cubism.model.RotationKeyformForm> edits) {
+            writes.requireWriteAuthorized(Kind.ROTATION);
+            EditorRotationKeyformAccess.writeBatch(
+                    resolver,
+                    new DeformerId(ref.id()),
+                    () -> current().source(),
+                    expected,
+                    edits,
+                    () -> {
+                        if (authoringCoordinator == null
+                                || !resolver.authorizesFeature(
+                                        "adapter.editor-model.readwrite",
+                                        "cubism.editor-history.read",
+                                        EditorHistoryReadSelectorContract.REQUIRED_ALIASES)) {
+                            throw new UnsupportedOperationException(
+                                    "Stored Rotation batches require the authoring transaction coordinator");
+                        }
+                    },
+                    (form, property, label, mutation, applied, compensation, restored) -> writes.writeRotationKeyforms(
+                            modelSource, current().source(), label, mutation, applied, compensation, restored));
         }
     }
 
@@ -1031,11 +1297,52 @@ final class EditorObjectReadAccess {
         }
 
         @Override
+        public dev.turboism.sdk.cubism.model.ArtMeshSourceTriangulation previewSourceTriangulation(
+                final ArtMeshGeometry geometry) {
+            return EditorHostThread.dispatch("Source triangulation preview", () -> {
+                currentGuard.requireCurrent(identity, model);
+                return new EditorSourceTriangulationAccess(resolver).preview(geometry);
+            });
+        }
+
+        @Override
+        public void select(final List<ArtMeshId> ids) {
+            final List<ArtMeshId> checked = List.copyOf(Objects.requireNonNull(ids, "ids"));
+            if (new java.util.HashSet<>(checked).size() != checked.size()) {
+                throw new IllegalArgumentException("Duplicate ArtMesh selection ID.");
+            }
+            final var meshes = core.artMeshes(identity, source, model);
+            final List<Object> sources = checked.stream()
+                    .map(id -> meshes.stream()
+                            .filter(ref -> ref.id().equals(id.value()))
+                            .findFirst()
+                            .orElseThrow(() -> new NoSuchElementException("Cubism ArtMesh is absent: " + id.value()))
+                            .source())
+                    .toList();
+            hierarchyEditAccess.selectArtMeshSources(identity, model, sources);
+        }
+
+        @Override
         public Drawable create(final String name, final Part parent, final int index, final ArtMeshGeometry geometry) {
+            return createWithSourceGeometry(
+                    name,
+                    parent,
+                    index,
+                    geometry,
+                    Objects.requireNonNull(geometry, "geometry").positions());
+        }
+
+        @Override
+        public Drawable createWithSourceGeometry(
+                final String name,
+                final Part parent,
+                final int index,
+                final ArtMeshGeometry geometry,
+                final List<dev.turboism.sdk.cubism.model.Point2> defaultPositions) {
             final Object parentSource = nativeSourceOf(parent, "Part parent");
             core.requireCurrentPartSource(source, parentSource);
             final EditorObjectHierarchyEditAccess.CreatedSource created = hierarchyEditAccess.createArtMeshSource(
-                    identity, source, model, name, parentSource, false, index, geometry);
+                    identity, source, model, name, parentSource, false, index, geometry, defaultPositions);
             return core.artMeshes(identity, source, model).stream()
                     .filter(ref -> ref.source() == created.source())
                     .findFirst()

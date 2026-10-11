@@ -4,6 +4,7 @@ import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
+import dev.turboism.sdk.cubism.model.ArtMeshSourceTriangulation;
 import dev.turboism.sdk.cubism.model.BlendMode;
 import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.Deformer;
@@ -11,6 +12,7 @@ import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
+import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.ui.appearance.model.DrawableAppearance;
 import java.util.List;
 import java.util.Objects;
@@ -65,6 +67,36 @@ final class SessionDrawables implements Drawables {
     @Override
     public void remove(final Drawable drawable) {
         host.guardedVoid(generation, () -> delegate.remove(host.unwrapDrawable(generation, drawable)));
+    }
+
+    @Override
+    public Drawable createWithSourceGeometry(
+            final String name,
+            final Part parent,
+            final int index,
+            final ArtMeshGeometry sourceGeometry,
+            final List<Point2> defaultPositions) {
+        return host.guarded(
+                generation,
+                () -> new SessionDrawable(
+                        host,
+                        generation,
+                        modelGeneration,
+                        modelId,
+                        delegate.createWithSourceGeometry(
+                                name, host.unwrapPart(generation, parent), index, sourceGeometry, defaultPositions)));
+    }
+
+    @Override
+    public ArtMeshSourceTriangulation previewSourceTriangulation(final ArtMeshGeometry geometry) {
+        return host.guarded(
+                generation, () -> delegate.previewSourceTriangulation(Objects.requireNonNull(geometry, "geometry")));
+    }
+
+    @Override
+    public void select(final List<ArtMeshId> ids) {
+        final List<ArtMeshId> checked = List.copyOf(Objects.requireNonNull(ids, "ids"));
+        host.guardedVoid(generation, () -> delegate.select(checked));
     }
 }
 
@@ -372,5 +404,109 @@ final class SessionDrawable implements Drawable {
     @Override
     public List<dev.turboism.sdk.cubism.model.ParameterBinding> getCombinedParameterBindings() {
         return host.guarded(generation, delegate::getCombinedParameterBindings);
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot authoringSnapshot() {
+        return host.guarded(generation, delegate::authoringSnapshot);
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot evaluationSnapshot() {
+        return host.guarded(generation, delegate::evaluationSnapshot);
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.model.ArtMeshKeyform ordinaryKeyform(
+            final List<dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Coordinate> coordinates) {
+        final var target = host.guarded(generation, () -> delegate.ordinaryKeyform(coordinates));
+        return new dev.turboism.sdk.cubism.model.ArtMeshKeyform() {
+            @Override
+            public List<dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Coordinate> coordinates() {
+                return host.guarded(generation, target::coordinates);
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form snapshot() {
+                return host.guarded(generation, target::snapshot);
+            }
+
+            @Override
+            public boolean defaultKeyform() {
+                return host.guarded(generation, target::defaultKeyform);
+            }
+
+            @Override
+            public void setPositions(final List<Point2> positions) {
+                host.guardedVoid(generation, () -> target.setPositions(positions));
+            }
+
+            @Override
+            public void setDrawOrder(final int drawOrder) {
+                host.guardedVoid(generation, () -> target.setDrawOrder(drawOrder));
+            }
+        };
+    }
+
+    @Override
+    public void setOrdinaryKeyformPositions(
+            final dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
+            final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions> edits) {
+        host.guardedVoid(generation, () -> delegate.setOrdinaryKeyformPositions(expected, edits));
+    }
+
+    @Override
+    public void setOrdinaryKeyformDrawOrders(
+            final dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
+            final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder> edits) {
+        host.guardedVoid(generation, () -> delegate.setOrdinaryKeyformDrawOrders(expected, edits));
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform morphKeyform(
+            final String parameterGuid, final float keyValue) {
+        return guardedMorphKeyform(host.guarded(generation, () -> delegate.morphKeyform(parameterGuid, keyValue)));
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform createMorphKeyform(
+            final String parameterGuid, final float keyValue) {
+        return guardedMorphKeyform(
+                host.guarded(generation, () -> delegate.createMorphKeyform(parameterGuid, keyValue)));
+    }
+
+    private dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform guardedMorphKeyform(
+            final dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform target) {
+        return new dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform() {
+            @Override
+            public String parameterGuid() {
+                return host.guarded(generation, target::parameterGuid);
+            }
+
+            @Override
+            public float keyValue() {
+                return host.guarded(generation, target::keyValue);
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form snapshot() {
+                return host.guarded(generation, target::snapshot);
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form baseSnapshot() {
+                return host.guarded(generation, target::baseSnapshot);
+            }
+
+            @Override
+            public void setPositions(final List<Point2> positions) {
+                host.guardedVoid(generation, () -> target.setPositions(positions));
+            }
+
+            @Override
+            public void setDrawOrder(final int drawOrder) {
+                host.guardedVoid(generation, () -> target.setDrawOrder(drawOrder));
+            }
+        };
     }
 }

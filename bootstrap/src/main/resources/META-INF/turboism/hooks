@@ -10,6 +10,12 @@ dev.turboism.bootstrap.MeshTriangulationHashHookContributor
 dev.turboism.bootstrap.TriangulationEdgeIndexHookContributor
 dev.turboism.bootstrap.AtlasTileBboxHookContributor
 dev.turboism.bootstrap.AtlasCacheReuseHookContributor
+# Mesh interpolation and shader uniform installed in the hand-wired agent's
+# premain window after the atlas cache-reuse transformer. Their targets
+# (interpolation, shader, model serialization owners) are disjoint from the
+# other premain transformers, so their position here is not load-bearing.
+dev.turboism.bootstrap.MeshInterpolationHookContributor
+dev.turboism.bootstrap.ShaderUniformHookContributor
 dev.turboism.bootstrap.FpsHookContributor
 dev.turboism.bootstrap.ParameterHookContributor
 dev.turboism.bootstrap.ProjectLifecycleHookContributor

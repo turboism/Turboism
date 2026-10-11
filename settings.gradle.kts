@@ -8,6 +8,7 @@ include(
     "event-processor",
     "graal-host",
     "plugins:demo",
+    "plugins:model-import-3d",
     "plugins:ui-theme",
     "plugins:cubism-tab-filter",
     "plugins:parameter",

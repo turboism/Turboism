@@ -11,7 +11,7 @@
 | capability 그룹 | 5.0.00 | 5.0.01 | 5.0.02 | 5.0.03 | 5.0.04 | 5.0.05 | 5.0.06 | 5.1.00 | 5.1.01 | 5.1.02 | 5.1.03 | 5.2.00 | 5.2.01 | 5.2.02 | 5.2.03 | 5.3.00 | 5.3.01 | 5.3.02 | 5.3.03 | 5.3.04 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 애니메이션과 타임라인 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 아트메시 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 아트메시 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ◐ | ◐ | ✓ | ✓ | ◐ |
 | 자동 흔들림 읽기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 자동 백업 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 클리핑 마스크 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -25,7 +25,7 @@
 | 통합 브리지 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 메시 도구 세션 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 메시 도구 모음 기여 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 기타 모델 표면 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 기타 모델 표면 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ◐ |
 | 모델 인스턴스 읽기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 모델링 사용자 도구 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 오브젝트 계층 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -42,7 +42,7 @@
 | PSD 원본 이미지 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 선택 편집 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 시작 억제 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 텍스처와 원본 이미지 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 텍스처와 원본 이미지 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ◐ | ◐ | ✓ | ✓ | ◐ |
 | 텍스처 아틀라스 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 실행 취소 복귀 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 워프 디포머 미러 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -50,6 +50,9 @@
 
 - `cubism.editor-model.animation-eval`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.animation-timeline.write`: 검증된 레코드 없음 5.0.00–5.1.03
+- `cubism.editor-model.art-mesh.evaluated-read`: 검증된 레코드 없음 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
+- `cubism.editor-model.art-mesh.morph-authoring`: 검증된 레코드 없음 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
+- `cubism.editor-model.art-mesh.parameter-interpolation.write`: 검증된 레코드 없음 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
 - `cubism.editor-model.auto-yure.read`: 검증된 레코드 없음 5.0.00–5.0.06
 - `cubism.autobackup.backup` (자동 백업 생성): 검증된 레코드 없음 5.0.00–5.0.06
 - `cubism.autobackup.settings`: 검증된 레코드 없음 5.0.00–5.0.06
@@ -64,7 +67,10 @@
 - `ui.mesh-toolbar.contribute` (메시 도구 모음 기여): 검증된 레코드 없음 5.0.00–5.0.06
 - `ui.mesh-toolbar.contribute` (메시 도구 모음 기여): 검증됐으나 계약/핀으로 축소(적응 대기) 5.1.00–5.1.03
 - `cubism.editor-model.default-keyform-lock.write`: 검증된 레코드 없음 5.0.00–5.1.03
+- `cubism.editor-model.moc-export.read`: 검증된 레코드 없음 5.0.00–5.3.01, 5.3.04
 - `cubism.editor-model.native-control-appearance.write`: 검증된 레코드 없음 5.0.00–5.1.03
+- `cubism.editor-model.render.read`: 검증된 레코드 없음 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
+- `cubism.editor-model.source-triangulation.read`: 검증된 레코드 없음 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
 - `cubism.editor-model.write` (에디터 모델 쓰기): 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.model-instance.read` (활성 모델 인스턴스 읽기): 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.modeling-tool.selection-brush` (모델링 선택 브러시): 검증된 레코드 없음 5.0.00–5.1.03
@@ -85,6 +91,7 @@
 - `cubism.protected-export.orchestration` (보호된 내보내기 오케스트레이션): 검증된 레코드 없음 5.0.00–5.0.06
 - `cubism.editor-model.psd.raw-image.export`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.psd.raw-image.replace` (PSD 원본 이미지 교체): 검증된 레코드 없음 5.0.00–5.1.03
+- `cubism.editor-model.texture.register-bind`: 검증된 레코드 없음 5.0.00–5.2.02, 5.3.00–5.3.01, 5.3.04
 - `cubism.texture-atlas.auto-layout-hook`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.texture-atlas.native-layout-invocation`: 검증된 레코드 없음 5.0.00–5.1.03
 
@@ -160,19 +167,52 @@
 | `dev.turboism.sdk.cubism.mesh.MeshToolContext` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.mesh.MeshToolRegistry` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AlphaComposition` | type | 5.3.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot#ArtMeshAuthoringSnapshot()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot#ArtMeshEvaluationSnapshot()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ArtMeshKeyform` | type | 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder#ArtMeshKeyformDrawOrder()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions#ArtMeshKeyformPositions()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform` | type | 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform#setDrawOrder()` | method | 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ArtMeshSourceTriangulation#ArtMeshSourceTriangulation()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ArtMeshTextureInput#ArtMeshTextureInput()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.AuthorizedImageContent` | type | 5.2.03, 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.AutoYure` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AutoYureBinding` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AutoYureConfig` | type | 5.1.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.CubismExportTexture#CubismExportTexture()` | method | 5.3.02 |
+| `dev.turboism.sdk.cubism.model.CubismMocExport#CubismMocExport()` | method | 5.3.02 |
+| `dev.turboism.sdk.cubism.model.CubismMocExportSettings#CubismMocExportSettings()` | method | 5.3.02 |
+| `dev.turboism.sdk.cubism.model.CubismModel#exportMoc()` | method | 5.3.02 |
+| `dev.turboism.sdk.cubism.model.CubismModel#renderPixels()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.CubismRenderedPixels#CubismRenderedPixels()` | method | 5.2.03, 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.Deformers#applyToChildren()` | method | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.Drawable#authoringSnapshot()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.Drawable#createMorphKeyform()` | method | 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.Drawable#evaluationSnapshot()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.Drawable#morphKeyform()` | method | 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.Drawable#ordinaryKeyform()` | method | 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()` | method | 5.3.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.Drawable#setOrdinaryKeyformPositions()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ModelImageBinding#ModelImageBinding()` | method | 5.2.03, 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.ModelInstance` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.ModelTextures#bindModelImage()` | method | 5.2.03, 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()` | method | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.ModelTextures#registerImageAndBind()` | method | 5.2.03, 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()` | method | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.ModelTextures#textureInput()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ParameterInterpolation#ParameterInterpolation()` | method | 5.2.03, 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.Part#alphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#maskIds()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setAlphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setMaskIds()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setOpacity()` | method | 5.3.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.RotationAuthoringSnapshot#RotationAuthoringSnapshot()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.RotationKeyformForm#RotationKeyformForm()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot#WarpAuthoringSnapshot()` | method | 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.WarpDeformer#authoringSnapshot()` | method | 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.WarpDeformer#setOrdinaryKeyformPositions()` | method | 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.WarpKeyformPositions#WarpKeyformPositions()` | method | 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.YureDeformConfig` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.modeling.ModelingBrush` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.modeling.ModelingToolContext` | type | 5.2.00–5.3.04 |

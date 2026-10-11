@@ -121,7 +121,7 @@ final class TextureMetadataAvailabilityRegressionTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"5.3.02", "5.3.99"})
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"5.3.02", "5.3.03"})
     void matchingVersionWithOnlyReadCapabilityCannotWriteTextures(final String version) {
         final RecordingTextures delegate = new RecordingTextures();
         final ModelTextures textures = new CubismEditorApiAvailabilityInterceptor(
