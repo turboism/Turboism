@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.recentpreview;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.plugin.Registration;
 
 /**
@@ -7,6 +8,7 @@ import dev.turboism.sdk.plugin.Registration;
  * menu listeners, tracks the hovered item, and renders contributed content next to it;
  * plugins only provide {@link RecentPreviewRenderer}s.
  */
+@CubismEditor(from = "5.1.00")
 public interface RecentPreviewContributionService {
 
     /**

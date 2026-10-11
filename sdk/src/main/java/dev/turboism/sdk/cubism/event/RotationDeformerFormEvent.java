@@ -1,11 +1,13 @@
 package dev.turboism.sdk.cubism.event;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
 import dev.turboism.sdk.event.TurboismEvent;
 import java.util.Objects;
 
 /** Typed states of the Rotation Deformer form replacement event family. */
+@CubismEditor
 public sealed interface RotationDeformerFormEvent extends TurboismEvent
         permits RotationDeformerFormEvent.Before, RotationDeformerFormEvent.On, RotationDeformerFormEvent.After {
 
@@ -65,6 +67,7 @@ public sealed interface RotationDeformerFormEvent extends TurboismEvent
         }
 
         /** One Runtime-owned mutable callback scope. */
+        @CubismEditor
         public static final class Callback implements AutoCloseable {
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;

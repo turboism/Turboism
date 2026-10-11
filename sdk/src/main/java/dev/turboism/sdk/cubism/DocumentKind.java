@@ -1,6 +1,9 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
+
 /** Semantic kind of a Cubism editor {@code IDocument}. */
+@CubismEditor
 public enum DocumentKind {
     /** A modeling document backed by {@code CModelingDocument}. */
     MODEL,

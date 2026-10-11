@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 
 /** Immutable read-only clipping configuration for one target ArtMesh. */
+@CubismEditor
 public record ClipMaskSnapshot(String targetMeshId, List<String> orderedMaskSourceIds, boolean inverted) {
     public ClipMaskSnapshot {
         Objects.requireNonNull(targetMeshId, "targetMeshId");

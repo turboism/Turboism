@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -17,6 +18,7 @@ import java.util.Optional;
  * @param activeArtMeshId focused art mesh, empty when no art mesh has focus
  * @param activeDeformerId focused deformer, empty when no deformer has focus
  */
+@CubismEditor
 public record SelectionSnapshot(
         List<String> selectedObjectIds,
         Optional<String> activeParameterId,

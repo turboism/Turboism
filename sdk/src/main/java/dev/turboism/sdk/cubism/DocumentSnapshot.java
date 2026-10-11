@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
@@ -11,6 +12,7 @@ import java.util.Optional;
  * scene documents; a model file is also its model document; layered image/PSD resources may open
  * as IMAGE documents even though their generic {@code getFileContent()} path is not implemented.</p>
  */
+@CubismEditor
 public record DocumentSnapshot(
         String documentId,
         String name,

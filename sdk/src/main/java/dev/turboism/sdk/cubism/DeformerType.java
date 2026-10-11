@@ -1,5 +1,7 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
+
 /**
  * Kind of deformer node reported by the Cubism host.
  *
@@ -7,6 +9,7 @@ package dev.turboism.sdk.cubism;
  * any deformer kind outside the enumerated set is mapped to {@code OTHER} rather than rejected, so
  * an unfamiliar host object never fails a whole snapshot.</p>
  */
+@CubismEditor
 public enum DeformerType {
     /** Synthetic root of the deformer tree; not a deformer the user can edit. */
     ROOT,

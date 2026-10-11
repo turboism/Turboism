@@ -1,9 +1,11 @@
 package dev.turboism.sdk.cubism;
 
+import dev.turboism.sdk.CubismEditor;
 import java.util.Objects;
 import java.util.Optional;
 
 /** A non-document asset referenced by one project content entry. */
+@CubismEditor
 public record ProjectResourceSnapshot(
         String resourceId, String name, ResourceKind kind, Optional<String> relativePath) {
     public ProjectResourceSnapshot {

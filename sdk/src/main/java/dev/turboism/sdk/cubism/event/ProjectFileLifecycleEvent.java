@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.event;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.ProjectFileOperation;
 import dev.turboism.sdk.cubism.ProjectFileOperationResult;
@@ -7,6 +8,7 @@ import dev.turboism.sdk.event.TurboismEvent;
 import java.util.Objects;
 
 /** Typed lifecycle states shared by model and animation project-file operations. */
+@CubismEditor
 public sealed interface ProjectFileLifecycleEvent extends TurboismEvent
         permits ProjectFileLifecycleEvent.Before, ProjectFileLifecycleEvent.On, ProjectFileLifecycleEvent.After {
 

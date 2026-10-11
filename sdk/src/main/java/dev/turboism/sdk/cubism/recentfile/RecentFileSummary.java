@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.recentfile;
 
+import dev.turboism.sdk.CubismEditor;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
@@ -22,6 +23,7 @@ import java.util.Optional;
  * entry may reference a file that no longer exists on disk; in that case both are
  * {@link Optional#empty()} and the summary carries no fabricated data.</p>
  */
+@CubismEditor
 public record RecentFileSummary(
         RecentFileId id, String displayName, Optional<Instant> lastModified, Optional<String> path) {
     public RecentFileSummary {
