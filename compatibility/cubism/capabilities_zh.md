@@ -165,52 +165,52 @@
 
 仅列出版本集合与完整已审核集不同的命令；运行时以 `EditorCommand#supports` 为准。
 
-| 命令 | 枚举 | 版本 |
-|---|---|---|
-| `ADJUST_BOUNDING_BOX_ANGLE` | EditorCommand | 5.2.03–5.3.04 |
-| `DELETE_DEFORMER_ORIGINAL_SHAPE` | EditorCommand | 5.2.00–5.3.04 |
-| `ENABLE_PLAYBACK_CACHE` | EditorCommand | 5.2.00–5.3.04 |
-| `EXPAND_WARPDEFORMER` | EditorCommand | 5.3.00–5.3.04 |
-| `HIDE_OR_RESTORE_PALETTE` | EditorCommand | 5.0.03–5.3.04 |
-| `MESH_EDIT_RESET` | EditorCommand | 5.3.02–5.3.04 |
-| `MOVE_END` | EditorCommand | — |
-| `MOVE_END_WORKSPACE` | EditorCommand | — |
-| `OPEN_FAQ_PAGE` | EditorCommand | 5.0.00–5.2.03 |
-| `PARAM_CONTROLLER_CONVERT_TO_LINE_PARAM_CTRL` | EditorCommand | 5.2.00–5.3.04 |
-| `PARAM_CONTROLLER_LINE_PARAM_CTRL_REVERSE_DIRECTION` | EditorCommand | 5.2.00–5.3.04 |
-| `PARAM_CONTROLLER_PREVIEW_BAKE` | EditorCommand | 5.2.00–5.3.04 |
-| `PARAM_CONTROLLER_SPLIT_LINE_PARAM_CTRL` | EditorCommand | 5.2.00–5.3.04 |
-| `PART_PALETTE_CMD_CHANGE_VISIBLE_GUIDE_IMAGE` | EditorCommand | 5.2.00–5.3.04 |
-| `SELECT_CHILD_ELEMENTS_OF_DEFORMER` | EditorCommand | 5.2.03–5.3.04 |
-| `SELECT_OBJECT_BY_CURRENT_KEY_VALUE` | EditorCommand | 5.2.00–5.3.04 |
-| `SETTING_GUIDES_MODELING_ADD_CENTER` | EditorCommand | 5.3.00–5.3.04 |
-| `SHOW_ARTMESH_POINT` | EditorCommand | 5.1.00–5.3.04 |
-| `SHOW_DEFAULT_ZOOM` | EditorCommand | 5.3.00–5.3.04 |
-| `SHOW_FULL_SCENE` | EditorCommand | 5.3.00–5.3.04 |
-| `SHOW_HOME_DIALOG` | EditorCommand | 5.1.00–5.3.04 |
-| `SHOW_PARAM_CONTROLLER_TARGET_TRACKING` | EditorCommand | 5.2.00–5.3.04 |
-| `SHOW_PARAM_CTRL_MARKER` | EditorCommand | 5.2.00–5.3.04 |
-| `SHOW_POPUP_HOVERING_OBJECT` | EditorCommand | 5.2.03–5.3.04 |
-| `SWITCH_HIGHTLIGHT_CONFLICT_POLYGON` | EditorCommand | 5.3.00–5.3.04 |
-| `SWITCH_LOOP_EDITING_SUPPORT` | EditorCommand | 5.2.00–5.3.04 |
-| `SYNC_PARAMETERS_ACROSS_TABS` | EditorCommand | 5.0.05–5.3.04 |
-| `UPDATE_DEFORMER_ORIGINAL_SHAPE` | EditorCommand | 5.2.00–5.3.04 |
-| `AUTO_CREATE_DEFORMERS` | EditorParameterizedCommand | 5.1.00–5.3.04 |
-| `CHANGE_ALL_MESH_DRAW_ORDER` | EditorParameterizedCommand | 5.2.03–5.3.04 |
-| `CHANGE_MESH_DRAW_ORDER` | EditorParameterizedCommand | 5.2.03–5.3.04 |
-| `CREATE_YURE` | EditorParameterizedCommand | 5.1.00–5.3.04 |
-| `DISPLAY_MULTI_PASTE_SHAPE_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 |
-| `EXTERNAL_APP_SETTING` | EditorParameterizedCommand | 5.1.00–5.3.04 |
-| `FADE_SETTING` | EditorParameterizedCommand | 5.3.00–5.3.04 |
-| `OPEN_PARAMETER_GROUP_SETTING` | EditorParameterizedCommand | 5.1.02–5.3.04 |
-| `PARAM_CONTROLLER_DISPLAY_SETTING_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 |
-| `PARAM_CTRL_CALC_ORDER_SETTING_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 |
-| `REFLECT_FADE` | EditorParameterizedCommand | 5.3.00–5.3.04 |
-| `SHOW_LABEL_COPY_DIALOG` | EditorParameterizedCommand | 5.3.00–5.3.04 |
-| `SHOW_ROTATE3D_SETTING_DIALOG` | EditorParameterizedCommand | 5.1.00–5.3.04 |
-| `SHOW_SHOW_LABEL_COPY_DIALOG` | EditorParameterizedCommand | 5.0.00–5.2.03 |
-| `IMPORT_SCENE_FROM_ANIMATION` | EditorFileCommand | 5.0.03–5.3.04 |
-| `EXPORT_AS_TEMPLATE` | EditorFileCommand | 5.1.00–5.3.04 |
+| 命令 | 枚举 | 版本 | 性质 |
+|---|---|---|---|
+| `ADJUST_BOUNDING_BOX_ANGLE` | EditorCommand | 5.2.03–5.3.04 | 真实边界 |
+| `DELETE_DEFORMER_ORIGINAL_SHAPE` | EditorCommand | 5.2.00–5.3.04 | 待确认 |
+| `ENABLE_PLAYBACK_CACHE` | EditorCommand | 5.2.00–5.3.04 | 待确认 |
+| `EXPAND_WARPDEFORMER` | EditorCommand | 5.3.00–5.3.04 | 真实边界 |
+| `HIDE_OR_RESTORE_PALETTE` | EditorCommand | 5.0.03–5.3.04 | 待确认 |
+| `MESH_EDIT_RESET` | EditorCommand | 5.3.02–5.3.04 | 真实边界 |
+| `MOVE_END` | EditorCommand | — | 真实边界 |
+| `MOVE_END_WORKSPACE` | EditorCommand | — | 真实边界 |
+| `OPEN_FAQ_PAGE` | EditorCommand | 5.0.00–5.2.03 | 真实边界 |
+| `PARAM_CONTROLLER_CONVERT_TO_LINE_PARAM_CTRL` | EditorCommand | 5.2.00–5.3.04 | 待确认 |
+| `PARAM_CONTROLLER_LINE_PARAM_CTRL_REVERSE_DIRECTION` | EditorCommand | 5.2.00–5.3.04 | 待确认 |
+| `PARAM_CONTROLLER_PREVIEW_BAKE` | EditorCommand | 5.2.00–5.3.04 | 待确认 |
+| `PARAM_CONTROLLER_SPLIT_LINE_PARAM_CTRL` | EditorCommand | 5.2.00–5.3.04 | 待确认 |
+| `PART_PALETTE_CMD_CHANGE_VISIBLE_GUIDE_IMAGE` | EditorCommand | 5.2.00–5.3.04 | 待确认 |
+| `SELECT_CHILD_ELEMENTS_OF_DEFORMER` | EditorCommand | 5.2.03–5.3.04 | 真实边界 |
+| `SELECT_OBJECT_BY_CURRENT_KEY_VALUE` | EditorCommand | 5.2.00–5.3.04 | 待确认 |
+| `SETTING_GUIDES_MODELING_ADD_CENTER` | EditorCommand | 5.3.00–5.3.04 | 真实边界 |
+| `SHOW_ARTMESH_POINT` | EditorCommand | 5.1.00–5.3.04 | 待确认 |
+| `SHOW_DEFAULT_ZOOM` | EditorCommand | 5.3.00–5.3.04 | 真实边界 |
+| `SHOW_FULL_SCENE` | EditorCommand | 5.3.00–5.3.04 | 真实边界 |
+| `SHOW_HOME_DIALOG` | EditorCommand | 5.1.00–5.3.04 | 待确认 |
+| `SHOW_PARAM_CONTROLLER_TARGET_TRACKING` | EditorCommand | 5.2.00–5.3.04 | 待确认 |
+| `SHOW_PARAM_CTRL_MARKER` | EditorCommand | 5.2.00–5.3.04 | 待确认 |
+| `SHOW_POPUP_HOVERING_OBJECT` | EditorCommand | 5.2.03–5.3.04 | 真实边界 |
+| `SWITCH_HIGHTLIGHT_CONFLICT_POLYGON` | EditorCommand | 5.3.00–5.3.04 | 真实边界 |
+| `SWITCH_LOOP_EDITING_SUPPORT` | EditorCommand | 5.2.00–5.3.04 | 待确认 |
+| `SYNC_PARAMETERS_ACROSS_TABS` | EditorCommand | 5.0.05–5.3.04 | 待确认 |
+| `UPDATE_DEFORMER_ORIGINAL_SHAPE` | EditorCommand | 5.2.00–5.3.04 | 待确认 |
+| `AUTO_CREATE_DEFORMERS` | EditorParameterizedCommand | 5.1.00–5.3.04 | 待确认 |
+| `CHANGE_ALL_MESH_DRAW_ORDER` | EditorParameterizedCommand | 5.2.03–5.3.04 | 真实边界 |
+| `CHANGE_MESH_DRAW_ORDER` | EditorParameterizedCommand | 5.2.03–5.3.04 | 真实边界 |
+| `CREATE_YURE` | EditorParameterizedCommand | 5.1.00–5.3.04 | 待确认 |
+| `DISPLAY_MULTI_PASTE_SHAPE_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 | 待确认 |
+| `EXTERNAL_APP_SETTING` | EditorParameterizedCommand | 5.1.00–5.3.04 | 待确认 |
+| `FADE_SETTING` | EditorParameterizedCommand | 5.3.00–5.3.04 | 真实边界 |
+| `OPEN_PARAMETER_GROUP_SETTING` | EditorParameterizedCommand | 5.1.02–5.3.04 | 待确认 |
+| `PARAM_CONTROLLER_DISPLAY_SETTING_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 | 待确认 |
+| `PARAM_CTRL_CALC_ORDER_SETTING_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 | 待确认 |
+| `REFLECT_FADE` | EditorParameterizedCommand | 5.3.00–5.3.04 | 真实边界 |
+| `SHOW_LABEL_COPY_DIALOG` | EditorParameterizedCommand | 5.3.00–5.3.04 | 真实边界 |
+| `SHOW_ROTATE3D_SETTING_DIALOG` | EditorParameterizedCommand | 5.1.00–5.3.04 | 待确认 |
+| `SHOW_SHOW_LABEL_COPY_DIALOG` | EditorParameterizedCommand | 5.0.00–5.2.03 | 待确认 |
+| `IMPORT_SCENE_FROM_ANIMATION` | EditorFileCommand | 5.0.03–5.3.04 | 待确认 |
+| `EXPORT_AS_TEMPLATE` | EditorFileCommand | 5.1.00–5.3.04 | 待确认 |
 
 ## 运行时准入 pin
 

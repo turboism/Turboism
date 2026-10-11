@@ -165,52 +165,52 @@
 
 허용 집합이 전체 검토 집합과 다른 명령만 나열합니다. 런타임 게이트는 `EditorCommand#supports`입니다.
 
-| 명령 | 열거형 | 버전 |
-|---|---|---|
-| `ADJUST_BOUNDING_BOX_ANGLE` | EditorCommand | 5.2.03–5.3.04 |
-| `DELETE_DEFORMER_ORIGINAL_SHAPE` | EditorCommand | 5.2.00–5.3.04 |
-| `ENABLE_PLAYBACK_CACHE` | EditorCommand | 5.2.00–5.3.04 |
-| `EXPAND_WARPDEFORMER` | EditorCommand | 5.3.00–5.3.04 |
-| `HIDE_OR_RESTORE_PALETTE` | EditorCommand | 5.0.03–5.3.04 |
-| `MESH_EDIT_RESET` | EditorCommand | 5.3.02–5.3.04 |
-| `MOVE_END` | EditorCommand | — |
-| `MOVE_END_WORKSPACE` | EditorCommand | — |
-| `OPEN_FAQ_PAGE` | EditorCommand | 5.0.00–5.2.03 |
-| `PARAM_CONTROLLER_CONVERT_TO_LINE_PARAM_CTRL` | EditorCommand | 5.2.00–5.3.04 |
-| `PARAM_CONTROLLER_LINE_PARAM_CTRL_REVERSE_DIRECTION` | EditorCommand | 5.2.00–5.3.04 |
-| `PARAM_CONTROLLER_PREVIEW_BAKE` | EditorCommand | 5.2.00–5.3.04 |
-| `PARAM_CONTROLLER_SPLIT_LINE_PARAM_CTRL` | EditorCommand | 5.2.00–5.3.04 |
-| `PART_PALETTE_CMD_CHANGE_VISIBLE_GUIDE_IMAGE` | EditorCommand | 5.2.00–5.3.04 |
-| `SELECT_CHILD_ELEMENTS_OF_DEFORMER` | EditorCommand | 5.2.03–5.3.04 |
-| `SELECT_OBJECT_BY_CURRENT_KEY_VALUE` | EditorCommand | 5.2.00–5.3.04 |
-| `SETTING_GUIDES_MODELING_ADD_CENTER` | EditorCommand | 5.3.00–5.3.04 |
-| `SHOW_ARTMESH_POINT` | EditorCommand | 5.1.00–5.3.04 |
-| `SHOW_DEFAULT_ZOOM` | EditorCommand | 5.3.00–5.3.04 |
-| `SHOW_FULL_SCENE` | EditorCommand | 5.3.00–5.3.04 |
-| `SHOW_HOME_DIALOG` | EditorCommand | 5.1.00–5.3.04 |
-| `SHOW_PARAM_CONTROLLER_TARGET_TRACKING` | EditorCommand | 5.2.00–5.3.04 |
-| `SHOW_PARAM_CTRL_MARKER` | EditorCommand | 5.2.00–5.3.04 |
-| `SHOW_POPUP_HOVERING_OBJECT` | EditorCommand | 5.2.03–5.3.04 |
-| `SWITCH_HIGHTLIGHT_CONFLICT_POLYGON` | EditorCommand | 5.3.00–5.3.04 |
-| `SWITCH_LOOP_EDITING_SUPPORT` | EditorCommand | 5.2.00–5.3.04 |
-| `SYNC_PARAMETERS_ACROSS_TABS` | EditorCommand | 5.0.05–5.3.04 |
-| `UPDATE_DEFORMER_ORIGINAL_SHAPE` | EditorCommand | 5.2.00–5.3.04 |
-| `AUTO_CREATE_DEFORMERS` | EditorParameterizedCommand | 5.1.00–5.3.04 |
-| `CHANGE_ALL_MESH_DRAW_ORDER` | EditorParameterizedCommand | 5.2.03–5.3.04 |
-| `CHANGE_MESH_DRAW_ORDER` | EditorParameterizedCommand | 5.2.03–5.3.04 |
-| `CREATE_YURE` | EditorParameterizedCommand | 5.1.00–5.3.04 |
-| `DISPLAY_MULTI_PASTE_SHAPE_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 |
-| `EXTERNAL_APP_SETTING` | EditorParameterizedCommand | 5.1.00–5.3.04 |
-| `FADE_SETTING` | EditorParameterizedCommand | 5.3.00–5.3.04 |
-| `OPEN_PARAMETER_GROUP_SETTING` | EditorParameterizedCommand | 5.1.02–5.3.04 |
-| `PARAM_CONTROLLER_DISPLAY_SETTING_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 |
-| `PARAM_CTRL_CALC_ORDER_SETTING_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 |
-| `REFLECT_FADE` | EditorParameterizedCommand | 5.3.00–5.3.04 |
-| `SHOW_LABEL_COPY_DIALOG` | EditorParameterizedCommand | 5.3.00–5.3.04 |
-| `SHOW_ROTATE3D_SETTING_DIALOG` | EditorParameterizedCommand | 5.1.00–5.3.04 |
-| `SHOW_SHOW_LABEL_COPY_DIALOG` | EditorParameterizedCommand | 5.0.00–5.2.03 |
-| `IMPORT_SCENE_FROM_ANIMATION` | EditorFileCommand | 5.0.03–5.3.04 |
-| `EXPORT_AS_TEMPLATE` | EditorFileCommand | 5.1.00–5.3.04 |
+| 명령 | 열거형 | 버전 | 성격 |
+|---|---|---|---|
+| `ADJUST_BOUNDING_BOX_ANGLE` | EditorCommand | 5.2.03–5.3.04 | 실제 경계 |
+| `DELETE_DEFORMER_ORIGINAL_SHAPE` | EditorCommand | 5.2.00–5.3.04 | 미확인 |
+| `ENABLE_PLAYBACK_CACHE` | EditorCommand | 5.2.00–5.3.04 | 미확인 |
+| `EXPAND_WARPDEFORMER` | EditorCommand | 5.3.00–5.3.04 | 실제 경계 |
+| `HIDE_OR_RESTORE_PALETTE` | EditorCommand | 5.0.03–5.3.04 | 미확인 |
+| `MESH_EDIT_RESET` | EditorCommand | 5.3.02–5.3.04 | 실제 경계 |
+| `MOVE_END` | EditorCommand | — | 실제 경계 |
+| `MOVE_END_WORKSPACE` | EditorCommand | — | 실제 경계 |
+| `OPEN_FAQ_PAGE` | EditorCommand | 5.0.00–5.2.03 | 실제 경계 |
+| `PARAM_CONTROLLER_CONVERT_TO_LINE_PARAM_CTRL` | EditorCommand | 5.2.00–5.3.04 | 미확인 |
+| `PARAM_CONTROLLER_LINE_PARAM_CTRL_REVERSE_DIRECTION` | EditorCommand | 5.2.00–5.3.04 | 미확인 |
+| `PARAM_CONTROLLER_PREVIEW_BAKE` | EditorCommand | 5.2.00–5.3.04 | 미확인 |
+| `PARAM_CONTROLLER_SPLIT_LINE_PARAM_CTRL` | EditorCommand | 5.2.00–5.3.04 | 미확인 |
+| `PART_PALETTE_CMD_CHANGE_VISIBLE_GUIDE_IMAGE` | EditorCommand | 5.2.00–5.3.04 | 미확인 |
+| `SELECT_CHILD_ELEMENTS_OF_DEFORMER` | EditorCommand | 5.2.03–5.3.04 | 실제 경계 |
+| `SELECT_OBJECT_BY_CURRENT_KEY_VALUE` | EditorCommand | 5.2.00–5.3.04 | 미확인 |
+| `SETTING_GUIDES_MODELING_ADD_CENTER` | EditorCommand | 5.3.00–5.3.04 | 실제 경계 |
+| `SHOW_ARTMESH_POINT` | EditorCommand | 5.1.00–5.3.04 | 미확인 |
+| `SHOW_DEFAULT_ZOOM` | EditorCommand | 5.3.00–5.3.04 | 실제 경계 |
+| `SHOW_FULL_SCENE` | EditorCommand | 5.3.00–5.3.04 | 실제 경계 |
+| `SHOW_HOME_DIALOG` | EditorCommand | 5.1.00–5.3.04 | 미확인 |
+| `SHOW_PARAM_CONTROLLER_TARGET_TRACKING` | EditorCommand | 5.2.00–5.3.04 | 미확인 |
+| `SHOW_PARAM_CTRL_MARKER` | EditorCommand | 5.2.00–5.3.04 | 미확인 |
+| `SHOW_POPUP_HOVERING_OBJECT` | EditorCommand | 5.2.03–5.3.04 | 실제 경계 |
+| `SWITCH_HIGHTLIGHT_CONFLICT_POLYGON` | EditorCommand | 5.3.00–5.3.04 | 실제 경계 |
+| `SWITCH_LOOP_EDITING_SUPPORT` | EditorCommand | 5.2.00–5.3.04 | 미확인 |
+| `SYNC_PARAMETERS_ACROSS_TABS` | EditorCommand | 5.0.05–5.3.04 | 미확인 |
+| `UPDATE_DEFORMER_ORIGINAL_SHAPE` | EditorCommand | 5.2.00–5.3.04 | 미확인 |
+| `AUTO_CREATE_DEFORMERS` | EditorParameterizedCommand | 5.1.00–5.3.04 | 미확인 |
+| `CHANGE_ALL_MESH_DRAW_ORDER` | EditorParameterizedCommand | 5.2.03–5.3.04 | 실제 경계 |
+| `CHANGE_MESH_DRAW_ORDER` | EditorParameterizedCommand | 5.2.03–5.3.04 | 실제 경계 |
+| `CREATE_YURE` | EditorParameterizedCommand | 5.1.00–5.3.04 | 미확인 |
+| `DISPLAY_MULTI_PASTE_SHAPE_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 | 미확인 |
+| `EXTERNAL_APP_SETTING` | EditorParameterizedCommand | 5.1.00–5.3.04 | 미확인 |
+| `FADE_SETTING` | EditorParameterizedCommand | 5.3.00–5.3.04 | 실제 경계 |
+| `OPEN_PARAMETER_GROUP_SETTING` | EditorParameterizedCommand | 5.1.02–5.3.04 | 미확인 |
+| `PARAM_CONTROLLER_DISPLAY_SETTING_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 | 미확인 |
+| `PARAM_CTRL_CALC_ORDER_SETTING_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 | 미확인 |
+| `REFLECT_FADE` | EditorParameterizedCommand | 5.3.00–5.3.04 | 실제 경계 |
+| `SHOW_LABEL_COPY_DIALOG` | EditorParameterizedCommand | 5.3.00–5.3.04 | 실제 경계 |
+| `SHOW_ROTATE3D_SETTING_DIALOG` | EditorParameterizedCommand | 5.1.00–5.3.04 | 미확인 |
+| `SHOW_SHOW_LABEL_COPY_DIALOG` | EditorParameterizedCommand | 5.0.00–5.2.03 | 미확인 |
+| `IMPORT_SCENE_FROM_ANIMATION` | EditorFileCommand | 5.0.03–5.3.04 | 미확인 |
+| `EXPORT_AS_TEMPLATE` | EditorFileCommand | 5.1.00–5.3.04 | 미확인 |
 
 ## 런타임 허용 핀
 

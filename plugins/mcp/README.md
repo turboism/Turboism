@@ -46,9 +46,9 @@ Runs a token-gated MCP Streamable HTTP server on the local loopback interface, p
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions.
-- MCP texture writes only on 5.2.03–5.3.04（earlier Cubism versions lack the feature entirely）
-- Parameter writes only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）
-- Authoring transactions (grouped undo writes) only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）
+- MCP texture writes only on 5.2.03–5.3.04（5.0.00–5.2.02 unconfirmed）
+- Parameter writes only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）
+- Authoring transactions (grouped undo writes) only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 

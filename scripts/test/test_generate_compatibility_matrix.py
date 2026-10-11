@@ -356,6 +356,29 @@ class MatrixTest(unittest.TestCase):
         # pending adaptation.
         self.assertEqual("pending", nature["5.1.00"])
 
+    def test_gap_classification_never_assumes_boundary(self) -> None:
+        nature = GEN.classify_gap(
+            {"5.0.00", "5.1.00"}, {"5.2.00"}, [], narrowed=False
+        )
+        # Missing versions are never asserted to be boundaries without
+        # evidence — a leading prefix stays unconfirmed.
+        self.assertEqual({"5.0.00": "unknown", "5.1.00": "unknown"}, nature)
+        narrowed = GEN.classify_gap(
+            {"5.0.00", "5.1.00"}, {"5.2.00"}, [], narrowed=True
+        )
+        # A contract/pin-narrowed capability marks missing versions as
+        # adaptation-pending, including the leading prefix.
+        self.assertEqual({"5.0.00": "pending", "5.1.00": "pending"}, narrowed)
+        bounded = GEN.classify_gap(
+            {"5.0.00", "5.1.00"},
+            {"5.2.00"},
+            [],
+            key="feat",
+            boundaries={"feat": {"5.0.00"}},
+        )
+        self.assertEqual("boundary", bounded["5.0.00"])
+        self.assertEqual("unknown", bounded["5.1.00"])
+
     def test_triage_bucketing_hides_noise_on_user_page(self) -> None:
         plugin = self.plugin()
         user_cell = GEN._host_cell(
