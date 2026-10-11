@@ -12398,6 +12398,8 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.part-structure.write",
             "cubism.editor-model.part-tree.read",
             "cubism.editor-model.physics.read",
+            "cubism.editor-model.psd.raw-image.export",
+            "cubism.editor-model.psd.raw-image.replace",
             "cubism.editor-model.psd.snapshot.read",
             "cubism.editor-model.read",
             "cubism.editor-model.rotation-deformer.parameter-bindings.write",
@@ -13494,6 +13496,8 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.part-structure.write",
             "cubism.editor-model.part-tree.read",
             "cubism.editor-model.physics.read",
+            "cubism.editor-model.psd.raw-image.export",
+            "cubism.editor-model.psd.raw-image.replace",
             "cubism.editor-model.psd.snapshot.read",
             "cubism.editor-model.read",
             "cubism.editor-model.rotation-deformer.parameter-bindings.write",
@@ -14590,6 +14594,8 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.part-structure.write",
             "cubism.editor-model.part-tree.read",
             "cubism.editor-model.physics.read",
+            "cubism.editor-model.psd.raw-image.export",
+            "cubism.editor-model.psd.raw-image.replace",
             "cubism.editor-model.psd.snapshot.read",
             "cubism.editor-model.read",
             "cubism.editor-model.rotation-deformer.parameter-bindings.write",
@@ -19121,6 +19127,22 @@ public final class EditorModelVerificationManifest {
         );
     }
 
+    /**
+     * Returns the reviewed record admitting one exact Cubism version.
+     *
+     * @param cubismVersion the version an admitted resolver reports
+     * @return the record for that version, or empty when no reviewed record covers it
+     */
+    static java.util.Optional<ReviewedSliceRecord> recordForVersion(final String cubismVersion) {
+        java.util.Objects.requireNonNull(cubismVersion, "cubismVersion");
+        for (final ReviewedSliceRecord record : RECORDS) {
+            if (record.cubismVersion().equals(cubismVersion)) {
+                return java.util.Optional.of(record);
+            }
+        }
+        return java.util.Optional.empty();
+    }
+
     private static Set<String> union(final Set<String> left, final Set<String> right) {
         final java.util.HashSet<String> values = new java.util.HashSet<>(left);
         values.addAll(right);
@@ -19928,6 +19950,9 @@ public final class EditorModelVerificationManifest {
         values.add(EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.CAPABILITY_ID);
         values.remove(EditorPartInspectorSelectorContract.CAPABILITY_ID);
         values.add(EditorPartInspectorIdWriteSelectorContract.CAPABILITY_ID);
+        // The 5.2.03 record admits the PSD export and replace seams reviewed on 5.3.
+        values.add(EditorRawImagePsdSelectorContract.CAPABILITY_ID);
+        values.add(EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID);
         return Set.copyOf(values);
     }
 
@@ -20029,6 +20054,11 @@ public final class EditorModelVerificationManifest {
         values.removeAll(GET_OBJECT_5302_ONLY_ALIASES);
         values.removeAll(CUBISM_5303_ONLY_ALIASES);
         values.addAll(dev.turboism.adapter.cubism.mesh.MeshToolSessionSelectorContract.REQUIRED_ALIASES);
+        // The 5.2.03 record carries every PSD export/replace selector except the
+        // transparency-shape member its ACLayerEntry does not have.
+        values.addAll(EditorRawImagePsdSelectorContract.REQUIRED_ALIASES);
+        values.removeAll(EditorRawImagePsdSelectorContract.TRANSPARENCY_SHAPES_ALIASES);
+        values.addAll(EditorRawImagePsdReplaceSelectorContract.REQUIRED_ALIASES);
         values.addAll(CUBISM_52_PROPAGATED_ALIASES);
         return Set.copyOf(values);
     }

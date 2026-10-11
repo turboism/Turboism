@@ -23,7 +23,8 @@ final class VerifiedProtectedExportHookInstaller implements AutoCloseable {
     static final java.util.Set<String> SUPPORTED_CUBISM_VERSIONS = java.util.Set.of(
             ProtectedExportChooserProfile.CUBISM_5_2_03.hostVersion(),
             ProtectedExportChooserProfile.CUBISM_5_3_02.hostVersion(),
-            ProtectedExportChooserProfile.CUBISM_5_3_03.hostVersion());
+            ProtectedExportChooserProfile.CUBISM_5_3_03.hostVersion(),
+            ProtectedExportChooserProfile.CUBISM_5_3_04.hostVersion());
 
     private final Instrumentation instrumentation;
     private final String targetClassName;

@@ -108,6 +108,8 @@
     "cubism.texture-atlas.layout.write",
     "cubism.texture-atlas.native-layout-invocation",
     "ui.object-context-menu.contribute",
+    "cubism.editor-model.psd.raw-image.export",
+    "cubism.editor-model.psd.raw-image.replace",
     "cubism.editor-model.texture.write",
     "cubism.editor-model.art-mesh.inspector-write"
   ],
@@ -11224,6 +11226,12 @@
       "structure"
     ],
     "cubism.editor-model.art-mesh.inspector-write": [
+      "declaredGeneration"
+    ],
+    "cubism.editor-model.psd.raw-image.export": [
+      "declaredGeneration"
+    ],
+    "cubism.editor-model.psd.raw-image.replace": [
       "declaredGeneration"
     ]
   }

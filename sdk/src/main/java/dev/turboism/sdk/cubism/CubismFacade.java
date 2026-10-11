@@ -149,19 +149,19 @@ public interface CubismFacade {
      * transforms; {@code apply} writes arbitrary-angle, scaled placements through
      * the same affine/undo boundary as the rectangle service.</p>
      */
-    @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03"})
+    @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     default dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService textureAtlasPolygonLayouts() {
         return dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService.unavailable();
     }
 
     /** Returns read access to the active native texture-atlas editor session. */
-    @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03"})
+    @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     default dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession textureAtlasEditorSession() {
         return dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession.unavailable();
     }
 
     /** Returns UI contribution access to the native texture-atlas editor window. */
-    @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03"})
+    @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     default dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi textureAtlasEditorUi() {
         return dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi.unavailable();
     }
