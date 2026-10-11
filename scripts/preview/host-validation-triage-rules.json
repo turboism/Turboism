@@ -121,6 +121,12 @@
    "advice": "the session's psd-export-observation step produced a readable native export that was saved but cannot be structurally verified without a runtime-issued edit handle — a documented SDK gap on this host, not probe drift; record the boundary"
   },
   {
+   "id": "capability-psd-export-saved-unverified",
+   "category": "CAPABILITY_BOUNDARY",
+   "when": {"failureText": "PSD_NATIVE_EXPORT;status\\\\?=SAVED_UNVERIFIED|Native readable export without a runtime-issued edit handle"},
+   "advice": "psd-export-observation produced a readable native export that was saved (SAVED_UNVERIFIED) without a runtime-issued edit handle — a documented SDK gap on this host, not probe drift; record the boundary"
+  },
+  {
    "id": "fixture-no-clip-mask-records",
    "category": "FIXTURE_UNSUITABLE",
    "when": {"marker": "CLIPMASK_VIEWER_MATRIX_RESULT status=BLOCKED"},

@@ -285,7 +285,7 @@ Latest FINAL result per task × version from `validation/cubism-version-matrix/c
 | `clipmask` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ? | ✓ | ✓ | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ | ✓ | ✓ | ✓ |
 | `core` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `cursor-coalesce` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |
-| `edit-protocol` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ? | ? | ? |
+| `edit-protocol` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ? | ? | ✓ |
 | `edit-session` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ | ✓ | ◇ | ✓ | ✓ | ✓ |
 | `editor-ui` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ? | ✓ | ✓ | ? | ✓ | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ |
 | `external-psd-edit-pipeline` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
@@ -312,12 +312,12 @@ Latest FINAL result per task × version from `validation/cubism-version-matrix/c
 | `plugin-ui` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ? |  |  |
 | `project-workspace` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ? |  |  |
 | `protected-export` |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |  | ✓ | ✓ |  | ? | ? | ✓ |
-| `psd` |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ✓ | ◇ | ✓ | ✓ | ✓ | ✓ |
+| `psd` |  |  |  |  |  |  |  |  |  |  |  | ◇ |  |  | ✓ | ◇ | ✓ | ✓ | ✓ | ✓ |
 | `review056` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ? | ? |  |
 | `selection-brush-coordinate-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |  |  |  |
 | `selection-brush-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |  |  |  |
 | `selection-brush-round-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |  |  |  |
-| `selection-edit` | ? | ? | ? | ? | ? | ? | ? |  | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ |
+| `selection-edit` | ✓ | ? | ? | ? | ? | ? | ✓ |  | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ |
 | `semantic-history-native-ui` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |
 | `semantic-history-primary` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ? | ? |  |
 | `separate-save-path` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ? | ? | ✓ | ✓ | ◇ | ✓ | ✓ | ✓ |
