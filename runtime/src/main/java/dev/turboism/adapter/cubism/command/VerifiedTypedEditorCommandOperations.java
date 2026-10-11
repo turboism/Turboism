@@ -9,6 +9,7 @@ import dev.turboism.sdk.cubism.command.EditorGridSettingsRequest;
 import dev.turboism.sdk.cubism.command.EditorParameterizedRequest;
 import dev.turboism.sdk.cubism.command.EditorResizeModelRequest;
 import dev.turboism.sdk.cubism.model.Color;
+
 import java.io.File;
 import java.util.Objects;
 
@@ -111,7 +112,8 @@ final class VerifiedTypedEditorCommandOperations {
         static final String FILE_SAVE_SCENE = "cubism.editor-command.file.save-scene";
         static final String FILE_SAVE_MODEL = "cubism.editor-command.file.save-model";
 
-        private Aliases() {}
+        private Aliases() {
+        }
     }
 
     private static final String APP_INSTANCE = "cubism.ui-top-menu.app-controller.instance";
@@ -119,9 +121,15 @@ final class VerifiedTypedEditorCommandOperations {
     static final String CANVAS_EDIT_LABEL = "Change Canvas Size";
 
     private final VerifiedMemberResolver resolver;
+    private final VerifiedMemberResolver editorModelResolver;
 
     VerifiedTypedEditorCommandOperations(final VerifiedMemberResolver resolver) {
+        this(resolver, resolver);
+    }
+
+    VerifiedTypedEditorCommandOperations(final VerifiedMemberResolver resolver, final VerifiedMemberResolver editorModelResolver) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
+        this.editorModelResolver = editorModelResolver;
     }
 
     EditorCommandResult execute(final EditorParameterizedRequest request) {
@@ -151,19 +159,11 @@ final class VerifiedTypedEditorCommandOperations {
     private EditorCommandResult externalAppSetting(final EditorExternalAppSettingsRequest request) {
         // Every selector used by the operation and its rollback resolves before the first mutation.
         requireResolvable(
-                Aliases.EXTERNAL_MANAGER,
-                Aliases.EXTERNAL_INSTANCE,
-                Aliases.EXTERNAL_CONNECTED,
-                Aliases.EXTERNAL_GET_PORT,
-                Aliases.EXTERNAL_GET_REMOTE,
-                Aliases.EXTERNAL_SET_PORT,
-                Aliases.EXTERNAL_SET_REMOTE,
-                Aliases.EXTERNAL_START,
-                Aliases.EXTERNAL_STOP,
-                Aliases.EXTERNAL_COMPANION,
-                Aliases.CONFIG_INSTANCE,
-                Aliases.CONFIG_READ,
-                Aliases.CONFIG_WRITE);
+            Aliases.EXTERNAL_MANAGER, Aliases.EXTERNAL_INSTANCE, Aliases.EXTERNAL_CONNECTED,
+            Aliases.EXTERNAL_GET_PORT, Aliases.EXTERNAL_GET_REMOTE, Aliases.EXTERNAL_SET_PORT,
+            Aliases.EXTERNAL_SET_REMOTE, Aliases.EXTERNAL_START, Aliases.EXTERNAL_STOP,
+            Aliases.EXTERNAL_COMPANION, Aliases.CONFIG_INSTANCE, Aliases.CONFIG_READ, Aliases.CONFIG_WRITE
+        );
         final Object manager = resolver.readStaticField(Aliases.EXTERNAL_MANAGER);
         final Object instance = resolver.invoke(Aliases.EXTERNAL_INSTANCE, manager);
         final boolean connected = (Boolean) resolver.invoke(Aliases.EXTERNAL_CONNECTED, instance);
@@ -177,15 +177,15 @@ final class VerifiedTypedEditorCommandOperations {
         final boolean oldRemote = (Boolean) resolver.invokeStatic(Aliases.EXTERNAL_GET_REMOTE);
         final Object config = resolver.readStaticField(Aliases.CONFIG_INSTANCE);
         final Object oldConfigRemote =
-                resolver.invoke(Aliases.CONFIG_READ, config, EXTERNAL_APP_REMOTE_CONFIG_KEY, false);
+            resolver.invoke(Aliases.CONFIG_READ, config, EXTERNAL_APP_REMOTE_CONFIG_KEY, false);
         final Object companion = resolver.readStaticField(Aliases.EXTERNAL_COMPANION);
         try {
             resolver.invoke(Aliases.EXTERNAL_SET_PORT, instance, request.port());
             // The native checkbox listener applies the flag through the companion; the instance
             // boolean setter touches an unused constructor field and must not be used.
             resolver.invoke(Aliases.EXTERNAL_SET_REMOTE, companion, request.allowRemoteConnections());
-            resolver.invoke(
-                    Aliases.CONFIG_WRITE, config, EXTERNAL_APP_REMOTE_CONFIG_KEY, request.allowRemoteConnections());
+            resolver.invoke(Aliases.CONFIG_WRITE, config, EXTERNAL_APP_REMOTE_CONFIG_KEY,
+                request.allowRemoteConnections());
             resolver.invoke(Aliases.EXTERNAL_START, instance);
         } catch (RuntimeException | Error failure) {
             try {
@@ -204,13 +204,14 @@ final class VerifiedTypedEditorCommandOperations {
      * mismatch throws {@link RollbackFailed} so the command fails closed without claiming safety.
      */
     private void rollbackExternal(
-            final Object manager,
-            final Object instance,
-            final Object companion,
-            final Object config,
-            final int oldPort,
-            final boolean oldRemote,
-            final Object oldConfigRemote) {
+        final Object manager,
+        final Object instance,
+        final Object companion,
+        final Object config,
+        final int oldPort,
+        final boolean oldRemote,
+        final Object oldConfigRemote
+    ) {
         Throwable failure = null;
         try {
             resolver.invoke(Aliases.EXTERNAL_STOP, manager);
@@ -231,44 +232,34 @@ final class VerifiedTypedEditorCommandOperations {
             portRestored = (Integer) resolver.invoke(Aliases.EXTERNAL_GET_PORT, instance) == oldPort;
             remoteRestored = (Boolean) resolver.invokeStatic(Aliases.EXTERNAL_GET_REMOTE) == oldRemote;
             configRestored = Objects.equals(
-                    resolver.invoke(Aliases.CONFIG_READ, config, EXTERNAL_APP_REMOTE_CONFIG_KEY, false),
-                    oldConfigRemote);
+                resolver.invoke(Aliases.CONFIG_READ, config, EXTERNAL_APP_REMOTE_CONFIG_KEY, false),
+                oldConfigRemote
+            );
         } catch (RuntimeException readbackFailure) {
             failure = failure == null ? readbackFailure : failure;
             throw new RollbackFailed("external-app rollback could not be read back", failure);
         }
         if (failure != null || !portRestored || !remoteRestored || !configRestored) {
             throw new RollbackFailed(
-                    "external-app rollback unverified: failure=" + failure + " port=" + portRestored + " remote="
-                            + remoteRestored + " config=" + configRestored,
-                    failure);
+                "external-app rollback unverified: failure=" + failure
+                    + " port=" + portRestored + " remote=" + remoteRestored + " config=" + configRestored,
+                failure
+            );
         }
     }
 
     private EditorCommandResult gridSetting(final EditorGridSettingsRequest request) {
         requireResolvable(
-                Aliases.GRID_ENTITY,
-                Aliases.GRID_DEVELOPER_SETTING,
-                Aliases.GRID_GET_SPACING,
-                Aliases.GRID_GET_COLOR,
-                Aliases.GRID_GET_JCOLOR,
-                Aliases.GRID_GET_BOLD,
-                Aliases.GRID_SET_SPACING,
-                Aliases.GRID_SET_COLOR,
-                Aliases.GRID_COLOR_CREATE,
-                Aliases.CANVAS_CURRENT_VIEW_CONTEXT,
-                Aliases.CANVAS_MODELING_VIEW,
-                Aliases.CANVAS_DOC_SIZE,
-                Aliases.CANVAS_SIZE_WIDTH,
-                Aliases.CANVAS_SIZE_HEIGHT,
-                Aliases.CANVAS_COMPLETE_PACK,
-                Aliases.GRID_ALL_VIEW_CONTEXTS,
-                Aliases.GRID_MODELING_DRAW,
-                Aliases.GRID_ENTITY_FROM_DRAW,
-                Aliases.GRID_SET_RESET,
-                Aliases.GRID_UPDATE_MANAGER,
-                Aliases.GRID_REPAINT_DEFAULT,
-                APP_INSTANCE);
+            Aliases.GRID_ENTITY, Aliases.GRID_DEVELOPER_SETTING, Aliases.GRID_GET_SPACING,
+            Aliases.GRID_GET_COLOR, Aliases.GRID_GET_JCOLOR, Aliases.GRID_GET_BOLD,
+            Aliases.GRID_SET_SPACING, Aliases.GRID_SET_COLOR, Aliases.GRID_COLOR_CREATE,
+            Aliases.CANVAS_CURRENT_VIEW_CONTEXT, Aliases.CANVAS_MODELING_VIEW,
+            Aliases.CANVAS_DOC_SIZE, Aliases.CANVAS_SIZE_WIDTH, Aliases.CANVAS_SIZE_HEIGHT,
+            Aliases.CANVAS_COMPLETE_PACK, Aliases.GRID_ALL_VIEW_CONTEXTS, Aliases.GRID_MODELING_DRAW,
+            Aliases.GRID_ENTITY_FROM_DRAW, Aliases.GRID_SET_RESET, Aliases.GRID_UPDATE_MANAGER,
+            Aliases.GRID_REPAINT_DEFAULT,
+            APP_INSTANCE
+        );
         final Object entity = resolver.readStaticField(Aliases.GRID_ENTITY);
         final Object developerSetting = resolver.readStaticField(Aliases.GRID_DEVELOPER_SETTING);
         // Active-document/edit admission BEFORE the no-op short-circuit: a missing or stale
@@ -298,10 +289,11 @@ final class VerifiedTypedEditorCommandOperations {
             return new EditorCommandResult(EditorCommandResult.Status.INVALID_STATE, request.commandId());
         }
         final Object hostColor = resolver.construct(
-                Aliases.GRID_COLOR_CREATE,
-                Math.round(request.color().red() * 255.0f),
-                Math.round(request.color().green() * 255.0f),
-                Math.round(request.color().blue() * 255.0f));
+            Aliases.GRID_COLOR_CREATE,
+            Math.round(request.color().red() * 255.0f),
+            Math.round(request.color().green() * 255.0f),
+            Math.round(request.color().blue() * 255.0f)
+        );
         try {
             resolver.invoke(Aliases.GRID_SET_COLOR, developerSetting, hostColor);
             resolver.invoke(Aliases.GRID_SET_SPACING, entity, request.spacingPixels());
@@ -320,11 +312,16 @@ final class VerifiedTypedEditorCommandOperations {
 
     /** Restores grid spacing/color, re-runs the refresh, and verifies both values by readback. */
     private void rollbackGrid(
-            final Object developerSetting, final Object entity, final int oldSpacing, final int oldRgb) {
+        final Object developerSetting,
+        final Object entity,
+        final int oldSpacing,
+        final int oldRgb
+    ) {
         Throwable failure = null;
         try {
             final Object oldColor = resolver.construct(
-                    Aliases.GRID_COLOR_CREATE, (oldRgb >> 16) & 0xFF, (oldRgb >> 8) & 0xFF, oldRgb & 0xFF);
+                Aliases.GRID_COLOR_CREATE, (oldRgb >> 16) & 0xFF, (oldRgb >> 8) & 0xFF, oldRgb & 0xFF
+            );
             resolver.invoke(Aliases.GRID_SET_COLOR, developerSetting, oldColor);
             resolver.invoke(Aliases.GRID_SET_SPACING, entity, oldSpacing);
         } catch (RuntimeException restoreFailure) {
@@ -346,9 +343,10 @@ final class VerifiedTypedEditorCommandOperations {
         }
         if (failure != null || !spacingRestored || !colorRestored) {
             throw new RollbackFailed(
-                    "grid rollback unverified: failure=" + failure + " spacing=" + spacingRestored + " color="
-                            + colorRestored,
-                    failure);
+                "grid rollback unverified: failure=" + failure
+                    + " spacing=" + spacingRestored + " color=" + colorRestored,
+                failure
+            );
         }
     }
 
@@ -356,7 +354,7 @@ final class VerifiedTypedEditorCommandOperations {
         final Object app = appInstance();
         final Object pack = resolver.invoke(Aliases.CANVAS_COMPLETE_PACK, app);
         final java.util.List<?> viewContexts =
-                (java.util.List<?>) resolver.invoke(Aliases.GRID_ALL_VIEW_CONTEXTS, pack);
+            (java.util.List<?>) resolver.invoke(Aliases.GRID_ALL_VIEW_CONTEXTS, pack);
         for (Object candidate : viewContexts) {
             if (resolver.isInstance(Aliases.CANVAS_MODELING_VIEW, candidate)) {
                 final Object drawImpl = resolver.invoke(Aliases.GRID_MODELING_DRAW, candidate);
@@ -370,34 +368,26 @@ final class VerifiedTypedEditorCommandOperations {
 
     private EditorCommandResult canvasSetting(final EditorCanvasSettingsRequest request) {
         requireResolvable(
-                Aliases.CANVAS_CURRENT_VIEW_CONTEXT,
-                Aliases.CANVAS_MODELING_VIEW,
-                Aliases.CANVAS_MODELING_DOC,
-                Aliases.CANVAS_EDIT_MODE,
-                Aliases.CANVAS_EDIT_MODE_MAIN,
-                Aliases.CANVAS_MODEL_SOURCE,
-                Aliases.CANVAS_CANVAS,
-                Aliases.CANVAS_MODEL,
-                Aliases.CANVAS_IS_EDITING,
-                Aliases.CANVAS_PIXEL_WIDTH,
-                Aliases.CANVAS_PIXEL_HEIGHT,
-                Aliases.CANVAS_UNDO_MANAGER,
-                Aliases.CANVAS_UNDO_POS,
-                Aliases.CANVAS_BEGIN_EDIT,
-                Aliases.CANVAS_SIMPLE_UNDO,
-                Aliases.CANVAS_GROUP_ADD,
-                Aliases.CANVAS_COMPANION,
-                Aliases.CANVAS_NOTIFY_SIZE,
-                Aliases.CANVAS_SET_PIXEL_WIDTH,
-                Aliases.CANVAS_SET_PIXEL_HEIGHT,
-                Aliases.CANVAS_VECTOR2,
-                Aliases.CANVAS_VECTOR2_ZERO,
-                Aliases.CANVAS_HANDLER,
-                Aliases.CANVAS_SCALE_WITH_ANCHOR,
-                Aliases.CANVAS_END_EDIT_DEFAULT,
-                Aliases.CANVAS_MARK_DIRTY,
-                Aliases.CANVAS_UNDO,
-                APP_INSTANCE);
+            Aliases.CANVAS_CURRENT_VIEW_CONTEXT, Aliases.CANVAS_MODELING_VIEW, Aliases.CANVAS_MODELING_DOC,
+            Aliases.CANVAS_EDIT_MODE, Aliases.CANVAS_EDIT_MODE_MAIN, Aliases.CANVAS_MODEL_SOURCE,
+            Aliases.CANVAS_CANVAS, Aliases.CANVAS_MODEL, Aliases.CANVAS_IS_EDITING,
+            Aliases.CANVAS_PIXEL_WIDTH, Aliases.CANVAS_PIXEL_HEIGHT, Aliases.CANVAS_UNDO_MANAGER,
+            Aliases.CANVAS_UNDO_POS, Aliases.CANVAS_BEGIN_EDIT, Aliases.CANVAS_SIMPLE_UNDO,
+            Aliases.CANVAS_GROUP_ADD, Aliases.CANVAS_COMPANION, Aliases.CANVAS_NOTIFY_SIZE,
+            Aliases.CANVAS_SET_PIXEL_WIDTH, Aliases.CANVAS_SET_PIXEL_HEIGHT, Aliases.CANVAS_VECTOR2,
+            Aliases.CANVAS_VECTOR2_ZERO, Aliases.CANVAS_HANDLER, Aliases.CANVAS_SCALE_WITH_ANCHOR,
+            Aliases.CANVAS_END_EDIT_DEFAULT, Aliases.CANVAS_MARK_DIRTY, Aliases.CANVAS_UNDO,
+            APP_INSTANCE
+        );
+        // The 5.3.02 scale helper removes a temporary rotation source after its
+        // last updateModelInstances call. Rebuild the live collection once more
+        // using the already verified editor-model selector before completing.
+        final boolean rebuildInstances = "5.3.02".equals(resolver.cubismVersion());
+        if (rebuildInstances && (editorModelResolver == null
+            || !resolver.cubismVersion().equals(editorModelResolver.cubismVersion()))) {
+            throw new IllegalStateException("Canvas instance rebuild requires the verified editor-model selector.");
+        }
+        if (rebuildInstances) editorModelResolver.bind("cubism.editor-model.model-source.update-instances");
         final ModelingContext context = new ModelingContext();
         if ((Boolean) resolver.invoke(Aliases.CANVAS_IS_EDITING, context.editMode)) {
             // An unrelated edit is in progress; fail closed before the first mutation.
@@ -417,6 +407,7 @@ final class VerifiedTypedEditorCommandOperations {
                 // Rollback through the native Undo path: close the transaction and undo the partial
                 // group so no partial canvas/model state and no open edit remain.
                 rollbackEdit(context.editMode, undoPosBefore);
+                if (rebuildInstances) editorModelResolver.invoke("cubism.editor-model.model-source.update-instances", context.modelSource);
             } catch (RollbackFailed rollbackFailure) {
                 rollbackFailure.addSuppressed(failure);
                 throw rollbackFailure;
@@ -426,9 +417,10 @@ final class VerifiedTypedEditorCommandOperations {
             final int heightAfter = (Integer) resolver.invoke(Aliases.CANVAS_PIXEL_HEIGHT, context.canvas);
             if (widthAfter != oldWidth || heightAfter != oldHeight) {
                 throw new RollbackFailed(
-                        "canvas rollback unverified: canvas=" + widthAfter + "x" + heightAfter + " expected=" + oldWidth
-                                + "x" + oldHeight,
-                        failure);
+                    "canvas rollback unverified: canvas=" + widthAfter + "x" + heightAfter
+                        + " expected=" + oldWidth + "x" + oldHeight,
+                    failure
+                );
             }
             throw failure;
         }
@@ -436,11 +428,14 @@ final class VerifiedTypedEditorCommandOperations {
     }
 
     private void applyCanvasSize(
-            final ModelingContext context,
-            final EditorCanvasSettingsRequest request,
-            final int oldWidth,
-            final int oldHeight) {
-        final Object group = resolver.invoke(Aliases.CANVAS_BEGIN_EDIT, context.editMode, CANVAS_EDIT_LABEL);
+        final ModelingContext context,
+        final EditorCanvasSettingsRequest request,
+        final int oldWidth,
+        final int oldHeight
+    ) {
+        final Object group = resolver.invoke(
+            Aliases.CANVAS_BEGIN_EDIT, context.editMode, CANVAS_EDIT_LABEL
+        );
         // The native dialog registers the LIVE canvas as the SimpleUndo target; the undo
         // snapshot is captured inside the constructor (undoData = target.deepCopy()).
         final Object undo = resolver.construct(Aliases.CANVAS_SIMPLE_UNDO, "canvas", context.canvas, null);
@@ -455,34 +450,35 @@ final class VerifiedTypedEditorCommandOperations {
         final Object translate = resolver.construct(Aliases.CANVAS_VECTOR2, deltaX, deltaY);
         final Object zero = resolver.construct(Aliases.CANVAS_VECTOR2_ZERO);
         final Object handler = resolver.invoke(Aliases.CANVAS_HANDLER, context.modelSource);
-        resolver.invoke(Aliases.CANVAS_SCALE_WITH_ANCHOR, handler, context.model, 1.0f, translate, zero, group);
-        resolver.invokeStatic(Aliases.CANVAS_END_EDIT_DEFAULT, context.editMode, false, null, 1, null);
+        resolver.invoke(
+            Aliases.CANVAS_SCALE_WITH_ANCHOR,
+            handler,
+            context.model,
+            1.0f,
+            translate,
+            zero,
+            group
+        );
+        if ("5.3.02".equals(resolver.cubismVersion())) {
+            editorModelResolver.invoke("cubism.editor-model.model-source.update-instances", context.modelSource);
+        }
+        resolver.invokeStatic(
+            Aliases.CANVAS_END_EDIT_DEFAULT, context.editMode, false, null, 1, null
+        );
         resolver.invoke(Aliases.CANVAS_MARK_DIRTY, context.document);
     }
 
     private EditorCommandResult resizeModelDocument(final EditorResizeModelRequest request) {
         requireResolvable(
-                Aliases.CANVAS_CURRENT_VIEW_CONTEXT,
-                Aliases.CANVAS_MODELING_VIEW,
-                Aliases.CANVAS_MODELING_DOC,
-                Aliases.CANVAS_EDIT_MODE,
-                Aliases.CANVAS_EDIT_MODE_MAIN,
-                Aliases.CANVAS_MODEL_SOURCE,
-                Aliases.CANVAS_CANVAS,
-                Aliases.CANVAS_MODEL,
-                Aliases.CANVAS_IS_EDITING,
-                Aliases.CANVAS_UNDO_MANAGER,
-                Aliases.CANVAS_UNDO_POS,
-                Aliases.RESIZE_GUARD,
-                Aliases.RESIZE_GUARD_CURRENT,
-                Aliases.RESIZE_GUARD_ACTIVE,
-                Aliases.CANVAS_HANDLER,
-                Aliases.CANVAS_COMPLETE_PACK,
-                Aliases.RESIZE_SCALE_MODEL,
-                Aliases.CANVAS_MARK_DIRTY,
-                Aliases.CANVAS_UNDO,
-                Aliases.CANVAS_END_EDIT_DEFAULT,
-                APP_INSTANCE);
+            Aliases.CANVAS_CURRENT_VIEW_CONTEXT, Aliases.CANVAS_MODELING_VIEW, Aliases.CANVAS_MODELING_DOC,
+            Aliases.CANVAS_EDIT_MODE, Aliases.CANVAS_EDIT_MODE_MAIN, Aliases.CANVAS_MODEL_SOURCE,
+            Aliases.CANVAS_CANVAS, Aliases.CANVAS_MODEL, Aliases.CANVAS_IS_EDITING,
+            Aliases.CANVAS_UNDO_MANAGER, Aliases.CANVAS_UNDO_POS, Aliases.RESIZE_GUARD,
+            Aliases.RESIZE_GUARD_CURRENT, Aliases.RESIZE_GUARD_ACTIVE, Aliases.CANVAS_HANDLER,
+            Aliases.CANVAS_COMPLETE_PACK, Aliases.RESIZE_SCALE_MODEL, Aliases.CANVAS_MARK_DIRTY,
+            Aliases.CANVAS_UNDO, Aliases.CANVAS_END_EDIT_DEFAULT,
+            APP_INSTANCE
+        );
         final ModelingContext context = new ModelingContext();
         if ((Boolean) resolver.invoke(Aliases.CANVAS_IS_EDITING, context.editMode)) {
             return new EditorCommandResult(EditorCommandResult.Status.INVALID_STATE, request.commandId());
@@ -503,16 +499,9 @@ final class VerifiedTypedEditorCommandOperations {
         final int undoPosBefore = undoPosition(context.editMode);
         try {
             resolver.invokeStatic(
-                    Aliases.RESIZE_SCALE_MODEL,
-                    handler,
-                    pack,
-                    context.editMode,
-                    context.model,
-                    scale,
-                    null,
-                    null,
-                    48,
-                    null);
+                Aliases.RESIZE_SCALE_MODEL, handler, pack, context.editMode, context.model,
+                scale, null, null, 48, null
+            );
         } catch (RuntimeException | Error failure) {
             try {
                 rollbackEdit(context.editMode, undoPosBefore);
@@ -538,33 +527,48 @@ final class VerifiedTypedEditorCommandOperations {
 
     private EditorCommandResult saveAs(final ResolvedEditorFileCommand command) {
         requireResolvable(
-                Aliases.FILE_SCENE_DOCUMENT,
-                Aliases.FILE_SCENE_CONTENT,
-                Aliases.FILE_SAVE_SCENE,
-                Aliases.FILE_SAVE_MODEL,
-                Aliases.CANVAS_CURRENT_VIEW_CONTEXT,
-                APP_INSTANCE);
+            Aliases.FILE_SCENE_DOCUMENT, Aliases.FILE_SCENE_CONTENT, Aliases.FILE_SAVE_SCENE,
+            Aliases.FILE_SAVE_MODEL, Aliases.CANVAS_CURRENT_VIEW_CONTEXT,
+            APP_INSTANCE
+        );
         final EditorFileUsePointGuard.Result admission = EditorFileUsePointGuard.admit(command);
         if (!admission.allowed()) {
             return new EditorCommandResult(EditorCommandResult.Status.REJECTED, command.commandId());
         }
-        final Object viewContext = resolver.invoke(Aliases.CANVAS_CURRENT_VIEW_CONTEXT, appInstance());
+        final Object viewContext = resolver.invoke(
+            Aliases.CANVAS_CURRENT_VIEW_CONTEXT, appInstance()
+        );
         final File target = command.file().toFile();
+        // The native boolean controls revealing the saved file, not Save As.
+        // Both native save paths persist/update their file independently of it.
+        // A typed file command should not launch an unsolicited file manager.
         if (resolver.isInstance(Aliases.FILE_SCENE_DOCUMENT, viewContext)) {
             final Object content = resolver.invoke(Aliases.FILE_SCENE_CONTENT, viewContext);
-            final boolean saved = (Boolean) resolver.invoke(Aliases.FILE_SAVE_SCENE, content, target, true);
+            final boolean saved = (Boolean) resolver.invoke(Aliases.FILE_SAVE_SCENE, content, target, false);
             return saved
-                    ? new EditorCommandResult(EditorCommandResult.Status.EXECUTED, command.commandId())
-                    : new EditorCommandResult(EditorCommandResult.Status.FAILED, command.commandId());
+                ? new EditorCommandResult(EditorCommandResult.Status.EXECUTED, command.commandId())
+                : new EditorCommandResult(EditorCommandResult.Status.FAILED, command.commandId());
         }
         final Object document = modelingDocument(viewContext);
         if (document == null) {
             return new EditorCommandResult(EditorCommandResult.Status.INVALID_STATE, command.commandId());
         }
-        final boolean saved = (Boolean) resolver.invoke(Aliases.FILE_SAVE_MODEL, document, target, true);
+        final boolean saved;
+        if (resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03") && editorModelResolver != null
+                && editorModelResolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03") && editorModelResolver.authorizesFeature(
+                dev.turboism.mapping.verification.selector.EditorParameterInterpolationSelectorContract.ADAPTER_SLICE_ID,
+                dev.turboism.mapping.verification.selector.EditorParameterInterpolationSelectorContract.CAPABILITY_ID,
+                dev.turboism.mapping.verification.selector.EditorParameterInterpolationSelectorContract.REQUIRED_ALIASES)) {
+            requireResolvable(Aliases.CANVAS_MODEL_SOURCE);
+            final Object source = resolver.invoke(Aliases.CANVAS_MODEL_SOURCE, document);
+            saved = NativeInterpolationSaveCache.save(editorModelResolver, source,
+                () -> (Boolean) resolver.invoke(Aliases.FILE_SAVE_MODEL, document, target, false));
+        } else {
+            saved = (Boolean) resolver.invoke(Aliases.FILE_SAVE_MODEL, document, target, false);
+        }
         return saved
-                ? new EditorCommandResult(EditorCommandResult.Status.EXECUTED, command.commandId())
-                : new EditorCommandResult(EditorCommandResult.Status.FAILED, command.commandId());
+            ? new EditorCommandResult(EditorCommandResult.Status.EXECUTED, command.commandId())
+            : new EditorCommandResult(EditorCommandResult.Status.FAILED, command.commandId());
     }
 
     private int undoPosition(final Object editMode) {
@@ -605,9 +609,10 @@ final class VerifiedTypedEditorCommandOperations {
         }
         if (failure != null || !posRestored || !editingClosed) {
             throw new RollbackFailed(
-                    "edit rollback unverified: failure=" + failure + " undoPos=" + posRestored + " editingClosed="
-                            + editingClosed,
-                    failure);
+                "edit rollback unverified: failure=" + failure
+                    + " undoPos=" + posRestored + " editingClosed=" + editingClosed,
+                failure
+            );
         }
     }
 
@@ -619,8 +624,8 @@ final class VerifiedTypedEditorCommandOperations {
 
     private static int rgb(final Color color) {
         return (Math.round(color.red() * 255.0f) << 16)
-                | (Math.round(color.green() * 255.0f) << 8)
-                | Math.round(color.blue() * 255.0f);
+            | (Math.round(color.green() * 255.0f) << 8)
+            | Math.round(color.blue() * 255.0f);
     }
 
     private Object appInstance() {
@@ -653,7 +658,8 @@ final class VerifiedTypedEditorCommandOperations {
                 case FIELD -> {
                     if ((selector.requiredAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
                         throw new IllegalStateException(
-                                "instance-field alias is not supported by typed editor commands: " + alias);
+                            "instance-field alias is not supported by typed editor commands: " + alias
+                        );
                     }
                     resolver.readStaticField(alias);
                 }
@@ -662,10 +668,15 @@ final class VerifiedTypedEditorCommandOperations {
                     // classloader without invoking anything.
                     try {
                         Class.forName(
-                                selector.ownerInternalName().replace('/', '.'), false, resolver.hostClassLoader());
+                            selector.ownerInternalName().replace('/', '.'),
+                            false,
+                            resolver.hostClassLoader()
+                        );
                     } catch (ClassNotFoundException | LinkageError failure) {
                         throw new IllegalStateException(
-                                "verified host type cannot be loaded for alias " + alias, failure);
+                            "verified host type cannot be loaded for alias " + alias,
+                            failure
+                        );
                     }
                 }
             }

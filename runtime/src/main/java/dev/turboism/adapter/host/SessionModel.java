@@ -202,6 +202,19 @@ final class SessionModel implements CubismModel {
             public void unbind(final dev.turboism.sdk.cubism.model.ParameterBindingTarget target) {
                 host.guardedVoid(generation, () -> operations.unbind(target));
             }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.ParameterInterpolation interpolation(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target) {
+                return host.current(generation, ignored -> operations.interpolation(target), delegate);
+            }
+
+            @Override
+            public void setInterpolation(
+                    final dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
+                    final dev.turboism.sdk.cubism.model.ParameterInterpolation settings) {
+                host.guardedVoid(generation, () -> operations.setInterpolation(target, settings));
+            }
         };
     }
 
@@ -280,5 +293,17 @@ final class SessionModel implements CubismModel {
     @Override
     public void replaceArtMeshClipMasks(final List<ClipMaskReplacement> replacements) {
         host.guardedVoid(generation, () -> delegate.replaceArtMeshClipMasks(replacements));
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.model.CubismMocExport exportMoc(
+            final dev.turboism.sdk.cubism.model.CubismMocExportSettings settings) {
+        return host.current(generation, model -> model.exportMoc(settings), delegate);
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.model.CubismRenderedPixels renderPixels(
+            final int width, final int height) {
+        return host.current(generation, model -> model.renderPixels(width, height), delegate);
     }
 }

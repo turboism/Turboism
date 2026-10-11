@@ -278,6 +278,48 @@ class CoreStructuralTracerTest {
     }
 
     @Test
+    void selectorFailuresSurfaceTheSanitizedAliasAndKind() {
+        final TestCoreApiFixture.Model model = new TestCoreApiFixture.Model(
+            new TestCoreApiFixture.CanvasInfo(
+                new float[]{1000.0F, 500.0F},
+                new float[]{500.0F, 250.0F},
+                100.0F
+            ),
+            parameters(
+                new String[]{"ParamAngleX", "ParamOpacity"},
+                new float[]{42.0F, 0.5F},
+                new int[]{3, 0},
+                new float[][]{{-30.0F, 0.0F, 30.0F}, {}},
+                new boolean[]{true, false}
+            ),
+            TestCoreApiFixture.Parts.empty(),
+            TestCoreApiFixture.Drawables.empty(),
+            TestCoreApiFixture.Deformers.empty(),
+            TestCoreApiFixture.Glues.empty(),
+            () -> { }
+        ) {
+            @Override
+            public TestCoreApiFixture.Drawables getDrawables() {
+                throw new IllegalStateException("host-side drawables failure");
+            }
+        };
+        try (Harness harness = harness("5.3.02", model)) {
+            final CoreProviderResult<CoreStructuralSnapshot> result =
+                harness.tracer.trace(harness.lease);
+            assertEquals(
+                CoreProviderFailure.Code.INVOCATION_FAILED,
+                failureCode(result)
+            );
+            final String message = result.failure().orElseThrow().message();
+            assertTrue(
+                message.contains("cubism.core.model.get-drawables")
+                    && message.contains("INVOCATION"),
+                "selector failure must name the sanitized alias and kind: " + message
+            );
+        }
+    }
+
+    @Test
     void tracerCloseWaitsForAnInFlightProjectionBeforeClearingCallSites() {
         final ModelData data = validModelData();
         final CountDownLatch readEntered = new CountDownLatch(1);

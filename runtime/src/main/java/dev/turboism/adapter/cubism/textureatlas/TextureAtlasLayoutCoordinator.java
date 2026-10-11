@@ -9,6 +9,8 @@ import java.util.Optional;
 /** Session-owned serial authority for texture-atlas authoring access. */
 public final class TextureAtlasLayoutCoordinator implements AutoCloseable {
 
+    private static final System.Logger LOG = System.getLogger(TextureAtlasLayoutCoordinator.class.getName());
+
     private TextureAtlasLayoutProvider provider;
     private long generation;
     private boolean closed;
@@ -53,6 +55,7 @@ public final class TextureAtlasLayoutCoordinator implements AutoCloseable {
             deactivateAfterProviderFailure();
             throw error;
         } catch (RuntimeException exception) {
+            LOG.log(System.Logger.Level.WARNING, "Texture atlas snapshot provider failed", exception);
             return Optional.empty();
         }
     }
