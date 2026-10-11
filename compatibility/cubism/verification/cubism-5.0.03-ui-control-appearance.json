@@ -27,7 +27,7 @@
   "safeMode": "Fail closed per target family when exact artifact, classloader, generation, selector, source type, identity, EDT, or component shape does not match.",
   "selectors": [
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.method.renderer",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.method.renderer",
       "alias": "cubism.ui-control-appearance.deformer-label.renderer",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/view/palette/deformer/CDeformerTreeTable/b",
@@ -38,7 +38,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.method.source",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.method.source",
       "alias": "cubism.ui-control-appearance.deformer-row.source",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/view/palette/deformer/CDeformerTreeTable/a",
@@ -49,7 +49,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.class.class",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.class.class",
       "alias": "cubism.ui-control-appearance.deformer-source.class",
       "kind": "class",
       "ownerInternalName": "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
@@ -60,7 +60,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.method.id",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.method.id",
       "alias": "cubism.ui-control-appearance.deformer-source.id",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
@@ -71,7 +71,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.deformer_control.method.renderer",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.deformer_control.method.renderer",
       "alias": "cubism.ui-control-appearance.deformer-control.renderer",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/view/palette/deformer/CDeformerTreeTable/e$a",
@@ -82,7 +82,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.field.outer",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.field.outer",
       "alias": "cubism.ui-control-appearance.deformer-control.outer",
       "kind": "field",
       "ownerInternalName": "com/live2d/cubism/view/palette/deformer/CDeformerTreeTable/e$a",
@@ -93,7 +93,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.class.outer_class",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.class.outer_class",
       "alias": "cubism.ui-control-appearance.deformer-control.outer-class",
       "kind": "class",
       "ownerInternalName": "com/live2d/cubism/view/palette/deformer/CDeformerTreeTable/e",
@@ -104,7 +104,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.method.tree",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.method.tree",
       "alias": "cubism.ui-control-appearance.deformer-control.tree",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/view/palette/deformer/CDeformerTreeTable/e",
@@ -115,7 +115,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.class.tree_class",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.class.tree_class",
       "alias": "cubism.ui-control-appearance.deformer-control.tree-class",
       "kind": "class",
       "ownerInternalName": "com/live2d/ui/treeTable/g",
@@ -126,7 +126,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.class.single_class",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.class.single_class",
       "alias": "cubism.ui-control-appearance.parameter.single-class",
       "kind": "class",
       "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget",
@@ -137,7 +137,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.class.double_class",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.class.double_class",
       "alias": "cubism.ui-control-appearance.parameter.double-class",
       "kind": "class",
       "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
@@ -148,7 +148,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.class.folder_class",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.class.folder_class",
       "alias": "cubism.ui-control-appearance.parameter.folder-class",
       "kind": "class",
       "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget",
@@ -159,7 +159,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.constructor.single_create",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.constructor.single_create",
       "alias": "cubism.ui-control-appearance.parameter.single-create",
       "kind": "constructor",
       "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget",
@@ -170,7 +170,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.method.single_selection",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.method.single_selection",
       "alias": "cubism.ui-control-appearance.parameter.single-selection",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget",
@@ -181,7 +181,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.constructor.double_create",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.constructor.double_create",
       "alias": "cubism.ui-control-appearance.parameter.double-create",
       "kind": "constructor",
       "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
@@ -192,7 +192,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.method.double_selection",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.method.double_selection",
       "alias": "cubism.ui-control-appearance.parameter.double-selection",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
@@ -203,7 +203,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.constructor.folder_create_primary",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.constructor.folder_create_primary",
       "alias": "cubism.ui-control-appearance.parameter.folder-create-primary",
       "kind": "constructor",
       "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget",
@@ -214,7 +214,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.constructor.folder_create_secondary",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.constructor.folder_create_secondary",
       "alias": "cubism.ui-control-appearance.parameter.folder-create-secondary",
       "kind": "constructor",
       "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget",
@@ -225,7 +225,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.method.folder_selection",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.method.folder_selection",
       "alias": "cubism.ui-control-appearance.parameter.folder-selection",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget",
@@ -236,7 +236,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.parameter.method.source",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.parameter.method.source",
       "alias": "cubism.ui-control-appearance.parameter.source",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget",
@@ -247,7 +247,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.method.secondary_source",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.method.secondary_source",
       "alias": "cubism.ui-control-appearance.parameter.secondary-source",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
@@ -258,7 +258,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.field.label",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.field.label",
       "alias": "cubism.ui-control-appearance.parameter.label",
       "kind": "field",
       "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget",
@@ -269,7 +269,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.field.secondary_label",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.field.secondary_label",
       "alias": "cubism.ui-control-appearance.parameter.secondary-label",
       "kind": "field",
       "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
@@ -280,7 +280,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.method.folder_source",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.method.folder_source",
       "alias": "cubism.ui-control-appearance.parameter.folder-source",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget",
@@ -291,7 +291,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.method.folder_label",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.method.folder_label",
       "alias": "cubism.ui-control-appearance.parameter.folder-label",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget",
@@ -302,7 +302,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.class.source_class",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.class.source_class",
       "alias": "cubism.ui-control-appearance.parameter.source-class",
       "kind": "class",
       "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
@@ -313,7 +313,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.class.folder_source_class",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.class.folder_source_class",
       "alias": "cubism.ui-control-appearance.parameter.folder-source-class",
       "kind": "class",
       "ownerInternalName": "com/live2d/cubism/doc/model/param/group/CParameterGroup",
@@ -324,7 +324,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.method.source_id",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.method.source_id",
       "alias": "cubism.ui-control-appearance.parameter.source-id",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
@@ -335,7 +335,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.method.folder_source_id",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.method.folder_source_id",
       "alias": "cubism.ui-control-appearance.parameter.folder-source-id",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/doc/model/param/group/CParameterGroup",
@@ -346,7 +346,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.class.label_class",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.class.label_class",
       "alias": "cubism.ui-control-appearance.parameter.label-class",
       "kind": "class",
       "ownerInternalName": "com/live2d/ui/control/CLabel",
@@ -357,7 +357,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.method.label_swing",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.method.label_swing",
       "alias": "cubism.ui-control-appearance.parameter.label-swing",
       "kind": "method",
       "ownerInternalName": "com/live2d/ui/control/CLabel",
@@ -368,7 +368,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.part.method.renderer",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.part.method.renderer",
       "alias": "cubism.ui-control-appearance.part.renderer",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/view/palette/parts/CPartsTreeTable/c",
@@ -379,7 +379,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.class.node_class",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.class.node_class",
       "alias": "cubism.ui-control-appearance.part.node-class",
       "kind": "class",
       "ownerInternalName": "com/live2d/ui/treeTable/c",
@@ -390,7 +390,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.method.node_source",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.method.node_source",
       "alias": "cubism.ui-control-appearance.part.node-source",
       "kind": "method",
       "ownerInternalName": "com/live2d/ui/treeTable/c",
@@ -401,7 +401,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.part.class.source_class",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.part.class.source_class",
       "alias": "cubism.ui-control-appearance.part.source-class",
       "kind": "class",
       "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
@@ -412,7 +412,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.part.method.source_id",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.part.method.source_id",
       "alias": "cubism.ui-control-appearance.part.source-id",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
@@ -423,7 +423,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.method.source_children",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.method.source_children",
       "alias": "cubism.ui-control-appearance.part.source-children",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
@@ -434,7 +434,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.method.value",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.method.value",
       "alias": "cubism.ui-control-appearance.id.value",
       "kind": "method",
       "ownerInternalName": "com/live2d/core/id/Id",
@@ -445,7 +445,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.class.art_mesh_source",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.class.art_mesh_source",
       "alias": "cubism.ui-control-appearance.art-mesh.source-class",
       "kind": "class",
       "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
@@ -456,7 +456,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_0_03.ui_control_appearance.method.art_mesh_source_id",
+      "mappingId": "cubism.mapping.v5_0_06.ui_control_appearance.method.art_mesh_source_id",
       "alias": "cubism.ui-control-appearance.art-mesh.source-id",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",

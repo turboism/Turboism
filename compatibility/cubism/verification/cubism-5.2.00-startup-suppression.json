@@ -23,11 +23,11 @@
   "owner": "bootstrap-startup-suppression-hook",
   "status": "VERIFIED_STATIC",
   "verifiedBy": "turboism-startup-suppression-static-verifier",
-  "verifiedAt": "2026-10-09T00:00:00Z",
+  "verifiedAt": "2026-09-27T00:00:00Z",
   "safeMode": "Startup suppression stays disabled with bounded premain diagnostics when the exact artifact, declared reviewed release, pinned class bytes, or the selector cardinality contract does not match; a partial startup rewrite is never installed.",
   "selectors": [
     {
-      "mappingId": "cubism.mapping.v5_2_00.startup_suppression.class.app",
+      "mappingId": "cubism.mapping.v5_2_03.startup_suppression.class.app",
       "alias": "cubism.startup-suppression.app.class",
       "kind": "class",
       "ownerInternalName": "com/live2d/cubism/CECubismEditorApp",
@@ -38,7 +38,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_2_00.startup_suppression.method.startup",
+      "mappingId": "cubism.mapping.v5_2_03.startup_suppression.method.startup",
       "alias": "cubism.startup-suppression.app.startup",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/CECubismEditorApp",
@@ -49,7 +49,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_2_00.startup_suppression.method.splash_factory",
+      "mappingId": "cubism.mapping.v5_2_03.startup_suppression.method.splash_factory",
       "alias": "cubism.startup-suppression.app.splash-factory",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/CECubismEditorApp",
@@ -60,7 +60,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_2_00.startup_suppression.class.app_ctrl",
+      "mappingId": "cubism.mapping.v5_2_03.startup_suppression.class.app_ctrl",
       "alias": "cubism.startup-suppression.app-controller.class",
       "kind": "class",
       "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
@@ -71,7 +71,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_2_00.startup_suppression.method.update_check",
+      "mappingId": "cubism.mapping.v5_2_03.startup_suppression.method.update_check",
       "alias": "cubism.startup-suppression.app-controller.update-check",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
@@ -82,7 +82,7 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_2_00.startup_suppression.method.show_information",
+      "mappingId": "cubism.mapping.v5_2_03.startup_suppression.method.show_information",
       "alias": "cubism.startup-suppression.app-controller.show-information",
       "kind": "method",
       "ownerInternalName": "com/live2d/cubism/CEAppCtrl",

@@ -519,7 +519,6 @@
       "name": "cubism.ui-main-toolbar.abstract-button.class",
       "kind": "class",
       "runtime": "com/live2d/ui/control/CAbstractButton",
-      "descriptor": null,
       "profile": "cubism-5.3.02",
       "status": "DRAFT",
       "x.verification": {
@@ -547,9 +546,9 @@
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_get_j_abstract_button",
       "status": "DRAFT",
       "x.verification": {
-        "forbiddenAccessFlags": 8,
         "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
-        "requiredAccessFlags": 17
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
       },
       "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -595,9 +594,9 @@
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_set_icon",
       "status": "DRAFT",
       "x.verification": {
-        "forbiddenAccessFlags": 8,
         "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
-        "requiredAccessFlags": 17
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
       },
       "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -619,9 +618,9 @@
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_set_pressed_icon",
       "status": "DRAFT",
       "x.verification": {
-        "forbiddenAccessFlags": 8,
         "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
-        "requiredAccessFlags": 17
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
       },
       "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -643,9 +642,9 @@
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_set_selected_icon",
       "status": "DRAFT",
       "x.verification": {
-        "forbiddenAccessFlags": 8,
         "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
-        "requiredAccessFlags": 17
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
       },
       "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -667,9 +666,9 @@
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_set_disabled_icon",
       "status": "DRAFT",
       "x.verification": {
-        "forbiddenAccessFlags": 8,
         "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
-        "requiredAccessFlags": 17
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
       },
       "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -691,9 +690,9 @@
       "semanticName": "cubism.mapping.v5_3_02.ui_main_toolbar.method.abstract_button_set_disabled_selected_icon",
       "status": "DRAFT",
       "x.verification": {
-        "forbiddenAccessFlags": 8,
         "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
-        "requiredAccessFlags": 17
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
       },
       "source": "exact-5.3.02-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -711,7 +710,6 @@
       "name": "cubism.ui-main-toolbar.slider.class",
       "kind": "class",
       "runtime": "com/live2d/ui/control/CSlider",
-      "descriptor": null,
       "profile": "cubism-5.3.02",
       "status": "DRAFT",
       "x.verification": {
