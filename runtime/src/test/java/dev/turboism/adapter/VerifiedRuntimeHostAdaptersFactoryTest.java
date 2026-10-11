@@ -3,8 +3,8 @@ package dev.turboism.adapter;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.turboism.adapter.cubism.VerifiedProjectWorkspaceHostOperations;
 import dev.turboism.adapter.host.HostVerificationEvidence;
+import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,9 +48,9 @@ class VerifiedRuntimeHostAdaptersFactoryTest {
         Path artifact = jarContaining(Host.class);
         Path record = recordFor(
                 artifact,
-                "adapter.project-workspace.readonly",
-                List.of("cubism.project.read", "cubism.workspace.read"),
-                VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES);
+                ProjectWorkspaceVerificationManifest.ADAPTER_SLICE_ID,
+                List.copyOf(ProjectWorkspaceVerificationManifest.CAPABILITY_IDS),
+                ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES);
 
         assertThrows(
                 IllegalArgumentException.class,

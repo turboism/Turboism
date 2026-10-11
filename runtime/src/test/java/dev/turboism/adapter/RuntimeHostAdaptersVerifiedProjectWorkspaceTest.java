@@ -3,14 +3,12 @@ package dev.turboism.adapter;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
-import dev.turboism.adapter.cubism.VerifiedProjectWorkspaceHostOperations;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
+import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.util.List;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class RuntimeHostAdaptersVerifiedProjectWorkspaceTest {
@@ -18,8 +16,8 @@ class RuntimeHostAdaptersVerifiedProjectWorkspaceTest {
     @Test
     void connectsOnlyCompleteProjectWorkspacePlanAndKeepsOtherSlicesInSafeMode() {
         VerifiedMemberResolver resolver = TestVerifiedResolvers.create(
-                ProjectWorkspaceAdapter.ADAPTER_SLICE_ID,
-                Set.of(ProjectWorkspaceAdapter.PROJECT_CAPABILITY_ID, ProjectWorkspaceAdapter.WORKSPACE_CAPABILITY_ID),
+                ProjectWorkspaceVerificationManifest.ADAPTER_SLICE_ID,
+                ProjectWorkspaceVerificationManifest.CAPABILITY_IDS,
                 completeSelectors(),
                 Host.class.getClassLoader());
 
@@ -42,8 +40,8 @@ class RuntimeHostAdaptersVerifiedProjectWorkspaceTest {
     void connectsExactCubism52ProjectWorkspaceResolver() {
         VerifiedMemberResolver resolver = TestVerifiedResolvers.create(
                 "5.2.03",
-                ProjectWorkspaceAdapter.ADAPTER_SLICE_ID,
-                Set.of(ProjectWorkspaceAdapter.PROJECT_CAPABILITY_ID, ProjectWorkspaceAdapter.WORKSPACE_CAPABILITY_ID),
+                ProjectWorkspaceVerificationManifest.ADAPTER_SLICE_ID,
+                ProjectWorkspaceVerificationManifest.CAPABILITY_IDS,
                 completeSelectors(),
                 Host.class.getClassLoader());
 
@@ -54,11 +52,15 @@ class RuntimeHostAdaptersVerifiedProjectWorkspaceTest {
 
     private static List<StaticSelector> completeSelectors() {
         final String owner = Host.class.getName().replace('.', '/');
-        return VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES.stream()
+        return ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES.stream()
                 .sorted()
                 .map(alias -> {
                     if (alias.endsWith(".class")) {
                         return StaticSelector.classSelector(alias, owner);
+                    }
+                    if (alias.equals("cubism.app-controller.view-context-history")) {
+                        return StaticSelector.field(
+                                alias, owner, "viewContextHistory", "Ljava/util/ArrayList;", 0x0012);
                     }
                     return alias.equals("cubism.app-controller.instance")
                             ? StaticSelector.staticMethod(
@@ -70,12 +72,14 @@ class RuntimeHostAdaptersVerifiedProjectWorkspaceTest {
     }
 
     public static final class Host {
+        private final java.util.ArrayList<Object> viewContextHistory = new java.util.ArrayList<>();
+
         public static Host instance() {
             return null;
         }
 
         public Object placeholder() {
-            return null;
+            return viewContextHistory;
         }
     }
 }
