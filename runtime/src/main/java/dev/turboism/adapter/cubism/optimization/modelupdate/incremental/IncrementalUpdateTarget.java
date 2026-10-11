@@ -37,6 +37,7 @@ public record IncrementalUpdateTarget(
     private static final String PS = "com.live2d.cubism.doc.model.param.CParameterSet";
     private static final String CP = "com.live2d.cubism.doc.model.param.CParameter";
     private static final String DOC = "com.live2d.cubism.doc.modeling.CModelingDocument";
+    private static final String EM = "com.live2d.cubism.doc.ACEditMode";
     private static final String CX = "com.live2d.cubism.view.context.CEViewContext";
     private static final String ACD = "com.live2d.cubism.doc.model.deformer.ACDeformer";
     private static final String CAM = "com.live2d.cubism.doc.model.drawable.artMesh.CArtMesh";
@@ -230,6 +231,8 @@ public record IncrementalUpdateTarget(
         deps.add(new Dep(CP, "getValue", "()F"));
         deps.add(new Dep(DOC, "getLastModifiedTime", "()J"));
         deps.add(new Dep(CX, "getDoc", "()Lcom/live2d/cubism/doc/IDocument;"));
+        deps.add(new Dep(CX, "getCurrentEditMode", "()Lcom/live2d/doc/IEditMode;"));
+        deps.add(new Dep(EM, "isEditing", "()Z"));
         deps.add(new Dep(ACD, "getDirtyDeformedForm", "()Z"));
         deps.add(new Dep(ACD, "setDirtyDeformedForm", "(Z)V"));
         deps.add(new Dep(ACD, "getInterpolatedForm", "()Lcom/live2d/cubism/doc/model/deformer/ACDeformerForm;"));

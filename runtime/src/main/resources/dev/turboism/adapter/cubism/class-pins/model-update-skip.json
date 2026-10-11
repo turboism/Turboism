@@ -19,7 +19,8 @@
     "com/live2d/cubism/view/context/bO$a": "b8349131294ce83215bf5218b82b2e7c987185bdaa3a22f49d97e1757c6fbc30",
     "com/live2d/cubism/view/context/bO$b": "cc1189968c95a87343342b89c9f057bd8f50031434b6c2b4a7e0a899ffb2d2a3",
     "com/live2d/graphics/splineCurve/CSplineCurvePoint": "b8974c17a3a967bb8e14f295a6246463d5f6a4ff1f502fede6197db0f8bf9700",
-    "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31"
+    "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
+    "com/live2d/cubism/doc/ACEditMode": "cc61b1fd26cacec336ca1d089e755a0a8975fcbec7d27b7e888e042410277922"
   },
   "5.2.01": {
     "com/live2d/cubism/doc/animation/formAnimation/t": "2c3bbd6be5432271dfd4548c23355db197e2d1233d81d8db77f8c981120de8fc",
@@ -41,7 +42,8 @@
     "com/live2d/cubism/view/context/bO$a": "b8349131294ce83215bf5218b82b2e7c987185bdaa3a22f49d97e1757c6fbc30",
     "com/live2d/cubism/view/context/bO$b": "cc1189968c95a87343342b89c9f057bd8f50031434b6c2b4a7e0a899ffb2d2a3",
     "com/live2d/graphics/splineCurve/CSplineCurvePoint": "b8974c17a3a967bb8e14f295a6246463d5f6a4ff1f502fede6197db0f8bf9700",
-    "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31"
+    "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
+    "com/live2d/cubism/doc/ACEditMode": "cc61b1fd26cacec336ca1d089e755a0a8975fcbec7d27b7e888e042410277922"
   },
   "5.2.02": {
     "com/live2d/cubism/doc/animation/formAnimation/t": "2c3bbd6be5432271dfd4548c23355db197e2d1233d81d8db77f8c981120de8fc",
@@ -63,7 +65,8 @@
     "com/live2d/cubism/view/context/bO$a": "b8349131294ce83215bf5218b82b2e7c987185bdaa3a22f49d97e1757c6fbc30",
     "com/live2d/cubism/view/context/bO$b": "cc1189968c95a87343342b89c9f057bd8f50031434b6c2b4a7e0a899ffb2d2a3",
     "com/live2d/graphics/splineCurve/CSplineCurvePoint": "b8974c17a3a967bb8e14f295a6246463d5f6a4ff1f502fede6197db0f8bf9700",
-    "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31"
+    "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
+    "com/live2d/cubism/doc/ACEditMode": "cc61b1fd26cacec336ca1d089e755a0a8975fcbec7d27b7e888e042410277922"
   },
   "5.2.03": {
     "com/live2d/cubism/doc/model/CModel": "82391960da52933e7aaa45813c4144c7c9d7bb1622f19ff2283ec450dbb213cd",
@@ -85,7 +88,8 @@
     "com/live2d/cubism/view/au": "e6fcfd5495e5f96deb33dca42233b5d7b94c92b29f966554f8cd5c772cf55bbd",
     "com/live2d/cubism/doc/model/ay": "6758d8dd687693a87f0dd6c23a0222e9fcc3b954a599674c43296e7a67907fd8",
     "com/live2d/cubism/view/context/bR$b": "d411768ee326c3c793aeff544699ef38001fa33c24de32ae4eb067061ca51b13",
-    "com/live2d/cubism/view/context/bR$a": "e7fb8ec2f9e82b8b80b20cd81534c831a7fcabea8d35381393d4347b41a580d6"
+    "com/live2d/cubism/view/context/bR$a": "e7fb8ec2f9e82b8b80b20cd81534c831a7fcabea8d35381393d4347b41a580d6",
+    "com/live2d/cubism/doc/ACEditMode": "cc61b1fd26cacec336ca1d089e755a0a8975fcbec7d27b7e888e042410277922"
   },
   "5.3.00": {
     "com/live2d/cubism/doc/animation/formAnimation/t": "927ae5530cb0afa6583715023efd8f236d28cc5837c14ecca2db89a03e10eedc",
@@ -111,7 +115,8 @@
     "com/live2d/cubism/view/context/bR$a": "e7fb8ec2f9e82b8b80b20cd81534c831a7fcabea8d35381393d4347b41a580d6",
     "com/live2d/cubism/view/context/bR$b": "95c9eb49cd7fa06ec8a6bab4585136c39b08d8e640de2d285a7f1f86ca2c644d",
     "com/live2d/graphics/splineCurve/CSplineCurvePoint": "b8974c17a3a967bb8e14f295a6246463d5f6a4ff1f502fede6197db0f8bf9700",
-    "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31"
+    "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
+    "com/live2d/cubism/doc/ACEditMode": "cc61b1fd26cacec336ca1d089e755a0a8975fcbec7d27b7e888e042410277922"
   },
   "5.3.01": {
     "com/live2d/cubism/doc/animation/formAnimation/t": "927ae5530cb0afa6583715023efd8f236d28cc5837c14ecca2db89a03e10eedc",
@@ -137,7 +142,8 @@
     "com/live2d/cubism/view/context/bR$a": "e7fb8ec2f9e82b8b80b20cd81534c831a7fcabea8d35381393d4347b41a580d6",
     "com/live2d/cubism/view/context/bR$b": "95c9eb49cd7fa06ec8a6bab4585136c39b08d8e640de2d285a7f1f86ca2c644d",
     "com/live2d/graphics/splineCurve/CSplineCurvePoint": "b8974c17a3a967bb8e14f295a6246463d5f6a4ff1f502fede6197db0f8bf9700",
-    "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31"
+    "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
+    "com/live2d/cubism/doc/ACEditMode": "cc61b1fd26cacec336ca1d089e755a0a8975fcbec7d27b7e888e042410277922"
   },
   "5.3.02": {
     "com/live2d/cubism/doc/model/CModel": "15a5b929203b340af0df396b7629ff4f60703e6fc8a7eb8ad4874d99886d96a8",
@@ -163,7 +169,8 @@
     "com/live2d/cubism/setting/AppSetting$CanvasSetting": "0ff57f07c63b1bedfe872b8e09392b28952ef80b836e1cc11fa1fa6b500e5bdf",
     "com/live2d/cubism/setting/AppSetting$DeveloperSetting": "2a36fc9da808f46545a472be0f5632ef0ce0f2ff4efa22c3912379cc5c535600",
     "com/live2d/cubism/view/context/bR$b": "95c9eb49cd7fa06ec8a6bab4585136c39b08d8e640de2d285a7f1f86ca2c644d",
-    "com/live2d/cubism/view/context/bR$a": "e7fb8ec2f9e82b8b80b20cd81534c831a7fcabea8d35381393d4347b41a580d6"
+    "com/live2d/cubism/view/context/bR$a": "e7fb8ec2f9e82b8b80b20cd81534c831a7fcabea8d35381393d4347b41a580d6",
+    "com/live2d/cubism/doc/ACEditMode": "cc61b1fd26cacec336ca1d089e755a0a8975fcbec7d27b7e888e042410277922"
   },
   "5.3.03": {
     "com/live2d/cubism/doc/model/CModel": "492a4a12e24ae847a2c122e8db303dc1a6eb4516dfcd29b8b66c8c1d4937eb8c",
@@ -189,7 +196,8 @@
     "com/live2d/cubism/setting/AppSetting$CanvasSetting": "0ff57f07c63b1bedfe872b8e09392b28952ef80b836e1cc11fa1fa6b500e5bdf",
     "com/live2d/cubism/setting/AppSetting$DeveloperSetting": "2a36fc9da808f46545a472be0f5632ef0ce0f2ff4efa22c3912379cc5c535600",
     "com/live2d/cubism/view/context/bS$b": "0d448a201b9aa0115ea971b6772111ef8ff99e7e1e2564e5dca60e20683204cd",
-    "com/live2d/cubism/view/context/bS$a": "5422642a085280a5f2cf4a4ec23814281ed1551181963615c8aa2633efb11643"
+    "com/live2d/cubism/view/context/bS$a": "5422642a085280a5f2cf4a4ec23814281ed1551181963615c8aa2633efb11643",
+    "com/live2d/cubism/doc/ACEditMode": "cc61b1fd26cacec336ca1d089e755a0a8975fcbec7d27b7e888e042410277922"
   },
   "5.3.04": {
     "com/live2d/cubism/doc/animation/formAnimation/t": "927ae5530cb0afa6583715023efd8f236d28cc5837c14ecca2db89a03e10eedc",
@@ -215,6 +223,7 @@
     "com/live2d/cubism/view/context/bT$a": "0830a3893576076d347042c7f93ef8e9dc7d14db2f332af4b90040e5baa2e160",
     "com/live2d/cubism/view/context/bT$b": "71ed48ca00a8cbf0dc3d282ffca476edd778f83b19ff074ae1b6eb991c67fa23",
     "com/live2d/graphics/splineCurve/CSplineCurvePoint": "b8974c17a3a967bb8e14f295a6246463d5f6a4ff1f502fede6197db0f8bf9700",
-    "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31"
+    "com/live2d/graphics3d/type/GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
+    "com/live2d/cubism/doc/ACEditMode": "cc61b1fd26cacec336ca1d089e755a0a8975fcbec7d27b7e888e042410277922"
   }
 }
