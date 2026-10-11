@@ -722,18 +722,40 @@
    "kind": "collection",
    "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorModelInstanceReadSelectorContract.java",
    "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
     "5.2.03"
    ],
-   "basis": "task-scoped",
-   "reason": "CUBISM_5_3_03_VERSION is a dispatch constant for the 5.3.03 record's onion-skin shape, not an admission set."
+   "basis": "evidence",
+   "reason": "RenderType.ONION_SKIN_FOR_MODELING enum member is absent on these exact jars (verified via javap on every 5.0.x/5.1.x/5.2.x reference); the member first appears on 5.3.00."
   },
   {
    "kind": "collection",
    "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorRawImagePsdReplaceSelectorContract.java",
    "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -745,24 +767,46 @@
     "5.3.04"
    ],
    "basis": "verification-derived",
-   "reason": "Selector contract admission set derived from verification records; the contract admits the capability on exactly these reviewed versions."
+   "reason": "Every PSD replace selector (process/psd/a replace entry and document/edit-state checks) verifies on each listed jar; the set names the reviewed versions this surface admits."
   },
   {
    "kind": "collection",
    "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorRawImagePsdSelectorContract.java",
    "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
     "5.2.03"
    ],
-   "basis": "verification-derived",
-   "reason": "Selector contract admission set derived from verification records; the contract admits the capability on exactly these reviewed versions."
+   "basis": "evidence",
+   "reason": "The layered-image transparency-shapes selector is absent on every 5.0.x/5.1.x/5.2.x jar (verified via javap); the member first appears on 5.3.00."
   },
   {
    "kind": "collection",
    "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorRawImagePsdSelectorContract.java",
    "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -774,7 +818,7 @@
     "5.3.04"
    ],
    "basis": "verification-derived",
-   "reason": "Selector contract admission set derived from verification records; the contract admits the capability on exactly these reviewed versions."
+   "reason": "Every PSD raw-image export selector verifies on each listed jar (transparency-shapes excluded on pre-5.3 via the absent-version set); the set names the reviewed versions this surface admits."
   },
   {
    "kind": "collection",
