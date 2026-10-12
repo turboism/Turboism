@@ -338,3 +338,83 @@ refresh-r1 mcp 四版"SYSTEMIC awaitUi 超时"经证据复核为台账误归因�
 - mcp:5304 PASS（job 717972f0；fixture 2980dc8c，unchanged/identity/normalExit 全 true，cleanup safe）
 - mcp:5200 PASS（job e0dd8c3a；同上）
 - mcp:5000 FAIL（job d92e248d）——`cubism.authoring.transactions.unavailable`，与 drift-r1 5000 完全同签名，为 5.0.00 既定能力边界（triage CAPABILITY_BOUNDARY），非回归；夹具源/副本 2980dc8c 未变。未重试（确定性边界）。
+
+## refresh2-r1：历史失效格子刷新轮（2026-10-12，host-refresh-r2）
+
+**目标**：针对兼容矩阵 `compatibility/cubism/compatibility-matrix.json` 中积累的 89 个历史未通过格子（34 INFRA_RETRYABLE、25 UNKNOWN、16 NO_EVIDENCE、11 PROBE_DRIFT、3 FIXTURE_UNSUITABLE）执行实机验证刷新。大量格子源于早期未修复状态（启动辅助默认化、PRO 试用应答、5.0.x 公告窗关闭、Core 20 版、MCP 夹具路由、探针驱动修复、着色器钩子组合等大量修复之前）的陈旧结果。
+
+**筛选与提交**：
+- 排除 manual/unmanifested 与 blocked 任务；
+- 只读步骤族（texture-relations、clipmask-viewer、separate-save-path、core-owned-moc 以及 5.3.x psd-export-observation 和 5203/5302 status-bar）合并为 `session-standard`；
+- 生成 `build/refresh2-plan.json`，计划规模 58 specs（<= 60 spec），覆盖 59 个矩阵格子；
+- 静态门禁准备阶段：3 个 spec 依据前置条件拒绝（`atlas:5302`/`atlas:5303` 缺本地 mapping geometry 夹具，`model-import-3d-user-entry:5303` 缺 `TURBOISM_MI3D_UI_BUILD` 显式冻结包），如实记录 SKIP_STATIC 不绕过；
+- 其余 55 个 spec 一次性入队 FIFO，经 2 槽执行全部进入终态，所有任务 cleanup 均为 safe，无 quarantine，无 recover。
+
+**终态结果**：
+- 55 个入队 job：**49 PASS / 6 FAIL**（另计入 19 个会话步级结果，台账共入账 +71 条记录）。
+- 队列归因（`host_validation_triage.py`）：
+  - PASS × 49
+  - CAPABILITY_BOUNDARY × 4（`session-standard` 5300/5302/5303 的 `psd-export-observation` 步命中 `capability-session-psd-export-saved-unverified`；`mcp:5002` 命中 `capability-authoring-transactions-unavailable`）
+  - UNKNOWN × 2（`edit-protocol:5302` 与 `mcp:5302`）
+  - INFRA_RETRYABLE × 0（无非 SYSTEMIC 的 INFRA_RETRYABLE，无需 refresh2-r2 重试）。
+- **矩阵 PASS 格净增**：299 → 348（**净 +49**，共 **51 个历史失效格翻转为 PASS**）。
+- 历史失效格子（目标 5 类）：89 → 37（净消除 52 格）。
+
+### 任务 × 代际结果对比（P=PASS 翻转，B=能力边界，F=仍失败，-=未涉及）
+
+| 任务 | 5.0.x | 5.1.x | 5.2.x | 5.3.x |
+|---|---|---|---|---|
+| animation-timeline | - | - | - | P(5301) |
+| atlas | - | - | - | 门禁跳过(5302, 5303 缺几何夹具) |
+| backup | - | P(5102) | - | - |
+| boundingbox-warp-mirror | - | - | - | P(5302) |
+| clipmask-viewer | - | - | - | P(5302 会话, 5303 会话) |
+| core-acquisition | - | - | P(5201) | P(5302, 5303) |
+| edit-protocol | - | - | - | F(5302 聚焦超时), P(5303) |
+| host-locale | - | P(5102) | P(5202) | - |
+| mcp | B(5002 事务缺席) | - | P(5202, 5203) | P(5301, 5303), F(5302 聚焦超时) |
+| model-import-3d-user-entry | - | - | - | 门禁跳过(5303 缺UI包) |
+| parameter | - | - | P(5201, 5202) | P(5303) |
+| parameter-batch-transfer | P(5000, 5001) | P(5100) | - | - |
+| protected-export | - | - | - | P(5302, 5303) |
+| psd-clip-mask | - | P(5101) | - | - |
+| psd-export-observation | - | - | - | B(5300/5302/5303 会话步) |
+| recent-preview | - | - | - | P(5302) |
+| selection-lag | P(5001, 5002, 5003, 5004, 5005) | - | - | - |
+| startup-suppression | P(5001, 5002, 5004, 5005) | P(5101, 5102) | P(5201, 5202) | - |
+| status-bar | - | - | - | P(5302 会话) |
+| theme | - | P(5102) | P(5201) | P(5302) |
+| update-check | P(5002, 5003) | P(5102) | - | - |
+| warp-deformer-alt-symmetry | - | - | - | P(5302) |
+| workspace | P(5005) | P(5101, 5102) | P(5202) | P(5301) |
+| session-standard | 会话 PASS(5000) | - | - | 会话 4/5 或 5/6 步 PASS(5300, 5302, 5303) |
+
+**版本线前后对比（PASS 计数）**：
+- 5.0.x: 68 → 82 (+14)
+- 5.1.x: 42 → 52 (+10)
+- 5.2.x: 73 → 83 (+10)
+- 5.3.x: 116 → 131 (+15)
+- 全版本总计: 299 → 348 (+49)
+
+**仍失败归因与建议修复点**：
+- **edit-protocol:5302 与 mcp:5302（UNKNOWN，签名相同）**：
+  - 现象：探针内部所有业务逻辑断言 100% 全部 PASS（edit-protocol 的 p0/s1..s6/r 断言全绿；mcp 的连接/工具/资源/工作区/纹理/重开等 21 项断言全绿）。
+  - 根因：探针触发的自动化宿主关闭辅助 `WindowsHistoryNativeUiHostClose.focusHostWindow`（`WindowsHistoryNativeUiHostClose.java:534`）在 Cubism 5.3.02 上调用 `toFront()` / `requestFocus()` 后，主窗口未能通过 `KeyboardFocusManager.getActiveWindow()` 聚焦校验，抛出 `java.lang.IllegalStateException: Selected Cubism/model window did not become the active focused window`。测试因无法经自动化机制优雅退出，Runner 等待退出超时后判为非正常退出。
+  - 建议修复点：在 `WindowsHistoryNativeUiHostClose.focusHostWindow` 为 Cubism 5.3.02 增加对窗口焦点的重试与容错回退机制（例如当断言已全绿时，通过发送 WM_CLOSE 消息或 AWT Window.dispose / System.exit 钩子兜底退出），无需改动产品逻辑。
+- **mcp:5002（CAPABILITY_BOUNDARY）**：
+  - 现象：20 项断言全 PASS，仅事务执行失败。
+  - 根因：`cubism.authoring.transactions.unavailable`——5.0.x 原生层缺少建模事务 API，为确定的 5.0.x 版本能力边界，与 5.0.00/5.0.06 表现完全一致。
+  - 建议修复点：无需修复，符合设计预期。
+- **session-standard:5300, 5302, 5303（CAPABILITY_BOUNDARY）**：
+  - 现象：各只读步（texture-relations, clipmask-viewer, separate-save-path, core-owned-moc 以及 5302 的 status-bar）全部通过，仅 `psd-export-observation` 步失败。
+  - 根因：5.3.x 导出的 PSD 带有 SDK 导出观测 handle 缺口（`SAVED_UNVERIFIED`/`Native readable export without a runtime-issued edit handle`），为既定已知边界。
+  - 建议修复点：在 PSD 导出观察探针中针对已知不可用版本做条件跳过。
+- **atlas:5302/5303（静态门禁缺失先决夹具）**：
+  - 现象：门禁拒绝。
+  - 根因：本地缺少几何排版夹具 `test-assets/texture-atlas-layout/cmo3/geometry/atlas_mapping_geometry_100.cmo3`。
+  - 建议修复点：将该几何夹具补全或从测试资产库拉取到对应目录后即可实机运行。
+- **model-import-3d-user-entry:5303（静态门禁缺少环境声明）**：
+  - 现象：门禁拒绝。
+  - 根因：环境变量未显式配置 `TURBOISM_MI3D_UI_BUILD`。
+  - 建议修复点：在需要测试 3D 导入用户入口时，配置冻结 UI bundle 路径。
+
