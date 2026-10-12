@@ -237,9 +237,8 @@ class SurfaceWarpImagePlanTest {
 
     @Test
     void fullBudgetImageKeepsAllTexelsAndCorrectShaderCoordinatesWithoutPadding() throws Exception {
-        var root = java.nio.file.Path.of(System.getProperty("mi3d.repo"));
-        var cat = GlbSurfaceReader.read(java.nio.file.Files.readAllBytes(
-                        root.resolve("artifacts/cat-textured/source-r2/cat-textured.glb")))
+        var cat = GlbSurfaceReader.read(
+                        ModelImportTestFixtures.readBytes("artifacts/cat-textured/source-r2/cat-textured.glb"))
                 .get(0);
         // A mapping fixture exercises image packing, not cat projection/occlusion acceptance.
         var fixture = source(0, false, List.of(1d, 1d, 1d, 1d));
