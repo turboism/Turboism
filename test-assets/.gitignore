@@ -1,3 +1,13 @@
 # Keep local test models and their companion resources out of Git.
 **/psd/**
 **/cmo3/**
+*.cmo3
+*.cmo3.bak
+*.can3
+*.moc3
+*.psd
+**/*.cmo3
+**/*.cmo3.bak
+**/*.can3
+**/*.moc3
+**/*.psd
