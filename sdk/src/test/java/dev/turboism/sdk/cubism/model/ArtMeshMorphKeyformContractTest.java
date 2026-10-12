@@ -26,8 +26,8 @@ class ArtMeshMorphKeyformContractTest {
             assertTrue(method.isDefault());
             assertEquals(ArtMeshMorphKeyform.class, method.getReturnType());
             assertArrayEquals(
-                    new String[] {"5.3.02", "5.3.03"},
-                    method.getAnnotation(CubismEditor.class).value());
+                    new String[0], method.getAnnotation(CubismEditor.class).value());
+            assertEquals("5.0.00", method.getAnnotation(CubismEditor.class).from());
         }
     }
 
@@ -43,15 +43,18 @@ class ArtMeshMorphKeyformContractTest {
         final var method = ArtMeshMorphKeyform.class.getMethod("setDrawOrder", int.class);
         assertTrue(method.isDefault());
         assertArrayEquals(
-                new String[] {"5.3.02", "5.3.03"},
-                method.getAnnotation(CubismEditor.class).value());
+                new String[0], method.getAnnotation(CubismEditor.class).value());
+        assertEquals("5.0.00", method.getAnnotation(CubismEditor.class).from());
     }
 
     @Test
     void memberSurfaceIsTypedAndDoesNotExposeNativeUndoOrWritableBase() throws Exception {
         assertArrayEquals(
-                new String[] {"5.3.02", "5.3.03"},
+                new String[0],
                 ArtMeshMorphKeyform.class.getAnnotation(CubismEditor.class).value());
+        assertEquals(
+                "5.0.00",
+                ArtMeshMorphKeyform.class.getAnnotation(CubismEditor.class).from());
         assertEquals(
                 Set.of("parameterGuid", "keyValue", "snapshot", "baseSnapshot", "setPositions", "setDrawOrder"),
                 Arrays.stream(ArtMeshMorphKeyform.class.getDeclaredMethods())
