@@ -12,7 +12,7 @@ if [ "$#" -lt 1 ]; then
 fi
 mode="$1"
 shift
-version="${TURBOISM_HOST_VALIDATION_DEFAULT_FIXTURE_VERSION:-5303}"
+version="$TURBOISM_HOST_VALIDATION_DEFAULT_FIXTURE_VERSION"
 case "$mode" in
   matrix|persistence)
     if [ "$#" -gt 0 ] && [[ "$1" =~ ^[0-9]{4}$ ]]; then

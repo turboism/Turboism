@@ -72,6 +72,7 @@ if [[ "${TURBOISM_HOST_VALIDATION_ENV_LOADED:-}" != "$BASHPID" ]]; then
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_PSD_SHA256:=27c2641e45d9ca55478550b99d1bf69262383af38b0eed39cc172fb96b3b053e}"
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_HISTORY_5302:=}"
   : "${TURBOISM_HOST_VALIDATION_DEFAULT_VERSION:=5302}"
+  : "${TURBOISM_HOST_VALIDATION_DEFAULT_FIXTURE_VERSION:=5303}"
 
   unset _turboism_env_root _turboism_env_file _turboism_env_line _turboism_env_key _turboism_env_value _turboism_env_quote
 fi
