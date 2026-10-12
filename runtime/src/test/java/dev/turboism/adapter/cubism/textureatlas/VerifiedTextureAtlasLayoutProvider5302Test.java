@@ -25,6 +25,29 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
             VerifiedTextureAtlasSelectorContract.profileFor("5.3.02").orElseThrow();
 
     @Test
+    void packsActiveModelWithoutOpeningAtlasEditorOnAdmittedVersions() {
+        for (String version : List.of("5.2.03", "5.3.02", "5.3.03", "5.3.04")) {
+            final Fixture fixture = new Fixture();
+            final var capture = new TextureAtlasDataModelCapture();
+            final var profile = VerifiedTextureAtlasSelectorContract.profileFor(version).orElseThrow();
+            final var provider =
+                    new VerifiedTextureAtlasLayoutProvider(resolver(version, true), "session-" + version, capture, profile);
+            final var before = provider.current().orElseThrow();
+            final var plan = new TextureAtlasLayoutPlan(
+                    16,
+                    8,
+                    1,
+                    List.of(
+                            new TextureAtlasPlacement("texture-a", 0, 2, 1, 4, 3, false),
+                            new TextureAtlasPlacement("texture-b", 0, 8, 1, 2, 2, false),
+                            new TextureAtlasPlacement("texture-unused", 0, 12, 1, 1, 1, false)));
+            assertEquals(TextureAtlasLayoutProvider.ApplyOutcome.APPLIED, provider.apply(before, plan), version);
+            assertEquals(plan, provider.current().orElseThrow().currentPlan(), version);
+            assertEquals(1, fixture.document.dirtyCount, version);
+        }
+    }
+
+    @Test
     void packsActiveModelWithoutOpeningAtlasEditor() {
         final Fixture fixture = new Fixture();
         final var capture = new TextureAtlasDataModelCapture();
