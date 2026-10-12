@@ -69,7 +69,6 @@
 
 | API | 종류 | 버전 |
 |---|---|---|
-| `dev.turboism.sdk.cubism.CubismFacade#authoringTransactions()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.CubismFacade#edit()` | method | 5.1.02–5.3.04 |
 | `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorSession()` | method | 5.2.03–5.3.04 |
 | `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorUi()` | method | 5.2.03–5.3.04 |
@@ -123,17 +122,6 @@
 | `dev.turboism.sdk.cubism.export.ExportSettingsContributionService.Unavailable` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.export.ExportSettingsDecision#ExportSettingsDecision()` | method | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.export.Outcome` | type | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.mesh.MeshBrush` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.mesh.MeshEditParticipation` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.mesh.MeshEditService` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.mesh.MeshEditUiService` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.mesh.MeshEditor` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.mesh.MeshToolContext` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.mesh.MeshToolRegistry` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AlphaComposition` | type | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AutoYure` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AutoYureBinding` | type | 5.1.00–5.3.04 |
@@ -157,15 +145,10 @@
 | `dev.turboism.sdk.cubism.modeling.ModelingToolContext` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.modeling.ModelingToolRegistry` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.psd.PsdEditFile` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.recentfile.RecentFileService` | type | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService` | type | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.transaction.AuthoringTransactionService` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation` | type | 5.2.00–5.3.04 |
 
 ## 일부 버전에서만 사용 가능한 Editor 명령
 
@@ -250,7 +233,21 @@ Cubism Editor 자체에 기능이 없는 확인된 호스트 경계. 공식 업�
 | `command:MOVE_END_WORKSPACE` | 5.0.00–5.3.04 | — | Dead constant: the id exists in no reviewed jar. |
 | `cubism.autobackup.settings` | 5.0.00–5.0.06 | — | com/live2d/cubism/doc/modeling/CModelingDocument::getDocumentUID()Ljava/lang/String; is absent on every 5.0.x jar (MEMBER_MISSING); the document-UID identity chain the autobackup session depends on was introduced in 5.1 — 5.0.x exposes only getFileContentInstanceGuid(). |
 | `cubism.autobackup.backup` | 5.0.00–5.0.06 | — | com/live2d/cubism/doc/modeling/CModelingDocument::getDocumentUID()Ljava/lang/String; is absent on every 5.0.x jar (MEMBER_MISSING); the document-UID identity chain the autobackup session depends on was introduced in 5.1 — 5.0.x exposes only getFileContentInstanceGuid(). |
+| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService` | 5.0.00–5.0.06 | — | Auto-backup service requires the document-UID identity chain introduced in Cubism 5.1.00. |
+| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#artifacts()` | 5.0.00–5.0.06 | — | Auto-backup artifact listing requires the document-UID identity chain introduced in Cubism 5.1.00. |
+| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#backupAfterSave()` | 5.0.00–5.0.06 | — | Auto-backup after save requires the document-UID identity chain introduced in Cubism 5.1.00. |
 | `cubism.protected-export.orchestration` | 5.0.00–5.0.06 | — | Three incompatible members on every 5.0.x jar: export driver com/live2d/cubism/appCtrlImpl/al::a(CModelSource;CFrame;Function1)V takes Function1 (5.1+ uses Function2 — the staged output-file + absolute-path-list callback contract does not exist), CModelSource::containMotionSyncSettingNeedCorrection()Z missing, CMotionSyncSettingSource::getMotionSyncVersion() missing. The reviewed transformation premise fails closed. |
+| `dev.turboism.sdk.cubism.export.ExportSettingsContributionService` | 5.0.00–5.0.06 | — | Export settings contribution requires the 5.1+ export driver (al.a taking Function2) and motion sync settings source. |
+| `dev.turboism.sdk.cubism.command.EditorCommandService` | 5.0.00–5.0.06 | — | Editor command execution requires top menu and external-app WebSocket infrastructure, introduced in Cubism 5.1.00. |
+| `turboism.editor_commands.execute` | 5.0.00–5.0.06 | — | Editor command execution endpoint requires top menu and external-app WebSocket infrastructure, introduced in Cubism 5.1.00. |
+| `turboism://host/editor-commands` | 5.0.00–5.0.06 | — | Editor commands resource endpoint requires top menu and external-app WebSocket infrastructure, introduced in Cubism 5.1.00. |
+| `dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService` | 5.0.00–5.1.03 | — | Texture atlas polygon packing service requires layout algorithm and shape infrastructure introduced in Cubism 5.2.00. |
+| `dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()` | 5.0.00–5.1.03 | — | Native PSD export from raw image requires the export pipeline introduced in Cubism 5.2.00. |
+| `dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()` | 5.0.00–5.1.03 | — | Native PSD replacement requires explicit-target replacement selectors introduced in Cubism 5.2.00. |
+| `dev.turboism.sdk.cubism.psd.PsdEditFile` | 5.0.00–5.1.03 | — | Runtime PSD edit handle requires the 5.2+ external PSD edit integration pipeline. |
+| `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel` | 5.0.00–5.1.03 | — | Texture atlas editor panel integration requires editor UI selectors introduced in Cubism 5.2.00. |
+| `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession` | 5.0.00–5.1.03 | — | Texture atlas editor session integration requires editor UI selectors introduced in Cubism 5.2.00. |
+| `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi` | 5.0.00–5.1.03 | — | Texture atlas editor UI integration requires editor UI selectors introduced in Cubism 5.2.00. |
 | `cubism.editor-ui.main-toolbar` | 5.0.00–5.0.06 | — | Field com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl::toolBtn_openHomeDialog and its accessor (q()Lcom/live2d/ui/control/CIconButton;) are absent on every 5.0.x jar (DESCRIPTOR_MISMATCH — q() returns CButton); the home-dialog toolbar button was introduced in 5.1.00. |
 | `ui.mesh-toolbar.contribute` | 5.0.00–5.0.06 | — | Field com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl::toolBtn_openHomeDialog and its accessor (q()Lcom/live2d/ui/control/CIconButton;) are absent on every 5.0.x jar (DESCRIPTOR_MISMATCH — q() returns CButton); the home-dialog toolbar button was introduced in 5.1.00. |
 | `cubism.editor-ui.top-menu` | 5.0.00–5.0.06 | — | Package com/live2d/cubism/doc/webSocket contains zero classes in every 5.0.x jar (100 classes in 5.1.00); all 10 external-app selectors (com/live2d/cubism/doc/webSocket/l, l$a, x) report CLASS_MISSING. |

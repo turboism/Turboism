@@ -14,7 +14,7 @@ import dev.turboism.sdk.plugin.Registration;
  * <p><strong>Preview API:</strong> this contract may evolve before stabilization.</p>
  */
 @Incubating
-@CubismEditor(from = "5.2.00")
+@CubismEditor(from = "5.0.00")
 public interface MeshToolRegistry extends AutoCloseable {
     /**
      * Registers one custom mesh tool for this plugin generation.
