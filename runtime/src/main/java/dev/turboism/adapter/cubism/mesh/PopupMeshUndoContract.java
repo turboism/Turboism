@@ -2,28 +2,68 @@ package dev.turboism.adapter.cubism.mesh;
 
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Popup mesh undo selectors recovered from the exact reviewed 5.3.02 artifact. */
+/** Popup mesh undo selectors recovered from reviewed Cubism host artifacts. */
 final class PopupMeshUndoContract {
     private static final String PACK = "com.live2d.cubism.view.context.actionManager.X";
     private static final String MODELING_PACK = "com.live2d.cubism.view.context.actionManager.Z";
     private static final String MODELING_MAIN_PACK = "com.live2d.cubism.view.context.actionManager.aG";
-    private static final ClassValue<Boolean> ADMITTED = new ClassValue<>() {
+
+    private static final class Access {
+        final Method viewContext;
+        final Method event;
+        final Method position;
+        final Method mode;
+        final Method entries;
+        final Method entryMesh;
+
+        Access(final Class<?> type) throws ReflectiveOperationException {
+            Method vc = null;
+            Method ev = null;
+            Method pt = null;
+            for (Method method : type.getMethods()) {
+                if (method.getParameterCount() != 0) continue;
+                final String ret = method.getReturnType().getName();
+                if ("com.live2d.cubism.view.context.CEViewContext".equals(ret)) {
+                    vc = method;
+                } else if ("com.live2d.ui.event.h".equals(ret)) {
+                    ev = method;
+                } else if ("com.live2d.type.CPoint".equals(ret)) {
+                    pt = method;
+                }
+            }
+            if (vc == null || ev == null || pt == null) {
+                throw new NoSuchMethodException("action pack accessors");
+            }
+            this.viewContext = vc;
+            this.event = ev;
+            this.position = pt;
+            this.mode = type.getMethod("c");
+            this.entries = type.getMethod("a");
+            final Class<?> entryType = type.getClassLoader()
+                    .loadClass("com.live2d.cubism.doc.modeling.CModelingEditMode_MeshEditor$b");
+            this.entryMesh = entryType.getMethod("b");
+        }
+    }
+
+    private static final ClassValue<Access> ACCESS = new ClassValue<>() {
         @Override
-        protected Boolean computeValue(final Class<?> type) {
+        protected Access computeValue(final Class<?> type) {
             if (!PACK.equals(type.getName())
                     && !MODELING_PACK.equals(type.getName())
-                    && !MODELING_MAIN_PACK.equals(type.getName())) return false;
+                    && !MODELING_MAIN_PACK.equals(type.getName())) return null;
             try {
                 final var source = type.getProtectionDomain().getCodeSource();
-                return source != null
-                        && ReviewedHostArtifacts.CUBISM_5_3_02.equals(HostArtifactDigest.from(
-                                Path.of(source.getLocation().toURI())));
+                if (source == null) return null;
+                final var digest = HostArtifactDigest.from(Path.of(source.getLocation().toURI()));
+                if (ReviewedHostArtifacts.cubismVersionOf(digest).isEmpty()) return null;
+                return new Access(type);
             } catch (Exception failure) {
-                return false;
+                return null;
             }
         }
     };
@@ -31,16 +71,18 @@ final class PopupMeshUndoContract {
     private PopupMeshUndoContract() {}
 
     static boolean admitted(final Object pack) {
-        return pack != null && PACK.equals(pack.getClass().getName()) && ADMITTED.get(pack.getClass());
+        return pack != null && PACK.equals(pack.getClass().getName()) && ACCESS.get(pack.getClass()) != null;
     }
 
     /** Rebuilds the envelope after a mode change without dispatching the cached input event. */
     static Object refresh(final Object viewContext, final Object cached) throws ReflectiveOperationException {
-        if (cached == null || !ADMITTED.get(cached.getClass())) return cached;
-        if (cached.getClass().getMethod("ab").invoke(cached) != viewContext) return cached;
+        if (cached == null) return null;
+        final Access access = ACCESS.get(cached.getClass());
+        if (access == null) return cached;
+        if (access.viewContext.invoke(cached) != viewContext) return cached;
         final ClassLoader loader = cached.getClass().getClassLoader();
-        final Object event = cached.getClass().getMethod("ad").invoke(cached);
-        final Object position = cached.getClass().getMethod("ae").invoke(cached);
+        final Object event = access.event.invoke(cached);
+        final Object position = access.position.invoke(cached);
         if (event == null) return cached;
         return viewContext
                 .getClass()
@@ -52,19 +94,23 @@ final class PopupMeshUndoContract {
     }
 
     static boolean owns(final Object pack, final Object mode) throws ReflectiveOperationException {
-        return admitted(pack) && pack.getClass().getMethod("c").invoke(pack) == mode;
+        if (!admitted(pack)) return false;
+        final Access access = ACCESS.get(pack.getClass());
+        return access != null && access.mode.invoke(pack) == mode;
     }
 
     static void snapshot(final Object pack, final String label, final Object group)
             throws ReflectiveOperationException {
         if (!admitted(pack)) throw new IllegalStateException("popup mesh undo host is not admitted");
+        final Access access = ACCESS.get(pack.getClass());
+        if (access == null) throw new IllegalStateException("popup mesh undo access is unavailable");
         final ClassLoader loader = pack.getClass().getClassLoader();
-        final Object entries = pack.getClass().getMethod("a").invoke(pack);
+        final Object entries = access.entries.invoke(pack);
         if (!(entries instanceof List<?> list) || list.isEmpty()) {
             throw new IllegalStateException("popup mesh undo has no live meshes");
         }
         final List<Object> meshes = new ArrayList<>();
-        for (Object entry : list) meshes.add(entry.getClass().getMethod("b").invoke(entry));
+        for (Object entry : list) meshes.add(access.entryMesh.invoke(entry));
         snapshotMeshes(loader, label, group, meshes);
     }
 

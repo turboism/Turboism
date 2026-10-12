@@ -1687,15 +1687,6 @@
   },
   {
    "kind": "file",
-   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/PopupMeshUndoContract.java",
-   "versions": [
-    "5.3.02"
-   ],
-   "basis": "task-scoped",
-   "reason": "Admission set for a surface recovered from the exact 5.3.02 artifact only (model-import-3d / popup-undo / texture-atlas work); pending 5.3.03/5.3.04 review is recorded in scripts/version-monotonicity-exceptions.json."
-  },
-  {
-   "kind": "file",
    "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/composite/CanvasCompositeElisionTarget.java",
    "versions": [
     "5.2.03",
