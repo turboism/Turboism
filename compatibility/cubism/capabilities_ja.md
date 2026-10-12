@@ -347,6 +347,7 @@ Cubism Editor 自体に機能が存在しない確認済みホスト境界。公
 | class-pins/`image-archive-reuse.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`incremental-update.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`matrix-scratch.json` | `ClassPinTable` | 5.2.00–5.3.04 |
+| class-pins/`mesh-interpolation.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`mesh-mirror.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`mesh-triangulation-hash.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`model-update-skip.json` | `ClassPinTable` | 5.2.00–5.3.04 |
