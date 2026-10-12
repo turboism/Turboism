@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Objects;
 
 /** Detached ordinary Rotation forms and their exact parameter grid coordinates. */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.0.00")
 public record RotationAuthoringSnapshot(
         DeformerId deformerId,
         String sourceGuid,

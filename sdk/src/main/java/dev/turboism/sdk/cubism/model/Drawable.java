@@ -230,7 +230,7 @@ public interface Drawable {
      *
      * @throws UnsupportedOperationException when exact-version stored authoring reads are unavailable
      */
-    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    @CubismEditor(from = "5.0.00")
     default ArtMeshAuthoringSnapshot authoringSnapshot() {
         throw unavailable("ArtMesh stored authoring snapshot");
     }
@@ -238,11 +238,11 @@ public interface Drawable {
     /**
      * Observes the Editor's last calculated form and parameter-consumption metadata without
      * triggering evaluation. The detached result does not assert freshness or success.
-     * Requires the verified 5.3.02 default Offscreen/EDT rendering configuration.
+     * Requires the reviewed default Offscreen/EDT rendering configuration (verified 5.3.02+).
      *
      * @throws UnsupportedOperationException when this read or rendering configuration is unsupported
      */
-    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    @CubismEditor(from = "5.0.00")
     default ArtMeshEvaluationSnapshot evaluationSnapshot() {
         throw unavailable("ArtMesh calculated-form observation");
     }
@@ -260,7 +260,7 @@ public interface Drawable {
      * @throws java.util.NoSuchElementException when the existing tuple is missing
      * @throws UnsupportedOperationException when exact-version keyform access is unavailable
      */
-    @CubismEditor({"5.3.02", "5.3.03"})
+    @CubismEditor(from = "5.0.00")
     default ArtMeshKeyform ordinaryKeyform(final List<ArtMeshAuthoringSnapshot.Coordinate> coordinates) {
         throw unavailable("ArtMesh ordinary keyform");
     }
@@ -279,7 +279,7 @@ public interface Drawable {
      * @throws IllegalArgumentException for invalid, duplicate, shared or mismatched targets
      * @throws UnsupportedOperationException for default forms or unavailable verified authoring
      */
-    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    @CubismEditor(from = "5.0.00")
     default void setOrdinaryKeyformPositions(
             final ArtMeshAuthoringSnapshot expected, final List<ArtMeshKeyformPositions> edits) {
         throw unavailable("ArtMesh ordinary keyform position batch");
@@ -305,7 +305,7 @@ public interface Drawable {
      * @throws IllegalArgumentException for an invalid key or identity
      * @throws UnsupportedOperationException when this exact-version domain is unsupported
      */
-    @CubismEditor({"5.3.02", "5.3.03"})
+    @CubismEditor(from = "5.0.00")
     default ArtMeshMorphKeyform morphKeyform(final String parameterGuid, final float keyValue) {
         throw unavailable("ArtMesh morph keyform");
     }
@@ -321,7 +321,7 @@ public interface Drawable {
      * @throws IllegalArgumentException for an invalid or conflicting key
      * @throws UnsupportedOperationException when the member transaction protocol is unavailable
      */
-    @CubismEditor({"5.3.02", "5.3.03"})
+    @CubismEditor(from = "5.0.00")
     default ArtMeshMorphKeyform createMorphKeyform(final String parameterGuid, final float keyValue) {
         throw unavailable("ArtMesh morph key creation");
     }

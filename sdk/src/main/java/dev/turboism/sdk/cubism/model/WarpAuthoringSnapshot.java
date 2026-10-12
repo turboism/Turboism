@@ -11,7 +11,7 @@ import java.util.Objects;
 /** Detached ordinary Warp forms and their actual grid coordinates, never an evaluated form.
  * Shared form references remain visible; writers must reject ambiguous targets.
  * Morph-enabled Warp sources are outside this observation contract. */
-@CubismEditor({"5.3.02", "5.3.03"})
+@CubismEditor(from = "5.0.00")
 public record WarpAuthoringSnapshot(
         DeformerId deformerId,
         String sourceGuid,

@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Objects;
 
 /** One existing non-default ordinary form's draw order in a compare-and-set batch. */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.0.00")
 public record ArtMeshKeyformDrawOrder(
         List<ArtMeshAuthoringSnapshot.Coordinate> coordinates, String formGuid, int drawOrder) {
     public ArtMeshKeyformDrawOrder {
