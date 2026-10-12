@@ -7,17 +7,23 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-mesh-edit-host-validation.sh <matrix|persistence|selection-brush VERSION> [run-label] [runner-options...]" >&2
+  echo "usage: run-mesh-edit-host-validation.sh <matrix|persistence [VERSION]|selection-brush $(turboism_task_versions_usage selection-brush)> [run-label] [runner-options...]" >&2
   exit 2
 fi
 mode="$1"
 shift
-version=5203
+version="$TURBOISM_HOST_VALIDATION_DEFAULT_FIXTURE_VERSION"
 case "$mode" in
-  matrix|persistence) ;;
+  matrix|persistence)
+    if [ "$#" -gt 0 ] && [[ "$1" =~ ^[0-9]{4}$ ]]; then
+      version="$1"
+      shift
+    fi
+    turboism_require_task_version mesh-edit "$version" || exit 2
+    ;;
   selection-brush)
     version="${1:-}"
-    case "$version" in 5200|5201|5202|5203|5300|5301|5302|5303|5304) ;; *) echo 'error: selection-brush requires a reviewed 5.2/5.3 version' >&2; exit 2 ;; esac
+    turboism_require_task_version selection-brush "$version" || exit 2
     shift
     ;;
   *) echo "error: unsupported mode: $mode" >&2; exit 2 ;;

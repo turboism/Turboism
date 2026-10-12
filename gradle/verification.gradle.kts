@@ -667,10 +667,50 @@ val checkVersionSetRegistry by tasks.registering(Exec::class) {
         fileTree("packaging/java-installer/listener-src") { include("**/*.java") },
         fileTree("templates") { include("**/*.java") },
         fileTree("scripts/verification-sources/templates") { include("**/*.java") },
-        fileTree("plugins") { include("*/src/main/**/*.java") }
+        fileTree("plugins") { include("*/src/main/**/*.java") },
+        fileTree("scripts/preview") { include("run-*.sh") }
     )
     VerificationStamps.apply(this)
     commandLine("python3", "scripts/check_version_set_registry.py", rootDir.absolutePath)
+}
+
+val checkHostValidationVersionsSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed fixtures for host-validation task version derivation and wrapper single-source checks."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/check_host_validation_versions.py",
+        "scripts/check_version_set_registry.py",
+        "scripts/check_version_monotonicity.py",
+        "scripts/preview/host_validation_static_gates.py",
+        "scripts/test/test_check_host_validation_versions.py"
+    )
+    VerificationStamps.apply(this)
+    commandLine(
+        "python3", "-m", "unittest",
+        "scripts.test.test_check_host_validation_versions",
+        "-v"
+    )
+}
+
+val checkHostValidationVersions by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Verifies host-validation manifest task versions equal capability-derived sets and wrappers contain no unregistered version enumerations."
+    dependsOn(checkHostValidationVersionsSelfTest)
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/check_host_validation_versions.py",
+        "scripts/check_version_set_registry.py",
+        "scripts/check_version_monotonicity.py",
+        "scripts/version-set-registry.json",
+        "scripts/preview/host-validation-tasks.json",
+        "scripts/preview/host_validation_static_gates.py",
+        "compatibility/cubism/compatibility-matrix.json",
+        "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
+        fileTree("scripts/preview") { include("run-*.sh") }
+    )
+    VerificationStamps.apply(this)
+    commandLine("python3", "scripts/check_host_validation_versions.py", rootDir.absolutePath)
 }
 
 /*
@@ -1128,6 +1168,7 @@ val devCheck by tasks.registering {
         checkEditorModelAliases,
         checkVersionMonotonicity,
         checkVersionSetRegistry,
+        checkHostValidationVersions,
         checkSdkCubismEditorAnnotations,
         "validatePluginMeta",
         ":runtime:checkHeadlessRuntimeClasspath",

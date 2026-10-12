@@ -2,8 +2,11 @@
 # ACP adapter for the generic exact-host runner.
 set -euo pipefail
 
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$repo_root/scripts/preview/host-validation-env.sh"
+
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-acp-host-validation.sh <5203|5302|5303> [run-label] [runner-options...]" >&2
+  echo "usage: run-acp-host-validation.sh $(turboism_task_versions_usage acp) [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
@@ -14,23 +17,12 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   shift
 fi
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$repo_root/scripts/preview/host-validation-env.sh"
-turboism_select_fixture "$version"
+turboism_require_task_version acp "$version" || exit 2
+turboism_select_fixture "$version" || exit 2
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
 bundle_root="$repo_root/build/manual-test/$worktree_id/windows-acp-validation"
 runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
 seed="$repo_root/testing/host-validation/acp/settings-$version.properties"
-
-case "$version" in
-  5203) agent_java='C:/Program Files/Live2D Cubism 5.2/app/jre/bin/java.exe' ;;
-  5302) agent_java='C:/Program Files/Live2D Cubism 5.3/app/jre/bin/java.exe' ;;
-  5303) agent_java='C:/Program Files/Live2D Cubism 5.3.03/app/jre/bin/java.exe' ;;
-  *)
-    echo "unsupported version: $version" >&2
-    exit 2
-    ;;
-esac
 [ -f "$seed" ] || { echo "error: ACP settings seed not found: $seed" >&2; exit 1; }
 
 exec bash "$runner" \

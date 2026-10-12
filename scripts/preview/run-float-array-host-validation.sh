@@ -8,17 +8,22 @@ case "$mode" in
   off) enabled=false; shadow=false ;;
   on) enabled=true; shadow=false ;;
   shadow) enabled=true; shadow=true ;;
-  -h|--help) printf 'Usage: %s <off|on|shadow> [run-label] [generic runner options]\n' "$0"; exit 0 ;;
-  *) printf 'Usage: %s <off|on|shadow> [run-label] [generic runner options]\n' "$0"; exit 2 ;;
+  -h|--help) printf 'Usage: %s <off|on|shadow> [%s] [run-label] [generic runner options]\n' "$0" "$(turboism_task_versions_usage float-array)"; exit 0 ;;
+  *) printf 'Usage: %s <off|on|shadow> [%s] [run-label] [generic runner options]\n' "$0" "$(turboism_task_versions_usage float-array)" >&2; exit 2 ;;
 esac
 shift
+version="$TURBOISM_HOST_VALIDATION_DEFAULT_VERSION"
+if [[ $# -gt 0 && "$1" =~ ^[0-9]{4}$ ]]; then
+  version="$1"
+  shift
+fi
+turboism_require_task_version float-array "$version" || exit 2
 run_label="$mode"
 if [[ $# -gt 0 && "$1" != --* ]]; then run_label="$1"; shift; fi
 worktree_id="$(bash "$repo_root/scripts/dev/worktree-id.sh")"
 bundle="$repo_root/build/preview/$worktree_id"
 fixture_args=()
-if [[ -n "$TURBOISM_HOST_VALIDATION_FIXTURE_5302" ]]; then
-  turboism_select_fixture 5302
+if turboism_select_fixture "$version" 2>/dev/null; then
   fixture_args=(--fixture-remote "$fixture_src" --fixture-sha256 "$fixture_sha256")
 fi
 ready_args=()
@@ -26,7 +31,7 @@ if [[ "$enabled" == true ]]; then
   ready_args=(--ready-marker 'TURBOISM_FLOAT_ARRAY_PARSE_CACHE installation=COMPLETE')
 fi
 exec bash "$repo_root/scripts/preview/run-cubism-host-validation.sh" \
-  --name float-array-parse-cache --version 5302 --run-label "$run_label" \
+  --name float-array-parse-cache --version "$version" --run-label "$run_label" \
   --bundle-root "$bundle" --agent "$bundle/turboism-agent.jar" \
   --home-config "$repo_root/testing/host-validation/float-array/config.json" \
   --aux-agent "$repo_root/build/float-array-host-validation-exerciser.jar" \
