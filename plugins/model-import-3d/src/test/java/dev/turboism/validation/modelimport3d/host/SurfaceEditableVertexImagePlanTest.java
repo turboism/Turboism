@@ -86,8 +86,8 @@ class SurfaceEditableVertexImagePlanTest {
 
     @Test
     void completeCatEditablePlanesKeepEveryOriginalOrientedCornerAndMaterialMapping() throws Exception {
-        var sources = GlbSurfaceReader.read(Files.readAllBytes(
-                Path.of(System.getProperty("mi3d.repo"), "artifacts/cat-textured/source-r2/cat-textured.glb")));
+        var sources = GlbSurfaceReader.read(
+                ModelImportTestFixtures.readBytes("artifacts/cat-textured/source-r2/cat-textured.glb"));
         var original = SurfaceVertexPlan.compile(sources, 512);
         var camera = SurfaceAutoCamera.fit(sources, 512, 512, 400);
         var editable = SurfaceWarpImagePlan.compileEditableVertex(original, camera, 1001);

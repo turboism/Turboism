@@ -173,11 +173,10 @@ class ObjModelInputTest {
 
     @Test
     void authorizedOriginalCatPackageImportsWithoutManualConversion() throws Exception {
-        var root = Path.of(System.getProperty("mi3d.repo"));
-        byte[] packed = Files.readAllBytes(root.resolve("artifacts/cat-textured/package-source-r1/cat.zip"));
+        byte[] packed = ModelImportTestFixtures.readBytes("artifacts/cat-textured/package-source-r1/cat.zip");
         var sources = GlbSurfaceReader.read(ModelInputNormalizer.normalize(packed));
         var prior = GlbSurfaceReader.read(
-                Files.readAllBytes(root.resolve("artifacts/cat-textured/source-r2/cat-textured.glb")));
+                ModelImportTestFixtures.readBytes("artifacts/cat-textured/source-r2/cat-textured.glb"));
         assertEquals(1, sources.size());
         var s = sources.get(0);
         var p = prior.get(0);
@@ -206,7 +205,8 @@ class ObjModelInputTest {
                 + s.positions().size() + " uvMax=" + uvError + " jpegVsPriorPngChannelMax=" + max + " mean="
                 + error / (3d * s.texture().pixels().size()));
         assertTrue(max <= 5, "JPEG decoding must remain close to the independently normalized prior texture");
-        Path out = root.resolve("build/model-import-3d-offline/obj-package-input-r1-20261003");
+        Path out = ModelImportTestFixtures.repoRoot()
+                .resolve("build/model-import-3d-offline/obj-package-input-r1-20261003");
         Files.createDirectories(out);
         Files.write(out.resolve("cat-normalized.glb"), ModelInputNormalizer.normalize(packed));
     }

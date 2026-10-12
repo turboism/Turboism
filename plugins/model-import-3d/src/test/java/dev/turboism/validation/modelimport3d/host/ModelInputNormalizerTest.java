@@ -11,8 +11,9 @@ import java.util.zip.*;
 import org.junit.jupiter.api.Test;
 
 class ModelInputNormalizerTest {
-    private static final Path CAT =
-            Path.of(System.getProperty("mi3d.repo"), "artifacts/cat-textured/source-r2/cat-textured.glb");
+    private static Path cat() {
+        return ModelImportTestFixtures.fixture("artifacts/cat-textured/source-r2/cat-textured.glb");
+    }
 
     @SuppressWarnings("unchecked")
     private static Map<String, Object> document(byte[] glb) {
@@ -39,7 +40,7 @@ class ModelInputNormalizerTest {
 
     @Test
     void realCatExternalBufferPackagePreservesEverySurfaceAndIsDeterministic() throws Exception {
-        byte[] original = Files.readAllBytes(CAT);
+        byte[] original = Files.readAllBytes(cat());
         var doc = document(original);
         byte[] bin = binary(original);
         doc.put("buffers", List.of(Map.of("uri", "cat.bin", "byteLength", bin.length)));
@@ -51,7 +52,7 @@ class ModelInputNormalizerTest {
 
     @Test
     void selfContainedGltfAndExternalPngHaveIdenticalCatTexels() throws Exception {
-        byte[] original = Files.readAllBytes(CAT);
+        byte[] original = Files.readAllBytes(cat());
         var doc = document(original);
         byte[] bin = binary(original);
         doc.put(
@@ -88,7 +89,7 @@ class ModelInputNormalizerTest {
 
     @Test
     void rejectsMissingResourcesTraversalNetworkAndAmbiguousModels() throws Exception {
-        byte[] original = Files.readAllBytes(CAT);
+        byte[] original = Files.readAllBytes(cat());
         var doc = document(original);
         int size = binary(original).length;
         for (String uri : List.of(
@@ -117,7 +118,7 @@ class ModelInputNormalizerTest {
 
     @Test
     void rejectsResourceLengthMismatchAndPassesGlbWithoutMutatingInput() throws Exception {
-        byte[] original = Files.readAllBytes(CAT), saved = original.clone();
+        byte[] original = Files.readAllBytes(cat()), saved = original.clone();
         assertArrayEquals(original, ModelInputNormalizer.normalize(original));
         assertArrayEquals(saved, original);
         var doc = document(original);
@@ -130,7 +131,7 @@ class ModelInputNormalizerTest {
 
     @Test
     void rejectsTruncatedZipAndDisguisedNestedArchive() throws Exception {
-        byte[] original = Files.readAllBytes(CAT), packed = zip(Map.of("a.glb", original));
+        byte[] original = Files.readAllBytes(cat()), packed = zip(Map.of("a.glb", original));
         assertThrows(
                 IllegalArgumentException.class,
                 () -> ModelInputNormalizer.normalize(Arrays.copyOf(packed, packed.length - 22)));

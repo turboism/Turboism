@@ -10,9 +10,8 @@ import org.junit.jupiter.api.Test;
 class SurfaceImportCostPlanTest {
     @Test
     void editableChoiceAccountsForRetainedSourceCornersAndDerivedLattice() throws Exception {
-        var root = Path.of(System.getProperty("mi3d.repo"));
         var source = GlbSurfaceReader.read(
-                Files.readAllBytes(root.resolve("artifacts/cat-textured/source-r2/cat-textured.glb")));
+                ModelImportTestFixtures.readBytes("artifacts/cat-textured/source-r2/cat-textured.glb"));
         var camera = SurfaceAutoCamera.fit(source, 512, 512, 400);
         var base = SurfaceVertexAuthoringTest.request(1, true);
         var request = new SurfaceImport.Request(
@@ -65,9 +64,8 @@ class SurfaceImportCostPlanTest {
 
     @Test
     void realCatCostChoicePreservesBudgetAndIsDeterministic() throws Exception {
-        var root = Path.of(System.getProperty("mi3d.repo"));
         var source = GlbSurfaceReader.read(
-                Files.readAllBytes(root.resolve("artifacts/cat-textured/source-r2/cat-textured.glb")));
+                ModelImportTestFixtures.readBytes("artifacts/cat-textured/source-r2/cat-textured.glb"));
         var camera = SurfaceAutoCamera.fit(source, 512, 512, 400);
         var base = SurfaceVertexAuthoringTest.request(1, true);
         var request = new SurfaceImport.Request(
@@ -98,7 +96,8 @@ class SurfaceImportCostPlanTest {
         }
         assertEquals(chosen.forms(), forms);
         assertEquals(chosen.cacheSlots(), slots);
-        var directory = root.resolve("build/model-import-3d-offline/cat-cost-plan-candidate-r1-20261004");
+        var directory = ModelImportTestFixtures.repoRoot()
+                .resolve("build/model-import-3d-offline/cat-cost-plan-candidate-r1-20261004");
         Files.createDirectories(directory);
         var surfaces = chosen.simplified().surfaces().stream()
                 .map(s -> Map.of(
