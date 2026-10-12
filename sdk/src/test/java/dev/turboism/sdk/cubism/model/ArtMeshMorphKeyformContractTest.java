@@ -58,6 +58,7 @@ class ArtMeshMorphKeyformContractTest {
         assertEquals(
                 Set.of("parameterGuid", "keyValue", "snapshot", "baseSnapshot", "setPositions", "setDrawOrder"),
                 Arrays.stream(ArtMeshMorphKeyform.class.getDeclaredMethods())
+                        .filter(method -> !method.isSynthetic())
                         .map(java.lang.reflect.Method::getName)
                         .collect(Collectors.toSet()));
         assertEquals(

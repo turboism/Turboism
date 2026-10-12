@@ -51,6 +51,7 @@ class ArtMeshKeyformContractTest {
         assertEquals(
                 Set.of("coordinates", "snapshot", "defaultKeyform", "setPositions", "setDrawOrder"),
                 Arrays.stream(ArtMeshKeyform.class.getDeclaredMethods())
+                        .filter(method -> !method.isSynthetic())
                         .map(java.lang.reflect.Method::getName)
                         .collect(Collectors.toSet()));
     }
