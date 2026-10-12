@@ -40,7 +40,7 @@ try {
     Assert-Engine ((Get-TurboismScriptEngineStatus -HomePath $homePath).Status -eq 'Absent') 'new thin install reports optional engine absent'
     . (Join-Path $PSScriptRoot 'cubism-launch-common.ps1')
     [void][System.IO.Directory]::CreateDirectory((Join-Path $homePath 'graal/lib'))
-    [System.IO.File]::WriteAllText((Join-Path $homePath 'graal/lib/graal-host-0.44.0.jar'), 'synthetic base jar')
+    [System.IO.File]::WriteAllText((Join-Path $homePath 'graal/lib/graal-host-0.67.0.jar'), 'synthetic base jar')
     $java = Join-Path $fixture 'fake-java.exe'
     [System.IO.File]::WriteAllText($java, 'synthetic Java, never executed')
     $absentHost = Resolve-TurboismGraalHost -TurboismHome $homePath -PreferredJava $java -WarningAction SilentlyContinue

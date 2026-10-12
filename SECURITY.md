@@ -6,12 +6,12 @@ Turboism publishes installers and plugin packages through GitHub Releases.
 Security fixes are handled on a best-effort basis and land on the current
 development line, shipping with the next tagged release.
 
-- **Latest stable release** — supported (currently the `0.44.x` line; see the
+- **Latest stable release** — supported (currently the `0.67.x` line; see the
   tagged releases on the
   [Releases page](https://github.com/turboism/Turboism/releases)).
 - **Nightly builds** (`v*-0.nightly.*`) — development snapshots; not
   separately supported, update to the latest build.
-- **Older release lines** (0.43.x and earlier) — no backports; please
+- **Older release lines** (0.44.x and earlier) — no backports; please
   upgrade.
 
 ## Reporting a vulnerability
