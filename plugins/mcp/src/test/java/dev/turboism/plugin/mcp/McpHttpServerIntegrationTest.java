@@ -121,7 +121,8 @@ final class McpHttpServerIntegrationTest {
                 original.uiScheduler(),
                 original.stateDir(),
                 original.port(),
-                original.requestsPerMinute());
+                original.requestsPerMinute(),
+                original.requireAuthForRead());
         try (final McpHttpServer server = McpHttpServer.start(legacy)) {
             assertTrue(server.endpoint().getPort() > 0);
             assertTrue(Files.isRegularFile(temporaryDirectory.resolve("mcp-connection.json")));
