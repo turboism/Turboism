@@ -4,7 +4,7 @@ import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.plugin.Registration;
 
 /** Enables plugin policy that mirrors host-initiated selected-point movement. */
-@CubismEditor(from = "5.2.00")
+@CubismEditor(from = "5.0.00")
 public interface MeshMirrorMoveParticipation {
 
     /**

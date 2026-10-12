@@ -191,23 +191,6 @@
       "reason": "MCP domain supported-version table derived from the SDK coverage manifest and review data."
     },
     {
-      "kind": "collection",
-      "path": "plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpTextureDomain.java",
-      "versions": [
-        "5.2.00",
-        "5.2.01",
-        "5.2.02",
-        "5.2.03",
-        "5.3.00",
-        "5.3.01",
-        "5.3.02",
-        "5.3.03",
-        "5.3.04"
-      ],
-      "basis": "verification-derived",
-      "reason": "MCP domain supported-version table derived from the SDK coverage manifest and review data."
-    },
-    {
       "kind": "file",
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/core/CorePublicApiProviderFactory.java",
       "versions": [

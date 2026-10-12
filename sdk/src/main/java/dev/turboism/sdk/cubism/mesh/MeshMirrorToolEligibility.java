@@ -5,7 +5,7 @@ import dev.turboism.sdk.plugin.Registration;
 import java.util.Set;
 
 /** Extends the native set of mesh subtools that may keep mirror editing active. */
-@CubismEditor(from = "5.2.00")
+@CubismEditor(from = "5.0.00")
 public interface MeshMirrorToolEligibility {
 
     /**
