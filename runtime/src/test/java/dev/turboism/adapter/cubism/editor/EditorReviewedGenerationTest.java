@@ -40,11 +40,6 @@ class EditorReviewedGenerationTest {
 
     private static VerifiedMemberResolver compatible(final String version) {
         return TestVerifiedResolvers.createCompatible(
-                version,
-                "5.9.99",
-                SLICE,
-                CAPABILITIES,
-                SELECTORS,
-                EditorReviewedGenerationTest.class.getClassLoader());
+                version, "5.9.99", SLICE, CAPABILITIES, SELECTORS, EditorReviewedGenerationTest.class.getClassLoader());
     }
 }
