@@ -38,17 +38,26 @@ public final class PreviewContextServicesPlugin implements TurboismPlugin {
 
     @Override
     public void init(PluginContext context) {
+        String step = "start";
         try {
             Map<String, String> marker = new LinkedHashMap<>();
+            step = "localization";
             recordLocalization(context, marker);
+            step = "task";
             recordTask(context, marker);
+            step = "storage";
             recordStorage(context, marker);
+            step = "config";
             recordConfig(context, marker);
+            step = "userFiles";
             recordUserFiles(context, marker);
+            step = "hostReads";
             recordHostReads(context, marker);
+            step = "ready";
             writeReady(marker);
         } catch (Exception failure) {
-            throw new IllegalStateException("Context services characterization failed", failure);
+            throw new IllegalStateException(
+                    "Context services characterization failed at " + step + ": " + failure, failure);
         }
     }
 
@@ -132,6 +141,12 @@ public final class PreviewContextServicesPlugin implements TurboismPlugin {
     }
 
     private static void recordUserFiles(PluginContext context, Map<String, String> marker) throws Exception {
+        if (!java.awt.GraphicsEnvironment.isHeadless()) {
+            // A display gives ordinary plugins the interactive Swing chooser; requesting it here
+            // would open a dialog that no automated run can answer.
+            marker.put("userFiles.status", "INTERACTIVE_CHOOSER");
+            return;
+        }
         var userFile = context.userFiles()
                 .request(new UserFileRequest(
                         "context-fixture-file",
