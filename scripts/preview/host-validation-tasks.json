@@ -719,13 +719,6 @@
       "description": "Automated backup host validation.",
       "command": "scripts/preview/run-backup-host-validation.sh",
       "versions": [
-        "5000",
-        "5001",
-        "5002",
-        "5003",
-        "5004",
-        "5005",
-        "5006",
         "5100",
         "5101",
         "5102",
@@ -787,13 +780,6 @@
       "description": "WebDAV backup end-to-end host validation: production webdav plugin uploads to the probe's recording WebDAV mock after a semantic SAVE.",
       "command": "scripts/preview/run-backup-webdav-host-validation.sh",
       "versions": [
-        "5000",
-        "5001",
-        "5002",
-        "5003",
-        "5004",
-        "5005",
-        "5006",
         "5100",
         "5101",
         "5102",
@@ -835,13 +821,6 @@
       "description": "Human-operated WebDAV backup session.",
       "command": "scripts/preview/run-backup-interactive-session.sh",
       "versions": [
-        "5000",
-        "5001",
-        "5002",
-        "5003",
-        "5004",
-        "5005",
-        "5006",
         "5100",
         "5101",
         "5102",
@@ -1454,17 +1433,6 @@
       "description": "Model-update unchanged-frame skip; repaint resize driver exercises off/probe/on legs; machine-exclusive performance evidence.",
       "command": "scripts/preview/run-model-update-skip-host-validation.sh",
       "versions": [
-        "5000",
-        "5001",
-        "5002",
-        "5003",
-        "5004",
-        "5005",
-        "5006",
-        "5100",
-        "5101",
-        "5102",
-        "5103",
         "5200",
         "5201",
         "5202",
@@ -1581,17 +1549,6 @@
       "description": "Per-object incremental model update; repaint resize driver exercises off/probe/on legs; machine-exclusive performance evidence.",
       "command": "scripts/preview/run-incremental-update-host-validation.sh",
       "versions": [
-        "5000",
-        "5001",
-        "5002",
-        "5003",
-        "5004",
-        "5005",
-        "5006",
-        "5100",
-        "5101",
-        "5102",
-        "5103",
         "5200",
         "5201",
         "5202",
@@ -2774,17 +2731,6 @@
       "description": "Selection Brush gestures, native selection, real input, lifecycle and invariant verification.",
       "command": "scripts/preview/run-mesh-edit-host-validation.sh",
       "versions": [
-        "5000",
-        "5001",
-        "5002",
-        "5003",
-        "5004",
-        "5005",
-        "5006",
-        "5100",
-        "5101",
-        "5102",
-        "5103",
         "5200",
         "5201",
         "5202",
@@ -3314,15 +3260,6 @@
       "description": "Cubism 5.4-compat external edit API protocol bridge validation: a task-local stdlib WebSocket client replays the official 1.1.0 wire sequence (RegisterPlugin, token persistence, approval polling, EditBegin/End, S1-S6 matrix) against the host's own loopback service on port 22033, then a native 1.0.x regression stage; the probe plugin enables the external-app service, pre-seeds native token authorization and auto-answers the Turboism edit-approval dialog under a kill-switch file.",
       "command": "scripts/preview/run-edit-protocol-host-validation.sh",
       "versions": [
-        "5000",
-        "5001",
-        "5002",
-        "5003",
-        "5004",
-        "5005",
-        "5006",
-        "5100",
-        "5101",
         "5102",
         "5103",
         "5200",
@@ -3363,17 +3300,6 @@
       "description": "Animation workspace SDK validation (enumeration, timeline, playback, scene ops, keyframe/easing writes, evaluated bake, native undo).",
       "command": "scripts/preview/run-animation-timeline-host-validation.sh",
       "versions": [
-        "5000",
-        "5001",
-        "5002",
-        "5003",
-        "5004",
-        "5005",
-        "5006",
-        "5100",
-        "5101",
-        "5102",
-        "5103",
         "5200",
         "5201",
         "5202",
@@ -4083,6 +4009,1170 @@
       ],
       "resources": {
         "host-slot": 1
+      }
+    },
+    "atlas-image": {
+      "description": "T036 minimal Circle100 atlas-image observation; no layout, sort, save, or performance measurement.",
+      "command": "scripts/preview/run-atlas-image-host-validation.sh",
+      "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      },
+      "runnable": false,
+      "blockedReason": "T036 minimal Circle100 atlas-image observation requires an explicitly reviewed bundle manifest before queue submission."
+    },
+    "atlas-polygon": {
+      "description": "Atlas Dalsoo polygon packing E2E host validation: auto-layout write-back, undo/redo, save, and reopen state-hash verification.",
+      "command": "scripts/preview/run-atlas-polygon-host-validation.sh",
+      "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
+    },
+    "bounding-box-overlay": {
+      "description": "Public-SDK bounding-box overlay contribution visibility, stability, clickability, and close detachment validation.",
+      "command": "scripts/preview/run-bounding-box-overlay-host-validation.sh",
+      "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
+    },
+    "external-psd-edit": {
+      "description": "External PSD edit pipeline, reopen, GUI, and structural replacement validation probe.",
+      "command": "scripts/preview/run-external-psd-edit-host-validation.sh",
+      "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
+    },
+    "external-psd-fixture-preparation": {
+      "description": "Official PSD new-model fixture preparation and mediated SAVE_AS validation probe.",
+      "command": "scripts/preview/run-external-psd-fixture-preparation.sh",
+      "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "defaultVariant": "normal",
+      "variants": {
+        "normal": [
+          "--profile",
+          "normal",
+          "{version}",
+          "{runLabel}"
+        ],
+        "normal-assisted": [
+          "--profile",
+          "normal",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
+        "legacy": [
+          "--profile",
+          "legacy",
+          "{version}",
+          "{runLabel}"
+        ],
+        "legacy-assisted": [
+          "--profile",
+          "legacy",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
+        "f1": [
+          "--profile",
+          "f1",
+          "{version}",
+          "{runLabel}"
+        ],
+        "f1-assisted": [
+          "--profile",
+          "f1",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
+    },
+    "float-array": {
+      "description": "Float-array parse cache optimization exact-host validation across off/on/shadow modes.",
+      "command": "scripts/preview/run-float-array-host-validation.sh",
+      "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "defaultVariant": "on",
+      "variants": {
+        "off": [
+          "off",
+          "{version}",
+          "{runLabel}"
+        ],
+        "off-assisted-gl": [
+          "off",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=true",
+          "--linux-env",
+          "mesa_glthread=true"
+        ],
+        "off-assisted": [
+          "off",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
+        "on": [
+          "on",
+          "{version}",
+          "{runLabel}"
+        ],
+        "on-assisted-gl": [
+          "on",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=true",
+          "--linux-env",
+          "mesa_glthread=true"
+        ],
+        "on-assisted": [
+          "on",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
+        "shadow": [
+          "shadow",
+          "{version}",
+          "{runLabel}"
+        ],
+        "shadow-assisted-gl": [
+          "shadow",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=true",
+          "--linux-env",
+          "mesa_glthread=true"
+        ],
+        "shadow-assisted": [
+          "shadow",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1,
+        "performance-host": 1
+      }
+    },
+    "graal-script": {
+      "description": "Isolated GraalVM script runtime host validation.",
+      "command": "scripts/preview/run-graal-script-host-validation.sh",
+      "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
+    },
+    "image-archive": {
+      "description": "Image-archive reuse optimization exact-host validation across standard and atlas-workflow modes.",
+      "command": "scripts/preview/run-image-archive-host-validation.sh",
+      "versions": [
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "standard-assisted-gl": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=true",
+          "--linux-env",
+          "mesa_glthread=true"
+        ],
+        "standard-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
+        "workflow": [
+          "{version}",
+          "{runLabel}",
+          "--workflow"
+        ],
+        "workflow-assisted-gl": [
+          "{version}",
+          "{runLabel}",
+          "--workflow",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=true",
+          "--linux-env",
+          "mesa_glthread=true"
+        ],
+        "workflow-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--workflow",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1,
+        "performance-host": 1
+      }
+    },
+    "mesh-edit": {
+      "description": "Direct mesh edit mirror-axis validation across matrix and persistence modes.",
+      "command": "scripts/preview/run-mesh-edit-host-validation.sh",
+      "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "defaultVariant": "matrix",
+      "variants": {
+        "matrix": [
+          "matrix",
+          "{version}",
+          "{runLabel}"
+        ],
+        "matrix-assisted": [
+          "matrix",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
+        "persistence": [
+          "persistence",
+          "{version}",
+          "{runLabel}"
+        ],
+        "persistence-assisted": [
+          "persistence",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
+    },
+    "plugin-management-chooser": {
+      "description": "Two-phase plugin management direct-JAR staging and restart verification.",
+      "command": "scripts/preview/run-plugin-management-chooser-host-validation.sh",
+      "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
+    },
+    "resource": {
+      "description": "Native resource workload and memory observation across plain and profile modes.",
+      "command": "scripts/preview/run-resource-host-validation.sh",
+      "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "defaultVariant": "plain",
+      "variants": {
+        "plain": [
+          "plain",
+          "{version}",
+          "{runLabel}"
+        ],
+        "plain-assisted-gl": [
+          "plain",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=true",
+          "--linux-env",
+          "mesa_glthread=true"
+        ],
+        "plain-assisted": [
+          "plain",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
+        "profile": [
+          "profile",
+          "{version}",
+          "{runLabel}"
+        ],
+        "profile-assisted-gl": [
+          "profile",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=true",
+          "--linux-env",
+          "mesa_glthread=true"
+        ],
+        "profile-assisted": [
+          "profile",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1,
+        "performance-host": 1
+      }
+    },
+    "semantic-history": {
+      "description": "Semantic-history baseline validation with history-panel and seed/manager probes.",
+      "command": "scripts/preview/run-history-baseline-validation.sh",
+      "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
+    },
+    "semantic-history-native-ui": {
+      "description": "Operator-driven native Editor UI history ingress validation.",
+      "command": "scripts/preview/run-history-native-ui-validation.sh",
+      "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "arguments": [
+        "{version}",
+        "{runLabel}"
+      ],
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1,
+        "interactive-desktop": 1
+      },
+      "runnable": false,
+      "blockedReason": "Operator-driven native UI history ingress requires human desktop interaction unless explicitly automated."
+    },
+    "semantic-history-primary": {
+      "description": "Hook-free semantic-history primary capability validation.",
+      "command": "scripts/preview/run-history-primary-validation.sh",
+      "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
+    },
+    "settings-page": {
+      "description": "Settings dialog Performance tab and mesh-triangulation toggle round-trip validation.",
+      "command": "scripts/preview/run-settings-page-host-validation.sh",
+      "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
+    },
+    "texture-upload": {
+      "description": "Texture upload preparation optimization exact-host validation across off/on/shadow modes.",
+      "command": "scripts/preview/run-texture-upload-host-validation.sh",
+      "versions": [
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "defaultVariant": "on",
+      "variants": {
+        "off": [
+          "off",
+          "{version}",
+          "{runLabel}"
+        ],
+        "off-assisted-gl": [
+          "off",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=true",
+          "--linux-env",
+          "mesa_glthread=true"
+        ],
+        "off-assisted": [
+          "off",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
+        "on": [
+          "on",
+          "{version}",
+          "{runLabel}"
+        ],
+        "on-assisted-gl": [
+          "on",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=true",
+          "--linux-env",
+          "mesa_glthread=true"
+        ],
+        "on-assisted": [
+          "on",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
+        "shadow": [
+          "shadow",
+          "{version}",
+          "{runLabel}"
+        ],
+        "shadow-assisted-gl": [
+          "shadow",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=true",
+          "--linux-env",
+          "mesa_glthread=true"
+        ],
+        "shadow-assisted": [
+          "shadow",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1,
+        "performance-host": 1
+      }
+    },
+    "warp-position": {
+      "description": "Warp position projection optimization exact-host validation across off/on/shadow modes.",
+      "command": "scripts/preview/run-warp-position-host-validation.sh",
+      "versions": [
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "defaultVariant": "on",
+      "variants": {
+        "off": [
+          "off",
+          "{version}",
+          "{runLabel}"
+        ],
+        "off-assisted-gl": [
+          "off",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=true",
+          "--linux-env",
+          "mesa_glthread=true"
+        ],
+        "off-assisted": [
+          "off",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
+        "on": [
+          "on",
+          "{version}",
+          "{runLabel}"
+        ],
+        "on-assisted-gl": [
+          "on",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=true",
+          "--linux-env",
+          "mesa_glthread=true"
+        ],
+        "on-assisted": [
+          "on",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ],
+        "shadow": [
+          "shadow",
+          "{version}",
+          "{runLabel}"
+        ],
+        "shadow-assisted-gl": [
+          "shadow",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=true",
+          "--linux-env",
+          "mesa_glthread=true"
+        ],
+        "shadow-assisted": [
+          "shadow",
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1,
+        "performance-host": 1
       }
     }
   }
