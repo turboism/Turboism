@@ -7,17 +7,23 @@ mode=${1:-}
 case "$mode" in
   plain) profile=false ;;
   profile) profile=true ;;
-  -h|--help) printf 'Usage: %s <plain|profile> [short-label] [generic runner options]\n' "$0"; exit 0 ;;
-  *) printf 'Usage: %s <plain|profile> [short-label] [generic runner options]\n' "$0"; exit 2 ;;
+  -h|--help) printf 'Usage: %s <plain|profile> [%s] [short-label] [generic runner options]\n' "$0" "$(turboism_task_versions_usage resource)"; exit 0 ;;
+  *) printf 'Usage: %s <plain|profile> [%s] [short-label] [generic runner options]\n' "$0" "$(turboism_task_versions_usage resource)" >&2; exit 2 ;;
 esac
 shift
+version="$TURBOISM_HOST_VALIDATION_DEFAULT_VERSION"
+if [[ $# -gt 0 && "$1" =~ ^[0-9]{4}$ ]]; then
+  version="$1"
+  shift
+fi
+turboism_require_task_version resource "$version" || exit 2
 label="$mode"
 if [[ $# -gt 0 && "$1" != --* ]]; then label="$1"; shift; fi
 worktree_id="$(bash "$repo_root/scripts/dev/worktree-id.sh")"
 bundle="$repo_root/build/preview/$worktree_id"
 observer_python="$(python3 -I -S -c 'import pathlib, sys; print(pathlib.Path(sys.executable).resolve(strict=True))')"
 exec bash "$repo_root/scripts/preview/run-cubism-host-validation.sh" \
-  --name native-resource --version 5302 --run-label "$label" \
+  --name native-resource --version "$version" --run-label "$label" \
   --bundle-root "$bundle" --agent "$bundle/turboism-agent.jar" \
   --home-config "$repo_root/testing/host-validation/texture-upload/config.json" \
   --aux-agent "$repo_root/build/resource-host-validation-exerciser.jar" \

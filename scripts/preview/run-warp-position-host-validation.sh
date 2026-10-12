@@ -8,10 +8,16 @@ case "$mode" in
   off) enabled=false; shadow=false ;;
   on) enabled=true; shadow=false ;;
   shadow) enabled=true; shadow=true ;;
-  -h|--help) printf 'Usage: %s <off|on|shadow> [run-label] [generic runner options]\n' "$0"; exit 0 ;;
-  *) printf 'Usage: %s <off|on|shadow> [run-label] [generic runner options]\n' "$0"; exit 2 ;;
+  -h|--help) printf 'Usage: %s <off|on|shadow> [%s] [run-label] [generic runner options]\n' "$0" "$(turboism_task_versions_usage warp-position)"; exit 0 ;;
+  *) printf 'Usage: %s <off|on|shadow> [%s] [run-label] [generic runner options]\n' "$0" "$(turboism_task_versions_usage warp-position)" >&2; exit 2 ;;
 esac
 shift
+version="$TURBOISM_HOST_VALIDATION_DEFAULT_VERSION"
+if [[ $# -gt 0 && "$1" =~ ^[0-9]{4}$ ]]; then
+  version="$1"
+  shift
+fi
+turboism_require_task_version warp-position "$version" || exit 2
 label="$mode"
 if [[ $# -gt 0 && "$1" != --* ]]; then label="$1"; shift; fi
 worktree_id="$(bash "$repo_root/scripts/dev/worktree-id.sh")"
@@ -19,7 +25,7 @@ bundle="$repo_root/build/preview/$worktree_id"
 ready=()
 if [[ "$enabled" == true ]]; then ready=(--ready-marker 'TURBOISM_WARP_POSITION_PROJECTION installation=COMPLETE'); fi
 exec bash "$repo_root/scripts/preview/run-cubism-host-validation.sh" \
-  --name warp-position-projection --version 5302 --run-label "$label" \
+  --name warp-position-projection --version "$version" --run-label "$label" \
   --bundle-root "$bundle" --agent "$bundle/turboism-agent.jar" \
   --home-config "$repo_root/testing/host-validation/texture-upload/config.json" \
   --aux-agent "$repo_root/build/warp-position-host-validation-exerciser.jar" \

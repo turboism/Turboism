@@ -13,7 +13,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 2 ]; then
-  echo "usage: run-incremental-update-host-validation.sh <off|probe|on> <5200|5201|5202|5203|5300|5301|5302|5303|5304> [run-label] [runner-options...]" >&2
+  echo "usage: run-incremental-update-host-validation.sh <off|probe|on> $(turboism_task_versions_usage incremental-update) [run-label] [runner-options...]" >&2
   exit 2
 fi
 mode="$1"
@@ -23,9 +23,9 @@ case "$mode" in
   off) enabled=false; probe=false ;;
   probe) enabled=true; probe=true ;;
   on) enabled=true; probe=false ;;
-  *) echo "usage: run-incremental-update-host-validation.sh <off|probe|on> <5200|5201|5202|5203|5300|5301|5302|5303|5304> [run-label] [runner-options...]" >&2; exit 2 ;;
+  *) echo "usage: run-incremental-update-host-validation.sh <off|probe|on> $(turboism_task_versions_usage incremental-update) [run-label] [runner-options...]" >&2; exit 2 ;;
 esac
-case "$version" in 5200|5201|5202|5203|5300|5301|5302|5303|5304) ;; *) echo "error: version must be one of 5200, 5201, 5202, 5203, 5300, 5301, 5302, 5303, or 5304" >&2; exit 2 ;; esac
+turboism_require_task_version incremental-update "$version" || exit 2
 turboism_select_fixture "$version" || exit 2
 run_label="$mode"
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then

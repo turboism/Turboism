@@ -23,6 +23,18 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$root/scripts/preview/host-validation-env.sh"
 id="$(bash "$root/scripts/dev/worktree-id.sh")"
 
+version="$TURBOISM_HOST_VALIDATION_DEFAULT_VERSION"
+run_label="025-us4"
+if [[ $# -gt 0 && "$1" != --* ]]; then
+  version="$1"
+  shift
+  if [[ $# -gt 0 && "$1" != --* ]]; then
+    run_label="$1"
+    shift
+  fi
+fi
+turboism_require_task_version external-psd-edit "$version" || exit 2
+
 phase="${EXTERNAL_PSD_PHASE:-pipeline}"
 plugins=(--plugin "$root/build/external-psd-edit-host-probe.jar:external-psd-edit-host-probe.jar")
 if [ -n "${EXTERNAL_PSD_WITH_PLUGIN:-}" ]; then
@@ -32,7 +44,7 @@ fi
 if [ -n "${EXTERNAL_PSD_FIXTURE_LOCAL:-}" ]; then
   fixture=(--fixture-local "$EXTERNAL_PSD_FIXTURE_LOCAL")
 else
-  turboism_select_fixture 5302
+  turboism_select_fixture "$version" || exit 2
   fixture=(--fixture-host "$fixture_src" --fixture-sha256 "$fixture_sha256"
     --require-fixture-unchanged)
 fi
@@ -132,7 +144,7 @@ if [ "$phase" = "gui" ]; then
 fi
 
 exec bash "$root/scripts/preview/run-cubism-host-validation.sh" \
-  --name external-psd-edit-pipeline --version 5302 --run-label 025-us4 \
+  --name external-psd-edit-pipeline --version "$version" --run-label "$run_label" \
   --bundle-root "$root/build/preview/$id" \
   --agent "$root/build/preview/$id/turboism-agent.jar" \
   "${plugins[@]}" \
