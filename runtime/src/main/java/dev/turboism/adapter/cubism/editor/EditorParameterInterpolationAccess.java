@@ -383,12 +383,14 @@ final class EditorParameterInterpolationAccess {
     private void requireAuthorized() {
         if (!SwingUtilities.isEventDispatchThread())
             throw new IllegalStateException("Interpolation requires the Editor thread.");
-        if (!resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")
+        if (EditorParameterInterpolationSelectorContract.SUPPORTED_CUBISM_VERSIONS.stream()
+                        .noneMatch(resolver::isExactCubismVersion)
                 || !resolver.authorizesFeature(
                         EditorParameterInterpolationSelectorContract.ADAPTER_SLICE_ID,
                         EditorParameterInterpolationSelectorContract.CAPABILITY_ID,
                         EditorParameterInterpolationSelectorContract.REQUIRED_ALIASES)) {
-            throw new UnsupportedOperationException("Native interpolation requires exact verified 5.3.02 evidence.");
+            throw new UnsupportedOperationException("Native interpolation requires exact verified evidence; Cubism "
+                    + resolver.cubismVersion() + " does not carry it.");
         }
     }
 

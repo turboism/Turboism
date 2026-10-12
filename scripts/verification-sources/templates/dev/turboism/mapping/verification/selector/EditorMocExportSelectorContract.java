@@ -3,10 +3,28 @@ package dev.turboism.mapping.verification.selector;
 import java.util.HashSet;
 import java.util.Set;
 
-/** Exact 5.3.02 official exporter. Native data remains inside the runtime adapter. */
+/**
+ * Official Editor exporter, reviewed on the exact 5.3.02 artifact.
+ * Native data remains inside the runtime adapter.
+ */
 public final class EditorMocExportSelectorContract {
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
     public static final String CAPABILITY_ID = "cubism.editor-model.moc-export.read";
+
+    /**
+     * Reviewed generations that carry the complete official MOC 5.3 export surface.
+     *
+     * <p>Boundary evidence (class-file observation on every reviewed jar): the
+     * exporter writes {@code CMocExportFormat.V5_03_00} and
+     * {@code CMocExportSetting.setExportInvisibleAlias(Z)V}. Both members exist only
+     * from 5.3.00 on — pre-5.3 jars declare the enum constants
+     * {@code V3_00_00, V3_03_00, V4_00_00, V4_02_00, V5_00_00} and no invisible-alias
+     * setter (5.0.00-5.0.02 additionally lack {@code setEnableExtendEdgeColor}), which
+     * matches the Editor 5.3 release of the MOC3 5.3 format. The editor-model records
+     * list {@link #CAPABILITY_ID} for exactly this range.</p>
+     */
+    public static final Set<String> SUPPORTED_CUBISM_VERSIONS =
+        Set.of("5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04");
     public static final Set<String> NEW_ALIASES = Set.of(
         "cubism.editor-model.official-export.exporter-create",
         "cubism.editor-model.official-export.settings-create",

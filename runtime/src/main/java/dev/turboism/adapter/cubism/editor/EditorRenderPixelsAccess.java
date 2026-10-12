@@ -11,8 +11,8 @@ import java.util.Objects;
 /**
  * Exact, generation-bound Editor projection for native offscreen model rendering.
  *
- * <p>Cubism 5.3.02 {@code CModelSource.getRenderedImage(int,int,CParameterSet,
- * CColor,Function1)} renders the supplied parameter set through a temporary model
+ * <p>On every generation this access admits, {@code CModelSource.getRenderedImage(
+ * int,int,CParameterSet,CColor,Function1)} renders the supplied parameter set through a temporary model
  * instance into an owned {@code CWritableImage}. The temporary instance enters and
  * leaves {@code modelInstances} inside the call; this access observes membership
  * and order before and after, re-checks the generation on the same EDT, copies
@@ -46,8 +46,10 @@ final class EditorRenderPixelsAccess {
     CubismRenderedPixels renderPixels(
             final String identity, final Object source, final Object model, final int width, final int height) {
         requireAuthorization();
-        if (!resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")) {
-            throw new UnsupportedOperationException("Cubism native model rendering requires exact Cubism 5.3.02.");
+        if (EditorRenderPixelsSelectorContract.SUPPORTED_CUBISM_VERSIONS.stream()
+                .noneMatch(resolver::isExactCubismVersion)) {
+            throw new UnsupportedOperationException(
+                    "Cubism native model rendering is unavailable on Cubism " + resolver.cubismVersion() + ".");
         }
         if (width < 1
                 || width > CubismRenderedPixels.MAX_DIMENSION

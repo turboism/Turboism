@@ -923,9 +923,14 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
 
                 @Override
                 public dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands() {
+                    // The canvas-size command needs the separately verified editor-model
+                    // selector to rebuild model instances after the native scale helper
+                    // deletes its temporary rotation source; the top-menu slice cannot
+                    // resolve editor-model aliases on its own.
                     return topMenu == null
                             ? dev.turboism.adapter.cubism.command.EditorCommandAdapter.unavailable()
-                            : new dev.turboism.adapter.cubism.command.VerifiedEditorCommandAdapter(topMenu.resolver());
+                            : new dev.turboism.adapter.cubism.command.VerifiedEditorCommandAdapter(
+                                    topMenu.resolver(), resolver);
                 }
 
                 @Override

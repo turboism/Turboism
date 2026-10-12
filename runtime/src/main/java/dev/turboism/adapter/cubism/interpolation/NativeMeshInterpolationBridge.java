@@ -13,16 +13,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** Internal entrypoint for the pinned 5.3.02/5.3.03 interpolation hook. No host dependency. */
+/** Internal entrypoint for the pinned multi-version interpolation hook. No host dependency. */
 public final class NativeMeshInterpolationBridge {
-    /** Exact reviewed 5.3.02 host artifact admitted by the pinned interpolation hook. */
-    public static final String HOST_SHA256 = ReviewedHostArtifacts.CUBISM_5_3_02.sha256();
     /**
      * Exact reviewed host artifacts admitted by the interpolation hook.
-     * The pinned host classes are byte-identical between 5.3.02 and 5.3.03.
      */
-    public static final java.util.Set<String> HOST_SHA256S = java.util.Set.of(
-            ReviewedHostArtifacts.CUBISM_5_3_02.sha256(), ReviewedHostArtifacts.CUBISM_5_3_03.sha256());
+    public static final java.util.Set<String> HOST_SHA256S =
+            java.util.Collections.unmodifiableSet(ReviewedHostArtifacts.all().stream()
+                    .map(dev.turboism.mapping.verification.HostArtifactDigest::sha256)
+                    .collect(java.util.stream.Collectors.toSet()));
 
     static final String EXTENSION =
             "com.live2d.cubism.doc.model.interpolator.extendedInterpolation.CExtendedInterpolationExtension";
