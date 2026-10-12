@@ -113,9 +113,9 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
     private Binding binding() {
         if (capture.isClosed()) return null;
         final Object dataModel = capture.current().orElse(null);
-        // 5.3.02 imports can author an atlas before its editor window is opened.
+        // Atlas authoring before its editor window is opened uses the direct binding route.
         // Use the same verified model transaction; no native UI object is needed.
-        if (dataModel == null && "5.3.02".equals(exactVersion)) return directBinding();
+        if (dataModel == null) return directBinding();
         if (!resolver.isInstance("cubism.texture-atlas.data-model.class", dataModel)) return null;
         final Object document = resolver.invoke("cubism.texture-atlas.data-model.document", dataModel);
         final Object source = resolver.invoke("cubism.texture-atlas.data-model.model-source", dataModel);
@@ -127,7 +127,7 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
                 app == null ? null : resolver.invoke("cubism.editor-model.app-controller.current-document", app);
         if (activeDocument != document
                 || resolver.invoke("cubism.editor-model.modeling-document.model-source", document) != source) {
-            return "5.3.02".equals(exactVersion) ? directBinding() : null;
+            return directBinding();
         }
         final Object guid = resolver.invoke("cubism.editor-model.model-source.guid", source);
         final String modelId = text(guid == null ? null : resolver.invoke("cubism.editor-model.guid.value", guid));
@@ -281,7 +281,7 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
         // Undo/Redo must retain a later raw-image display selection. Forcing atlas mode
         // can leave current inputs pointing at removed pages when creation is undone next.
         resolver.invoke(
-                !selectAtlas && "5.3.02".equals(exactVersion)
+                !selectAtlas
                         ? "cubism.texture-atlas.texture-manager.reinit-input"
                         : "cubism.texture-atlas.texture-manager.change-input-to-atlas",
                 textureManager);

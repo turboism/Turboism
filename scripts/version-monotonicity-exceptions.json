@@ -162,17 +162,6 @@
    "pending": "model-import-3d-version-adaptation: same as the sibling row \u2014 admit 5.3.04 once its GShader bytes are hashed and confirmed identical or pinned separately."
   },
   {
-   "kind": "java-file",
-   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/VerifiedTextureAtlasLayoutProviderEngine.java",
-   "site": "5.3.02",
-   "missing": [
-    "5.3.03",
-    "5.3.04"
-   ],
-   "reason": "The 5.3.02-only branches (directBinding fallback and reinit-input route) encode a host quirk verified on the exact 5.3.02 artifact; whether 5.3.03+ shares the quirk was not reviewed.",
-   "pending": "model-import-3d-version-adaptation: on exact 5.3.03 and 5.3.04 artifacts confirm whether atlas authoring before the editor window opens needs the same directBinding/reinit-input route; widen the dispatch or record per-version evidence."
-  },
-  {
    "kind": "java-annotation",
    "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshKeyform.java",
    "site": "5.3.02,5.3.03",
