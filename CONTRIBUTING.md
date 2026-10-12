@@ -7,7 +7,8 @@ Remote history must never contain:
 - environment-variable values and environment files;
 - local configuration/state;
 - AI instructions, prompts, transcripts, or tool state;
-- agent/task/research artifacts and editor swap files.
+- agent/task/research artifacts and editor swap files;
+- binary model, animation, and artwork assets (`*.cmo3`, `*.can3`, `*.cmo3.bak`, `*.psd`, `*.moc3`; distributed via release corpus).
 
 Allowed in committed code, and not flagged:
 
@@ -37,6 +38,20 @@ python3 scripts/check_remote_hygiene.py --install-hooks
 
 The hooks fail closed: if the checker is missing or errors, the commit or
 push is refused.
+
+## Test corpus (测试语料)
+
+Large binary test assets (`*.cmo3`, `*.can3`, `*.psd`, `*.moc3`) are never committed to Git. They are tracked via `test-assets/corpus.json` and distributed through versioned GitHub Release assets.
+
+- Overview, licenses, cache structure, and adding new datasets: see [`test-assets/README.md`](test-assets/README.md).
+- Fetch test assets into shared cache and link to worktree:
+  ```sh
+  python3 scripts/test_corpus.py fetch --all
+  ```
+- Verify local test fixtures against manifest checksums:
+  ```sh
+  python3 scripts/test_corpus.py verify --all
+  ```
 
 ## Verification
 

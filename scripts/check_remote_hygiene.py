@@ -5,7 +5,8 @@ Policy: forbidden from remote history
   - environment-variable values and environment files;
   - local configuration/state;
   - AI instructions, prompts, transcripts, tool state;
-  - agent/task/research artifacts and editor swap files.
+  - agent/task/research artifacts and editor swap files;
+  - binary model/artwork assets (.cmo3, .can3, .cmo3.bak, .psd, .moc3; distributed via release corpus).
 
 Allowed:
   - ordinary program local-variable names;
@@ -92,6 +93,12 @@ QUOTE_ESCAPES = {b"a": b"\a", b"b": b"\b", b"f": b"\f", b"n": b"\n",
 # Private-key and keystore files are credential material by path alone, even when
 # their contents would evade the value-signature rules below (e.g. encrypted PEM).
 KEY_MATERIAL_SUFFIXES = (".pem", ".key", ".keystore", ".jks", ".p12", ".pfx")
+
+# Model and artwork binary assets must not be committed directly to Git;
+# they are distributed as versioned release assets via test corpus tooling.
+FORBIDDEN_ASSET_SUFFIXES = (
+    ".cmo3.bak", ".cmo3", ".can3", ".psd", ".moc3",
+)
 
 # BOMs mark encodings whose bytes contain NULs: the binary-skip heuristic must not
 # fire on them, and secret signatures are only visible after decoding correctly.
@@ -206,6 +213,9 @@ def classify_path(path):
         return "basename:spec*.md"
     if low.endswith(KEY_MATERIAL_SUFFIXES):
         return "suffix:*" + PurePosixPath(low).suffix
+    for suffix in FORBIDDEN_ASSET_SUFFIXES:
+        if low.endswith(suffix):
+            return "suffix:*" + suffix
     return None
 
 
