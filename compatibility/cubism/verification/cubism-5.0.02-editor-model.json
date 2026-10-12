@@ -107,7 +107,10 @@
     "ui.object-context-menu.contribute",
     "cubism.editor-model.psd.raw-image.export",
     "cubism.editor-model.psd.raw-image.replace",
-    "cubism.mesh-tool.session"
+    "cubism.mesh-tool.session",
+    "cubism.editor-model.art-mesh.evaluated-read",
+    "cubism.editor-model.art-mesh.morph-authoring",
+    "cubism.editor-model.source-triangulation.read"
   ],
   "cubismVersion": "5.0.02",
   "profileId": "cubism-5.0.02",
@@ -11717,6 +11720,17 @@
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.editable_mesh_gl_indices_default",
+      "alias": "cubism.editor-model.editable-mesh.gl-indices-default",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+      "memberName": "getGlIndices$default",
+      "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Lcom/live2d/util/h/a;ZILjava/lang/Object;)[I",
+      "requiredAccessFlags": 9,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
     }
   ],
   "capabilityConditions": {
@@ -12031,6 +12045,15 @@
     ],
     "cubism.mesh-tool.session": [
       "hook:mesh-tool-session"
+    ],
+    "cubism.editor-model.art-mesh.evaluated-read": [
+      "structure"
+    ],
+    "cubism.editor-model.art-mesh.morph-authoring": [
+      "declaredGeneration"
+    ],
+    "cubism.editor-model.source-triangulation.read": [
+      "structure"
     ]
   }
 }
