@@ -215,17 +215,6 @@
   },
   {
    "kind": "java-annotation",
-   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismModel.java",
-   "site": "5.3.02",
-   "missing": [
-    "5.3.03",
-    "5.3.04"
-   ],
-   "reason": "The SDK member is admitted only where its backing host capability was verified; 5.3.04 evidence is not yet recorded.",
-   "pending": "model-import-3d-version-adaptation: widen the @CubismEditor set after exact 5.3.04 artifact review confirms the backing selectors, or record evidence that the member is unavailable."
-  },
-  {
-   "kind": "java-annotation",
    "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java",
    "site": "5.2.03,5.3.02,5.3.03",
    "missing": [
@@ -359,17 +348,6 @@
    "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorDeformerParentEditAccess.java",
    "site": "5.2.03,5.3.02,5.3.03",
    "missing": [
-    "5.3.04"
-   ],
-   "reason": "The admission set names only the exact artifacts the feature was verified against.",
-   "pending": "model-import-3d-version-adaptation: extend the set after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-  },
-  {
-   "kind": "java-file",
-   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorMocExportAccess.java",
-   "site": "5.3.02",
-   "missing": [
-    "5.3.03",
     "5.3.04"
    ],
    "reason": "The admission set names only the exact artifacts the feature was verified against.",
@@ -511,39 +489,6 @@
    "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshSourceTriangulation.java",
    "site": "5.2.03,5.3.02,5.3.03",
    "missing": [
-    "5.3.04"
-   ],
-   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-  },
-  {
-   "kind": "java-annotation",
-   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismExportTexture.java",
-   "site": "5.3.02",
-   "missing": [
-    "5.3.03",
-    "5.3.04"
-   ],
-   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-  },
-  {
-   "kind": "java-annotation",
-   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismMocExport.java",
-   "site": "5.3.02",
-   "missing": [
-    "5.3.03",
-    "5.3.04"
-   ],
-   "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",
-   "pending": "model-import-3d-version-adaptation: widen after exact-artifact review of the missing versions, or record bytecode evidence that the surface is absent."
-  },
-  {
-   "kind": "java-annotation",
-   "path": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismMocExportSettings.java",
-   "site": "5.3.02",
-   "missing": [
-    "5.3.03",
     "5.3.04"
    ],
    "reason": "The SDK type backs capabilities verified on the listed exact artifacts; newer-patch evidence is not yet recorded.",

@@ -11,7 +11,7 @@ import java.util.Objects;
  * persist the bytes and encode the texture pixels using their own authorized file access.
  * This value does not include model3.json, physics, motions or display metadata.
  */
-@CubismEditor({"5.3.02"})
+@CubismEditor(from = "5.3.00")
 public record CubismMocExport(byte[] moc3, List<CubismExportTexture> textures, CubismMocExportSettings settings) {
     public static final int MAX_MOC_BYTES = 256 * 1024 * 1024;
     public static final int MAX_TEXTURES = 32;

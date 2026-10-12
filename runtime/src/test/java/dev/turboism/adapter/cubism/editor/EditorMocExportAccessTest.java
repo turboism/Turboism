@@ -35,9 +35,13 @@ class EditorMocExportAccessTest {
     @Test
     void rejectsMissingCapabilityWrongVersionAndStaleModelBeforeExport() {
         Source source = new Source();
+        // Versions whose host exporter lacks MOC 5.3 format or unreviewed hosts.
         assertThrows(
                 UnsupportedOperationException.class,
-                () -> access("5.3.03", true, false).exportMoc("model", source, source.current, SETTINGS));
+                () -> access("5.2.03", true, false).exportMoc("model", source, source.current, SETTINGS));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> access("5.4.00", true, false).exportMoc("model", source, source.current, SETTINGS));
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> access("5.3.02", false, false).exportMoc("model", source, source.current, SETTINGS));
@@ -45,6 +49,18 @@ class EditorMocExportAccessTest {
                 IllegalStateException.class,
                 () -> access("5.3.02", true, true).exportMoc("model", source, source.current, SETTINGS));
         assertEquals(0, source.calls);
+    }
+
+    @Test
+    void exportsOnEveryAdmittedGeneration() {
+        for (String version : EditorMocExportSelectorContract.SUPPORTED_CUBISM_VERSIONS) {
+            Source source = new Source();
+            CubismMocExport export =
+                    access(version, true, false).exportMoc("model", source, source.current, SETTINGS);
+            assertEquals(1, source.calls, version);
+            assertEquals('M', export.moc3()[0], version);
+            assertEquals(2, export.textures().size(), version);
+        }
     }
 
     @Test

@@ -3,7 +3,7 @@ package dev.turboism.sdk.cubism.model;
 import dev.turboism.sdk.CubismEditor;
 
 /** Explicit settings for official MOC 5.3 export; origin and scale use canvas pixels. */
-@CubismEditor({"5.3.02"})
+@CubismEditor(from = "5.3.00")
 public record CubismMocExportSettings(
         float originX,
         float originY,
