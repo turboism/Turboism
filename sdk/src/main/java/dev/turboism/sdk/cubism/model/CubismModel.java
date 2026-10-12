@@ -145,7 +145,7 @@ public interface CubismModel {
      * cannot be observed to leave the model unchanged — no cached, cropped,
      * rescaled or fallback image is ever substituted.</p>
      */
-    @CubismEditor(from = "5.2.00")
+    @CubismEditor(from = "5.0.00")
     default CubismRenderedPixels renderPixels(final int width, final int height) {
         throw new UnsupportedOperationException("Cubism native model rendering is unavailable.");
     }
