@@ -60,6 +60,7 @@ import dev.turboism.mapping.verification.selector.EditorPhysicsReadSelectorContr
 import dev.turboism.mapping.verification.selector.EditorPsdSnapshotSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorRawImagePsdReplaceSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorRawImagePsdSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorRenderPixelsSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorSelectionReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorSourceTriangulationSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
@@ -497,6 +498,10 @@ final class CapabilitySelectorDependencies {
                 result,
                 EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID,
                 EditorRawImagePsdReplaceSelectorContract.REQUIRED_ALIASES);
+        add(
+                result,
+                EditorRenderPixelsSelectorContract.CAPABILITY_ID,
+                EditorRenderPixelsSelectorContract.REQUIRED_ALIASES);
         add(
                 result,
                 EditorHistorySemanticSelectorContract.CAPABILITY_ID,

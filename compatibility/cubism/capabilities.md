@@ -58,7 +58,6 @@ Legend: ✓ every capability in the group admitted · ◐ partially admitted · 
 - `cubism.integration.edit-api-bridge.dispatch`: no verified record 5.0.00–5.1.01
 - `cubism.integration.external-app-settings.edit-toggle` (External-app editing toggle): no verified record 5.0.00–5.0.06
 - `cubism.editor-model.moc-export.read`: no verified record 5.0.00–5.2.03
-- `cubism.editor-model.render.read`: no verified record 5.0.00–5.1.03
 - `cubism.modeling-tool.selection-brush` (Modeling selection brush): no verified record 5.0.00–5.1.03
 - `cubism.editor-model.part-inspector.write` (Part inspector writes): no verified record 5.0.00–5.2.03
 - `cubism.editor-model.part-opacity.write` (Part opacity writes): no verified record 5.0.00–5.2.03
@@ -146,8 +145,6 @@ Only surfaces whose `@CubismEditor` resolves to a strict subset of the reviewed 
 | `dev.turboism.sdk.cubism.model.CubismMocExport#CubismMocExport()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.CubismMocExportSettings#CubismMocExportSettings()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.CubismModel#exportMoc()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.CubismModel#renderPixels()` | method | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.CubismRenderedPixels#CubismRenderedPixels()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Deformers#applyToChildren()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelImageBinding#ModelImageBinding()` | method | 5.2.00–5.3.04 |

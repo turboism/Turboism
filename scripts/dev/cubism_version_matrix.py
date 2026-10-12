@@ -1362,6 +1362,7 @@ def refresh_editor_model(constants: dict, editor: dict, families: dict) -> None:
         "EditorArtMeshMorphSelectorContract",
         "EditorSourceTriangulationSelectorContract",
         "EditorParameterInterpolationSelectorContract",
+        "EditorRenderPixelsSelectorContract",
     )
     updates = []
     for version in ALL_VERSIONS:

@@ -27230,9 +27230,9 @@
     "profileId": "cubism-5.1.02",
     "verificationId": "cubism-5.1.02.editor-model.static",
     "selectorCount": 1095,
-    "capabilityCount": 111,
+    "capabilityCount": 112,
     "validationNotes": "DRAFT only. Every selector is statically checked against the exact 5.1.02 JAR by kind/owner/name/descriptor/access. Runtime/host behavior is not claimed because no host was started.",
-    "verificationRecordSha256": "3784b5f760e28570c5418ebd7f8e0cc4312136f4bea00dabd62e8392de4a9bcc",
+    "verificationRecordSha256": "75db479356a0f96a7d2b8895b096cbf55eb523d397a080bb067d4c857221577b",
     "capabilityIds": [
       "cubism.editor-history.move",
       "cubism.editor-history.read",
@@ -27344,7 +27344,8 @@
       "cubism.editor-model.art-mesh.evaluated-read",
       "cubism.editor-model.art-mesh.morph-authoring",
       "cubism.editor-model.source-triangulation.read",
-      "cubism.editor-model.art-mesh.parameter-interpolation.write"
+      "cubism.editor-model.art-mesh.parameter-interpolation.write",
+      "cubism.editor-model.render.read"
     ]
   }
 }
