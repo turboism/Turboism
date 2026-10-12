@@ -2,27 +2,21 @@
 # MCP adapter for the generic exact-host runner.
 set -euo pipefail
 
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$repo_root/scripts/preview/host-validation-env.sh"
+
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-mcp-host-validation.sh <installed-version-code> [run-label] [runner-options...]" >&2
+  echo "usage: run-mcp-host-validation.sh $(turboism_task_versions_usage mcp) [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
 shift
-case "$version" in
-  5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304) ;;
-  *)
-    echo "error: unsupported installed MCP validation version: $version" >&2
-    exit 2
-    ;;
-esac
+turboism_require_task_version mcp "$version" || exit 2
 run_label='r1'
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   run_label="$1"
   shift
 fi
-
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$repo_root/scripts/preview/host-validation-env.sh"
 case " $* " in
   *freeFixture=true*)
     # The free-fixture variant deliberately exercises the shared fixture's
