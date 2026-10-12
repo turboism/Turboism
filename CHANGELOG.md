@@ -30,6 +30,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   its exact supported Editor versions generated from reviewed capability requirements. The SDK `@CubismEditor`
   annotation contract is established: a bare annotation without arguments declares availability across all 20
   reviewed versions, while explicit attributes define constrained subsets.
+- First-party plugin version support expanded across all 20 reviewed versions:
+  - `parameter`, `recent-preview`, and `warp-deformer-alt-symmetry` are fully functional across all 20 reviewed versions without feature degradation.
+  - `mesh-edit-mirror-axis-enhance` and `selection-brush` support mesh editing across all 20 versions; normal modeling view selection brush (from 5.2.00) and Core geometry reads (from 5.2.00) are established as evidence boundaries.
+  - `mcp` supports texture writes and transaction execution across all 20 versions, with editor command execution available from 5.1.00 onward.
+  - `command-palette` and `protected-export` are available from 5.1.00 onward by evidence boundary (as earlier Cubism versions lack top-menu and export orchestration), while `webdav-backup` is supported across all 20 versions with auto-backup capabilities active from 5.1.00 onward.
+- Host validation probe version gates now comprehensively cover all 20 reviewed Editor versions (5.0.00–5.3.04), bucketed by exact bytecode shape, ensuring end-to-end host verification across the complete supported Cubism spectrum.
 - Automated host startup dialog assistance (`NativeFreeStartup`): handles dialog interactions across all
   supported Cubism versions during testing and validation runs. It automates PRO trial selection
   ("Start PRO Version Free Trial") along with confirmation and activation handling (falling back to FREE when
