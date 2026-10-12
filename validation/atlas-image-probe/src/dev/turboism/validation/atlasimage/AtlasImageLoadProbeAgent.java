@@ -26,11 +26,7 @@ public final class AtlasImageLoadProbeAgent {
     static final String OUTPUT_RELATIVE = AtlasImageObserveContract.OUTPUT_RELATIVE;
     static final String FIXTURE_SUFFIX = AtlasImageObserveContract.FIXTURE_SUFFIX;
     static final String NAMED_PREFIX = AtlasImageObserveContract.NAMED_PREFIX;
-    static final Map<String, String> REVIEWED = Map.of(
-        "5203", "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-        "5302", "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
-        "5303", "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166"
-    );
+    static final Map<String, String> REVIEWED = AtlasImageObserveContract.REVIEWED;
 
     private AtlasImageLoadProbeAgent() {}
 
@@ -81,11 +77,19 @@ public final class AtlasImageLoadProbeAgent {
     }
 
     static List<String> targets(final String version) {
+        final String utilBucket = switch (version) {
+            case "5000", "5001", "5002" -> "d";
+            case "5003", "5004", "5005", "5006",
+                    "5100", "5101", "5102", "5103",
+                    "5200", "5201", "5202", "5203" -> "e";
+            case "5300", "5301", "5302", "5303", "5304" -> "f";
+            default -> throw new IllegalArgumentException("unsupported version: " + version);
+        };
         return List.of(FILTER, "com/live2d/cubism/CEAppCtrl",
             "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas",
             "com/live2d/cubism/doc/model/texture/modelImage/CModelImage",
             "com/live2d/cubism/doc/modeling/ui/atlasEditor/impl/TAE_DataModel",
-            "com/live2d/util/" + (version.equals("5203") ? "e" : "f") + "/g");
+            "com/live2d/util/" + utilBucket + "/g");
     }
 
     static String required(final Properties properties, final String key) {

@@ -215,10 +215,11 @@ public final class AtlasImageSceneDriverAgent {
             final String runId = validTaskId(requiredSystem("turboism.validation.runId"));
             final String taskId = validTaskId(requiredSystem(NAMED_PREFIX + "taskId"));
             if (!runId.equals(taskId)) throw new IllegalArgumentException("taskId differs from runId");
-            if (!"5303".equals(requiredSystem(NAMED_PREFIX + "version"))) {
-                throw new IllegalArgumentException("fixed driver requires version 5303");
+            final String version = requiredSystem(NAMED_PREFIX + "version");
+            if (!AtlasImageObserveContract.REVIEWED.containsKey(version)) {
+                throw new IllegalArgumentException("fixed driver requires an admitted version");
             }
-            if (!"5303".equals(System.getProperty("turboism.validation.hostVersion", "5303"))) {
+            if (!version.equals(System.getProperty("turboism.validation.hostVersion", version))) {
                 throw new IllegalArgumentException("scene version differs from hostVersion");
             }
 

@@ -104,7 +104,13 @@ public final class ProtectedExportProbeSelfCheck {
      * build resolves to {@code com.live2d.ui.swingImpl.u}.
      */
     private static void optionsPeerDispatchesOnExactHostVersion() {
-        for (final String version : new String[] {"5203", "5302", "5303", "", "9999"}) {
+        for (final String version : new String[] {
+            "5000", "5001", "5002", "5003", "5004", "5005", "5006",
+            "5100", "5101", "5102", "5103",
+            "5200", "5201", "5202", "5203",
+            "5300", "5301", "5302", "5303", "5304",
+            "", "9999"
+        }) {
             require(
                 "com.live2d.ui.swingImpl.u".equals(
                     ProtectedExportHostProbeAgent.optionsContainerPeer(version)),

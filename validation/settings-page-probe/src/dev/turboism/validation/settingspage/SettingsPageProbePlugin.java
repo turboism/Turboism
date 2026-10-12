@@ -57,6 +57,11 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
     private static final String PREF_KEY = EDGE_INDEX ? "meshTriangulationEdgeIndex"
         : PERFORMANCE ? "uniformLocationCache" : "meshTriangulationHashFix";
     private static final String REVIEWED_VERSION = "5.3.03";
+    private static final List<String> REVIEWED_HOST_VERSIONS = List.of(
+        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+        "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+        "5.2.00", "5.2.01", "5.2.02", "5.2.03",
+        "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04");
 
     private static final long MENU_TIMEOUT_MILLIS = 300_000L;
     private static final long DIALOG_TIMEOUT_MILLIS = 60_000L;
@@ -489,6 +494,23 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
         return System.getProperty("turboism.validation.hostVersion", REVIEWED_VERSION);
     }
 
+    static String reviewedHostVersionLabel(final String rawVersion) {
+        if (rawVersion != null) {
+            final String trimmed = rawVersion.trim();
+            if (REVIEWED_HOST_VERSIONS.contains(trimmed)) {
+                return trimmed;
+            }
+            if (trimmed.length() == 4 && trimmed.startsWith("5")) {
+                final String dotted =
+                    trimmed.charAt(0) + "." + trimmed.charAt(1) + "." + trimmed.substring(2);
+                if (REVIEWED_HOST_VERSIONS.contains(dotted)) {
+                    return dotted;
+                }
+            }
+        }
+        return REVIEWED_VERSION;
+    }
+
     // ------------------------------------------------------------------ Swing driving
 
     private JMenuItem awaitSettingsItem() throws Exception {
@@ -772,7 +794,7 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
         final StringBuilder body = new StringBuilder();
         body.append("schemaVersion=1\n");
         body.append("plugin=dev.turboism.validation.settingspage\n");
-        body.append("reviewedHostVersion=").append(REVIEWED_VERSION).append('\n');
+        body.append("reviewedHostVersion=").append(reviewedHostVersionLabel(hostVersionLabel())).append('\n');
         for (final Map.Entry<String, String> entry : evidence.entrySet()) {
             body.append(entry.getKey()).append('=')
                 .append(entry.getValue().replace('\n', ' ')).append('\n');

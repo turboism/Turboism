@@ -306,6 +306,42 @@ class WindowsMeshEditValidationProbeTest {
         assertTrue(WindowsMeshEditValidationProbe.imageHasVariation(image));
     }
 
+    @Test
+    void selectionBrushAdmissionAndLassoConverterCoverEveryReviewedHostVersion() {
+        for (final String code :
+                new String[] {
+                    "5000", "5001", "5002", "5003", "5004", "5005", "5006",
+                    "5100", "5101", "5102", "5103",
+                    "5200", "5201", "5202", "5203",
+                    "5300", "5301", "5302", "5303", "5304"
+                }) {
+            assertTrue(WindowsMeshEditValidationProbe.isAdmittedCubismVersion(code), code);
+        }
+        assertFalse(WindowsMeshEditValidationProbe.isAdmittedCubismVersion("5400"));
+        assertFalse(WindowsMeshEditValidationProbe.isAdmittedCubismVersion(""));
+        assertFalse(WindowsMeshEditValidationProbe.isAdmittedCubismVersion(null));
+
+        for (final String version :
+                new String[] {
+                    "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+                    "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+                    "5.2.00", "5.2.01", "5.2.02", "5.2.03"
+                }) {
+            assertEquals("j", WindowsMeshEditValidationProbe.lassoConverterHelperName(version), version);
+        }
+        assertEquals("k", WindowsMeshEditValidationProbe.lassoConverterHelperName("5.3.00"));
+        assertEquals("k", WindowsMeshEditValidationProbe.lassoConverterHelperName("5.3.01"));
+        assertEquals("p", WindowsMeshEditValidationProbe.lassoConverterHelperName("5.3.02"));
+        assertEquals("p", WindowsMeshEditValidationProbe.lassoConverterHelperName("5.3.03"));
+        assertEquals("r", WindowsMeshEditValidationProbe.lassoConverterHelperName("5.3.04"));
+        assertThrows(
+                IllegalStateException.class,
+                () -> WindowsMeshEditValidationProbe.lassoConverterHelperName("5.4.00"));
+        assertThrows(
+                IllegalStateException.class,
+                () -> WindowsMeshEditValidationProbe.lassoConverterHelperName(null));
+    }
+
     private static MeshSnapshot mesh(final List<MeshPointRef> points, final List<MeshEdgeRef> edges) {
         return new MeshSnapshot(points, edges);
     }

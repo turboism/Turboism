@@ -18,7 +18,7 @@ import dev.turboism.sdk.cubism.model.RawLayerBinding;
 import dev.turboism.sdk.cubism.model.ArtMeshTextureInputs;
 import dev.turboism.sdk.cubism.model.TextureInputBinding;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
-import dev.turboism.sdk.event.cubism.ProjectFileLifecycleEvent;
+import dev.turboism.sdk.cubism.event.ProjectFileLifecycleEvent;
 
 import java.awt.Window;
 import javax.swing.AbstractButton;

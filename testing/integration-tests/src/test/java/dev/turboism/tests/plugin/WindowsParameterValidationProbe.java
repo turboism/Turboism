@@ -3464,9 +3464,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     // session settings the task prefix owns. 30000 minutes
                     // ≈ 20 days; larger values overflow the host's int delay
                     // computation (minutes*60*1000 must stay < 2^31).
-                    manager.getMethod("a", int.class).invoke(instance, 30_000);
+                    final String stopMethod =
+                            stopAutoBackupMethodName(System.getProperty("turboism.validation.hostVersion", "5302"));
                     manager.getMethod("a", boolean.class).invoke(instance, false);
-                    manager.getMethod("g").invoke(instance);
+                    manager.getMethod("a", int.class).invoke(instance, 30_000);
+                    manager.getMethod(stopMethod).invoke(instance);
                     return null;
                 });
                 return true;
@@ -3480,6 +3482,32 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             }
         }
         return false;
+    }
+
+    static String stopAutoBackupMethodName(final String hostVersion) {
+        if (hostVersion == null) {
+            throw new IllegalArgumentException(
+                    "turboism.validation.hostVersion must be an exact installed version code");
+        }
+        return switch (hostVersion) {
+            case "5000", "5001", "5002", "5003", "5004", "5005", "5006" -> "f";
+            case "5100",
+                    "5101",
+                    "5102",
+                    "5103",
+                    "5200",
+                    "5201",
+                    "5202",
+                    "5203",
+                    "5300",
+                    "5301",
+                    "5302",
+                    "5303",
+                    "5304" -> "g";
+            default ->
+                throw new IllegalArgumentException(
+                        "turboism.validation.hostVersion must be an exact installed version code: " + hostVersion);
+        };
     }
 
     /**

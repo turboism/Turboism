@@ -62,6 +62,28 @@ KNOWN_ERROR_CODES = {
     "InvalidView", "PluginNotRegistered", "InvalidEditOperation", "NoError",
 }
 
+PRE_53_HOST_VERSIONS = {
+    "5000", "5001", "5002", "5003", "5004", "5005", "5006",
+    "5100", "5101", "5102", "5103",
+    "5200", "5201", "5202", "5203",
+    "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+    "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+    "5.2.00", "5.2.01", "5.2.02", "5.2.03",
+}
+HOST_53_VERSIONS = {
+    "5300", "5301", "5302", "5303", "5304",
+    "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04",
+}
+
+
+def extended_object_readers_supported(host_version: str) -> bool:
+    """5.0.00–5.2.03 hosts lack the 5.3 visual fields, so GetObject for Part/ArtMesh fails closed."""
+    if host_version in PRE_53_HOST_VERSIONS:
+        return False
+    if host_version in HOST_53_VERSIONS or host_version == "unknown":
+        return True
+    raise ValueError(f"unreviewed host version: {host_version}")
+
 
 def env_text(name: str, default: str) -> str:
     return os.environ.get(name, default)
@@ -963,10 +985,10 @@ class Probe:
 
         mesh_id = self.first_art_mesh(conn1, uid)
         if mesh_id is not None:
-            # 5.2.03 host models lack the 5.3 visual fields, so the port
+            # 5.0.00–5.2.03 host models lack the 5.3 visual fields, so the port
             # refuses GetObject for Part/ArtMesh kinds there by design
             # (spec 046 field-level fail-closed); mirror that expectation.
-            if self.host_version == "5203":
+            if not extended_object_readers_supported(self.host_version):
                 obj = self.call(
                     conn1, "GetObject", {"ModelUID": uid, "Id": mesh_id},
                     expect="error")
