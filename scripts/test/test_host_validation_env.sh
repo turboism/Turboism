@@ -48,4 +48,24 @@ fi
 # optional settings must still be initialized when that child sources the loader.
 env -i PATH="$PATH" HOME="$HOME" TURBOISM_ENV_FILE="$tmp/missing.env" \
   bash -euc 'source "$1"; bash -euc '\''source "$1"; test -z "$TURBOISM_HOST_VALIDATION_SSH_HOST"; test -n "$TURBOISM_HOST_VALIDATION_FIXTURE_5302_SHA256"'\'' _ "$1"' _ "$loader"
+
+# Manifest-backed task version helpers and fixture selection.
+bash -euc '
+  source "$1"
+  test "$(turboism_dotted_version 5304)" = "5.3.04"
+  turboism_require_task_version workspace 5000
+  turboism_require_task_version protected-export 5100
+  if turboism_require_task_version protected-export 5000 2>/dev/null; then
+    exit 1
+  fi
+  test "$(turboism_expected_core_tuple 5000)" = "5.0.0"
+  test "$(turboism_expected_core_tuple 5203)" = "5.0.256"
+  test "$(turboism_expected_core_tuple 5302)" = "6.0.257"
+  test "$(turboism_expected_core_tuple 5304)" = "6.0.513"
+  turboism_core_acquisition_metadata 5304
+  test "$profile" = "cubism-5.3.04"
+  test "${#editor_jar_sha256}" -eq 64
+  test "${#core_jar_sha256}" -eq 64
+' _ "$loader" || fail "manifest task version helper check failed"
+
 echo "host validation env test: PASS"
