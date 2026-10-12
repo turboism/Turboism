@@ -66,9 +66,15 @@ final class PreviewContextServicesFixtureResources {
         values.put("config.stored.source", "STORED");
         values.put("config.stored.revision", "1");
         values.put("config.stored.value", "false");
-        values.put("userFiles.status", "UNAVAILABLE");
-        values.put("userFiles.error", "RUNTIME_UNAVAILABLE");
-        values.put("userFiles.handle", "false");
+        if (java.awt.GraphicsEnvironment.isHeadless()) {
+            values.put("userFiles.status", "UNAVAILABLE");
+            values.put("userFiles.error", "RUNTIME_UNAVAILABLE");
+            values.put("userFiles.handle", "false");
+        } else {
+            // Ordinary plugins get the interactive Swing chooser on a display; the fixture
+            // records that instead of opening a dialog nobody can answer.
+            values.put("userFiles.status", "INTERACTIVE_CHOOSER");
+        }
         values.put("hostReads.status", "REJECTED");
         values.put("hostReads.error", "PERMISSION_DENIED");
         values.put("hostReads.handle", "false");
