@@ -795,6 +795,7 @@ Function GraalInstallBegin
   StrCpy $GraalInstallCancelFile "$GraalInstallWorkDir\graal-cancel.flag"
   SetOutPath "$GraalInstallWorkDir"
   File /oname=install-managed-graal.ps1 "${STAGING_DIR}/install-managed-graal.ps1"
+  File /oname=managed-graal.json "${STAGING_DIR}/managed-graal.json"
   File /oname=configure_turboism.ps1 "${STAGING_DIR}/configure_turboism.ps1"
   File /oname=cubism-launch-common.ps1 "${STAGING_DIR}/cubism-launch-common.ps1"
   ; 先把既有 config.json 迁移/校验到 schema 1（缺失时为空操作）：
@@ -1408,6 +1409,7 @@ Section "-写入配置" SecConfig
   SetOutPath "$PLUGINSDIR\Turboism-config"
   File "/oname=configure_turboism.ps1" "${STAGING_DIR}/configure_turboism.ps1"
   File "/oname=cubism-launch-common.ps1" "${STAGING_DIR}/cubism-launch-common.ps1"
+  File "/oname=retired-plugins.txt" "${STAGING_DIR}/retired-plugins.txt"
   nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Turboism-config\configure_turboism.ps1" -Home "$INSTDIR" -ApplyInstallerSelection -BundledPluginIds "$bundledPluginIds" -DisabledPluginIds "$uncheckedPluginIds"'
   Pop $0
   RMDir /r "$PLUGINSDIR\Turboism-config"
@@ -1427,6 +1429,7 @@ Section "-核心文件" SecCore
   SetOutPath "$PLUGINSDIR\Turboism-retire"
   File "/oname=configure_turboism.ps1" "${STAGING_DIR}/configure_turboism.ps1"
   File "/oname=cubism-launch-common.ps1" "${STAGING_DIR}/cubism-launch-common.ps1"
+  File "/oname=retired-plugins.txt" "${STAGING_DIR}/retired-plugins.txt"
   nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Turboism-retire\configure_turboism.ps1" -Home "$INSTDIR" -RetirePlugins'
   Pop $0
   ${If} $0 != 0
@@ -1518,7 +1521,7 @@ SectionEnd
 ; 不出现在安装器组件页；须为最后一个 Section）
 Section "Uninstall"
   ; 先由托管配置器按 manifest 清理 Turboism 自己创建的快捷方式和安装状态。
-  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -Cleanup'
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -Cleanup'
   Pop $0
   ${If} $0 != 0
     MessageBox MB_ICONEXCLAMATION|MB_OK "$(ShortcutCleanupFailure)"
@@ -1548,6 +1551,8 @@ Section "Uninstall"
   Delete "$INSTDIR\install-managed-graal.ps1"
   Delete "$INSTDIR\install-script-engine.ps1"
   Delete "$INSTDIR\script-engine.json"
+  Delete "$INSTDIR\retired-plugins.txt"
+  Delete "$INSTDIR\managed-graal.json"
   Delete "$INSTDIR\turboism.ico"
   Delete "$INSTDIR\turboism.png"
   ; The configurator removes managed state only after validated shortcut cleanup.
@@ -1558,8 +1563,10 @@ Section "Uninstall"
   Delete "$INSTDIR\EULA.ja.txt"
   Delete "$INSTDIR\EULA.ko.txt"
   Delete "$INSTDIR\uninstall.exe"
-  ; 运行时数据目录
-  RMDir /r "$INSTDIR\plugins"
+  ; plugins 目录白名单删除（与 IzPack 卸载器同语义）：仅移除安装器部署的 JAR；
+  ; 未知文件与第三方 JAR 保留，目录仅在为空时移除。
+  Call un.DeleteInstallerPluginJars
+  RMDir "$INSTDIR\plugins"
   RMDir /r "$INSTDIR\graal"
   RMDir "$INSTDIR\runtimes"
   RMDir /r "$INSTDIR\logs"

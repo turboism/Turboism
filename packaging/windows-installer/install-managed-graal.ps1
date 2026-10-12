@@ -23,14 +23,37 @@ $script:graalStatusPath = ""
 $script:graalCancelPath = ""
 
 function Get-ManagedGraalManifest {
-    # Keep these pins identical to ManagedGraalRuntimeService.Platform.WINDOWS_X64.
-    return @{
-        Url = "https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.2.4/graalvm-community-jdk-25i2-25.0.4_windows-x64_bin.zip"
-        Size = 341299924L
-        Sha256 = "789d2af1c06c3c24f402d2d4a711bdbb19b36f7d8c74afe6a959492fd121ef33"
-        GraalVersion = "25.2.4"
-        JavaVersion = "25.0.4"
+    # Single source: packaging/managed-graal.json, shipped beside this script
+    # (install root, temp staging dirs). In-repo runs fall back to the
+    # packaging/ parent. The same file is bundled into the runtime JAR and read
+    # by ManagedGraalRuntimeService, so the pin can never drift between the
+    # installer path and the in-product download path.
+    foreach ($candidate in @(
+        (Join-Path $scriptDir "managed-graal.json"),
+        (Join-Path (Split-Path -Parent $scriptDir) "managed-graal.json"))) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            $document = Get-Content -LiteralPath $candidate -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
+            $platform = $document.platforms.'windows-x64'
+            if ($document.format -ne "turboism.managed-graal" -or
+                $document.schemaVersion -ne 1 -or
+                $null -eq $platform -or
+                [string]::IsNullOrWhiteSpace([string]$platform.url) -or
+                ($platform.archiveBytes -isnot [long] -and $platform.archiveBytes -isnot [int]) -or
+                [string]$platform.sha256 -notmatch '^[0-9a-f]{64}$' -or
+                [string]::IsNullOrWhiteSpace([string]$document.graalVersion) -or
+                [string]::IsNullOrWhiteSpace([string]$document.javaVersion)) {
+                throw "managed-graal.json is missing or malformed: $candidate"
+            }
+            return @{
+                Url = [string]$platform.url
+                Size = [long]$platform.archiveBytes
+                Sha256 = [string]$platform.sha256
+                GraalVersion = [string]$document.graalVersion
+                JavaVersion = [string]$document.javaVersion
+            }
+        }
     }
+    throw "managed-graal.json is missing next to $scriptDir"
 }
 
 function Write-ManagedGraalLog {

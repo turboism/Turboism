@@ -56,6 +56,7 @@ def synthetic_test() -> None:
             "turboism-agent.jar install-jar-payload.ps1 launch-cubism-turboism.bat "
             "launch-cubism-turboism.ps1 configure_turboism.ps1 cubism-launch-common.ps1 "
             "install-managed-graal.ps1 install-script-engine.ps1 turboism.ico turboism.png "
+            "retired-plugins.txt managed-graal.json "
             "README.txt README.zh.txt README.ja.txt README.ko.txt LICENSE.txt "
             "EULA.en.txt EULA.zh-Hans.txt EULA.ja.txt EULA.ko.txt config.template.json"
         ).split()
@@ -74,6 +75,20 @@ def synthetic_test() -> None:
             entry["bytes"] = path.stat().st_size
             entry["sha256"] = digest(path)
         (stage / "script-engine.json").write_text(json.dumps(manifest))
+        # The production generator also pins the manual manifest against
+        # Gradle's verification metadata; point it at a synthetic mirror of the
+        # recomputed digests so the consistency check exercises its pass path.
+        verification = work / "verification-metadata.xml"
+        verification.write_text(
+            "<verification-metadata><components>"
+            + "".join(
+                '<component><artifact name="%s"><sha256 value="%s"/></artifact></component>'
+                % (entry["name"], entry["sha256"])
+                for entry in manifest["artifacts"])
+            + "</components></verification-metadata>",
+            encoding="utf-8")
+        import os
+        os.environ["TURBOISM_VERIFICATION_METADATA"] = str(verification)
         for name in ("sdk-0.44.0.jar", "graal-host-0.44.0.jar", "polyglot-25.2.4.jar"):
             (stage / "graal/lib" / name).write_bytes(b"synthetic base library")
         _, generated = generate(stage, work)
@@ -115,6 +130,8 @@ def repack(source: Path, output: Path, version: str) -> None:
         "install-script-engine.ps1", "script-engine.json",
     ):
         shutil.copy2(PACKAGE / name, stage / name)
+    for name in ("retired-plugins.txt", "managed-graal.json"):
+        shutil.copy2(PACKAGE.parent / name, stage / name)
     for locale, target in (("en", "README.txt"), ("zh", "README.zh.txt"), ("ja", "README.ja.txt"), ("ko", "README.ko.txt")):
         template = (PACKAGE / ("README." + locale + ".txt.template")).read_text(encoding="utf-8")
         (stage / target).write_text(template.replace("__VERSION__", version), encoding="utf-8")

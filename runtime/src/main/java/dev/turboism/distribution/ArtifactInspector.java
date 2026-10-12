@@ -95,12 +95,10 @@ final class ArtifactInspector {
 
     private byte[] readBounded(ZipEntry entry, String base) throws Exception {
         try (InputStream input = zip.getInputStream(entry)) {
-            byte[] bytes = input.readNBytes((int) ArchivePolicy.ENTRY_MAX + 1);
-            require(
-                    bytes.length <= ArchivePolicy.ENTRY_MAX,
-                    "ARCHIVE_ENTRY_TOO_LARGE",
-                    "Artifact exceeds limit",
-                    base + ".path");
+            byte[] bytes = dev.turboism.sdk.io.BoundedInput.readNBytes(
+                    input,
+                    ArchivePolicy.ENTRY_MAX,
+                    () -> ArchivePolicy.problem("ARCHIVE_ENTRY_TOO_LARGE", "Artifact exceeds limit", base + ".path"));
             return bytes;
         }
     }

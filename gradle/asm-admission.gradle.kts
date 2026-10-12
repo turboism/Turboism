@@ -6,29 +6,12 @@ import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 import java.io.File
+import dev.turboism.gradle.internal.VerificationStamps
 
 private val forbiddenAgentGroup = "net.byte" + "buddy"
 private val forbiddenAgentName = "Byte" + " Buddy"
 private val admittedAsmGroup = "org.ow2." + "asm"
 private val admittedAsmCoordinate = "$admittedAsmGroup:asm:9.7.1"
-
-/*
- * Check tasks prove a predicate over their declared inputs and produce no artifact;
- * with no output Gradle can never mark them up-to-date and re-runs them on every
- * build. The stamp file is that persistent output, written only after the check
- * action succeeds. Call it after any doLast check action so the stamp cannot be
- * written ahead of a failing check.
- */
-private fun Task.verificationStamp() {
-    val stamp = project.layout.buildDirectory.file("verification-stamps/$name.stamp")
-    outputs.file(stamp)
-    doLast {
-        stamp.get().asFile.apply {
-            parentFile.mkdirs()
-            writeText("ok\n")
-        }
-    }
-}
 
 // The admission model is a function of every build script the gate would read; the
 // exclusion set mirrors asm_admission_gate.py's own ignored directories.
@@ -124,7 +107,7 @@ tasks.register("checkResolvedBytecodeDependencyGraph") {
     doLast {
         verifyResolvedBytecodeDependencyGraph(rootProject)
     }
-    verificationStamp()
+    VerificationStamps.apply(this)
 }
 
 private fun verifyAsmDependencyModel(project: Project) {
@@ -187,7 +170,7 @@ tasks.register("checkAsmDependencyModel") {
     doLast {
         verifyAsmDependencyModel(rootProject)
     }
-    verificationStamp()
+    VerificationStamps.apply(this)
 }
 
 val productionMainSourceSets = subprojects.mapNotNull { candidate ->
@@ -215,6 +198,6 @@ tasks.register<Exec>("checkAsmSupplyChainAdmission") {
         productionMainSourceSets.flatMap { (_, sourceSet) -> sourceSet.output.classesDirs.files }
             .joinToString(File.pathSeparator) { it.absolutePath }
     )
-    verificationStamp()
+    VerificationStamps.apply(this)
     commandLine("bash", "scripts/test/test_asm_supply_chain_admission.sh")
 }

@@ -37,6 +37,10 @@ public final class WebDavSettingsBinding {
             new ConfigKey<>(CONFIG_ID, "url", DEFAULT_URL, ConfigCodecs.stringValue(512));
     private static final ConfigKey<String> USERNAME =
             new ConfigKey<>(CONFIG_ID, "username", "", ConfigCodecs.stringValue(256));
+    // Stored as plaintext inside backup/webdav.cfg: the config store offers no
+    // stronger credential primitive, so owner-only file permissions (POSIX/ACL)
+    // are the protection boundary. The README and settings dialog carry the
+    // same trade-off note; the value is never logged.
     private static final ConfigKey<String> PASSWORD =
             new ConfigKey<>(CONFIG_ID, "password", "", ConfigCodecs.stringValue(512));
     private static final ConfigKey<String> REMOTE_PATH =

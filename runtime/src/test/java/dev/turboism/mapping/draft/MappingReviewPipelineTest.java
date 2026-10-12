@@ -1135,7 +1135,9 @@ class MappingReviewPipelineTest {
         createFifo(fifo);
         assertTimeoutPreemptively(
                 java.time.Duration.ofSeconds(2),
-                () -> assertCode("FIFO_REJECTED", () -> FileSafety.readAllBytesNoFollow(fifo, "FIFO_REJECTED")));
+                () -> assertCode(
+                        "FIFO_REJECTED",
+                        () -> FileSafety.readAllBytesNoFollow(fifo, "FIFO_REJECTED", StrictJson.MAX_DOCUMENT_BYTES)));
         assertTimeoutPreemptively(
                 java.time.Duration.ofSeconds(2),
                 () -> assertCode(

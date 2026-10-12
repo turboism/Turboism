@@ -2,15 +2,16 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=bundle-safety.sh
+. "$repo_root/scripts/preview/bundle-safety.sh"
 cd "$repo_root"
 
-worktree_id="${TURBOISM_WORKTREE_ID:-main}"
+worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
 
 # Rebuild every shipped artifact before copying so a stale jar can never be
 # packaged next to a newer agent (same reason as package-windows-mcp-validation.sh).
 TURBOISM_WORKTREE_ID="$worktree_id" "$repo_root/gradlew" --console=plain \
   previewBundle :plugins:parameter:jar :testing:integration-tests:testClasses
-
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-parameter-validation}"
 agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
 parameter_candidates=(
@@ -55,7 +56,7 @@ if grep -Fq 'com.live2d.cubism.CECubismEditorApp' "$launcher_script"; then
   exit 1
 fi
 
-rm -rf "$bundle_root"
+preview_bundle_safe_remove_tree "$bundle_root" "$repo_root/build"
 mkdir -p "$bundle_root/plugins" "$bundle_root/logs" "$bundle_root/state" "$bundle_root/plugin-data"
 cp "$agent_jar" "$bundle_root/turboism-agent.jar"
 cp "$parameter_jar" "$bundle_root/plugins/parameter.jar"

@@ -20,8 +20,8 @@ final class ManifestReader {
     private ManifestReader() {}
 
     static JsonNode read(InputStream input) throws IOException, DistributionValidationException {
-        byte[] bytes = input.readNBytes((int) MAX_BYTES + 1);
-        require(bytes.length <= MAX_BYTES, "MANIFEST_TOO_LARGE", "Manifest exceeds limit", NAME);
+        byte[] bytes = dev.turboism.sdk.io.BoundedInput.readNBytes(
+                input, MAX_BYTES, () -> problem("MANIFEST_TOO_LARGE", "Manifest exceeds limit", NAME));
         require(
                 bytes.length < 3 || (bytes[0] & 255) != 0xef || (bytes[1] & 255) != 0xbb || (bytes[2] & 255) != 0xbf,
                 "MANIFEST_BOM",
