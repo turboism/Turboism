@@ -460,6 +460,12 @@ class PaletteLabelStylePluginTest {
 
         plugin.onModelOpened(null);
         context.storage().awaitOperations(3);
+        // The replay applies colors in the read's continuation, after the storage operation completes.
+        final long deadline =
+                System.nanoTime() + java.time.Duration.ofSeconds(5).toNanos();
+        while (context.model().parameter("p1").entry.events().size() < 5 && System.nanoTime() < deadline) {
+            Thread.onSpinWait();
+        }
 
         // Replay reads the persisted file, which now stores the blue override.
         assertEquals(
@@ -1445,7 +1451,7 @@ class PaletteLabelStylePluginTest {
     }
 
     private static final class FakePaletteEntry implements dev.turboism.sdk.ui.appearance.PaletteEntry {
-        private final List<String> events = new ArrayList<>();
+        private final List<String> events = new java.util.concurrent.CopyOnWriteArrayList<>();
 
         List<String> events() {
             return List.copyOf(events);
