@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.shader.ShaderUniformTransformer;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -174,6 +176,96 @@ class UniformLocationCallSiteTransformerTest {
     }
 
     @Test
+    void composedSeamIsAdmittedOnlyExactlyAndTakesTheQueryOver() throws Exception {
+        Loader loader = new Loader();
+        byte[] reference = shader(false);
+        byte[] composed = ShaderUniformTransformer.composedDefinition(reference);
+        ProtectionDomain domain = domain(ARTIFACT);
+
+        UniformLocationCallSiteTransformer strict = new UniformLocationCallSiteTransformer(loader, ARTIFACT, reference);
+        assertNull(
+                strict.transform(null, loader, OWNER, null, domain, composed),
+                "an upstream-composed body must fail closed until the installer admits its exact shape");
+        assertEquals("shader query method shape mismatch", strict.failure());
+
+        UniformLocationCallSiteTransformer accepting =
+                new UniformLocationCallSiteTransformer(loader, ARTIFACT, reference);
+        accept(accepting, reference);
+        assertNotNull(accepting.transform(null, loader, OWNER, null, domain, composed));
+        assertNotNull(
+                accepting.transform(null, loader, OWNER, null, domain, reference),
+                "accepting a composed shape must not retire the official one");
+        assertEquals(2, accepting.matches());
+        byte[] drifted = ShaderUniformTransformer.composedDefinition(shader(true));
+        assertNull(accepting.transform(null, loader, OWNER, null, domain, drifted));
+    }
+
+    @Test
+    void unsupportedComposedSeamLayoutIsRefused() throws Exception {
+        UniformLocationCallSiteTransformer transformer =
+                new UniformLocationCallSiteTransformer(new Loader(), ARTIFACT, shader(false));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> transformer.acceptComposedShape(
+                        java.util.List.of("access:0"),
+                        ShaderUniformTransformer.BRIDGE_OWNER,
+                        ShaderUniformTransformer.BRIDGE_LOOKUP,
+                        "(ILjava/lang/String;)I"));
+    }
+
+    @Test
+    void composedSeamServesCacheAndQueriesNativeExactlyOnce() throws Exception {
+        installCallbacks();
+        Fixture fixture = new Fixture(false, true);
+        answer = 42;
+        assertEquals(42, fixture.invoke());
+        assertEquals(0, fixture.queries.get());
+        answer = Integer.MIN_VALUE;
+        assertEquals(17, fixture.invoke());
+        assertEquals(1, fixture.queries.get());
+        assertEquals(17, recorded);
+        failLookup = true;
+        failRecord = true;
+        assertEquals(17, fixture.invoke());
+        assertEquals(2, fixture.queries.get());
+        assertEquals(3, fixture.draws.get(), "every composed invocation must still reach the host draw");
+    }
+
+    @Test
+    void composedSeamWithoutCallbacksKeepsTheHostQueryResult() throws Exception {
+        Fixture fixture = new Fixture(false, true);
+        assertEquals(17, fixture.invoke());
+        assertEquals(1, fixture.queries.get());
+        assertEquals(1, fixture.draws.get());
+    }
+
+    @Test
+    void composedSeamLeavesOneNativeQueryAndNoBridgeCall() throws Exception {
+        Fixture fixture = new Fixture(false, true);
+        int[] nativeQueries = {0}, bridge = {0};
+        new ClassReader(fixture.transformed)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    int access, String name, String descriptor, String signature, String[] exceptions) {
+                                if (!"preDraw_exe".equals(name)) return null;
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitMethodInsn(
+                                            int op, String owner, String method, String desc, boolean itf) {
+                                        if (method.equals("glGetUniformLocation")) nativeQueries[0]++;
+                                        if (owner.equals(ShaderUniformTransformer.BRIDGE_OWNER)) bridge[0]++;
+                                    }
+                                };
+                            }
+                        },
+                        0);
+        assertEquals(1, nativeQueries[0], "exactly one native query must remain");
+        assertEquals(0, bridge[0], "the upstream per-shader cache must not stay in front of the frame cache");
+    }
+
+    @Test
     void changesOnlyReviewedMethodAndDoesNotAllocateArgumentsArrays() throws Exception {
         Fixture fixture = new Fixture(false);
         int[] arrays = {0}, nativeQueries = {0}, draws = {0};
@@ -203,7 +295,15 @@ class UniformLocationCallSiteTransformerTest {
         assertEquals(1, nativeQueries[0]);
         assertEquals(1, draws[0]);
         assertEquals(2, fixture.shaderType.getDeclaredFields().length);
-        assertEquals(1, fixture.shaderType.getDeclaredMethods().length);
+        assertEquals(3, fixture.shaderType.getDeclaredMethods().length);
+    }
+
+    private static void accept(UniformLocationCallSiteTransformer transformer, byte[] reference) {
+        transformer.acceptComposedShape(
+                ShaderUniformTransformer.composedShape(reference),
+                ShaderUniformTransformer.BRIDGE_OWNER,
+                ShaderUniformTransformer.BRIDGE_LOOKUP,
+                ShaderUniformTransformer.BRIDGE_LOOKUP_DESCRIPTOR);
     }
 
     private static ProtectionDomain domain(Path path) throws Exception {
@@ -279,6 +379,20 @@ class UniformLocationCallSiteTransformerTest {
         }
         method.visitMaxs(0, 0);
         method.visitEnd();
+        // The shader-uniform hook rewrites this seam first and also hooks these two
+        // lifecycle bodies; the fixture carries them so its own rewrite is exact.
+        MethodVisitor init = writer.visitMethod(
+                Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, "init_exe", "(L" + CONTEXT + ";)V", null, null);
+        init.visitCode();
+        init.visitInsn(Opcodes.RETURN);
+        init.visitMaxs(0, 0);
+        init.visitEnd();
+        MethodVisitor program =
+                writer.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, "setGlProgramID", "(I)V", null, null);
+        program.visitCode();
+        program.visitInsn(Opcodes.RETURN);
+        program.visitMaxs(0, 0);
+        program.visitEnd();
         writer.visitEnd();
         return writer.toByteArray();
     }
@@ -302,6 +416,10 @@ class UniformLocationCallSiteTransformerTest {
         RuntimeException failure;
 
         Fixture(boolean catches) throws Exception {
+            this(catches, false);
+        }
+
+        Fixture(boolean catches, boolean composed) throws Exception {
             Loader loader = new Loader();
             ClassWriter api = type(GL, true);
             api.visitMethod(
@@ -339,7 +457,17 @@ class UniformLocationCallSiteTransformerTest {
             byte[] reference = shader(catches);
             UniformLocationCallSiteTransformer transformer =
                     new UniformLocationCallSiteTransformer(loader, ARTIFACT, reference);
-            transformed = transformer.transform(null, loader, OWNER, null, domain(ARTIFACT), reference);
+            byte[] input = reference;
+            if (composed) {
+                // Exactly what the retransform baseline looks like once the
+                // retransformation-incapable shader-uniform hook patched the definition.
+                input = ShaderUniformTransformer.composedDefinition(reference);
+                assertEquals(
+                        ReviewedMethodShape.read(input, OWNER, "preDraw_exe", DESC),
+                        ShaderUniformTransformer.composedShape(reference));
+                accept(transformer, reference);
+            }
+            transformed = transformer.transform(null, loader, OWNER, null, domain(ARTIFACT), input);
             assertNotNull(transformed, transformer.failure());
             shaderType = loader.define(OWNER, transformed);
             shader = shaderType.getConstructor().newInstance();

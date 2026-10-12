@@ -153,26 +153,6 @@
    "pending": "model-import-3d-version-adaptation: recover the corresponding obfuscated member names on the exact 5.3.03 and 5.3.04 artifacts, then extend ADMITTED or record bytecode evidence that the host lacks the popup mesh undo surface."
   },
   {
-   "kind": "java-set",
-   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/shader/ShaderUniformTransformer.java",
-   "site": "5.2.03,5.3.02,5.3.03",
-   "missing": [
-    "5.3.04"
-   ],
-   "reason": "REVIEWED_CLASSES pins exact GShader class digests per host artifact; the 5.3.04 GShader bytes were not reviewed when model-import-3d landed.",
-   "pending": "model-import-3d-version-adaptation: digest the 5.3.04 GShader class and admit it under the matching REVIEWED_CLASSES entry (or record a new digest row if Live2D changed the bytes)."
-  },
-  {
-   "kind": "java-set",
-   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/shader/ShaderUniformTransformer.java",
-   "site": "5.3.02,5.3.03",
-   "missing": [
-    "5.3.04"
-   ],
-   "reason": "The shared CLASS_SHA256 digest row admits only the artifacts the shader uniform review actually hashed.",
-   "pending": "model-import-3d-version-adaptation: same as the sibling row \u2014 admit 5.3.04 once its GShader bytes are hashed and confirmed identical or pinned separately."
-  },
-  {
    "kind": "java-file",
    "path": "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/VerifiedTextureAtlasLayoutProviderEngine.java",
    "site": "5.3.02",

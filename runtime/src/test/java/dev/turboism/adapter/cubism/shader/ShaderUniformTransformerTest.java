@@ -75,7 +75,7 @@ final class ShaderUniformTransformerTest {
                                     @Override
                                     public void visitMethodInsn(
                                             int opcode, String owner, String method, String descriptor, boolean itf) {
-                                        if (owner.equals(ShaderUniformTransformer.HELPER)) {
+                                        if (owner.equals(ShaderUniformTransformer.BRIDGE_OWNER)) {
                                             if (method.equals("lookup")) count[0]++;
                                             if (method.equals("invalidate")) count[1]++;
                                         }
@@ -129,29 +129,89 @@ final class ShaderUniformTransformerTest {
     }
 
     @Test
-    void reviewedClassArtifactMatrixIsExact() {
+    void everyAdmittedVersionIsPinnedAndCrossVersionDigestsAreRefused() {
+        var pins = ShaderUniformTransformer.reviewedClassSha256();
+        assertEquals(
+                List.of("5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"),
+                pins.keySet().stream().sorted().toList(),
+                "the hook must pin every adapted host version");
+        for (var entry : pins.entrySet()) {
+            String version = entry.getKey();
+            String digest = entry.getValue().get(ShaderUniformTransformer.OWNER);
+            assertNotNull(digest);
+            assertTrue(ShaderUniformTransformer.admitsVersion(digest, version));
+            assertTrue(ShaderUniformTransformer.reviewedClassDigest(digest));
+            for (var other : pins.entrySet()) {
+                boolean sameBytes =
+                        other.getValue().get(ShaderUniformTransformer.OWNER).equals(digest);
+                assertEquals(
+                        sameBytes,
+                        ShaderUniformTransformer.admitsVersion(digest, other.getKey()),
+                        version + " digest under " + other.getKey());
+            }
+        }
+        assertFalse(ShaderUniformTransformer.admitsVersion("0".repeat(64), "5.3.03"));
+        assertFalse(ShaderUniformTransformer.reviewedClassDigest("0".repeat(64)));
+        assertFalse(ShaderUniformTransformer.admitsVersion(
+                pins.get("5.3.03").get(ShaderUniformTransformer.OWNER), "5.1.03"));
+    }
+
+    @Test
+    void reviewedArtifactsResolveTheirPinnedClassAndRejectForeignDigests() {
+        String fiveThree =
+                ShaderUniformTransformer.reviewedClassSha256().get("5.3.03").get(ShaderUniformTransformer.OWNER);
+        String fiveTwoThree =
+                ShaderUniformTransformer.reviewedClassSha256().get("5.2.03").get(ShaderUniformTransformer.OWNER);
+        String fiveTwoZero =
+                ShaderUniformTransformer.reviewedClassSha256().get("5.2.00").get(ShaderUniformTransformer.OWNER);
         assertTrue(ShaderUniformTransformer.admits(
-                ShaderUniformTransformer.CLASS_SHA256,
-                dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_3_02));
+                fiveThree, dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_3_02));
         assertTrue(ShaderUniformTransformer.admits(
-                ShaderUniformTransformer.CLASS_SHA256,
-                dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_3_03));
+                fiveThree, dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_3_04));
         assertTrue(ShaderUniformTransformer.admits(
-                ShaderUniformTransformer.CLASS_SHA256_5_2,
-                dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_2_03));
+                fiveTwoThree, dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_2_03));
+        assertTrue(ShaderUniformTransformer.admits(
+                fiveTwoZero, dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_2_00));
+        assertTrue(ShaderUniformTransformer.admits(
+                fiveTwoZero, dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_2_02));
         assertFalse(ShaderUniformTransformer.admits(
-                ShaderUniformTransformer.CLASS_SHA256,
-                dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_2_03));
+                fiveThree, dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_2_03));
         assertFalse(ShaderUniformTransformer.admits(
-                ShaderUniformTransformer.CLASS_SHA256_5_2,
-                dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_3_02));
+                fiveTwoThree, dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_2_00));
         assertFalse(ShaderUniformTransformer.admits(
-                ShaderUniformTransformer.CLASS_SHA256_5_2,
-                dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_3_03));
+                fiveTwoThree, dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_3_03));
         assertFalse(ShaderUniformTransformer.admits(
-                "0".repeat(64), dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_3_02));
+                fiveThree, dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_1_03));
         assertFalse(ShaderUniformTransformer.admits(
-                ShaderUniformTransformer.CLASS_SHA256,
-                new dev.turboism.mapping.verification.HostArtifactDigest(1L, "0".repeat(64))));
+                fiveThree, new dev.turboism.mapping.verification.HostArtifactDigest(1L, "0".repeat(64))));
+    }
+
+    @Test
+    void patchRecordsAreLoaderAndOwnerExact() {
+        var loader = new java.net.URLClassLoader(new java.net.URL[0], null);
+        assertFalse(ShaderUniformTransformer.isPatched(loader, OWNER));
+        ShaderUniformTransformer.markPatched(loader, OWNER);
+        assertTrue(ShaderUniformTransformer.isPatched(loader, OWNER));
+        assertFalse(ShaderUniformTransformer.isPatched(getClass().getClassLoader(), OWNER));
+        assertFalse(ShaderUniformTransformer.isPatched(loader, "other/Owner"));
+        ShaderUniformTransformer.clearPatched(loader, OWNER);
+        assertFalse(ShaderUniformTransformer.isPatched(loader, OWNER));
+    }
+
+    @Test
+    void composedShapeIsTheRewrittenBodyAndNullForUnpatchableBytes() {
+        byte[] official = fixture(OWNER, 1, true, true);
+        var composed = ShaderUniformTransformer.composedShape(official);
+        assertNotNull(composed);
+        assertEquals(
+                dev.turboism.adapter.cubism.optimization.ReviewedMethodShape.read(
+                        ShaderUniformTransformer.patch(official), OWNER, DRAW, DRAW_DESC),
+                composed);
+        assertNotEquals(
+                dev.turboism.adapter.cubism.optimization.ReviewedMethodShape.read(official, OWNER, DRAW, DRAW_DESC),
+                composed,
+                "the composed shape must differ from the official one");
+        assertNull(ShaderUniformTransformer.composedShape(fixture(OWNER, 2, true, true)));
+        assertNull(ShaderUniformTransformer.composedShape(fixture("other/Owner", 1, true, true)));
     }
 }

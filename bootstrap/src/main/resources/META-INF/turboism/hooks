@@ -11,9 +11,18 @@ dev.turboism.bootstrap.TriangulationEdgeIndexHookContributor
 dev.turboism.bootstrap.AtlasTileBboxHookContributor
 dev.turboism.bootstrap.AtlasCacheReuseHookContributor
 # Mesh interpolation and shader uniform installed in the hand-wired agent's
-# premain window after the atlas cache-reuse transformer. Their targets
-# (interpolation, shader, model serialization owners) are disjoint from the
-# other premain transformers, so their position here is not load-bearing.
+# premain window after the atlas cache-reuse transformer. Their position among
+# the premain transformers is not load-bearing: no other premain transformer
+# touches the interpolation, shader or model serialization owners.
+#
+# The shader uniform hook does share one owner with a later phase: it rewrites
+# the single GL3.glGetUniformLocation seam in GShader.preDraw_exe, which the
+# uniform-location cache below also transforms. Phase ordering (PREMAIN vs
+# HOST_RESOLVED) decides that conflict, not this file: the premain transformer
+# is registered retransformation-incapable, so its output is the baseline every
+# later retransformation starts from, and the uniform-location installer admits
+# exactly the composed shape ShaderUniformTransformer.composedShape() derives
+# from the attested reference bytes before taking the seam over.
 dev.turboism.bootstrap.MeshInterpolationHookContributor
 dev.turboism.bootstrap.ShaderUniformHookContributor
 dev.turboism.bootstrap.FpsHookContributor
