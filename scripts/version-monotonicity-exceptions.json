@@ -142,17 +142,6 @@
    "evidence": "CUBISM_5_3_03_VERSION is a dispatch constant referencing the 5.3.03 record whose onion-skin shape the contract special-cases; version admission flows through the record itself, not this constant."
   },
   {
-   "kind": "java-file",
-   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/PopupMeshUndoContract.java",
-   "site": "5.3.02",
-   "missing": [
-    "5.3.03",
-    "5.3.04"
-   ],
-   "reason": "The popup mesh undo contract binds obfuscated actionManager members recovered from the exact 5.3.02 artifact and is gated by that artifact's digest.",
-   "pending": "model-import-3d-version-adaptation: recover the corresponding obfuscated member names on the exact 5.3.03 and 5.3.04 artifacts, then extend ADMITTED or record bytecode evidence that the host lacks the popup mesh undo surface."
-  },
-  {
    "kind": "java-set",
    "path": "runtime/src/main/java/dev/turboism/adapter/cubism/shader/ShaderUniformTransformer.java",
    "site": "5.2.03,5.3.02,5.3.03",
