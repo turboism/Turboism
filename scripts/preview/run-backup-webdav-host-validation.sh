@@ -18,7 +18,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-backup-webdav-host-validation.sh <5302|5303|5304> [run-label] [runner-options...]" >&2
+  echo "usage: run-backup-webdav-host-validation.sh $(turboism_task_versions_usage backup-webdav) [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
@@ -29,6 +29,7 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   shift
 fi
 
+turboism_require_task_version backup-webdav "$version" || exit 2
 turboism_select_fixture "$version" || exit 2
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
