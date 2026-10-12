@@ -16,6 +16,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class EditorRotationKeyformAccessTest {
     static final DeformerId ID = new DeformerId("warp");
@@ -48,6 +50,17 @@ class EditorRotationKeyformAccessTest {
         f.source.forms.get(0).angle = 999;
         assertNotEquals(999, before.forms().get(0).value().angle());
         assertThrows(UnsupportedOperationException.class, () -> before.forms().clear());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
+    void readsAndWritesStoredRotationKeyformsOnEveryReviewedGeneration(final String version) {
+        var f = new Fixture();
+        f.resolver = resolver(version, "", "", false);
+        var before = f.read();
+        f.write(before, List.of(edit(1, 1, "f8")));
+        assertEquals(1, f.writes);
+        assertEquals(POINTS, f.read().forms().get(8).value());
     }
 
     @Test

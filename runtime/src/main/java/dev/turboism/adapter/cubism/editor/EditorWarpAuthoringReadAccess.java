@@ -26,7 +26,7 @@ final class EditorWarpAuthoringReadAccess {
     WarpAuthoringSnapshot read(DeformerId id, Object source) {
         if (!SwingUtilities.isEventDispatchThread())
             throw new IllegalStateException("stored Warp reads require Editor thread");
-        if (!resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")) throw unavailable();
+        if (!EditorReviewedGeneration.admits(resolver)) throw unavailable();
         for (String capability : EditorWarpAuthoringSelectorContract.CAPABILITY_IDS)
             if (!resolver.authorizesFeature(
                     EditorWarpAuthoringSelectorContract.ADAPTER_SLICE_ID,
@@ -128,6 +128,6 @@ final class EditorWarpAuthoringReadAccess {
     }
 
     private static UnsupportedOperationException unavailable() {
-        return new UnsupportedOperationException("verified 5.3.02 stored Warp reads are unavailable");
+        return new UnsupportedOperationException("verified stored Warp reads are unavailable");
     }
 }
