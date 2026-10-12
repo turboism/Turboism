@@ -7,6 +7,7 @@ import dev.turboism.adapter.cubism.optimization.glerror.GlGetErrorElisionTransfo
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationCallSiteTransformer;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationLifecycleTransformer;
+import dev.turboism.adapter.cubism.shader.ShaderUniformTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
@@ -37,6 +38,7 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
     private final UniformLocationHookBridge bridge;
     private final List<Target> targets = new ArrayList<>();
     private final List<Target> registered = new ArrayList<>();
+    private final boolean seamComposed;
     private boolean installed, restored, closed;
 
     private record Target(
@@ -89,15 +91,25 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
             attest(shader, loader, artifact);
             byte[] before = capture(shader);
             observed.put(shader, before);
+            byte[] shaderReference = reference(cubism, shader);
+            final List<String> composedQuery = composedQueryShape(loader, shaderReference);
+            seamComposed = composedQuery != null;
             verify(
                     cubism,
                     shader,
                     before,
                     UniformLocationCallSiteTransformer.METHOD,
                     UniformLocationCallSiteTransformer.DESCRIPTOR,
-                    null);
+                    composedQuery);
             UniformLocationCallSiteTransformer query =
-                    new UniformLocationCallSiteTransformer(loader, artifact, reference(cubism, shader));
+                    new UniformLocationCallSiteTransformer(loader, artifact, shaderReference);
+            if (composedQuery != null) {
+                query.acceptComposedShape(
+                        composedQuery,
+                        ShaderUniformTransformer.BRIDGE_OWNER,
+                        ShaderUniformTransformer.BRIDGE_LOOKUP,
+                        ShaderUniformTransformer.BRIDGE_LOOKUP_DESCRIPTOR);
+            }
             targets.add(new Target(shader, query, sha256(before), query::matches, query::failure));
             for (var role : UniformLocationLifecycleTransformer.Role.values()) {
                 Class<?> type =
@@ -143,6 +155,34 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
 
     static void verifyMutationInventory(JarFile jar) throws Exception {
         UniformLocationLifecycleTransformer.verifyMutationInventory(jar);
+    }
+
+    /**
+     * Computes the exact method shape the reviewed shader-uniform rewrite leaves
+     * on the official {@code preDraw_exe} body. That hook is registered
+     * retransformation-incapable and owns the same query seam, so when it patched
+     * this definition its output <em>is</em> the retransformation baseline this
+     * installer observes. The shape is derived by running the shader hook's own
+     * rewrite over the attested JAR reference, never by trusting the observed
+     * bytes; a hook that did not patch this loader's definition, or a rewrite the
+     * probe cannot reproduce, leaves the acceptance set empty and the strict
+     * check unchanged.
+     *
+     * @return the composed shape, or {@code null} when nothing composed this seam
+     */
+    private static List<String> composedQueryShape(ClassLoader loader, byte[] reference) {
+        if (!ShaderUniformTransformer.isPatched(loader, UniformLocationCallSiteTransformer.OWNER)) {
+            return null;
+        }
+        return ShaderUniformTransformer.composedShape(reference);
+    }
+
+    /**
+     * @return whether the shader query seam was admitted in its reviewed composed
+     *     form, i.e. taken over from the shader-uniform hook
+     */
+    boolean seamComposed() {
+        return seamComposed;
     }
 
     private void verifyDependency(

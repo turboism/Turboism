@@ -24,6 +24,15 @@ import org.objectweb.asm.Opcodes;
  * and program-lifecycle coverage before enabling reuse. Absent/failed callbacks
  * retain the original query and its exception behavior. Other GL calls, the class
  * hierarchy, fields and method signatures remain unchanged.</p>
+ *
+ * <p>Exactly two bodies are admitted: the official one, and — when the verified
+ * installer supplies it — one reviewed composed body produced by an upstream
+ * retransformation-incapable rewrite that already replaced the host query with a
+ * static {@code (Object,int,String,Object)int} substitution (today: the shader
+ * uniform hook). In the composed case this transform takes the seam over: it
+ * discards the extra receiver the upstream rewrite pushed and emits the real
+ * {@code glGetUniformLocation} as its own native leg, so exactly one cache and
+ * one native query remain. Any other body fails closed.</p>
  */
 public final class UniformLocationCallSiteTransformer implements ClassFileTransformer {
     /** Typed {@code (Object,int,String)int} lookup; values below minus one mean miss. */
@@ -41,12 +50,28 @@ public final class UniformLocationCallSiteTransformer implements ClassFileTransf
     private static final String GL = "com/jogamp/opengl/GL3";
     private static final String QUERY = "glGetUniformLocation";
     private static final String QUERY_DESCRIPTOR = "(ILjava/lang/String;)I";
+    /** The only upstream substitution layout this transform can take over. */
+    private static final String COMPOSED_SEAM_DESCRIPTOR = "(Ljava/lang/Object;ILjava/lang/String;Ljava/lang/Object;)I";
+
     private final ClassLoader loader;
     private final Path artifact;
     private final List<String> shape;
     private final int localBase;
+    private volatile List<String> composedShape;
+    private volatile ComposedSeam composedSeam;
     private volatile String failure, beforeSha256;
     private volatile int matches;
+
+    /** The static substitution an upstream rewrite left in place of the host query. */
+    private record ComposedSeam(String owner, String method, String descriptor) {
+        boolean matches(int opcode, String owner, String method, String descriptor, boolean itf) {
+            return opcode == Opcodes.INVOKESTATIC
+                    && !itf
+                    && this.owner.equals(owner)
+                    && this.method.equals(method)
+                    && this.descriptor.equals(descriptor);
+        }
+    }
 
     /**
      * Creates an inert transformer for the exact loader and reference query shape.
@@ -92,6 +117,33 @@ public final class UniformLocationCallSiteTransformer implements ClassFileTransf
         localBase = inspected[0];
     }
 
+    /**
+     * Admits one additional, exactly reviewed body: the shape an upstream
+     * retransformation-incapable rewrite leaves at this seam, together with the
+     * static call that replaced the host query. The shape must be derived from
+     * attested reference bytes by the upstream transform itself; this method
+     * never relaxes the strict check, it only adds a second exact shape.
+     *
+     * @param shape the composed instruction shape of the reviewed method
+     * @param seamOwner internal name of the substituted call's owner
+     * @param seamMethod name of the substituted call
+     * @param seamDescriptor descriptor of the substituted call; only the
+     *     {@code (Object,int,String,Object)int} substitution is supported, because
+     *     the emitted takeover consumes exactly that operand layout
+     * @throws IllegalArgumentException if the seam layout is unsupported
+     */
+    public void acceptComposedShape(List<String> shape, String seamOwner, String seamMethod, String seamDescriptor) {
+        Objects.requireNonNull(shape, "shape");
+        if (!COMPOSED_SEAM_DESCRIPTOR.equals(seamDescriptor)) {
+            throw new IllegalArgumentException("unsupported composed seam descriptor: " + seamDescriptor);
+        }
+        composedSeam = new ComposedSeam(
+                Objects.requireNonNull(seamOwner, "seamOwner"),
+                Objects.requireNonNull(seamMethod, "seamMethod"),
+                seamDescriptor);
+        composedShape = List.copyOf(shape);
+    }
+
     /** Returns the most recent transform rejection, or null. */
     public String failure() {
         return failure;
@@ -124,10 +176,20 @@ public final class UniformLocationCallSiteTransformer implements ClassFileTransf
                 failure = "shader query source mismatch";
                 return null;
             }
-            if (!shape.equals(ReviewedMethodShape.read(bytes, OWNER, METHOD, DESCRIPTOR))) {
+            List<String> observed = ReviewedMethodShape.read(bytes, OWNER, METHOD, DESCRIPTOR);
+            final List<String> composedExpected = composedShape;
+            final ComposedSeam seam = composedSeam;
+            final boolean composed;
+            if (shape.equals(observed)) {
+                composed = false;
+            } else if (composedExpected != null && seam != null && composedExpected.equals(observed)) {
+                composed = true;
+            } else {
                 failure = "shader query method shape mismatch";
                 return null;
             }
+            final int[] sites = {0};
+            final int base = Math.max(localBase, locals(bytes));
             ClassReader reader = new ClassReader(bytes);
             ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
                 @Override
@@ -143,11 +205,15 @@ public final class UniformLocationCallSiteTransformer implements ClassFileTransf
                             MethodVisitor original =
                                     super.visitMethod(access, method, descriptor, signature, exceptions);
                             return METHOD.equals(method) && DESCRIPTOR.equals(descriptor)
-                                    ? new QueryVisitor(original, localBase)
+                                    ? new QueryVisitor(original, base, composed ? seam : null, sites)
                                     : original;
                         }
                     },
                     ClassReader.EXPAND_FRAMES);
+            if (sites[0] != 1) {
+                failure = "shader query seam count drift: " + sites[0];
+                return null;
+            }
             byte[] result = writer.toByteArray();
             if (beforeSha256 == null)
                 beforeSha256 = HexFormat.of()
@@ -168,16 +234,42 @@ public final class UniformLocationCallSiteTransformer implements ClassFileTransf
                 && QUERY_DESCRIPTOR.equals(desc);
     }
 
+    /** Reads the declared local count of the reviewed method in the given bytes. */
+    private static int locals(byte[] bytes) {
+        int[] declared = {0};
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    int access, String name, String descriptor, String signature, String[] exceptions) {
+                                if (!METHOD.equals(name) || !DESCRIPTOR.equals(descriptor)) return null;
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitMaxs(int stack, int locals) {
+                                        declared[0] = Math.max(declared[0], locals);
+                                    }
+                                };
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG);
+        return declared[0];
+    }
+
     private static final class QueryVisitor extends MethodVisitor {
         private final int gl, program, name, result;
         private final List<Handler> nativeHandlers = new ArrayList<>();
+        private final ComposedSeam seam;
+        private final int[] sites;
 
-        QueryVisitor(MethodVisitor visitor, int base) {
+        QueryVisitor(MethodVisitor visitor, int base, ComposedSeam seam, int[] sites) {
             super(Opcodes.ASM9, visitor);
             gl = base;
             program = base + 1;
             name = base + 2;
             result = base + 3;
+            this.seam = seam;
+            this.sites = sites;
         }
 
         @Override
@@ -197,10 +289,19 @@ public final class UniformLocationCallSiteTransformer implements ClassFileTransf
 
         @Override
         public void visitMethodInsn(int opcode, String owner, String method, String desc, boolean itf) {
-            if (!query(opcode, owner, method, desc, itf)) {
+            boolean target = seam == null
+                    ? query(opcode, owner, method, desc, itf)
+                    : seam.matches(opcode, owner, method, desc, itf);
+            if (!target) {
                 super.visitMethodInsn(opcode, owner, method, desc, itf);
                 return;
             }
+            sites[0]++;
+            // In the composed body the upstream rewrite pushed the shader receiver on
+            // top of GL, program, name. Discarding it hands the seam to this cache:
+            // the upstream bridge's own per-shader cache lacks the program-mutation
+            // coverage this hook's callbacks establish, so exactly one cache stays.
+            if (seam != null) super.visitInsn(Opcodes.POP);
             // The attested call site's operand stack contains exactly GL, program, name.
             // New slots start after all original locals; original temporaries remain intact.
             super.visitVarInsn(Opcodes.ASTORE, name);
@@ -215,10 +316,21 @@ public final class UniformLocationCallSiteTransformer implements ClassFileTransf
             super.visitJumpInsn(Opcodes.IFNULL, nativeQuery);
             lookup(nativeQuery, done);
             super.visitLabel(nativeQuery);
-            arguments();
             // Intentionally outside both callback try blocks: do not catch or retry
             // the native operation, and do not alter an existing native exception.
-            super.visitMethodInsn(opcode, owner, method, desc, itf);
+            if (seam == null) {
+                arguments();
+                super.visitMethodInsn(opcode, owner, method, desc, itf);
+            } else {
+                // Restores the host's own query as the native leg of the composed seam.
+                // The checkcast is exact, not a widening: the stored value is the GL3 the
+                // host pushed, only the upstream substitution's descriptor erased it.
+                super.visitVarInsn(Opcodes.ALOAD, gl);
+                super.visitTypeInsn(Opcodes.CHECKCAST, GL);
+                super.visitVarInsn(Opcodes.ILOAD, program);
+                super.visitVarInsn(Opcodes.ALOAD, name);
+                super.visitMethodInsn(Opcodes.INVOKEINTERFACE, GL, QUERY, QUERY_DESCRIPTOR, true);
+            }
             super.visitVarInsn(Opcodes.ISTORE, result);
             observe();
             super.visitLabel(done);
