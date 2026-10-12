@@ -149,17 +149,17 @@
 | `dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform` | type | 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform#setDrawOrder()` | method | 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.ArtMeshSourceTriangulation#ArtMeshSourceTriangulation()` | method | 5.2.03, 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.ArtMeshTextureInput#ArtMeshTextureInput()` | method | 5.2.03, 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.AuthorizedImageContent` | type | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ArtMeshTextureInput#ArtMeshTextureInput()` | method | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.AuthorizedImageContent` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AutoYure` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AutoYureBinding` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AutoYureConfig` | type | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.CubismExportTexture#CubismExportTexture()` | method | 5.3.02 |
-| `dev.turboism.sdk.cubism.model.CubismMocExport#CubismMocExport()` | method | 5.3.02 |
-| `dev.turboism.sdk.cubism.model.CubismMocExportSettings#CubismMocExportSettings()` | method | 5.3.02 |
-| `dev.turboism.sdk.cubism.model.CubismModel#exportMoc()` | method | 5.3.02 |
-| `dev.turboism.sdk.cubism.model.CubismModel#renderPixels()` | method | 5.2.03, 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.CubismRenderedPixels#CubismRenderedPixels()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.CubismExportTexture#CubismExportTexture()` | method | 5.3.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.CubismMocExport#CubismMocExport()` | method | 5.3.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.CubismMocExportSettings#CubismMocExportSettings()` | method | 5.3.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.CubismModel#exportMoc()` | method | 5.3.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.CubismModel#renderPixels()` | method | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.CubismRenderedPixels#CubismRenderedPixels()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Deformers#applyToChildren()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Drawable#authoringSnapshot()` | method | 5.2.03, 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.Drawable#createMorphKeyform()` | method | 5.3.02–5.3.03 |
@@ -168,14 +168,14 @@
 | `dev.turboism.sdk.cubism.model.Drawable#ordinaryKeyform()` | method | 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Drawable#setOrdinaryKeyformPositions()` | method | 5.2.03, 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.ModelImageBinding#ModelImageBinding()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ModelImageBinding#ModelImageBinding()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelInstance` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelTextures#bindModelImage()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ModelTextures#bindModelImage()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()` | method | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelTextures#registerImageAndBind()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ModelTextures#registerImageAndBind()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()` | method | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelTextures#textureInput()` | method | 5.2.03, 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.ParameterInterpolation#ParameterInterpolation()` | method | 5.2.03, 5.3.02–5.3.03 |
+| `dev.turboism.sdk.cubism.model.ModelTextures#textureInput()` | method | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.model.ParameterInterpolation#ParameterInterpolation()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#alphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#maskIds()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setAlphaComposition()` | method | 5.3.00–5.3.04 |
@@ -331,6 +331,11 @@ Cubism Editor 자체에 기능이 없는 확인된 호스트 경계. 공식 업�
 | `command:SWITCH_LOOP_EDITING_SUPPORT` | 5.0.00–5.1.03 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.00 (loop editing support). |
 | `command:UPDATE_DEFORMER_ORIGINAL_SHAPE` | 5.0.00–5.1.03 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) | Command added in Cubism 5.2.00 (restore original shape support for deformers). |
 | `command:SHOW_SHOW_LABEL_COPY_DIALOG` | 5.3.00–5.3.04 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | 5.0–5.2 command id renamed to SHOW_LABEL_COPY_DIALOG in Cubism 5.3.00. |
+| `cubism.editor-model.moc-export.read` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Official MOC 5.3 export requires the MOC3 V5_03_00 format enum and invisible-alias export setting introduced in Cubism Editor 5.3. |
+| `dev.turboism.sdk.cubism.model.CubismModel#exportMoc` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Official MOC 5.3 export requires the MOC3 V5_03_00 format enum and invisible-alias export setting introduced in Cubism Editor 5.3. |
+| `dev.turboism.sdk.cubism.model.CubismMocExport` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Official MOC 5.3 export requires the MOC3 V5_03_00 format enum and invisible-alias export setting introduced in Cubism Editor 5.3. |
+| `dev.turboism.sdk.cubism.model.CubismMocExportSettings` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Official MOC 5.3 export requires the MOC3 V5_03_00 format enum and invisible-alias export setting introduced in Cubism Editor 5.3. |
+| `dev.turboism.sdk.cubism.model.CubismExportTexture` | 5.0.00–5.2.03 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) | Official MOC 5.3 export requires the MOC3 V5_03_00 format enum and invisible-alias export setting introduced in Cubism Editor 5.3. |
 
 ## 런타임 허용 핀
 
@@ -342,6 +347,7 @@ Cubism Editor 자체에 기능이 없는 확인된 호스트 경계. 공식 업�
 | class-pins/`image-archive-reuse.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`incremental-update.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`matrix-scratch.json` | `ClassPinTable` | 5.2.00–5.3.04 |
+| class-pins/`mesh-interpolation.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`mesh-mirror.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`mesh-triangulation-hash.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`model-update-skip.json` | `ClassPinTable` | 5.2.00–5.3.04 |

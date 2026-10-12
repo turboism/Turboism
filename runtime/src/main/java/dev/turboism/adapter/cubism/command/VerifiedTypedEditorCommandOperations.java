@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.command;
 
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.command.EditorCanvasSettingsRequest;
@@ -405,10 +406,14 @@ final class VerifiedTypedEditorCommandOperations {
                 Aliases.CANVAS_MARK_DIRTY,
                 Aliases.CANVAS_UNDO,
                 APP_INSTANCE);
-        // The 5.3.02 scale helper removes a temporary rotation source after its
-        // last updateModelInstances call. Rebuild the live collection once more
-        // using the already verified editor-model selector before completing.
-        final boolean rebuildInstances = "5.3.02".equals(resolver.cubismVersion());
+        // The scale helper removes a temporary rotation source after its last
+        // updateModelInstances call on every reviewed generation: the call trace of
+        // ModelHandler.a(CModel,F,GVector2,GVector2,GroupUndo) is identical across
+        // 5.2.00-5.3.04 and equivalent on 5.0.x/5.1.x, with the temporary source
+        // deleted after the final updateModelInstances. Rebuild the live collection
+        // once more using the already verified editor-model selector before completing.
+        final boolean rebuildInstances =
+                ReviewedHostArtifacts.reviewedCubismVersions().contains(resolver.cubismVersion());
         if (rebuildInstances
                 && (editorModelResolver == null
                         || !resolver.cubismVersion().equals(editorModelResolver.cubismVersion()))) {
@@ -428,7 +433,7 @@ final class VerifiedTypedEditorCommandOperations {
         }
         final int undoPosBefore = undoPosition(context.editMode);
         try {
-            applyCanvasSize(context, request, oldWidth, oldHeight);
+            applyCanvasSize(context, request, oldWidth, oldHeight, rebuildInstances);
         } catch (RuntimeException | Error failure) {
             try {
                 // Rollback through the native Undo path: close the transaction and undo the partial
@@ -459,7 +464,8 @@ final class VerifiedTypedEditorCommandOperations {
             final ModelingContext context,
             final EditorCanvasSettingsRequest request,
             final int oldWidth,
-            final int oldHeight) {
+            final int oldHeight,
+            final boolean rebuildInstances) {
         final Object group = resolver.invoke(Aliases.CANVAS_BEGIN_EDIT, context.editMode, CANVAS_EDIT_LABEL);
         // The native dialog registers the LIVE canvas as the SimpleUndo target; the undo
         // snapshot is captured inside the constructor (undoData = target.deepCopy()).
@@ -476,7 +482,7 @@ final class VerifiedTypedEditorCommandOperations {
         final Object zero = resolver.construct(Aliases.CANVAS_VECTOR2_ZERO);
         final Object handler = resolver.invoke(Aliases.CANVAS_HANDLER, context.modelSource);
         resolver.invoke(Aliases.CANVAS_SCALE_WITH_ANCHOR, handler, context.model, 1.0f, translate, zero, group);
-        if ("5.3.02".equals(resolver.cubismVersion())) {
+        if (rebuildInstances) {
             editorModelResolver.invoke("cubism.editor-model.model-source.update-instances", context.modelSource);
         }
         resolver.invokeStatic(Aliases.CANVAS_END_EDIT_DEFAULT, context.editMode, false, null, 1, null);
@@ -588,9 +594,19 @@ final class VerifiedTypedEditorCommandOperations {
             return new EditorCommandResult(EditorCommandResult.Status.INVALID_STATE, command.commandId());
         }
         final boolean saved;
-        if (resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")
+        if (dev.turboism.mapping.verification.selector.EditorParameterInterpolationSelectorContract
+                        .SUPPORTED_CUBISM_VERSIONS
+                        .contains(resolver.cubismVersion())
                 && editorModelResolver != null
-                && editorModelResolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")
+                && dev
+                        .turboism
+                        .mapping
+                        .verification
+                        .selector
+                        .EditorParameterInterpolationSelectorContract
+                        .SUPPORTED_CUBISM_VERSIONS
+                        .stream()
+                        .anyMatch(editorModelResolver::isExactCubismVersion)
                 && editorModelResolver.authorizesFeature(
                         dev.turboism.mapping.verification.selector.EditorParameterInterpolationSelectorContract
                                 .ADAPTER_SLICE_ID,

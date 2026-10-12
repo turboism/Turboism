@@ -59,6 +59,20 @@ class VerifiedTypedEditorCommandAdapterTest {
     }
 
     @Test
+    void canvasSettingRebuildsInstancesOnEveryReviewedGeneration() {
+        for (String version : dev.turboism.mapping.verification.ReviewedHostArtifacts.reviewedCubismVersions()) {
+            FakeHost host = new FakeHost();
+            var adapter = new VerifiedEditorCommandAdapter(host.resolver(version));
+            assertEquals(
+                    EditorCommandResult.Status.EXECUTED,
+                    adapter.execute(new EditorCanvasSettingsRequest(1200, 1000)).status(),
+                    version);
+            assertEquals(1, host.modelSource.rebuildCount, version);
+            assertFalse(host.modelSource.temporaryInstancePresent, version);
+        }
+    }
+
+    @Test
     void canvasSettingRequiresVerifiedInstanceRebuildBeforeMutationOn5302() {
         FakeHost host = new FakeHost();
         var adapter = new VerifiedEditorCommandAdapter(

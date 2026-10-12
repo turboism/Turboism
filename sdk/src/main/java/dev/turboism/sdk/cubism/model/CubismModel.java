@@ -145,7 +145,7 @@ public interface CubismModel {
      * cannot be observed to leave the model unchanged — no cached, cropped,
      * rescaled or fallback image is ever substituted.</p>
      */
-    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    @CubismEditor(from = "5.2.00")
     default CubismRenderedPixels renderPixels(final int width, final int height) {
         throw new UnsupportedOperationException("Cubism native model rendering is unavailable.");
     }
@@ -156,7 +156,7 @@ public interface CubismModel {
      * it does not save files or add an Undo entry to the current document.
      * All settings are explicit and the returned data is bounded and owned by the caller.
      */
-    @CubismEditor({"5.3.02"})
+    @CubismEditor(from = "5.3.00")
     default CubismMocExport exportMoc(final CubismMocExportSettings settings) {
         throw new UnsupportedOperationException("Cubism official MOC export is unavailable.");
     }
