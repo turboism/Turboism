@@ -14,3 +14,4 @@
 *.icns binary
 *.jfr binary
 *.class binary
+*.glb binary
