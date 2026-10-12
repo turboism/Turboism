@@ -214,6 +214,12 @@ Turboism 的所有重要变更都记录在本文件中。
   - Cubism 5.3.x（5.3.00–5.3.04，共 5 个版本）：各版本均为 143 / 143 项能力（100.0%）。
   能力集合在每个次版本补丁线内保持严格的单调递增。`compatibility/cubism/version-boundaries.json` 记录了证据化的版本边界：Cubism 5.0.x 不具备宿主自动备份、受保护导出、自动摇动读取、顶部菜单集成及外部应用编辑开关；edit-protocol 桥接自 5.1.02 起提供；动画时间线 SDK/运行时、选区笔刷及网格几何读取自 5.2.00 起提供；部件检查器写入、部件不透明度写入、MOC3 导出读取及透明度混合（AlphaComposition）自 5.3.00 起提供。`compatibility/cubism/` 下提供了多文档的英文、简体中文、日文与韩文能力及插件兼容性矩阵。
 - 所有第一方插件 JAR 均包含由审核能力依赖派生的 `META-INF/turboism/cubism-versions.json` 描述文件，声明其支持的 Editor 版本。确立 SDK `@CubismEditor` 注解契约：不带参数的裸注解表示在全部 20 个审核版本上可用，显式属性用于限定特定版本子集。
+- 第一方插件支持范围大幅放开，覆盖全部 20 个已审核版本：
+  - `parameter`、`recent-preview` 与 `warp-deformer-alt-symmetry` 在全部 20 个版本上全功能运行，无功能降级。
+  - `mesh-edit-mirror-axis-enhance` 与 `selection-brush` 在全部 20 个版本上支持网格编辑模式；普通建模视图选择笔刷（5.2.00 起）与 Core 几何读取（5.2.00 起）作为证据边界。
+  - `mcp` 在全部 20 个版本上支持纹理写入与事务执行，编辑器命令执行自 5.1.00 起可用。
+  - `command-palette` 与 `protected-export` 因早期版本缺乏顶部菜单与导出编排，以 5.1.00 起作为证据边界；`webdav-backup` 支持全部 20 个版本，自动备份功能自 5.1.00 起可用。
+- 实机探针版本门禁全面改为覆盖全部 20 个已审核 Editor 版本（5.0.00–5.3.04），按精确字节码形状分桶，确保在完整的 Cubism 版本谱系上实现端到端实机验证。
 - 自动化实机启动对话框辅助（`NativeFreeStartup`）：在测试与验证运行期间自动处理各支持版本 Cubism 的对话框交互。自动完成 PRO 试用选择（“开始 PRO 版本免费试用”）及其确认与激活流程（在无试用路径时回退至免费版）；自动关闭更新提示与 Home 新闻窗口；在低版本打开高版本工程文件出现警告时自动点击确定；并在 JavaFX 线程上隐藏 5.0.x 的 JavaFX 公告窗口（`AnnouncementDialog` 后台 Stage），避免主窗体与菜单栏被禁用。实机验证任务队列直接依据矩阵能力依赖派生版本范围，编排 56 个独立验证任务。
 - 3D 模型导入插件（`dev.turboism.plugin.model-import-3d`）：原生 3D 模型导入，支持静态不透明 GLB、glTF、OBJ/MTL 及模型 ZIP 压缩包，支持 PNG/JPEG 纹理贴图、XYZ 全范围 360 度旋转及有界几何优化，并以单个可撤销的编辑事务提交创建。
 - Turboism ACP 插件（`dev.turboism.plugin.acp`）：提供 ACP v1 Agent 与设置窗口，将用户安装的 ACP 兼容 AI 代理（Claude Agent ACP、Codex ACP、Pi、Gemini CLI、OpenCode、Antigravity、Devin CLI 或自定义可执行程序）连接至经过身份验证的 Turboism MCP 服务器，支持 PATH 可执行程序探测、持久化会话以及免凭据的 stdio-to-HTTP MCP 挂载桥接。
