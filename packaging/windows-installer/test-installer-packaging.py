@@ -65,7 +65,7 @@ def synthetic_test() -> None:
         modules = [line.split(":")[-1] for line in (ROOT / "packaging/release-plugins.txt").read_text().splitlines()]
         for module in modules:
             with zipfile.ZipFile(stage / "plugins" / (module + ".jar"), "w") as archive:
-                archive.writestr("META-INF/turboism/plugin.json", json.dumps({"id": "dev.turboism.plugin." + module, "name": module, "version": "0.44.0"}))
+                archive.writestr("META-INF/turboism/plugin.json", json.dumps({"id": "dev.turboism.plugin." + module, "name": module, "version": "0.67.0"}))
                 for locale in ("en", "zh_Hans", "ja", "ko"):
                     archive.writestr("META-INF/turboism/i18n/messages_" + locale + ".properties", "plugin.name=" + module + "\nplugin.description=synthetic fixture\n")
         manifest = json.loads((PACKAGE / "script-engine.json").read_text())
@@ -89,14 +89,14 @@ def synthetic_test() -> None:
             encoding="utf-8")
         import os
         os.environ["TURBOISM_VERIFICATION_METADATA"] = str(verification)
-        for name in ("sdk-0.44.0.jar", "graal-host-0.44.0.jar", "polyglot-25.2.4.jar"):
+        for name in ("sdk-0.67.0.jar", "graal-host-0.67.0.jar", "polyglot-25.2.4.jar"):
             (stage / "graal/lib" / name).write_bytes(b"synthetic base library")
         _, generated = generate(stage, work)
         core = (generated / "payload-core.sha256").read_text()
         extractor = (generated / "payload-extract.nsh").read_text(encoding="utf-8-sig")
         for entry in manifest["artifacts"]:
             assert entry["name"] not in core and entry["name"] not in extractor, "heavy engine must not be embedded in the ordinary EXE"
-        assert "graal/lib/sdk-0.44.0.jar" in core and "graal/lib/graal-host-0.44.0.jar" in core
+        assert "graal/lib/sdk-0.67.0.jar" in core and "graal/lib/graal-host-0.67.0.jar" in core
         assert "install-script-engine.ps1" in core and "script-engine.json" in core
         # The unmodified production ZIP path remains an offline engine closure.
         full = work / "full.zip"
@@ -167,7 +167,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repack-existing", type=Path)
     parser.add_argument("--output", type=Path)
-    parser.add_argument("--version", default="0.44.0")
+    parser.add_argument("--version", default="0.67.0")
     args = parser.parse_args()
     synthetic_test()
     if args.repack_existing:
