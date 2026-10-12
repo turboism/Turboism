@@ -63,6 +63,26 @@ test-assets/model-import-3d/
 - **来源**：由 `plane-textured/plane.glb`（`sourceSha256 = 8aa60f903cee58d123831d6b66315b0537bafffcf68a064bcb6a0b0132d1b997`）沿对角线将索引展开为 6 个独立源顶点槽位生成。
 - **几何与槽位语义**：`sourceSlots = [0, 2, 1, 0, 3, 2]`，索引变为 `[0, 1, 2, 3, 4, 5]`，`preservesEqualPositionUvAsDistinctSlots = true`（位置与 UV 相等的对角顶点保持为独立源槽位而不被焊接）。
 
+## 如何构建与复现
+
+本目录下的四份最小几何夹具基于 Blender 3.6+ 与确定性程序化工具生成，构建来源与生成方式如下：
+
+1. **`cube-985496727e50/cube.glb`（基础无贴图立方体）**：
+   - 使用 Blender 默认立方体网格（坐标范围 `[-1, 1]^3`，24 顶点，36 标量索引，12 三角面）。
+   - 导出器：Khronos glTF Blender I/O v3.6.28，导出格式为二进制 GLB（`.glb`），包含 POSITION、NORMAL、TEXCOORD_0 属性及双面基础材质，无贴图。
+
+2. **`cube-textured/cube-textured.glb`（六面贴图立方体）**：
+   - 以 `cube-985496727e50/cube.glb` 为基底，顶点位置、法线、UV 及三角形索引完全保持不变（`geometryNormalsUvsIndicesUnchanged = true`）。
+   - 程序化生成一张 256×128 的六面色块 PNG 标识贴图（贴图 SHA-256 为 `a724382bcfdf3e706d64d5cf57646ac28eb00977bd95b20ce5b1323c2572d10f`，各面 UV 与 RGB 色值详见前表），以 GLB 二进制 buffer view 形式内嵌并绑定至材质主色贴图。
+
+3. **`plane-textured/plane.glb`（贴图平面）**：
+   - 程序化生成 4 顶点单面非对称矩形平面（坐标范围 `X: [-1, 1]`, `Y: [-0.5, 0.5]`, `Z: 0`，法线全为 `(0, 0, -1)`）。
+   - 内嵌 256×128 非对称四色标识 PNG 贴图（SHA-256 为 `3b29a9b2c1b0f779aca95022bc91a3589d280e4da593ce35f973783835e681bf`），索引为 `[0, 2, 1, 0, 3, 2]`。
+
+4. **`plane-textured/plane-seam.glb`（对角线展开缝平面）**：
+   - 由 `plane-textured/plane.glb` 程序化展开生成：沿对角线将 4 顶点索引展开为 6 个独立源顶点槽位（`sourceSlots = [0, 2, 1, 0, 3, 2]`，索引变为 `[0, 1, 2, 3, 4, 5]`）。
+   - 保持几何与贴图完全一致，用于验证导入时位置与 UV 均相等的对角顶点保持为独立槽位而不被自动焊接。
+
 ## 对应测试（`:plugins:model-import-3d:test`）
 
 - `EmbeddedTextureTest`
