@@ -16,9 +16,9 @@ import java.util.Set;
 import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.junit.jupiter.api.parallel.Resources;
 
 @ResourceLock(Resources.SYSTEM_PROPERTIES)
 class EditorArtMeshEvaluationReadAccessTest {

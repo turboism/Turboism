@@ -20,6 +20,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class EditorArtMeshKeyformAccessTest {
     private static final String M = "cubism.editor-model.";
@@ -42,6 +44,17 @@ class EditorArtMeshKeyformAccessTest {
                 UnsupportedOperationException.class,
                 () -> base.setDrawOrder(base.snapshot().drawOrder()));
         assertEquals(0, fixture.writes.get());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
+    void opensAndWritesStoredKeyformsOnEveryReviewedGeneration(final String version) {
+        final var fixture = new Fixture();
+        fixture.resolver = resolver(version, "", false);
+        final var target = fixture.open(List.of(new Coordinate("y", 1), new Coordinate("x", 1)));
+        target.setPositions(POSITIONS);
+        assertEquals(POSITIONS, target.snapshot().positions());
+        assertEquals(1, fixture.writes.get());
     }
 
     @Test

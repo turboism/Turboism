@@ -308,6 +308,19 @@ class EditorArtMeshMorphAccessTest {
         });
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
+    void readsAndEditsMorphKeyformsOnEveryReviewedGeneration(final String version) throws Exception {
+        onEdt(f -> {
+            f.resolver = f.resolver(version, null, null);
+            final var target = f.create(.5f);
+            assertEquals(.5f, target.keyValue());
+            target.setPositions(EditorArtMeshMorphTransactionTest.U);
+            assertEquals(EditorArtMeshMorphTransactionTest.U, target.snapshot().positions());
+            assertEquals(2, f.mutations); // the create and the position edit each mutate once
+        });
+    }
+
     @Test
     void missingDrawOrderAliasRejectsOnlyTheSetterWithZeroMutation() throws Exception {
         onEdt(f -> {

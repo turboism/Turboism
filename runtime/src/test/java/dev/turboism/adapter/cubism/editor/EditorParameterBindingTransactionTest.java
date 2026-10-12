@@ -12,6 +12,8 @@ import dev.turboism.sdk.cubism.model.*;
 import dev.turboism.sdk.cubism.transaction.*;
 import java.util.*;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Real binding adapter, snapshot decoder and coordinator; only native members are substitutes. */
 class EditorParameterBindingTransactionTest {
@@ -88,6 +90,34 @@ class EditorParameterBindingTransactionTest {
                         }
                         assertEquals(1, f.begins);
                     }
+            return null;
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
+    void deformerParentConversionAdmitsEveryReviewedGeneration(final String version) {
+        EditorHostThread.dispatch("Warp parent root", () -> {
+            var f = new Fixture("", true).withResolverVersion(version);
+            var before = f.warpRead();
+            var target = new Object();
+            var result = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("XYZ parent"), () -> {
+                EditorDeformerParentEditAccess.change(
+                        f.resolver,
+                        f.coordinator,
+                        f.binding,
+                        f,
+                        f.source,
+                        "Warp",
+                        target,
+                        target,
+                        f::warpRead,
+                        () -> {});
+                return null;
+            });
+            assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
+            assertSame(target, f.source.parent);
+            assertEquals(1, f.history.size());
             return null;
         });
     }
@@ -715,9 +745,10 @@ class EditorParameterBindingTransactionTest {
         final EditorAuthoringTransactionCoordinator coordinator = new EditorAuthoringTransactionCoordinator(this);
         final EditorAuthoringTransactionCoordinator.Binding binding = new EditorAuthoringTransactionCoordinator.Binding(
                 "binding-test", "document", 1, "model", 1, Thread.currentThread());
-        final VerifiedMemberResolver resolver;
+        VerifiedMemberResolver resolver;
         final EditorParameterBindingAccess access;
         final ParameterBindingTarget target;
+        final boolean warp, rotation;
         NativeSource lookupSource = source;
         boolean present = true;
         Edit edit;
@@ -736,7 +767,15 @@ class EditorParameterBindingTransactionTest {
             this(excluded, warp, false);
         }
 
+        /** Rebinds this fixture to another reviewed generation for version-table coverage. */
+        Fixture withResolverVersion(String version) {
+            resolver = resolver(version, "", warp, rotation);
+            return this;
+        }
+
         Fixture(String excluded, boolean warp, boolean rotation) {
+            this.warp = warp;
+            this.rotation = rotation;
             target = rotation
                     ? ParameterBindingTarget.rotationDeformer(new DeformerId("Rotation"))
                     : warp ? ParameterBindingTarget.warpDeformer(new DeformerId("Warp")) : TARGET;
@@ -872,6 +911,10 @@ class EditorParameterBindingTransactionTest {
     }
 
     static VerifiedMemberResolver resolver(String excluded, boolean warp, boolean rotation) {
+        return resolver("5.3.02", excluded, warp, rotation);
+    }
+
+    static VerifiedMemberResolver resolver(String version, String excluded, boolean warp, boolean rotation) {
         var aliases = new LinkedHashMap<String, StaticSelector>();
         for (var s : EditorArtMeshAuthoringReadAccessTest.selectors()) {
             Class<?> owner = s.ownerInternalName().equals(Source.class.getName().replace('.', '/'))
@@ -978,7 +1021,7 @@ class EditorParameterBindingTransactionTest {
             capabilities.add(EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID);
         }
         return TestVerifiedResolvers.create(
-                "5.3.02",
+                version,
                 EditorParameterBindingWriteSelectorContract.ADAPTER_SLICE_ID,
                 capabilities,
                 aliases.values().stream()

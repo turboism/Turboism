@@ -189,8 +189,7 @@ final class EditorObjectHierarchyEditAccess {
         if (checkedDefault.size() != checkedGeometry.positions().size()) {
             throw new IllegalArgumentException("Default and source positions must have the same vertex count.");
         }
-        if (!checkedDefault.equals(checkedGeometry.positions())
-                && !EditorReviewedGeneration.admits(resolver)) {
+        if (!checkedDefault.equals(checkedGeometry.positions()) && !EditorReviewedGeneration.admits(resolver)) {
             throw unavailable("Separate ArtMesh source geometry requires a verified reviewed Cubism host.");
         }
         requireArtMeshCreateAuthorized();
@@ -1068,8 +1067,7 @@ final class EditorObjectHierarchyEditAccess {
                             // ArtMesh create). On 5.2.03 there is no verified revert
                             // primitive, so a residue left by a broken native abort is
                             // reported as RECOVERY_FAILED instead of a false ROLLED_BACK.
-                            if (admittedUndo[0] != null
-                                    && EditorReviewedGeneration.admits(resolver)) {
+                            if (admittedUndo[0] != null && EditorReviewedGeneration.admits(resolver)) {
                                 if (admittedUndo[1] != null) {
                                     resolver.invoke("cubism.editor-model.undo.execute-undo", admittedUndo[1]);
                                 }
