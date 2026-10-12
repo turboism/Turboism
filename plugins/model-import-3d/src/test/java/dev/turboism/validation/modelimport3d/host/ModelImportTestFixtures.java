@@ -7,7 +7,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 
 /**
- * Resolves and gates large 3D model test assets (under {@code artifacts/} and
+ * Resolves and gates 3D model test assets (committed small fixtures under
+ * {@code test-assets/model-import-3d/}, or local large fixtures under {@code artifacts/} and
  * {@code build/model-import-3d-inputs/}).
  *
  * <p>When fixtures are not present in the workspace, tests are cleanly skipped via
@@ -16,6 +17,8 @@ import org.junit.jupiter.api.Assumptions;
  * {@code TURBOISM_REQUIRE_IMPORT_3D_FIXTURES=true}.
  */
 final class ModelImportTestFixtures {
+
+    private static final String COMMITTED_FIXTURES_DIR = "test-assets/model-import-3d";
 
     private static final String PROPERTY_REQUIRE_FIXTURES = "turboism.requireImport3dFixtures";
     private static final String ENV_REQUIRE_FIXTURES = "TURBOISM_REQUIRE_IMPORT_3D_FIXTURES";
@@ -78,13 +81,38 @@ final class ModelImportTestFixtures {
     }
 
     /**
-     * Resolves a relative fixture path against repository root or override directories.
+     * Resolves a relative fixture path against committed {@code test-assets/model-import-3d/}
+     * first, then repository root or override directories.
      */
     static Path resolveFixture(final String relativePath) {
+        final Path root = repoRoot();
         final Path normalizedRelative = Path.of(relativePath).normalize();
+        final Path committedRoot = root.resolve(COMMITTED_FIXTURES_DIR).normalize();
+
+        // 0. Check committed small fixtures under test-assets/model-import-3d/ first
+        if (relativePath.startsWith("artifacts/") || relativePath.startsWith("artifacts\\")) {
+            final String subPath = relativePath.substring("artifacts/".length());
+            final Path committedCandidate = committedRoot.resolve(subPath).normalize();
+            if (committedCandidate.startsWith(committedRoot) && Files.isRegularFile(committedCandidate)) {
+                return committedCandidate;
+            }
+        }
+        if (relativePath.contains("model-import-3d-inputs")) {
+            final int idx = relativePath.indexOf("model-import-3d-inputs");
+            final String subPath = relativePath.substring(idx + "model-import-3d-inputs".length() + 1);
+            final Path committedCandidate = committedRoot.resolve(subPath).normalize();
+            if (committedCandidate.startsWith(committedRoot) && Files.isRegularFile(committedCandidate)) {
+                return committedCandidate;
+            }
+        }
+        final Path directCommittedCandidate =
+                committedRoot.resolve(normalizedRelative).normalize();
+        if (directCommittedCandidate.startsWith(committedRoot) && Files.isRegularFile(directCommittedCandidate)) {
+            return directCommittedCandidate;
+        }
 
         // 1. Direct resolution against repo root (standard layout or symlink)
-        final Path repoCandidate = repoRoot().resolve(normalizedRelative).normalize();
+        final Path repoCandidate = root.resolve(normalizedRelative).normalize();
         if (Files.exists(repoCandidate)) {
             return repoCandidate;
         }
