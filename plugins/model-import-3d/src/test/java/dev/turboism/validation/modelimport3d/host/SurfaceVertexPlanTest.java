@@ -48,8 +48,8 @@ class SurfaceVertexPlanTest {
 
     @Test
     void measuresRealCatPartitionWithExactSourceSlotsAndNoSurfaceFitting() throws Exception {
-        var input = GlbSurfaceReader.read(Files.readAllBytes(
-                Path.of(System.getProperty("mi3d.repo"), "artifacts/cat-textured/source-r2/cat-textured.glb")));
+        var input = GlbSurfaceReader.read(
+                ModelImportTestFixtures.readBytes("artifacts/cat-textured/source-r2/cat-textured.glb"));
         for (int count : List.of(64, 128, 256, 512)) {
             var plan = SurfaceVertexPlan.compile(input, count);
             verify(plan);

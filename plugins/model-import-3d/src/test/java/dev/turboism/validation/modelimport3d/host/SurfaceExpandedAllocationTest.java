@@ -3,8 +3,6 @@ package dev.turboism.validation.modelimport3d.host;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.turboism.sdk.cubism.id.ParameterId;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 class SurfaceExpandedAllocationTest {
@@ -24,8 +22,7 @@ class SurfaceExpandedAllocationTest {
 
     @Test
     void actualCubePreparationRejectsAllocationBeforeHostWrites() throws Exception {
-        var input = Files.readAllBytes(
-                Path.of(System.getProperty("mi3d.repo"), "artifacts/cube-textured/cube-textured.glb"));
+        var input = ModelImportTestFixtures.readBytes("artifacts/cube-textured/cube-textured.glb");
         var camera = new SurfaceProjection.Camera(512, 512, 200, new SurfaceProjection.Vertex(0, 0, 0));
         var error = assertThrows(
                 IllegalArgumentException.class,

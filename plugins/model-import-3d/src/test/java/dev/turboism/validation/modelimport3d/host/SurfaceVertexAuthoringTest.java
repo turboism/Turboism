@@ -77,19 +77,16 @@ class SurfaceVertexAuthoringTest {
 
     @Test
     void catPreparationPreservesOriginalTextureAndEverySourceUVWithoutFitting() throws Exception {
-        var root = Path.of(System.getProperty("mi3d.repo"));
-        var p = SurfaceVertexAuthoring.prepareFramed(
-                Files.readAllBytes(root.resolve("artifacts/cat-textured/source-r2/cat-textured.glb")),
-                request(1, true),
-                512);
+        byte[] catGlb = ModelImportTestFixtures.readBytes("artifacts/cat-textured/source-r2/cat-textured.glb");
+        Path catPng = ModelImportTestFixtures.fixture("artifacts/cat-textured/source-r2/Cat_diffuse.png");
+        var p = SurfaceVertexAuthoring.prepareFramed(catGlb, request(1, true), 512);
         assertEquals(512, p.geometry().meshes().size());
         assertEquals(48497, p.geometry().repeatedSlots());
         assertEquals(1024, p.images().width);
         assertEquals(1024, p.images().height);
         assertTrue(p.interpolationErrorBoundPixels() < 4);
         assertTrue(1089 * p.geometry().repeatedSlots() <= SurfaceVertexAuthoring.MAX_CACHE_SLOTS);
-        var original = ImageIO.read(
-                root.resolve("artifacts/cat-textured/source-r2/Cat_diffuse.png").toFile());
+        var original = ImageIO.read(catPng.toFile());
         var actual = ImageIO.read(new ByteArrayInputStream(p.images().png()));
         assertArrayEquals(
                 original.getRGB(0, 0, 1024, 1024, null, 0, 1024), actual.getRGB(0, 0, 1024, 1024, null, 0, 1024));

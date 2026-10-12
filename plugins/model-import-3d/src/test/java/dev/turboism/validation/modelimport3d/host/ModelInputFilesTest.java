@@ -309,8 +309,7 @@ class ModelInputFilesTest {
 
     @Test
     void originalCatSeparateFilesEqualTheOriginalZipWithoutManualConversion() throws Exception {
-        Path root = Path.of(System.getProperty("mi3d.repo"));
-        byte[] packed = Files.readAllBytes(root.resolve("artifacts/cat-textured/package-source-r1/cat.zip"));
+        byte[] packed = ModelImportTestFixtures.readBytes("artifacts/cat-textured/package-source-r1/cat.zip");
         var entries = new TreeMap<String, byte[]>();
         try (var z = new ZipInputStream(new ByteArrayInputStream(packed))) {
             for (ZipEntry e; (e = z.getNextEntry()) != null; )
@@ -333,5 +332,29 @@ class ModelInputFilesTest {
                 load(entries.get(obj), f).orElseThrow());
         assertTrue(f.reads >= 2);
         assertTrue(f.handles.stream().allMatch(h -> h.closed));
+    }
+
+    @Test
+    void missingFixtureSkipsByDefaultAndFailsWhenRequired() {
+        String missing = "artifacts/nonexistent-fixture-" + UUID.randomUUID() + "/missing.glb";
+        String previous = System.getProperty("turboism.requireImport3dFixtures");
+        try {
+            System.setProperty("turboism.requireImport3dFixtures", "false");
+            var skipped = assertThrows(
+                    org.opentest4j.TestAbortedException.class, () -> ModelImportTestFixtures.fixture(missing));
+            assertTrue(skipped.getMessage().contains(missing));
+            assertTrue(skipped.getMessage().contains("turboism.requireImport3dFixtures"));
+
+            System.setProperty("turboism.requireImport3dFixtures", "true");
+            var failed = assertThrows(
+                    org.opentest4j.AssertionFailedError.class, () -> ModelImportTestFixtures.fixture(missing));
+            assertTrue(failed.getMessage().contains(missing));
+        } finally {
+            if (previous == null) {
+                System.clearProperty("turboism.requireImport3dFixtures");
+            } else {
+                System.setProperty("turboism.requireImport3dFixtures", previous);
+            }
+        }
     }
 }

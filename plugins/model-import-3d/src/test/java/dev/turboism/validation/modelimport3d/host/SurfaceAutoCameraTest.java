@@ -3,15 +3,12 @@ package dev.turboism.validation.modelimport3d.host;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.turboism.sdk.cubism.id.ParameterId;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class SurfaceAutoCameraTest {
     private static byte[] cube() throws Exception {
-        return Files.readAllBytes(
-                Path.of(System.getProperty("mi3d.repo"), "artifacts/cube-textured/cube-textured.glb"));
+        return ModelImportTestFixtures.readBytes("artifacts/cube-textured/cube-textured.glb");
     }
 
     @Test
