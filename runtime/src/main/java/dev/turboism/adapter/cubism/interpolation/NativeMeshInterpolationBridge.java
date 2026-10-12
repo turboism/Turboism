@@ -18,8 +18,8 @@ public final class NativeMeshInterpolationBridge {
     /**
      * Exact reviewed host artifacts admitted by the interpolation hook.
      */
-    public static final java.util.Set<String> HOST_SHA256S = java.util.Collections.unmodifiableSet(
-            ReviewedHostArtifacts.all().stream()
+    public static final java.util.Set<String> HOST_SHA256S =
+            java.util.Collections.unmodifiableSet(ReviewedHostArtifacts.all().stream()
                     .map(dev.turboism.mapping.verification.HostArtifactDigest::sha256)
                     .collect(java.util.stream.Collectors.toSet()));
 

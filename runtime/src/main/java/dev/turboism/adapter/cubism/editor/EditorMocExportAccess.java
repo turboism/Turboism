@@ -29,8 +29,7 @@ final class EditorMocExportAccess {
     CubismMocExport exportMoc(
             final String identity, final Object source, final Object model, final CubismMocExportSettings settings) {
         Objects.requireNonNull(settings, "settings");
-        if (EditorMocExportSelectorContract.SUPPORTED_CUBISM_VERSIONS.stream()
-                        .noneMatch(resolver::isExactCubismVersion)
+        if (EditorMocExportSelectorContract.SUPPORTED_CUBISM_VERSIONS.stream().noneMatch(resolver::isExactCubismVersion)
                 || !resolver.authorizesFeature(
                         EditorMocExportSelectorContract.ADAPTER_SLICE_ID,
                         EditorMocExportSelectorContract.CAPABILITY_ID,
