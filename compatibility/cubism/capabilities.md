@@ -345,6 +345,7 @@ Selector contracts and class-pin tables that narrow verified capabilities to spe
 | class-pins/`mesh-mirror.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`mesh-triangulation-hash.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`model-update-skip.json` | `ClassPinTable` | 5.2.00–5.3.04 |
+| class-pins/`shader-uniform.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`startup-suppression.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`texture-upload-preparation.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`uniform-location-lifecycle.json` | `ClassPinTable` | 5.2.00–5.3.04 |

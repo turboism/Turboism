@@ -427,36 +427,6 @@
   },
   {
    "kind": "collection",
-   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/shader/ShaderUniformTransformer.java",
-   "versions": [
-    "5.2.03"
-   ],
-   "basis": "verification-derived",
-   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
-  },
-  {
-   "kind": "collection",
-   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/shader/ShaderUniformTransformer.java",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
-   ],
-   "basis": "verification-derived",
-   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
-  },
-  {
-   "kind": "collection",
-   "path": "runtime/src/main/java/dev/turboism/adapter/cubism/shader/ShaderUniformTransformer.java",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "basis": "verification-derived",
-   "reason": "Admission set limited to the exact artifacts the capability was verified on by the merged editor-model records (5.2.03, 5.3.02, 5.3.03); the pending 5.3.04 extension is recorded in scripts/version-monotonicity-exceptions.json."
-  },
-  {
-   "kind": "collection",
    "path": "runtime/src/main/java/dev/turboism/adapter/cubism/startup/StartupSuppressionProfile.java",
    "versions": [
     "5.0.00",

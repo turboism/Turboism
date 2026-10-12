@@ -11250,6 +11250,21 @@
    "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/modelupdate/ModelUpdateSkipTarget.java"
   },
   {
+   "name": "shader-uniform",
+   "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/shader/ShaderUniformTransformer.java"
+  },
+  {
    "name": "startup-suppression",
    "versions": [
     "5.0.00",

@@ -27,6 +27,10 @@ final class UniformLocationCacheHookContributor extends NativeOptimizationHookCo
         final VerifiedUniformLocationInstaller installer = new VerifiedUniformLocationInstaller(
                 environment.instrumentation(), host.artifact(), host.classLoader());
         installer.install();
+        // The shader-uniform hook owns the same query seam and runs first (premain,
+        // retransformation-incapable). COMPOSED_SHADER_UNIFORM records that this
+        // cache took the seam over from its reviewed composed body.
+        log(environment, id() + " seam=" + (installer.seamComposed() ? "COMPOSED_SHADER_UNIFORM" : "OFFICIAL"));
         return () -> {
             try {
                 installer.close();

@@ -153,6 +153,54 @@ class VerifiedUniformLocationInstallerTest {
     }
 
     @Test
+    void shaderUniformComposedBaselineIsAdmittedOnlyWithItsPatchRecord() throws Exception {
+        final String shader = "com/live2d/graphics3d/shader/GShader";
+        try (Fixture fixture = fixture()) {
+            byte[] reference;
+            try (var jar = new java.util.jar.JarFile(fixture.artifact.toFile());
+                    var input = jar.getInputStream(jar.getJarEntry(shader + ".class"))) {
+                reference = input.readAllBytes();
+            }
+            // Exactly the real retransform baseline: the shader-uniform hook is
+            // registered retransformation-incapable, so its patched definition is what
+            // this installer observes.
+            fixture.baseline.put(
+                    shader, dev.turboism.adapter.cubism.shader.ShaderUniformTransformer.composedDefinition(reference));
+            IllegalStateException rejected = assertThrows(
+                    IllegalStateException.class,
+                    () -> new VerifiedUniformLocationInstaller(
+                            fixture.instrumentation, fixture.artifact, fixture.loader),
+                    "a patched body without our own patch record is foreign instrumentation");
+            assertTrue(rejected.getMessage().contains(shader + ".preDraw_exe"), rejected.getMessage());
+
+            dev.turboism.adapter.cubism.shader.ShaderUniformTransformer.markPatched(fixture.loader, shader);
+            try {
+                VerifiedUniformLocationInstaller uniform =
+                        new VerifiedUniformLocationInstaller(fixture.instrumentation, fixture.artifact, fixture.loader);
+                assertTrue(uniform.seamComposed(), "the composed shader seam must be recognised");
+                uniform.install();
+                assertTrue(System.getProperties().containsKey(UniformLocationCallSiteTransformer.LOOKUP_PROPERTY));
+                uniform.close();
+                assertTrue(uniform.restored(), "restore must see the composed baseline it was admitted under");
+            } finally {
+                dev.turboism.adapter.cubism.shader.ShaderUniformTransformer.clearPatched(fixture.loader, shader);
+            }
+        }
+    }
+
+    @Test
+    void officialBaselineReportsAnUncomposedSeam() throws Exception {
+        try (Fixture fixture = fixture()) {
+            VerifiedUniformLocationInstaller uniform =
+                    new VerifiedUniformLocationInstaller(fixture.instrumentation, fixture.artifact, fixture.loader);
+            assertFalse(uniform.seamComposed());
+            uniform.install();
+            uniform.close();
+            assertTrue(uniform.restored());
+        }
+    }
+
+    @Test
     void elisionClosedBeforeUniformKeepsOfficialAdmission() throws Exception {
         try (Fixture fixture = fixture()) {
             VerifiedGlGetErrorElisionInstaller elision =
@@ -178,6 +226,9 @@ class VerifiedUniformLocationInstallerTest {
         final Path artifact;
         final URLClassLoader loader;
         final List<ClassFileTransformer> active = new ArrayList<>();
+        /** Initial bytes an upstream retransformation-incapable transformer already rewrote. */
+        final java.util.Map<String, byte[]> baseline = new java.util.HashMap<>();
+
         final Instrumentation instrumentation;
         boolean failHookRetransform;
 
@@ -208,10 +259,12 @@ class VerifiedUniformLocationInstallerTest {
                                     throw new UnmodifiableClassException("injected installation failure");
                                 }
                                 for (Class<?> type : (Class<?>[]) args[0]) {
-                                    byte[] bytes;
-                                    try (var input = type.getResourceAsStream(
-                                            "/" + type.getName().replace('.', '/') + ".class")) {
-                                        bytes = input.readAllBytes();
+                                    String internal = type.getName().replace('.', '/');
+                                    byte[] bytes = baseline.get(internal);
+                                    if (bytes == null) {
+                                        try (var input = type.getResourceAsStream("/" + internal + ".class")) {
+                                            bytes = input.readAllBytes();
+                                        }
                                     }
                                     for (ClassFileTransformer transformer : List.copyOf(active)) {
                                         byte[] next = transformer.transform(
