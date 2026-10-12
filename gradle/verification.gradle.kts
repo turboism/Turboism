@@ -1064,6 +1064,19 @@ val checkRemoteHygieneSelfTest by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/test/test_check_remote_hygiene.py")
 }
 
+val checkTestCorpusSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed fixtures for test corpus packaging, tamper detection, and path safety."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/test_corpus.py",
+        "scripts/test/test_test_corpus.py",
+        "test-assets/corpus.json"
+    )
+    VerificationStamps.apply(this)
+    commandLine("python3", "scripts/test/test_test_corpus.py")
+}
+
 /*
  * --worktree scans every tracked index blob. The index file covers membership changes
  * (`git add`/`git rm --cached` on an unchanged file) that worktree content alone cannot
@@ -1165,6 +1178,7 @@ val devCheck by tasks.registering {
         "checkCompatibilityMatrix",
         "checkShellLint",
         checkRepositoryHygiene,
+        checkTestCorpusSelfTest,
         checkEditorModelAliases,
         checkVersionMonotonicity,
         checkVersionSetRegistry,
