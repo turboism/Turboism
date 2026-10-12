@@ -71,6 +71,8 @@ if [[ "${TURBOISM_HOST_VALIDATION_ENV_LOADED:-}" != "$BASHPID" ]]; then
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_PSD_NAME:=clipmask.psd}"
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_PSD_SHA256:=27c2641e45d9ca55478550b99d1bf69262383af38b0eed39cc172fb96b3b053e}"
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_HISTORY_5302:=}"
+  : "${TURBOISM_HOST_VALIDATION_DEFAULT_VERSION:=5302}"
+  : "${TURBOISM_HOST_VALIDATION_DEFAULT_FIXTURE_VERSION:=5303}"
 
   unset _turboism_env_root _turboism_env_file _turboism_env_line _turboism_env_key _turboism_env_value _turboism_env_quote
 fi
@@ -84,45 +86,226 @@ turboism_require_env() {
   fi
 }
 
-turboism_select_fixture() {
+turboism_dotted_version() {
   local version=$1
-  case "$version" in
-    5203)
-      turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_5203 "Cubism 5.2.03 fixture path" || return
-      fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_5203"
-      fixture_sha256="$TURBOISM_HOST_VALIDATION_FIXTURE_5203_SHA256"
-      ;;
-    5302)
-      turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_5302 "Cubism 5.3.02 fixture path" || return
-      fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_5302"
-      fixture_sha256="$TURBOISM_HOST_VALIDATION_FIXTURE_5302_SHA256"
-      ;;
-    5303)
-      turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_5303 "Cubism 5.3.03 fixture path" || return
-      fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_5303"
-      fixture_sha256="$TURBOISM_HOST_VALIDATION_FIXTURE_5303_SHA256"
-      ;;
-    5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5300|5301|5304)
-      # Newly provisioned versions default to the shared fixture; a
-      # version-specific override may be set via
-      # TURBOISM_HOST_VALIDATION_FIXTURE_<ver>[_SHA256] in .env.
-      local semver="${version:0:1}.${version:1:1}.${version:2:2}"
-      local vkey="${version}"
-      local pspec="TURBOISM_HOST_VALIDATION_FIXTURE_${vkey}"
-      local sspec="TURBOISM_HOST_VALIDATION_FIXTURE_${vkey}_SHA256"
-      if [ -n "${!pspec:-}" ]; then
-        fixture_src="${!pspec}"
-        fixture_sha256="${!sspec:-}"
-        [ -n "$fixture_sha256" ] || { printf 'host validation: %s set but %s missing\n' "$pspec" "$sspec" >&2; return 2; }
+  [[ "$version" =~ ^[0-9]{4}$ ]] || return 2
+  printf '%s.%s.%s\n' "${version:0:1}" "${version:1:1}" "${version:2:2}"
+}
+
+turboism_manifest_path() {
+  local preview_dir
+  preview_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [[ -n "${TURBOISM_HOST_VALIDATION_MANIFEST:-}" && -f "${TURBOISM_HOST_VALIDATION_MANIFEST}" ]]; then
+    printf '%s\n' "$TURBOISM_HOST_VALIDATION_MANIFEST"
+  elif [[ -f "$preview_dir/host-validation-tasks.json" ]]; then
+    printf '%s\n' "$preview_dir/host-validation-tasks.json"
+  else
+    return 1
+  fi
+}
+
+turboism_reviewed_versions() {
+  local sep=${1:-$'\n'}
+  local manifest_file
+  if manifest_file="$(turboism_manifest_path)"; then
+    python3 - "$manifest_file" "$sep" <<'PY'
+import json, sys
+data = json.loads(open(sys.argv[1], encoding="utf-8").read())
+versions = sorted({v for t in data.get("tasks", {}).values() for v in t.get("versions", [])})
+print(sys.argv[2].join(versions))
+PY
+  else
+    return 1
+  fi
+}
+
+turboism_is_reviewed_version() {
+  local version=$1
+  [[ "$version" =~ ^5[0-3][0-9]{2}$ ]] || return 1
+  local manifest_file
+  if manifest_file="$(turboism_manifest_path)"; then
+    python3 - "$manifest_file" "$version" <<'PY'
+import json, sys
+data = json.loads(open(sys.argv[1], encoding="utf-8").read())
+versions = {v for t in data.get("tasks", {}).values() for v in t.get("versions", [])}
+raise SystemExit(0 if sys.argv[2] in versions else 1)
+PY
+  else
+    return 0
+  fi
+}
+
+turboism_task_versions() {
+  local task=$1 sep=${2:-$'\n'}
+  local manifest_file
+  if manifest_file="$(turboism_manifest_path)"; then
+    python3 - "$manifest_file" "$task" "$sep" <<'PY'
+import json, sys
+data = json.loads(open(sys.argv[1], encoding="utf-8").read())
+task_data = data.get("tasks", {}).get(sys.argv[2])
+if not task_data:
+    raise SystemExit(2)
+print(sys.argv[3].join(task_data.get("versions", [])))
+PY
+  else
+    return 2
+  fi
+}
+
+turboism_task_versions_usage() {
+  local task=$1 versions_bar
+  if versions_bar="$(turboism_task_versions "$task" '|')"; then
+    printf '<%s>' "$versions_bar"
+  else
+    printf '<version>'
+  fi
+}
+
+turboism_task_supports_version() {
+  local task=$1 version=$2
+  [[ "$version" =~ ^5[0-3][0-9]{2}$ ]] || return 1
+  local manifest_file
+  if manifest_file="$(turboism_manifest_path)"; then
+    python3 - "$manifest_file" "$task" "$version" <<'PY'
+import json, sys
+data = json.loads(open(sys.argv[1], encoding="utf-8").read())
+task_data = data.get("tasks", {}).get(sys.argv[2])
+if not task_data:
+    raise SystemExit(2)
+raise SystemExit(0 if sys.argv[3] in task_data.get("versions", []) else 1)
+PY
+  else
+    return 0
+  fi
+}
+
+turboism_require_task_version() {
+  local task=$1 version=${2:-}
+  if ! turboism_task_supports_version "$task" "$version"; then
+    local admitted
+    admitted="$(turboism_task_versions "$task" ', ' 2>/dev/null || printf 'none')"
+    printf 'error: %s host validation: unsupported version: %s (admitted: %s)\n' \
+      "$task" "$version" "$admitted" >&2
+    return 2
+  fi
+}
+
+turboism_expected_core_tuple() {
+  local version=$1
+  turboism_is_reviewed_version "$version" || {
+    printf 'error: no observed Core tuple for %s\n' "$version" >&2
+    return 2
+  }
+  case "${version:0:2}" in
+    50|51) printf '5.0.0\n' ;;
+    52) printf '5.0.256\n' ;;
+    53)
+      if (( 10#${version:2:2} < 4 )); then
+        printf '6.0.257\n'
       else
-        turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_5303 "default Cubism fixture path for $semver" || return
-        fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_5303"
-        fixture_sha256="$TURBOISM_HOST_VALIDATION_FIXTURE_5303_SHA256"
+        printf '6.0.513\n'
       fi
       ;;
     *)
-      printf 'host validation: unsupported fixture version: %s\n' "$version" >&2
+      printf 'error: no observed Core tuple for %s\n' "$version" >&2
       return 2
       ;;
   esac
+}
+
+turboism_cubism_install_dir_windows() {
+  local version=$1
+  local semver
+  semver="$(turboism_dotted_version "$version")" || return 2
+  local root_dir
+  root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+  local env_py="$root_dir/scripts/preview/host_validation_evidence.py"
+  if [[ -f "$env_py" ]]; then
+    local folder
+    folder="$(python3 - "$env_py" "$version" <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("hv_ev", sys.argv[1])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+entry = mod.HOSTS.get(sys.argv[2])
+print(entry[0] if entry else f"Live2D Cubism {sys.argv[2][0]}.{sys.argv[2][1]}.{sys.argv[2][2:]}")
+PY
+)"
+    printf 'C:/Program Files/%s\n' "$folder"
+  else
+    printf 'C:/Program Files/Live2D Cubism %s\n' "$semver"
+  fi
+}
+
+turboism_reviewed_jar_sha256() {
+  local version=$1
+  local semver
+  semver="$(turboism_dotted_version "$version")" || return 2
+  local root_dir
+  root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+  local record="$root_dir/compatibility/cubism/verification/cubism-${semver}-editor-model.json"
+  [[ -f "$record" ]] || {
+    printf 'host validation: missing editor-model verification record for %s\n' "$semver" >&2
+    return 2
+  }
+  python3 - "$record" <<'PY'
+import json, sys
+data = json.loads(open(sys.argv[1], encoding="utf-8").read())
+print(data["artifact"]["sha256"])
+PY
+}
+
+turboism_core_acquisition_metadata() {
+  local version=$1
+  local semver
+  semver="$(turboism_dotted_version "$version")" || return 2
+  local root_dir
+  root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+  local core_rec="$root_dir/compatibility/cubism/verification/cubism-${semver}-core-model-read.json"
+  local edit_rec="$root_dir/compatibility/cubism/verification/cubism-${semver}-editor-model.json"
+  [[ -f "$core_rec" && -f "$edit_rec" ]] || {
+    printf 'error: unsupported installed Core acquisition version: %s\n' "$version" >&2
+    return 2
+  }
+  local meta
+  meta="$(python3 - "$core_rec" "$edit_rec" <<'PY'
+import json, sys
+core = json.loads(open(sys.argv[1], encoding="utf-8").read())
+edit = json.loads(open(sys.argv[2], encoding="utf-8").read())
+print(core["profileId"])
+print(edit["artifact"]["sha256"])
+print(core["artifact"]["sha256"])
+PY
+)" || return 2
+  {
+    IFS= read -r profile
+    IFS= read -r editor_jar_sha256
+    IFS= read -r core_jar_sha256
+  } <<< "$meta"
+}
+
+turboism_select_fixture() {
+  local version=$1
+  turboism_is_reviewed_version "$version" || {
+    printf 'host validation: unsupported fixture version: %s\n' "$version" >&2
+    return 2
+  }
+  local semver
+  semver="$(turboism_dotted_version "$version")" || return 2
+  local pspec="TURBOISM_HOST_VALIDATION_FIXTURE_${version}"
+  local sspec="TURBOISM_HOST_VALIDATION_FIXTURE_${version}_SHA256"
+  if [ -n "${!pspec:-}" ]; then
+    fixture_src="${!pspec}"
+    fixture_sha256="${!sspec:-}"
+    [ -n "$fixture_sha256" ] || { printf 'host validation: %s set but %s missing\n' "$pspec" "$sspec" >&2; return 2; }
+  elif [ -n "${!sspec:-}" ]; then
+    turboism_require_env "$pspec" "Cubism $semver fixture path" || return
+  else
+    local fallback_ver="${TURBOISM_HOST_VALIDATION_DEFAULT_FIXTURE_VERSION:-5303}"
+    local fallback_pspec="TURBOISM_HOST_VALIDATION_FIXTURE_${fallback_ver}"
+    local fallback_sspec="TURBOISM_HOST_VALIDATION_FIXTURE_${fallback_ver}_SHA256"
+    turboism_require_env "$fallback_pspec" "default Cubism fixture path for $semver" || return
+    fixture_src="${!fallback_pspec}"
+    fixture_sha256="${!fallback_sspec}"
+  fi
 }

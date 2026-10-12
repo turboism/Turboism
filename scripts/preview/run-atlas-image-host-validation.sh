@@ -9,11 +9,8 @@ worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" \
 # Machine-specific input paths come from the ignored .env/environment entry.
 # shellcheck source=/dev/null
 source "$root/scripts/preview/host-validation-env.sh"
-turboism_select_fixture 5303 || exit 2
-fixture="${fixture_src:-}"
 fixture_sha256=2866a509322496680500090cb26432b1b59fe30404e1f5e2163536c01a8dce4e
 fixture_name=atlas_mapping_100.cmo3
-official_jar_sha256=bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166
 
 fail() {
   printf 'atlas-image host validation: %s\n' "$*" >&2
@@ -21,9 +18,9 @@ fail() {
 }
 
 usage() {
-  cat >&2 <<'EOF'
+  cat >&2 <<EOF
 Usage:
-  run-atlas-image-host-validation.sh 5303 <run-label>
+  run-atlas-image-host-validation.sh $(turboism_task_versions_usage atlas-image) <run-label>
     [--bundle-manifest <published manifest>]
     [--prepare-dir <directory> | --dry-run]
 
@@ -33,20 +30,24 @@ EOF
   exit 2
 }
 
-[[ -n "$fixture" ]] || fail 'fixed Circle100 fixture requires TURBOISM_HOST_VALIDATION_FIXTURE_5303 in ignored .env/environment'
+[[ $# -ge 2 ]] || usage
+version="$1"
+run_label="$2"
+shift 2
+turboism_require_task_version atlas-image "$version" || fail "unsupported host version: $version"
+[[ "$run_label" =~ ^[A-Za-z0-9._-]{1,64}$ ]] || fail "run label is not bounded and safe"
+
+turboism_select_fixture "$version" || exit 2
+fixture="${fixture_src:-}"
+official_jar_sha256="$(turboism_reviewed_jar_sha256 "$version")" || exit 2
+
+[[ -n "$fixture" ]] || fail "fixed Circle100 fixture requires TURBOISM_HOST_VALIDATION_FIXTURE_$version in ignored .env/environment"
 [[ "$fixture" = /* ]] || fail "fixed Circle100 fixture path must be absolute: $fixture"
 [[ "$(basename -- "$fixture")" == "$fixture_name" ]] || fail "fixed Circle100 fixture basename mismatch: $fixture"
 [[ -f "$fixture" ]] || fail "fixed Circle100 fixture is missing: $fixture"
 fixture="$(realpath -e -- "$fixture")"
 [[ "$(sha256sum "$fixture" | cut -d' ' -f1)" == "$fixture_sha256" ]] \
   || fail "fixed Circle100 fixture hash mismatch: $fixture"
-
-[[ $# -ge 2 ]] || usage
-version="$1"
-run_label="$2"
-shift 2
-[[ "$version" == 5303 ]] || fail "this scene admits only exact host version 5303"
-[[ "$run_label" =~ ^[A-Za-z0-9._-]{1,64}$ ]] || fail "run label is not bounded and safe"
 
 manifest="${TURBOISM_ATLAS_IMAGE_BUNDLE_MANIFEST:-$root/build/preview/$worktree_id/atlas-image-observe/bundle.manifest}"
 prepare_dir=""
@@ -95,7 +96,7 @@ for key in "${!values[@]}"; do
   esac
 done
 [[ "${values[schemaVersion]}" == 1 ]] || fail "manifest schemaVersion must be 1"
-[[ "${values[scene]}" == atlas-image-observe:5303 ]] || fail "manifest scene mismatch"
+[[ "${values[scene]}" == "atlas-image-observe:$version" ]] || fail "manifest scene mismatch"
 [[ "${values[worktreeId]}" == "$worktree_id" ]] || fail "manifest worktree ID mismatch"
 [[ "${values[fixture]}" == "$fixture" ]] || fail "manifest fixture source is not the fixed reviewed source"
 [[ "${values[fixtureName]}" == "$fixture_name" ]] || fail "manifest fixture name mismatch"
@@ -144,7 +145,7 @@ agent="$(realpath -e -- "$agent")"
 
 runner_args=(
   --name atlas-image-observe
-  --version 5303
+  --version "$version"
   --run-label "$run_label"
   --bundle-root "$bundle_root"
   --agent "$agent"
@@ -165,7 +166,7 @@ runner_args=(
   --jvm-option '-Dturboism.validation.atlasImageObserve.taskId={TASK_ID}'
   --jvm-option '-Dturboism.validation.atlasImageObserve.fixture={FIXTURE}'
   --jvm-option '-Dturboism.validation.atlasImageObserve.fixtureName={FIXTURE_NAME}'
-  --jvm-option '-Dturboism.validation.atlasImageObserve.version=5303'
+  --jvm-option "-Dturboism.validation.atlasImageObserve.version=$version"
   --jvm-option '-Dturboism.validation.atlasImageObserve.outputRelative=state/atlas-image-observe'
   --jvm-option '-Dturboism.validation.atlasImageObserve.timeoutSeconds=900'
 )
