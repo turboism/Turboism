@@ -6,7 +6,7 @@ import dev.turboism.sdk.plugin.Registration;
 /**
  * Mirror counterpart resolution, defaulted by the framework and overridable by a plugin.
  */
-@CubismEditor(from = "5.2.00")
+@CubismEditor(from = "5.0.00")
 public interface MeshMirrorCounterparts {
 
     /**

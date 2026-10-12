@@ -38,13 +38,19 @@ public final class HostProbe implements TurboismPlugin {
     private HistorySnapshot initialHistory;
     private Map<String, Object> initialCounts;
 
+    private static final List<String> ADMITTED_HOST_VERSIONS = List.of(
+        "5000", "5001", "5002", "5003", "5004", "5005", "5006",
+        "5100", "5101", "5102", "5103",
+        "5200", "5201", "5202", "5203",
+        "5300", "5301", "5302", "5303", "5304");
+
     @Override public void init(PluginContext context) { this.context = context; }
 
     @Override public synchronized void enable() {
         if (worker != null) throw new IllegalStateException("probe may run only once");
         String runId = System.getProperty("turboism.validation.runId", "");
         NativeAssertions.require(runId.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,180}"), "missing task run ID");
-        NativeAssertions.require("5302".equals(System.getProperty("turboism.validation.hostVersion")), "N2 requires 5302");
+        NativeAssertions.require(ADMITTED_HOST_VERSIONS.contains(System.getProperty("turboism.validation.hostVersion")), "N2 requires admitted hostVersion");
         String mode = System.getProperty("turboism.validation.mi3d.mode", "");
         requireMode(mode);
         report = new NativeReport(runId);
