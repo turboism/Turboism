@@ -36,18 +36,12 @@ set -euo pipefail
 # shellcheck source=host-validation-env.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
-version="5303"
+version="${TURBOISM_HOST_VALIDATION_DEFAULT_FIXTURE_VERSION:-5303}"
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   version="$1"
   shift
 fi
-case "$version" in
-  5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304) ;;
-  *)
-    echo "error: warp-deformer Alt-symmetry host validation requires a reviewed version" >&2
-    exit 2
-    ;;
-esac
+turboism_require_task_version warp-deformer-alt-symmetry "$version" || exit 2
 run_label="r1"
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   run_label="$1"

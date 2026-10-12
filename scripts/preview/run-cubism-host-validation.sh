@@ -27,7 +27,7 @@ usage() {
 Usage:
   run-cubism-host-validation.sh \
     --name <validation-name> \
-    --version <5203|5302|5303> \
+    --version <version-code> \
     --bundle-root <local-directory> \
     --agent <local-agent.jar> \
     --home-config <local-config.json> \
@@ -1324,16 +1324,12 @@ remote_process_alive() {
 }
 
 remote_normal_exit_evidence_seen() {
+  if [ -f "$evidence_dir/cubism-console.txt" ] \
+    && grep -Eq -- '-- successfully exited pid:[0-9]+ --' "$evidence_dir/cubism-console.txt"; then
+    return 0
+  fi
   case "$version" in
-    5302|5303)
-      [ -f "$evidence_dir/cubism-console.txt" ] \
-        && grep -Eq -- '-- successfully exited pid:[0-9]+ --' "$evidence_dir/cubism-console.txt"
-      ;;
-    5203)
-      if [ -f "$evidence_dir/cubism-console.txt" ] \
-        && grep -Eq -- '-- successfully exited pid:[0-9]+ --' "$evidence_dir/cubism-console.txt"; then
-        return 0
-      fi
+    50*|51*|52*)
       local log_file
       log_file="$(latest_runtime_log)"
       [ -n "$log_file" ] || return 1
@@ -2632,7 +2628,7 @@ log "terminal PASS observed; waiting for graceful launcher exit"
 deadline=$((SECONDS + exit_timeout))
 while [ "$SECONDS" -lt "$deadline" ]; do
   if remote_normal_exit_evidence_seen; then
-    case "$version" in 5203|5302|5303) normal_exit=1 ;; esac
+    normal_exit=1
     if remote_process_alive; then
       remote_record_wrapper_cleanup 'native-exit-evidence-observed'
       remote_stop_process_tree

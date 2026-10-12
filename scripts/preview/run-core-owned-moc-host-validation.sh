@@ -1,28 +1,22 @@
 #!/usr/bin/env bash
 # Standalone production SDK Core assertions under the official contained Runner.
 set -euo pipefail
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$repo_root/scripts/preview/host-validation-env.sh"
 if [ "$#" -lt 1 ]; then
-  echo 'usage: run-core-owned-moc-host-validation.sh <version-code> [run-label] [runner-options...]' >&2
+  echo "usage: run-core-owned-moc-host-validation.sh $(turboism_task_versions_usage core-owned-moc) [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
 shift
-# Tuples observed in finalized exact-host preflights; no series-based guessing.
-case "$version" in
-  5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103) core_tuple='5.0.0' ;;
-  5200|5201|5202|5203) core_tuple='5.0.256' ;;
-  5300|5301|5302|5303) core_tuple='6.0.257' ;;
-  5304) core_tuple='6.0.513' ;;
-  *) echo "error: no observed Core tuple for $version" >&2; exit 2 ;;
-esac
+turboism_require_task_version core-owned-moc "$version" || exit 2
+core_tuple="$(turboism_expected_core_tuple "$version")" || exit 2
 run_label='r1'
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   run_label="$1"
   shift
 fi
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$repo_root/scripts/preview/host-validation-env.sh"
-turboism_select_fixture "$version"
+turboism_select_fixture "$version" || exit 2
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
 bundle_root="$repo_root/build/manual-test/$worktree_id/windows-mcp-validation"
 exec bash "$repo_root/scripts/preview/run-cubism-host-validation.sh" \
