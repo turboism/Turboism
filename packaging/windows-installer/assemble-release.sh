@@ -162,6 +162,30 @@ for entry in engine_entries:
             or path.stat().st_size != entry["bytes"]
             or hashlib.sha256(path.read_bytes()).hexdigest() != entry["sha256"]):
         sys.exit(f"error: staged optional script engine differs from the download pin: {path.name}")
+
+# script-engine.json 是手工清单：与 Gradle 生成的 verification-metadata.xml
+# 一致性此前无机制保证。此处强制每个钉住工件都能在 Gradle 校验元数据中找到
+# 同名 artifact 且 sha256 相同 —— 手工清单漂移即组装失败。
+import os
+import xml.etree.ElementTree as _ET
+_verification = Path(os.environ.get(
+    "TURBOISM_VERIFICATION_METADATA",
+    manifest.parent.parent / "gradle" / "verification-metadata.xml"))
+if not _verification.is_file():
+    sys.exit(f"error: Gradle verification metadata missing: {_verification}")
+_pins = {}
+for _artifact in _ET.parse(_verification).getroot().iter():
+    if not _artifact.tag.endswith("artifact"):
+        continue
+    for _child in _artifact:
+        if _child.tag.endswith("sha256"):
+            _pins[_artifact.get("name")] = _child.get("value")
+for entry in engine_entries:
+    if _pins.get(entry["name"]) != entry["sha256"]:
+        sys.exit(
+            f"error: script-engine.json pin {entry['name']} diverges from "
+            f"gradle/verification-metadata.xml ({_pins.get(entry['name'])})"
+        )
 core_payload = [("turboism-agent.jar", stage / "turboism-agent.jar")]
 core_payload.extend(
     (path.relative_to(stage).as_posix(), path)
@@ -177,6 +201,8 @@ core_payload.extend([
     ("install-managed-graal.ps1", stage / "install-managed-graal.ps1"),
     ("install-script-engine.ps1", stage / "install-script-engine.ps1"),
     ("script-engine.json", stage / "script-engine.json"),
+    ("retired-plugins.txt", stage / "retired-plugins.txt"),
+    ("managed-graal.json", stage / "managed-graal.json"),
     ("turboism.ico", stage / "turboism.ico"),
     ("turboism.png", stage / "turboism.png"),
     ("README.txt", stage / "README.txt"),
@@ -330,6 +356,15 @@ for p in plugins:
     lines.append(f'      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;{p["id"]}"')
     lines.append("    ${EndIf}")
     lines.append("  ${EndIf}")
+lines.append("FunctionEnd")
+lines.append("")
+
+# 卸载白名单：与 IzPack 卸载器同语义 —— 只删安装器部署的插件 JAR，未知文件与
+# 第三方 JAR 保留（plugins 目录仅在空时被移除）。勿手改：由本生成器输出。
+lines.append("; 卸载白名单：仅删除安装器部署的插件 JAR；未知文件与第三方 JAR 保留（对齐 IzPack 卸载语义）。")
+lines.append("Function un.DeleteInstallerPluginJars")
+for module in modules:
+    lines.append(f'  Delete "$INSTDIR\\plugins\\{module}.jar"')
 lines.append("FunctionEnd")
 lines.append("")
 

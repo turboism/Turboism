@@ -13,8 +13,23 @@ import java.nio.charset.StandardCharsets;
 
 /** Shared strict UTF-8 JSON reader for mapping review inputs and canonical writer model. */
 public final class StrictJson {
+
+    /**
+     * Byte ceiling for one JSON document, enforced by the parser's stream constraints and by
+     * the bounded readers feeding it; reviewed records and generated documents stay far below
+     * it. Sized at 32 MiB — the same per-entry bound {@link JarScanPolicy} applies.
+     */
+    public static final long MAX_DOCUMENT_BYTES = 32L * 1024 * 1024;
+
+    /** Deepest JSON nesting admitted; reviewed documents stay far below this depth. */
+    public static final int MAX_NESTING_DEPTH = 64;
+
     public static final ObjectMapper MAPPER = new ObjectMapper(JsonFactory.builder()
                     .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+                    .streamReadConstraints(com.fasterxml.jackson.core.StreamReadConstraints.builder()
+                            .maxNestingDepth(MAX_NESTING_DEPTH)
+                            .maxDocumentLength(MAX_DOCUMENT_BYTES)
+                            .build())
                     .build())
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
             .enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)

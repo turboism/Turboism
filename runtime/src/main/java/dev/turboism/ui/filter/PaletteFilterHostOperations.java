@@ -856,8 +856,46 @@ public class PaletteFilterHostOperations
 
     // ------------------------------------------------------------------ util
 
+    /**
+     * Raw host member names this UI layer may read outside a verified access plan.
+     *
+     * <p>The verified plan models reviewed Cubism selectors; palette filtering instead inspects
+     * host Swing widgets and document objects discovered through the AWT/component hierarchy —
+     * a surface the plan does not model — so the few member reads below run as a deliberate,
+     * closed exemption. A name absent from these sets is refused (fail closed) rather than
+     * reflectively probed. Never widen the sets silently: a member that can be pinned in a
+     * verification record must be read through a {@code VerifiedMemberResolver} instead.</p>
+     *
+     * <p>Fields:</p>
+     * <ul>
+     *   <li>{@code a} — scene-table row listener → palette controller
+     *       ({@code com.live2d.cubism.view.palette.scene.m}; verified selector
+     *       {@code cubism.scene-palette.listener.palette})</li>
+     *   <li>{@code h} — scene palette controller → displayed row list
+     *       ({@code com.live2d.cubism.view.palette.scene.b}; selector
+     *       {@code cubism.scene-palette.controller.table-data}, retained scene-filter path)</li>
+     * </ul>
+     *
+     * <p>Zero-argument methods:</p>
+     * <ul>
+     *   <li>{@code h},{@code i} — deformer-tree node → parameter source; the exact-version
+     *       accessors pinned by {@link DeformerNodeSourceProfile} for
+     *       {@code com.live2d.ui.treeTable.c} (alias
+     *       {@code cubism.ui-control-appearance.part.node-source})</li>
+     *   <li>{@code e} — scene palette controller → animation content
+     *       ({@code cubism.scene-palette.controller.content}, retained scene-filter path)</li>
+     *   <li>{@code getSceneSource},{@code getMovieInfo},{@code getSceneName},{@code getTag},
+     *       {@code getDisplayDuration} — scene document/source/movie-info projections of the
+     *       retained scene-filter path ({@code cubism.scene-palette.*} selectors)</li>
+     * </ul>
+     */
+    private static final java.util.Set<String> EXEMPT_FIELD_NAMES = java.util.Set.of("a", "h");
+
+    private static final java.util.Set<String> EXEMPT_METHOD_NAMES = java.util.Set.of(
+            "e", "h", "i", "getSceneSource", "getMovieInfo", "getSceneName", "getTag", "getDisplayDuration");
+
     static Object invoke(final Object target, final String methodName) {
-        if (target == null) {
+        if (target == null || !EXEMPT_METHOD_NAMES.contains(methodName)) {
             return null;
         }
         try {
@@ -869,20 +907,18 @@ public class PaletteFilterHostOperations
     }
 
     static Object field(final Object target, final String name) {
-        if (target == null) {
+        if (target == null || !EXEMPT_FIELD_NAMES.contains(name)) {
             return null;
         }
-        Class<?> type = target.getClass();
-        while (type != null) {
-            try {
-                final Field field = type.getDeclaredField(name);
-                field.setAccessible(true);
-                return field.get(target);
-            } catch (ReflectiveOperationException | LinkageError ignored) {
-                type = type.getSuperclass();
+        try {
+            final Field field = MethodHandleCache.declaredFieldUp(target.getClass(), name);
+            if (!field.canAccess(target) && !field.trySetAccessible()) {
+                return null;
             }
+            return field.get(target);
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+            return null;
         }
-        return null;
     }
 
     static String text(final Object value) {

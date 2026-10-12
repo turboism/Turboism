@@ -3,27 +3,10 @@ import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.SourceSetContainer
 import java.util.jar.JarFile
+import dev.turboism.gradle.internal.VerificationStamps
 
 private fun Project.runtimeMainClasspath() = project(":runtime").extensions
     .getByType<SourceSetContainer>().named("main").get().runtimeClasspath
-
-/*
- * Check tasks prove a predicate over their declared inputs and produce no artifact;
- * with no output Gradle can never mark them up-to-date and re-runs them on every
- * build. The stamp file is that persistent output, written only after the check
- * action succeeds. Call it after any doLast check action so the stamp cannot be
- * written ahead of a failing check.
- */
-private fun Task.verificationStamp() {
-    val stamp = project.layout.buildDirectory.file("verification-stamps/$name.stamp")
-    outputs.file(stamp)
-    doLast {
-        stamp.get().asFile.apply {
-            parentFile.mkdirs()
-            writeText("ok\n")
-        }
-    }
-}
 
 private fun JavaExec.configureRuntimeJavaExec(project: Project, mainClassName: String) {
     dependsOn(":runtime:classes")
@@ -74,7 +57,7 @@ tasks.register<JavaExec>("validatePluginMeta") {
     // is admitted through settings.gradle.kts.
     inputs.file("settings.gradle.kts")
     configureRuntimeJavaExec(project, "dev.turboism.core.schema.plugin.PluginMetaValidationCli")
-    verificationStamp()
+    VerificationStamps.apply(this)
     doFirst {
         setArgs(filesToValidate(pluginMetaFiles).map { it.absolutePath })
     }
@@ -98,7 +81,7 @@ tasks.register<JavaExec>("verifyFirstPartyPluginMetadata") {
     inputs.files(firstPartyJarFiles)
     inputs.file("settings.gradle.kts")
     configureRuntimeJavaExec(project, "dev.turboism.pluginmanagement.FirstPartyMetadataVerificationCli")
-    verificationStamp()
+    VerificationStamps.apply(this)
     doFirst {
         val pairs = firstPartyPluginProjects.sortedBy { it.name }.flatMap { plugin ->
             val descriptor = plugin.file("src/main/resources/META-INF/turboism/plugin.json")
@@ -176,5 +159,5 @@ val verifyFirstPartyPluginReadmes by tasks.registering {
             throw GradleException(failures.joinToString("\n", prefix = "Official plugin README verification failed:\n"))
         }
     }
-    verificationStamp()
+    VerificationStamps.apply(this)
 }

@@ -89,6 +89,29 @@ SECRET_RULES = (
 QUOTE_ESCAPES = {b"a": b"\a", b"b": b"\b", b"f": b"\f", b"n": b"\n",
                  b"r": b"\r", b"t": b"\t", b"v": b"\v", b"\\": b"\\", b'"': b'"'}
 
+# Private-key and keystore files are credential material by path alone, even when
+# their contents would evade the value-signature rules below (e.g. encrypted PEM).
+KEY_MATERIAL_SUFFIXES = (".pem", ".key", ".keystore", ".jks", ".p12", ".pfx")
+
+# BOMs mark encodings whose bytes contain NULs: the binary-skip heuristic must not
+# fire on them, and secret signatures are only visible after decoding correctly.
+# UTF-32 LE shares its first two bytes with the UTF-16 LE BOM, so it is tested first.
+_BOM_ENCODINGS = (
+    (b"\x00\x00\xfe\xff", "utf-32"),
+    (b"\xff\xfe\x00\x00", "utf-32"),
+    (b"\xef\xbb\xbf", "utf-8-sig"),
+    (b"\xff\xfe", "utf-16"),
+    (b"\xfe\xff", "utf-16"),
+)
+
+
+def _decode_text(data):
+    """Return (text, had_bom): BOM-marked encodings decode under their own codec."""
+    for bom, encoding in _BOM_ENCODINGS:
+        if data.startswith(bom):
+            return data.decode(encoding, errors="replace"), True
+    return data.decode("utf-8", errors="replace"), False
+
 
 def redact(text):
     """Replace high-confidence secret-shaped substrings with <redacted>.
@@ -181,14 +204,16 @@ def classify_path(path):
         return "suffix:*.prompt.md"
     if low == "spec.md" or (low.startswith("spec-") and low.endswith(".md")):
         return "basename:spec*.md"
+    if low.endswith(KEY_MATERIAL_SUFFIXES):
+        return "suffix:*" + PurePosixPath(low).suffix
     return None
 
 
 def scan_content(data):
     """Secret-value signature rules over blob text; binaries are skipped."""
-    if b"\x00" in data[:8192]:
+    text, had_bom = _decode_text(data)
+    if not had_bom and b"\x00" in data[:8192]:
         return []
-    text = data.decode("utf-8", errors="replace")
     return [name for rx, name in SECRET_RULES if rx.search(text)]
 
 
@@ -200,21 +225,24 @@ def scan_repository_content(path, data):
     text file so local validation evidence cannot silently return.
     """
     rules = scan_content(data)
-    if b"\x00" in data[:8192]:
+    text, had_bom = _decode_text(data)
+    if not had_bom and b"\x00" in data[:8192]:
         return rules
-    text = data.decode("utf-8", errors="replace")
-    personal_user = "r" + "ain"
-    if "/home/" + personal_user in text:
+    # The developer's account spellings, longest-first so the wider handle wins
+    # over its prefix. Bare handles legitimately appear in history (About and
+    # sponsor links), so only local-machine path/host shapes are gated.
+    personal_users = "(?:raintrap341|raintrap|" + "r" + "ain" + ")"
+    if re.search(r"/home/" + personal_users + r"(?!\w)", text):
         rules.append("local-machine-home")
     # The \Users\ spelling of the developer home is absent from reachable
     # history, so it can be rejected outright. \home\rain and the
     # Java-escaped \\Users\\rain already exist in history and --all has
     # no baseline, so gating those spellings needs a history rewrite.
-    if re.search(r"[\\/]Users[\\/]" + personal_user + r"(?:[\\/]|$)", text):
+    if re.search(r"[\\/]Users[\\/]" + personal_users + r"(?:[\\/]|$)", text):
         rules.append("local-machine-home")
     if re.search(r"/workspace/projects/" + "turboism" + r"(?:/|$)", text):
         rules.append("local-machine-workspace")
-    if personal_user + "@172.17.0.1" in text:
+    if re.search(personal_users + r"@172\.17\.0\.1", text):
         rules.append("local-machine-ssh-host")
     if "id_ed25519_" + "turboism_arch_rebuild" in text:
         rules.append("local-machine-ssh-key-name")

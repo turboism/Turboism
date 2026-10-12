@@ -414,9 +414,50 @@ def check_nsis_retirement_contract():
     check("R1 退休授权读取嵌入 plugin.json id",
           "function Remove-TurboismRetiredPlugins" in common
           and "META-INF/turboism/plugin.json" in common)
-    for ident in RETIRED_IDS:
-        check("R1 身份校验 helper 包含退休 id " + ident,
-              ident in common)
+
+    # 退休 id 的唯一权威是 packaging/retired-plugins.txt：两份脚本与两个 Java
+    # 站点都必须改为引用它，清单内容即冻结回归集。
+    retired_manifest = MANIFEST_PATH.parent / "retired-plugins.txt"
+    raw = retired_manifest.read_text(encoding="utf-8").splitlines()
+    bad = [l for l in raw
+           if not re.fullmatch(r"dev\.turboism\.plugin\.[a-z0-9-]+", l.strip())]
+    check("R1b 退休清单每项均为合法插件 id", not bad, f"bad={bad[:3]}")
+    entries = [l.strip() for l in raw]
+    check("R1b 退休清单无空行/注释",
+          len(entries) == len(raw) and all(entries))
+    check("R1b 退休清单无重复且按 ASCII 升序",
+          len(set(entries)) == len(entries) and entries == sorted(entries))
+    check("R1b 退休清单与冻结回归集一致",
+          sorted(entries) == sorted(RETIRED_IDS), f"n={len(entries)}")
+    check("R1c NSIS staging 目录随脚本携带退休清单",
+          'File "/oname=retired-plugins.txt" "${STAGING_DIR}/retired-plugins.txt"' in text
+          and 'Delete "$INSTDIR\\retired-plugins.txt"' in text)
+    literal = re.compile(r'"(dev\.turboism\.plugin\.[a-z0-9-]+)"\s*,')
+    check("R1c 三处原硬编码站点改为引用清单",
+          "Get-TurboismRetiredPluginIds" in common
+          and "Get-TurboismRetiredPluginIds" in configure
+          and not any(ident in literal.findall(common) + literal.findall(configure)
+                      for ident in RETIRED_IDS))
+    java_merge = (INSTALLER_NSI.parents[1] / "java-installer" / "listener-src" /
+                  "dev" / "turboism" / "installer" / "ConfigMerge.java").read_text(encoding="utf-8")
+    check("R1d ConfigMerge 从打包资源加载退休清单",
+          '"/turboism/retired-plugins.txt"' in java_merge
+          and "loadRetiredPluginIds" in java_merge
+          and all(ident not in literal.findall(java_merge)
+                  for ident in RETIRED_IDS))
+    gradle = (INSTALLER_NSI.parents[1] / "java-installer" /
+              "installer.gradle.kts").read_text(encoding="utf-8")
+    check("R1d 退休清单随 listener/regression jar 打包",
+          '"packaging/retired-plugins.txt"' in gradle
+          and 'include("retired-plugins.txt")' in gradle)
+    contract = (INSTALLER_NSI.parents[2] / "runtime" / "src" / "main" / "java" /
+                "dev" / "turboism" / "core" / "plugin" /
+                "PluginJarContract.java").read_text(encoding="utf-8")
+    check("R1e 运行时准入边界从同一清单加载",
+          '"/META-INF/turboism/retired-plugins.txt"' in contract
+          and "loadRetiredPluginIds" in contract
+          and all(ident not in literal.findall(contract)
+                  for ident in RETIRED_IDS))
 
 
 def check_config_migration_contract():
@@ -570,10 +611,34 @@ def check_managed_graal_installer_contract():
           and "${NSD_OnBack} GraalInstallBack" in graal_create
           and "EnableWindow $GraalInstallNext 0" in graal_create)
     service = (INSTALLER_NSI.parents[2] / "runtime/src/main/java/dev/turboism/graal/ManagedGraalRuntimeService.java").read_text(encoding="utf-8")
-    check("GI5 native installer uses the runtime service's exact archive pins",
-          all(pin in bridge and pin in service for pin in (
-              "25.2.4", "25.0.4", "graalvm-community-jdk-25i2-25.0.4_windows-x64_bin.zip",
-              "789d2af1c06c3c24f402d2d4a711bdbb19b36f7d8c74afe6a959492fd121ef33")))
+    # 钉值单一源：packaging/managed-graal.json。两份消费者（PS1 按文件名、
+    # Java 按打包资源路径）必须引用它；清单内容与冻结回归集一致。
+    graal_manifest = json.loads((MANIFEST_PATH.parent / "managed-graal.json").read_text(encoding="utf-8"))
+    graal_pin = graal_manifest["platforms"]["windows-x64"]
+    check("GI5 托管 Graal 钉值清单内容固定",
+          graal_manifest["format"] == "turboism.managed-graal"
+          and graal_manifest["schemaVersion"] == 1
+          and graal_manifest["graalVersion"] == "25.2.4"
+          and graal_manifest["javaVersion"] == "25.0.4"
+          and graal_pin["archiveName"] == "graalvm-community-jdk-25i2-25.0.4_windows-x64_bin.zip"
+          and graal_pin["archiveBytes"] == 341299924
+          and graal_pin["sha256"] == "789d2af1c06c3c24f402d2d4a711bdbb19b36f7d8c74afe6a959492fd121ef33"
+          and graal_manifest["graalVersion"] in graal_pin["url"]
+          and graal_pin["archiveName"] in graal_pin["url"])
+    check("GI5 native installer reads the shared manifest instead of its own pins",
+          "managed-graal.json" in bridge
+          and "archiveBytes" not in bridge.split("Get-ManagedGraalManifest")[0])
+    check("GI5 runtime service reads the bundled manifest instead of its own pins",
+          '"/META-INF/turboism/managed-graal.json"' in service
+          and "graalvm-community-jdk-25i2-25.0.4_windows-x64_bin.zip" not in service
+          and "341_299_924" not in service and "341299924" not in service)
+    # 残余版本副本（接口常量、构建脚本）无法读资源：这里锁死它们必须与清单一致。
+    jvm_settings = (INSTALLER_NSI.parents[2] / "core-contract/src/main/java/dev/turboism/internal/core/CubismJvmSettingsService.java").read_text(encoding="utf-8")
+    graal_build = (INSTALLER_NSI.parents[2] / "graal-host/build.gradle.kts").read_text(encoding="utf-8")
+    check("GI5b 接口常量/构建脚本版本与清单一致",
+          ('MANAGED_GRAAL_VERSION = "%s"' % graal_manifest["graalVersion"]) in jvm_settings
+          and ('MANAGED_JAVA_VERSION = "%s"' % graal_manifest["javaVersion"]) in jvm_settings
+          and ('graalVersion = "%s"' % graal_manifest["graalVersion"]) in graal_build)
     check("GI6 installation never discovers or launches Java",
           all(token not in bridge for token in (
               "Test-TurboismJava17", "Find-TurboismInstallerJava", "ProcessStartInfo",
@@ -1314,6 +1379,21 @@ def check_uninstall_postcondition():
     check("U4 删除精确安装基线名 LICENSE",
           lic is not None and texts[lic] == 'Delete "$INSTDIR\\LICENSE"')
     check("U4 无 LICENSE.txt 删除残留", not any("LICENSE.txt" in t for t in texts))
+
+    # U5: plugins 目录白名单删除 —— 与 IzPack 卸载器同语义：仅删安装器部署的
+    # JAR（生成的 un.DeleteInstallerPluginJars），未知文件与第三方 JAR 保留，
+    # 目录仅在为空时移除。禁止恢复 RMDir /r。
+    generated = (INSTALLER_NSI.parent / "plugin-sections.nsh").read_text(encoding="utf-8")
+    check("U5 plugins 目录禁止递归强删",
+          not any('RMDir /r "$INSTDIR\\plugins"' in t for t in texts))
+    check("U5 plugins 白名单调用先于空目录移除",
+          any("Call un.DeleteInstallerPluginJars" in t for t in texts)
+          and any(t == 'RMDir "$INSTDIR\\plugins"' for t in texts))
+    check("U5 生成器输出卸载白名单函数",
+          "Function un.DeleteInstallerPluginJars" in generated
+          and all(('Delete "$INSTDIR\\plugins\\%s.jar"' % m) in generated
+                  for m in REAL_MODULES)
+          and 'RMDir /r "$INSTDIR\\plugins"' not in generated)
 
 
 def main():

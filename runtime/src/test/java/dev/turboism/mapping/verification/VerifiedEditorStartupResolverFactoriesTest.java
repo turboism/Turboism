@@ -18,12 +18,18 @@ class VerifiedEditorStartupResolverFactoriesTest {
 
     @Test
     void createsEveryStartupResolverForBothExactEditorProfiles() throws Exception {
+        assumeTrue(
+                LEGACY_EVIDENCE != null,
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         assertAdmitted("5.2.03", "5.2.03");
         assertAdmitted("5.3.02", "5.3.02");
     }
 
     @Test
     void rejectsEveryCrossVersionStartupPairing() throws Exception {
+        assumeTrue(
+                LEGACY_EVIDENCE != null,
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         final Path artifact = editorArtifact("5.3.02");
         try (URLClassLoader loader = loader(artifact)) {
             assertThrows(

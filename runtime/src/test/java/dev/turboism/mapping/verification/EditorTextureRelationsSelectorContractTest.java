@@ -81,6 +81,7 @@ class EditorTextureRelationsSelectorContractTest {
         }
     }
 
+
     private static Path locateProjectRoot() {
         Path current = Path.of("").toAbsolutePath().normalize();
         while (current != null && !Files.isRegularFile(current.resolve("settings.gradle.kts"))) {

@@ -1754,6 +1754,44 @@ function Read-TurboismRetiredPluginId {
     }
 }
 
+function Read-TurboismRetiredPluginManifest {
+    param([string]$Path)
+    $ids = New-Object 'System.Collections.Generic.List[string]'
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    foreach ($line in [System.IO.File]::ReadAllLines($Path)) {
+        if ($line -notmatch '^dev\.turboism\.plugin\.[a-z0-9-]+$') {
+            throw "retired plugin manifest contains an invalid entry."
+        }
+        if (-not $seen.Add($line)) {
+            throw "retired plugin manifest contains a duplicate entry."
+        }
+        $ids.Add($line)
+    }
+    if ($ids.Count -eq 0) { throw "retired plugin manifest is empty." }
+    $sorted = @($ids.ToArray() | Sort-Object -CaseSensitive)
+    for ($i = 0; $i -lt $ids.Count; $i++) {
+        if ($ids[$i] -cne $sorted[$i]) {
+            throw "retired plugin manifest is not ASCII-sorted."
+        }
+    }
+    return $ids.ToArray()
+}
+
+function Get-TurboismRetiredPluginIds {
+    # Single authority: packaging/retired-plugins.txt, shipped beside the
+    # installer scripts (install root, temp staging dirs). In-repo runs fall
+    # back to the packaging/ parent directory. A missing or malformed manifest
+    # fails closed: retirement and config pruning cannot guess the id list.
+    foreach ($candidate in @(
+        (Join-Path $script:CubismScriptRoot "retired-plugins.txt"),
+        (Join-Path (Split-Path -Parent $script:CubismScriptRoot) "retired-plugins.txt"))) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            return @(Read-TurboismRetiredPluginManifest -Path $candidate)
+        }
+    }
+    throw "retired-plugins.txt is missing next to $script:CubismScriptRoot"
+}
+
 function Remove-TurboismRetiredPlugins {
     param([string]$TurboismHome)
     $plugins = Join-Path $TurboismHome "plugins"
@@ -1766,13 +1804,7 @@ function Remove-TurboismRetiredPlugins {
     if ($entries.Count -gt 4096) { throw "plugin directory entry cap exceeded" }
     # dev.turboism.plugin.backup is superseded by dev.turboism.plugin.webdav
     # (webdav-backup rename): the stale backup.jar must not survive an upgrade.
-    $retired = @(
-        "dev.turboism.plugin.logfilter",
-        "dev.turboism.plugin.clipmask",
-        "dev.turboism.plugin.perfopt",
-        "dev.turboism.plugin.renderopt",
-        "dev.turboism.plugin.backup"
-    )
+    $retired = @(Get-TurboismRetiredPluginIds)
     foreach ($entry in $entries) {
         if ($entry.Extension -ine ".jar") { continue }
         $id = Read-TurboismRetiredPluginId -JarPath $entry.FullName

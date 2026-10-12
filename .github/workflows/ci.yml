@@ -42,6 +42,9 @@ jobs:
       - name: Install the isolated display server
         run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends xvfb
 
+      - name: Install the shell lint tool
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends shellcheck
+
       - name: Install the pinned workflow guard tool
         run: python3 -m pip install 'PyYAML==6.0.3'
 

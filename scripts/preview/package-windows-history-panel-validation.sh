@@ -3,10 +3,11 @@ set -euo pipefail
 shopt -s nullglob
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=bundle-safety.sh
+. "$repo_root/scripts/preview/bundle-safety.sh"
 cd "$repo_root"
 
-worktree_id="${TURBOISM_WORKTREE_ID:-$(scripts/dev/worktree-id.sh)}"
-
+worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-history-panel-validation}"
 agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
 panel_jars=("$repo_root"/build/worktree/"$worktree_id"/history-panel/libs/history-panel-*-$worktree_id.jar)
@@ -56,7 +57,7 @@ check_freshness "$panel_jar" "$repo_root/sdk/src"
 check_freshness "$test_classes/$probe_class_dir/$probe_class.class" "$repo_root/testing/integration-tests/src"
 check_freshness "$test_classes/$probe_class_dir/$seed_class.class" "$repo_root/testing/integration-tests/src"
 
-rm -rf "$bundle_root"
+preview_bundle_safe_remove_tree "$bundle_root" "$repo_root/build"
 mkdir -p "$bundle_root/plugins" "$bundle_root/logs" "$bundle_root/state"
 cp "$agent_jar" "$bundle_root/turboism-agent.jar"
 cp "$panel_jar" "$bundle_root/plugins/history-panel.jar"
