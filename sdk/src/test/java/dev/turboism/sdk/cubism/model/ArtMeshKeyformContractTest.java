@@ -44,8 +44,10 @@ class ArtMeshKeyformContractTest {
     @Test
     void storedTargetSurfaceRemainsTypedAndRestrictedToExactEditorVersion() {
         assertArrayEquals(
-                new String[] {"5.3.02", "5.3.03"},
+                new String[0],
                 ArtMeshKeyform.class.getAnnotation(CubismEditor.class).value());
+        assertEquals(
+                "5.0.00", ArtMeshKeyform.class.getAnnotation(CubismEditor.class).from());
         assertEquals(
                 Set.of("coordinates", "snapshot", "defaultKeyform", "setPositions", "setDrawOrder"),
                 Arrays.stream(ArtMeshKeyform.class.getDeclaredMethods())

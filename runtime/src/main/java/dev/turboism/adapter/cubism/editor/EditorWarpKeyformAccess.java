@@ -47,7 +47,7 @@ final class EditorWarpKeyformAccess {
                         > WarpAuthoringSnapshot.MAX_CONTROL_SAMPLES)
             throw new IllegalArgumentException("Warp batch target/control budget exceeded");
         EditorHostThread.dispatch("Warp stored keyform batch", () -> {
-            if (!resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")
+            if (!EditorReviewedGeneration.admits(resolver)
                     || !resolver.authorizesFeature(
                             EditorWarpAuthoringSelectorContract.ADAPTER_SLICE_ID,
                             EditorWarpAuthoringSelectorContract.WRITE_CAPABILITY_ID,

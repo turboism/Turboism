@@ -6,6 +6,8 @@ import dev.turboism.mapping.verification.selector.EditorAnimationReadSelectorCon
 import dev.turboism.mapping.verification.selector.EditorAnimationSceneOperationSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAnimationTimelineEditSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAnimationTimelineReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorArtMeshEvaluationReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorArtMeshMorphSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAutoYureReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorClipMaskReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockReadSelectorContract;
@@ -58,6 +60,7 @@ import dev.turboism.mapping.verification.selector.EditorPsdSnapshotSelectorContr
 import dev.turboism.mapping.verification.selector.EditorRawImagePsdReplaceSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorRawImagePsdSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorSelectionReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorSourceTriangulationSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorWarpMirrorSelectorContract;
 import dev.turboism.mapping.verification.selector.TextureAtlasSelectorContract;
@@ -94,6 +97,18 @@ final class CapabilitySelectorDependencies {
                 result,
                 EditorAnimationReadSelectorContract.CAPABILITY_ID,
                 EditorAnimationReadSelectorContract.REQUIRED_ALIASES);
+        add(
+                result,
+                EditorArtMeshEvaluationReadSelectorContract.CAPABILITY_ID,
+                EditorArtMeshEvaluationReadSelectorContract.REQUIRED_ALIASES);
+        add(
+                result,
+                EditorArtMeshMorphSelectorContract.CAPABILITY_ID,
+                EditorArtMeshMorphSelectorContract.REQUIRED_ALIASES);
+        add(
+                result,
+                EditorSourceTriangulationSelectorContract.CAPABILITY_ID,
+                EditorSourceTriangulationSelectorContract.REQUIRED_ALIASES);
         add(
                 result,
                 EditorAnimationSceneOperationSelectorContract.EVAL_CAPABILITY_ID,

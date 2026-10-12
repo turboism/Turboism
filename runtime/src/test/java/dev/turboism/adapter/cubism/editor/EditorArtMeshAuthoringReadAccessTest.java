@@ -18,6 +18,8 @@ import java.util.Map;
 import java.util.Optional;
 import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class EditorArtMeshAuthoringReadAccessTest {
     private static final String M = "cubism.editor-model.";
@@ -90,6 +92,13 @@ class EditorArtMeshAuthoringReadAccessTest {
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> snapshot.cells().get(0).coordinates().clear());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
+    void readsTheSameStoredAuthoringOnEveryReviewedGeneration(final String version) {
+        final ArtMeshAuthoringSnapshot reference = read(new Source(), resolver("5.3.02", null, null));
+        assertEquals(reference, read(new Source(), resolver(version, null, null)));
     }
 
     @Test

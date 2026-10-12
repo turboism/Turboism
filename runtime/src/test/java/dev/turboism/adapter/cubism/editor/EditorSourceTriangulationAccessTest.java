@@ -11,6 +11,8 @@ import java.util.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @ResourceLock("source-triangulation-fixture")
 class EditorSourceTriangulationAccessTest {
@@ -45,6 +47,16 @@ class EditorSourceTriangulationAccessTest {
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> result.triangleIndices().clear());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
+    void previewsNativeTopologyOnEveryReviewedGeneration(final String version) {
+        Engine.indices = new int[] {0, 2, 1};
+        var result = preview(resolver(version, false, null));
+        assertEquals(INPUT.positions(), result.positions());
+        assertEquals(List.of(0, 2, 1), result.triangleIndices());
+        assertEquals(1, Engine.constructed);
     }
 
     @Test

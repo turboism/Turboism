@@ -688,6 +688,17 @@
     "editor-model"
    ],
    "verified": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -699,6 +710,17 @@
     "5.3.04"
    ],
    "admitted": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -770,6 +792,17 @@
     "editor-model"
    ],
    "verified": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -781,6 +814,17 @@
     "5.3.04"
    ],
    "admitted": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -5217,6 +5261,17 @@
     "editor-model"
    ],
    "verified": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -5228,6 +5283,17 @@
     "5.3.04"
    ],
    "admitted": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -10413,83 +10479,6 @@
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/AlphaComposition.java"
   },
   {
-   "api": "dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot#ArtMeshAuthoringSnapshot()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshAuthoringSnapshot.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot#ArtMeshEvaluationSnapshot()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshEvaluationSnapshot.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.ArtMeshKeyform",
-   "kind": "type",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshKeyform.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder#ArtMeshKeyformDrawOrder()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshKeyformDrawOrder.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions#ArtMeshKeyformPositions()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshKeyformPositions.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform",
-   "kind": "type",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshMorphKeyform.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform#setDrawOrder()",
-   "kind": "method",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshMorphKeyform.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.ArtMeshSourceTriangulation#ArtMeshSourceTriangulation()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshSourceTriangulation.java"
-  },
-  {
    "api": "dev.turboism.sdk.cubism.model.ArtMeshTextureInput#ArtMeshTextureInput()",
    "kind": "method",
    "versions": [
@@ -10678,53 +10667,6 @@
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Deformers.java"
   },
   {
-   "api": "dev.turboism.sdk.cubism.model.Drawable#authoringSnapshot()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.Drawable#createMorphKeyform()",
-   "kind": "method",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.Drawable#evaluationSnapshot()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.Drawable#morphKeyform()",
-   "kind": "method",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.Drawable#ordinaryKeyform()",
-   "kind": "method",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
-  },
-  {
    "api": "dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()",
    "kind": "method",
    "versions": [
@@ -10733,16 +10675,6 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.Drawable#setOrdinaryKeyformPositions()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
   },
@@ -10933,62 +10865,6 @@
     "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Part.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.RotationAuthoringSnapshot#RotationAuthoringSnapshot()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/RotationAuthoringSnapshot.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.RotationKeyformForm#RotationKeyformForm()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/RotationKeyformForm.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot#WarpAuthoringSnapshot()",
-   "kind": "method",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpAuthoringSnapshot.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.WarpDeformer#authoringSnapshot()",
-   "kind": "method",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpDeformer.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.WarpDeformer#setOrdinaryKeyformPositions()",
-   "kind": "method",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpDeformer.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.WarpKeyformPositions#WarpKeyformPositions()",
-   "kind": "method",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpKeyformPositions.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.YureDeformConfig",
@@ -13178,7 +13054,7 @@
       "triageCategory": null,
       "triageRule": null,
       "round": null,
-      "jobId": "717972f0-2359-438b-8ea3-2df234f87062"
+      "jobId": "43a60148-7237-46b3-9a04-2955eec1732f"
      },
      "5.2.02": {
       "validationStatus": "FAIL",
@@ -13207,10 +13083,10 @@
      "5.1.03": {
       "validationStatus": "FAIL",
       "terminalState": "failed",
-      "triageCategory": "INFRA_RETRYABLE",
-      "triageRule": "infra-host-execution-timeout",
+      "triageCategory": "CAPABILITY_BOUNDARY",
+      "triageRule": "capability-authoring-transactions-unavailable",
       "round": null,
-      "jobId": "c52e6bcc-e70f-40e2-943a-c61ee9cc6282"
+      "jobId": "777ea68f-7d1e-458b-8580-b4db2cd81178"
      },
      "5.2.00": {
       "validationStatus": "PASS",
@@ -13218,7 +13094,7 @@
       "triageCategory": null,
       "triageRule": null,
       "round": null,
-      "jobId": "e0dd8c3a-9a0b-44a9-b7f9-9f3a7d5f2507"
+      "jobId": "c8441609-d65c-4b6a-9449-79dff0836863"
      },
      "5.2.01": {
       "validationStatus": "PASS",
@@ -13274,7 +13150,7 @@
       "triageCategory": "CAPABILITY_BOUNDARY",
       "triageRule": "capability-authoring-transactions-unavailable",
       "round": null,
-      "jobId": "494f11ca-14fe-4099-9264-7b3ff87e85f8"
+      "jobId": "67d2f4e0-e9a6-4b73-ac1f-912f6794017e"
      },
      "5.1.00": {
       "validationStatus": "FAIL",
@@ -13933,7 +13809,7 @@
       "triageCategory": null,
       "triageRule": null,
       "round": null,
-      "jobId": "827b656a-d869-43c2-b2a5-3f3ad2289527"
+      "jobId": "8a78d4ba-adf3-434a-b18d-ef3fdd9580b1"
      },
      "5.2.01": {
       "validationStatus": "FAIL",
@@ -13997,7 +13873,7 @@
       "triageCategory": null,
       "triageRule": null,
       "round": null,
-      "jobId": "43bae28b-4ff9-4b50-b9e6-ca2277a38bfa"
+      "jobId": "555e4975-4e9c-4e35-97b2-b3010a6a828b"
      }
     }
    }
@@ -17808,7 +17684,7 @@
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "717972f0-2359-438b-8ea3-2df234f87062"
+    "jobId": "43a60148-7237-46b3-9a04-2955eec1732f"
    },
    "5.2.02": {
     "validationStatus": "FAIL",
@@ -17837,10 +17713,10 @@
    "5.1.03": {
     "validationStatus": "FAIL",
     "terminalState": "failed",
-    "triageCategory": "INFRA_RETRYABLE",
-    "triageRule": "infra-host-execution-timeout",
+    "triageCategory": "CAPABILITY_BOUNDARY",
+    "triageRule": "capability-authoring-transactions-unavailable",
     "round": null,
-    "jobId": "c52e6bcc-e70f-40e2-943a-c61ee9cc6282"
+    "jobId": "777ea68f-7d1e-458b-8580-b4db2cd81178"
    },
    "5.2.00": {
     "validationStatus": "PASS",
@@ -17848,7 +17724,7 @@
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "e0dd8c3a-9a0b-44a9-b7f9-9f3a7d5f2507"
+    "jobId": "c8441609-d65c-4b6a-9449-79dff0836863"
    },
    "5.2.01": {
     "validationStatus": "PASS",
@@ -17904,7 +17780,7 @@
     "triageCategory": "CAPABILITY_BOUNDARY",
     "triageRule": "capability-authoring-transactions-unavailable",
     "round": null,
-    "jobId": "494f11ca-14fe-4099-9264-7b3ff87e85f8"
+    "jobId": "67d2f4e0-e9a6-4b73-ac1f-912f6794017e"
    },
    "5.1.00": {
     "validationStatus": "FAIL",
@@ -18076,7 +17952,7 @@
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "827b656a-d869-43c2-b2a5-3f3ad2289527"
+    "jobId": "8a78d4ba-adf3-434a-b18d-ef3fdd9580b1"
    },
    "5.2.01": {
     "validationStatus": "FAIL",
@@ -18140,7 +18016,7 @@
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "43bae28b-4ff9-4b50-b9e6-ca2277a38bfa"
+    "jobId": "555e4975-4e9c-4e35-97b2-b3010a6a828b"
    }
   },
   "parameter-batch-transfer": {
