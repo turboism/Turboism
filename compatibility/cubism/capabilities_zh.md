@@ -347,6 +347,7 @@ Cubism Editor 本身缺少相应功能的已确认宿主边界，均经官方更
 | class-pins/`image-archive-reuse.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`incremental-update.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`matrix-scratch.json` | `ClassPinTable` | 5.2.00–5.3.04 |
+| class-pins/`mesh-interpolation.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`mesh-mirror.json` | `ClassPinTable` | 5.0.00–5.3.04 |
 | class-pins/`mesh-triangulation-hash.json` | `ClassPinTable` | 5.2.00–5.3.04 |
 | class-pins/`model-update-skip.json` | `ClassPinTable` | 5.2.00–5.3.04 |

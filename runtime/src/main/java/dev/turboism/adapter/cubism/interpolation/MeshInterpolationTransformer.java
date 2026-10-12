@@ -14,6 +14,14 @@ import org.objectweb.asm.*;
 public final class MeshInterpolationTransformer implements ClassFileTransformer {
     public static final String OWNER = NativeMeshInterpolationBridge.EXTENSION.replace('.', '/');
     public static final String CLASS_SHA256 = "399a05605ebb2e837434e5b8be7fa84c4cb5d24adc09f7e5546214471380e39f";
+    private static final java.util.Map<String, java.util.Map<String, String>> REVIEWED_CLASS_SHA256 =
+            dev.turboism.adapter.cubism.optimization.ClassPinTable.load("mesh-interpolation");
+    private static final java.util.Set<String> ADMITTED_CLASS_SHA256S = java.util.Collections.unmodifiableSet(
+            REVIEWED_CLASS_SHA256.values().stream()
+                    .map(m -> m.get(OWNER))
+                    .filter(java.util.Objects::nonNull)
+                    .collect(java.util.stream.Collectors.toSet()));
+
     static final String METHOD = "updateInterpolatedForms_common";
     static final String DESC =
             "(Ljava/util/List;Ljava/util/List;Ljava/util/List;Lcom/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType;F)V";
@@ -21,7 +29,6 @@ public final class MeshInterpolationTransformer implements ClassFileTransformer 
     private volatile boolean patched;
     private volatile boolean serializerPatched;
     private volatile boolean propertyPatched;
-    private String artifact53 = "5302";
     private final boolean projectSerializedCache;
     private final boolean optimizeInterpolation;
 
@@ -62,23 +69,39 @@ public final class MeshInterpolationTransformer implements ClassFileTransformer 
             return null;
         }
         try {
-            if (!digest(bytes)
-                    .equals(
-                            serializer
-                                    ? DerivedCacheSerializationPatch.SHA256
-                                    : property ? DerivedCacheSerializationPatch.PROPERTY_SHA256 : CLASS_SHA256)) {
+            String classDigest = digest(bytes);
+            if (serializer) {
+                if (!classDigest.equals(DerivedCacheSerializationPatch.SHA256)) {
+                    report("DECLINED_CLASS_HASH");
+                    return null;
+                }
+            } else if (property) {
+                if (!classDigest.equals(DerivedCacheSerializationPatch.PROPERTY_SHA256)) {
+                    report("DECLINED_CLASS_HASH");
+                    return null;
+                }
+            } else if (!ADMITTED_CLASS_SHA256S.contains(classDigest)) {
                 report("DECLINED_CLASS_HASH");
                 return null;
             }
             Path artifact = Path.of(domain.getCodeSource().getLocation().toURI());
-            try (var input = Files.newInputStream(artifact)) {
-                String artifactDigest = digest(input.readAllBytes());
-                if (!NativeMeshInterpolationBridge.HOST_SHA256S.contains(artifactDigest)) {
-                    report("DECLINED_ARTIFACT_HASH");
+            dev.turboism.mapping.verification.HostArtifactDigest hostDigest =
+                    dev.turboism.mapping.verification.HostArtifactDigest.from(artifact);
+            var cubismVersion = ReviewedHostArtifacts.cubismVersionOf(hostDigest);
+            if (cubismVersion.isEmpty() || !NativeMeshInterpolationBridge.HOST_SHA256S.contains(hostDigest.sha256())) {
+                report("DECLINED_ARTIFACT_HASH");
+                return null;
+            }
+            String version = cubismVersion.get();
+            if (!serializer && !property) {
+                var pins = REVIEWED_CLASS_SHA256.get(version);
+                String expected = pins == null ? null : pins.get(OWNER);
+                if (!classDigest.equals(expected)) {
+                    report("DECLINED_CLASS_HASH");
                     return null;
                 }
-                artifact53 = artifactDigest.equals(ReviewedHostArtifacts.CUBISM_5_3_03.sha256()) ? "5303" : "5302";
             }
+            String artifactTag = version.replace(".", "");
             byte[] result = serializer
                     ? DerivedCacheSerializationPatch.serializer(bytes)
                     : property ? DerivedCacheSerializationPatch.property(bytes) : patch(bytes);
@@ -88,8 +111,8 @@ public final class MeshInterpolationTransformer implements ClassFileTransformer 
             if (serializationPatched()) DerivedCacheSerializationBridge.ready(true);
             report(
                     serializer
-                            ? "SERIALIZER_SCOPED_" + artifact53
-                            : property ? "SERIALIZER_FIELD_READ_SCOPED_" + artifact53 : "PATCHED_" + artifact53);
+                            ? "SERIALIZER_SCOPED_" + artifactTag
+                            : property ? "SERIALIZER_FIELD_READ_SCOPED_" + artifactTag : "PATCHED_" + artifactTag);
             return result;
         } catch (Exception | LinkageError rejected) {
             report("DECLINED_SHAPE_OR_SOURCE");
