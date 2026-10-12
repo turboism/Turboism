@@ -257,9 +257,10 @@ class ReleaseWorkflowTest(unittest.TestCase):
     def test_readme_states_supported_host_versions_and_platform(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("Windows x64", readme)
-        self.assertIn("5.2.03", readme)
-        self.assertIn("5.3.02", readme)
-        self.assertIn("5.3.03", readme)
+        self.assertIn("5.0.00 – 5.0.06", readme)
+        self.assertIn("5.1.00 – 5.1.03", readme)
+        self.assertIn("5.2.00 – 5.2.03", readme)
+        self.assertIn("5.3.00 – 5.3.04", readme)
         self.assertIn("## About", readme)
         self.assertIn("## Supported Cubism Editor versions", readme)
         self.assertIn("CHANGELOG.md", readme)
@@ -324,8 +325,15 @@ class RootReadmeTest(unittest.TestCase):
         for filename in self.PAGES:
             with self.subTest(page=filename):
                 text = (ROOT / filename).read_text(encoding="utf-8")
-                self.assertEqual(set(re.findall(r"\*\*(5\.\d+\.\d+)\*\*", text)),
-                                 {"5.2.03", "5.3.02", "5.3.03"})
+                self.assertEqual(
+                    set(re.findall(r"\*\*(5\.\d+\.\d+.*?)\*\*", text)),
+                    {
+                        "5.0.00 – 5.0.06",
+                        "5.1.00 – 5.1.03",
+                        "5.2.00 – 5.2.03",
+                        "5.3.00 – 5.3.04",
+                    },
+                )
                 for token in ("Windows x64", "macOS", "Linux", "Java 17", "JDK 17", ".sha256",
                               "turboism-<version>-full.zip", "turboism-<version>-lite.zip",
                               "TurboismInstaller-<version>.jar", "TurboismInstaller-<version>.exe",
