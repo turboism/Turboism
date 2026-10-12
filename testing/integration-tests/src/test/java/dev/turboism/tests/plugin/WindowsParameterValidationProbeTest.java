@@ -597,6 +597,23 @@ class WindowsParameterValidationProbeTest {
         assertThrows(IllegalArgumentException.class, () -> WindowsParameterValidationProbe.hostCloseRoute("5400"));
         assertThrows(IllegalArgumentException.class, () -> WindowsParameterValidationProbe.hostCloseRoute(null));
         assertThrows(IllegalArgumentException.class, () -> WindowsRecentPreviewValidationProbe.hostCloseRoute("5400"));
+
+        for (final String version : new String[] {"5000", "5001", "5002", "5003", "5004", "5005", "5006"}) {
+            assertEquals("f", WindowsParameterValidationProbe.stopAutoBackupMethodName(version), version);
+        }
+        for (final String version : new String[] {
+            "5100", "5101", "5102", "5103",
+            "5200", "5201", "5202", "5203",
+            "5300", "5301", "5302", "5303", "5304"
+        }) {
+            assertEquals("g", WindowsParameterValidationProbe.stopAutoBackupMethodName(version), version);
+        }
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> WindowsParameterValidationProbe.stopAutoBackupMethodName("5400"));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> WindowsParameterValidationProbe.stopAutoBackupMethodName(null));
     }
 
     @Test

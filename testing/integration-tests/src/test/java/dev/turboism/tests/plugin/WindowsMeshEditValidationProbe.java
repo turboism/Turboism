@@ -59,8 +59,6 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     static final long SAVE_TIMEOUT_MILLIS = 30_000L;
     static final long SAVE_POLL_MILLIS = 100L;
     static final int SAVE_STABLE_SAMPLES = 3;
-    private static final Set<String> SELECTION_BRUSH_VERSIONS =
-            Set.of("5200", "5201", "5202", "5203", "5300", "5301", "5302", "5303", "5304");
     private static final float EPSILON = 0.0001F;
 
     private final AtomicReference<MeshSnapshot> failureBaseline = new AtomicReference<>();
@@ -100,7 +98,14 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                 case "matrix" -> runMatrix(report);
                 case "persistence" -> runPersistence(report);
                 case "selection-brush" -> {
-                    new WindowsModelingSelectionBrushProbe(this, context, report).run();
+                    if (context.services()
+                            .find(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class)
+                            .map(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry::isAvailable)
+                            .orElse(false)) {
+                        new WindowsModelingSelectionBrushProbe(this, context, report).run();
+                    } else {
+                        report.add("modeling.status=NOT_APPLICABLE_CAPABILITY_UNAVAILABLE");
+                    }
                     runSelectionBrush(report);
                 }
                 default -> throw new IllegalArgumentException("unsupported mesh validation mode: " + mode);
@@ -242,7 +247,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
 
     private void runSelectionBrush(final List<String> report) throws Exception {
         final String version = System.getProperty("turboism.validation.cubismVersion", "");
-        require(report, "selectionBrush.version", SELECTION_BRUSH_VERSIONS.contains(version), version);
+        require(report, "selectionBrush.version", isAdmittedCubismVersion(version), version);
         report.add("cubismVersion=" + safe(version));
 
         final MeshSnapshot geometryBefore = awaitEditableMesh(report);
@@ -258,26 +263,10 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                 "selectionBrush.historyAvailable",
                 historyBefore.availability() == dev.turboism.sdk.cubism.history.HistorySnapshot.Availability.AVAILABLE,
                 historyBefore.toString());
-        final var dirtyBefore = onEdt(() ->
-                context
-                        .services()
-                        .require(dev.turboism.sdk.cubism.backup.EditorAutoBackupService.class)
-                        .statuses()
-                        .stream()
-                        .map(status -> status.documentName() + ":" + status.modifiedAfterSaving())
-                        .sorted()
-                        .toList());
+        final List<String> dirtyBefore = onEdt(() -> dirtySnapshot(session));
         require(report, "selectionBrush.dirtyAvailable", !dirtyBefore.isEmpty(), dirtyBefore.toString());
-        final boolean redoBefore = context.services()
-                .find(EditorCommandService.class)
-                .orElse(EditorCommandService.unavailable())
-                .available()
-                .contains(EditorCommand.REDO);
-        final boolean undoBefore = context.services()
-                .find(EditorCommandService.class)
-                .orElse(EditorCommandService.unavailable())
-                .available()
-                .contains(EditorCommand.UNDO);
+        final boolean redoBefore = isCommandAvailable(EditorCommand.REDO);
+        final boolean undoBefore = isCommandAvailable(EditorCommand.UNDO);
         report.add("selection.before=" + safe(selectionBefore.indices().toString()));
         report.add("undo.available.before=" + undoBefore);
 
@@ -405,11 +394,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                 .orElse(MeshEditService.unavailable())
                 .snapshot();
         final boolean geometryUnchanged = geometryBefore.equals(geometryAfter);
-        final boolean undoAfter = context.services()
-                .find(EditorCommandService.class)
-                .orElse(EditorCommandService.unavailable())
-                .available()
-                .contains(EditorCommand.UNDO);
+        final boolean undoAfter = isCommandAvailable(EditorCommand.UNDO);
         report.add("geometry.unchanged=" + geometryUnchanged);
         report.add("undo.available.after=" + undoAfter);
         require(report, "selectionBrush.geometryUnchanged", geometryUnchanged, geometryAfter.toString());
@@ -419,27 +404,14 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                 undoBefore == undoAfter,
                 "before=" + undoBefore + " after=" + undoAfter);
 
-        final var dirtyAfter = onEdt(() ->
-                context
-                        .services()
-                        .require(dev.turboism.sdk.cubism.backup.EditorAutoBackupService.class)
-                        .statuses()
-                        .stream()
-                        .map(status -> status.documentName() + ":" + status.modifiedAfterSaving())
-                        .sorted()
-                        .toList());
+        final List<String> dirtyAfter = onEdt(() -> dirtySnapshot(session));
         require(report, "selectionBrush.dirtyUnchanged", dirtyBefore.equals(dirtyAfter), dirtyAfter.toString());
         final var historyAfter = onEdt(() -> context.cubism().history().snapshot());
         require(report, "selectionBrush.historyUnchanged", historyBefore.equals(historyAfter), historyAfter.toString());
         require(
                 report,
                 "selectionBrush.redoUnchanged",
-                redoBefore
-                        == context.services()
-                                .find(EditorCommandService.class)
-                                .orElse(EditorCommandService.unavailable())
-                                .available()
-                                .contains(EditorCommand.REDO),
+                redoBefore == isCommandAvailable(EditorCommand.REDO),
                 "Redo availability changed");
         proveNativeConfirmationClick(session, awaitBrushControls().button(), report);
         final MeshSnapshot rebuiltGeometry = awaitEditableMesh(report);
@@ -1657,12 +1629,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                 return displayed.clone();
             }
             final ClassLoader loader = view.getClass().getClassLoader();
-            final String helperName =
-                    switch ((String) invokeNoArgs(resolver, "cubismVersion")) {
-                        case "5.2.03" -> "j";
-                        case "5.3.02", "5.3.03" -> "p";
-                        default -> throw new IllegalStateException("unreviewed native lasso converter factory");
-                    };
+            final String helperName = lassoConverterHelperName((String) invokeNoArgs(resolver, "cubismVersion"));
             final Class<?> helper = Class.forName(
                     "com.live2d.cubism.view.context.action.action_meshEditor." + helperName, true, loader);
             final Object converter = helper.getMethod(
@@ -2549,12 +2516,117 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         report.add("assertion." + name + ".oneUndoStep=PASS");
     }
 
+    static boolean isAdmittedCubismVersion(final String version) {
+        try {
+            return WindowsHistoryNativeUiHostClose.hostCloseRoute(version) != null;
+        } catch (IllegalArgumentException unsupported) {
+            return false;
+        }
+    }
+
+    static String lassoConverterHelperName(final String cubismVersion) {
+        if (cubismVersion == null) {
+            throw new IllegalStateException("unreviewed native lasso converter factory: null");
+        }
+        return switch (cubismVersion) {
+            case "5.0.00",
+                    "5.0.01",
+                    "5.0.02",
+                    "5.0.03",
+                    "5.0.04",
+                    "5.0.05",
+                    "5.0.06",
+                    "5.1.00",
+                    "5.1.01",
+                    "5.1.02",
+                    "5.1.03",
+                    "5.2.00",
+                    "5.2.01",
+                    "5.2.02",
+                    "5.2.03" -> "j";
+            case "5.3.00", "5.3.01" -> "k";
+            case "5.3.02", "5.3.03" -> "p";
+            case "5.3.04" -> "r";
+            default -> throw new IllegalStateException("unreviewed native lasso converter factory: " + cubismVersion);
+        };
+    }
+
+    private List<String> dirtySnapshot(final Object session) throws Exception {
+        final var backup = context.services()
+                .find(dev.turboism.sdk.cubism.backup.EditorAutoBackupService.class)
+                .filter(dev.turboism.sdk.cubism.backup.EditorAutoBackupService::isAvailable);
+        if (backup.isPresent()) {
+            return backup.get().statuses().stream()
+                    .map(status -> status.documentName() + ":" + status.modifiedAfterSaving())
+                    .sorted()
+                    .toList();
+        }
+        final Object document = invokeNoArgs(invokeNoArgs(session, "identity"), "document");
+        final Object modified = invokeNoArgs(document, "isModifiedAfterSaving");
+        return List.of("document:" + modified);
+    }
+
+    private boolean isCommandAvailable(final EditorCommand command) throws Exception {
+        final var service = context.services().find(EditorCommandService.class);
+        if (service.isPresent() && service.get().isAvailable()) {
+            return service.get().available().contains(command);
+        }
+        return onEdt(() -> {
+            final javax.swing.JMenuItem item = findCommandMenuItem("CMD_" + command.name());
+            return item != null && item.isEnabled();
+        });
+    }
+
+    private static javax.swing.JMenuItem findCommandMenuItem(final String name) {
+        for (final Frame frame : Frame.getFrames()) {
+            if (!frame.isVisible() || !(frame instanceof javax.swing.JFrame swingFrame)) continue;
+            final javax.swing.JMenuBar bar = swingFrame.getJMenuBar();
+            if (bar == null) continue;
+            final javax.swing.JMenuItem item = findMenuItemByName(bar, name);
+            if (item != null) return item;
+        }
+        return null;
+    }
+
+    private static javax.swing.JMenuItem findMenuItemByName(final Component root, final String name) {
+        if (root instanceof javax.swing.JMenuItem item && name.equals(item.getName())) {
+            return item;
+        }
+        if (root instanceof javax.swing.JMenu menu) {
+            for (final Component child : menu.getMenuComponents()) {
+                final javax.swing.JMenuItem found = findMenuItemByName(child, name);
+                if (found != null) return found;
+            }
+        }
+        if (root instanceof Container container) {
+            for (final Component child : container.getComponents()) {
+                final javax.swing.JMenuItem found = findMenuItemByName(child, name);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
     private void executeCommand(final List<String> report, final String phase, final EditorCommand command) {
-        final EditorCommandResult result = context.services()
+        final EditorCommandService service = context.services()
                 .find(EditorCommandService.class)
-                .orElse(EditorCommandService.unavailable())
-                .execute(command);
-        require(report, phase + ".command", result.executed(), result.toString());
+                .orElse(EditorCommandService.unavailable());
+        if (service.isAvailable()) {
+            final EditorCommandResult result = service.execute(command);
+            require(report, phase + ".command", result.executed(), result.toString());
+            return;
+        }
+        try {
+            final boolean clicked = onEdt(() -> {
+                final javax.swing.JMenuItem item = findCommandMenuItem("CMD_" + command.name());
+                if (item == null || !item.isEnabled()) return false;
+                item.doClick(0);
+                return true;
+            });
+            require(report, phase + ".command", clicked, "CMD_" + command.name());
+        } catch (Exception failure) {
+            throw new IllegalStateException(phase + ".command failed", failure);
+        }
     }
 
     private MeshSnapshot awaitSnapshot(final java.util.function.Predicate<MeshSnapshot> expected, final String phase)
@@ -2579,11 +2651,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         final Path fixture = fixturePath();
         final FileTime beforeMtime = Files.getLastModifiedTime(fixture);
         final long beforeSize = Files.size(fixture);
-        final EditorCommandResult command = context.services()
-                .find(EditorCommandService.class)
-                .orElse(EditorCommandService.unavailable())
-                .execute(EditorCommand.SAVE);
-        require(report, phase + ".command", command.executed(), command.toString());
+        executeCommand(report, phase, EditorCommand.SAVE);
         return awaitSaveConfirmation(fixture, beforeMtime, beforeSize, SAVE_TIMEOUT_MILLIS, SAVE_POLL_MILLIS);
     }
 

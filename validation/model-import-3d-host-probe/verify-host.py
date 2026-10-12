@@ -706,7 +706,12 @@ def verify_observations(r, run_id):
     require(r['schemaVersion'] == 'mi3d-native-n2-v1' and r['scope'] == 'N2_BOOTSTRAP_CREATE_GRID_READ', 'schema/scope')
     require(r['runId'] == run_id and bool(run_id), 'wrong native run')
     require(r['status'] == 'PASS' and r['failure'] is None and r['stageAStatus'] == 'NOT_EVALUATED', 'not a clean N2 report')
-    require(r['hostIdentity'] is None and r['requestedVersion'] == '5302', 'probe must not fabricate host identity')
+    require(r['hostIdentity'] is None and r['requestedVersion'] in {
+        '5000', '5001', '5002', '5003', '5004', '5005', '5006',
+        '5100', '5101', '5102', '5103',
+        '5200', '5201', '5202', '5203',
+        '5300', '5301', '5302', '5303', '5304',
+    }, 'probe must not fabricate host identity')
     rows = r['checks']; require(len(rows) == len(CHECKS) and {c['id'] for c in rows} == CHECKS, 'check inventory')
     for c in rows:
         require(c['status'] == 'PASS' and c['actual'] is True and bool(c['expected'])

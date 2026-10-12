@@ -246,13 +246,23 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
     @Override public void shutdown() { disable(); }
 
+    static String expectedHostVersion(final String raw) {
+        if (raw == null || raw.isBlank()) return "5.3.02";
+        final String trimmed = raw.trim();
+        if (trimmed.length() == 4 && trimmed.startsWith("5")) {
+            return trimmed.charAt(0) + "." + trimmed.charAt(1) + "." + trimmed.substring(2);
+        }
+        return trimmed;
+    }
+
     private void run(final String runId) {
         final Properties result = new Properties();
         final int cycles = Integer.getInteger("turboism.validation.externalpsd.cycles", 3);
         result.setProperty("schemaVersion", "1");
         result.setProperty("runId", runId);
         result.setProperty("profile", "025-external-edit-pipeline-v1");
-        result.setProperty("expectedHostVersion", "5.3.02");
+        result.setProperty("expectedHostVersion",
+            expectedHostVersion(System.getProperty("turboism.validation.hostVersion", "5.3.02")));
         result.setProperty("hostIdentityEvidence", "runner exact JAR/BAT identity and lifecycle evidence");
         result.setProperty("cycles.requested", Integer.toString(cycles));
         final String phase = System.getProperty(
