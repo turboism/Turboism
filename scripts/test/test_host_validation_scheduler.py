@@ -23,7 +23,9 @@ REVIEWED_VERSIONS = (
     "5300", "5301", "5302", "5303", "5304",
 )
 sys.path.insert(0, str(PREVIEW))
+sys.path.insert(0, str(ROOT / "scripts"))
 
+import check_host_validation_versions as version_derivation  # noqa: E402
 import host_validation as scheduler  # noqa: E402
 queue = scheduler.queue
 
@@ -42,9 +44,12 @@ class HostValidationSchedulerTest(unittest.TestCase):
             "acp",
             "animation-timeline",
             "atlas",
+            "atlas-image",
+            "atlas-polygon",
             "backup",
             "backup-interactive",
             "backup-webdav",
+            "bounding-box-overlay",
             "boundingbox-warp-mirror",
             "clipmask-viewer",
             "core-acquisition",
@@ -52,10 +57,16 @@ class HostValidationSchedulerTest(unittest.TestCase):
             "dialog-automation",
             "edit",
             "edit-protocol",
+            "external-psd-edit",
+            "external-psd-fixture-preparation",
+            "float-array",
             "fps",
+            "graal-script",
             "host-locale",
+            "image-archive",
             "incremental-update",
             "mcp",
+            "mesh-edit",
             "model-import-3d",
             "model-import-3d-user-entry",
             "model-update-skip",
@@ -63,23 +74,37 @@ class HostValidationSchedulerTest(unittest.TestCase):
             "official-viewer",
             "parameter",
             "parameter-batch-transfer",
+            "plugin-management-chooser",
             "protected-export",
             "psd-clip-mask",
+            "psd-export-observation",
             "recent-preview",
+            "resource",
             "selection-brush",
             "selection-lag",
+            "semantic-history",
+            "semantic-history-native-ui",
+            "semantic-history-primary",
             "separate-save-path",
             "session-standard",
+            "settings-page",
             "startup-suppression",
             "status-bar",
-            "theme",
             "texture-relations",
-            "psd-export-observation",
+            "texture-upload",
+            "theme",
             "update-check",
             "warp-deformer-alt-symmetry",
+            "warp-position",
             "workspace",
         }
         self.assertEqual(expected, set(self.manifest.tasks))
+        for name, task in self.manifest.tasks.items():
+            with self.subTest(task=name):
+                self.assertEqual(
+                    version_derivation.derive_task_versions(name),
+                    task.versions,
+                )
         self.assertEqual(1, self.manifest.resources["host-slot"].capacity)
         self.assertEqual(
             {"host-slot": 1, "display-input": 1, "performance-host": 1},
@@ -91,6 +116,8 @@ class HostValidationSchedulerTest(unittest.TestCase):
         )
         self.assertFalse(self.manifest.tasks["dialog-automation"].runnable)
         self.assertFalse(self.manifest.tasks["backup-interactive"].runnable)
+        self.assertFalse(self.manifest.tasks["atlas-image"].runnable)
+        self.assertFalse(self.manifest.tasks["semantic-history-native-ui"].runnable)
 
     def test_mcp_reserves_exact_host_and_display_for_native_close(self) -> None:
         task = self.manifest.tasks["mcp"]
@@ -123,8 +150,14 @@ class HostValidationSchedulerTest(unittest.TestCase):
         self.assertIn("--linux-env 'mesa_glthread=false'", wrapper)
 
     def test_texture_relation_and_psd_observation_have_reviewed_exact_version_boundaries(self) -> None:
-        self.assertEqual(REVIEWED_VERSIONS, self.manifest.tasks["texture-relations"].versions)
-        self.assertEqual(REVIEWED_VERSIONS[-5:], self.manifest.tasks["psd-export-observation"].versions)
+        self.assertEqual(
+            version_derivation.derive_task_versions("texture-relations"),
+            self.manifest.tasks["texture-relations"].versions,
+        )
+        self.assertEqual(
+            version_derivation.derive_task_versions("psd-export-observation"),
+            self.manifest.tasks["psd-export-observation"].versions,
+        )
         for name in ("texture-relations", "psd-export-observation"):
             self.assertEqual({"host-slot": 1, "display-input": 1}, self.manifest.tasks[name].resources)
             for version in self.manifest.tasks[name].versions:
@@ -133,8 +166,6 @@ class HostValidationSchedulerTest(unittest.TestCase):
                 self.assertIn("-Dturboism.validation.textures.startFree=true", command)
             with self.assertRaises(scheduler.SchedulerError):
                 self.request(name + ":5400")
-        with self.assertRaises(scheduler.SchedulerError):
-            self.request("psd-export-observation:5203")
 
     def test_assisted_core_preflight_is_explicit_and_reserves_display(self) -> None:
         task = self.manifest.tasks["core-acquisition"]
@@ -312,9 +343,13 @@ class HostValidationSchedulerTest(unittest.TestCase):
             self.assertIn("--aux-agent", assisted)
             self.assertIn("build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar", assisted)
             self.assertIn("-Dturboism.validation.startupAssistance=true", assisted)
-        self.assertEqual(REVIEWED_VERSIONS[-9:], self.manifest.tasks["animation-timeline"].versions)
-        with self.assertRaises(scheduler.SchedulerError):
-            self.request("animation-timeline:5103")
+        self.assertEqual(
+            version_derivation.derive_task_versions("animation-timeline"),
+            self.manifest.tasks["animation-timeline"].versions,
+        )
+        for excluded in set(REVIEWED_VERSIONS) - set(self.manifest.tasks["animation-timeline"].versions):
+            with self.subTest(excluded=excluded), self.assertRaises(scheduler.SchedulerError):
+                self.request("animation-timeline:" + excluded)
 
     def test_atlas_has_fixed_preliminary_cases_and_exact_version(self) -> None:
         task = self.manifest.tasks["atlas"]

@@ -30,19 +30,40 @@ class StaticGateTest(unittest.TestCase):
                               self.manifest, environment or {})
 
     def test_admission_refusal_without_verified_static_write_evidence(self):
+        anim_task = self.manifest.tasks["animation-timeline"]
+        req = scheduler.Request(anim_task, "5002", "assisted", "test-run")
         with self.assertRaises(gates.StaticGateRefusal) as caught:
-            self.evaluate("parameter-batch-transfer:5002@assisted")
+            gates.evaluate(req, scheduler.Request, self.manifest, {})
         self.assertEqual("SKIP_STATIC", caught.exception.skip)
         self.assertEqual("admission", caught.exception.reason)
-        self.assertIn("cubism.editor-model.write", caught.exception.detail)
+        self.assertIn("cubism.editor-model.animation-timeline.write", caught.exception.detail)
+
+        with mock.patch.object(gates, "load_verified_capabilities", return_value=(set(), "synthetic")):
+            with self.assertRaises(gates.StaticGateRefusal) as caught_pbt:
+                self.evaluate("parameter-batch-transfer:5002@assisted")
+        self.assertEqual("SKIP_STATIC", caught_pbt.exception.skip)
+        self.assertEqual("admission", caught_pbt.exception.reason)
+        self.assertIn("cubism.editor-model.write", caught_pbt.exception.detail)
 
     def test_admission_boundary_matches_records(self):
+        anim_task = self.manifest.tasks["animation-timeline"]
         for version in ("5002", "5103"):
-            with self.subTest(version=version), self.assertRaises(gates.StaticGateRefusal):
-                self.evaluate(f"parameter-batch-transfer:{version}@assisted")
+            with self.subTest(version=version):
+                request, _ = self.evaluate(f"parameter-batch-transfer:{version}@assisted")
+                self.assertIn("assisted", request.variant)
+                with self.assertRaises(gates.StaticGateRefusal):
+                    gates.evaluate(
+                        scheduler.Request(anim_task, version, "assisted", "test-run"),
+                        scheduler.Request,
+                        self.manifest,
+                        {},
+                    )
         for version in ("5201", "5304"):
-            request, _ = self.evaluate(f"parameter-batch-transfer:{version}@assisted")
-            self.assertIn("assisted", request.variant)
+            with self.subTest(version=version):
+                request, _ = self.evaluate(f"parameter-batch-transfer:{version}@assisted")
+                self.assertIn("assisted", request.variant)
+                anim_req, _ = self.evaluate(f"animation-timeline:{version}@assisted")
+                self.assertIn("assisted", anim_req.variant)
 
     def test_free_license_refusal(self):
         # The observed-FREE table is empty today (every install runs FREE-start
@@ -57,16 +78,30 @@ class StaticGateTest(unittest.TestCase):
 
     def test_free_start_is_universal_not_a_refusal(self):
         # 5100 hit the FREE param-limit dialog on earlier runs yet the model
-        # still loads — license must not refuse. Admission still does (writes).
+        # still loads — license must not refuse.
+        request, _ = self.evaluate("parameter-batch-transfer:5100@assisted")
+        self.assertEqual("assisted", request.variant)
+        anim_task = self.manifest.tasks["animation-timeline"]
         with self.assertRaises(gates.StaticGateRefusal) as caught:
-            self.evaluate("parameter-batch-transfer:5100@assisted")
+            gates.evaluate(
+                scheduler.Request(anim_task, "5100", "assisted", "test-run"),
+                scheduler.Request,
+                self.manifest,
+                {},
+            )
         self.assertEqual("admission", caught.exception.reason)
 
     def test_unknown_license_falls_through_to_other_gates(self):
         # 5101 is not in the observed-FREE table, so the license gate stays
-        # silent; the admission wall still refuses the write path.
+        # silent; an unverified write slice still fails on the admission wall.
+        anim_task = self.manifest.tasks["animation-timeline"]
         with self.assertRaises(gates.StaticGateRefusal) as caught:
-            self.evaluate("parameter-batch-transfer:5101@assisted")
+            gates.evaluate(
+                scheduler.Request(anim_task, "5101", "assisted", "test-run"),
+                scheduler.Request,
+                self.manifest,
+                {},
+            )
         self.assertEqual("admission", caught.exception.reason)
 
     def test_fixture_newer_than_target_routes_to_assisted(self):
