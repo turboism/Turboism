@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Objects;
 
 /** Absolute control points for one existing, independent ordinary Warp grid cell. */
-@CubismEditor({"5.3.02", "5.3.03"})
+@CubismEditor(from = "5.0.00")
 public record WarpKeyformPositions(
         List<WarpAuthoringSnapshot.Coordinate> coordinates, String formGuid, List<Point2> controlPoints) {
     public WarpKeyformPositions {

@@ -105,7 +105,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void createsPartWithParentIndexUndoAndRefreshCounts(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -136,7 +136,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void createsWarpWithGridAndRotationDeformerUnderPart(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -168,7 +168,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void createsArtMeshWithExplicitGeometryAndUndo(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -435,7 +435,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void serviceCreatesExactDeformersUnderADeformerInOneUndoEach(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -508,7 +508,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void deletesPartDeformerDrawableThroughNativeSelectionAndDeleteCommand(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         fixture.document.requireNativeDeleteSelection = "5.3.02".equals(cubismVersion);
@@ -552,7 +552,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void renamesDeformerAndDrawableThroughSharedLocalNameSelector(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -586,7 +586,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void reparentsPartToPartThroughNativeAddChildDetach(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -610,7 +610,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void reparentsDeformerToPartAndToDeformer(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -640,7 +640,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void reparentsDrawableToPartAndToDeformer(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -663,7 +663,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void rejectsCyclesBeforeNativeInvocation(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -1268,7 +1268,7 @@ class EditorObjectHierarchyEditAccessTest {
     // ------------------------------------------------------------------
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void artMeshCreatesJoinOneAmbientRootTransaction(final String cubismVersion) {
         final var scoped = ScopedFixture.onEdt(cubismVersion);
         final var geometry = triangle();
@@ -1295,7 +1295,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void standaloneArtMeshCreateCommitsThroughItsOwnTransaction(final String cubismVersion) {
         final var scoped = ScopedFixture.onEdt(cubismVersion);
         scoped.access.createArtMeshSource(
@@ -1309,7 +1309,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void warpCreatesJoinOneAmbientRootTransaction(final String cubismVersion) {
         final var scoped = ScopedFixture.onEdt(cubismVersion);
         final WarpGrid grid = new WarpGrid(
@@ -1345,7 +1345,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void rotationCreatesJoinOneAmbientRootTransaction(final String cubismVersion) {
         final var scoped = ScopedFixture.onEdt(cubismVersion);
         final RotationDeformerForm form = new RotationDeformerForm(0F, 512F, 512F, 1F, false, false);
@@ -1380,7 +1380,7 @@ class EditorObjectHierarchyEditAccessTest {
      * false clean rollback and must never happen.
      */
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void rejectedArtMeshCreateNeverReportsFalseRollback(final String cubismVersion) {
         for (final boolean deformerParent : List.of(false, true))
             for (final boolean nativeAbort : List.of(false, true))
@@ -1426,7 +1426,7 @@ class EditorObjectHierarchyEditAccessTest {
 
     /** Same false-rollback contract for the Warp creation path. */
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void rejectedWarpCreateNeverReportsFalseRollback(final String cubismVersion) {
         final WarpGrid grid = new WarpGrid(
                 1,
@@ -1478,7 +1478,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void partAndMeshCreateJoinOneAmbientRoot(final String cubismVersion) {
         final var scoped = ScopedFixture.onEdt(cubismVersion);
         final var originalParts = List.copyOf(scoped.fixture.partSet.sources);
@@ -1517,7 +1517,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
     void rejectedPartCreateOwnsEagerMutation(final String cubismVersion) {
         for (final boolean nativeAbort : List.of(false, true))
             for (final boolean rejectFirst : List.of(false, true)) {

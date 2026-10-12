@@ -35,7 +35,7 @@ final class EditorArtMeshParentSnapshot {
     }
 
     static boolean available(final VerifiedMemberResolver resolver) {
-        return resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")
+        return EditorReviewedGeneration.admits(resolver)
                 && resolver.authorizesFeature(
                         EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
                         EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID,

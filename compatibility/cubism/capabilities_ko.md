@@ -50,8 +50,6 @@
 
 - `cubism.editor-model.animation-eval`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.animation-timeline.write`: 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-model.art-mesh.evaluated-read`: 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-model.art-mesh.morph-authoring`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.art-mesh.parameter-interpolation.write`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.auto-yure.read` (자동 흔들림 읽기): 검증된 레코드 없음 5.0.00–5.0.06
 - `cubism.autobackup.backup` (자동 백업 생성): 검증된 레코드 없음 5.0.00–5.0.06
@@ -62,7 +60,6 @@
 - `cubism.integration.external-app-settings.edit-toggle` (외부 앱 편집 토글): 검증된 레코드 없음 5.0.00–5.0.06
 - `cubism.editor-model.moc-export.read`: 검증된 레코드 없음 5.0.00–5.2.03
 - `cubism.editor-model.render.read`: 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-model.source-triangulation.read`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.modeling-tool.selection-brush` (모델링 선택 브러시): 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.part-inspector.write` (파트 인스펙터 쓰기): 검증된 레코드 없음 5.0.00–5.2.03
 - `cubism.editor-model.part-opacity.write` (파트 불투명도 쓰기): 검증된 레코드 없음 5.0.00–5.2.03
@@ -141,14 +138,6 @@
 | `dev.turboism.sdk.cubism.mesh.MeshToolContext` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.mesh.MeshToolRegistry` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AlphaComposition` | type | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot#ArtMeshAuthoringSnapshot()` | method | 5.2.03, 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot#ArtMeshEvaluationSnapshot()` | method | 5.2.03, 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.ArtMeshKeyform` | type | 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder#ArtMeshKeyformDrawOrder()` | method | 5.2.03, 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions#ArtMeshKeyformPositions()` | method | 5.2.03, 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform` | type | 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform#setDrawOrder()` | method | 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.ArtMeshSourceTriangulation#ArtMeshSourceTriangulation()` | method | 5.2.03, 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.ArtMeshTextureInput#ArtMeshTextureInput()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AuthorizedImageContent` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AutoYure` | type | 5.1.00–5.3.04 |
@@ -161,13 +150,7 @@
 | `dev.turboism.sdk.cubism.model.CubismModel#renderPixels()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.CubismRenderedPixels#CubismRenderedPixels()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Deformers#applyToChildren()` | method | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.Drawable#authoringSnapshot()` | method | 5.2.03, 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.Drawable#createMorphKeyform()` | method | 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.Drawable#evaluationSnapshot()` | method | 5.2.03, 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.Drawable#morphKeyform()` | method | 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.Drawable#ordinaryKeyform()` | method | 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.Drawable#setOrdinaryKeyformPositions()` | method | 5.2.03, 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.ModelImageBinding#ModelImageBinding()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelInstance` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelTextures#bindModelImage()` | method | 5.2.00–5.3.04 |
@@ -181,12 +164,6 @@
 | `dev.turboism.sdk.cubism.model.Part#setAlphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setMaskIds()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setOpacity()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.RotationAuthoringSnapshot#RotationAuthoringSnapshot()` | method | 5.2.03, 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.RotationKeyformForm#RotationKeyformForm()` | method | 5.2.03, 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot#WarpAuthoringSnapshot()` | method | 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.WarpDeformer#authoringSnapshot()` | method | 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.WarpDeformer#setOrdinaryKeyformPositions()` | method | 5.3.02–5.3.03 |
-| `dev.turboism.sdk.cubism.model.WarpKeyformPositions#WarpKeyformPositions()` | method | 5.3.02–5.3.03 |
 | `dev.turboism.sdk.cubism.model.YureDeformConfig` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.modeling.ModelingBrush` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.modeling.ModelingToolContext` | type | 5.2.00–5.3.04 |
@@ -393,7 +370,7 @@ Cubism Editor 자체에 기능이 없는 확인된 호스트 경계. 공식 업�
 | `glcanvas` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |
 | `guard-5302` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
 | `incremental-update` |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ |  |  | ✓ | ✓ | ✓ |
-| `integration` | ◇ |  | ? |  |  |  | ◇ | ◇ |  |  | ? | ✓ | ✓ | ? | ? | ✓ | ? | ? | ? | ✓ |
+| `integration` | ◇ |  | ? |  |  |  | ◇ | ◇ |  |  | ◇ | ✓ | ✓ | ? | ? | ✓ | ? | ? | ? | ✓ |
 | `media-perf` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |
 | `mesh-edit` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ? | ? |  |
 | `model-import-3d` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |

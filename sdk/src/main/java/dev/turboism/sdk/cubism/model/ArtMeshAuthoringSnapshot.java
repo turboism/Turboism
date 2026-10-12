@@ -15,7 +15,7 @@ import java.util.Optional;
  * declared key; consumers must not infer a default cell from the first key or a nearest key.
  * This snapshot does not classify morph keys or convert their stored positions to absolute ones.
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.0.00")
 public record ArtMeshAuthoringSnapshot(
         ArtMeshId artMeshId,
         String sourceGuid,

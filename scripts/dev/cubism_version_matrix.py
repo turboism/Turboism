@@ -166,6 +166,20 @@ MEMBER_VARIANTS = {
             "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06"
         )
     },
+    # GEditableMesh2#getGlIndices$default exists on every reviewed jar, but the
+    # Kotlin default-args marker class is com/live2d/util/h/a on 5.0.00-5.0.02
+    # (javap of the exact artifacts), com/live2d/util/i/a on 5.0.03-5.2.03 and
+    # com/live2d/util/j/a from 5.3.00 on. Source triangulation needs the
+    # default-indices read on the two oldest 5.0 patches too.
+    **{
+        ("cubism.editor-model.editable-mesh.gl-indices-default", version): {
+            "descriptor": (
+                "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;"
+                "Lcom/live2d/util/h/a;ZILjava/lang/Object;)[I"
+            ),
+        }
+        for version in ("5.0.00", "5.0.01", "5.0.02")
+    },
 }
 
 
@@ -1341,6 +1355,13 @@ def refresh_editor_model(constants: dict, editor: dict, families: dict) -> None:
             "EditorRawImagePsdReplaceSelectorContract",
         )
     }
+    # Stored authoring/keyform additions whose per-version records are derived
+    # from their contract alias sets (model-import-3d version adaptation).
+    scoped_contracts = (
+        "EditorArtMeshEvaluationReadSelectorContract",
+        "EditorArtMeshMorphSelectorContract",
+        "EditorSourceTriangulationSelectorContract",
+    )
     updates = []
     for version in ALL_VERSIONS:
         record_path = VERIFICATION_DIR / f"cubism-{version}-editor-model.json"
@@ -1398,6 +1419,20 @@ def refresh_editor_model(constants: dict, editor: dict, families: dict) -> None:
                 if version in contract.get("TRANSPARENCY_SHAPES_ABSENT_VERSIONS", ()):
                     required -= set(contract["TRANSPARENCY_SHAPES_ALIASES"])
                 scoped_aliases.update(required)
+        for name in scoped_contracts:
+            contract = constants[name]
+            capability = contract["CAPABILITY_ID"]
+            if capability not in derived["capabilityIds"]:
+                if capability in current["capabilityIds"]:
+                    raise ValueError(
+                        f"derived record lost an admitted capability: {version} {capability}"
+                    )
+                continue
+            scoped_capabilities.append(capability)
+            scoped_aliases.update(required_aliases(
+                constants, editor, derived["selectors"], version, capability,
+                derived["capabilityConditions"][capability],
+            ))
         derived_aliases = {selector["alias"] for selector in derived["selectors"]}
         if not scoped_aliases <= derived_aliases:
             raise ValueError(f"incomplete refreshed feature selectors: {version}")

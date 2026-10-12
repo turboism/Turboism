@@ -121,8 +121,11 @@ class ArtMeshAuthoringSnapshotTest {
         assertTrue(method.isDefault());
         assertEquals(ArtMeshAuthoringSnapshot.class, method.getReturnType());
         assertArrayEquals(
-                new String[] {"5.2.03", "5.3.02", "5.3.03"},
+                new String[0],
                 method.getAnnotation(dev.turboism.sdk.CubismEditor.class).value());
+        assertEquals(
+                "5.0.00",
+                method.getAnnotation(dev.turboism.sdk.CubismEditor.class).from());
         assertEquals(0, method.getParameterCount());
     }
 
