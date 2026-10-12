@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-[[ $# -ge 2 && "$1" =~ ^(5203|530[23])$ && "$2" =~ ^[A-Za-z0-9][A-Za-z0-9_-]{0,80}$ ]] || { echo 'invalid UI validation version/label' >&2; exit 2; }
+source "$repo_root/scripts/preview/host-validation-env.sh"
+[[ $# -ge 2 && "$2" =~ ^[A-Za-z0-9][A-Za-z0-9_-]{0,80}$ ]] || { echo 'invalid UI validation version/label' >&2; exit 2; }
 version="$1"; label="$2"; shift 2
+turboism_require_task_version model-import-3d-user-entry "$version" || exit 2
 options=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -11,7 +13,6 @@ while [[ $# -gt 0 ]]; do
     *) echo 'only dry-run/prepare-dir options allowed' >&2; exit 2 ;;
   esac
 done
-source "$repo_root/scripts/preview/host-validation-env.sh"
 turboism_select_fixture "$version" || exit 2
 : "${TURBOISM_MI3D_UI_BUILD:?explicit frozen UI validation bundle required}"
 python3 -B "$repo_root/validation/model-import-3d-user-entry/verify-bundle.py" "$TURBOISM_MI3D_UI_BUILD"
