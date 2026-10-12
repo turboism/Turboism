@@ -170,10 +170,9 @@ class ModelImportPluginTest {
         }
 
         void cube() throws Exception {
-            Path root = Path.of(System.getProperty("mi3d.repo"));
             read.complete(new UserFileReadResult<>(
-                    Optional.of(Files.readAllBytes(
-                            root.resolve("build/model-import-3d-inputs/cube-985496727e50/cube.glb"))),
+                    Optional.of(ModelImportTestFixtures.readBytes(
+                            "build/model-import-3d-inputs/cube-985496727e50/cube.glb")),
                     Optional.empty(),
                     false));
         }
@@ -285,11 +284,8 @@ class ModelImportPluginTest {
         var w = new World();
         w.start();
         w.grant();
-        Path root = Path.of(System.getProperty("mi3d.repo"));
-        w.read.complete(new UserFileReadResult<>(
-                Optional.of(Files.readAllBytes(root.resolve("artifacts/apple-textured/source-r2/apple-textured.glb"))),
-                Optional.empty(),
-                false));
+        byte[] appleGlb = ModelImportTestFixtures.readBytes("artifacts/apple-textured/source-r2/apple-textured.glb");
+        w.read.complete(new UserFileReadResult<>(Optional.of(appleGlb), Optional.empty(), false));
         w.done();
         assertNull(w.error);
         assertNull(w.prepared);
@@ -334,11 +330,8 @@ class ModelImportPluginTest {
         var w = new World();
         w.start();
         w.grant();
-        var root = Path.of(System.getProperty("mi3d.repo"));
-        w.read.complete(new UserFileReadResult<>(
-                Optional.of(Files.readAllBytes(root.resolve("artifacts/cat-textured/source-r2/cat-textured.glb"))),
-                Optional.empty(),
-                false));
+        byte[] catGlb = ModelImportTestFixtures.readBytes("artifacts/cat-textured/source-r2/cat-textured.glb");
+        w.read.complete(new UserFileReadResult<>(Optional.of(catGlb), Optional.empty(), false));
         w.done();
         assertNull(w.error);
         assertNull(w.prepared);
@@ -370,11 +363,8 @@ class ModelImportPluginTest {
         var w = new World();
         w.start();
         w.grant();
-        w.read.complete(new UserFileReadResult<>(
-                Optional.of(Files.readAllBytes(Path.of(System.getProperty("mi3d.repo"))
-                        .resolve("artifacts/cat-textured/package-source-r1/cat.zip"))),
-                Optional.empty(),
-                false));
+        byte[] catZip = ModelImportTestFixtures.readBytes("artifacts/cat-textured/package-source-r1/cat.zip");
+        w.read.complete(new UserFileReadResult<>(Optional.of(catZip), Optional.empty(), false));
         w.done();
         assertNull(w.error);
         assertNotNull(w.vertices);
@@ -400,11 +390,8 @@ class ModelImportPluginTest {
         w.onConfirm = () -> w.document = "other";
         w.start();
         w.grant();
-        var root = Path.of(System.getProperty("mi3d.repo"));
-        w.read.complete(new UserFileReadResult<>(
-                Optional.of(Files.readAllBytes(root.resolve("artifacts/cat-textured/source-r2/cat-textured.glb"))),
-                Optional.empty(),
-                false));
+        byte[] catGlb = ModelImportTestFixtures.readBytes("artifacts/cat-textured/source-r2/cat-textured.glb");
+        w.read.complete(new UserFileReadResult<>(Optional.of(catGlb), Optional.empty(), false));
         w.done();
         assertNotNull(w.vertices);
         assertTrue(w.error.contains("目标文档"), w.error);
@@ -416,11 +403,8 @@ class ModelImportPluginTest {
         w.onPreview = () -> w.document = "other";
         w.start();
         w.grant();
-        var root = Path.of(System.getProperty("mi3d.repo"));
-        w.read.complete(new UserFileReadResult<>(
-                Optional.of(Files.readAllBytes(root.resolve("artifacts/cat-textured/source-r2/cat-textured.glb"))),
-                Optional.empty(),
-                false));
+        byte[] catGlb = ModelImportTestFixtures.readBytes("artifacts/cat-textured/source-r2/cat-textured.glb");
+        w.read.complete(new UserFileReadResult<>(Optional.of(catGlb), Optional.empty(), false));
         w.done();
         assertTrue(w.previews > 0);
         assertNull(w.vertices);
@@ -434,11 +418,8 @@ class ModelImportPluginTest {
         w.rejectPreview = true;
         w.start();
         w.grant();
-        var root = Path.of(System.getProperty("mi3d.repo"));
-        w.read.complete(new UserFileReadResult<>(
-                Optional.of(Files.readAllBytes(root.resolve("artifacts/cat-textured/source-r2/cat-textured.glb"))),
-                Optional.empty(),
-                false));
+        byte[] catGlb = ModelImportTestFixtures.readBytes("artifacts/cat-textured/source-r2/cat-textured.glb");
+        w.read.complete(new UserFileReadResult<>(Optional.of(catGlb), Optional.empty(), false));
         w.done();
         assertTrue(w.previews > 0);
         assertNull(w.vertices);
@@ -453,11 +434,8 @@ class ModelImportPluginTest {
         w.onConfirm = () -> w.document = "other";
         w.start();
         w.grant();
-        Path root = Path.of(System.getProperty("mi3d.repo"));
-        w.read.complete(new UserFileReadResult<>(
-                Optional.of(Files.readAllBytes(root.resolve("artifacts/apple-textured/source-r2/apple-textured.glb"))),
-                Optional.empty(),
-                false));
+        byte[] appleGlb = ModelImportTestFixtures.readBytes("artifacts/apple-textured/source-r2/apple-textured.glb");
+        w.read.complete(new UserFileReadResult<>(Optional.of(appleGlb), Optional.empty(), false));
         w.done();
         assertNotNull(w.layered, w.error);
         assertTrue(w.error.contains("目标文档"), w.error);

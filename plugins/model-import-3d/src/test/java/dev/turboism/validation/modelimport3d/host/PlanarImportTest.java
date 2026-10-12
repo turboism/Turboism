@@ -22,7 +22,7 @@ class PlanarImportTest {
     }
 
     private static byte[] input(String file) throws Exception {
-        return Files.readAllBytes(Path.of(System.getProperty("mi3d.repo"), "artifacts/plane-textured", file));
+        return ModelImportTestFixtures.readBytes("artifacts/plane-textured/" + file);
     }
 
     @Test
@@ -94,8 +94,7 @@ class PlanarImportTest {
 
     @Test
     void actualTexturedPlanePreparesWithoutLosingSourceUvOrAspect() throws Exception {
-        var root = Path.of(System.getProperty("mi3d.repo"));
-        var bytes = Files.readAllBytes(root.resolve("artifacts/plane-textured/plane.glb"));
+        var bytes = ModelImportTestFixtures.readBytes("artifacts/plane-textured/plane.glb");
         var request = new SurfaceImport.Request(
                 "Plane",
                 new ParameterId("Yaw"),
@@ -129,7 +128,7 @@ class PlanarImportTest {
         assertTrue(prepared.geometry.grid().yawKeys().size() > 3);
         assertTrue(prepared.geometry.grid().pitchKeys().size() > 3);
         var cube = SurfaceImport.prepare(
-                Files.readAllBytes(root.resolve("build/model-import-3d-inputs/cube-985496727e50/cube.glb")), request);
+                ModelImportTestFixtures.readBytes("build/model-import-3d-inputs/cube-985496727e50/cube.glb"), request);
         assertEquals(SurfaceImport.VisibilityKind.CLOSED_CONVEX, cube.visibility.kind());
         assertEquals(6, cube.geometry.patches().size());
     }
