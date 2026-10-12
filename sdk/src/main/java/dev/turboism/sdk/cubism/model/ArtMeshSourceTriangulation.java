@@ -5,7 +5,7 @@ import java.util.List;
 
 /** Owned result from the Editor's source-plane triangulator. This is a planning
  * observation, not proof that a mesh has entered or committed the native editor. */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.0.00")
 public record ArtMeshSourceTriangulation(List<Point2> positions, List<Integer> triangleIndices) {
     public ArtMeshSourceTriangulation {
         positions = List.copyOf(positions);

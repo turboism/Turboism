@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Objects;
 
 /** Absolute rotation values for one existing, independent ordinary grid cell. */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.0.00")
 public record RotationKeyformForm(
         List<RotationAuthoringSnapshot.Coordinate> coordinates, String formGuid, RotationDeformerForm value) {
     public RotationKeyformForm {

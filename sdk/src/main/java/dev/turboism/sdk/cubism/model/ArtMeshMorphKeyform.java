@@ -4,7 +4,7 @@ import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 
 /**
- * A generation-bound, existing non-basic morph key on a root ArtMesh in Editor 5.3.02.
+ * A generation-bound, existing non-basic morph key on a root ArtMesh in a reviewed Editor.
  * Stored positions are absolute values U, not a difference from the ordinary base B.
  * The implicit zero key is the exact ordinary default cell and is read-only here.
  * This initial surface requires normalized, non-repeating 0..1 morph parameters,
@@ -18,7 +18,7 @@ import java.util.List;
  * extended interpolation) throws {@link UnsupportedOperationException}; malformed stored
  * geometry is rejected by the snapshot contract with {@link IllegalArgumentException}.</p>
  */
-@CubismEditor({"5.3.02", "5.3.03"})
+@CubismEditor(from = "5.0.00")
 public interface ArtMeshMorphKeyform {
     /** Returns the native parameter GUID, not its user-facing parameter ID. */
     String parameterGuid();
@@ -51,7 +51,7 @@ public interface ArtMeshMorphKeyform {
      * @throws IllegalStateException when this reference or its layout is stale
      * @throws UnsupportedOperationException when the exact-version write protocol is unavailable
      */
-    @CubismEditor({"5.3.02", "5.3.03"})
+    @CubismEditor(from = "5.0.00")
     default void setDrawOrder(final int drawOrder) {
         throw new UnsupportedOperationException("ArtMesh morph keyform draw-order editing is unavailable");
     }
