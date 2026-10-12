@@ -31,7 +31,7 @@ Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 
 ## Install and enable
 
-This is a development plugin, not a released store package. Build with `./gradlew :plugins:model-import-3d:jar --offline`, then install the resulting JAR through your Turboism development plugin workflow and enable it. The JAR contains the SDK-only importer and excludes HostProbe, Turboism runtime and official Editor classes. Host validation uses isolated queued sessions.
+This is a development plugin, not a released store package. Build with `./gradlew :plugins:model-import-3d:jar --offline`, then install the resulting JAR through your Turboism development plugin workflow and enable it. The JAR contains the SDK-only importer and excludes HostProbe, Turboism runtime and official Editor classes. Host validation uses isolated queued sessions. Unit tests that exercise large local 3D model fixtures (`artifacts/` and `build/model-import-3d-inputs/`) skip via JUnit `Assumptions` on clean checkouts; stage or symlink the directories (or set `TURBOISM_IMPORT_3D_ARTIFACTS` / `TURBOISM_IMPORT_3D_INPUTS`) to run them, and pass `-Pturboism.requireImport3dFixtures=true` (or `TURBOISM_REQUIRE_IMPORT_3D_FIXTURES=true`) to fail if any fixture is missing.
 
 ## How to use
 

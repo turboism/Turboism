@@ -8,8 +8,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.*;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
@@ -17,8 +15,7 @@ import org.junit.jupiter.api.Test;
 /** Actual GLB parse + image preparation; no host or synthetic native-render claim. */
 class EmbeddedTextureTest {
     private byte[] cube() throws Exception {
-        return Files.readAllBytes(
-                Path.of(System.getProperty("mi3d.repo"), "build/model-import-3d-inputs/cube-985496727e50/cube.glb"));
+        return ModelImportTestFixtures.readBytes("build/model-import-3d-inputs/cube-985496727e50/cube.glb");
     }
 
     private byte[] image(boolean transparent) throws Exception {
@@ -201,17 +198,16 @@ class EmbeddedTextureTest {
 
     @Test
     void originalCatImageReadsAtFullResolutionAndPreservesEveryTexel() throws Exception {
-        var root = Path.of(System.getProperty("mi3d.repo"));
-        var sources = GlbSurfaceReader.read(
-                Files.readAllBytes(root.resolve("artifacts/cat-textured/source-r2/cat-textured.glb")));
+        var catGlb = ModelImportTestFixtures.readBytes("artifacts/cat-textured/source-r2/cat-textured.glb");
+        var catPng = ModelImportTestFixtures.fixture("artifacts/cat-textured/source-r2/Cat_diffuse.png");
+        var sources = GlbSurfaceReader.read(catGlb);
         assertEquals(1, sources.size());
         assertEquals(36530, sources.get(0).positions().size());
         assertEquals(70576, sources.get(0).indices().size() / 3);
         var texture = sources.get(0).texture();
         assertEquals(1024, texture.width());
         assertEquals(1024, texture.height());
-        var source = ImageIO.read(
-                root.resolve("artifacts/cat-textured/source-r2/Cat_diffuse.png").toFile());
+        var source = ImageIO.read(catPng.toFile());
         var material = SurfaceBaseColorPlan.sourceMaterial(texture, List.of(1d, 1d, 1d, 1d));
         var result = ImageIO.read(new ByteArrayInputStream(material.png()));
         assertEquals(1024, material.newGrant().width());
@@ -235,8 +231,7 @@ class EmbeddedTextureTest {
     @SuppressWarnings("unchecked")
     @Test
     void aggregateTextureExpansionIsRejectedBeforeDecodingAnotherFullImage() throws Exception {
-        var root = Path.of(System.getProperty("mi3d.repo"));
-        byte[] png = Files.readAllBytes(root.resolve("artifacts/cat-textured/source-r2/Cat_diffuse.png"));
+        byte[] png = ModelImportTestFixtures.readBytes("artifacts/cat-textured/source-r2/Cat_diffuse.png");
         byte[] input = glb(png, List.of(1d, 1d, 1d, 1d), d -> {
             var image = ((List<Object>) d.get("images")).get(0);
             d.put("images", List.of(image, image));

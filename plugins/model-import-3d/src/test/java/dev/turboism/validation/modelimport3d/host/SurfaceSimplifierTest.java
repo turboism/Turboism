@@ -60,8 +60,8 @@ class SurfaceSimplifierTest {
 
     @Test
     void realCatCandidateRespectsOnePixelBoundAndPreservesTextures() throws Exception {
-        var sources = GlbSurfaceReader.read(Files.readAllBytes(
-                Path.of(System.getProperty("mi3d.repo"), "artifacts/cat-textured/source-r2/cat-textured.glb")));
+        var sources = GlbSurfaceReader.read(
+                ModelImportTestFixtures.readBytes("artifacts/cat-textured/source-r2/cat-textured.glb"));
         var camera = SurfaceAutoCamera.fit(sources, 512, 512, 400);
         var r = SurfaceSimplifier.simplify(sources, camera.scale(), 1, .5);
         assertTrue(r.maximumGeometryErrorPixels() <= 1);

@@ -64,9 +64,7 @@ class SurfaceWarpImportCandidateTest {
 
     @Test
     void measuresFullCircleAppleSourceWithoutDroppingVerticesOrTriangles() throws Exception {
-        var path = java.nio.file.Path.of(
-                System.getProperty("mi3d.repo"), "artifacts/apple-textured/source-r2/apple-textured.glb");
-        byte[] bytes = java.nio.file.Files.readAllBytes(path);
+        byte[] bytes = ModelImportTestFixtures.readBytes("artifacts/apple-textured/source-r2/apple-textured.glb");
         var request = new SurfaceImport.Request(
                 "Apple360",
                 new ParameterId("Yaw"),
