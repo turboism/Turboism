@@ -68,8 +68,8 @@ class SurfacePatchCollapseProofTest {
 
     @Test
     void realCatSurfaceCandidateMeasuresReductionWithinTheReservedBudget() throws Exception {
-        var sources = GlbSurfaceReader.read(Files.readAllBytes(
-                Path.of(System.getProperty("mi3d.repo"), "artifacts/cat-textured/source-r2/cat-textured.glb")));
+        var source = ModelImportTestFixtures.fixture("artifacts/cat-textured/source-r2/cat-textured.glb");
+        var sources = GlbSurfaceReader.read(Files.readAllBytes(source));
         var camera = SurfaceAutoCamera.fit(sources, 512, 512, 400);
         double budget = 5 - (800 * (1 - Math.cos(Math.toRadians(45d / 4 / 2))) + .01);
         var r = SurfaceSimplifier.simplifySurface(sources, camera.scale(), budget, .5);
@@ -79,7 +79,7 @@ class SurfacePatchCollapseProofTest {
         for (int i = 0; i < sources.size(); i++)
             assertEquals(sources.get(i).texture(), r.surfaces().get(i).texture());
         var geometry = SurfaceVertexPlan.compile(r.surfaces(), 512);
-        var root = Path.of(System.getProperty("mi3d.repo"));
+        var root = ModelImportTestFixtures.repoRoot();
         var output = root.resolve("build/model-import-3d-offline/cat-surface-optimization-r2-20261003");
         Files.createDirectories(output);
         var meshes = r.surfaces().stream()
@@ -93,7 +93,6 @@ class SurfacePatchCollapseProofTest {
                         "indices",
                         s.indices()))
                 .toList();
-        var source = root.resolve("artifacts/cat-textured/source-r2/cat-textured.glb");
         Files.write(
                 output.resolve("optimized-geometry.json"),
                 Json.bytes(Map.of(
