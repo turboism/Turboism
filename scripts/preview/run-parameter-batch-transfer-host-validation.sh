@@ -16,7 +16,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-parameter-batch-transfer-host-validation.sh <5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304> [run-label] [runner-options...]" >&2
+  echo "usage: run-parameter-batch-transfer-host-validation.sh $(turboism_task_versions_usage parameter-batch-transfer) [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
@@ -27,21 +27,16 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   shift
 fi
 
-case "$version" in
-  5302)
-    turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_PBT_5302 \
-      "Cubism 5.3.02 parameter-batch-transfer fixture path" || exit 2
-    fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_PBT_5302"
-    fixture_sha256="$TURBOISM_HOST_VALIDATION_FIXTURE_PBT_5302_SHA256"
-    ;;
-  5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5303|5304)
-    turboism_select_fixture "$version" || exit 2
-    ;;
-  *)
-    echo "error: unsupported version: $version" >&2
-    exit 2
-    ;;
-esac
+turboism_require_task_version parameter-batch-transfer "$version" || exit 2
+pbt_var="TURBOISM_HOST_VALIDATION_FIXTURE_PBT_${version}"
+pbt_sha_var="TURBOISM_HOST_VALIDATION_FIXTURE_PBT_${version}_SHA256"
+if [ -n "${!pbt_var:-}" ]; then
+  fixture_src="${!pbt_var}"
+  fixture_sha256="${!pbt_sha_var:-}"
+  [ -n "$fixture_sha256" ] || { echo "error: $pbt_var set but $pbt_sha_var missing" >&2; exit 2; }
+else
+  turboism_select_fixture "$version" || exit 2
+fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"

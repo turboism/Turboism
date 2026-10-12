@@ -11,7 +11,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-update-check-host-validation.sh <5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304> [run-label] [new|current|safe|demo] [runner-options...]" >&2
+  echo "usage: run-update-check-host-validation.sh $(turboism_task_versions_usage update-check) [run-label] [new|current|safe|demo] [runner-options...]" >&2
   exit 2
 fi
 
@@ -28,13 +28,7 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   shift
 fi
 
-case "$version" in
-  5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304) ;;
-  *)
-    echo "update-check validation: unsupported Cubism version: $version" >&2
-    exit 2
-    ;;
-esac
+turboism_require_task_version update-check "$version" || exit 2
 
 case "$mode" in
   new|current|safe|demo) ;;

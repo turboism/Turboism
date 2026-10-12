@@ -7,7 +7,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-psd-clip-mask-host-validation.sh <5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304> [mode] [run-label] [runner-options...]" >&2
+  echo "usage: run-psd-clip-mask-host-validation.sh $(turboism_task_versions_usage psd-clip-mask) [mode] [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
@@ -31,21 +31,14 @@ case "$mode" in
     ;;
 esac
 
-case "$version" in
-  5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304)
-    # All exact hosts validate against the same small real PSD fixture
-    # (clipmask.psd, 169008 bytes, independently confirmed host identity);
-    # Local overrides come from the documented TURBOISM_HOST_VALIDATION_FIXTURE_PSD variables.
-    turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_PSD "PSD fixture path" || exit 2
-    fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_PSD"
-    fixture_sha256="$TURBOISM_HOST_VALIDATION_FIXTURE_PSD_SHA256"
-    fixture_name="${TURBOISM_HOST_VALIDATION_FIXTURE_PSD_NAME:-clipmask.psd}"
-    ;;
-  *)
-    echo "error: unsupported version: $version" >&2
-    exit 2
-    ;;
-esac
+turboism_require_task_version psd-clip-mask "$version" || exit 2
+# All exact hosts validate against the same small real PSD fixture
+# (clipmask.psd, 169008 bytes, independently confirmed host identity);
+# Local overrides come from the documented TURBOISM_HOST_VALIDATION_FIXTURE_PSD variables.
+turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_PSD "PSD fixture path" || exit 2
+fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_PSD"
+fixture_sha256="$TURBOISM_HOST_VALIDATION_FIXTURE_PSD_SHA256"
+fixture_name="${TURBOISM_HOST_VALIDATION_FIXTURE_PSD_NAME:-clipmask.psd}"
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
