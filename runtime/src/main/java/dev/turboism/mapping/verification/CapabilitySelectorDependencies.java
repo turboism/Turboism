@@ -518,6 +518,10 @@ final class CapabilitySelectorDependencies {
                 result,
                 EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
                 EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES);
+        add(
+                result,
+                EditorTextureSelectorContract.REGISTER_BIND_CAPABILITY_ID,
+                EditorTextureSelectorContract.REGISTER_BIND_REQUIRED_ALIASES);
         add(result, EditorWarpMirrorSelectorContract.CAPABILITY_ID, EditorWarpMirrorSelectorContract.REQUIRED_ALIASES);
         add(result, MeshToolSessionSelectorContract.CAPABILITY_ID, MeshToolSessionSelectorContract.REQUIRED_ALIASES);
         add(

@@ -42,7 +42,7 @@ Legend: ✓ every capability in the group admitted · ◐ partially admitted · 
 | PSD raw image | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Selection editing | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Startup suppression | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Textures & raw images | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Textures & raw images | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Texture atlas | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Undo revert | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Warp deformer mirror | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -62,7 +62,6 @@ Legend: ✓ every capability in the group admitted · ◐ partially admitted · 
 - `cubism.editor-model.part-inspector.write` (Part inspector writes): no verified record 5.0.00–5.2.03
 - `cubism.editor-model.part-opacity.write` (Part opacity writes): no verified record 5.0.00–5.2.03
 - `cubism.protected-export.orchestration` (Protected-export orchestration): no verified record 5.0.00–5.0.06
-- `cubism.editor-model.texture.register-bind`: no verified record 5.0.00–5.1.03
 
 ## SDK surfaces with version restrictions
 
@@ -136,8 +135,6 @@ Only surfaces whose `@CubismEditor` resolves to a strict subset of the reviewed 
 | `dev.turboism.sdk.cubism.mesh.MeshToolContext` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.mesh.MeshToolRegistry` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AlphaComposition` | type | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ArtMeshTextureInput#ArtMeshTextureInput()` | method | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.AuthorizedImageContent` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AutoYure` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AutoYureBinding` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AutoYureConfig` | type | 5.1.00–5.3.04 |
@@ -147,13 +144,9 @@ Only surfaces whose `@CubismEditor` resolves to a strict subset of the reviewed 
 | `dev.turboism.sdk.cubism.model.CubismModel#exportMoc()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Deformers#applyToChildren()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelImageBinding#ModelImageBinding()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelInstance` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelTextures#bindModelImage()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()` | method | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelTextures#registerImageAndBind()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()` | method | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelTextures#textureInput()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#alphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#maskIds()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setAlphaComposition()` | method | 5.3.00–5.3.04 |
