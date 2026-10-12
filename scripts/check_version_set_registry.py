@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -54,6 +55,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 REGISTRY = Path("scripts/version-set-registry.json")
 REGISTRY_FORMAT = "turboism.version-set-registry/v1"
+PREVIEW_WRAPPERS_DIR = Path("scripts/preview")
+GENERIC_RUNNER_NAME = "run-cubism-host-validation.sh"
+SHELL_COMPACT_VERSION = re.compile(r"\b(5[0-3]\d{2})\b")
+SHELL_DOTTED_VERSION = re.compile(r"\b(5\.\d{1,2}\.\d{2})\b")
 
 BASES = ("canonical", "verification-derived", "task-scoped", "evidence")
 
@@ -113,6 +118,29 @@ def collect_sites(root: Path) -> dict[tuple[str, str], int]:
                     if residual[i] != "\n":
                         residual[i] = " "
             declared = monotonicity.literal_versions("".join(residual), admitted)
+            if declared:
+                key = ("file", relative, ",".join(sort_versions(declared)))
+                sites[key] = sites.get(key, 0) + 1
+    preview_dir = root / PREVIEW_WRAPPERS_DIR
+    if preview_dir.is_dir():
+        for wrapper in sorted(preview_dir.glob("run-*.sh")):
+            if wrapper.name == GENERIC_RUNNER_NAME:
+                continue
+            relative = wrapper.relative_to(root).as_posix()
+            code_lines = [
+                line
+                for line in wrapper.read_text(encoding="utf-8").splitlines()
+                if not line.lstrip().startswith("#")
+            ]
+            code = "\n".join(code_lines)
+            declared: set[str] = set()
+            for token in SHELL_COMPACT_VERSION.findall(code):
+                dotted = monotonicity.compact_to_dotted(token)
+                if dotted in admitted:
+                    declared.add(dotted)
+            for dotted in SHELL_DOTTED_VERSION.findall(code):
+                if dotted in admitted:
+                    declared.add(dotted)
             if declared:
                 key = ("file", relative, ",".join(sort_versions(declared)))
                 sites[key] = sites.get(key, 0) + 1

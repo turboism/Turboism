@@ -226,6 +226,33 @@ class RegistryGateTest(unittest.TestCase):
         # Fresh entries carry empty basis/reason and must fail until justified.
         self.assertEqual(1, CHECK.main([str(self.root)]))
 
+    def test_unregistered_wrapper_version_set_fails(self) -> None:
+        wrapper_rel = "scripts/preview/run-demo-host-validation.sh"
+        _write(
+            self.root,
+            wrapper_rel,
+            '#!/usr/bin/env bash\ncase "$version" in 5203|5302) ;; esac\n',
+        )
+        _registry(
+            self.root,
+            [_entry("collection", CONTRACT_REL, ALL)],
+        )
+        self.assertEqual(1, CHECK.main([str(self.root)]))
+        _registry(
+            self.root,
+            [
+                _entry("collection", CONTRACT_REL, ALL),
+                _entry(
+                    "file",
+                    wrapper_rel,
+                    ["5.2.03", "5.3.02"],
+                    basis="evidence",
+                    reason="documented bytecode boundary",
+                ),
+            ],
+        )
+        self.assertEqual(0, CHECK.main([str(self.root)]))
+
 
 if __name__ == "__main__":
     unittest.main()
