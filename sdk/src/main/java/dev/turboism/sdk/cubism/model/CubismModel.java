@@ -156,7 +156,7 @@ public interface CubismModel {
      * it does not save files or add an Undo entry to the current document.
      * All settings are explicit and the returned data is bounded and owned by the caller.
      */
-    @CubismEditor({"5.3.02"})
+    @CubismEditor(from = "5.3.00")
     default CubismMocExport exportMoc(final CubismMocExportSettings settings) {
         throw new UnsupportedOperationException("Cubism official MOC export is unavailable.");
     }

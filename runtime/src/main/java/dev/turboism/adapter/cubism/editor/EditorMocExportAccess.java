@@ -29,12 +29,14 @@ final class EditorMocExportAccess {
     CubismMocExport exportMoc(
             final String identity, final Object source, final Object model, final CubismMocExportSettings settings) {
         Objects.requireNonNull(settings, "settings");
-        if (!resolver.isExactCubismVersion("5.3.02")
+        if (EditorMocExportSelectorContract.SUPPORTED_CUBISM_VERSIONS.stream()
+                        .noneMatch(resolver::isExactCubismVersion)
                 || !resolver.authorizesFeature(
                         EditorMocExportSelectorContract.ADAPTER_SLICE_ID,
                         EditorMocExportSelectorContract.CAPABILITY_ID,
                         EditorMocExportSelectorContract.REQUIRED_ALIASES)) {
-            throw new UnsupportedOperationException("Official MOC export requires exact verified Cubism 5.3.02.");
+            throw new UnsupportedOperationException("Official MOC 5.3 export is unavailable on Cubism "
+                    + resolver.cubismVersion() + "; the host exporter has no MOC 5.3 format.");
         }
         return EditorHostThread.dispatch(
                 "Cubism official MOC export", () -> exportOnEdt(identity, source, model, settings));
@@ -83,7 +85,7 @@ final class EditorMocExportAccess {
                     "cubism.editor-model.official-export.set-extend-edge", nativeSettings, settings.extendEdgeColors());
             final Object exporter = resolver.construct("cubism.editor-model.official-export.exporter-create");
             resolver.invoke("cubism.editor-model.official-export.exporter-settings", exporter, nativeSettings);
-            // Exact native ak.a(null) supplies its own progress implementation. The official
+            // The native exporter entry supplies its own progress implementation. The official
             // exporter clones the source before preparing MOC data and texture resources.
             final Object result = resolver.invoke("cubism.editor-model.official-export.export", exporter, source, null);
             if (result == null) throw new IllegalStateException("Official exporter returned no result.");

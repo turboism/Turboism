@@ -1,6 +1,6 @@
 {
   "format": "turboism.version-boundaries/v1",
-  "comment": "Feature-presence boundaries: versions where Cubism Editor itself lacks the feature (audit class (a) in build/spike/52-53-feature-gaps.md, verified against all reviewed jars). Anything absent here is NOT a proven boundary — the matrix generator labels unproven gaps 'pending adaptation' or 'unconfirmed', never 'the version lacks the feature'.",
+  "comment": "Feature-presence boundaries: versions where Cubism Editor itself lacks the feature (audit class (a) in build/spike/52-53-feature-gaps.md, verified against all reviewed jars). Anything absent here is NOT a proven boundary \u2014 the matrix generator labels unproven gaps 'pending adaptation' or 'unconfirmed', never 'the version lacks the feature'.",
   "boundaries": [
     {
       "id": "dev.turboism.sdk.cubism.model.AlphaComposition",
@@ -622,7 +622,7 @@
         "5.0.05",
         "5.0.06"
       ],
-      "reason": "com/live2d/cubism/doc/modeling/CModelingDocument::getDocumentUID()Ljava/lang/String; is absent on every 5.0.x jar (MEMBER_MISSING); the document-UID identity chain the autobackup session depends on was introduced in 5.1 — 5.0.x exposes only getFileContentInstanceGuid().",
+      "reason": "com/live2d/cubism/doc/modeling/CModelingDocument::getDocumentUID()Ljava/lang/String; is absent on every 5.0.x jar (MEMBER_MISSING); the document-UID identity chain the autobackup session depends on was introduced in 5.1 \u2014 5.0.x exposes only getFileContentInstanceGuid().",
       "source": "gap5051 bytecode audit: javap on cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; propagate autobackup --from 5.2.00 reports MEMBER_MISSING on all 5.0.x"
     },
     {
@@ -636,7 +636,7 @@
         "5.0.05",
         "5.0.06"
       ],
-      "reason": "com/live2d/cubism/doc/modeling/CModelingDocument::getDocumentUID()Ljava/lang/String; is absent on every 5.0.x jar (MEMBER_MISSING); the document-UID identity chain the autobackup session depends on was introduced in 5.1 — 5.0.x exposes only getFileContentInstanceGuid().",
+      "reason": "com/live2d/cubism/doc/modeling/CModelingDocument::getDocumentUID()Ljava/lang/String; is absent on every 5.0.x jar (MEMBER_MISSING); the document-UID identity chain the autobackup session depends on was introduced in 5.1 \u2014 5.0.x exposes only getFileContentInstanceGuid().",
       "source": "gap5051 bytecode audit: javap on cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; propagate autobackup --from 5.2.00 reports MEMBER_MISSING on all 5.0.x"
     },
     {
@@ -650,7 +650,7 @@
         "5.0.05",
         "5.0.06"
       ],
-      "reason": "Three incompatible members on every 5.0.x jar: export driver com/live2d/cubism/appCtrlImpl/al::a(CModelSource;CFrame;Function1)V takes Function1 (5.1+ uses Function2 — the staged output-file + absolute-path-list callback contract does not exist), CModelSource::containMotionSyncSettingNeedCorrection()Z missing, CMotionSyncSettingSource::getMotionSyncVersion() missing. The reviewed transformation premise fails closed.",
+      "reason": "Three incompatible members on every 5.0.x jar: export driver com/live2d/cubism/appCtrlImpl/al::a(CModelSource;CFrame;Function1)V takes Function1 (5.1+ uses Function2 \u2014 the staged output-file + absolute-path-list callback contract does not exist), CModelSource::containMotionSyncSettingNeedCorrection()Z missing, CMotionSyncSettingSource::getMotionSyncVersion() missing. The reviewed transformation premise fails closed.",
       "source": "gap5051 bytecode audit: javap on cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; propagate protected-export --from 5.2.00 reports DESCRIPTOR_MISMATCH + 2x MEMBER_MISSING on all 5.0.x"
     },
     {
@@ -664,7 +664,7 @@
         "5.0.05",
         "5.0.06"
       ],
-      "reason": "Field com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl::toolBtn_openHomeDialog and its accessor (q()Lcom/live2d/ui/control/CIconButton;) are absent on every 5.0.x jar (DESCRIPTOR_MISMATCH — q() returns CButton); the home-dialog toolbar button was introduced in 5.1.00.",
+      "reason": "Field com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl::toolBtn_openHomeDialog and its accessor (q()Lcom/live2d/ui/control/CIconButton;) are absent on every 5.0.x jar (DESCRIPTOR_MISMATCH \u2014 q() returns CButton); the home-dialog toolbar button was introduced in 5.1.00.",
       "source": "gap5051 bytecode audit: javap on cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; propagate ui-main-toolbar --from 5.1.03 reports the home-button selector missing on all 5.0.x"
     },
     {
@@ -678,7 +678,7 @@
         "5.0.05",
         "5.0.06"
       ],
-      "reason": "Field com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl::toolBtn_openHomeDialog and its accessor (q()Lcom/live2d/ui/control/CIconButton;) are absent on every 5.0.x jar (DESCRIPTOR_MISMATCH — q() returns CButton); the home-dialog toolbar button was introduced in 5.1.00.",
+      "reason": "Field com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl::toolBtn_openHomeDialog and its accessor (q()Lcom/live2d/ui/control/CIconButton;) are absent on every 5.0.x jar (DESCRIPTOR_MISMATCH \u2014 q() returns CButton); the home-dialog toolbar button was introduced in 5.1.00.",
       "source": "gap5051 bytecode audit: javap on cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; propagate ui-main-toolbar --from 5.1.03 reports the home-button selector missing on all 5.0.x"
     },
     {
@@ -766,7 +766,7 @@
         "5.1.02",
         "5.1.03"
       ],
-      "reason": "com/live2d/cubism/doc/animation/movie/effect/attr/CMvAttrF::setValueAndCurveType(ID;Lcom/live2d/cubism/doc/animation/movie/effect/attr/value/CCurveType;)V is absent on every 5.0.x/5.1.x jar — timeline curve-type writes were introduced in 5.2.",
+      "reason": "com/live2d/cubism/doc/animation/movie/effect/attr/CMvAttrF::setValueAndCurveType(ID;Lcom/live2d/cubism/doc/animation/movie/effect/attr/value/CCurveType;)V is absent on every 5.0.x/5.1.x jar \u2014 timeline curve-type writes were introduced in 5.2.",
       "source": "gap5051 bytecode audit: javap CMvAttrF on cubism-ref/5.0.00..5.1.03 Live2D_Cubism.jar (setValueAndCurveType count = 0)"
     },
     {
@@ -784,7 +784,7 @@
         "5.1.02",
         "5.1.03"
       ],
-      "reason": "com/live2d/cubism/doc/animation/movie/track/CMvTrack_Live2DModel_Instance::getParameterSet() is absent on every 5.0.x/5.1.x jar, and the timeline-write roster (CMvAttrF::setValueAndCurveType) the eval bake path requires is also absent — evaluated-parameter recording cannot complete.",
+      "reason": "com/live2d/cubism/doc/animation/movie/track/CMvTrack_Live2DModel_Instance::getParameterSet() is absent on every 5.0.x/5.1.x jar, and the timeline-write roster (CMvAttrF::setValueAndCurveType) the eval bake path requires is also absent \u2014 evaluated-parameter recording cannot complete.",
       "source": "gap5051 bytecode audit: javap CMvTrack_Live2DModel_Instance + CMvAttrF on cubism-ref/5.0.00..5.1.03 Live2D_Cubism.jar"
     },
     {
@@ -806,7 +806,7 @@
         "5.2.02",
         "5.2.03"
       ],
-      "reason": "com/live2d/cubism/doc/model/parts/CPartForm::getOpacity()F / setOpacity(F)V are absent on every 5.0.x/5.1.x/5.2.x jar — part-form opacity accessors were introduced in 5.3.",
+      "reason": "com/live2d/cubism/doc/model/parts/CPartForm::getOpacity()F / setOpacity(F)V are absent on every 5.0.x/5.1.x/5.2.x jar \u2014 part-form opacity accessors were introduced in 5.3.",
       "source": "gap5051 bytecode audit: javap CPartForm on cubism-ref/5.0.00..5.2.03 Live2D_Cubism.jar (opacity member count = 0)",
       "officialSource": {
         "version": "5.3.00",
@@ -998,7 +998,7 @@
         "5.0.01",
         "5.0.02"
       ],
-      "reason": "Command added in Cubism 5.0.03 (replacing 5.0.00–5.0.02 CMD_HIDE_PALETTE).",
+      "reason": "Command added in Cubism 5.0.03 (replacing 5.0.00\u20135.0.02 CMD_HIDE_PALETTE).",
       "source": "official-feature-timeline + bytecode verification",
       "officialSource": {
         "version": "5.0.03",
@@ -1028,7 +1028,7 @@
         "5.0.03",
         "5.0.04"
       ],
-      "reason": "Command added in Cubism 5.0.05 (replacing 5.0.00–5.0.04 CMD_CHANGE_SYNC_PARAMETER_TO_SAME_MODEL).",
+      "reason": "Command added in Cubism 5.0.05 (replacing 5.0.00\u20135.0.04 CMD_CHANGE_SYNC_PARAMETER_TO_SAME_MODEL).",
       "source": "official-feature-timeline + bytecode verification",
       "officialSource": {
         "version": "5.0.05",
@@ -1520,8 +1520,138 @@
         "5.3.03",
         "5.3.04"
       ],
-      "reason": "5.0–5.2 command id renamed to SHOW_LABEL_COPY_DIALOG in Cubism 5.3.00.",
+      "reason": "5.0\u20135.2 command id renamed to SHOW_LABEL_COPY_DIALOG in Cubism 5.3.00.",
       "source": "official-feature-timeline + bytecode verification",
+      "officialSource": {
+        "version": "5.3.00",
+        "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+      }
+    },
+    {
+      "id": "cubism.editor-model.moc-export.read",
+      "absentOn": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06",
+        "5.1.00",
+        "5.1.01",
+        "5.1.02",
+        "5.1.03",
+        "5.2.00",
+        "5.2.01",
+        "5.2.02",
+        "5.2.03"
+      ],
+      "reason": "Official MOC 5.3 export requires the MOC3 V5_03_00 format enum and invisible-alias export setting introduced in Cubism Editor 5.3.",
+      "source": "bytecode review + official feature timeline",
+      "officialSource": {
+        "version": "5.3.00",
+        "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+      }
+    },
+    {
+      "id": "dev.turboism.sdk.cubism.model.CubismModel#exportMoc",
+      "absentOn": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06",
+        "5.1.00",
+        "5.1.01",
+        "5.1.02",
+        "5.1.03",
+        "5.2.00",
+        "5.2.01",
+        "5.2.02",
+        "5.2.03"
+      ],
+      "reason": "Official MOC 5.3 export requires the MOC3 V5_03_00 format enum and invisible-alias export setting introduced in Cubism Editor 5.3.",
+      "source": "bytecode review + official feature timeline",
+      "officialSource": {
+        "version": "5.3.00",
+        "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+      }
+    },
+    {
+      "id": "dev.turboism.sdk.cubism.model.CubismMocExport",
+      "absentOn": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06",
+        "5.1.00",
+        "5.1.01",
+        "5.1.02",
+        "5.1.03",
+        "5.2.00",
+        "5.2.01",
+        "5.2.02",
+        "5.2.03"
+      ],
+      "reason": "Official MOC 5.3 export requires the MOC3 V5_03_00 format enum and invisible-alias export setting introduced in Cubism Editor 5.3.",
+      "source": "bytecode review + official feature timeline",
+      "officialSource": {
+        "version": "5.3.00",
+        "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+      }
+    },
+    {
+      "id": "dev.turboism.sdk.cubism.model.CubismMocExportSettings",
+      "absentOn": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06",
+        "5.1.00",
+        "5.1.01",
+        "5.1.02",
+        "5.1.03",
+        "5.2.00",
+        "5.2.01",
+        "5.2.02",
+        "5.2.03"
+      ],
+      "reason": "Official MOC 5.3 export requires the MOC3 V5_03_00 format enum and invisible-alias export setting introduced in Cubism Editor 5.3.",
+      "source": "bytecode review + official feature timeline",
+      "officialSource": {
+        "version": "5.3.00",
+        "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+      }
+    },
+    {
+      "id": "dev.turboism.sdk.cubism.model.CubismExportTexture",
+      "absentOn": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06",
+        "5.1.00",
+        "5.1.01",
+        "5.1.02",
+        "5.1.03",
+        "5.2.00",
+        "5.2.01",
+        "5.2.02",
+        "5.2.03"
+      ],
+      "reason": "Official MOC 5.3 export requires the MOC3 V5_03_00 format enum and invisible-alias export setting introduced in Cubism Editor 5.3.",
+      "source": "bytecode review + official feature timeline",
       "officialSource": {
         "version": "5.3.00",
         "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
