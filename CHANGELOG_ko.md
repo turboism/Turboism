@@ -283,16 +283,19 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 - 설정 탭에서 Cubism JVM ZGC 실행 제어 및 편집 중 자동 백업 일시 중단 스위치 제공.
 - `devCheck` 개발자 게이트: `checkVersionMonotonicity`를 통한 패치 간 기능 포함 단조성 검증, `checkVersionSetRegistry`를 통한 소스 코드 내 버전 집합 등록 의무화, `checkSdkCubismEditorAnnotations`를 통한 SDK API 애너테이션 누락 차단, `check_host_validation_versions.py`를 통한 56개 실기 태스크 버전 일관성 확인. `CONTRIBUTING.md`에 버전 적응 규칙을 문서화했습니다.
 - `test-assets/model-import-3d/`에 최소 3D 테스트 모델(`cube.glb`, `cube-textured.glb`, `plane.glb`, `plane-seam.glb`)을 구성하여 전용 자산이 없는 환경에서도 3D 가져오기 회귀 테스트를 오프라인으로 실행할 수 있습니다.
+- 전용 테스트 코퍼스: `test-assets/corpus.json`에 버전이 지정된 데이터셋과 라이선스, 파일별 SHA-256, 사용처를 등록합니다. 대용량 바이너리(CC0-1.0 텍스처 아틀라스 배치 Circle/Geometry CMO3/PSD 세트)는 버전별 GitHub Release 자산으로 배포되며 `scripts/test_corpus.py fetch|verify|list`로 공유 캐시에 가져옵니다. 모델 제작 방법은 `test-assets/texture-atlas-layout/BUILDING.md`에 정리되어 있습니다. 원격 위생 검사는 이제 `.cmo3`, `.can3`, `.psd`, `.moc3` 파일 커밋을 거부합니다.
 
 ### 변경
 
-- SDK 계약 수렴 및 exact 기준선 v14 승격:
+- SDK 계약 수렴 및 exact 기준선 v17 승격:
   - 지원 중단된 단일 서비스 `PluginContext` getter를 제거하고 `ctx.services().find(ServiceType.class)` 및 `require(ServiceType.class)`로 일원화.
   - 매개변수 쿼리 평면(`ParameterQueryService`, `ParameterSummary`, `ParameterBounds`) 제거. 팔레트 표시 및 편집 가능 여부는 `ParameterAppearance`(`visible()`, `editable()`)에서 조회하며, 매개변수는 `cubism().model().active().parameters().all()`로 열거.
   - 레거시 명령 큐 및 `TransactionManager`를 authoring transactions 및 직접 `Parameter.setValue`로 대체.
   - 내부 `StrictJson`을 SDK `dev.turboism.sdk.json.Json`으로 교체.
   - 자동 백업 파일 경로 인터페이스를 `BackupArtifactHandle` 메타데이터로 전환.
-  - 검토된 SDK exact 기준선을 v14로 업데이트(v2–v13 이력 감사 유지). 해당 API를 사용하는 플러그인은 마이그레이션이 필요합니다.
+  - `PermissionIds`가 권한 식별자의 단일 출처가 되었습니다(`KNOWN_IDS` 및 상수 6개 추가).
+  - 공개 `dev.turboism.sdk.cubism` 타입과 멤버에 런타임에서 확인 가능한 `@CubismEditor` 버전 가용성 선언이 붙으며, art-mesh·렌더링·MOC·보간 API가 검토된 API에 포함되었습니다.
+  - 검토된 SDK exact 기준선을 v17로 업데이트(v14 파라미터 읽기 영역, v15 권한 식별자, v16 병합 표면, v17 버전 가용성 확대, v2–v16 이력 감사 유지). 해당 API를 사용하는 플러그인은 마이그레이션이 필요합니다.
 - 내장 코어 플러그인을 프레임워크 셸(`dev.turboism.shell`)로 런타임에 통합하여 독립 플러그인 JAR을 제거하고 설정, 태스크, 로그 귀속을 유지.
 - 관리형 실행 시 Cubism JVM을 ZGC(`-XX:+UseZGC`) 기본값으로 실행하여 G1의 초 단위 일시 정지를 제거하고 상주 메모리(RSS)를 절감.
 - CSV 매개변수 일괄 가져오기를 단일 편집 트랜잭션 내에서 실행하여 구조 재구축을 89% 줄이고 중앙값 쓰기 지연 시간을 75% 단축.
