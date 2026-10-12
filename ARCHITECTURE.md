@@ -185,6 +185,16 @@ They must fail closed after events such as:
 
 Stale failures are typed and diagnostic. The runtime must not guess a replacement host object from an old reference.
 
+The per-generation plugin fence (`PluginGenerationGuard`) denies new SDK admission once a
+generation is fenced. Two call classes stay reachable by design: diagnostic context
+accessors, and terminal release operations — the exact verbs `close`, `cancel`, `dispose`,
+`release`, `unregister` invoked with zero arguments on a wrapped `dev.turboism.sdk.*`
+interface. Terminal bypass is name + zero-arity by design: the SDK terminal surface spans
+many interfaces with heterogeneous return types, so a signature allowlist could silently
+miss a release and leak resources; a missed terminal call is a worse failure than
+over-admitting a coincidental same-named no-arg call. The surface must never widen — a
+verb taking any argument stays fenced.
+
 ## 6. Invocation and event lifecycle
 
 Wrapped operations use one consistent lifecycle:

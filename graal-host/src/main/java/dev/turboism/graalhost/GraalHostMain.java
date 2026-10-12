@@ -85,6 +85,7 @@ public final class GraalHostMain {
                 new ThreadPoolExecutor.AbortPolicy());
     }
 
+    /** Runs the Graal-side host loop until the launcher closes the connection. */
     public static void main(final String[] args) throws Exception {
         new GraalHostMain().run();
     }

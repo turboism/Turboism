@@ -127,6 +127,12 @@ class PathRuleTest(unittest.TestCase):
             "RUNTIME/LOGS/host-trace.txt": "path:runtime/logs",
             ".github/copilot-instructions.md": "basename:copilot-instructions.md",
             ".GITHUB/COPILOT-INSTRUCTIONS.MD": "basename:copilot-instructions.md",
+            "certs/dev.pem": "suffix:*.pem",
+            "keys/private.key": "suffix:*.key",
+            "store/app.keystore": "suffix:*.keystore",
+            "store/app.jks": "suffix:*.jks",
+            "store/app.p12": "suffix:*.p12",
+            "store/app.pfx": "suffix:*.pfx",
         }
         for p, rule in cases.items():
             self.assertEqual(crh.classify_path(p), rule, p)
@@ -195,6 +201,22 @@ class ContentRuleTest(unittest.TestCase):
         for text, name in cases.items():
             self.assertIn(name, crh.scan_content(text.encode()), text)
 
+    def test_bom_encoded_secret_is_scanned(self):
+        """A BOM-marked UTF-16/32 blob is not binary and its secret signature is seen."""
+        text = "token=" + ghp(2)
+        blobs = [
+            text.encode("utf-16"),  # BOM + LE
+            text.encode("utf-32"),  # BOM + LE
+            b"\xfe\xff" + text.encode("utf-16-be"),
+            b"\x00\x00\xfe\xff" + text.encode("utf-32-be"),
+        ]
+        for data in blobs:
+            self.assertIn("github-pat", crh.scan_content(data), data[:4])
+            self.assertIn(
+                "github-pat", crh.scan_repository_content("note.txt", data), data[:4])
+        plain_binary = b"\x00\x01\x02" + text.encode()
+        self.assertEqual(crh.scan_content(plain_binary), [])
+
     def test_repository_local_machine_values_are_forbidden(self):
         cases = {
             "fixture=" + "/home/" + "r" + "ain/project.cmo3": "local-machine-home",
@@ -203,6 +225,11 @@ class ContentRuleTest(unittest.TestCase):
             "ssh=" + "r" + "ain" + "@172.17.0.1": "local-machine-ssh-host",
             "key=id_ed25519_" + "turboism_arch_rebuild": "local-machine-ssh-key-name",
             "cwd=/workspace/projects/" + "turboism/.worktrees/release": "local-machine-workspace",
+            "home2=/home/" + "rain" + "trap/work": "local-machine-home",
+            "home3=/home/" + "rain" + "trap341/x": "local-machine-home",
+            "winhome2=C:\\Users\\" + "rain" + "trap\\docs": "local-machine-home",
+            "winhome3=C:\\Users\\" + "rain" + "trap341\\d": "local-machine-home",
+            "ssh2=" + "rain" + "trap@172.17.0.1": "local-machine-ssh-host",
         }
         for text, rule in cases.items():
             self.assertIn(rule, crh.scan_repository_content("script.sh", text.encode()))

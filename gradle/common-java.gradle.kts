@@ -120,6 +120,7 @@ allprojects {
 subprojects {
     apply(plugin = "java")
     apply(plugin = "java-library")
+    apply(plugin = "jacoco")
     layout.buildDirectory.set(
         file("${rootProject.layout.buildDirectory.get()}/worktree/$resolvedWorktreeId/${project.name}")
     )

@@ -31,7 +31,7 @@ The final auxiliary also records `documentWeakClearedAtSamplerEnd`/`weakFinal.ep
 
 Offline admission smoke (build the auxiliary first): `python3 scripts/test/test_native_resource_policy.py`; requires Linux JDK17 (`JAVA17_HOME` override). Three tests cover six rejected configurations and require FAIL before native workload phases. Missing prerequisites fail instead of silently skipping.
 
-Recorded runs: rs-n1/n2 driver failures; rs-n3, rs-p1, rs-p2 complete runner PASS. They are phase baselines/diagnosis, not optimization A/B. P07's separate offline `WarpInteriorPrototype.java` is a retained negative pure-computation experiment and is not compiled into this auxiliary or the product. All outcomes and exact run IDs are in the ledger.
+Recorded runs: rs-n1/n2 driver failures; rs-n3, rs-p1, rs-p2 complete runner PASS. They are phase baselines/diagnosis, not optimization A/B. P07's separate offline `WarpInteriorPrototype.java` was a negative pure-computation experiment (the file has since been removed as dead code; the recorded results stand). All outcomes and exact run IDs are in the ledger.
 
 New queue baseline `nm-scope-b1` completed with 428 samples and natural bound-cgroup destruction. Its late RSS fall coincided with rising process swap and low system memory availability; it is not evidence of freed retained objects. Report RSS/PSS/private/swap and JVM used/committed separately, and match memory pressure in future comparisons. Sampling-call read latency was substantial (median about119ms), not a measured CPU-cost estimate. See N06/I17 for phase statistics, hashes and limits.
 

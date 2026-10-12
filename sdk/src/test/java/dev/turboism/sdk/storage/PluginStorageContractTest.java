@@ -27,7 +27,11 @@ class PluginStorageContractTest {
                         + "RUNTIME_UNAVAILABLE,IO_FAILURE",
                 names(StorageErrorCode.values()));
         assertEquals("FILE,DIRECTORY", names(StorageEntryType.values()));
-        assertEquals(10, PluginStorage.class.getDeclaredMethods().length);
+        assertEquals(
+                10,
+                Arrays.stream(PluginStorage.class.getDeclaredMethods())
+                        .filter(method -> !method.isSynthetic())
+                        .count());
         assertEquals(
                 "java.util.concurrent.CompletionStage",
                 PluginStorage.class

@@ -16,7 +16,7 @@ id=$(cd "${REPO_ROOT}" && TURBOISM_WORKTREE_ID=env-id bash scripts/dev/worktree-
 # Test 2: .turboism-worktree-id file
 WORKDIR="$(mktemp -d)"
 mkdir -p "${WORKDIR}/scripts/dev"
-cp "${REPO_ROOT}/scripts/dev/worktree-id.sh" "${WORKDIR}/scripts/dev/"
+cp "${REPO_ROOT}/scripts/dev/worktree-id.sh" "${REPO_ROOT}/scripts/dev/worktree-id-lib.sh" "${WORKDIR}/scripts/dev/"
 echo "file-id" > "${WORKDIR}/.turboism-worktree-id"
 id=$(cd "${WORKDIR}" && env -u TURBOISM_WORKTREE_ID bash scripts/dev/worktree-id.sh)
 [ "${id}" = "file-id" ] || fail "file should win when env is absent"
@@ -37,7 +37,7 @@ WORKDIR="$(mktemp -d)"
 mkdir -p "${WORKDIR}/scripts/dev"
 cp "${REPO_ROOT}/scripts/dev/worktree-id.sh" "${WORKDIR}/scripts/dev/"
 mkdir -p "${WORKDIR}/dir-name-id/scripts/dev"
-cp "${REPO_ROOT}/scripts/dev/worktree-id.sh" "${WORKDIR}/dir-name-id/scripts/dev/"
+cp "${REPO_ROOT}/scripts/dev/worktree-id.sh" "${REPO_ROOT}/scripts/dev/worktree-id-lib.sh" "${WORKDIR}/dir-name-id/scripts/dev/"
 id=$(cd "${WORKDIR}/dir-name-id" && env -u TURBOISM_WORKTREE_ID bash scripts/dev/worktree-id.sh)
 [ "${id}" = "dir-name-id" ] || fail "directory name fallback failed"
 rm -rf "${WORKDIR}"

@@ -167,6 +167,8 @@ val installerTemplateFiles = listOf(
     "packaging/windows-installer/install-managed-graal.ps1",
     "packaging/windows-installer/install-script-engine.ps1",
     "packaging/windows-installer/script-engine.json",
+    "packaging/retired-plugins.txt",
+    "packaging/managed-graal.json",
     "packaging/windows-installer/assets/turboism.ico",
     "packaging/windows-installer/assets/turboism.png",
     "packaging/java-installer/uninstall.command",
@@ -327,6 +329,8 @@ val stageInstallerPayload by tasks.registering {
             from("packaging/windows-installer/install-managed-graal.ps1")
             from("packaging/windows-installer/install-script-engine.ps1")
             from("packaging/windows-installer/script-engine.json")
+            from("packaging/retired-plugins.txt")
+            from("packaging/managed-graal.json")
             from("packaging/windows-installer/assets/turboism.ico")
             from("packaging/windows-installer/assets/turboism.png")
             from("packaging/java-installer/uninstall.command")
@@ -370,6 +374,7 @@ val installerListenerJarTask = tasks.register<Jar>("installerListenerJar") {
     // fresh-install seed: the canonical template from the shared payload
     from(payloadDir) {
         include("config.template.json")
+        include("retired-plugins.txt")
         into("turboism")
     }
 }
@@ -398,8 +403,12 @@ val installerRegressionJarTask = tasks.register<Jar>("installerRegressionJar") {
     group = "packaging"
     archiveBaseName.set("turboism-installer-regression")
     destinationDirectory.set(layout.buildDirectory.dir("java-installer/lib"))
-    dependsOn(tasks.named("compileInstallerRegressionJava"))
+    dependsOn(tasks.named("compileInstallerRegressionJava"), stageInstallerPayload)
     from(installerRegressionSourceSet.output)
+    from(payloadDir) {
+        include("retired-plugins.txt")
+        into("turboism")
+    }
     // The behavioral listener regression uses an InstallData proxy, whose full
     // IzPack API signature includes Platform from izpack-tools. Bundle these
     // test-only API classes so the verifier remains a one-jar executable.

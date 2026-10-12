@@ -245,7 +245,14 @@ final class PaletteComponentFinder {
         }
     }
 
-    /** Extracts the embedded JTree from a tree-table via reflective field scan (bounded, fail-closed). */
+    /**
+     * Extracts the embedded JTree from a tree-table via reflective field scan (bounded,
+     * fail-closed). Deliberate structural exemption from the verified access plan: no named
+     * member can locate the host's embedded tree because host field names vary by version, so
+     * the probe is type-directed — instance fields only, at most four superclasses deep,
+     * read-only, JTree/JComponent candidates only. It discovers the widget's location and
+     * reads nothing else.
+     */
     static JTree extractTree(final JTable table) {
         for (Component child : table.getComponents()) {
             if (child instanceof JTree tree) {

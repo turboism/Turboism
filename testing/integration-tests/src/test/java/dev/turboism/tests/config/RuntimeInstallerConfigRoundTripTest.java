@@ -57,6 +57,10 @@ class RuntimeInstallerConfigRoundTripTest {
                                 sources.resolve("ConfigMerge.java").toString(),
                                 sources.resolve("BoundedJson.java").toString(),
                                 probe.toString()));
+        // The listener jar ships the shared retired-plugin manifest at
+        // turboism/retired-plugins.txt; mirror that on the probe classpath.
+        Path resources = Files.createDirectories(classes.resolve("turboism"));
+        Files.copy(root.resolve("packaging/retired-plugins.txt"), resources.resolve("retired-plugins.txt"));
         ObjectMapper mapper = new ObjectMapper();
         try (URLClassLoader installer =
                 new URLClassLoader(new URL[] {classes.toUri().toURL()}, ClassLoader.getPlatformClassLoader())) {

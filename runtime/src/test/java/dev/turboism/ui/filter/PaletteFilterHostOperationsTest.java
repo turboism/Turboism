@@ -377,6 +377,28 @@ class PaletteFilterHostOperationsTest {
     }
 
     @Test
+    void rawMemberAccessRefusesNamesOutsideTheExemptionList() {
+        final Object node = new DeformerNode(new DeformerSource(new EditableId("Warp4"), "矩形", "w", 1.0f));
+        // Names absent from the closed exemption sets must be refused, not silently probed.
+        assertNull(PaletteFilterHostOperations.invoke(node, "toString"));
+        assertNull(PaletteFilterHostOperations.invoke(node, "getSource"));
+        assertNull(PaletteFilterHostOperations.field(node, "hSource"));
+        // Exempt members keep resolving through the same helpers.
+        assertNotNull(PaletteFilterHostOperations.invoke(node, "h"));
+    }
+
+    @Test
+    void extractTreeFindsJTreeHeldInAnInstanceField() {
+        // The structural probe is bounded and type-directed: an embedded tree stored in a
+        // private instance field is located; no named member is required.
+        class TreeTable extends JTable {
+            @SuppressWarnings("unused")
+            private final JTree tree = new JTree();
+        }
+        assertNotNull(PaletteComponentFinder.extractTree(new TreeTable()));
+    }
+
+    @Test
     void nodeSourceProfileRoutesExactVersionsToPinnedAccessors() {
         // Exact record spelling routes to the pinned accessor; other spellings fail closed.
         assertEquals(

@@ -3,7 +3,7 @@
 #
 # Runs the IzPack-generated uninstaller for the Turboism home directory that
 # contains this script, in the normal interactive mode: the uninstaller asks
-# whether to delete config.json (default: delete; closing the dialog keeps it)
+# whether to delete config.json (default: keep; closing the dialog keeps it)
 # and removes the installed agent, installer-owned plugin JARs,
 # installer-owned files, the generated uninstaller, and the runtime
 # logs/state/cache directories. Unknown files and third-party plugin JARs are

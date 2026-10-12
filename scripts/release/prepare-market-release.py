@@ -231,7 +231,7 @@ def load_manifest(path: Path) -> list:
         raise MarketError(f"{path}: cannot read manifest: {failure}") from failure
     if not isinstance(document, dict):
         raise MarketError(f"{path}: manifest must be a JSON object")
-    unknown = sorted(set(document) - {"schemaVersion", "plugins"})
+    unknown = sorted(set(document) - {"schemaVersion", "plugins", "_comment"})
     if unknown:
         raise MarketError(f"{path}: unknown manifest keys: {', '.join(unknown)}")
     if document.get("schemaVersion") != 1:

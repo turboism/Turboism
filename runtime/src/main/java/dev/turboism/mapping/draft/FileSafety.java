@@ -161,14 +161,20 @@ final class FileSafety {
         }
     }
 
-    static byte[] readAllBytesNoFollow(final Path path, final String code) {
+    /**
+     * Reads a verified regular file into memory under a byte ceiling — the unbounded
+     * {@code transferTo} idiom must never feed a sized allocation from an unverified input.
+     * Overflow fails closed with {@code code} so the caller attributes the rejection to the
+     * input it was reading.
+     */
+    static byte[] readAllBytesNoFollow(final Path path, final String code, final long maxBytes) {
         try (FileChannel channel = openRegularNoFollow(path, Set.of(StandardOpenOption.READ), code);
-                var input = Channels.newInputStream(channel);
-                var output = new java.io.ByteArrayOutputStream()) {
-            input.transferTo(output);
-            return output.toByteArray();
+                var input = Channels.newInputStream(channel)) {
+            return dev.turboism.sdk.io.BoundedInput.readNBytes(input, maxBytes);
         } catch (DraftMappingException exception) {
             throw exception;
+        } catch (dev.turboism.sdk.io.BoundedInput.InputSizeLimitException exception) {
+            throw new DraftMappingException(code, "input exceeds the bounded read limit", exception);
         } catch (IOException exception) {
             throw new DraftMappingException(code, "could not read regular non-symlink file", exception);
         }

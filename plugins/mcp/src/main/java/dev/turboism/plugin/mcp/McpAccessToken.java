@@ -33,9 +33,15 @@ final class McpAccessToken {
     /**
      * Reuses the persisted token when it is a well-formed, trusted file and
      * publishes a fresh 256-bit token otherwise. Unsafe existing files (symlinks,
-     * foreign owners) are rejected rather than overwritten.
+     * foreign owners) are rejected rather than overwritten. {@code warning} is
+     * invoked when the filesystem cannot express owner-only permissions.
      */
     static McpAccessToken loadOrCreate(final Path stateDir) throws IOException {
+        return loadOrCreate(stateDir, warning -> {});
+    }
+
+    static McpAccessToken loadOrCreate(final Path stateDir, final java.util.function.Consumer<String> warning)
+            throws IOException {
         final Path file = Objects.requireNonNull(stateDir, "stateDir").resolve(FILE_NAME);
         final String existing = readTrusted(file);
         if (existing != null) return new McpAccessToken(existing, file);
@@ -47,7 +53,7 @@ final class McpAccessToken {
             hex.append(Character.forDigit(value & 0xF, 16));
         }
         final String token = hex.toString();
-        McpStateFiles.publish(file, ".mcp-token-", (token + "\n").getBytes(StandardCharsets.UTF_8));
+        McpStateFiles.publish(file, ".mcp-token-", (token + "\n").getBytes(StandardCharsets.UTF_8), warning);
         return new McpAccessToken(token, file);
     }
 

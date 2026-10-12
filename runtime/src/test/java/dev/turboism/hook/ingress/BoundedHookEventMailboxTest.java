@@ -32,6 +32,9 @@ class BoundedHookEventMailboxTest {
             assertPackagePrivate(constructor.getModifiers(), constructor.toString());
         }
         for (Method method : BoundedHookEventMailbox.class.getDeclaredMethods()) {
+            if (method.isSynthetic()) {
+                continue;
+            }
             assertPackagePrivate(method.getModifiers(), method.toString());
         }
 

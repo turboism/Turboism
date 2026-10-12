@@ -19,6 +19,7 @@ fail() {
 mkdir -p "${TEMP_ROOT}/scripts/dev" "$CAPTURE_DIR"
 cp "${REPO_ROOT}/scripts/dev/mapping-review.sh" "${TEMP_ROOT}/scripts/dev/mapping-review.sh"
 cp "${REPO_ROOT}/scripts/dev/worktree-id.sh" "${TEMP_ROOT}/scripts/dev/worktree-id.sh"
+cp "${REPO_ROOT}/scripts/dev/worktree-id-lib.sh" "${TEMP_ROOT}/scripts/dev/worktree-id-lib.sh"
 
 cat > "${TEMP_ROOT}/gradlew" <<'GRADLEW'
 #!/usr/bin/env bash

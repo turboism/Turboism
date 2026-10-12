@@ -31,7 +31,11 @@ class UserFileAccessContractTest {
                         + "RUNTIME_UNAVAILABLE,IO_FAILURE",
                 names(UserFileErrorCode.values()));
 
-        assertEquals(7, UserFileAccessService.class.getDeclaredMethods().length);
+        assertEquals(
+                7,
+                Arrays.stream(UserFileAccessService.class.getDeclaredMethods())
+                        .filter(method -> !method.isSynthetic())
+                        .count());
         assertEquals(
                 CompletionStage.class,
                 UserFileAccessService.class

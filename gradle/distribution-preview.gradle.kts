@@ -7,12 +7,12 @@ import org.gradle.api.tasks.Sync
 import org.gradle.jvm.tasks.Jar
 import java.io.File
 import java.util.jar.JarFile
+import dev.turboism.gradle.internal.VerificationStamps
 
 private val resolvedWorktreeId = rootProject.extra["turboismResolvedWorktreeId"] as String
 private val previewBundleDir = layout.buildDirectory.dir("preview/$resolvedWorktreeId")
 private val performanceProbeValidationDir =
     layout.buildDirectory.dir("validation/$resolvedWorktreeId/performance-probe")
-
 
 private fun Project.productionProjects() = subprojects.filter {
     it.path == ":sdk" || it.path.startsWith(":plugins:")
@@ -86,23 +86,6 @@ private fun configureGraalHost(task: Sync) {
     }
 }
 
-/*
- * Check tasks prove a predicate over their declared inputs and produce no artifact;
- * with no output Gradle can never mark them up-to-date and re-runs them on every
- * build. The stamp file is that persistent output, written only after the check
- * action succeeds. Call it after any doLast check action so the stamp cannot be
- * written ahead of a failing check.
- */
-private fun Task.verificationStamp() {
-    val stamp = project.layout.buildDirectory.file("verification-stamps/$name.stamp")
-    outputs.file(stamp)
-    doLast {
-        stamp.get().asFile.apply {
-            parentFile.mkdirs()
-            writeText("ok\n")
-        }
-    }
-}
 
 tasks.register<Exec>("checkDistributionProtocolContract") {
     group = "verification"
@@ -122,7 +105,7 @@ tasks.register<Exec>("checkDistributionProtocolContract") {
     environment("TURBOISM_SKIP_GRADLE_MODEL", "1")
     environment("TURBOISM_SDK_CLASSES_DIR", project(":sdk").layout.buildDirectory.dir("classes/java/main").get().asFile)
     environment("TURBOISM_PLUGIN_CLASSES_DIRS", pluginClassesDirectories(productionProjects))
-    verificationStamp()
+    VerificationStamps.apply(this)
     commandLine("bash", "scripts/test/test_distribution_protocol_contract.sh")
 }
 
@@ -175,7 +158,7 @@ val previewBootstrapBridgeTest by tasks.registering(JavaExec::class) {
     classpath(bootstrapTests.map { it.output })
     mainClass.set("dev.turboism.bootstrap.BootstrapBridgeVisibilityMain")
     inputs.file(previewBundleDir.map { it.file("turboism-agent.jar") })
-    verificationStamp()
+    VerificationStamps.apply(this)
     doFirst {
         val agent = previewBundleDir.get().asFile.resolve("turboism-agent.jar")
         setJvmArgs(listOf("-javaagent:${agent.absolutePath}=hostClass=missing.Host;timeoutSeconds=1"))
@@ -190,7 +173,7 @@ val contractParentAgentTest by tasks.registering(JavaExec::class) {
     classpath(bootstrapTests.map { it.output })
     mainClass.set("dev.turboism.bootstrap.ContractParentVisibilityMain")
     inputs.file(previewBundleDir.map { it.file("turboism-agent.jar") })
-    verificationStamp()
+    VerificationStamps.apply(this)
     doFirst {
         val agent = previewBundleDir.get().asFile.resolve("turboism-agent.jar")
         setJvmArgs(listOf("-javaagent:${agent.absolutePath}=hostClass=missing.Host;timeoutSeconds=1"))
@@ -209,7 +192,7 @@ tasks.register("checkPreviewBundleLayout") {
         verifyPreviewBundle(previewBundleDir.get().asFile)
         verifyPerformanceProbeValidationBundle(performanceProbeValidationDir.get().asFile)
     }
-    verificationStamp()
+    VerificationStamps.apply(this)
 }
 
 private fun verifyPreviewBundle(root: File) {
@@ -262,7 +245,7 @@ private fun verifyPreviewLaunchers(root: File) {
     )
     val missingGraalTokens = requiredGraalLauncherTokens.filterNot(launcher::contains)
     if (missingGraalTokens.isNotEmpty()) {
-        throw GradleException("Preview launcher is missing dual-JVM Graal configuration: ${'$'}missingGraalTokens")
+        throw GradleException("Preview launcher is missing dual-JVM Graal configuration: $missingGraalTokens")
     }
     if (!root.resolve("run-preview.bat").readText().contains("call \"%~dp0launch-cubism-turboism.bat\"")) {
         throw GradleException("run-preview.bat must preserve the quoted preview path")

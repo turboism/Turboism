@@ -1,0 +1,16 @@
+{
+  "format": "turboism.managed-graal",
+  "schemaVersion": 1,
+  "_comment": "Single source for the pinned managed GraalVM download. Consumed by install-managed-graal.ps1 (shipped copy at the install root) and by ManagedGraalRuntimeService (bundled into the runtime JAR at META-INF/turboism/managed-graal.json). Update all fields together when bumping the pin.",
+  "graalVersion": "25.2.4",
+  "javaVersion": "25.0.4",
+  "platforms": {
+    "windows-x64": {
+      "archiveName": "graalvm-community-jdk-25i2-25.0.4_windows-x64_bin.zip",
+      "archiveBytes": 341299924,
+      "sha256": "789d2af1c06c3c24f402d2d4a711bdbb19b36f7d8c74afe6a959492fd121ef33",
+      "javaRelativePath": "bin/java.exe",
+      "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.2.4/graalvm-community-jdk-25i2-25.0.4_windows-x64_bin.zip"
+    }
+  }
+}

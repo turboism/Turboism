@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.core.schema.AbstractJsonValidator;
 import dev.turboism.core.schema.SchemaValidationError;
 import dev.turboism.core.version.VersionRange;
+import dev.turboism.sdk.permission.PermissionIds;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -79,59 +80,8 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
     private static final Set<String> ALLOWED_DEPENDENCY_TYPES = Set.of("required", "optional");
     private static final Set<String> ALLOWED_DEPENDENCY_ORDERINGS = Set.of("none", "before", "after");
     private static final Set<String> ALLOWED_ENV_UI = Set.of("none", "swing", "embedded");
-    private static final Set<String> KNOWN_PERMISSION_IDS = Set.of(
-            "turboism.ui.menu",
-            "turboism.ui.toolbar",
-            "turboism.ui.palette",
-            "turboism.cubism.project.read",
-            "turboism.cubism.model.read",
-            "turboism.cubism.model.write",
-            "turboism.cubism.model.observe",
-            "turboism.cubism.model.intercept",
-            "turboism.cubism.edit",
-            "turboism.cubism.backup.observe",
-            "turboism.cubism.selection.observe",
-            "turboism.ui.scene-table.observe",
-            "turboism.cubism.parameter.read",
-            "turboism.cubism.mesh.read",
-            "turboism.cubism.recent-file.read",
-            "turboism.file.read",
-            "turboism.file.write",
-            "turboism.network.fetch",
-            "turboism.process.run",
-            "turboism.mcp.connection.read",
-            "turboism.mcp.connection.publish",
-            "turboism.action.register",
-            "turboism.action.invoke",
-            "turboism.ui.menu.contribute",
-            "turboism.ui.toolbar.mesh.contribute",
-            "turboism.ui.toolbar.main.contribute",
-            "turboism.ui.toolbar.palette.contribute",
-            "turboism.ui.context-menu.contribute",
-            "turboism.ui.context-source.read",
-            "turboism.ui.overlay.contribute",
-            "turboism.ui.viewport.read",
-            "turboism.ui.recent-preview.contribute",
-            "turboism.ui.dialog.contribute",
-            "turboism.ui.dialog.automate",
-            "turboism.ui.panel.contribute",
-            "turboism.ui.settings.contribute",
-            "turboism.ui.file-chooser.request",
-            "turboism.ui.status.notify",
-            "turboism.ui.canvas.hint",
-            "turboism.ui.appearance.modify",
-            "turboism.ui.appearance.observe",
-            "turboism.ui.toolbar.contribute",
-            "turboism.config.plugin.read",
-            "turboism.config.plugin.write",
-            "turboism.event.subscribe",
-            "turboism.event.publish",
-            "turboism.cubism.log.observe",
-            "turboism.performance.sample.observe",
-            "turboism.action.invocation.observe",
-            "turboism.plugin.lifecycle.observe",
-            "turboism.performance.stats.read",
-            "turboism.host.unsafe");
+    // Single source of truth: the SDK export. Adding an id there admits it here.
+    private static final Set<String> KNOWN_PERMISSION_IDS = PermissionIds.KNOWN_IDS;
 
     /** Schema v2 contract; retained for existing fixture and CLI tooling. */
     public PluginMetaValidator() {

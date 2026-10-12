@@ -175,6 +175,11 @@ public final class WebDavSettingsDialog {
         final JTextField remotePath = new JTextField(WebDavSettingsBinding.DEFAULT_REMOTE_PATH, 32);
         final JCheckBox verifyTls =
                 new JCheckBox(text(localization, "backup.dialog.verify-tls-checkbox", "Verify TLS certificate"));
+        verifyTls.setToolTipText(
+                text(
+                        localization,
+                        "backup.dialog.verify-tls-tooltip",
+                        "When unchecked the client accepts any certificate, so a network attacker can intercept the backups (MITM risk)"));
         final JSpinner retryMax =
                 new JSpinner(new SpinnerNumberModel(WebDavSettingsBinding.DEFAULT_RETRY_MAX, 0, 10, 1));
         final JSpinner retryBaseDelayMs = new JSpinner(

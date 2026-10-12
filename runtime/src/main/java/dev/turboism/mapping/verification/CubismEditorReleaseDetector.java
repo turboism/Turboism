@@ -332,11 +332,8 @@ public final class CubismEditorReleaseDetector {
         }
         final byte[] bytes;
         try (InputStream input = jar.getInputStream(entry)) {
-            bytes = input.readNBytes(MAX_DECLARATION_CLASS_BYTES + 1);
+            bytes = dev.turboism.sdk.io.BoundedInput.readNBytes(input, MAX_DECLARATION_CLASS_BYTES);
         } catch (IOException | RuntimeException failure) {
-            return null;
-        }
-        if (bytes.length > MAX_DECLARATION_CLASS_BYTES) {
             return null;
         }
         return parseAssignment(bytes);
