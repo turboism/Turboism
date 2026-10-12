@@ -99,4 +99,63 @@ final class MeshInterpolationTransformerTest {
         assertNull(transformer.transform(
                 getClass().getClassLoader(), MeshInterpolationTransformer.OWNER, Object.class, domain, bytes));
     }
+
+    @Test
+    void realJarBytesMatchPinnedDigestsAndTransformOnEveryReviewedVersion() throws Exception {
+        final var pins = dev.turboism.adapter.cubism.optimization.ClassPinTable.load("mesh-interpolation");
+        for (String version : dev.turboism.mapping.verification.ReviewedHostArtifacts.reviewedCubismVersions()) {
+            java.nio.file.Path jar =
+                    dev.turboism.mapping.verification.EditorSelectorContractTestPaths.artifact(version);
+            byte[] bytes;
+            try (var zf = new java.util.zip.ZipFile(jar.toFile())) {
+                var entry = zf.getEntry(MeshInterpolationTransformer.OWNER + ".class");
+                assertNotNull(entry, version + " must contain interpolation extension class");
+                try (var in = zf.getInputStream(entry)) {
+                    bytes = in.readAllBytes();
+                }
+            }
+            String expected = pins.get(version).get(MeshInterpolationTransformer.OWNER);
+            assertEquals(expected, MeshInterpolationTransformer.digest(bytes), version + " class digest mismatch");
+
+            var reports = new ArrayList<String>();
+            var transformer = new MeshInterpolationTransformer(reports::add);
+            var source = new java.security.CodeSource(jar.toUri().toURL(), (java.security.cert.Certificate[]) null);
+            var domain = new java.security.ProtectionDomain(source, null);
+
+            byte[] patched = transformer.transform(
+                    getClass().getClassLoader(), MeshInterpolationTransformer.OWNER, null, domain, bytes);
+            assertNotNull(patched, version + " must transform cleanly");
+            assertTrue(transformer.patched(), version + " must report patched");
+            String tag = version.replace(".", "");
+            assertEquals(java.util.List.of("MESH_INTERPOLATION_PATCHED_" + tag), reports, version);
+
+            var calls = new ArrayList<String>();
+            new ClassReader(patched)
+                    .accept(
+                            new ClassVisitor(Opcodes.ASM9) {
+                                @Override
+                                public MethodVisitor visitMethod(
+                                        int access, String name, String desc, String signature, String[] exceptions) {
+                                    if (!name.equals(MeshInterpolationTransformer.METHOD)) return null;
+                                    return new MethodVisitor(Opcodes.ASM9) {
+                                        @Override
+                                        public void visitMethodInsn(
+                                                int opcode,
+                                                String owner,
+                                                String method,
+                                                String descriptor,
+                                                boolean itf) {
+                                            calls.add(owner + "." + method + descriptor);
+                                        }
+                                    };
+                                }
+                            },
+                            0);
+            assertTrue(
+                    calls.contains(
+                            "dev/turboism/adapter/cubism/interpolation/NativeMeshInterpolationBridge.tryUpdate"
+                                    + "(Ljava/lang/Object;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/lang/Object;F)Z"),
+                    version + " patched bytecode must call tryUpdate");
+        }
+    }
 }

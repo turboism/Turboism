@@ -873,7 +873,22 @@
     "5.3.03",
     "5.3.04"
    ],
-   "narrowedBy": []
+   "narrowedBy": [
+    {
+     "source": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorParameterInterpolationSelectorContract.java:SUPPORTED_CUBISM_VERSIONS",
+     "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ]
+    }
+   ]
   },
   {
    "id": "cubism.editor-model.art-mesh.write",
@@ -3221,7 +3236,18 @@
     "5.3.03",
     "5.3.04"
    ],
-   "narrowedBy": []
+   "narrowedBy": [
+    {
+     "source": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorMocExportSelectorContract.java:SUPPORTED_CUBISM_VERSIONS",
+     "versions": [
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ]
+    }
+   ]
   },
   {
    "id": "cubism.editor-model.model-instance.read",
@@ -5011,7 +5037,22 @@
     "5.3.03",
     "5.3.04"
    ],
-   "narrowedBy": []
+   "narrowedBy": [
+    {
+     "source": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorRenderPixelsSelectorContract.java:SUPPORTED_CUBISM_VERSIONS",
+     "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03",
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ]
+    }
+   ]
   },
   {
    "id": "cubism.editor-model.rotation-deformer.parameter-bindings.write",
@@ -10452,9 +10493,15 @@
    "api": "dev.turboism.sdk.cubism.model.ArtMeshTextureInput#ArtMeshTextureInput()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
+    "5.3.00",
+    "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshTextureInput.java"
   },
@@ -10462,9 +10509,15 @@
    "api": "dev.turboism.sdk.cubism.model.AuthorizedImageContent",
    "kind": "type",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
+    "5.3.00",
+    "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/AuthorizedImageContent.java"
   },
@@ -10532,7 +10585,11 @@
    "api": "dev.turboism.sdk.cubism.model.CubismExportTexture#CubismExportTexture()",
    "kind": "method",
    "versions": [
-    "5.3.02"
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismExportTexture.java"
   },
@@ -10540,7 +10597,11 @@
    "api": "dev.turboism.sdk.cubism.model.CubismMocExport#CubismMocExport()",
    "kind": "method",
    "versions": [
-    "5.3.02"
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismMocExport.java"
   },
@@ -10548,7 +10609,11 @@
    "api": "dev.turboism.sdk.cubism.model.CubismMocExportSettings#CubismMocExportSettings()",
    "kind": "method",
    "versions": [
-    "5.3.02"
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismMocExportSettings.java"
   },
@@ -10556,7 +10621,11 @@
    "api": "dev.turboism.sdk.cubism.model.CubismModel#exportMoc()",
    "kind": "method",
    "versions": [
-    "5.3.02"
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismModel.java"
   },
@@ -10564,9 +10633,15 @@
    "api": "dev.turboism.sdk.cubism.model.CubismModel#renderPixels()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
+    "5.3.00",
+    "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismModel.java"
   },
@@ -10574,9 +10649,15 @@
    "api": "dev.turboism.sdk.cubism.model.CubismRenderedPixels#CubismRenderedPixels()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
+    "5.3.00",
+    "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismRenderedPixels.java"
   },
@@ -10669,9 +10750,15 @@
    "api": "dev.turboism.sdk.cubism.model.ModelImageBinding#ModelImageBinding()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
+    "5.3.00",
+    "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelImageBinding.java"
   },
@@ -10695,9 +10782,15 @@
    "api": "dev.turboism.sdk.cubism.model.ModelTextures#bindModelImage()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
+    "5.3.00",
+    "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java"
   },
@@ -10721,9 +10814,15 @@
    "api": "dev.turboism.sdk.cubism.model.ModelTextures#registerImageAndBind()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
+    "5.3.00",
+    "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java"
   },
@@ -10747,9 +10846,15 @@
    "api": "dev.turboism.sdk.cubism.model.ModelTextures#textureInput()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
+    "5.3.00",
+    "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java"
   },
@@ -10757,9 +10862,15 @@
    "api": "dev.turboism.sdk.cubism.model.ParameterInterpolation#ParameterInterpolation()",
    "kind": "method",
    "versions": [
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
     "5.2.03",
+    "5.3.00",
+    "5.3.01",
     "5.3.02",
-    "5.3.03"
+    "5.3.03",
+    "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ParameterInterpolation.java"
   },
@@ -11192,6 +11303,32 @@
     "5.3.04"
    ],
    "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/geometry/MatrixScratchTransformer.java"
+  },
+  {
+   "name": "mesh-interpolation",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "loadedBy": "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/MeshInterpolationTransformer.java"
   },
   {
    "name": "mesh-mirror",
@@ -13591,9 +13728,15 @@
      "key": "dev.turboism.sdk.cubism.model.AuthorizedImageContent",
      "declaredCapability": null,
      "versions": [
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
       "5.2.03",
+      "5.3.00",
+      "5.3.01",
       "5.3.02",
-      "5.3.03"
+      "5.3.03",
+      "5.3.04"
      ],
      "missingOn": [
       "5.0.00",
@@ -13606,13 +13749,7 @@
       "5.1.00",
       "5.1.01",
       "5.1.02",
-      "5.1.03",
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.3.00",
-      "5.3.01",
-      "5.3.04"
+      "5.1.03"
      ],
      "source": "sdk-api",
      "sourceFiles": [
@@ -13629,13 +13766,7 @@
       "5.1.00": "unknown",
       "5.1.01": "unknown",
       "5.1.02": "unknown",
-      "5.1.03": "unknown",
-      "5.2.00": "unknown",
-      "5.2.01": "unknown",
-      "5.2.02": "unknown",
-      "5.3.00": "unknown",
-      "5.3.01": "unknown",
-      "5.3.04": "boundary"
+      "5.1.03": "unknown"
      }
     }
    ],
@@ -13802,7 +13933,7 @@
       "triageCategory": null,
       "triageRule": null,
       "round": null,
-      "jobId": "729327d4-50c8-4c9d-81ae-3cfa03b93161"
+      "jobId": "827b656a-d869-43c2-b2a5-3f3ad2289527"
      },
      "5.2.01": {
       "validationStatus": "FAIL",
@@ -13866,7 +13997,7 @@
       "triageCategory": null,
       "triageRule": null,
       "round": null,
-      "jobId": "141e2f1e-5962-4916-9d7b-8e2e67d20e98"
+      "jobId": "43bae28b-4ff9-4b50-b9e6-ca2277a38bfa"
      }
     }
    }
@@ -17945,7 +18076,7 @@
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "729327d4-50c8-4c9d-81ae-3cfa03b93161"
+    "jobId": "827b656a-d869-43c2-b2a5-3f3ad2289527"
    },
    "5.2.01": {
     "validationStatus": "FAIL",
@@ -18009,7 +18140,7 @@
     "triageCategory": null,
     "triageRule": null,
     "round": null,
-    "jobId": "141e2f1e-5962-4916-9d7b-8e2e67d20e98"
+    "jobId": "43bae28b-4ff9-4b50-b9e6-ca2277a38bfa"
    }
   },
   "parameter-batch-transfer": {
@@ -21552,6 +21683,131 @@
     "5.3.04"
    ],
    "reason": "5.0–5.2 command id renamed to SHOW_LABEL_COPY_DIALOG in Cubism 5.3.00.",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
+  },
+  {
+   "id": "cubism.editor-model.moc-export.read",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Official MOC 5.3 export requires the MOC3 V5_03_00 format enum and invisible-alias export setting introduced in Cubism Editor 5.3.",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.CubismModel#exportMoc",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Official MOC 5.3 export requires the MOC3 V5_03_00 format enum and invisible-alias export setting introduced in Cubism Editor 5.3.",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.CubismMocExport",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Official MOC 5.3 export requires the MOC3 V5_03_00 format enum and invisible-alias export setting introduced in Cubism Editor 5.3.",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.CubismMocExportSettings",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Official MOC 5.3 export requires the MOC3 V5_03_00 format enum and invisible-alias export setting introduced in Cubism Editor 5.3.",
+   "officialSource": {
+    "version": "5.3.00",
+    "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"
+   }
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.CubismExportTexture",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03"
+   ],
+   "reason": "Official MOC 5.3 export requires the MOC3 V5_03_00 format enum and invisible-alias export setting introduced in Cubism Editor 5.3.",
    "officialSource": {
     "version": "5.3.00",
     "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/"

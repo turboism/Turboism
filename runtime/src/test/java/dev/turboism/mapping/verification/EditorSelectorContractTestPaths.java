@@ -6,18 +6,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /** Shared repository and external-evidence paths for exact Editor selector contract tests. */
-final class EditorSelectorContractTestPaths {
+public final class EditorSelectorContractTestPaths {
 
     private static final Path PROJECT_ROOT = locateProjectRoot();
     private static Path legacyEvidence;
 
     private EditorSelectorContractTestPaths() {}
 
-    static Path projectRoot() {
+    public static Path projectRoot() {
         return PROJECT_ROOT;
     }
 
-    static synchronized Path legacyEvidence() {
+    public static synchronized Path legacyEvidence() {
         if (legacyEvidence == null) {
             legacyEvidence = locateLegacyEvidence();
         }
@@ -28,7 +28,7 @@ final class EditorSelectorContractTestPaths {
      * Resolves the external evidence directory, or {@code null} when none is provisioned.
      * An explicitly configured but missing directory still fails loudly.
      */
-    static synchronized Path resolveLegacyEvidence() {
+    public static synchronized Path resolveLegacyEvidence() {
         try {
             return legacyEvidence();
         } catch (final IllegalStateException unavailable) {
@@ -41,7 +41,7 @@ final class EditorSelectorContractTestPaths {
     }
 
     /** Finds exact Editor evidence in either the current or historical reference layout. */
-    static Path artifact(final String version) {
+    public static Path artifact(final String version) {
         for (final String variable : new String[] {"TURBOISM_CUBISM_REF", "TURBOISM_LEGACY_CUBISM_REF"}) {
             final String configured = System.getenv(variable);
             if (configured == null || configured.isBlank()) continue;

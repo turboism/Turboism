@@ -26,7 +26,7 @@ import java.util.Optional;
  * @param textureAtlasId bound texture atlas identity, present only for
  *     {@link Kind#TEXTURE_ATLAS_REGION}
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.2.00")
 public record ArtMeshTextureInput(
         ArtMeshId artMeshId,
         ModelId modelId,

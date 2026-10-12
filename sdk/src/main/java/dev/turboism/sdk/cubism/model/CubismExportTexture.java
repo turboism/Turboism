@@ -5,7 +5,7 @@ import java.util.Arrays;
 import java.util.Objects;
 
 /** Owned, unscaled official export texture. Pixels are ARGB with a top-left origin. */
-@CubismEditor({"5.3.02"})
+@CubismEditor(from = "5.3.00")
 public record CubismExportTexture(int width, int height, int[] argb) {
     public static final int MAX_DIMENSION = 8192;
     public static final int MAX_PIXELS = 16_777_216;

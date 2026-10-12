@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * single-use token semantics make one authorized grant register exactly once:
  * a second registration attempt with the same instance is rejected.</p>
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.2.00")
 public final class AuthorizedImageContent {
 
     /** Maximum accepted PNG container size in bytes. */
