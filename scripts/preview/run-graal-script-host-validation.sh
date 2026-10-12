@@ -4,9 +4,12 @@
 # Graal dependency names to vary without baking them into this validation path.
 set -euo pipefail
 
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$repo_root/scripts/preview/host-validation-env.sh"
+
 usage() {
-  cat <<'EOF'
-Usage: run-graal-script-host-validation.sh [run-label] [options forwarded to run-cubism-host-validation.sh]
+  cat <<EOF
+Usage: run-graal-script-host-validation.sh [$(turboism_task_versions_usage graal-script)] [run-label] [options forwarded to run-cubism-host-validation.sh]
 
 Environment:
   TURBOISM_GRAAL_JAVA
@@ -20,15 +23,27 @@ Environment:
 EOF
 }
 
+version="$TURBOISM_HOST_VALIDATION_DEFAULT_FIXTURE_VERSION"
 run_label='r1'
 if [ "$#" -gt 0 ] && [[ "$1" != -* ]]; then
-  run_label="$1"
-  shift
+  if [[ "$1" =~ ^[0-9]{4}$ ]]; then
+    version="$1"
+    shift
+    turboism_require_task_version graal-script "$version" || exit 2
+    if [ "$#" -gt 0 ] && [[ "$1" != -* ]]; then
+      run_label="$1"
+      shift
+    fi
+  else
+    run_label="$1"
+    shift
+  fi
 fi
 if [ "${1:-}" = '--help' ]; then
   usage
   exit 0
 fi
+turboism_require_task_version graal-script "$version" || exit 2
 
 fixture_src="${TURBOISM_GRAAL_VALIDATION_FIXTURE_REMOTE:-}"
 fixture_sha256="${TURBOISM_GRAAL_VALIDATION_FIXTURE_SHA256:-}"
@@ -52,7 +67,6 @@ cubism_java="${TURBOISM_CUBISM_JAVA:-}"
   exit 2
 }
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
 bundle="$repo_root/build/preview/$worktree_id"
 agent="$bundle/turboism-agent.jar"
@@ -75,7 +89,7 @@ fi
 
 exec bash "$runner" \
   --name graal-script \
-  --version 5302 \
+  --version "$version" \
   --run-label "$run_label" \
   --bundle-root "$bundle" \
   --agent "$agent" \

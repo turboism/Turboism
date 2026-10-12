@@ -1,20 +1,17 @@
 #!/usr/bin/env bash
 # Test-only 025 read projection smoke, through the shared local queue.
 set -euo pipefail
-version=5302
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$root/scripts/preview/host-validation-env.sh"
+version="$TURBOISM_HOST_VALIDATION_DEFAULT_VERSION"
 run_label='025-us1'
 if [[ $# -gt 0 && "$1" != --* ]]; then
   version="$1"
   shift
   if [[ $# -gt 0 && "$1" != --* ]]; then run_label="$1"; shift; fi
 fi
-case "$version" in
-  5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304) ;;
-  *) echo "error: unreviewed exact version: $version" >&2; exit 2 ;;
-esac
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$root/scripts/preview/host-validation-env.sh"
-turboism_select_fixture "$version"
+turboism_require_task_version texture-relations "$version" || exit 2
+turboism_select_fixture "$version" || exit 2
 id="$(bash "$root/scripts/dev/worktree-id.sh")"
 exec bash "$root/scripts/preview/run-cubism-host-validation.sh" \
   --name texture-relations-smoke --version "$version" --run-label "$run_label" \

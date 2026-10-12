@@ -2,13 +2,15 @@
 # N2 parameters only; generic Runner owns queue admission, official BAT and scope lifecycle.
 set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$repo_root/scripts/preview/host-validation-env.sh"
 if [[ "${1:-}" == --help ]]; then
-  printf 'usage: %s 5302 <run-label> [--dry-run | --prepare-dir <new-dir>]\n' "$0"
+  printf 'usage: %s %s <run-label> [--dry-run | --prepare-dir <new-dir>]\n' "$0" "$(turboism_task_versions_usage model-import-3d)"
   printf 'Requires TURBOISM_MI3D_BUILD_RUN: explicit build-host.py run directory, not newest discovery.\n'
   exit 0
 fi
-[[ $# -ge 2 && "$1" == 5302 && "$2" =~ ^[A-Za-z0-9][A-Za-z0-9_-]{0,80}$ ]] || { echo 'invalid N2 version/run label' >&2; exit 2; }
+[[ $# -ge 2 && "$2" =~ ^[A-Za-z0-9][A-Za-z0-9_-]{0,80}$ ]] || { echo 'invalid N2 version/run label' >&2; exit 2; }
 version="$1"; run_label="$2"; shift 2
+turboism_require_task_version model-import-3d "$version" || exit 2
 options=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -17,8 +19,7 @@ while [[ $# -gt 0 ]]; do
     *) echo 'only dry-run/prepare-dir may be supplied; safety flags are fixed' >&2; exit 2 ;;
   esac
 done
-source "$repo_root/scripts/preview/host-validation-env.sh"
-turboism_select_fixture 5302 || exit 2
+turboism_select_fixture "$version" || exit 2
 : "${TURBOISM_MI3D_BUILD_RUN:?explicit N2 build run is required}"
 # T014: TURBOISM_MI3D_MODE selects the probe leg. persistence-save adds the
 # task-pinned write grant opt-in; persistence-reopen replaces the read-only
@@ -89,7 +90,7 @@ exec bash "$repo_root/scripts/preview/run-cubism-host-validation.sh" \
   --home-dir "$provenance:state/mi3d-n2-build" \
   --fixture-host "$fixture_src" --fixture-sha256 "$fixture_sha256" \
   --fixture-name mi3d-readonly-seed.cmo3 --require-fixture-unchanged \
-  --jvm-option '-Dturboism.validation.hostVersion=5302' \
+  --jvm-option "-Dturboism.validation.hostVersion=$version" \
   --jvm-option '-Dturboism.validation.runId={TASK_ID}' \
   "${mode_options[@]}" \
   --ready-marker 'Plugin load complete' --ready-marker 'MI3D_N2_READY' \

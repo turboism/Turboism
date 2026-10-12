@@ -6,7 +6,16 @@
 # fixed-grant SAVE_AS; no production product plugin is part of this run.
 set -euo pipefail
 
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export TURBOISM_ENV_FILE="${TURBOISM_ENV_FILE:-/opt/dev/projects/turboism/.env}"
+# shellcheck source=host-validation-env.sh
+source "$root/scripts/preview/host-validation-env.sh"
+
 profile=normal
+version="$TURBOISM_HOST_VALIDATION_DEFAULT_VERSION"
+run_label="025-t021"
+version_set=0
+label_set=0
 runner_args=()
 while (($# > 0)); do
   case "$1" in
@@ -19,12 +28,29 @@ while (($# > 0)); do
       profile="${1#--profile=}"
       shift
       ;;
-    *)
+    --*)
       runner_args+=("$1")
       shift
       ;;
+    *)
+      if [ "$version_set" -eq 0 ] && [[ "$1" =~ ^[0-9]{4}$ ]]; then
+        version="$1"
+        version_set=1
+        shift
+      elif [ "$label_set" -eq 0 ]; then
+        run_label="$1"
+        label_set=1
+        shift
+      else
+        runner_args+=("$1")
+        shift
+      fi
+      ;;
   esac
 done
+
+turboism_require_task_version external-psd-fixture-preparation "$version" || exit 2
+host_semver="$(turboism_dotted_version "$version")" || exit 2
 
 case "$profile" in
   normal) saved_copy_basename=prepared-control.cmo3 ;;
@@ -35,11 +61,6 @@ case "$profile" in
     exit 2
     ;;
 esac
-
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-export TURBOISM_ENV_FILE="${TURBOISM_ENV_FILE:-/opt/dev/projects/turboism/.env}"
-# shellcheck source=host-validation-env.sh
-source "$root/scripts/preview/host-validation-env.sh"
 
 id="$(bash "$root/scripts/dev/worktree-id.sh")"
 fixture="$root/build/host-validation/025-negative-source/queue-81a9c6c0640c4e39a4012fe5dd486b44/native-seven-layer.psd"
@@ -67,7 +88,7 @@ if [ "$profile" != f1 ]; then
 fi
 
 exec bash "$root/scripts/preview/run-cubism-host-validation.sh" \
-  --name external-psd-fixture-preparation --version 5302 --run-label 025-t021 \
+  --name external-psd-fixture-preparation --version "$version" --run-label "$run_label" \
   --bundle-root "$root/build/preview/$id" \
   --agent "$root/build/preview/$id/turboism-agent.jar" \
   --plugin "$root/build/external-psd-edit-host-probe.jar:external-psd-edit-host-probe.jar" \
@@ -83,7 +104,7 @@ exec bash "$root/scripts/preview/run-cubism-host-validation.sh" \
   --jvm-option "-Dturboism.validation.externalpsd.prepare.profile=$profile" \
   --jvm-option "-Dturboism.validation.externalpsd.prepare.savedCopy={HOME}/$saved_copy_basename" \
   "${target_rgb_option[@]}" \
-  --jvm-option '-Dturboism.validation.externalpsd.prepare.hostVersion=5.3.02' \
+  --jvm-option "-Dturboism.validation.externalpsd.prepare.hostVersion=$host_semver" \
   --jvm-option '-Dturboism.validation.externalpsd.prepare.timeoutMillis=180000' \
   --jvm-option "-Dturboism.preview.userFileFixedGrant={HOME}/$saved_copy_basename" \
   --failure-marker 'EXTERNAL_PSD_EDIT_RESULT status=BLOCKED' \
