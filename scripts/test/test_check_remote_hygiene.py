@@ -133,6 +133,11 @@ class PathRuleTest(unittest.TestCase):
             "store/app.jks": "suffix:*.jks",
             "store/app.p12": "suffix:*.p12",
             "store/app.pfx": "suffix:*.pfx",
+            "models/sample.cmo3": "suffix:*.cmo3",
+            "models/sample.can3": "suffix:*.can3",
+            "models/backup.cmo3.bak": "suffix:*.cmo3.bak",
+            "art/texture.psd": "suffix:*.psd",
+            "live2d/character.moc3": "suffix:*.moc3",
         }
         for p, rule in cases.items():
             self.assertEqual(crh.classify_path(p), rule, p)
@@ -144,8 +149,26 @@ class PathRuleTest(unittest.TestCase):
                   "HOST-EVIDENCE/result.json",
                   "RESEARCH/notes.md", ".Agent-Artifacts/x.md",
                   ".CLAUDE/set.json", ".PI/session.jsonl", ".SPECIFY/task.json",
-                  "App.LOCAL.yaml", "nested/COPILOT.MD", "RUNTIME/LOGS/trace.log"]:
+                  "App.LOCAL.yaml", "nested/COPILOT.MD", "RUNTIME/LOGS/trace.log",
+                  "MODELS/SAMPLE.CMO3", "ART/TEXTURE.PSD", "LIVE2D/CHARACTER.MOC3",
+                  "ANIM/TEST.CAN3", "BACKUP/MODEL.CMO3.BAK"]:
             self.assertIsNotNone(crh.classify_path(p), p)
+
+    def test_model_and_psd_assets_rejected_in_staged_mode(self):
+        repo = fresh_repo(tempfile.mkdtemp(prefix="crh-model-asset-"))
+        (Path(repo) / "ok.txt").write_text("fine\n")
+        commit_all(repo, "base")
+        for forbidden in ["heavy.cmo3", "clipmask.psd", "char.moc3", "motion.can3", "corrupt.cmo3.bak"]:
+            path = Path(repo) / forbidden
+            path.write_bytes(b"\x00" * 32)
+            run_git(repo, "add", forbidden)
+        out = run_checker(repo, "--staged")
+        self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+        self.assertIn("heavy.cmo3: suffix:*.cmo3", out.stdout)
+        self.assertIn("clipmask.psd: suffix:*.psd", out.stdout)
+        self.assertIn("char.moc3: suffix:*.moc3", out.stdout)
+        self.assertIn("motion.can3: suffix:*.can3", out.stdout)
+        self.assertIn("corrupt.cmo3.bak: suffix:*.cmo3.bak", out.stdout)
 
     def test_force_added_local_reference_is_rejected_in_staged_mode(self):
         repo = fresh_repo(tempfile.mkdtemp(prefix="crh-local-ref-"))
