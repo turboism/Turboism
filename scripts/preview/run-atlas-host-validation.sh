@@ -5,8 +5,9 @@
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$root/scripts/preview/host-validation-env.sh"
-[[ $# -ge 3 && "$1" =~ ^(5203|5302|5303)$ ]] || { echo 'usage: atlas <5203|5302|5303> run-label {ui-}{circle,geometry}-{100,500,1000,2500}-{native,new,polygon} [--prepare-dir DIR|--dry-run|runner option forwards]' >&2; exit 2; }
+[[ $# -ge 3 ]] || { echo "usage: atlas $(turboism_task_versions_usage atlas) run-label {ui-}{circle,geometry}-{100,500,1000,2500}-{native,new,polygon} [--prepare-dir DIR|--dry-run|runner option forwards]" >&2; exit 2; }
 version="$1"; label="$2"; variant="$3"; shift 3
+turboism_require_task_version atlas "$version" || exit 2
 parallel=false
 case "$variant" in
   ui-circle-100-new-parallel|ui-geometry-100-new-parallel|ui-circle-500-new-parallel|ui-geometry-500-new-parallel)
@@ -46,7 +47,7 @@ esac
 result_timeout=7500
 [[ "$count" != 2500 ]] || result_timeout=21900
 # UI matrix uses a 30-minute result ceiling, except geometry-1000-native whose
-# measured 5303 method time alone was ~1635 s; allow 45 minutes for that case.
+# measured host method time alone was ~1635 s; allow 45 minutes for that case.
 [[ "$ui_timing" != true ]] || result_timeout=1800
 layout_deadline=1800
 if [[ "$ui_timing" == true && "$variant" == ui-geometry-1000-native ]]; then
