@@ -688,6 +688,17 @@
     "editor-model"
    ],
    "verified": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -699,6 +710,17 @@
     "5.3.04"
    ],
    "admitted": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -770,6 +792,17 @@
     "editor-model"
    ],
    "verified": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -781,6 +814,17 @@
     "5.3.04"
    ],
    "admitted": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -5176,6 +5220,17 @@
     "editor-model"
    ],
    "verified": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -5187,6 +5242,17 @@
     "5.3.04"
    ],
    "admitted": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
     "5.2.00",
     "5.2.01",
     "5.2.02",
@@ -10372,83 +10438,6 @@
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/AlphaComposition.java"
   },
   {
-   "api": "dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot#ArtMeshAuthoringSnapshot()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshAuthoringSnapshot.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot#ArtMeshEvaluationSnapshot()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshEvaluationSnapshot.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.ArtMeshKeyform",
-   "kind": "type",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshKeyform.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder#ArtMeshKeyformDrawOrder()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshKeyformDrawOrder.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions#ArtMeshKeyformPositions()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshKeyformPositions.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform",
-   "kind": "type",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshMorphKeyform.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform#setDrawOrder()",
-   "kind": "method",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshMorphKeyform.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.ArtMeshSourceTriangulation#ArtMeshSourceTriangulation()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ArtMeshSourceTriangulation.java"
-  },
-  {
    "api": "dev.turboism.sdk.cubism.model.ArtMeshTextureInput#ArtMeshTextureInput()",
    "kind": "method",
    "versions": [
@@ -10597,53 +10586,6 @@
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Deformers.java"
   },
   {
-   "api": "dev.turboism.sdk.cubism.model.Drawable#authoringSnapshot()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.Drawable#createMorphKeyform()",
-   "kind": "method",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.Drawable#evaluationSnapshot()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.Drawable#morphKeyform()",
-   "kind": "method",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.Drawable#ordinaryKeyform()",
-   "kind": "method",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
-  },
-  {
    "api": "dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()",
    "kind": "method",
    "versions": [
@@ -10652,16 +10594,6 @@
     "5.3.02",
     "5.3.03",
     "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.Drawable#setOrdinaryKeyformPositions()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java"
   },
@@ -10822,62 +10754,6 @@
     "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Part.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.RotationAuthoringSnapshot#RotationAuthoringSnapshot()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/RotationAuthoringSnapshot.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.RotationKeyformForm#RotationKeyformForm()",
-   "kind": "method",
-   "versions": [
-    "5.2.03",
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/RotationKeyformForm.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot#WarpAuthoringSnapshot()",
-   "kind": "method",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpAuthoringSnapshot.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.WarpDeformer#authoringSnapshot()",
-   "kind": "method",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpDeformer.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.WarpDeformer#setOrdinaryKeyformPositions()",
-   "kind": "method",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpDeformer.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.model.WarpKeyformPositions#WarpKeyformPositions()",
-   "kind": "method",
-   "versions": [
-    "5.3.02",
-    "5.3.03"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/model/WarpKeyformPositions.java"
   },
   {
    "api": "dev.turboism.sdk.cubism.model.YureDeformConfig",
