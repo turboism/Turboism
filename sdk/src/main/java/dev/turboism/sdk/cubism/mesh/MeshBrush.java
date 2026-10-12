@@ -12,7 +12,7 @@ import dev.turboism.sdk.Incubating;
  * <p><strong>Preview API:</strong> this contract may evolve before stabilization.</p>
  */
 @Incubating
-@CubismEditor(from = "5.2.00")
+@CubismEditor(from = "5.0.00")
 public interface MeshBrush extends AutoCloseable {
     /** Smallest supported radius, in active component pixels. */
     int MIN_RADIUS_PIXELS = 8;

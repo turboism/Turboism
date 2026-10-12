@@ -602,18 +602,14 @@ class WindowsParameterValidationProbeTest {
             assertEquals("f", WindowsParameterValidationProbe.stopAutoBackupMethodName(version), version);
         }
         for (final String version : new String[] {
-            "5100", "5101", "5102", "5103",
-            "5200", "5201", "5202", "5203",
-            "5300", "5301", "5302", "5303", "5304"
+            "5100", "5101", "5102", "5103", "5200", "5201", "5202", "5203", "5300", "5301", "5302", "5303", "5304"
         }) {
             assertEquals("g", WindowsParameterValidationProbe.stopAutoBackupMethodName(version), version);
         }
         assertThrows(
-                IllegalArgumentException.class,
-                () -> WindowsParameterValidationProbe.stopAutoBackupMethodName("5400"));
+                IllegalArgumentException.class, () -> WindowsParameterValidationProbe.stopAutoBackupMethodName("5400"));
         assertThrows(
-                IllegalArgumentException.class,
-                () -> WindowsParameterValidationProbe.stopAutoBackupMethodName(null));
+                IllegalArgumentException.class, () -> WindowsParameterValidationProbe.stopAutoBackupMethodName(null));
     }
 
     @Test

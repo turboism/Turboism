@@ -36,7 +36,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
@@ -2608,9 +2607,8 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     }
 
     private void executeCommand(final List<String> report, final String phase, final EditorCommand command) {
-        final EditorCommandService service = context.services()
-                .find(EditorCommandService.class)
-                .orElse(EditorCommandService.unavailable());
+        final EditorCommandService service =
+                context.services().find(EditorCommandService.class).orElse(EditorCommandService.unavailable());
         if (service.isAvailable()) {
             final EditorCommandResult result = service.execute(command);
             require(report, phase + ".command", result.executed(), result.toString());

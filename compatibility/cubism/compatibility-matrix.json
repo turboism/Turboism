@@ -9396,22 +9396,6 @@
  ],
  "sdkApiConstraints": [
   {
-   "api": "dev.turboism.sdk.cubism.CubismFacade#authoringTransactions()",
-   "kind": "method",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/CubismFacade.java"
-  },
-  {
    "api": "dev.turboism.sdk.cubism.CubismFacade#edit()",
    "kind": "method",
    "versions": [
@@ -10379,182 +10363,6 @@
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/export/ExportSettingsDecision.java"
   },
   {
-   "api": "dev.turboism.sdk.cubism.mesh.MeshBrush",
-   "kind": "type",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshBrush.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.mesh.MeshEditParticipation",
-   "kind": "type",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshEditParticipation.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.mesh.MeshEditService",
-   "kind": "type",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshEditService.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.mesh.MeshEditUiService",
-   "kind": "type",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshEditUiService.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.mesh.MeshEditor",
-   "kind": "type",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshEditor.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService",
-   "kind": "type",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshMirrorAxisService.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts",
-   "kind": "type",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshMirrorCounterparts.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation",
-   "kind": "type",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshMirrorMoveParticipation.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility",
-   "kind": "type",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshMirrorToolEligibility.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.mesh.MeshToolContext",
-   "kind": "type",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshToolContext.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.mesh.MeshToolRegistry",
-   "kind": "type",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshToolRegistry.java"
-  },
-  {
    "api": "dev.turboism.sdk.cubism.model.AlphaComposition",
    "kind": "type",
    "versions": [
@@ -10895,66 +10703,6 @@
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/psd/PsdEditFile.java"
   },
   {
-   "api": "dev.turboism.sdk.cubism.recentfile.RecentFileService",
-   "kind": "type",
-   "versions": [
-    "5.1.00",
-    "5.1.01",
-    "5.1.02",
-    "5.1.03",
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/recentfile/RecentFileService.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService",
-   "kind": "type",
-   "versions": [
-    "5.1.00",
-    "5.1.01",
-    "5.1.02",
-    "5.1.03",
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/recentpreview/RecentPreviewContributionService.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService",
-   "kind": "type",
-   "versions": [
-    "5.1.00",
-    "5.1.01",
-    "5.1.02",
-    "5.1.03",
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/screenshot/ScreenshotCaptureService.java"
-  },
-  {
    "api": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel",
    "kind": "type",
    "versions": [
@@ -11017,38 +10765,6 @@
     "5.3.04"
    ],
    "file": "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasPolygonLayoutService.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.transaction.AuthoringTransactionService",
-   "kind": "type",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/transaction/AuthoringTransactionService.java"
-  },
-  {
-   "api": "dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation",
-   "kind": "type",
-   "versions": [
-    "5.2.00",
-    "5.2.01",
-    "5.2.02",
-    "5.2.03",
-    "5.3.00",
-    "5.3.01",
-    "5.3.02",
-    "5.3.03",
-    "5.3.04"
-   ],
-   "file": "sdk/src/main/java/dev/turboism/sdk/cubism/warp/WarpAltMirrorParticipation.java"
   }
  ],
  "runtimeGates": [],
@@ -11484,17 +11200,17 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasPolygonLayoutService.java"
      ],
      "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary",
+      "5.1.00": "boundary",
+      "5.1.01": "boundary",
+      "5.1.02": "boundary",
+      "5.1.03": "boundary"
      }
     }
    ],
@@ -12037,13 +11753,13 @@
     "5.3.04"
    ],
    "supportedGaps": {
-    "5.0.00": "unknown",
-    "5.0.01": "unknown",
-    "5.0.02": "unknown",
-    "5.0.03": "unknown",
-    "5.0.04": "unknown",
-    "5.0.05": "unknown",
-    "5.0.06": "unknown"
+    "5.0.00": "boundary",
+    "5.0.01": "boundary",
+    "5.0.02": "boundary",
+    "5.0.03": "boundary",
+    "5.0.04": "boundary",
+    "5.0.05": "boundary",
+    "5.0.06": "boundary"
    },
    "fullFeatureVersions": [
     "5.1.00",
@@ -12137,13 +11853,13 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommandService.java"
      ],
      "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown"
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary"
      }
     }
    ],
@@ -12395,17 +12111,17 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java"
      ],
      "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary",
+      "5.1.00": "boundary",
+      "5.1.01": "boundary",
+      "5.1.02": "boundary",
+      "5.1.03": "boundary"
      }
     },
     {
@@ -12440,17 +12156,17 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java"
      ],
      "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary",
+      "5.1.00": "boundary",
+      "5.1.01": "boundary",
+      "5.1.02": "boundary",
+      "5.1.03": "boundary"
      }
     },
     {
@@ -12485,17 +12201,17 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/psd/PsdEditFile.java"
      ],
      "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary",
+      "5.1.00": "boundary",
+      "5.1.01": "boundary",
+      "5.1.02": "boundary",
+      "5.1.03": "boundary"
      }
     }
    ],
@@ -12659,160 +12375,6 @@
    ],
    "partialFeatures": [
     {
-     "key": "turboism.textures.write",
-     "declaredCapability": null,
-     "versions": [
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03",
-      "5.2.00",
-      "5.2.01",
-      "5.2.02"
-     ],
-     "source": "coverage-manifest",
-     "endpoint": "turboism.textures.write",
-     "operations": [
-      "add_model_image_group",
-      "add_texture_atlas",
-      "remove_model_image",
-      "remove_raw_image",
-      "remove_texture_atlas"
-     ],
-     "methods": [
-      "dev.turboism.sdk.cubism.model.ModelTextures#addModelImageGroup",
-      "dev.turboism.sdk.cubism.model.ModelTextures#addTextureAtlas",
-      "dev.turboism.sdk.cubism.model.ModelTextures#removeModelImage",
-      "dev.turboism.sdk.cubism.model.ModelTextures#removeRawImage",
-      "dev.turboism.sdk.cubism.model.ModelTextures#removeTextureAtlas"
-     ],
-     "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown",
-      "5.2.00": "unknown",
-      "5.2.01": "unknown",
-      "5.2.02": "unknown"
-     }
-    },
-    {
-     "key": "dev.turboism.sdk.cubism.transaction.AuthoringTransactionService",
-     "declaredCapability": null,
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "sdk-api",
-     "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/transaction/AuthoringTransactionService.java"
-     ],
-     "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
-     }
-    },
-    {
-     "key": "turboism.transaction.execute",
-     "declaredCapability": null,
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "coverage-manifest",
-     "endpoint": "turboism.transaction.execute",
-     "operations": [
-      "execute"
-     ],
-     "methods": [
-      "dev.turboism.sdk.cubism.transaction.AuthoringTransactionService#execute"
-     ],
-     "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
-     }
-    },
-    {
      "key": "cubism.editor-ui.top-menu",
      "declaredCapability": "cubism.editor-commands.execute",
      "versions": [
@@ -12888,13 +12450,13 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommandService.java"
      ],
      "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown"
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary"
      }
     },
     {
@@ -12934,13 +12496,13 @@
       "dev.turboism.sdk.cubism.command.EditorCommandService#execute"
      ],
      "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown"
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary"
      }
     },
     {
@@ -12979,13 +12541,13 @@
       "dev.turboism.sdk.cubism.command.EditorCommandService#available"
      ],
      "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown"
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary"
      }
     }
    ],
@@ -13194,300 +12756,6 @@
       "5.1.02": "boundary",
       "5.1.03": "boundary"
      }
-    },
-    {
-     "key": "dev.turboism.sdk.cubism.mesh.MeshEditParticipation",
-     "declaredCapability": null,
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "sdk-api",
-     "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshEditParticipation.java"
-     ],
-     "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
-     }
-    },
-    {
-     "key": "dev.turboism.sdk.cubism.mesh.MeshEditUiService",
-     "declaredCapability": null,
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "sdk-api",
-     "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshEditUiService.java"
-     ],
-     "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
-     }
-    },
-    {
-     "key": "dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService",
-     "declaredCapability": null,
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "sdk-api",
-     "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshMirrorAxisService.java"
-     ],
-     "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
-     },
-     "officialSource": {
-      "version": "5.3.00",
-      "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
-      "nameZh": "网格编辑模式镜像顶点移动与边删除",
-      "nameEn": "Mesh edit mode mirror vertex movement and edge deletion"
-     }
-    },
-    {
-     "key": "dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts",
-     "declaredCapability": null,
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "sdk-api",
-     "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshMirrorCounterparts.java"
-     ],
-     "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
-     },
-     "officialSource": {
-      "version": "5.3.00",
-      "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
-      "nameZh": "网格编辑模式镜像顶点移动与边删除",
-      "nameEn": "Mesh edit mode mirror vertex movement and edge deletion"
-     }
-    },
-    {
-     "key": "dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation",
-     "declaredCapability": null,
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "sdk-api",
-     "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshMirrorMoveParticipation.java"
-     ],
-     "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
-     },
-     "officialSource": {
-      "version": "5.3.00",
-      "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
-      "nameZh": "网格编辑模式镜像顶点移动与边删除",
-      "nameEn": "Mesh edit mode mirror vertex movement and edge deletion"
-     }
-    },
-    {
-     "key": "dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility",
-     "declaredCapability": null,
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "sdk-api",
-     "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshMirrorToolEligibility.java"
-     ],
-     "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
-     },
-     "officialSource": {
-      "version": "5.3.04",
-      "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
-      "nameZh": "网格编辑模式可用变形笔刷",
-      "nameEn": "Deformation brush available in mesh edit mode"
-     }
     }
    ],
    "unmappedCapabilities": [],
@@ -13651,53 +12919,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "partialFeatures": [
-    {
-     "key": "dev.turboism.sdk.cubism.CubismFacade#authoringTransactions()",
-     "declaredCapability": null,
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "sdk-api",
-     "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/CubismFacade.java"
-     ],
-     "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
-     }
-    }
-   ],
+   "partialFeatures": [],
    "unmappedCapabilities": [],
    "hostValidation": {
     "parameter": {
@@ -14369,13 +13591,13 @@
     "5.3.04"
    ],
    "supportedGaps": {
-    "5.0.00": "unknown",
-    "5.0.01": "unknown",
-    "5.0.02": "unknown",
-    "5.0.03": "unknown",
-    "5.0.04": "unknown",
-    "5.0.05": "unknown",
-    "5.0.06": "unknown"
+    "5.0.00": "boundary",
+    "5.0.01": "boundary",
+    "5.0.02": "boundary",
+    "5.0.03": "boundary",
+    "5.0.04": "boundary",
+    "5.0.05": "boundary",
+    "5.0.06": "boundary"
    },
    "fullFeatureVersions": [
     "5.1.00",
@@ -14468,13 +13690,13 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/export/ExportSettingsContributionService.java"
      ],
      "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown"
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary"
      }
     }
    ],
@@ -14869,131 +14091,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "partialFeatures": [
-    {
-     "key": "dev.turboism.sdk.cubism.recentfile.RecentFileService",
-     "declaredCapability": null,
-     "versions": [
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03",
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06"
-     ],
-     "source": "sdk-api",
-     "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/recentfile/RecentFileService.java"
-     ],
-     "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown"
-     }
-    },
-    {
-     "key": "dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService",
-     "declaredCapability": null,
-     "versions": [
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03",
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06"
-     ],
-     "source": "sdk-api",
-     "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/recentpreview/RecentPreviewContributionService.java"
-     ],
-     "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown"
-     }
-    },
-    {
-     "key": "dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService",
-     "declaredCapability": null,
-     "versions": [
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03",
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06"
-     ],
-     "source": "sdk-api",
-     "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/screenshot/ScreenshotCaptureService.java"
-     ],
-     "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown"
-     }
-    }
-   ],
+   "partialFeatures": [],
    "unmappedCapabilities": [],
    "hostValidation": {
     "recent-preview": {
@@ -15165,159 +14263,6 @@
       "nameZh": "变形笔刷扩张/收缩及圆/方/线笔刷形状",
       "nameEn": "Deformation brush expand/shrink and circle/square/line brush shapes"
      }
-    },
-    {
-     "key": "dev.turboism.sdk.cubism.mesh.MeshBrush",
-     "declaredCapability": null,
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "sdk-api",
-     "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshBrush.java"
-     ],
-     "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
-     },
-     "officialSource": {
-      "version": "5.3.04",
-      "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
-      "nameZh": "网格编辑模式可用变形笔刷",
-      "nameEn": "Deformation brush available in mesh edit mode"
-     }
-    },
-    {
-     "key": "dev.turboism.sdk.cubism.mesh.MeshToolContext",
-     "declaredCapability": null,
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "sdk-api",
-     "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshToolContext.java"
-     ],
-     "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
-     },
-     "officialSource": {
-      "version": "5.3.04",
-      "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
-      "nameZh": "网格编辑模式可用变形笔刷",
-      "nameEn": "Deformation brush available in mesh edit mode"
-     }
-    },
-    {
-     "key": "dev.turboism.sdk.cubism.mesh.MeshToolRegistry",
-     "declaredCapability": null,
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "sdk-api",
-     "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/mesh/MeshToolRegistry.java"
-     ],
-     "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
-     },
-     "officialSource": {
-      "version": "5.3.04",
-      "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
-      "nameZh": "网格编辑模式可用变形笔刷",
-      "nameEn": "Deformation brush available in mesh edit mode"
-     }
     }
    ],
    "unmappedCapabilities": [],
@@ -15463,17 +14408,17 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasEditorPanel.java"
      ],
      "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary",
+      "5.1.00": "boundary",
+      "5.1.01": "boundary",
+      "5.1.02": "boundary",
+      "5.1.03": "boundary"
      }
     },
     {
@@ -15508,17 +14453,17 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasEditorSession.java"
      ],
      "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary",
+      "5.1.00": "boundary",
+      "5.1.01": "boundary",
+      "5.1.02": "boundary",
+      "5.1.03": "boundary"
      }
     },
     {
@@ -15553,17 +14498,17 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/textureatlas/TextureAtlasEditorUi.java"
      ],
      "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary",
+      "5.1.00": "boundary",
+      "5.1.01": "boundary",
+      "5.1.02": "boundary",
+      "5.1.03": "boundary"
      }
     }
    ],
@@ -15837,53 +14782,7 @@
     "5.3.03",
     "5.3.04"
    ],
-   "partialFeatures": [
-    {
-     "key": "dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation",
-     "declaredCapability": null,
-     "versions": [
-      "5.2.00",
-      "5.2.01",
-      "5.2.02",
-      "5.2.03",
-      "5.3.00",
-      "5.3.01",
-      "5.3.02",
-      "5.3.03",
-      "5.3.04"
-     ],
-     "missingOn": [
-      "5.0.00",
-      "5.0.01",
-      "5.0.02",
-      "5.0.03",
-      "5.0.04",
-      "5.0.05",
-      "5.0.06",
-      "5.1.00",
-      "5.1.01",
-      "5.1.02",
-      "5.1.03"
-     ],
-     "source": "sdk-api",
-     "sourceFiles": [
-      "sdk/src/main/java/dev/turboism/sdk/cubism/warp/WarpAltMirrorParticipation.java"
-     ],
-     "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown",
-      "5.1.00": "unknown",
-      "5.1.01": "unknown",
-      "5.1.02": "unknown",
-      "5.1.03": "unknown"
-     }
-    }
-   ],
+   "partialFeatures": [],
    "unmappedCapabilities": [],
    "hostValidation": {
     "warp-deformer": {
@@ -16023,13 +14922,13 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/backup/EditorAutoBackupService.java"
      ],
      "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown"
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary"
      }
     },
     {
@@ -16064,13 +14963,13 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/backup/EditorAutoBackupService.java"
      ],
      "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown"
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary"
      }
     },
     {
@@ -16105,13 +15004,13 @@
       "sdk/src/main/java/dev/turboism/sdk/cubism/backup/EditorAutoBackupService.java"
      ],
      "missingNature": {
-      "5.0.00": "unknown",
-      "5.0.01": "unknown",
-      "5.0.02": "unknown",
-      "5.0.03": "unknown",
-      "5.0.04": "unknown",
-      "5.0.05": "unknown",
-      "5.0.06": "unknown"
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary"
      }
     }
    ],
@@ -20615,6 +19514,45 @@
    "reason": "com/live2d/cubism/doc/modeling/CModelingDocument::getDocumentUID()Ljava/lang/String; is absent on every 5.0.x jar (MEMBER_MISSING); the document-UID identity chain the autobackup session depends on was introduced in 5.1 — 5.0.x exposes only getFileContentInstanceGuid()."
   },
   {
+   "id": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Auto-backup service requires the document-UID identity chain introduced in Cubism 5.1.00."
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService#artifacts()",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Auto-backup artifact listing requires the document-UID identity chain introduced in Cubism 5.1.00."
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService#backupAfterSave()",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Auto-backup after save requires the document-UID identity chain introduced in Cubism 5.1.00."
+  },
+  {
    "id": "cubism.protected-export.orchestration",
    "absentOn": [
     "5.0.00",
@@ -20626,6 +19564,177 @@
     "5.0.06"
    ],
    "reason": "Three incompatible members on every 5.0.x jar: export driver com/live2d/cubism/appCtrlImpl/al::a(CModelSource;CFrame;Function1)V takes Function1 (5.1+ uses Function2 — the staged output-file + absolute-path-list callback contract does not exist), CModelSource::containMotionSyncSettingNeedCorrection()Z missing, CMotionSyncSettingSource::getMotionSyncVersion() missing. The reviewed transformation premise fails closed."
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.export.ExportSettingsContributionService",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Export settings contribution requires the 5.1+ export driver (al.a taking Function2) and motion sync settings source."
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.command.EditorCommandService",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Editor command execution requires top menu and external-app WebSocket infrastructure, introduced in Cubism 5.1.00."
+  },
+  {
+   "id": "turboism.editor_commands.execute",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Editor command execution endpoint requires top menu and external-app WebSocket infrastructure, introduced in Cubism 5.1.00."
+  },
+  {
+   "id": "turboism://host/editor-commands",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06"
+   ],
+   "reason": "Editor commands resource endpoint requires top menu and external-app WebSocket infrastructure, introduced in Cubism 5.1.00."
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Texture atlas polygon packing service requires layout algorithm and shape infrastructure introduced in Cubism 5.2.00."
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Native PSD export from raw image requires the export pipeline introduced in Cubism 5.2.00."
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Native PSD replacement requires explicit-target replacement selectors introduced in Cubism 5.2.00."
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.psd.PsdEditFile",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Runtime PSD edit handle requires the 5.2+ external PSD edit integration pipeline."
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Texture atlas editor panel integration requires editor UI selectors introduced in Cubism 5.2.00."
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Texture atlas editor session integration requires editor UI selectors introduced in Cubism 5.2.00."
+  },
+  {
+   "id": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi",
+   "absentOn": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03"
+   ],
+   "reason": "Texture atlas editor UI integration requires editor UI selectors introduced in Cubism 5.2.00."
   },
   {
    "id": "cubism.editor-ui.main-toolbar",
