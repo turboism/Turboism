@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.interpolation;
 
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.ProtectionDomain;
@@ -16,8 +15,8 @@ public final class MeshInterpolationTransformer implements ClassFileTransformer 
     public static final String CLASS_SHA256 = "399a05605ebb2e837434e5b8be7fa84c4cb5d24adc09f7e5546214471380e39f";
     private static final java.util.Map<String, java.util.Map<String, String>> REVIEWED_CLASS_SHA256 =
             dev.turboism.adapter.cubism.optimization.ClassPinTable.load("mesh-interpolation");
-    private static final java.util.Set<String> ADMITTED_CLASS_SHA256S = java.util.Collections.unmodifiableSet(
-            REVIEWED_CLASS_SHA256.values().stream()
+    private static final java.util.Set<String> ADMITTED_CLASS_SHA256S =
+            java.util.Collections.unmodifiableSet(REVIEWED_CLASS_SHA256.values().stream()
                     .map(m -> m.get(OWNER))
                     .filter(java.util.Objects::nonNull)
                     .collect(java.util.stream.Collectors.toSet()));

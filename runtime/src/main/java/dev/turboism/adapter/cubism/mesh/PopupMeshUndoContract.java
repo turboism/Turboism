@@ -44,8 +44,8 @@ final class PopupMeshUndoContract {
             this.position = pt;
             this.mode = type.getMethod("c");
             this.entries = type.getMethod("a");
-            final Class<?> entryType = type.getClassLoader()
-                    .loadClass("com.live2d.cubism.doc.modeling.CModelingEditMode_MeshEditor$b");
+            final Class<?> entryType =
+                    type.getClassLoader().loadClass("com.live2d.cubism.doc.modeling.CModelingEditMode_MeshEditor$b");
             this.entryMesh = entryType.getMethod("b");
         }
     }
@@ -59,7 +59,8 @@ final class PopupMeshUndoContract {
             try {
                 final var source = type.getProtectionDomain().getCodeSource();
                 if (source == null) return null;
-                final var digest = HostArtifactDigest.from(Path.of(source.getLocation().toURI()));
+                final var digest =
+                        HostArtifactDigest.from(Path.of(source.getLocation().toURI()));
                 if (ReviewedHostArtifacts.cubismVersionOf(digest).isEmpty()) return null;
                 return new Access(type);
             } catch (Exception failure) {
