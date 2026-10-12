@@ -42,7 +42,7 @@
 | PSD raw 画像 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 選択編集 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 起動抑制 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| テクスチャと raw 画像 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| テクスチャと raw 画像 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | テクスチャアトラス | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 元に戻す復帰 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | ワープデフォーマミラー | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -62,7 +62,6 @@
 - `cubism.editor-model.part-inspector.write` (パーツインスペクタ書き込み): 検証済みレコードなし 5.0.00–5.2.03
 - `cubism.editor-model.part-opacity.write` (パーツ不透明度書き込み): 検証済みレコードなし 5.0.00–5.2.03
 - `cubism.protected-export.orchestration` (保護付きエクスポートオーケストレーション): 検証済みレコードなし 5.0.00–5.0.06
-- `cubism.editor-model.texture.register-bind`: 検証済みレコードなし 5.0.00–5.1.03
 
 ## バージョン制約付き SDK サーフェス
 
@@ -136,8 +135,6 @@
 | `dev.turboism.sdk.cubism.mesh.MeshToolContext` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.mesh.MeshToolRegistry` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AlphaComposition` | type | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ArtMeshTextureInput#ArtMeshTextureInput()` | method | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.AuthorizedImageContent` | type | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AutoYure` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AutoYureBinding` | type | 5.1.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.AutoYureConfig` | type | 5.1.00–5.3.04 |
@@ -147,13 +144,9 @@
 | `dev.turboism.sdk.cubism.model.CubismModel#exportMoc()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Deformers#applyToChildren()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelImageBinding#ModelImageBinding()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelInstance` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelTextures#bindModelImage()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()` | method | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelTextures#registerImageAndBind()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()` | method | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ModelTextures#textureInput()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#alphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#maskIds()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setAlphaComposition()` | method | 5.3.00–5.3.04 |

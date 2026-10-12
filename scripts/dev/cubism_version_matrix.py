@@ -1405,6 +1405,16 @@ def refresh_editor_model(constants: dict, editor: dict, families: dict) -> None:
             constants, editor, derived["selectors"], version, texture_write,
             derived["capabilityConditions"][texture_write],
         ))
+        texture_register_bind = texture_contract["REGISTER_BIND_CAPABILITY_ID"]
+        if texture_register_bind not in derived["capabilityIds"]:
+            raise ValueError(
+                f"texture register-bind lacks a complete capability contract: {version}"
+            )
+        scoped_capabilities.append(texture_register_bind)
+        scoped_aliases.update(required_aliases(
+            constants, editor, derived["selectors"], version, texture_register_bind,
+            derived["capabilityConditions"][texture_register_bind],
+        ))
         for capability, contract in psd_contracts.items():
             if version in contract["SUPPORTED_CUBISM_VERSIONS"]:
                 if capability not in derived["capabilityIds"]:

@@ -26,7 +26,7 @@ import java.util.Optional;
  * @param modelImageId registered model image identity
  * @param artMeshId bound ArtMesh identity, empty for a registration-only result
  */
-@CubismEditor(from = "5.2.00")
+@CubismEditor(from = "5.0.00")
 public record ModelImageBinding(
         String scope,
         ModelId modelId,
