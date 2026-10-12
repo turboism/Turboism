@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Offline-only output ownership. Source this helper; never clean/reuse a run.
 new_run_path() {
     printf '%s/runs/%s' "$1" "$(python3 -c 'import uuid; print(uuid.uuid4().hex)')"
