@@ -318,7 +318,7 @@ class EditorArtMeshMorphAccessTest {
             target.setPositions(EditorArtMeshMorphTransactionTest.U);
             final int mutations = f.mutations, snapshots = f.snapshots, begins = f.begins;
             final var failure = assertThrows(UnsupportedOperationException.class, () -> target.setDrawOrder(700));
-            assertEquals("unsupported 5.3.02 root ArtMesh morph authoring domain", failure.getMessage());
+            assertEquals("unsupported root ArtMesh morph authoring domain", failure.getMessage());
             assertEquals(mutations, f.mutations);
             assertEquals(snapshots, f.snapshots);
             assertEquals(begins, f.begins);

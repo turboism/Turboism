@@ -16,12 +16,24 @@ import java.util.Set;
 import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.parallel.Resources;
 
 @ResourceLock(Resources.SYSTEM_PROPERTIES)
 class EditorArtMeshEvaluationReadAccessTest {
     private static final String M = "cubism.editor-model.";
     private static final ArtMeshId ID = new ArtMeshId("mesh");
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
+    void readsCalculatedFormsOnEveryReviewedGeneration(final String version) {
+        final Model model = new Model();
+        final var result = read(model, resolver(version, false, null));
+        assertEquals("source", result.sourceGuid());
+        assertEquals(321, result.calculatedForm().orElseThrow().drawOrder());
+        assertEquals(result, read(model, resolver("5.3.02", false, null)));
+    }
 
     @Test
     void readsCalculatedRatherThanStoredWithIndependentConsumptionMetadata() {

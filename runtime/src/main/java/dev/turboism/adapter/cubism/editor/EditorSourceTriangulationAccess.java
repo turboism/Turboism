@@ -19,7 +19,7 @@ final class EditorSourceTriangulationAccess {
 
     ArtMeshSourceTriangulation preview(ArtMeshGeometry geometry) {
         Objects.requireNonNull(geometry, "geometry");
-        if (!resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")
+        if (!EditorReviewedGeneration.admits(resolver)
                 || !resolver.authorizesFeature(
                         EditorSourceTriangulationSelectorContract.ADAPTER_SLICE_ID,
                         EditorSourceTriangulationSelectorContract.CAPABILITY_ID,

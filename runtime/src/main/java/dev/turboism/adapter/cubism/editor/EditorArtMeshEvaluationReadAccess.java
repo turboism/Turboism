@@ -28,12 +28,12 @@ final class EditorArtMeshEvaluationReadAccess {
             throw new IllegalStateException("calculated ArtMesh reads require the Editor thread");
         }
         requireSamplingConfiguration();
-        if (!resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")
+        if (!EditorReviewedGeneration.admits(resolver)
                 || !resolver.authorizesFeature(
                         EditorArtMeshEvaluationReadSelectorContract.ADAPTER_SLICE_ID,
                         EditorArtMeshEvaluationReadSelectorContract.CAPABILITY_ID,
                         EditorArtMeshEvaluationReadSelectorContract.REQUIRED_ALIASES))
-            throw new UnsupportedOperationException("verified 5.3.02 calculated ArtMesh reads are unavailable");
+            throw new UnsupportedOperationException("verified calculated ArtMesh reads are unavailable");
 
         final String sourceGuid = text(
                 invoke("cubism.editor-model.guid.value", invoke("cubism.editor-model.art-mesh-source.guid", source)));
