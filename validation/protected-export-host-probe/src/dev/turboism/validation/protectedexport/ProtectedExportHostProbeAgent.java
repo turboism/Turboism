@@ -4747,12 +4747,23 @@ public final class ProtectedExportHostProbeAgent {
 
     /**
      * Exact-version dispatch for the native options-list peer class. Every
-     * reviewed build resolves to {@code com.live2d.ui.swingImpl.u} today; the
+     * reviewed build (5.0.00–5.3.04) resolves to {@code com.live2d.ui.swingImpl.u} today; the
      * dispatch exists so a divergence on a newly admitted build is an explicit
      * reviewed choice, not a silent assumption.
      */
     static String optionsContainerPeer(final String hostVersion) {
-        return "5203".equals(hostVersion) ? OPTIONS_PEER_5_2 : OPTIONS_PEER_5_3;
+        if (hostVersion == null) return OPTIONS_PEER_5_3;
+        return switch (hostVersion) {
+            case "5000", "5001", "5002", "5003", "5004", "5005", "5006",
+                    "5100", "5101", "5102", "5103",
+                    "5200", "5201", "5202", "5203",
+                    "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+                    "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+                    "5.2.00", "5.2.01", "5.2.02", "5.2.03" -> OPTIONS_PEER_5_2;
+            case "5300", "5301", "5302", "5303", "5304",
+                    "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04" -> OPTIONS_PEER_5_3;
+            default -> OPTIONS_PEER_5_3;
+        };
     }
 
     /**

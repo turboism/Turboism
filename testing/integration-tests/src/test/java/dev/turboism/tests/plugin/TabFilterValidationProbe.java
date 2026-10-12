@@ -711,9 +711,57 @@ public final class TabFilterValidationProbe implements TurboismPlugin {
         return "";
     }
 
+    static String parameterLabelClassName(final String hostVersion) {
+        if (hostVersion == null) {
+            throw new IllegalArgumentException(
+                    "turboism.validation.hostVersion must be an exact installed version code");
+        }
+        return switch (hostVersion) {
+            case "5000", "5001", "5002", "5.0.00", "5.0.01", "5.0.02" -> "com.live2d.ui.control.v";
+            case "5003", "5004", "5005", "5.0.03", "5.0.04", "5.0.05" -> "com.live2d.ui.control.x";
+            case "5006",
+                    "5100",
+                    "5101",
+                    "5102",
+                    "5103",
+                    "5200",
+                    "5201",
+                    "5202",
+                    "5203",
+                    "5300",
+                    "5301",
+                    "5302",
+                    "5303",
+                    "5304",
+                    "5.0.06",
+                    "5.1.00",
+                    "5.1.01",
+                    "5.1.02",
+                    "5.1.03",
+                    "5.2.00",
+                    "5.2.01",
+                    "5.2.02",
+                    "5.2.03",
+                    "5.3.00",
+                    "5.3.01",
+                    "5.3.02",
+                    "5.3.03",
+                    "5.3.04" -> "com.live2d.ui.control.y";
+            default ->
+                throw new IllegalArgumentException(
+                        "turboism.validation.hostVersion must be an exact installed version code: " + hostVersion);
+        };
+    }
+
+    static boolean isParameterLabelClassName(final String className) {
+        return "com.live2d.ui.control.y".equals(className)
+                || "com.live2d.ui.control.x".equals(className)
+                || "com.live2d.ui.control.v".equals(className);
+    }
+
     private static String findParameterLabelText(final Component component) {
         if (component instanceof JLabel label
-                && component.getClass().getName().equals("com.live2d.ui.control.y")
+                && isParameterLabelClassName(component.getClass().getName())
                 && label.getText() != null
                 && !label.getText().isBlank()) {
             return label.getText();

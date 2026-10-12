@@ -50,8 +50,11 @@ public final class ModelUpdateSkipHostProbePlugin implements TurboismPlugin {
     /** Extra observation time after the live-disable toggle. */
     private static final long DISABLE_OBSERVE_MILLIS = 6_000L;
 
-    private static final java.util.List<String> REVIEWED_HOST_VERSIONS =
-        java.util.List.of("5.2.03", "5.3.02", "5.3.03");
+    private static final java.util.List<String> REVIEWED_HOST_VERSIONS = java.util.List.of(
+        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+        "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+        "5.2.00", "5.2.01", "5.2.02", "5.2.03",
+        "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04");
 
     private PluginLogger logger;
     private PluginContext context;

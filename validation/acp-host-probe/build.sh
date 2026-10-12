@@ -26,8 +26,8 @@ javac --release 17 -cp "$sdk_jar" -d "$out" \
   "$src/dev/turboism/validation/acp/AcpHostValidationPlugin.java"
 cp -r "$src/META-INF" "$out/"
 mkdir -p "$out/META-INF/turboism/verification"
-for version in 5.2.03 5.3.02 5.3.03; do
-  cp "$repo_root/compatibility/cubism/verification/cubism-$version-editor-model.json" \
+for record in "$repo_root"/compatibility/cubism/verification/cubism-*-editor-model.json; do
+  cp "$record" \
     "$out/META-INF/turboism/verification/"
 done
 

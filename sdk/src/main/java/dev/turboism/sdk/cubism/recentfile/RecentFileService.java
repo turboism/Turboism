@@ -4,7 +4,7 @@ import dev.turboism.sdk.CubismEditor;
 import java.util.List;
 
 /** Read-only projection of the host's Recent Files menu (merged with the current project). */
-@CubismEditor(from = "5.1.00")
+@CubismEditor(from = "5.0.00")
 public interface RecentFileService {
 
     /**
