@@ -203,6 +203,79 @@ Turboism 的所有重要变更都记录在本文件中。
   以及 Parameter、Parameter Batch Transfer 插件的工作区条目；它们在面板标签页上下文菜单
   与顶层菜单中的入口保持不变。
 
+## [0.67.0] - 2026-10-13
+
+### 新增
+
+- 覆盖 20 个已审核 Live2D Cubism Editor 版本（5.0.00 – 5.3.04）的多版本能力适配。在全部 143 项框架能力中，有 129 项全版本通用能力（90.2%）在全部审核版本上获得准入。各补丁线覆盖率如下：
+  - Cubism 5.0.x（5.0.00–5.0.06，共 7 个版本）：129 / 143 项能力（90.2%）。
+  - Cubism 5.1.x（5.1.00–5.1.03，共 4 个版本）：5.1.00–5.1.01 为 135 / 143（94.4%），5.1.02–5.1.03 为 136 / 143（95.1%）。
+  - Cubism 5.2.x（5.2.00–5.2.03，共 4 个版本）：各版本均为 140 / 143 项能力（97.9%）。
+  - Cubism 5.3.x（5.3.00–5.3.04，共 5 个版本）：各版本均为 143 / 143 项能力（100.0%）。
+  能力集合在每个次版本补丁线内保持严格的单调递增。`compatibility/cubism/version-boundaries.json` 记录了证据化的版本边界：Cubism 5.0.x 不具备宿主自动备份、受保护导出、自动摇动读取、顶部菜单集成及外部应用编辑开关；edit-protocol 桥接自 5.1.02 起提供；动画时间线 SDK/运行时、选区笔刷及网格几何读取自 5.2.00 起提供；部件检查器写入、部件不透明度写入、MOC3 导出读取及透明度混合（AlphaComposition）自 5.3.00 起提供。`compatibility/cubism/` 下提供了多文档的英文、简体中文、日文与韩文能力及插件兼容性矩阵。
+- 所有第一方插件 JAR 均包含由审核能力依赖派生的 `META-INF/turboism/cubism-versions.json` 描述文件，声明其支持的 Editor 版本。确立 SDK `@CubismEditor` 注解契约：不带参数的裸注解表示在全部 20 个审核版本上可用，显式属性用于限定特定版本子集。
+- 自动化实机启动对话框辅助（`NativeFreeStartup`）：在测试与验证运行期间自动处理各支持版本 Cubism 的对话框交互。自动完成 PRO 试用选择（“开始 PRO 版本免费试用”）及其确认与激活流程（在无试用路径时回退至免费版）；自动关闭更新提示与 Home 新闻窗口；在低版本打开高版本工程文件出现警告时自动点击确定；并在 JavaFX 线程上隐藏 5.0.x 的 JavaFX 公告窗口（`AnnouncementDialog` 后台 Stage），避免主窗体与菜单栏被禁用。实机验证任务队列直接依据矩阵能力依赖派生版本范围，编排 56 个独立验证任务。
+- 3D 模型导入插件（`dev.turboism.plugin.model-import-3d`）：原生 3D 模型导入，支持静态不透明 GLB、glTF、OBJ/MTL 及模型 ZIP 压缩包，支持 PNG/JPEG 纹理贴图、XYZ 全范围 360 度旋转及有界几何优化，并以单个可撤销的编辑事务提交创建。
+- Turboism ACP 插件（`dev.turboism.plugin.acp`）：提供 ACP v1 Agent 与设置窗口，将用户安装的 ACP 兼容 AI 代理（Claude Agent ACP、Codex ACP、Pi、Gemini CLI、OpenCode、Antigravity、Devin CLI 或自定义可执行程序）连接至经过身份验证的 Turboism MCP 服务器，支持 PATH 可执行程序探测、持久化会话以及免凭据的 stdio-to-HTTP MCP 挂载桥接。
+- 动画工作区 SDK 与运行时支持：插件可枚举动画文档、工程时间线、轨道、属性与关键帧；切换与重命名场景；控制播放寻道；应用批量关键帧编辑与曲线类型；并记录求值结果。提供纯 SDK 的 `Motion3Validator` 用于检测 motion3 数据的结构问题。动画工作区支持 Cubism 5.2.00–5.3.04。
+- 历史面板插件（`dev.turboism.plugin.historypanel`）：Photoshop 风格的历史停靠面板，投射当前活动文档的原生撤销历史，支持基于快照的点击跳转撤销/重做导航。
+- 最近项目预览插件（`dev.turboism.plugin.recent-preview`）：捕获最近打开工程文件的视口缩略图，通过内存有界缓存将其接入宿主“最近使用的文件”悬浮桥接。
+- 纹理图集排列插件：MaxRects-BSSF 自动布局插件（`dev.turboism.plugin.texture-atlas`）、Dalsoo 多边形紧密装箱插件（`dev.turboism.plugin.texture-atlas-dalsoo`）及纹理图集统计；运行时支持瓦片包围盒处理与输出缓存复用，大幅降低工程打开与导出耗时。
+- 选区笔刷插件（`dev.turboism.plugin.selection-brush`）：建模曲面选区笔刷工具，支持带权重顶点选区。
+- 曲面变形器 Alt 对称插件（`dev.turboism.plugin.warp-deformer-alt-symmetry`）：支持曲面变形器控制点的 Alt 垂直与 Alt+Shift 水平对称拖动，在 Cubism 5.2.03、5.3.02 和 5.3.03 上通过已验证的原生拖拽钩子实现实时镜像选区权重绘制，在其他审核版本上回退至 AWT 分发。
+- 快捷键窗口与运行时调度器：Turboism 菜单新增“快捷键”管理窗口，拦截宿主按键事件以触发插件操作并重绑定原生快捷键，具备冲突检测功能，持久化存储于 `state/runtime/keybindings.properties`。
+- 独立 SDK 分发：每次发布均随附 `turboism-sdk-<version>.jar` 及其 SHA-256 校验文件作为独立开发者资产，支持通过 `publishToMavenLocal` 发布至本地 Maven，并提供 `templates/plugin-template` 独立工程模板。
+- 通过 `PluginContext.services()` 与 `PluginServiceDirectory` 进行类型化的插件服务检索。
+- 通过 `TurboismWindowFactory.installWindowIcon` 实现进程级窗口图标定制。
+- 启动设置页提供 Cubism JVM ZGC 启动控制与编辑期间挂起自动备份开关。
+- `devCheck` 开发者门禁：`checkVersionMonotonicity` 强制补丁线能力超集单调性；`checkVersionSetRegistry` 要求生产代码中的字面版本集必须在 `scripts/version-set-registry.json` 中登记审核依据；`checkSdkCubismEditorAnnotations` 依据 `sdk/api-contracts/cubism-annotation-baseline.json` 阻断未加注解的公共 SDK API；`check_host_validation_versions.py` 确保 56 个实机任务版本全部由能力矩阵派生。`CONTRIBUTING.md` 记录了完整的版本适配规则与规范。
+- `test-assets/model-import-3d/` 包含自建最小 3D 测试资产（`cube.glb`、`cube-textured.glb`、`plane.glb`、`plane-seam.glb`），支持在无专有资产的干净检出环境下离线执行 3D 导入回归测试。
+
+### 变更
+
+- SDK 契约收敛与 exact 基线升级为 v14：
+  - 移除已废弃的单服务 `PluginContext` getter，统一通过 `ctx.services().find(ServiceType.class)` 和 `require(ServiceType.class)` 进行服务查找。
+  - 移除参数查询读取平面（`ParameterQueryService`、`ParameterSummary`、`ParameterBounds`）；`ParameterAppearance` 暴露调色板可见性与可编辑性（`visible()`、`editable()`），参数统一通过 `cubism().model().active().parameters().all()` 查询。
+  - 旧命令队列与 `TransactionManager` 被 authoring transactions 与直接的 `Parameter.setValue` 取代。
+  - 内部 `StrictJson` 编解码器替换为 SDK `dev.turboism.sdk.json.Json`。
+  - 自动备份文件路径接口替换为 `BackupArtifactHandle` 元数据。
+  - 审核的 SDK exact 基线提升至 v14（保留 v2–v13 历史审计）。受影响的插件 API 需要迁移。
+- 内置核心插件折叠入运行时框架外壳（`dev.turboism.shell`），取消独立插件 JAR，同时保留配置、任务与日志归属。
+- 托管启动默认启用 Cubism JVM ZGC（`-XX:+UseZGC`），消除 G1 秒级停顿并降低常态内存占用。
+- CSV 参数批量导入合并至单一编辑事务中执行，使结构重建减少 89%，中位写入延迟降低 75%。
+- 启动抑制功能（跳过更新检查、启动闪屏与通知对话框）默认开启。
+- 宿主钩子改为在 `META-INF/turboism/hooks` 中声明并通过 `HookContributor` 扫描，取代手动硬编码并保持 fail-closed 准入。
+- CI 在每次 PR 和推送中运行完整的 `devCheck` 与 `checkCompletedCommit` 验证套件，使用 Xvfb 支持图形相关测试。
+- Javadoc 完整性检查采用 JDK 17 compiler tree API，覆盖隐式接口方法与嵌套类型。
+- 语义事件类型包路径迁移至 `dev.turboism.sdk.cubism.event`。
+- 发布门禁对市场插件列表与候选发布说明强制执行完整语言矩阵校验。
+
+### 移除
+
+- 完全移除托管 fx 运行时：不包含内嵌 agent 二进制、凭据存储或 OpenAI 网关适配器；退役开发期 `turboism-with-fx` 插件。
+- 从 SDK 中移除 `ParameterQueryService`、`ParameterSummary`、`ParameterBounds` 及 `PluginContext.parameterQuery()`。
+- 移除已废弃的单服务 `PluginContext` 快捷访问方法、`availableServices()` 以及历史 `cubism.transaction` 队列类型。
+
+### 修复
+
+- ACP 挂载代理可通过预编译的 stdio 桥接使用 Turboism MCP 写入工具，无需宿主 JRE 具备编译器，且在 MCP 端点变化时自动重连。
+- 当引导类未定义 ClassLoader 时，`ClassPinTable.load` 回退使用系统类加载器。
+- 清除预览脚本、测试工具及监控程序中的机器相关硬编码路径。
+- 强化插件生命周期与权限校验：在动画、剪贴蒙版、PSD、纹理图集与物理服务关闭后拒绝后续无效访问。
+- 动画时间缩放对贝塞尔控制手柄应用一致的仿射变换。
+- 内存增长边界化：浮层按钮表采用 FIFO 淘汰，编辑器绑定标识弱引用缓存，最近预览与调色板遍历清理失效条目。
+- 纹理图集哈希缓存无法计算输入摘要时正确回退至重建路径。
+- `Motion3Validator` 在收窄段标识符前校验数值范围，避免溢出。
+- 托管 Graal 安装程序正确协调因中断遗留的孤立激活标记。
+- 文档切换时立即发布新绑定的模型，避免求值读取引用并固定旧模型。
+- agent 钩子清单在引导类路径上解析，不受工作目录影响。
+- 画布上下文菜单不再接收多余的工作区级插件条目注入。
+
+### 安全
+
+- MCP 回环服务器针对引起变更的 `tools/call` 请求与会话生命周期强制要求 `Authorization: Bearer` 令牌认证，由仅所有者可读的本地持久化令牌与 stdio 桥接保障安全。
+- 强化作用域销毁保证与钩子原子化注销，防止跨会话资源泄漏与销毁后的未授权操作。
+
 ## [0.44.0] - 2026-09-11
 
 ### 新增
