@@ -23,7 +23,7 @@ Environment:
 EOF
 }
 
-version="${TURBOISM_HOST_VALIDATION_DEFAULT_FIXTURE_VERSION:-5303}"
+version="$TURBOISM_HOST_VALIDATION_DEFAULT_FIXTURE_VERSION"
 run_label='r1'
 if [ "$#" -gt 0 ] && [[ "$1" != -* ]]; then
   if [[ "$1" =~ ^[0-9]{4}$ ]]; then

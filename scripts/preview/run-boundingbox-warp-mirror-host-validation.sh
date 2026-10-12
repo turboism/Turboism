@@ -17,7 +17,7 @@ set -euo pipefail
 # shellcheck source=host-validation-env.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
-version="${TURBOISM_HOST_VALIDATION_DEFAULT_FIXTURE_VERSION:-5303}"
+version="$TURBOISM_HOST_VALIDATION_DEFAULT_FIXTURE_VERSION"
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   version="$1"
   shift
