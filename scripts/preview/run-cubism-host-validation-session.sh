@@ -12,19 +12,13 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-cubism-host-validation-session.sh <version-code> [run-label] [runner-options...]" >&2
+  echo "usage: run-cubism-host-validation-session.sh $(turboism_task_versions_usage session-standard) [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
 shift
-# Tuples observed in finalized exact-host preflights; no series-based guessing.
-case "$version" in
-  5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103) core_tuple='5.0.0' ;;
-  5200|5201|5202|5203) core_tuple='5.0.256' ;;
-  5300|5301|5302|5303) core_tuple='6.0.257' ;;
-  5304) core_tuple='6.0.513' ;;
-  *) echo "error: unsupported version: $version" >&2; exit 2 ;;
-esac
+turboism_require_task_version session-standard "$version" || exit 2
+core_tuple="$(turboism_expected_core_tuple "$version")" || exit 2
 run_label="r1"
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   run_label="$1"
@@ -64,18 +58,14 @@ plugins=(
 shopt -s nullglob
 clipmask_plugin=("$repo_root"/build/worktree/"$worktree_id"/clipmask-viewer/libs/clipmask-viewer-*.jar)
 steps+=("texture-relations|texture-relations|state/session/go/dev.turboism.validation.textures.flag|state/dev.turboism.validation.textures/relations-result.properties|300|")
-case "$version" in
-  5300|5301|5302|5303|5304)
-    steps+=("psd-export-observation|psd-export-observation|state/session/go/dev.turboism.validation.textures.exportobs.flag|state/dev.turboism.validation.textures.exportobs/relations-result.properties|420|turboism.validation.textures.exportObservation=true")
-    plugins+=("$repo_root/build/psd-export-observation-session-probe.jar:psd-export-observation-session-probe.jar")
-    ;;
-esac
-case "$version" in
-  5203|5302)
-    steps+=("status-bar|status-bar|state/session/go/dev.turboism.validation.statusbar.flag|state/dev.turboism.validation.statusbar/matrix-result.txt|300|")
-    plugins+=("$repo_root/build/status-bar-host-validation-exerciser.jar:status-bar-host-validation-exerciser.jar")
-    ;;
-esac
+if turboism_task_supports_version psd-export-observation "$version"; then
+  steps+=("psd-export-observation|psd-export-observation|state/session/go/dev.turboism.validation.textures.exportobs.flag|state/dev.turboism.validation.textures.exportobs/relations-result.properties|420|turboism.validation.textures.exportObservation=true")
+  plugins+=("$repo_root/build/psd-export-observation-session-probe.jar:psd-export-observation-session-probe.jar")
+fi
+if turboism_task_supports_version status-bar "$version"; then
+  steps+=("status-bar|status-bar|state/session/go/dev.turboism.validation.statusbar.flag|state/dev.turboism.validation.statusbar/matrix-result.txt|300|")
+  plugins+=("$repo_root/build/status-bar-host-validation-exerciser.jar:status-bar-host-validation-exerciser.jar")
+fi
 steps+=("clipmask-viewer|clipmask-viewer|state/dev.turboism.validation.clipmask-viewer/exerciser.flag|state/clipmask-viewer-validation-result.properties|900|")
 steps+=("separate-save-path|separate-save-path|state/session/go/dev.turboism.validation.separatesavepath.flag|state/dev.turboism.validation.separatesavepath/host-validation-result.properties|300|")
 steps+=("core-owned-moc|core-owned-moc|state/session/go/dev.turboism.validation.mcp.flag|state/core-owned-moc-result.properties|300|")

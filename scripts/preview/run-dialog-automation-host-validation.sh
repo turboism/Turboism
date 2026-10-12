@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # Thin wrapper for the host dialog automation validation (Lane C, exact-host only).
-# Usage: bash scripts/preview/run-dialog-automation-host-validation.sh <5302|5303|5203> [run-label] [runner-options...]
+# Usage: bash scripts/preview/run-dialog-automation-host-validation.sh <version> [run-label] [runner-options...]
 #
 # Required runner options (passed through): --fixture-remote <host path> --fixture-sha256 <64-hex>
 # Optional: --keep-prefix, --dry-run, --jvm-option, ...
 set -euo pipefail
 
+# shellcheck source=host-validation-env.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
+
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-dialog-automation-host-validation.sh <5302|5303|5203> [run-label] [runner-options...]" >&2
+  echo "usage: run-dialog-automation-host-validation.sh $(turboism_task_versions_usage dialog-automation) [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
@@ -17,13 +20,7 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   run_label="$1"
   shift
 fi
-case "$version" in
-  5302|5303|5203) ;;
-  *)
-    echo "error: version must be 5302, 5303, or 5203" >&2
-    exit 2
-    ;;
-esac
+turboism_require_task_version dialog-automation "$version" || exit 2
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
