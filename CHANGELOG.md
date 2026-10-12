@@ -86,10 +86,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   matrix requirements. Version adaptation rules and standards are documented in `CONTRIBUTING.md`.
 - Self-contained 3D test assets in `test-assets/model-import-3d/` (`cube.glb`, `cube-textured.glb`,
   `plane.glb`, `plane-seam.glb`), enabling offline regression testing of 3D imports without proprietary fixtures.
+- Dedicated test corpus: `test-assets/corpus.json` registers versioned datasets with license, per-file SHA-256
+  and consumers. Large binaries (the CC0-1.0 texture-atlas layout Circle/Geometry CMO3/PSD set) are published as
+  versioned GitHub Release assets and materialized with `scripts/test_corpus.py fetch|verify|list` into a shared
+  cache; `test-assets/texture-atlas-layout/BUILDING.md` documents how the models are built. Remote hygiene now
+  rejects committed `.cmo3`, `.can3`, `.psd` and `.moc3` files.
 
 ### Changed
 
-- SDK contract convergence and exact baseline v14:
+- SDK contract convergence and exact baseline v17:
   - Removed deprecated per-service `PluginContext` getters; service resolution is unified through
     `ctx.services().find(ServiceType.class)` and `require(ServiceType.class)`.
   - The parameter query read plane (`ParameterQueryService`, `ParameterSummary`, `ParameterBounds`) is removed;
@@ -99,7 +104,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
     `Parameter.setValue`.
   - The internal `StrictJson` codec is replaced by `dev.turboism.sdk.json.Json`.
   - Auto-backup file paths are replaced by `BackupArtifactHandle` metadata.
-  - The reviewed SDK exact baseline is now v14, with v2–v13 retained as historical audits. Plugin API
+  - `PermissionIds` is the single source of permission identifiers (`KNOWN_IDS` plus six new constants).
+  - Public `dev.turboism.sdk.cubism` types and members carry a runtime-visible `@CubismEditor`
+    availability declaration, and the art-mesh, render, MOC and interpolation surfaces join the reviewed API.
+  - The reviewed SDK exact baseline is now v17 (v14 parameter read plane, v15 permission ids, v16 merged
+    surface, v17 widened version availability), with v2–v16 retained as historical audits. Plugin API
     migration is required for affected surfaces.
 - The built-in core plugin is folded into the runtime as the framework shell (`dev.turboism.shell`),
   removing the separate plugin JAR while retaining config, task, and log attribution.
