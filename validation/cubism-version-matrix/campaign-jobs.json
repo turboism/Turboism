@@ -72229,6 +72229,40 @@
     "evidenceDir": "incremental-update/5303-dragfix-r4/queue-db74284d400a4f30b0d0965691845b12/evidence"
    },
    "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "parameter",
+   "version": "5200",
+   "variant": "matrix-assisted",
+   "jobId": "827b656a-d869-43c2-b2a5-3f3ad2289527",
+   "requestKey": "adapt-export-interp-param-5200-r1",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-a5179e5f818a4cfa9911aafbad06bc89",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "parameter/5200-adapt-export-interp-matrix/queue-a5179e5f818a4cfa9911aafbad06bc89/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "parameter",
+   "version": "5304",
+   "variant": "matrix-assisted",
+   "jobId": "43bae28b-4ff9-4b50-b9e6-ca2277a38bfa",
+   "requestKey": "adapt-export-interp-param-5304-r1",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-7c3cff884970413d8abad5da608dcd20",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "parameter/5304-adapt-export-interp-matrix/queue-7c3cff884970413d8abad5da608dcd20/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
   }
  ]
 }
