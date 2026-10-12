@@ -3,6 +3,12 @@
 set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$repo_root/scripts/preview/host-validation-env.sh"
+version="$TURBOISM_HOST_VALIDATION_DEFAULT_VERSION"
+if [[ $# -gt 0 && "$1" =~ ^[0-9]{4}$ ]]; then
+  version="$1"
+  shift
+fi
+turboism_require_task_version image-archive "$version" || exit 2
 run_label=r1
 if [[ $# -gt 0 && "$1" != --* ]]; then run_label="$1"; shift; fi
 fixture_guard=(--require-fixture-unchanged)
@@ -14,12 +20,12 @@ if [[ ${1:-} == --workflow ]]; then
   fixture_guard=()
   workflow_options=(--jvm-option '-Dturboism.validation.imageArchive.atlasWorkflow=true')
 fi
-turboism_select_fixture 5302
+turboism_select_fixture "$version" || exit 2
 worktree_id="$(bash "$repo_root/scripts/dev/worktree-id.sh")"
 bundle="$repo_root/build/preview/$worktree_id"
 exec bash "$repo_root/scripts/preview/run-cubism-host-validation.sh" \
   --name image-archive-reuse \
-  --version 5302 \
+  --version "$version" \
   --run-label "$run_label" \
   --bundle-root "$bundle" \
   --agent "$bundle/turboism-agent.jar" \

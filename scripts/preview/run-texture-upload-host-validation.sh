@@ -7,16 +7,21 @@ case ${1:-} in
   off) enabled=false; shadow=false ;;
   on) enabled=true; shadow=false ;;
   shadow) enabled=true; shadow=true ;;
-  -h|--help) printf 'Usage: %s <off|on|shadow> [run-label] [generic runner options]\n' "$0"; exit 0 ;;
+  -h|--help) printf 'Usage: %s <off|on|shadow> [%s] [run-label] [generic runner options]\n' "$0" "$(turboism_task_versions_usage texture-upload)"; exit 0 ;;
   *) printf 'Expected off, on or shadow mode\n' >&2; exit 2 ;;
 esac
 run_label=$1; shift
+version="$TURBOISM_HOST_VALIDATION_DEFAULT_VERSION"
+if [[ $# -gt 0 && "$1" =~ ^[0-9]{4}$ ]]; then
+  version="$1"
+  shift
+fi
+turboism_require_task_version texture-upload "$version" || exit 2
 if [[ $# -gt 0 && "$1" != --* ]]; then run_label=$1; shift; fi
 worktree_id="$(bash "$repo_root/scripts/dev/worktree-id.sh")"
 bundle="$repo_root/build/preview/$worktree_id"
 fixture_args=()
-if [[ -n "$TURBOISM_HOST_VALIDATION_FIXTURE_5302" ]]; then
-  turboism_select_fixture 5302
+if turboism_select_fixture "$version" 2>/dev/null; then
   fixture_args=(--fixture-remote "$fixture_src" --fixture-sha256 "$fixture_sha256")
 fi
 ready_args=()
@@ -30,7 +35,7 @@ if [[ "$interactive" == true ]]; then
   probe_args=()
 fi
 exec bash "$repo_root/scripts/preview/run-cubism-host-validation.sh" \
-  --name texture-upload-preparation --version 5302 --run-label "$run_label" \
+  --name texture-upload-preparation --version "$version" --run-label "$run_label" \
   --bundle-root "$bundle" --agent "$bundle/turboism-agent.jar" \
   --home-config "$repo_root/testing/host-validation/texture-upload/config.json" \
   "${fixture_args[@]}" "${probe_args[@]}" \
