@@ -31,9 +31,9 @@ interface: none
 - **Interface mode:** `none` — the plugin drives the export through framework actions and reports through notifications and logs.
 
 <!-- compatibility:begin -->
-**Cubism Editor version support (generated):** 5.1.00–5.3.04（5.0.00–5.0.06 unconfirmed）.
+**Cubism Editor version support (generated):** 5.1.00–5.3.04（earlier Cubism versions lack the feature entirely）.
 - Protected-export orchestration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）
-- Export settings contribution not on 5.0.00–5.0.06
+- Export settings contribution not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 

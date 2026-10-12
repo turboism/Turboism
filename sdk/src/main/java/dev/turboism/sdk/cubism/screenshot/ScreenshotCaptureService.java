@@ -10,7 +10,7 @@ import java.util.concurrent.CompletionStage;
  * a stage is returned; once returned, the stage's completion thread and failure modes are
  * implementation-defined.
  */
-@CubismEditor(from = "5.1.00")
+@CubismEditor(from = "5.0.00")
 public interface ScreenshotCaptureService {
 
     /**

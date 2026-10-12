@@ -23,7 +23,7 @@ import java.util.Objects;
  * timeline writes, parameter-definition updates, writes that explicitly bypass history) reject
  * with a typed failure instead of creating detached Undo state.</p>
  */
-@CubismEditor(from = "5.2.00")
+@CubismEditor(from = "5.0.00")
 public interface AuthoringTransactionService {
 
     /**

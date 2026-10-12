@@ -54,10 +54,8 @@ final class TabFilterValidationProbeTest {
             assertEquals("com.live2d.ui.control.x", TabFilterValidationProbe.parameterLabelClassName(version));
         }
         for (final String version : new String[] {
-            "5006",
-            "5100", "5101", "5102", "5103",
-            "5200", "5201", "5202", "5203",
-            "5300", "5301", "5302", "5303", "5304"
+            "5006", "5100", "5101", "5102", "5103", "5200", "5201", "5202", "5203", "5300", "5301", "5302", "5303",
+            "5304"
         }) {
             assertEquals("com.live2d.ui.control.y", TabFilterValidationProbe.parameterLabelClassName(version));
         }
@@ -65,8 +63,6 @@ final class TabFilterValidationProbeTest {
         assertTrue(TabFilterValidationProbe.isParameterLabelClassName("com.live2d.ui.control.x"));
         assertTrue(TabFilterValidationProbe.isParameterLabelClassName("com.live2d.ui.control.y"));
         assertFalse(TabFilterValidationProbe.isParameterLabelClassName("javax.swing.JLabel"));
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> TabFilterValidationProbe.parameterLabelClassName("5400"));
+        assertThrows(IllegalArgumentException.class, () -> TabFilterValidationProbe.parameterLabelClassName("5400"));
     }
 }
