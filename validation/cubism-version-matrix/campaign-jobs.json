@@ -72229,6 +72229,106 @@
     "evidenceDir": "incremental-update/5303-dragfix-r4/queue-db74284d400a4f30b0d0965691845b12/evidence"
    },
    "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "model-update-skip",
+   "version": "5203",
+   "variant": "on-assisted-gl",
+   "jobId": "50b88db0-4d41-4c34-954b-fb9b04592ef1",
+   "requestKey": "shaderfix-r1-mus-5203",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-26eae77db35443099027db88c603626b",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "model-update-skip/5203-shaderfix-r1/queue-26eae77db35443099027db88c603626b/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "model-update-skip",
+   "version": "5303",
+   "variant": "on-assisted-gl",
+   "jobId": "8c8cf80f-c59e-4d71-95e1-306bce7031d0",
+   "requestKey": "shaderfix-r1-mus-5303",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-f65a84dd322a462fbefe8cb856f58a32",
+    "terminalState": "succeeded",
+    "validationStatus": "PASS",
+    "exitCode": 0,
+    "cleanup": "safe",
+    "evidenceDir": "model-update-skip/5303-shaderfix-r1/queue-f65a84dd322a462fbefe8cb856f58a32/evidence"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "model-import-3d-user-entry",
+   "version": "5303",
+   "variant": null,
+   "jobId": "311b9c2d-00e0-4a62-a71f-a7bf5f73c601",
+   "requestKey": "shaderfix-r1-mi3d-5303",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-660ed8915dba47ff9f11571addae0a98",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "model-import-3d-user-entry/5303-shaderfix-r1/queue-660ed8915dba47ff9f11571addae0a98/evidence"
+   },
+   "triage": {
+    "category": "UNKNOWN",
+    "ruleId": null,
+    "signature": "java.lang.IllegalStateException: exact task required"
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "model-import-3d-user-entry",
+   "version": "5303",
+   "variant": null,
+   "jobId": "dde8a799-998f-4934-941e-cf156a7c4da5",
+   "requestKey": "shaderfix-r1-mi3d-5303-r2",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-983204294e89474883bae66887e74112",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "model-import-3d-user-entry/5303-shaderfix-r1/queue-983204294e89474883bae66887e74112/evidence"
+   },
+   "triage": {
+    "category": "INFRA_RETRYABLE",
+    "ruleId": "infra-deferred-check-unobserved",
+    "signature": null
+   },
+   "scope": "cov3 queue-synced terminal evidence"
+  },
+  {
+   "task": "model-import-3d-user-entry",
+   "version": "5303",
+   "variant": null,
+   "jobId": "b2251d9e-699a-4a25-b476-d3ba8bc270fb",
+   "requestKey": "shaderfix-r1-mi3d-5303-fixed",
+   "status": "FINAL",
+   "result": {
+    "runId": "queue-9ba9cfb0b07f4876abe2abe7164abce3",
+    "terminalState": "failed",
+    "validationStatus": "FAIL",
+    "exitCode": 1,
+    "cleanup": "safe",
+    "evidenceDir": "model-import-3d-user-entry/5303-shaderfix-r1/queue-9ba9cfb0b07f4876abe2abe7164abce3/evidence"
+   },
+   "triage": {
+    "category": "UNKNOWN",
+    "ruleId": null,
+    "signature": null
+   },
+   "scope": "cov3 queue-synced terminal evidence"
   }
  ]
 }
