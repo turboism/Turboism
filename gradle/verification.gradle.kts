@@ -521,7 +521,7 @@ val checkCompatibilityMatrixSelfTest by tasks.registering(Exec::class) {
         "scripts/generate_compatibility_matrix.py",
         "scripts/test/test_generate_compatibility_matrix.py"
     )
-    verificationStamp()
+    VerificationStamps.apply(this)
     commandLine(
         "python3", "-m", "unittest",
         "scripts.test.test_generate_compatibility_matrix",
@@ -558,7 +558,7 @@ val checkCompatibilityMatrix by tasks.registering(Exec::class) {
             include("README*.md")
         }
     )
-    verificationStamp()
+    VerificationStamps.apply(this)
     commandLine(
         "python3", "scripts/generate_compatibility_matrix.py",
         "--check", "--root", rootDir.absolutePath
@@ -582,7 +582,7 @@ val checkVersionMonotonicitySelfTest by tasks.registering(Exec::class) {
         "scripts/check_version_monotonicity.py",
         "scripts/test/test_check_version_monotonicity.py"
     )
-    verificationStamp()
+    VerificationStamps.apply(this)
     commandLine(
         "python3", "-m", "unittest",
         "scripts.test.test_check_version_monotonicity",
@@ -617,7 +617,7 @@ val checkVersionMonotonicity by tasks.registering(Exec::class) {
         fileTree("scripts/verification-sources/templates") { include("**/*.java") },
         fileTree("plugins") { include("*/src/main/**/*.java") }
     )
-    verificationStamp()
+    VerificationStamps.apply(this)
     commandLine("python3", "scripts/check_version_monotonicity.py", rootDir.absolutePath)
 }
 
@@ -639,7 +639,7 @@ val checkVersionSetRegistrySelfTest by tasks.registering(Exec::class) {
         "scripts/check_version_monotonicity.py",
         "scripts/test/test_check_version_set_registry.py"
     )
-    verificationStamp()
+    VerificationStamps.apply(this)
     commandLine(
         "python3", "-m", "unittest",
         "scripts.test.test_check_version_set_registry",
@@ -669,7 +669,7 @@ val checkVersionSetRegistry by tasks.registering(Exec::class) {
         fileTree("scripts/verification-sources/templates") { include("**/*.java") },
         fileTree("plugins") { include("*/src/main/**/*.java") }
     )
-    verificationStamp()
+    VerificationStamps.apply(this)
     commandLine("python3", "scripts/check_version_set_registry.py", rootDir.absolutePath)
 }
 
@@ -688,7 +688,7 @@ val checkSdkCubismEditorAnnotationsSelfTest by tasks.registering(Exec::class) {
         "scripts/check_sdk_cubism_annotations.py",
         "scripts/test/test_check_sdk_cubism_annotations.py"
     )
-    verificationStamp()
+    VerificationStamps.apply(this)
     commandLine(
         "python3", "-m", "unittest",
         "scripts.test.test_check_sdk_cubism_annotations",
@@ -706,7 +706,7 @@ val checkSdkCubismEditorAnnotations by tasks.registering(Exec::class) {
         "sdk/api-contracts/cubism-annotation-baseline.json",
         fileTree("sdk/src/main/java") { include("**/*.java") }
     )
-    verificationStamp()
+    VerificationStamps.apply(this)
     commandLine("python3", "scripts/check_sdk_cubism_annotations.py", rootDir.absolutePath)
 }
 
