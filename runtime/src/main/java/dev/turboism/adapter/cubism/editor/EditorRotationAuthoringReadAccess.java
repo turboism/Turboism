@@ -25,7 +25,7 @@ final class EditorRotationAuthoringReadAccess {
     RotationAuthoringSnapshot read(DeformerId id, Object source) {
         if (!SwingUtilities.isEventDispatchThread())
             throw new IllegalStateException("stored Rotation reads require Editor thread");
-        if (!resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")) throw unavailable();
+        if (!EditorReviewedGeneration.admits(resolver)) throw unavailable();
         for (String capability : EditorRotationAuthoringSelectorContract.CAPABILITY_IDS)
             if (!resolver.authorizesFeature(
                     EditorRotationAuthoringSelectorContract.ADAPTER_SLICE_ID,
@@ -123,6 +123,6 @@ final class EditorRotationAuthoringReadAccess {
     }
 
     private static UnsupportedOperationException unavailable() {
-        return new UnsupportedOperationException("verified 5.3.02 stored Rotation reads are unavailable");
+        return new UnsupportedOperationException("verified stored Rotation reads are unavailable");
     }
 }

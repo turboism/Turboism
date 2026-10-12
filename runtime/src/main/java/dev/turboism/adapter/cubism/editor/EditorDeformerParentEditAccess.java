@@ -23,9 +23,9 @@ final class EditorDeformerParentEditAccess {
             final Object expectedParent,
             final Supplier<?> storedAuthoring,
             final Runnable update) {
-        if (!resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03"))
+        if (!EditorReviewedGeneration.admits(resolver))
             throw new UnsupportedOperationException(
-                    "Deformer parent root conversion requires verified 5.3.02 recovery");
+                    "Deformer parent root conversion requires a verified reviewed host");
         final Object before = storedAuthoring.get();
         final Supplier<Object> parent =
                 () -> resolver.invoke(M + "parameter-controllable-source.target-deformer-source", source);

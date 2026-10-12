@@ -89,7 +89,8 @@ final class EditorArtMeshAuthoringReadAccess {
                 throw new IllegalStateException("stored draw order is not an int");
             }
             forms.add(new Form(formGuid, points(model("art-mesh-form.positions", form)), drawOrder));
-            // 5.3.02 has form -> rows, not the 5.3.03 grid -> all rows selector.
+            // Every reviewed generation exposes form -> rows; the grid -> all rows
+            // selector is 5.3.03-only and deliberately not used here.
             for (final Object row : list(semantic("keyform-grid.forms-for-guid", grid, nativeGuid))) {
                 final Object accessKey = semantic("keyform-on-grid.access-key", row);
                 final var coordinates = new ArrayList<Coordinate>();
@@ -116,7 +117,7 @@ final class EditorArtMeshAuthoringReadAccess {
     }
 
     private void requireAuthorized() {
-        if (!resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")) throw unavailable();
+        if (!EditorReviewedGeneration.admits(resolver)) throw unavailable();
         for (final String capability : EditorArtMeshAuthoringReadSelectorContract.CAPABILITY_IDS) {
             if (!resolver.authorizesFeature(
                     EditorArtMeshAuthoringReadSelectorContract.ADAPTER_SLICE_ID,
@@ -126,7 +127,7 @@ final class EditorArtMeshAuthoringReadAccess {
     }
 
     private static UnsupportedOperationException unavailable() {
-        return new UnsupportedOperationException("verified 5.3.02 stored ArtMesh authoring reads are unavailable");
+        return new UnsupportedOperationException("verified stored ArtMesh authoring reads are unavailable");
     }
 
     private Object model(final String alias, final Object target, final Object... arguments) {

@@ -62,7 +62,7 @@ final class EditorArtMeshMorphState {
 
     static void requireAuthorized(final VerifiedMemberResolver resolver) {
         if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException("morph reads require EDT");
-        if (!resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")
+        if (!EditorReviewedGeneration.admits(resolver)
                 || !resolver.authorizesFeature(
                         EditorArtMeshMorphSelectorContract.ADAPTER_SLICE_ID,
                         EditorArtMeshMorphSelectorContract.CAPABILITY_ID,
@@ -72,7 +72,7 @@ final class EditorArtMeshMorphState {
     /** Draw-order writes additionally require the stored-order member; other operations do not. */
     static void requireOrderAuthorized(final VerifiedMemberResolver resolver) {
         if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException("morph writes require EDT");
-        if (!resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")
+        if (!EditorReviewedGeneration.admits(resolver)
                 || !resolver.authorizesFeature(
                         EditorArtMeshMorphSelectorContract.ADAPTER_SLICE_ID,
                         EditorArtMeshMorphSelectorContract.CAPABILITY_ID,
@@ -456,6 +456,6 @@ final class EditorArtMeshMorphState {
     }
 
     static UnsupportedOperationException unsupported() {
-        return new UnsupportedOperationException("unsupported 5.3.02 root ArtMesh morph authoring domain");
+        return new UnsupportedOperationException("unsupported root ArtMesh morph authoring domain");
     }
 }

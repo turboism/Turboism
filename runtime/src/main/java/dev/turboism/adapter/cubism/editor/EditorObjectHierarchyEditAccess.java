@@ -94,7 +94,7 @@ final class EditorObjectHierarchyEditAccess {
         final String name = requireName(requestedName);
         requireEditAuthorized();
         currentGuard.requireCurrent(identity, model);
-        if (resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")
+        if (EditorReviewedGeneration.admits(resolver)
                 && !resolver.authorizesFeature(
                         EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
                         EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID,
@@ -102,7 +102,7 @@ final class EditorObjectHierarchyEditAccess {
             throw unavailable("Editor Part insertion is not verified.");
         }
         final Object attachmentParent;
-        if (parentSource == null && resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")) {
+        if (parentSource == null && EditorReviewedGeneration.admits(resolver)) {
             attachmentParent = resolver.invoke("cubism.editor-model.model-source.root-part", modelSource);
             if (!resolver.isInstance("cubism.editor-model.part-source.class", attachmentParent)) {
                 throw unavailable("Editor root Part is unavailable.");
@@ -190,13 +190,13 @@ final class EditorObjectHierarchyEditAccess {
             throw new IllegalArgumentException("Default and source positions must have the same vertex count.");
         }
         if (!checkedDefault.equals(checkedGeometry.positions())
-                && !resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")) {
-            throw unavailable("Separate ArtMesh source geometry requires verified Cubism 5.3.02.");
+                && !EditorReviewedGeneration.admits(resolver)) {
+            throw unavailable("Separate ArtMesh source geometry requires a verified reviewed Cubism host.");
         }
         requireArtMeshCreateAuthorized();
         currentGuard.requireCurrent(identity, model);
         final Object attachmentParent;
-        if (parentSource == null && !parentIsDeformer && resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")) {
+        if (parentSource == null && !parentIsDeformer && EditorReviewedGeneration.admits(resolver)) {
             attachmentParent = resolver.invoke("cubism.editor-model.model-source.root-part", modelSource);
             if (!resolver.isInstance("cubism.editor-model.part-source.class", attachmentParent)) {
                 throw unavailable("Editor root Part is unavailable.");
@@ -238,7 +238,7 @@ final class EditorObjectHierarchyEditAccess {
         currentGuard.requireCurrent(identity, model);
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
-        if (resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")) {
+        if (EditorReviewedGeneration.admits(resolver)) {
             if (!resolver.authorizesFeature(
                     EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
                     EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID,
@@ -285,7 +285,7 @@ final class EditorObjectHierarchyEditAccess {
         resolver.invoke("cubism.editor-model.art-mesh-source.set-positions", source, positions);
         resolver.invoke("cubism.editor-model.art-mesh-source.set-uvs", source, uvs);
         resolver.invoke("cubism.editor-model.art-mesh-source.set-indices", source, indices);
-        if (resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")) {
+        if (EditorReviewedGeneration.admits(resolver)) {
             // The source plane can differ from the folded neutral form. Mesh editing
             // requires the original source topology, not its projected keyform.
             final Object extension = resolver.construct("cubism.editor-model.editable-mesh-extension.create", source);
@@ -394,7 +394,7 @@ final class EditorObjectHierarchyEditAccess {
         requireEditAuthorized();
         currentGuard.requireCurrent(identity, model);
         final Object attachmentParent;
-        if (parentSource == null && !parentIsDeformer && resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")) {
+        if (parentSource == null && !parentIsDeformer && EditorReviewedGeneration.admits(resolver)) {
             attachmentParent = resolver.invoke("cubism.editor-model.model-source.root-part", modelSource);
             if (!resolver.isInstance("cubism.editor-model.part-source.class", attachmentParent)) {
                 throw unavailable("Editor root Part is unavailable.");
@@ -465,7 +465,7 @@ final class EditorObjectHierarchyEditAccess {
         resolver.invoke("cubism.editor-model.parameter-controllable-source.set-local-name", created, name);
         initializeRotation(created, modelSource, form);
         final Object attachmentParent =
-                parentSource == null && !parentIsDeformer && resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")
+                parentSource == null && !parentIsDeformer && EditorReviewedGeneration.admits(resolver)
                         ? resolver.invoke("cubism.editor-model.model-source.root-part", modelSource)
                         : parentSource;
         writeCreatedSourceThroughCoordinator(
@@ -526,7 +526,7 @@ final class EditorObjectHierarchyEditAccess {
         // Surrounding it with write() nests edits and makes Cubism reject deletion.
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
-        if (resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")) {
+        if (EditorReviewedGeneration.admits(resolver)) {
             // Native DELETE reads the document selector, not the update-manager notification.
             selectArtMeshSources(identity, model, List.of(nodeSource));
         } else {
@@ -990,7 +990,7 @@ final class EditorObjectHierarchyEditAccess {
             final String historyLabel,
             final String targetKind,
             final String changeField) {
-        final boolean nativePartAttachment = resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")
+        final boolean nativePartAttachment = EditorReviewedGeneration.admits(resolver)
                 && (CREATE_PART_ACTION.equals(action)
                         || CREATE_ART_MESH_ACTION.equals(action)
                         || CREATE_WARP_ACTION.equals(action)
@@ -1069,7 +1069,7 @@ final class EditorObjectHierarchyEditAccess {
                             // primitive, so a residue left by a broken native abort is
                             // reported as RECOVERY_FAILED instead of a false ROLLED_BACK.
                             if (admittedUndo[0] != null
-                                    && resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")) {
+                                    && EditorReviewedGeneration.admits(resolver)) {
                                 if (admittedUndo[1] != null) {
                                     resolver.invoke("cubism.editor-model.undo.execute-undo", admittedUndo[1]);
                                 }
@@ -1179,7 +1179,7 @@ final class EditorObjectHierarchyEditAccess {
         return resolver.authorizesFeature(
                 EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
                 EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID,
-                resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")
+                EditorReviewedGeneration.admits(resolver)
                         ? EditorObjectHierarchyEditSelectorContract.ART_MESH_PART_CREATE_5302_REQUIRED_ALIASES
                         : EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_REQUIRED_ALIASES);
     }
