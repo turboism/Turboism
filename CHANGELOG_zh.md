@@ -236,16 +236,19 @@ Turboism 的所有重要变更都记录在本文件中。
 - 启动设置页提供 Cubism JVM ZGC 启动控制与编辑期间挂起自动备份开关。
 - `devCheck` 开发者门禁：`checkVersionMonotonicity` 强制补丁线能力超集单调性；`checkVersionSetRegistry` 要求生产代码中的字面版本集必须在 `scripts/version-set-registry.json` 中登记审核依据；`checkSdkCubismEditorAnnotations` 依据 `sdk/api-contracts/cubism-annotation-baseline.json` 阻断未加注解的公共 SDK API；`check_host_validation_versions.py` 确保 56 个实机任务版本全部由能力矩阵派生。`CONTRIBUTING.md` 记录了完整的版本适配规则与规范。
 - `test-assets/model-import-3d/` 包含自建最小 3D 测试资产（`cube.glb`、`cube-textured.glb`、`plane.glb`、`plane-seam.glb`），支持在无专有资产的干净检出环境下离线执行 3D 导入回归测试。
+- 专用测试语料：`test-assets/corpus.json` 登记带版本的数据集及其许可、逐文件 SHA-256 与使用方。大型二进制（CC0-1.0 许可的纹理图集排版 Circle/Geometry CMO3/PSD 测试集）以版本化 GitHub Release 资产发布，通过 `scripts/test_corpus.py fetch|verify|list` 拉取到共享缓存；`test-assets/texture-atlas-layout/BUILDING.md` 说明模型构建方式。远端卫生检查现拒绝提交 `.cmo3`、`.can3`、`.psd` 与 `.moc3` 文件。
 
 ### 变更
 
-- SDK 契约收敛与 exact 基线升级为 v14：
+- SDK 契约收敛与 exact 基线升级为 v17：
   - 移除已废弃的单服务 `PluginContext` getter，统一通过 `ctx.services().find(ServiceType.class)` 和 `require(ServiceType.class)` 进行服务查找。
   - 移除参数查询读取平面（`ParameterQueryService`、`ParameterSummary`、`ParameterBounds`）；`ParameterAppearance` 暴露调色板可见性与可编辑性（`visible()`、`editable()`），参数统一通过 `cubism().model().active().parameters().all()` 查询。
   - 旧命令队列与 `TransactionManager` 被 authoring transactions 与直接的 `Parameter.setValue` 取代。
   - 内部 `StrictJson` 编解码器替换为 SDK `dev.turboism.sdk.json.Json`。
   - 自动备份文件路径接口替换为 `BackupArtifactHandle` 元数据。
-  - 审核的 SDK exact 基线提升至 v14（保留 v2–v13 历史审计）。受影响的插件 API 需要迁移。
+  - `PermissionIds` 成为权限标识的唯一来源（新增 `KNOWN_IDS` 与六个常量）。
+  - 公开的 `dev.turboism.sdk.cubism` 类型与成员带有运行时可见的 `@CubismEditor` 版本可用性声明，art-mesh、渲染、MOC 与插值接口纳入审核 API。
+  - 审核的 SDK exact 基线提升至 v17（v14 参数读取面、v15 权限标识、v16 合并接口、v17 放宽版本可用性），保留 v2–v16 历史审计。受影响的插件 API 需要迁移。
 - 内置核心插件折叠入运行时框架外壳（`dev.turboism.shell`），取消独立插件 JAR，同时保留配置、任务与日志归属。
 - 托管启动默认启用 Cubism JVM ZGC（`-XX:+UseZGC`），消除 G1 秒级停顿并降低常态内存占用。
 - CSV 参数批量导入合并至单一编辑事务中执行，使结构重建减少 89%，中位写入延迟降低 75%。

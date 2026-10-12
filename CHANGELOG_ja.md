@@ -308,16 +308,19 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 - 設定タブに Cubism JVM ZGC 起動制御と編集中の一時的自動バックアップ停止スイッチを追加。
 - `devCheck` 開発者用ゲート：`checkVersionMonotonicity` によるパッチ間の機能包含単調性検証、`checkVersionSetRegistry` によるソースコード内バージョンセットの事前登録義務付け、`checkSdkCubismEditorAnnotations` による SDK API アノテーション網羅性検査、`check_host_validation_versions.py` による 56 件の実機タスクのバージョン整合性確認。`CONTRIBUTING.md` にバージョン適応基準を明文化。
 - `test-assets/model-import-3d/` に最小限の 3D テストモデル（`cube.glb`、`cube-textured.glb`、`plane.glb`、`plane-seam.glb`）を整備し、専用資産のないクリーンな環境でも 3D インポートの回帰テストを実行可能にしました。
+- 専用テストコーパス：`test-assets/corpus.json` にバージョン付きデータセットとライセンス、ファイルごとの SHA-256、利用箇所を登録します。大きなバイナリ（CC0-1.0 のテクスチャアトラス配置 Circle/Geometry CMO3/PSD セット）はバージョン付き GitHub Release アセットとして公開し、`scripts/test_corpus.py fetch|verify|list` で共有キャッシュに取得します。モデルの作成方法は `test-assets/texture-atlas-layout/BUILDING.md` に記載しています。リモート衛生チェックは `.cmo3`・`.can3`・`.psd`・`.moc3` ファイルのコミットを拒否するようになりました。
 
 ### 変更
 
-- SDK 契約の収斂と exact ベースラインの v14 への引き上げ：
+- SDK 契約の収斂と exact ベースラインの v17 への引き上げ：
   - 非推奨の単一サービス `PluginContext` getter を削除し、`ctx.services().find(ServiceType.class)` および `require(ServiceType.class)` に一本化。
   - パラメータ問い合わせプレーン（`ParameterQueryService`、`ParameterSummary`、`ParameterBounds`）を削除。パレットの表示・編集可否は `ParameterAppearance`（`visible()`、`editable()`）から取得し、パラメータは `cubism().model().active().parameters().all()` で列挙。
   - レガシーなコマンドキューと `TransactionManager` を authoring transactions および直接の `Parameter.setValue` に移行。
   - 内部の `StrictJson` を SDK の `dev.turboism.sdk.json.Json` に置換。
   - 自動バックアップのパス参照を `BackupArtifactHandle` メタデータに移行。
-  - レビュー済み SDK exact ベースラインを v14 に更新（v2–v13 は履歴監査として維持）。該当 API を利用するプラグインは移行が必要です。
+  - `PermissionIds` を権限 ID の唯一の定義元に統一（`KNOWN_IDS` と 6 個の定数を追加）。
+  - 公開 `dev.turboism.sdk.cubism` の型とメンバーに実行時可視の `@CubismEditor` バージョン可用性宣言を付与し、art-mesh・レンダリング・MOC・補間の API をレビュー済み API に追加しました。
+  - レビュー済み SDK exact ベースラインを v17 に更新（v14 パラメーター読み取り面、v15 権限 ID、v16 統合サーフェス、v17 バージョン可用性の拡大。v2–v16 は履歴監査として維持）。該当 API を利用するプラグインは移行が必要です。
 - 内蔵コアプラグインをフレームワークシェル（`dev.turboism.shell`）としてランタイム本体に統合。独立したプラグイン JAR を廃止しつつ、設定・タスク・ログの属性管理を維持。
 - 管理対象起動時の Cubism JVM を ZGC（`-XX:+UseZGC`）既定に変更。G1 の秒単位停止を解消し、定常 RSS を削減。
 - CSV パラメータ一括インポートを単一のオーサリングトランザクション内で実行し、構造再構築を 89% 削減、中央値書き込み遅延を 75% 短縮。
