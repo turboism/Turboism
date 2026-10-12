@@ -58,7 +58,6 @@
 - `cubism.integration.edit-api-bridge.dispatch`: 无已验证记录 5.0.00–5.1.01
 - `cubism.integration.external-app-settings.edit-toggle` (外部应用编辑开关): 无已验证记录 5.0.00–5.0.06
 - `cubism.editor-model.moc-export.read`: 无已验证记录 5.0.00–5.2.03
-- `cubism.editor-model.render.read`: 无已验证记录 5.0.00–5.1.03
 - `cubism.modeling-tool.selection-brush` (建模选区笔刷): 无已验证记录 5.0.00–5.1.03
 - `cubism.editor-model.part-inspector.write` (部件检查器写入): 无已验证记录 5.0.00–5.2.03
 - `cubism.editor-model.part-opacity.write` (部件不透明度写入): 无已验证记录 5.0.00–5.2.03
@@ -146,8 +145,6 @@
 | `dev.turboism.sdk.cubism.model.CubismMocExport#CubismMocExport()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.CubismMocExportSettings#CubismMocExportSettings()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.CubismModel#exportMoc()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.CubismModel#renderPixels()` | method | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.CubismRenderedPixels#CubismRenderedPixels()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Deformers#applyToChildren()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelImageBinding#ModelImageBinding()` | method | 5.2.00–5.3.04 |

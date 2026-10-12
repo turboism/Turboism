@@ -56,10 +56,6 @@ class EditorRenderPixelsAccessTest {
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> access("5.5.00").renderPixels("model", fixture.source, fixture.model, 4, 2));
-        // Generations whose Editor-model record does not admit the capability.
-        assertThrows(
-                UnsupportedOperationException.class,
-                () -> access("5.1.03").renderPixels("model", fixture.source, fixture.model, 4, 2));
     }
 
     @Test

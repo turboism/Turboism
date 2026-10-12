@@ -12,7 +12,7 @@ import java.util.Objects;
  * each dimension is 1..2048 and the total pixel count never exceeds 4_194_304
  * (~16 MiB of {@code int}).</p>
  */
-@CubismEditor(from = "5.2.00")
+@CubismEditor(from = "5.0.00")
 public record CubismRenderedPixels(int width, int height, int[] argb) {
 
     public static final int MAX_DIMENSION = 2048;
