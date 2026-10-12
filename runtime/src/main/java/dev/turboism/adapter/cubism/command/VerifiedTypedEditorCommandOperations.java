@@ -598,7 +598,12 @@ final class VerifiedTypedEditorCommandOperations {
                         .SUPPORTED_CUBISM_VERSIONS
                         .contains(resolver.cubismVersion())
                 && editorModelResolver != null
-                && dev.turboism.mapping.verification.selector.EditorParameterInterpolationSelectorContract
+                && dev
+                        .turboism
+                        .mapping
+                        .verification
+                        .selector
+                        .EditorParameterInterpolationSelectorContract
                         .SUPPORTED_CUBISM_VERSIONS
                         .stream()
                         .anyMatch(editorModelResolver::isExactCubismVersion)

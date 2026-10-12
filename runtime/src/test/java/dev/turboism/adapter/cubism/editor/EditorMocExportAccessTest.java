@@ -55,8 +55,7 @@ class EditorMocExportAccessTest {
     void exportsOnEveryAdmittedGeneration() {
         for (String version : EditorMocExportSelectorContract.SUPPORTED_CUBISM_VERSIONS) {
             Source source = new Source();
-            CubismMocExport export =
-                    access(version, true, false).exportMoc("model", source, source.current, SETTINGS);
+            CubismMocExport export = access(version, true, false).exportMoc("model", source, source.current, SETTINGS);
             assertEquals(1, source.calls, version);
             assertEquals('M', export.moc3()[0], version);
             assertEquals(2, export.textures().size(), version);

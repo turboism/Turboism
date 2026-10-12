@@ -389,9 +389,8 @@ final class EditorParameterInterpolationAccess {
                         EditorParameterInterpolationSelectorContract.ADAPTER_SLICE_ID,
                         EditorParameterInterpolationSelectorContract.CAPABILITY_ID,
                         EditorParameterInterpolationSelectorContract.REQUIRED_ALIASES)) {
-            throw new UnsupportedOperationException(
-                    "Native interpolation requires exact verified evidence; Cubism " + resolver.cubismVersion()
-                            + " does not carry it.");
+            throw new UnsupportedOperationException("Native interpolation requires exact verified evidence; Cubism "
+                    + resolver.cubismVersion() + " does not carry it.");
         }
     }
 

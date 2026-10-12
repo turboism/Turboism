@@ -29,9 +29,10 @@ class VerifiedTextureAtlasLayoutProvider5302Test {
         for (String version : List.of("5.2.03", "5.3.02", "5.3.03", "5.3.04")) {
             final Fixture fixture = new Fixture();
             final var capture = new TextureAtlasDataModelCapture();
-            final var profile = VerifiedTextureAtlasSelectorContract.profileFor(version).orElseThrow();
-            final var provider =
-                    new VerifiedTextureAtlasLayoutProvider(resolver(version, true), "session-" + version, capture, profile);
+            final var profile =
+                    VerifiedTextureAtlasSelectorContract.profileFor(version).orElseThrow();
+            final var provider = new VerifiedTextureAtlasLayoutProvider(
+                    resolver(version, true), "session-" + version, capture, profile);
             final var before = provider.current().orElseThrow();
             final var plan = new TextureAtlasLayoutPlan(
                     16,

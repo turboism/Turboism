@@ -160,7 +160,8 @@ class EditorParameterInterpolationAccessTest {
                 var f = new Fixture(version, "");
                 try {
                     f.write(0, ELLIPSE);
-                    assertEquals(ParameterInterpolation.Method.ELLIPSE, f.read(0).method(), version);
+                    assertEquals(
+                            ParameterInterpolation.Method.ELLIPSE, f.read(0).method(), version);
                 } catch (UnsupportedOperationException dependency) {
                     assertFalse(
                             String.valueOf(dependency.getMessage()).startsWith(refused),
