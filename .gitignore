@@ -107,3 +107,10 @@ prompts/
 
 # Local host-validation frozen fixtures (never committed)
 artifacts/
+
+# Binary model and artwork assets (never committed; distributed via release corpus)
+*.cmo3
+*.cmo3.bak
+*.can3
+*.moc3
+*.psd

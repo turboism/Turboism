@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "repository": "turboism/Turboism",
+  "datasets": [
+    {
+      "id": "texture-atlas-layout",
+      "version": "1",
+      "datasetId": "texture-atlas-layout@1",
+      "license": "CC0-1.0",
+      "storage": "release",
+      "source": "Circle and Geometry test corpus for texture atlas layout benchmarks (CC0 1.0)",
+      "targetDir": "test-assets/texture-atlas-layout",
+      "release": {
+        "tag": "test-corpus-texture-atlas-layout-v1",
+        "archive": "texture-atlas-layout-v1.tar.gz",
+        "bytes": 74322926,
+        "sha256": "55f7317d761310d3aeb0538dd4d4664588eb07dd9333c2dc1ed0c9679622ee8a"
+      },
+      "usedBy": [
+        "validation/texture-atlas-current-page/HOST-CHECKLIST.md",
+        "validation/texture-atlas-current-page/HOST-AB.md",
+        "validation/atlas-image-probe/ (TURBOISM_HOST_VALIDATION_FIXTURE_5303 -> atlas_mapping_100.cmo3)",
+        "validation/atlas-image-shadow-scene/ (TURBOISM_HOST_VALIDATION_FIXTURE_5303 -> atlas_mapping_100.cmo3)",
+        "validation/cubism-version-matrix/campaign.md (cmo3/geometry/atlas_mapping_geometry_100.cmo3)",
+        "scripts/test/test_atlas_host_validation.sh (atlas_mapping_geometry_100.cmo3)",
+        ":plugins:texture-atlas:test"
+      ],
+      "files": [
+        {
+          "path": "cmo3/circle/atlas_mapping_100.cmo3",
+          "bytes": 850522,
+          "sha256": "2866a509322496680500090cb26432b1b59fe30404e1f5e2163536c01a8dce4e"
+        },
+        {
+          "path": "cmo3/circle/atlas_mapping_1000.cmo3",
+          "bytes": 7731906,
+          "sha256": "5a1a4d0e1f27dbffe09eafc5d5f8626776bcad35fab8fcd06c6ecc34b68959f9"
+        },
+        {
+          "path": "cmo3/circle/atlas_mapping_2500.cmo3",
+          "bytes": 18691242,
+          "sha256": "3cbd3d8ef91166010c90d5f96d872ef527841b36aadb9e634368cab3d159a239"
+        },
+        {
+          "path": "cmo3/circle/atlas_mapping_500.cmo3",
+          "bytes": 3538094,
+          "sha256": "54ce27647bd8d63d16fc643eb209ef2016fda0d975779b5b07943da303478b50"
+        },
+        {
+          "path": "cmo3/geometry/atlas_mapping_geometry_100.cmo3",
+          "bytes": 694856,
+          "sha256": "369c906ad47610a958e770930649f0821f616e8eb66564c39a478c41b49024ff"
+        },
+        {
+          "path": "cmo3/geometry/atlas_mapping_geometry_1000.cmo3",
+          "bytes": 6701324,
+          "sha256": "2f64a7f5fd4f2abc4cdd0036d1943f8382f30581228ea5f87143b5b367abd3e2"
+        },
+        {
+          "path": "cmo3/geometry/atlas_mapping_geometry_2500.cmo3",
+          "bytes": 24581494,
+          "sha256": "4bb38d8073cf339b32047bf186514dc7d3709cbfb90dbe665b0a5b0a76daf24b"
+        },
+        {
+          "path": "cmo3/geometry/atlas_mapping_geometry_500.cmo3",
+          "bytes": 3564178,
+          "sha256": "99038495f8c7fb9ee94cf6b9ce3d60370fc0203c411ed39b0084d84ce72a683b"
+        },
+        {
+          "path": "cmo3/geometry/atlas_mapping_geometry_500x2.cmo3",
+          "bytes": 6978687,
+          "sha256": "117f54e98f1ef37d935a006ea90ae81cf71e6d99e658074f47ad0278e41cf3e2"
+        },
+        {
+          "path": "psd/circle/atlas_mapping_100.psd",
+          "bytes": 1836082,
+          "sha256": "6501bb1ac2d79d43eaaf917d552e5fa6ffa645ab3c49ca6f5a733cb4dd5b6b78"
+        },
+        {
+          "path": "psd/circle/atlas_mapping_1000.psd",
+          "bytes": 6707149,
+          "sha256": "89244d4934048c9a7eee22c6ab94c050124d4781412d99b134b6171275017f05"
+        },
+        {
+          "path": "psd/circle/atlas_mapping_2500.psd",
+          "bytes": 13708952,
+          "sha256": "04a42c09dd0feaf64bc1352024786a87712381283f8f9eb2f42ad9c66b2e8a1e"
+        },
+        {
+          "path": "psd/circle/atlas_mapping_500.psd",
+          "bytes": 4044916,
+          "sha256": "3ebb782d0dc0dfee5774029f674f953ae3acfd42812c692c01845b81c5bf2d8d"
+        },
+        {
+          "path": "psd/geometry/atlas_mapping_geometry_100.psd",
+          "bytes": 946075,
+          "sha256": "6aac4d59e30b27800a7eae4039a547f25f4fe6bd0c8db3a2b208180e2cee4f30"
+        },
+        {
+          "path": "psd/geometry/atlas_mapping_geometry_1000.psd",
+          "bytes": 5850323,
+          "sha256": "24f1e83ab7ebb5ea53fd6fb7ad3f55b1114d2ad3c0efe52c3b05a642b09d4dac"
+        },
+        {
+          "path": "psd/geometry/atlas_mapping_geometry_2500.psd",
+          "bytes": 13824015,
+          "sha256": "ef210e2bfaf2d03ca770aed07a94d861fd9636d741ed5e33f49f5980e022b8b1"
+        },
+        {
+          "path": "psd/geometry/atlas_mapping_geometry_500.psd",
+          "bytes": 3267871,
+          "sha256": "ad0c6ab31da87e2a05a497ea735a8878bb93035e7c9518938044cb0ba6117af1"
+        }
+      ]
+    },
+    {
+      "id": "model-import-3d",
+      "version": "1",
+      "datasetId": "model-import-3d@1",
+      "license": "CC0-1.0",
+      "storage": "git",
+      "source": "Self-built minimal GLB geometry fixtures (Blender export + programmatic PNG texture embed)",
+      "targetDir": "test-assets/model-import-3d",
+      "usedBy": [
+        ":plugins:model-import-3d:test (EmbeddedTextureTest)",
+        ":plugins:model-import-3d:test (ModelImportPluginTest)",
+        ":plugins:model-import-3d:test (PlanarImportTest)",
+        ":plugins:model-import-3d:test (SurfaceAutoCameraTest)",
+        ":plugins:model-import-3d:test (SurfaceExpandedAllocationTest)"
+      ],
+      "files": [
+        {
+          "path": "cube-985496727e50/cube.glb",
+          "bytes": 1936,
+          "sha256": "985496727e505bcc1b5c748415373090c11b1058bb20ac57a4434914e3717630"
+        },
+        {
+          "path": "cube-textured/cube-textured.glb",
+          "bytes": 5672,
+          "sha256": "dee63d3d8dcf9f08adf302c6020486385e71929a81dfc674fa2c6aefbe997859"
+        },
+        {
+          "path": "plane-textured/plane-seam.glb",
+          "bytes": 3068,
+          "sha256": "89d1617c9555250d504136c081abec11b2f3e00fde45237d633bdb2096585f34"
+        },
+        {
+          "path": "plane-textured/plane.glb",
+          "bytes": 2868,
+          "sha256": "8aa60f903cee58d123831d6b66315b0537bafffcf68a064bcb6a0b0132d1b997"
+        }
+      ]
+    }
+  ]
+}
