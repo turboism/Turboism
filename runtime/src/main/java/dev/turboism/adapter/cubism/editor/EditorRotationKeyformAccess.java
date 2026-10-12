@@ -45,7 +45,7 @@ final class EditorRotationKeyformAccess {
         if (input.size() > RotationAuthoringSnapshot.MAX_FORMS)
             throw new IllegalArgumentException("Rotation batch target/control budget exceeded");
         EditorHostThread.dispatch("Rotation stored keyform batch", () -> {
-            if (!resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")
+            if (!EditorReviewedGeneration.admits(resolver)
                     || !resolver.authorizesFeature(
                             EditorRotationAuthoringSelectorContract.ADAPTER_SLICE_ID,
                             EditorRotationAuthoringSelectorContract.WRITE_CAPABILITY_ID,

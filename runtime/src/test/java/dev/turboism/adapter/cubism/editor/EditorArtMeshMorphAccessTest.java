@@ -308,6 +308,19 @@ class EditorArtMeshMorphAccessTest {
         });
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
+    void readsAndEditsMorphKeyformsOnEveryReviewedGeneration(final String version) throws Exception {
+        onEdt(f -> {
+            f.resolver = f.resolver(version, null, null);
+            final var target = f.create(.5f);
+            assertEquals(.5f, target.keyValue());
+            target.setPositions(EditorArtMeshMorphTransactionTest.U);
+            assertEquals(EditorArtMeshMorphTransactionTest.U, target.snapshot().positions());
+            assertEquals(2, f.mutations); // the create and the position edit each mutate once
+        });
+    }
+
     @Test
     void missingDrawOrderAliasRejectsOnlyTheSetterWithZeroMutation() throws Exception {
         onEdt(f -> {
@@ -318,7 +331,7 @@ class EditorArtMeshMorphAccessTest {
             target.setPositions(EditorArtMeshMorphTransactionTest.U);
             final int mutations = f.mutations, snapshots = f.snapshots, begins = f.begins;
             final var failure = assertThrows(UnsupportedOperationException.class, () -> target.setDrawOrder(700));
-            assertEquals("unsupported 5.3.02 root ArtMesh morph authoring domain", failure.getMessage());
+            assertEquals("unsupported root ArtMesh morph authoring domain", failure.getMessage());
             assertEquals(mutations, f.mutations);
             assertEquals(snapshots, f.snapshots);
             assertEquals(begins, f.begins);

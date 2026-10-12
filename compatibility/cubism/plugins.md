@@ -22,7 +22,7 @@ When Cubism runs under a FREE licence, saving is subject to the FREE parameter-c
 | `demo` | all reviewed versions | — | — |
 | `external-psd-edit` | all reviewed versions | Export PSD raw image only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Replace PSD raw image only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed） | host-verified 5.3.02 |
 | `history-panel` | all reviewed versions | — | — |
-| `mcp` | all reviewed versions | full feature set requires 5.1.00+<br>MCP texture writes only on 5.2.03–5.3.04（5.0.00–5.2.02 unconfirmed）<br>Authoring transactions (grouped undo writes) only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>MCP transaction execution only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Top menu integration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely） | host-verified 5.2.00–5.2.01, 5.3.00, 5.3.04<br>confirmed boundary 5.0.00, 5.0.06–5.1.00 |
+| `mcp` | all reviewed versions | full feature set requires 5.1.00+<br>MCP texture writes only on 5.2.03–5.3.04（5.0.00–5.2.02 unconfirmed）<br>Authoring transactions (grouped undo writes) only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>MCP transaction execution only on 5.2.00–5.3.04（5.0.00–5.1.03 unconfirmed）<br>Top menu integration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely） | host-verified 5.2.00–5.2.01, 5.3.00, 5.3.04<br>confirmed boundary 5.0.00, 5.0.06–5.1.00, 5.1.03 |
 | `mesh-edit-mirror-axis-enhance` | all reviewed versions | full feature set requires 5.2.00+<br>Mesh geometry read only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely） | — |
 | `model-import-3d` | all reviewed versions | — | — |
 | `palette-label-style` | all reviewed versions | — | — |

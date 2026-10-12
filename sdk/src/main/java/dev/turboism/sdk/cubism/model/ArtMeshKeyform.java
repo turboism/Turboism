@@ -9,7 +9,7 @@ import java.util.List;
  * Every operation checks the owning document/model generation and stored-form identity.
  * Replaced or deleted forms require a new lookup, even if their GUID is reused.
  */
-@CubismEditor({"5.3.02", "5.3.03"})
+@CubismEditor(from = "5.0.00")
 public interface ArtMeshKeyform {
     /** Complete coordinates in parameter-GUID order; the returned list is detached. */
     List<ArtMeshAuthoringSnapshot.Coordinate> coordinates();

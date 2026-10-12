@@ -14,7 +14,7 @@ import java.util.Optional;
  * at the start of a native pass; a later per-mesh failure can leave an older calculated form.
  * Coordinate labels are native labels, not a promise of Core coordinates or units.
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.0.00")
 public record ArtMeshEvaluationSnapshot(
         ArtMeshId artMeshId,
         String sourceGuid,

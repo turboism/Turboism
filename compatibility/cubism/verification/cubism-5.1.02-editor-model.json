@@ -110,7 +110,10 @@
     "ui.object-context-menu.contribute",
     "cubism.editor-model.psd.raw-image.export",
     "cubism.editor-model.psd.raw-image.replace",
-    "cubism.mesh-tool.session"
+    "cubism.mesh-tool.session",
+    "cubism.editor-model.art-mesh.evaluated-read",
+    "cubism.editor-model.art-mesh.morph-authoring",
+    "cubism.editor-model.source-triangulation.read"
   ],
   "cubismVersion": "5.1.02",
   "profileId": "cubism-5.1.02",
@@ -12494,6 +12497,15 @@
     ],
     "cubism.mesh-tool.session": [
       "hook:mesh-tool-session"
+    ],
+    "cubism.editor-model.art-mesh.evaluated-read": [
+      "structure"
+    ],
+    "cubism.editor-model.art-mesh.morph-authoring": [
+      "declaredGeneration"
+    ],
+    "cubism.editor-model.source-triangulation.read": [
+      "structure"
     ]
   }
 }

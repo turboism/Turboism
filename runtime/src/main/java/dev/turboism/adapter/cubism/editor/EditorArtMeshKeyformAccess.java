@@ -434,7 +434,7 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
     }
 
     private static void requireWriteAuthorized(final VerifiedMemberResolver resolver) {
-        if (!resolver.isExactCubismVersion("5.2.03", "5.3.02", "5.3.03")
+        if (!EditorReviewedGeneration.admits(resolver)
                 || !resolver.authorizesFeature(
                         EditorArtMeshKeyformSelectorContract.ADAPTER_SLICE_ID,
                         EditorArtMeshKeyformSelectorContract.CAPABILITY_ID,
