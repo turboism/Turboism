@@ -275,6 +275,79 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
   Parameter Batch Transfer プラグインのワークスペースエントリを削除しました。パレット
   タブのコンテキストメニューおよびトップメニューの項目は変更ありません。
 
+## [0.67.0] - 2026-10-13
+
+### 追加
+
+- レビュー済みの 20 バージョンの Live2D Cubism Editor（5.0.00 – 5.3.04）に対応する包括的なマルチバージョン機能適応。全 143 件のフレームワーク機能のうち、129 件の全バージョン共通機能（90.2%）がレビュー済み全バージョンで承認されました。各パッチ系列のカバー率は以下の通りです。
+  - Cubism 5.0.x（5.0.00–5.0.06、計 7 バージョン）：129 / 143 機能（90.2%）。
+  - Cubism 5.1.x（5.1.00–5.1.03、計 4 バージョン）：5.1.00–5.1.01 で 135 / 143（94.4%）、5.1.02–5.1.03 で 136 / 143（95.1%）。
+  - Cubism 5.2.x（5.2.00–5.2.03、計 4 バージョン）：全バージョンで 140 / 143 機能（97.9%）。
+  - Cubism 5.3.x（5.3.00–5.3.04、計 5 バージョン）：全バージョンで 143 / 143 機能（100.0%）。
+  機能セットはマイナー系列内のパッチ間で厳密な単調増加性を維持します。`compatibility/cubism/version-boundaries.json` に証跡に基づくバージョン境界を記録しました。Cubism 5.0.x はホストの自動バックアップ、保護付きエクスポート、自動揺れ読み取り、トップメニュー統合、外部アプリ編集切り替えを欠いており、edit-protocol ブリッジは 5.1.02 以降、アニメーションタイムライン SDK／ランタイム、選択ブラシ、メッシュ幾何読み取りは 5.2.00 以降、パーツインスペクター書き込み、パーツ不透明度書き込み、MOC3 エクスポート読み取り、透明度ブレンド（AlphaComposition）は 5.3.00 以降で利用可能です。`compatibility/cubism/` 配下で英語・簡体字中国語・日本語・韓国語の機能およびプラグイン互換性マトリクスを公開しました。
+- すべてのファーストパーティ製プラグイン JAR に、承認済み機能要件から導出された対応 Editor バージョンを宣言する `META-INF/turboism/cubism-versions.json` サイドカーを同梱。SDK の `@CubismEditor` アノテーション契約を確立：引数のない素のアノテーションは全 20 のレビュー済みバージョンでの提供を示し、明示的な引数で特定サブセットを指定します。
+- 実機起動ダイアログ自動処理（`NativeFreeStartup`）：テストおよび検証実行時に各対応バージョンの Cubism ダイアログを自動処理。PRO 体験版の選択（「PROバージョンの無料体験を始める」）とその確認・アクティベーション（体験版がない場合は無料版へフォールバック）を自動化し、更新通知やホームニュース画面を自動消去し、古いバージョンで新しいプロジェクトを開く際の警告を自動承諾し、JavaFX スレッド上で 5.0.x の JavaFX お知らせウィンドウ（`AnnouncementDialog` の Stage）を非表示にしてメインウィンドウやメニューバーの無効化を防ぎます。実機検証タスクキューはマトリクスの機能依存から直接バージョン範囲を導出し、56 件の個別タスクを編成します。
+- 3D モデルインポートプラグイン（`dev.turboism.plugin.model-import-3d`）：静的・不透明な GLB、glTF、OBJ/MTL およびモデル ZIP アーカイブのネイティブインポートに対応。PNG/JPEG テクスチャ、XYZ 全周 360 度回転、有界な幾何最適化をサポートし、単一のアンドゥ可能なオーサリングトランザクションでコミットします。
+- Turboism ACP プラグイン（`dev.turboism.plugin.acp`）：ACP v1 Agent および設定ウィンドウを提供し、ユーザー導入済みの ACP 互換 AI エージェント（Claude Agent ACP、Codex ACP、Pi、Gemini CLI、OpenCode、Antigravity、Devin CLI、カスタムコマンド）を認証済み Turboism MCP サーバーに接続。PATH 上の実行ファイル検出、永続セッション、認証情報不要の stdio-to-HTTP MCP 接続ブリッジを実装。
+- アニメーションワークスペース SDK／ランタイム対応：プラグインからアニメーションドキュメント、タイムライン、トラック、プロパティ、キーフレームの列挙、シーン切り替え・名前変更、シーク再生、一括キーフレーム編集・カーブタイプ適用、評価値の記録を可能にしました。motion3 の構造問題を検査する純粋な SDK `Motion3Validator` を追加。Cubism 5.2.00–5.3.04 に対応。
+- 履歴パネルプラグイン（`dev.turboism.plugin.historypanel`）：Photoshop スタイルのドッキング履歴パネル。作業中ドキュメントのネイティブ Undo 履歴を投影し、スナップショットに基づくクリックジャンプによる Undo/Redo 移動を提供します。
+- 最近のファイルプレビュープラグイン（`dev.turboism.plugin.recent-preview`）：最近開いたプロジェクトファイルのビューポートサムネイルをキャプチャし、メモリ有界キャッシュを介してホストの「最近開いたファイル」ホバーブリッジにサムネイルを表示します。
+- テクスチャアトラス配置プラグイン群：MaxRects-BSSF 自動配置プラグイン（`dev.turboism.plugin.texture-atlas`）、Dalsoo 多角形パッキングプラグイン（`dev.turboism.plugin.texture-atlas-dalsoo`）、アトラス統計。実行時のタイルバウンディングボックス処理と出力キャッシュ再利用により、ファイルオープンおよびエクスポート時間を大幅に短縮。
+- 選択ブラシプラグイン（`dev.turboism.plugin.selection-brush`）：モデリング曲面用の選択ブラシツール。重み付けされた頂点選択に対応。
+- ワープデフォーマ Alt 対称プラグイン（`dev.turboism.plugin.warp-deformer-alt-symmetry`）：ワープデフォーマ制御点の Alt 垂直および Alt+Shift 水平対称ドラッグに対応。Cubism 5.2.03、5.3.02、5.3.03 では検証済みネイティブドラッグフックにより選択重み描画をリアルタイムでミラーリングし、その他のバージョンでは AWT 経由で動作。
+- ショートカットキーウィンドウと実行時ディスパッチャ：Turboism メニューにショートカットキー管理画面を追加。ホストのキーイベントを捕捉してプラグイン操作を起動し、ネイティブショートカットを再バインド。競合検出を備え、`state/runtime/keybindings.properties` に永続化。
+- 独立した SDK 配布：リリースごとに `turboism-sdk-<version>.jar` および SHA-256 チェックサムファイルを独立した開発資産として提供。`publishToMavenLocal` によるローカル Maven 利用や、`templates/plugin-template` の単体プロジェクトテンプレートに対応。
+- `PluginContext.services()` および `PluginServiceDirectory` による型安全なプラグインサービス検索。
+- `TurboismWindowFactory.installWindowIcon` によるプロセス全体のウィンドウアイコン変更。
+- 設定タブに Cubism JVM ZGC 起動制御と編集中の一時的自動バックアップ停止スイッチを追加。
+- `devCheck` 開発者用ゲート：`checkVersionMonotonicity` によるパッチ間の機能包含単調性検証、`checkVersionSetRegistry` によるソースコード内バージョンセットの事前登録義務付け、`checkSdkCubismEditorAnnotations` による SDK API アノテーション網羅性検査、`check_host_validation_versions.py` による 56 件の実機タスクのバージョン整合性確認。`CONTRIBUTING.md` にバージョン適応基準を明文化。
+- `test-assets/model-import-3d/` に最小限の 3D テストモデル（`cube.glb`、`cube-textured.glb`、`plane.glb`、`plane-seam.glb`）を整備し、専用資産のないクリーンな環境でも 3D インポートの回帰テストを実行可能にしました。
+
+### 変更
+
+- SDK 契約の収斂と exact ベースラインの v14 への引き上げ：
+  - 非推奨の単一サービス `PluginContext` getter を削除し、`ctx.services().find(ServiceType.class)` および `require(ServiceType.class)` に一本化。
+  - パラメータ問い合わせプレーン（`ParameterQueryService`、`ParameterSummary`、`ParameterBounds`）を削除。パレットの表示・編集可否は `ParameterAppearance`（`visible()`、`editable()`）から取得し、パラメータは `cubism().model().active().parameters().all()` で列挙。
+  - レガシーなコマンドキューと `TransactionManager` を authoring transactions および直接の `Parameter.setValue` に移行。
+  - 内部の `StrictJson` を SDK の `dev.turboism.sdk.json.Json` に置換。
+  - 自動バックアップのパス参照を `BackupArtifactHandle` メタデータに移行。
+  - レビュー済み SDK exact ベースラインを v14 に更新（v2–v13 は履歴監査として維持）。該当 API を利用するプラグインは移行が必要です。
+- 内蔵コアプラグインをフレームワークシェル（`dev.turboism.shell`）としてランタイム本体に統合。独立したプラグイン JAR を廃止しつつ、設定・タスク・ログの属性管理を維持。
+- 管理対象起動時の Cubism JVM を ZGC（`-XX:+UseZGC`）既定に変更。G1 の秒単位停止を解消し、定常 RSS を削減。
+- CSV パラメータ一括インポートを単一のオーサリングトランザクション内で実行し、構造再構築を 89% 削減、中央値書き込み遅延を 75% 短縮。
+- 起動時の抑制機能（更新確認、スプラッシュ、情報ダイアログのスキップ）を既定で有効化。
+- ホストフックの宣言を `META-INF/turboism/hooks` と `HookContributor` に移行し、フェイルクローズな受け入れを保ちつつ手動配線を排除。
+- CI のプルリクエストおよびプッシュ時に Xvfb を用いた `devCheck` と `checkCompletedCommit` 全体スイートを実行。
+- Javadoc 網羅性チェックに JDK 17 compiler tree API を採用し、暗黙のインターフェースメソッドや内部型を網羅。
+- セマンティックイベントのパッケージを `dev.turboism.sdk.cubism.event` に移動。
+- 配布パッケージおよびリリースノートの全言語網羅性チェックをリリースゲートで義務化。
+
+### 削除
+
+- 管理対象 fx ランタイムを完全削除：エージェントバイナリ同梱、認証情報ストア、OpenAI ゲートウェイアダプタを廃止し、開発用の `turboism-with-fx` プラグインを削除。
+- SDK から `ParameterQueryService`、`ParameterSummary`、`ParameterBounds`、`PluginContext.parameterQuery()` を削除。
+- 非推奨となっていた単一サービス `PluginContext` アクセサ、`availableServices()`、レガシーな `cubism.transaction` キュー型を削除。
+
+### 修正
+
+- ACP 接続エージェントがコンパイラ不要の stdio ブリッジを介して Turboism MCP 書き込みツールを使用可能になり、端点変更時にセッションを自動再接続。
+- ブートストラップエージェントクラスに定義元ローダーがない場合、`ClassPinTable.load` がシステムクラスローダーへフォールバックするように修正。
+- プレビュー起動スクリプト、テストハーネス、モニターからマシン固有のハードコードパスを排除。
+- プラグインスコープ終了時のリソース解放を徹底：アニメーション、クリッピングマスク、PSD、テクスチャアトラス、物理サービスの解放後アクセスを適切に拒否。
+- アニメーション時間伸縮時にベジェ制御ハンドルへ整合したアフィン変換を適用。
+- メモリ肥大化の抑制：オーバーレイボタンテーブルの FIFO 破棄、エディタバインディング識別子の弱参照化、履歴サムネイル・パレット巡回での無効エントリ刈り込み。
+- 入力ダイジェストが計算できない場合、テクスチャアトラスキャッシュが再構築パスへ正しくフォールバック。
+- `Motion3Validator` で識別子縮小前の数値範囲検証を追加し、オーバーフローを防止。
+- 中断されたインストールによる孤立アクティベーションマーカーを管理対象 Graal インストーラーが適切に調停。
+- ドキュメント切り替え時に新しくバインドされたモデルを即座に公開し、古いモデルの参照ピン留めを防止。
+- エージェントフックマニフェストをブートクラスパス上で確実に解決するように修正。
+- キャンバスのコンテキストメニューから不要なワークスペース級プラグイン項目の注入を削除。
+
+### セキュリティ
+
+- MCP ループバックサーバーで状態変更を伴う `tools/call` 要求およびセッション管理に `Authorization: Bearer` トークン認証を義務付け、所有者のみ参照可能なローカルトークンと stdio ブリッジで保護。
+- スコープ解放保証とフックの原子的登録解除により、セッション間のリソースリークや破棄後の不正操作を防止。
+
 ## [0.44.0] - 2026-09-11
 
 ### 追加
