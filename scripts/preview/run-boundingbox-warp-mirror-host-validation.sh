@@ -17,18 +17,12 @@ set -euo pipefail
 # shellcheck source=host-validation-env.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
-version="5303"
+version="${TURBOISM_HOST_VALIDATION_DEFAULT_FIXTURE_VERSION:-5303}"
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   version="$1"
   shift
 fi
-case "$version" in
-  5203|5302|5303) ;;
-  *)
-    echo "error: boundingbox-warp-mirror host validation supports 5203|5302|5303" >&2
-    exit 2
-    ;;
-esac
+turboism_require_task_version boundingbox-warp-mirror "$version" || exit 2
 run_label="r1"
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   run_label="$1"
