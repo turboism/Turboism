@@ -254,20 +254,10 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 ### 추가
 
-- 20개 검토 버전의 Live2D Cubism Editor(5.0.00 – 5.3.04)를 지원하는 포괄적인 멀티 버전 기능 적응. 전체 143개 프레임워크 기능 중 129개 전 버전 공통 기능(90.2%)이 모든 검토 버전에서 승인되었습니다. 각 패치 라인별 커버리지는 다음과 같습니다.
-  - Cubism 5.0.x(5.0.00–5.0.06, 총 7개 버전): 129 / 143개 기능(90.2%).
-  - Cubism 5.1.x(5.1.00–5.1.03, 총 4개 버전): 5.1.00–5.1.01 135 / 143개(94.4%), 5.1.02–5.1.03 136 / 143개(95.1%).
-  - Cubism 5.2.x(5.2.00–5.2.03, 총 4개 버전): 전 버전 140 / 143개 기능(97.9%).
-  - Cubism 5.3.x(5.3.00–5.3.04, 총 5개 버전): 전 버전 143 / 143개 기능(100.0%).
-  기능 집합은 마이너 라인 내 패치 간 엄격한 단조 증가성을 유지합니다. `compatibility/cubism/version-boundaries.json`에 증거 기반 버전 경계를 문서화했습니다. Cubism 5.0.x는 호스트 자동 백업, 보호된 내보내기, 자동 흔들림 읽기, 상단 메뉴 통합 및 외부 앱 편집 토글이 결여되어 있으며, edit-protocol 브릿지는 5.1.02부터, 애니메이션 타임라인 SDK/런타임, 선택 브러시, 메시 기하 읽기는 5.2.00부터, 파트 인스펙터 쓰기, 파트 불투명도 쓰기, MOC3 내보내기 읽기 및 투명도 합성(AlphaComposition)은 5.3.00부터 지원됩니다. `compatibility/cubism/` 아래에 영어, 중국어 간체, 일본어, 한국어로 된 기능 및 플러그인 호환성 매트릭스를 제공합니다.
+- 검토된 Cubism Editor 20개 버전(5.0.00–5.3.04) 전체 지원: 143개 기능 중 129개가 모든 버전에서 허용됩니다. 지원률은 5.3.x 100%, 5.2.x 97.9%, 5.1.x 최대 95.1%, 5.0.x 90.2%입니다. 패치 라인 내 기능은 단조 증가하며, 모든 제외 항목은 `compatibility/cubism/version-boundaries.json`에 근거와 함께 기록됩니다(예: 5.0.x에는 자동 백업과 보호 내보내기가 없고, 편집 프로토콜은 5.1.02부터, 애니메이션 타임라인과 선택 브러시는 5.2.00부터). 기능 및 플러그인 호환 매트릭스는 `compatibility/cubism/`에 4개 언어로 제공됩니다.
 - 모든 퍼스트 파티 플러그인 JAR에 검토된 기능 요구사항에서 파생된 지원 Editor 버전을 선언하는 `META-INF/turboism/cubism-versions.json` 사이드카를 포함. SDK의 `@CubismEditor` 애너테이션 계약을 확립: 매개변수 없는 기본 애너테이션은 20개 검토 버전 전체 지원을 나타내며, 명시적 속성으로 특정 하위 집합을 제한합니다.
-- 퍼스트 파티 플러그인의 지원 범위가 대폭 확대되어 20개 검토 버전 전체를 지원:
-  - `parameter`, `recent-preview`, `warp-deformer-alt-symmetry`는 20개 버전 전체에서 기능 저하 없이 완전한 기능으로 동작.
-  - `mesh-edit-mirror-axis-enhance` 및 `selection-brush`는 20개 버전 전체에서 메시 편집 모드를 지원하며, 일반 모델링 뷰 선택 브러시(5.2.00부터) 및 Core 기하 읽기(5.2.00부터)를 증거 경계로 설정.
-  - `mcp`는 20개 버전 전체에서 텍스처 쓰기 및 트랜잭션 실행을 지원하고, 에디터 명령 실행은 5.1.00부터 지원.
-  - `command-palette` 및 `protected-export`는 초기 버전의 상단 메뉴 및 내보내기 조율 기능 부재로 인해 5.1.00부터를 증거 경계로 설정하며, `webdav-backup`은 20개 버전 전체를 지원하되 자동 백업 기능은 5.1.00부터 동작.
-- 실기 검증 프로브 버전 게이트가 20개 검토 Editor 버전(5.0.00–5.3.04) 전체를 포괄하도록 전면 개정되었으며, 정확한 바이트코드 형태별로 버킷화되어 지원되는 모든 Cubism 버전에 걸쳐 엔드투엔드 실기 검증을 보장.
-- 자동화된 실기 시작 대화상자 보조(`NativeFreeStartup`): 테스트 및 검증 실행 중 지원되는 모든 Cubism 버전의 대화상자 상호작용을 자동 처리. PRO 체험판 선택("PRO 버전 무료 체험 시작")과 확인 및 활성화 처리(체험판 경로가 없을 경우 무료 버전으로 대체)를 자동화하고, 업데이트 알림 및 홈 뉴스 창을 닫으며, 하위 버전에서 상위 버전 프로젝트를 열 때 표시되는 경고를 자동 수락하고, 5.0.x의 JavaFX 공지 창(`AnnouncementDialog` 백그라운드 Stage)을 JavaFX 스레드에서 숨겨 메인 창 및 메뉴 모음 비활성화를 방지합니다. 실기 검증 태스크 큐는 매트릭스의 기능 의존성에서 직접 버전 범위를 파생하여 56개의 개별 태스크를 편성합니다.
+- 퍼스트파티 플러그인 지원 범위 확대: `parameter`, `recent-preview`, `warp-deformer-alt-symmetry`는 20개 버전 모두에서 전체 기능을 제공합니다. `mesh-edit-mirror-axis-enhance`, `selection-brush`, `mcp`(텍스처 쓰기와 트랜잭션 포함)는 20개 버전 모두에서 동작하며 일부 기능 제한은 문서화되어 있습니다. `command-palette`, `protected-export`, WebDAV 자동 백업은 5.1.00 이상이 필요합니다.
+- 실기 검증에서 Cubism 시작 대화 상자를 자동 처리합니다(PRO 체험판 선택 및 확인, 업데이트 알림, Home 뉴스, 상위 버전 프로젝트 경고, 5.0.x JavaFX 공지). 56개 검증 작업의 버전은 호환 매트릭스에서 도출되며, 프로브는 검토된 20개 버전 전체를 지원합니다.
 - 3D 모델 가져오기 플러그인(`dev.turboism.plugin.model-import-3d`): 정적 불투명 GLB, glTF, OBJ/MTL 및 모델 ZIP 압축파일의 네이티브 가져오기 지원. PNG/JPEG 텍스처, XYZ 전체 360도 회전 및 유계 기하 최적화를 지원하며, 단일 실행 취소 가능 작성 트랜잭션으로 커밋합니다.
 - Turboism ACP 플러그인(`dev.turboism.plugin.acp`): ACP v1 Agent 및 설정 창을 제공하여 사용자가 설치한 ACP 호환 AI 에이전트(Claude Agent ACP, Codex ACP, Pi, Gemini CLI, OpenCode, Antigravity, Devin CLI 또는 사용자 정의 명령)를 인증된 Turboism MCP 서버에 연결. PATH 실행 파일 감지, 영구 세션 유지 및 자격 증명이 필요 없는 stdio-to-HTTP MCP 연결 브릿지를 제공합니다.
 - 애니메이션 워크스페이스 SDK 및 런타임 지원: 플러그인이 애니메이션 문서, 프로젝트 타임라인, 트랙, 속성, 키프레임을 열거하고, 씬 전환 및 이름 변경, 탐색 재생, 일괄 키프레임 편집 및 곡선 유형 적용, 평가 값을 기록할 수 있습니다. motion3 구조적 결함을 검사하는 순수 SDK `Motion3Validator`를 제공합니다. Cubism 5.2.00–5.3.04를 지원합니다.
@@ -275,36 +265,29 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 - 최근 파일 미리보기 플러그인(`dev.turboism.plugin.recent-preview`): 최근 연 프로젝트 파일의 뷰포트 썸네일을 캡처하여 메모리 유계 캐시를 통해 호스트의 최근 파일 마우스 오버 브릿지에 썸네일을 제공합니다.
 - 텍스처 아틀라스 배치 플러그인군: MaxRects-BSSF 자동 배치 플러그인(`dev.turboism.plugin.texture-atlas`), Dalsoo 다각형 패킹 플러그인(`dev.turboism.plugin.texture-atlas-dalsoo`) 및 아틀라스 통계. 런타임 타일 바운딩 박스 처리 및 출력 캐시 재사용으로 프로젝트 열기 및 내보내기 시간을 대폭 단축했습니다.
 - 선택 브러시 플러그인(`dev.turboism.plugin.selection-brush`): 가중치 점 선택을 지원하는 모델링 곡면용 선택 브러시 도구.
-- 워프 디포머 Alt 대칭 플러그인(`dev.turboism.plugin.warp-deformer-alt-symmetry`): 워프 디포머 제어점의 Alt 수직 및 Alt+Shift 수평 대칭 드래그 지원. Cubism 5.2.03, 5.3.02, 5.3.03에서는 검증된 네이티브 드래그 훅으로 실시간 대칭 가중치 페인팅을 제공하며, 기타 버전에서는 AWT 디스패치로 대체 동작합니다.
+- 워프 디포머 Alt 대칭 플러그인(`dev.turboism.plugin.warp-deformer-alt-symmetry`): 검토된 모든 버전에서 Alt로 수직 대칭, Alt+Shift로 수평 대칭 방식으로 워프 디포머 제어점을 드래그합니다.
 - 단축키 창 및 런타임 디스패처: Turboism 메뉴에 단축키 관리 창을 추가하여 호스트 키 이벤트를 가로채 플러그인 액션을 실행하고 네이티브 단축키를 재지정. 충돌 감지 기능을 제공하며 `state/runtime/keybindings.properties`에 영구 저장됩니다.
 - 독립 SDK 배포: 매 릴리스마다 `turboism-sdk-<version>.jar` 및 SHA-256 체크섬 파일을 독립 개발자 산출물로 제공하고, `publishToMavenLocal`을 통한 로컬 Maven 배포 및 `templates/plugin-template` 독립 프로젝트 템플릿을 지원합니다.
 - `PluginContext.services()` 및 `PluginServiceDirectory`를 통한 타입 안전 플러그인 서비스 조회.
 - `TurboismWindowFactory.installWindowIcon`을 통한 프로세스 전역 창 아이콘 커스터마이징.
 - 설정 탭에서 Cubism JVM ZGC 실행 제어 및 편집 중 자동 백업 일시 중단 스위치 제공.
-- `devCheck` 개발자 게이트: `checkVersionMonotonicity`를 통한 패치 간 기능 포함 단조성 검증, `checkVersionSetRegistry`를 통한 소스 코드 내 버전 집합 등록 의무화, `checkSdkCubismEditorAnnotations`를 통한 SDK API 애너테이션 누락 차단, `check_host_validation_versions.py`를 통한 56개 실기 태스크 버전 일관성 확인. `CONTRIBUTING.md`에 버전 적응 규칙을 문서화했습니다.
-- `test-assets/model-import-3d/`에 최소 3D 테스트 모델(`cube.glb`, `cube-textured.glb`, `plane.glb`, `plane-seam.glb`)을 구성하여 전용 자산이 없는 환경에서도 3D 가져오기 회귀 테스트를 오프라인으로 실행할 수 있습니다.
-- 전용 테스트 코퍼스: `test-assets/corpus.json`에 버전이 지정된 데이터셋과 라이선스, 파일별 SHA-256, 사용처를 등록합니다. 대용량 바이너리(CC0-1.0 텍스처 아틀라스 배치 Circle/Geometry CMO3/PSD 세트)는 버전별 GitHub Release 자산으로 배포되며 `scripts/test_corpus.py fetch|verify|list`로 공유 캐시에 가져옵니다. 모델 제작 방법은 `test-assets/texture-atlas-layout/BUILDING.md`에 정리되어 있습니다. 원격 위생 검사는 이제 `.cmo3`, `.can3`, `.psd`, `.moc3` 파일 커밋을 거부합니다.
+- `devCheck`에 버전 적응 게이트 추가: 패치 라인 단조성, 리터럴 버전 집합 등록, SDK `@CubismEditor` 어노테이션 기준선, 실기 검증 작업 버전. 규칙은 `CONTRIBUTING.md`에 정리되어 있습니다.
+- 테스트 자산: `test-assets/model-import-3d/`에 자체 제작한 소형 GLB 모델을 포함하고, 버전별 테스트 코퍼스(`test-assets/corpus.json`, `scripts/test_corpus.py fetch|verify`)를 추가했습니다. CC0-1.0 텍스처 아틀라스 CMO3/PSD 세트는 GitHub Release 자산으로 배포됩니다. 원격 위생 검사는 `.cmo3`, `.can3`, `.psd`, `.moc3` 커밋을 거부합니다.
 
 ### 변경
 
-- SDK 계약 수렴 및 exact 기준선 v17 승격:
-  - 지원 중단된 단일 서비스 `PluginContext` getter를 제거하고 `ctx.services().find(ServiceType.class)` 및 `require(ServiceType.class)`로 일원화.
-  - 매개변수 쿼리 평면(`ParameterQueryService`, `ParameterSummary`, `ParameterBounds`) 제거. 팔레트 표시 및 편집 가능 여부는 `ParameterAppearance`(`visible()`, `editable()`)에서 조회하며, 매개변수는 `cubism().model().active().parameters().all()`로 열거.
-  - 레거시 명령 큐 및 `TransactionManager`를 authoring transactions 및 직접 `Parameter.setValue`로 대체.
-  - 내부 `StrictJson`을 SDK `dev.turboism.sdk.json.Json`으로 교체.
-  - 자동 백업 파일 경로 인터페이스를 `BackupArtifactHandle` 메타데이터로 전환.
-  - `PermissionIds`가 권한 식별자의 단일 출처가 되었습니다(`KNOWN_IDS` 및 상수 6개 추가).
-  - 공개 `dev.turboism.sdk.cubism` 타입과 멤버에 런타임에서 확인 가능한 `@CubismEditor` 버전 가용성 선언이 붙으며, art-mesh·렌더링·MOC·보간 API가 검토된 API에 포함되었습니다.
-  - 검토된 SDK exact 기준선을 v17로 업데이트(v14 파라미터 읽기 영역, v15 권한 식별자, v16 병합 표면, v17 버전 가용성 확대, v2–v16 이력 감사 유지). 해당 API를 사용하는 플러그인은 마이그레이션이 필요합니다.
+- SDK 계약 수렴, exact 기준선 v17로 승격(v2–v16 이력 감사 유지). 해당 플러그인은 마이그레이션이 필요합니다:
+  - 더 이상 사용되지 않는 서비스별 `PluginContext` getter를 제거했습니다. `ctx.services().find(...)` 또는 `require(...)`를 사용하세요.
+  - 파라미터 조회 읽기 영역은 `ParameterAppearance`와 `cubism().model().active().parameters().all()`로 대체되었습니다.
+  - 기존 명령 큐와 `TransactionManager`는 저작 트랜잭션과 `Parameter.setValue`로, `StrictJson`은 `dev.turboism.sdk.json.Json`으로, 자동 백업 경로는 `BackupArtifactHandle`로 대체되었습니다.
+  - `PermissionIds`가 권한 식별자의 단일 출처가 되었습니다.
+  - 공개 `dev.turboism.sdk.cubism` API에 `@CubismEditor` 버전 선언이 붙으며, art-mesh·렌더링·MOC·보간 API가 검토된 표면에 포함되었습니다.
 - 내장 코어 플러그인을 프레임워크 셸(`dev.turboism.shell`)로 런타임에 통합하여 독립 플러그인 JAR을 제거하고 설정, 태스크, 로그 귀속을 유지.
 - 관리형 실행 시 Cubism JVM을 ZGC(`-XX:+UseZGC`) 기본값으로 실행하여 G1의 초 단위 일시 정지를 제거하고 상주 메모리(RSS)를 절감.
 - CSV 매개변수 일괄 가져오기를 단일 편집 트랜잭션 내에서 실행하여 구조 재구축을 89% 줄이고 중앙값 쓰기 지연 시간을 75% 단축.
 - 시작 억제 기능(업데이트 확인, 스플래시 화면, 알림 대화상자 건너뛰기)을 기본 활성화.
 - 호스트 훅 선언을 `META-INF/turboism/hooks`와 `HookContributor`로 전환하여 fail-closed 허용을 유지하면서 수동 배선을 제거.
-- CI에서 PR 및 푸시마다 Xvfb를 사용하여 `devCheck` 및 `checkCompletedCommit` 전체 테스트 스위트를 실행.
-- Javadoc 완성도 검사에 JDK 17 compiler tree API를 적용하여 암시적 인터페이스 메서드 및 내부 타입을 포괄.
 - 시맨틱 이벤트 패키지를 `dev.turboism.sdk.cubism.event`로 이동.
-- 마켓플레이스 플러그인 목록 및 후보 릴리스 노트에 대해 전체 언어 매트릭스 검증을 강제.
 
 ### 제거
 
@@ -316,7 +299,6 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 - ACP 연결 에이전트가 컴파일러 없이도 사전 컴파일된 stdio 브릿지를 통해 Turboism MCP 쓰기 도구를 사용할 수 있으며, MCP 엔드포인트 변경 시 세션을 자동 재연결.
 - 부트스트랩 에이전트 클래스에 로더가 없을 때 `ClassPinTable.load`가 시스템 클래스 로더로 폴백하도록 수정.
-- 미리보기 스크립트, 테스트 도구 및 모니터에서 시스템 고유 하드코딩 경로를 제거.
 - 플러그인 스코프 종료 시 리소스 정리를 철저히 보장: 애니메이션, 클리핑 마스크, PSD, 텍스처 아틀라스, 물리 서비스 종료 후 잘못된 접근을 차단.
 - 애니메이션 시간 신축 시 베지에 제어 핸들에 일관된 아핀 변환 적용.
 - 메모리 누수 억제: 오버레이 버튼 테이블 FIFO 제거, 에디터 바인딩 식별자 약한 참조 캐싱, 최근 미리보기 및 팔레트 순회 시 유효하지 않은 항목 정리.
@@ -324,7 +306,6 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 - `Motion3Validator`에서 세그먼트 식별자 축소 전 수치 범위를 검사하여 오버플로 방지.
 - 중단된 설치로 남은 고아 활성화 마커를 관리형 Graal 설치 프로그램이 올바르게 조정.
 - 문서 전환 시 새로 바인딩된 모델을 즉시 게시하여 이전 모델 참조 고정을 방지.
-- 에이전트 훅 매니페스트가 작업 디렉터리에 구애받지 않고 부트 클래스패스에서 안정적으로 확인되도록 수정.
 - 캔버스 컨텍스트 메뉴에서 불필요한 워크스페이스 레벨 플러그인 메뉴 주입 제거.
 
 ### 보안
