@@ -101,6 +101,15 @@ public final class OfficialPsdFixturePreparation {
     public static final String HOST_VERSION_PROPERTY = CONFIG_PREFIX + "hostVersion";
     public static final String TIMEOUT_MILLIS_PROPERTY = CONFIG_PREFIX + "timeoutMillis";
     public static final String PROFILE_PROPERTY = CONFIG_PREFIX + "profile";
+    private static final Set<String> REVIEWED_HOST_VERSIONS = Set.of(
+        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+        "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+        "5.2.00", "5.2.01", "5.2.02", "5.2.03",
+        "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04",
+        "5000", "5001", "5002", "5003", "5004", "5005", "5006",
+        "5100", "5101", "5102", "5103",
+        "5200", "5201", "5202", "5203",
+        "5300", "5301", "5302", "5303", "5304");
 
     private static final String APP_CONTROLLER = "com.live2d.cubism.CEAppCtrl";
     private static final String MAIN_FRAME_CONTROLLER =
@@ -321,8 +330,8 @@ public final class OfficialPsdFixturePreparation {
             throw new IllegalArgumentException("savedCopy must be " + profile.savedCopyBasename());
         }
         if (!targetRgb.isBlank()) requireSha(targetRgb, "targetRgbSha256");
-        if (!hostVersion.isBlank() && !hostVersion.equals("5.3.02")) {
-            throw new IllegalArgumentException("only Cubism 5.3.02 is reviewed");
+        if (!hostVersion.isBlank() && !REVIEWED_HOST_VERSIONS.contains(hostVersion)) {
+            throw new IllegalArgumentException("unreviewed Cubism host version: " + hostVersion);
         }
         return new InputIdentity(fixture, fixtureSha, fixtureName, runId, taskId, savedCopy,
             targetRgb, hostVersion.isBlank() ? "5.3.02" : hostVersion, timeoutMillis);

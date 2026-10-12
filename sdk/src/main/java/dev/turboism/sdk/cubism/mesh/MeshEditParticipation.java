@@ -10,7 +10,7 @@ import dev.turboism.sdk.plugin.Registration;
  * already performs the edit natively there is no interception and no callback, so behaviour
  * cannot be applied twice.</p>
  */
-@CubismEditor(from = "5.2.00")
+@CubismEditor(from = "5.0.00")
 public interface MeshEditParticipation {
 
     /**

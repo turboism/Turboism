@@ -20,6 +20,12 @@ MAIN_CLASS = b"com.live2d.cubism.CECubismEditorApp"
 JAVA_EXECUTABLE = b"app\\jre\\bin\\java.exe"
 JAVA_COMM = b"java.exe\n"
 PERIOD_SECONDS = 0.05
+ADMITTED_HOST_VERSIONS = {
+    "5000", "5001", "5002", "5003", "5004", "5005", "5006",
+    "5100", "5101", "5102", "5103",
+    "5200", "5201", "5202", "5203",
+    "5300", "5301", "5302", "5303", "5304",
+}
 
 
 class IdentityChanged(RuntimeError):
@@ -309,7 +315,7 @@ def main(argv: list[str]) -> int:
         raise ValueError("expected the generic Runner's eleven hook context arguments")
     task, home, evidence, _prefix, _fixture, run_id, version, timeout, *_ = argv
     task, home, evidence = map(Path, (task, home, evidence))
-    if version != "5302" or task.name != run_id or home != task / "turboism-home" or evidence != task / "evidence":
+    if version not in ADMITTED_HOST_VERSIONS or task.name != run_id or home != task / "turboism-home" or evidence != task / "evidence":
         raise IdentityChanged("hook context is not the expected task")
     if any(not p.is_absolute() or ".." in p.parts or any(a.is_symlink() for a in (p, *p.parents))
            for p in (task, home, evidence)):

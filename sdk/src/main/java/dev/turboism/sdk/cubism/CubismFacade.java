@@ -100,9 +100,7 @@ public interface CubismFacade {
      *
      * @return synchronous authoring transaction service
      */
-    @dev.turboism.sdk.CubismEditor({
-        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
-    })
+    @dev.turboism.sdk.CubismEditor(from = "5.0.00")
     default AuthoringTransactionService authoringTransactions() {
         return AuthoringTransactionService.unavailable();
     }

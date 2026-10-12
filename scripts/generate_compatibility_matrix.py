@@ -2012,6 +2012,10 @@ def classify_gap(
             if applies:
                 matched = "pending" if exc["pending"] else "boundary"
                 break
+        if matched is None and any(
+            version in boundaries.get(c, set()) for c in capabilities
+        ):
+            matched = "boundary"
         if matched is None and narrowed:
             # A selector contract or pin table narrows the capability: the
             # feature exists, the admission for this version is just not

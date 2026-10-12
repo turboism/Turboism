@@ -640,6 +640,48 @@
       "source": "gap5051 bytecode audit: javap on cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; propagate autobackup --from 5.2.00 reports MEMBER_MISSING on all 5.0.x"
     },
     {
+      "id": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService",
+      "absentOn": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06"
+      ],
+      "reason": "Auto-backup service requires the document-UID identity chain introduced in Cubism 5.1.00.",
+      "source": "gap5051 bytecode audit: javap on cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; autobackup boundary"
+    },
+    {
+      "id": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService#artifacts()",
+      "absentOn": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06"
+      ],
+      "reason": "Auto-backup artifact listing requires the document-UID identity chain introduced in Cubism 5.1.00.",
+      "source": "gap5051 bytecode audit: javap on cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; autobackup boundary"
+    },
+    {
+      "id": "dev.turboism.sdk.cubism.backup.EditorAutoBackupService#backupAfterSave()",
+      "absentOn": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06"
+      ],
+      "reason": "Auto-backup after save requires the document-UID identity chain introduced in Cubism 5.1.00.",
+      "source": "gap5051 bytecode audit: javap on cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; autobackup boundary"
+    },
+    {
       "id": "cubism.protected-export.orchestration",
       "absentOn": [
         "5.0.00",
@@ -652,6 +694,188 @@
       ],
       "reason": "Three incompatible members on every 5.0.x jar: export driver com/live2d/cubism/appCtrlImpl/al::a(CModelSource;CFrame;Function1)V takes Function1 (5.1+ uses Function2 \u2014 the staged output-file + absolute-path-list callback contract does not exist), CModelSource::containMotionSyncSettingNeedCorrection()Z missing, CMotionSyncSettingSource::getMotionSyncVersion() missing. The reviewed transformation premise fails closed.",
       "source": "gap5051 bytecode audit: javap on cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; propagate protected-export --from 5.2.00 reports DESCRIPTOR_MISMATCH + 2x MEMBER_MISSING on all 5.0.x"
+    },
+    {
+      "id": "dev.turboism.sdk.cubism.export.ExportSettingsContributionService",
+      "absentOn": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06"
+      ],
+      "reason": "Export settings contribution requires the 5.1+ export driver (al.a taking Function2) and motion sync settings source.",
+      "source": "gap5051 bytecode audit: javap on cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; export orchestration boundary"
+    },
+    {
+      "id": "dev.turboism.sdk.cubism.command.EditorCommandService",
+      "absentOn": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06"
+      ],
+      "reason": "Editor command execution requires top menu and external-app WebSocket infrastructure, introduced in Cubism 5.1.00.",
+      "source": "gap5051 bytecode audit: javap on cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; top-menu boundary"
+    },
+    {
+      "id": "turboism.editor_commands.execute",
+      "absentOn": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06"
+      ],
+      "reason": "Editor command execution endpoint requires top menu and external-app WebSocket infrastructure, introduced in Cubism 5.1.00.",
+      "source": "gap5051 bytecode audit: javap on cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; top-menu boundary"
+    },
+    {
+      "id": "turboism://host/editor-commands",
+      "absentOn": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06"
+      ],
+      "reason": "Editor commands resource endpoint requires top menu and external-app WebSocket infrastructure, introduced in Cubism 5.1.00.",
+      "source": "gap5051 bytecode audit: javap on cubism-ref/5.0.00..5.0.06 Live2D_Cubism.jar; top-menu boundary"
+    },
+    {
+      "id": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService",
+      "absentOn": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06",
+        "5.1.00",
+        "5.1.01",
+        "5.1.02",
+        "5.1.03"
+      ],
+      "reason": "Texture atlas polygon packing service requires layout algorithm and shape infrastructure introduced in Cubism 5.2.00.",
+      "source": "feature-gap audit class (a)"
+    },
+    {
+      "id": "dev.turboism.sdk.cubism.model.ModelTextures#exportRawImagePsd()",
+      "absentOn": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06",
+        "5.1.00",
+        "5.1.01",
+        "5.1.02",
+        "5.1.03"
+      ],
+      "reason": "Native PSD export from raw image requires the export pipeline introduced in Cubism 5.2.00.",
+      "source": "feature-gap audit class (a)"
+    },
+    {
+      "id": "dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()",
+      "absentOn": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06",
+        "5.1.00",
+        "5.1.01",
+        "5.1.02",
+        "5.1.03"
+      ],
+      "reason": "Native PSD replacement requires explicit-target replacement selectors introduced in Cubism 5.2.00.",
+      "source": "feature-gap audit class (a)"
+    },
+    {
+      "id": "dev.turboism.sdk.cubism.psd.PsdEditFile",
+      "absentOn": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06",
+        "5.1.00",
+        "5.1.01",
+        "5.1.02",
+        "5.1.03"
+      ],
+      "reason": "Runtime PSD edit handle requires the 5.2+ external PSD edit integration pipeline.",
+      "source": "feature-gap audit class (a)"
+    },
+    {
+      "id": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel",
+      "absentOn": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06",
+        "5.1.00",
+        "5.1.01",
+        "5.1.02",
+        "5.1.03"
+      ],
+      "reason": "Texture atlas editor panel integration requires editor UI selectors introduced in Cubism 5.2.00.",
+      "source": "feature-gap audit class (a)"
+    },
+    {
+      "id": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession",
+      "absentOn": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06",
+        "5.1.00",
+        "5.1.01",
+        "5.1.02",
+        "5.1.03"
+      ],
+      "reason": "Texture atlas editor session integration requires editor UI selectors introduced in Cubism 5.2.00.",
+      "source": "feature-gap audit class (a)"
+    },
+    {
+      "id": "dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi",
+      "absentOn": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06",
+        "5.1.00",
+        "5.1.01",
+        "5.1.02",
+        "5.1.03"
+      ],
+      "reason": "Texture atlas editor UI integration requires editor UI selectors introduced in Cubism 5.2.00.",
+      "source": "feature-gap audit class (a)"
     },
     {
       "id": "cubism.editor-ui.main-toolbar",

@@ -1,8 +1,10 @@
 package dev.turboism.tests.plugin;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.tests.plugin.TabFilterValidationProbe.PaletteProbe;
@@ -41,5 +43,26 @@ final class TabFilterValidationProbeTest {
         assertNull(TabFilterValidationProbe.palette(palettes, "log"));
         assertTrue(TabFilterValidationProbe.paletteKindFound(palettes, "deformer"));
         assertFalse(TabFilterValidationProbe.paletteKindFound(palettes, "scene"));
+    }
+
+    @Test
+    void parameterLabelClassNameCoversAll20ReviewedVersions() {
+        for (final String version : new String[] {"5000", "5001", "5002"}) {
+            assertEquals("com.live2d.ui.control.v", TabFilterValidationProbe.parameterLabelClassName(version));
+        }
+        for (final String version : new String[] {"5003", "5004", "5005"}) {
+            assertEquals("com.live2d.ui.control.x", TabFilterValidationProbe.parameterLabelClassName(version));
+        }
+        for (final String version : new String[] {
+            "5006", "5100", "5101", "5102", "5103", "5200", "5201", "5202", "5203", "5300", "5301", "5302", "5303",
+            "5304"
+        }) {
+            assertEquals("com.live2d.ui.control.y", TabFilterValidationProbe.parameterLabelClassName(version));
+        }
+        assertTrue(TabFilterValidationProbe.isParameterLabelClassName("com.live2d.ui.control.v"));
+        assertTrue(TabFilterValidationProbe.isParameterLabelClassName("com.live2d.ui.control.x"));
+        assertTrue(TabFilterValidationProbe.isParameterLabelClassName("com.live2d.ui.control.y"));
+        assertFalse(TabFilterValidationProbe.isParameterLabelClassName("javax.swing.JLabel"));
+        assertThrows(IllegalArgumentException.class, () -> TabFilterValidationProbe.parameterLabelClassName("5400"));
     }
 }
