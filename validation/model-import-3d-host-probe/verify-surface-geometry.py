@@ -159,7 +159,12 @@ def _verify_surface_report(report,run_id,glb,expected_mode,section_key,input_sha
             and report['mi3dMode'] == expected_mode, 'outer report mode')
     require(report['runId'] == run_id and bool(run_id) and report['status'] == 'PASS'
             and report['failure'] is None and report['stageAStatus'] == 'NOT_EVALUATED', 'outer run/status')
-    require(report['requestedVersion'] == '5302' and report['hostIdentity'] is None, 'host identity scope')
+    require(report['requestedVersion'] in {
+        '5000', '5001', '5002', '5003', '5004', '5005', '5006',
+        '5100', '5101', '5102', '5103',
+        '5200', '5201', '5202', '5203',
+        '5300', '5301', '5302', '5303', '5304',
+    } and report['hostIdentity'] is None, 'host identity scope')
     checks = report['checks']
     require(len(checks) == 2 and {c['id'] for c in checks} == {'newCommand', 'newIdentity'}
             and all(c['status'] == 'PASS' and c['actual'] is True and c['evidenceKind'] == 'EXACT_HOST' for c in checks), 'native entry checks')

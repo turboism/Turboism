@@ -45,9 +45,8 @@ interface: swing
 
 <!-- compatibility:begin -->
 **Cubism Editor 版本支持（自动生成）：** 全部审核版本.
-- MCP 纹理写入 仅 5.2.03–5.3.04（5.0.00–5.2.02 待确认）
-- 编辑事务（成组撤销写入） 仅 5.2.00–5.3.04（5.0.00–5.1.03 待确认）
-- MCP 编辑事务执行 仅 5.2.00–5.3.04（5.0.00–5.1.03 待确认）
+- 顶部菜单集成 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能）
+- MCP 编辑器命令执行 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能）
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->
 

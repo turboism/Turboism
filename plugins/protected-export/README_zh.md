@@ -31,9 +31,9 @@ interface: none
 - **界面模式：**`none` —— 插件通过框架动作驱动导出，并经通知与日志报告结果。
 
 <!-- compatibility:begin -->
-**Cubism Editor 版本支持（自动生成）：** 5.1.00–5.3.04（5.0.00–5.0.06 待确认）.
+**Cubism Editor 版本支持（自动生成）：** 5.1.00–5.3.04（更早版本 Cubism 本身无此功能）.
 - 受保护导出编排 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能）
-- 导出设置贡献 不适用于 5.0.00–5.0.06
+- 导出设置贡献 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能）
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->
 

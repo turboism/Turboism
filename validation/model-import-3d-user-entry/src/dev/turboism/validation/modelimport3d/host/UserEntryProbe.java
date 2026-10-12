@@ -41,10 +41,16 @@ public final class UserEntryProbe implements TurboismPlugin {
     private Target target;
     private final Map<String,Object> report=new LinkedHashMap<>();
 
+    private static final List<String> ADMITTED_HOST_VERSIONS=List.of(
+        "5000","5001","5002","5003","5004","5005","5006",
+        "5100","5101","5102","5103",
+        "5200","5201","5202","5203",
+        "5300","5301","5302","5303","5304");
+
     @Override public void init(PluginContext context) { this.context=context; }
     @Override public void enable() {
         String run=System.getProperty("turboism.validation.runId","");
-        require(run.matches("queue-[0-9a-f]{32}") && List.of("5203","5302","5303").contains(System.getProperty("turboism.validation.hostVersion")),"exact task required");
+        require(run.matches("queue-[0-9a-f]{32}") && ADMITTED_HOST_VERSIONS.contains(System.getProperty("turboism.validation.hostVersion")),"exact task required");
         require(worker==null,"one task per process");
         apple=UserEntryProbe.class.getResource("apple.glb")!=null;
         rejection="menu-reject".equals(System.getProperty("turboism.validation.mi3d.mode"));

@@ -597,6 +597,25 @@ class MatrixTest(unittest.TestCase):
             self.assertIn("status=FAIL", result)
             self.assertIn("error.", result)
 
+    def test_extended_object_readers_supported_covers_all_20_versions(self):
+        pre_53 = [
+            "5000", "5001", "5002", "5003", "5004", "5005", "5006",
+            "5100", "5101", "5102", "5103",
+            "5200", "5201", "5202", "5203",
+        ]
+        v53 = ["5300", "5301", "5302", "5303", "5304"]
+        for code in pre_53:
+            self.assertFalse(probe.extended_object_readers_supported(code), code)
+            dotted = f"{code[0]}.{code[1]}.{code[2:]}"
+            self.assertFalse(probe.extended_object_readers_supported(dotted), dotted)
+        for code in v53:
+            self.assertTrue(probe.extended_object_readers_supported(code), code)
+            dotted = f"{code[0]}.{code[1]}.{code[2:]}"
+            self.assertTrue(probe.extended_object_readers_supported(dotted), dotted)
+        self.assertTrue(probe.extended_object_readers_supported("unknown"))
+        with self.assertRaises(ValueError):
+            probe.extended_object_readers_supported("5400")
+
 
 if __name__ == "__main__":
     unittest.main()

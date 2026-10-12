@@ -781,9 +781,10 @@ public final class EditHostValidationPlugin implements TurboismPlugin {
                 observe("S5.glueIds", "unavailable " + singleLine(failure));
             }
 
-            // On 5.2.03 the extended part/art-mesh readers are expected to fail closed;
-            // on 5.3.02+ they must return typed payloads.
-            final boolean extendedReaders = !"5203".equals(hostVersion);
+            // On 5.0.00–5.2.03 the extended part/art-mesh readers (alpha composition, offscreen,
+            // part-form visual fields) are absent from the host and expected to fail closed;
+            // on 5.3.00–5.3.04 they must return typed payloads.
+            final boolean extendedReaders = extendedObjectReadersSupported(hostVersion);
             readObjectKind(open, byKind, EditObjectKind.PART, ModelObjectKind.PART,
                 extendedReaders, "S5.getObject.PART");
             readObjectKind(open, byKind, EditObjectKind.ART_MESH, ModelObjectKind.ART_MESH,
@@ -1620,6 +1621,26 @@ public final class EditHostValidationPlugin implements TurboismPlugin {
         }
         final String text = value.toString().replace('\n', ' ').replace('\r', ' ');
         return text.length() > 4000 ? text.substring(0, 4000) : text;
+    }
+
+    static boolean extendedObjectReadersSupported(final String hostVersion) {
+        if (hostVersion == null) {
+            throw new IllegalArgumentException(
+                "turboism.validation.hostVersion must be an exact installed version code");
+        }
+        return switch (hostVersion) {
+            case "5000", "5001", "5002", "5003", "5004", "5005", "5006",
+                    "5100", "5101", "5102", "5103",
+                    "5200", "5201", "5202", "5203",
+                    "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+                    "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+                    "5.2.00", "5.2.01", "5.2.02", "5.2.03" -> false;
+            case "5300", "5301", "5302", "5303", "5304",
+                    "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04" -> true;
+            default -> throw new IllegalArgumentException(
+                "turboism.validation.hostVersion must be an exact installed version code: "
+                    + hostVersion);
+        };
     }
 
     private void writeResultFile(final long startedNanos) {
