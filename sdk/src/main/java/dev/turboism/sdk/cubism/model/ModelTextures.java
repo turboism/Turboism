@@ -172,7 +172,7 @@ public interface ModelTextures {
      *
      * @return the detached registration/binding handle
      */
-    @CubismEditor(from = "5.2.00")
+    @CubismEditor(from = "5.0.00")
     default ModelImageBinding registerImageAndBind(final AuthorizedImageContent image, final ArtMeshId target) {
         throw unavailable("Model image registration and binding");
     }
@@ -187,7 +187,7 @@ public interface ModelTextures {
      *
      * @return the detached binding handle
      */
-    @CubismEditor(from = "5.2.00")
+    @CubismEditor(from = "5.0.00")
     default ModelImageBinding bindModelImage(final ModelImageId image, final ArtMeshId target) {
         throw unavailable("Model image binding");
     }
@@ -204,7 +204,7 @@ public interface ModelTextures {
      * is authoring binding identity, not a render texture index and not proof of
      * sampling.</p>
      */
-    @CubismEditor(from = "5.2.00")
+    @CubismEditor(from = "5.0.00")
     default Optional<ArtMeshTextureInput> textureInput(final ArtMeshId target) {
         throw unavailable("ArtMesh texture input observation");
     }
