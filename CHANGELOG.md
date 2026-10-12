@@ -8,288 +8,144 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.67.0] - 2026-10-13
+
 ### Added
 
-- The `acp` exact-host validation capability joins the local host-validation queue: a test-only
-  probe opens the ACP Agent window through the public action catalog inside a real Cubism
-  session, a scripted fake agent (default-package `acp` entry point) asserts the
-  credential-free stdio MCP attachment and performs one rename through the token-gated
-  `TurboismMcpBridge` with a guarded undo, an SDK cross-read re-verifies the restored document,
-  and the host closes normally on 5.2.03, 5.3.02 and 5.3.03.
-
-- Reworked the development-only agent chat plugin into the generic `Turboism ACP` plugin
-  (`dev.turboism.plugin.acp`): it launches user-installed ACP-compatible agents (Claude Agent ACP,
-  Codex ACP, Antigravity, Gemini CLI, OpenCode, Pi, Devin CLI, or a custom command), detects
-  executables on PATH, drives ACP authentication and durable sessions, and still attaches the
-  authenticated Turboism MCP endpoint when the agent advertises HTTP MCP support.
-
-- Animation workspace support in the SDK and runtime: plugins can enumerate animation documents,
-  project timelines, tracks, attributes and keyframes, activate and rename scenes, seek playback,
-  apply batched keyframe edits and curve types, and record/bake evaluated values. A pure-SDK
-  `Motion3Validator` reports structural issues in motion3 data. The object model is verified
-  exact-host on Cubism 5.2.03, 5.3.02 and 5.3.03 through the `animation-timeline-host-probe`.
-- `PluginContext.availableServices()` and the `PluginService` enum report which optional context
-  services the runtime actually installed, so plugins no longer have to probe getters or guess at
-  `unavailable()` sentinels; the default fails closed with an empty set.
-- `PluginContext.services()` and `PluginServiceDirectory` give plugins a typed lookup of the
-  optional context services the runtime actually installed (`services().find(ServiceType.class)`
-  returns an empty `Optional` when absent); each `PluginService` member now carries its service type. The
-  pre-existing per-service `PluginContext` getters remain as deprecated bridges for binary
-  compatibility, and new optional services land on the directory instead of growing the context.
-- `@Incubating` marks SDK types and members that are published for early adopters but not yet
-  covered by the stable-API compatibility promises; the MCP surface, the generated-subscriber
-  catalog machinery and the new service directory ship incubating.
-- `TurboismWindowFactory.installWindowIcon` installs a process-wide window-icon override, so every
-  plugin-owned window carries the same product icon the user picked for the main-toolbar button
-  (text vs installer mode) instead of the bundled default.
-- The Performance settings tab gains two launch/editing controls: a Cubism JVM ZGC toggle
-  (`launcher.zgc`, see Changed for its default) and a "Disable automatic backup (weakens crash
-  recovery)" toggle that suspends the host's periodic auto-backup timer during editing while
-  keeping the configured interval and cap. The observed host settings are captured to a
-  plugin-state baseline before the first override and restored when the flag is off, so a crash
-  while enabled cannot strand backups disabled. Manual `backupNow`/`backupAfterSave` are
-  unaffected.
-- Texture-atlas tile-bbox processing and output cache-reuse, both on by default. Scratch and
-  compositing are bounded to the transformed tile bounding box instead of whole atlas pages, and a
-  content-signature guard on `CTextureAtlas.updateTexture` supplies a duplicate of the retained
-  recorded output when an identical signature reappears. On the reviewed real-host fixture this
-  cut editor open from ~100 s to 15–18 s and export EDT work from ~127 s to ~15 s with
-  bit-identical page digests; reviewed targets pin the exact supported archives and everything
-  else fails closed.
-- Guarded, opt-in performance experiments: native texture preparation, PNG archive reuse, and
-  Cubism image diagnostics. All are off by default; exact-host differential probes measure them
-  without claiming GPU/FPS or load-time speedups.
-- The SDK now ships to plugin developers directly: every framework release carries
-  `turboism-sdk-<version>.jar` plus its SHA-256 sidecar as a GitHub-only developer asset,
-  `./gradlew publishToMavenLocal` yields clean `dev.turboism` coordinates, and
-  `templates/plugin-template` is a standalone project that builds against the released SDK.
-- The Warp Deformer Alt Symmetry plugin extends the bounding-box Alt semantics to Warp Deformer
-  control points: Alt drags mirror across the vertical grid axis and Alt+Shift across the
-  horizontal. A contributed toggle on the canvas-top control strip arms the axis and a native
-  canvas hint shows the armed state; mirrored positions commit through the model-write path so a
-  symmetric move joins native Undo/Redo. The plugin requests `turboism.cubism.model.read`,
-  `turboism.cubism.model.write`, `turboism.ui.toolbar.contribute` and `turboism.ui.canvas.hint`,
-  and its native mirror binds only when the verified host hook is installed. The verified
-  drag-tick hook admits the exact reviewed Cubism 5.2.03, 5.3.02 and 5.3.03 artifacts —
-  inside the native drag tick it provides live mirrored preview and a single undo entry —
-  while unreviewed hosts keep the release-time AWT fallback with identical results.
-  While an axis is armed, selection-weight writes (the Brush Selection Tool and every other
-  weighted-selection flow) are mirrored onto the axis counterpart point in the same
-  selection/undo envelope, so weight painting stays symmetric in real time.
-- `Action.of` and `MenuContribution.of` build single-point contribution registrations as plain
-  `SimpleAction`/`SimpleMenuContribution` values, so a plugin no longer needs an anonymous class
-  for every action or menu item it contributes.
-- Runtime-owned keybinding authority and a Keybindings window: the Turboism menu gains a
-  "Keybindings" item opening a table of every bindable row — plugin actions (including the core
-  shell's own) and native commands enumerated live from the host's menu accelerators, so the
-  catalog always mirrors the shortcuts the running Cubism version actually declares; shortcuts
-  not exposed through menus can still be added as key-forwarding rows. A global AWT key dispatcher intercepts host key
-  events so a bound key invokes a plugin action through the action router, while a native rebind
-  is translated back into the host's original shortcut and the displaced key is suppressed.
-  Rows carry a tri-state binding (unset/bound/disabled) persisted under
-  `state/runtime/keybindings.properties`, conflicting claims are marked in the table, plain
-  single-key bindings stay inactive while a text field holds focus, and the capture dialog
-  suspends interception while recording. `ActionRegistry.Action.defaultShortcut()` plus the new
-  `Action.of(id, label, shortcut, handler)` overload let plugins declare a default shortcut the
-  user can rebind. The core shell declares defaults for its window actions (Settings
-  `Ctrl+Alt+S`, Plugins `Ctrl+Alt+P`, Logs `Ctrl+Alt+L`, Keybindings `Ctrl+Shift+K`), and the
-  first-party mesh-inspect, history-toggle and demo actions ship declared defaults as SDK
-  examples. Double-clicking a row's shortcut cell opens the capture dialog directly.
-
-- Every first-party plugin JAR now ships a derived `META-INF/turboism/cubism-versions.json`
-  declaring the Cubism Editor versions the plugin supports; the compatibility-matrix generator
-  writes it from review data alongside `compatibility/cubism/compatibility-matrix.json`, so the
-  declaration can never drift from what the code actually uses. Third-party plugins may ship the
-  same sidecar; a `requiresCubism` plugin without one loads exactly as before and is logged once
-  as "undeclared". Two new `devCheck` gates enforce the version-adaptation policy:
-  `checkSdkCubismEditorAnnotations` requires `@CubismEditor` on new public
-  `dev.turboism.sdk.cubism` API (the legacy surface is frozen in
-  `sdk/api-contracts/cubism-annotation-baseline.json`), and `checkVersionSetRegistry` requires
-  every literal Cubism version set in production sources to be registered with a basis and reason
-  in `scripts/version-set-registry.json`.
-
-### Removed
-
-- Removed the managed fx runtime entirely: no bundled or downloaded agent binaries, no runtime
-  manifest/hash pinning, no Turboism-managed provider profiles or credential store, and no
-  Gateway/OpenAI adapter — agent authentication, provider, and model stay with the agent itself.
-  The development-only `turboism-with-fx` plugin id is retired, and release tooling no longer
-  references fx packaging or validation fixtures.
+- Comprehensive multi-version capability adaptation across 20 reviewed Live2D Cubism Editor versions
+  (5.0.00 – 5.3.04). Across all 143 framework capabilities, 129 universal capabilities (90.2%) are admitted
+  across the entire reviewed version set. Coverage by patch line:
+  - Cubism 5.0.x (5.0.00–5.0.06, 7 versions): 129 / 143 capabilities (90.2%).
+  - Cubism 5.1.x (5.1.00–5.1.03, 4 versions): 135 / 143 (94.4%) in 5.1.00–5.1.01 and 136 / 143 (95.1%) in 5.1.02–5.1.03.
+  - Cubism 5.2.x (5.2.00–5.2.03, 4 versions): 140 / 143 capabilities (97.9%) across all versions.
+  - Cubism 5.3.x (5.3.00–5.3.04, 5 versions): 143 / 143 capabilities (100.0%) across all versions.
+  Capability sets satisfy strict monotonicity within each minor line. Evidence-based version boundaries in
+  `compatibility/cubism/version-boundaries.json` document architectural differences: Cubism 5.0.x lacks host
+  auto-backup, protected-export, auto-yure read, top-menu integration, and external-app edit-toggle; the
+  edit-protocol bridge is available since 5.1.02; animation timeline SDK/runtime, selection brush, and mesh
+  geometry read are available since 5.2.00; and part inspector writes, part opacity writes, MOC3 export reads,
+  and alpha composition are available since 5.3.00. Multidocument compatibility matrices are available in
+  English, Simplified Chinese, Japanese, and Korean under `compatibility/cubism/` covering capabilities and plugins.
+- Every first-party plugin JAR ships a derived `META-INF/turboism/cubism-versions.json` descriptor declaring
+  its exact supported Editor versions generated from reviewed capability requirements. The SDK `@CubismEditor`
+  annotation contract is established: a bare annotation without arguments declares availability across all 20
+  reviewed versions, while explicit attributes define constrained subsets.
+- Automated host startup dialog assistance (`NativeFreeStartup`): handles dialog interactions across all
+  supported Cubism versions during testing and validation runs. It automates PRO trial selection
+  ("Start PRO Version Free Trial") along with confirmation and activation handling (falling back to FREE when
+  the trial path is unavailable), dismisses update notifications and home news windows, automatically confirms
+  warnings when opening newer project files in older Editor versions, and suppresses the 5.0.x JavaFX
+  announcement dialog (`AnnouncementDialog` background stage hidden via the JavaFX thread) to prevent host
+  main-frame and menu-bar lockouts. The exact-host validation task queue derives task version sets directly
+  from capability dependencies in the matrix, orchestrating 56 distinct validation tasks.
+- 3D Model Import plugin (`dev.turboism.plugin.model-import-3d`): native 3D model import supporting static
+  opaque GLB, glTF, OBJ/MTL, and model ZIP archives with PNG/JPEG textures, full 360-degree XYZ rotation, and
+  bounded geometry optimization committing through a single undoable authoring transaction.
+- Turboism ACP plugin (`dev.turboism.plugin.acp`): connects user-installed ACP-compatible AI agents (Claude
+  Agent ACP, Codex ACP, Pi, Gemini CLI, OpenCode, Antigravity, Devin CLI, or custom executables) to the
+  authenticated Turboism MCP server, featuring executable detection on PATH, durable session persistence, and
+  a credential-free stdio-to-HTTP MCP attachment bridge.
+- Animation workspace support in the SDK and runtime: plugins can enumerate animation documents, project
+  timelines, tracks, attributes, and keyframes; activate and rename scenes; seek playback; apply batched
+  keyframe edits and curve types; and record evaluated values. A pure-SDK `Motion3Validator` reports structural
+  issues in motion3 data. The animation workspace is available on Cubism 5.2.00–5.3.04.
+- History Panel plugin (`dev.turboism.plugin.historypanel`): Photoshop-style docked history panel projecting
+  the active document's native Undo history with snapshot-bound click-to-jump Undo/Redo navigation.
+- Recent Preview plugin (`dev.turboism.plugin.recent-preview`): captures bounded viewport preview thumbnails
+  for recently opened project files and contributes them to the host Recent Files hover bridge with
+  memory-bounded caching.
+- Texture Atlas packing plugins: MaxRects-BSSF auto-layout plugin (`dev.turboism.plugin.texture-atlas`), Dalsoo
+  polygon packing plugin (`dev.turboism.plugin.texture-atlas-dalsoo`), and texture-atlas statistics; runtime
+  tile-bbox processing and output cache reuse cutting editor open and export times.
+- Selection Brush plugin (`dev.turboism.plugin.selection-brush`): modeling surface selection brush tool
+  supporting weighted point selection.
+- Warp Deformer Alt Symmetry plugin (`dev.turboism.plugin.warp-deformer-alt-symmetry`): Alt vertical and
+  Alt+Shift horizontal symmetry dragging for warp deformer control points across all reviewed versions,
+  supported by verified native drag-tick hooks on Cubism 5.2.03, 5.3.02, and 5.3.03 with live mirrored selection
+  weight painting, falling back to AWT dispatch elsewhere.
+- Keybindings window and runtime dispatcher: customizable shortcut mapping in the Turboism menu,
+  intercepting host key events to trigger plugin actions and rebind native shortcuts with conflict detection
+  and persistent storage in `state/runtime/keybindings.properties`.
+- Public SDK distribution: each release ships `turboism-sdk-<version>.jar` and SHA-256 sidecar as a
+  standalone developer asset, with local Maven coordinates via `publishToMavenLocal` and a standalone project
+  template in `templates/plugin-template`.
+- Typed plugin service lookup via `PluginContext.services()` and `PluginServiceDirectory`.
+- Process-wide window icon customization via `TurboismWindowFactory.installWindowIcon`.
+- Performance settings tab controls for Cubism ZGC launch and automatic backup suspension during editing.
+- Developer governance gates in `devCheck`: `checkVersionMonotonicity` enforces capability superset invariants
+  across patch releases; `checkVersionSetRegistry` requires explicit registration of literal Cubism version
+  sets in `scripts/version-set-registry.json`; `checkSdkCubismEditorAnnotations` blocks unannotated public
+  Cubism SDK APIs against `sdk/api-contracts/cubism-annotation-baseline.json`; and
+  `check_host_validation_versions.py` verifies all 56 host validation tasks derive version coverage from
+  matrix requirements. Version adaptation rules and standards are documented in `CONTRIBUTING.md`.
+- Self-contained 3D test assets in `test-assets/model-import-3d/` (`cube.glb`, `cube-textured.glb`,
+  `plane.glb`, `plane-seam.glb`), enabling offline regression testing of 3D imports without proprietary fixtures.
 
 ### Changed
 
-- MCP plugin: the loopback server now requires `Authorization: Bearer` for mutating
-  `tools/call` effects and session close, backed by a per-user token persisted owner-only at
-  `<plugin-state>/mcp.token`, and publishes a `TurboismMcpBridge.java` stdio-to-HTTP relay next
-  to it so MCP clients connect with a single `{"command":"java","args":[...]}` line without
-  handling the token. Read-only methods stay credential-free behind the existing
-  loopback/Origin/session checks.
+- SDK contract convergence and exact baseline v14:
+  - Removed deprecated per-service `PluginContext` getters; service resolution is unified through
+    `ctx.services().find(ServiceType.class)` and `require(ServiceType.class)`.
+  - The parameter query read plane (`ParameterQueryService`, `ParameterSummary`, `ParameterBounds`) is removed;
+    `ParameterAppearance` exposes palette visibility and editability (`visible()`, `editable()`), and
+    parameters are queried through `cubism().model().active().parameters().all()`.
+  - The legacy command queue and `TransactionManager` are replaced by authoring transactions and direct
+    `Parameter.setValue`.
+  - The internal `StrictJson` codec is replaced by `dev.turboism.sdk.json.Json`.
+  - Auto-backup file paths are replaced by `BackupArtifactHandle` metadata.
+  - The reviewed SDK exact baseline is now v14, with v2–v13 retained as historical audits. Plugin API
+    migration is required for affected surfaces.
+- The built-in core plugin is folded into the runtime as the framework shell (`dev.turboism.shell`),
+  removing the separate plugin JAR while retaining config, task, and log attribution.
+- Managed launches run Cubism on ZGC (`-XX:+UseZGC`) by default, eliminating second-scale G1 GC pauses and
+  reducing steady-state RSS.
+- Parameter CSV batch imports execute in a single authoring transaction instead of committing per write,
+  reducing structure rebuilds by 89% and median write latency by 75%.
+- Startup suppression (skip update check, splash screen, and info dialogs) is now enabled by default.
+- Host hooks are declared in `META-INF/turboism/hooks` and scanned via `HookContributor`, replacing manual
+  agent wiring while preserving fail-closed admission.
+- Continuous integration runs `devCheck` and the full `checkCompletedCommit` suite on every pull request and
+  push using Xvfb for display-dependent tests.
+- Javadoc presence checks use the JDK 17 compiler tree API, covering implicit public interface methods and
+  publicly reachable nested types.
+- Semantic event types relocated to `dev.turboism.sdk.cubism.event`.
+- Release gates enforce complete localization across all supported Cubism languages for marketplace listings
+  and candidate release notes.
 
-- Ordinary CI now runs both `devCheck` and the complete `checkCompletedCommit` suite on every pull
-  request and push to `main`, using Xvfb for display-dependent tests. Coverage guards reject skipped,
-  filtered or soft-failed gates; channel checks now follow `main` and include root build inputs.
-- Javadoc presence checks now use the JDK 17 compiler tree API instead of line-based matching,
-  covering implicit public interface methods and publicly reachable nested types. Parsing and tool
-  failures fail the check rather than silently falling back to incomplete results.
-- Public API documentation across the SDK, runtime and official plugins now describes previously
-  undocumented declarations and clarifies lifecycle, ownership, failure and result semantics.
-- The built-in core plugin is folded into the runtime as the framework shell
-  (`dev.turboism.shell`): it no longer ships as a plugin JAR, the reserved `turboism.core`
-  identity still attributes config, tasks and logs, plugin management still lists it as the
-  non-removable core row, and the plugin load report no longer lists it. The shared top-menu root
-  keeps "Turboism" as its routing key but displays the framework-localized name.
-- Managed launches now run Cubism on ZGC (`-XX:+UseZGC`) by default: exact-host A/B showed it
-  eliminates G1's second-scale pauses (load ~1.4 s → sub-millisecond, write ~0.6 s →
-  sub-millisecond) and cuts steady RSS by roughly a third. The Performance → Cubism JVM toggle
-  applies on the next launch and stores only an explicit opt-out.
-- CSV parameter batch imports now run inside one authoring transaction instead of committing per
-  write. On the heavy-model real-host A/B, Update Parameter Structure rebuilds dropped from 37 to
-  4 (-89%), median parameter-write time from 4.71 ms to 1.19 ms (-75%), and EDT allocation across
-  a 35-write burst by ~99.8%.
-- Runtime reads observe the host once per versioned read or scope capture through an SDK-shaped
-  observation seam instead of re-projecting every accessor; the synthetic benchmark measures ~29%
-  less read-path time and ~41–43% less per-call allocation.
-- Cubism startup suppression (skip update check, splash, and information dialogs) is now on by
-  default, including fresh installs and runs whose Turboism home has no `config.json` yet.
-  Setting a `hooks.startup.skip*` flag to `false` or enabling safe mode opts out; a
-  schema-invalid config still fails closed. Premain diagnostics are now buffered until the
-  runtime log sink installs, so `STARTUP_SUPPRESSION_*` admission codes reach the session log.
-- Release gates now hold localization to the full Cubism language matrix. Marketplace plugin
-  listings must carry `plugin.name`/`plugin.description` in every declared locale
-  (en, ja, ko, zh-Hans, zh-Hant), and release candidates are rejected unless the
-  reviewed zh, ja and ko note translations exist. The framework message catalogs join the
-  official-plugin completeness gate, which now also runs as part of `checkIntegration`.
-- Every optional `PluginContext` service accessor now returns that service's `unavailable()`
-  sentinel instead of throwing `UnsupportedOperationException` from the getter, and each service
-  exposes `isAvailable()` for probing. Sentinels still fail closed: they report structured
-  failures where the domain offers one (task submissions, host reads, storage, user files, mesh
-  edits, host dialogs, script runs) and throw a stable `UnsupportedOperationException` on use
-  where it does not. `ScriptService#available` is renamed `isAvailable` so the probe carries one
-  name everywhere. **Plugin API migration may be required:** a plugin that caught the accessor's
-  `UnsupportedOperationException` should call `isAvailable()` instead.
-- The eighteen semantic event types moved from `dev.turboism.sdk.event.cubism` to
-  `dev.turboism.sdk.cubism.event`; the retired package is rejected by the boundary and
-  package-layout checks so the deprecated shape cannot regress. **Plugin API migration may be
-  required:** update event imports.
-- The pre-1.0 SDK contract convergence removes the deprecated per-service `PluginContext`
-  accessors (the 34 bridges deprecated in v12 plus `actionCatalog()`), `availableServices()`,
-  `CubismFacade.transactionManager()`, the `dev.turboism.sdk.cubism.write` command queue and the
-  `cubism.transaction` queue types (`TransactionManager`, `ModelTransaction`, `TransactionStatus`,
-  queue exceptions). `ctx.services().find/require(Class)` is now the single service entry point
-  (`availableServices()` → `services().installed()`); writes go through `Parameter.setValue` and
-  `authoringTransactions()`. The internal `dev.turboism.protocol.json.StrictJson` codec is
-  replaced by `dev.turboism.sdk.json.Json` (`Map<String,?>`/`List<?>` roots), and the backup
-  file-path surfaces (`BackupSyncTarget.sync(List<File>)`, `BackupRunResult.newBackupFiles()`,
-  `EditorAutoBackupSettings.backupDir()`, `EditorAutoBackupStatus.filePath`) are replaced by
-  `BackupArtifactHandle`/`BackupArtifact` metadata with `artifacts()`/`backupDirDisplay()`.
-  `CubismFacade.model()`/`coreRuntime()` and the texture-atlas accessors now return `unavailable()`
-  sentinels instead of throwing. The `cubism.edit` and `sdk.script` surfaces and the
-  `PluginService` constants `SCRIPTS`, `MESH_TOOLS`, `MODELING_TOOLS` and `MCP_CONNECTIONS` are
-  `@Incubating` and leave the stable exact-API gate; the reviewed exact baseline is now v13, with
-  v2–v12 retained as historical audits. **Plugin API migration is required:** resolve services
-  through `ctx.services()`, route writes through `Parameter.setValue`/authoring transactions,
-  and read backup artifacts via handles.
-- The parameter query read plane is removed from the SDK: `ParameterQueryService` (and its
-  `Unavailable` sentinel), `ParameterSummary`, `ParameterBounds`, `PluginContext.parameterQuery()`
-  and `PluginService.PARAMETER_QUERY` are gone, and `ParameterAppearance` gains `visible()` /
-  `editable()` `Optional<Boolean>` projections of the parameter palette state. Deleting the enum
-  constant shifts real `PluginService.ordinal()` values by −1 for everything declared after it, so
-  persisted ordinals must be rewritten. The reviewed exact baseline is now v14, with v2–v13 retained
-  as historical audits. **Plugin API migration is required:** list parameters through
-  `cubism().model().active().parameters().all()`, resolve one through `parameters().findById(id)`,
-  read values through `Parameter.getValue`/`getMinimumValue`/`getMaximumValue`/`getDefaultValue`,
-  read palette flags through `parameter.ui().visible()`/`editable()`, and declare
-  `turboism.cubism.model.read` instead of `turboism.cubism.parameter.read`.
-- Install-time host hooks are declared in `META-INF/turboism/hooks` and scanned by the agent
-  instead of being hand-wired: each `HookContributor` checks its own admission and forwards
-  install/bind/uninstall through `HookRegistry`, so a new hook is a manifest line plus a
-  contributor class rather than an edit to the agent. Verified/fail-closed admission, atomic
-  record extraction, the mesh-mirror premain/bind lifecycle, and the `installation=`/`cleanup=`
-  report lines are unchanged.
+### Removed
+
+- Completely removed the managed fx runtime: no bundled agent binaries, credential stores, or OpenAI gateway
+  adapters; the development-only `turboism-with-fx` plugin id is retired.
+- Removed `ParameterQueryService`, `ParameterSummary`, `ParameterBounds`, and `PluginContext.parameterQuery()`
+  from the SDK.
+- Removed deprecated per-service `PluginContext` convenience accessors, `availableServices()`, and the legacy
+  `cubism.transaction` queue types.
 
 ### Fixed
 
-- ACP-attached agents can use Turboism MCP write tools again: the MCP plugin publishes a
-  credential-free stdio launch descriptor on the connection snapshot, and the ACP plugin
-  attaches it as a stdio MCP server — the precompiled bridge inside the MCP plugin JAR reads
-  the bearer token itself, so it also works on JREs without `jdk.compiler`. The HTTP endpoint
-  remains a read-only fallback, endpoint drift now reconnects any MCP-attached session, and
-  the Agent transcript reports whether tools attached writable or read-only.
-- `ClassPinTable.load` now falls back to the system class loader when the agent classes have no
-  defining loader: the distributed agent's `Boot-Class-Path` manifest entry bootstrap-loads them,
-  so the pin-table lookup dereferenced `null` during premain and the whole runtime failed safely
-  instead of starting on a real host.
-- Removed machine-specific literals from tooling: preview launch scripts no longer probe a
-  personal `F:\Live2D` install path, the parameter-validation GraalVM probe derives its Proton
-  `Z:` path from `$HOME` instead of a hardcoded username, the release API monitor reads its
-  incident recipient from `TURBOISM_MONITOR_RECIPIENT` (fed by the `RELEASE_MONITOR_RECIPIENT`
-  repository variable), and the remote-hygiene gate now also rejects `Users\`/`home\` spellings
-  of the developer home directory, not only `/home/`.
-- Animation documents, scenes, tracks and attributes now enforce plugin permissions, scope liveness
-  and document generations throughout the object graph. Keyframe copies reject stale or foreign
-  sources while preserving valid copies between active views owned by the same plugin.
-- Animation time scaling now applies the same affine transform to keyframes and their Bézier
-  control-handle times instead of merely shifting the handles. Fractional handle times and identity
-  scaling around large origins retain their precision; translation and copy behavior is unchanged.
-- Retained `cubismRead()` and Clip Mask collection services now reject access after their owning
-  plugin scope closes, including the direct PSD, clip-mask, texture-atlas, render, workspace and
-  theme read paths, without invalidating other plugins.
-- Physics-editor contributions are released automatically when their plugin scope closes. Closed
-  services cannot register new contributions, and repeated closes cannot remove a later contribution.
-- Atlas cache reuse now falls back to the original rebuild path when an input digest cannot be
-  computed, including images over the existing pixel budget. Unknown digests no longer compare as
-  equal and return stale pixels; ordinary unchanged inputs remain eligible for reuse.
-- `Motion3Validator` checks exact numeric values before narrowing `Version` and segment-kind
-  identifiers, rejecting fractional and overflow-wrapping values without throwing on extreme
-  exponents in those fields. Valid mathematically equivalent representations remain accepted.
-- Managed Graal installation now reconciles a verified, current-version orphan activation marker
-  left by an interrupted first install before starting another download, avoiding a full download
-  and probe followed by `GRAAL_RUNTIME_RECOVERY_REQUIRED`. Unknown markers and existing rollback
-  safeguards remain protected.
-- Each `DisposableScope` registration now owns a single release action shared by the registration
-  handle and scope cleanup, including repeated or concurrent closes. Distinct registrations of
-  equal resources no longer remove one another's cleanup entries.
-- The three- through six-argument `CorePluginContext` convenience constructors taking host-adapter
-  access now assemble omitted services through the default path instead of failing with a null
-  pointer. Explicit services and the strict constructor overloads keep their existing contracts.
-- Runtime test fixtures now isolate temporary host classes from same-named classpath fixtures,
-  execute headless dialog checks in a separate headless JVM, and close their own settings-window
-  scopes, eliminating the associated linkage failures, modal hangs and cross-test window leaks.
-- Cubism 5.3.03 editor-model DRAFT mapping metadata now matches its referenced verification record.
-  Regression checks validate exact counts, capability IDs and the record digest without accepting
-  lossy numeric conversions; this does not enable new runtime mappings.
-- Switching between two open documents now publishes the newly bound model immediately; previously
-  the previous model stayed published, so evaluated reads could trace — and pin — the wrong model
-  under the new binding identity.
-- The editor binding-identity cache no longer retains closed document graphs for the life of the
-  session (its cached identities are now held weakly), and a borrowed Core model is released once
-  its binding is gone.
-- Several unbounded growth paths are now bounded: the overlay button side table evicts FIFO, the
-  recent-preview memory maps and the poller's emit-dedupe marks are pruned to live entries, and
-  non-showing subtrees are pruned from the scene-palette poll and the palette-filter component
-  walkers.
-- Reflection-heavy host paths cache verified members, constructors and owner classes plus
-  permanent misses; mesh-mirror scans index once per dispatch; the workspace `safeSegment`
-  sanitizing patterns are precompiled; and the palette toolbar skips re-layout when nothing
-  changed.
-- Log redaction gates each pattern on the bytes it strictly requires, removing ~7 matcher
-  allocations per observed entry; redaction output is unchanged.
-- The framework shell gets a proper `URLClassLoader` over the agent jar with a system-classloader
-  fallback, and all remaining window construction routes through `TurboismWindowFactory`.
-- Host-validation and preview packaging fixes: the parameter plugin JAR is located by glob instead
-  of a stale versioned name, validation probes ship their declared i18n catalogs, the workspace
-  bundle is packaged from the canonical agent jar, the runner supports local host transport and
-  Windows result lines, close-phase artifacts count toward the automated result, the
-  plugin-management restart hook is admitted into the reviewed queue inventory, and the Cubism
-  5.3.03 exact host joined the validation queue.
-- The hook registry no longer corrupts or double-closes handles when a process-exit close pass
-  races a late enrollment: close passes walk a snapshot and claim each entry atomically, and a
-  handle enrolled mid-pass stays enrolled instead of being half-closed.
-- The agent reads the hook manifest on the boot class path, so a manifest packaged inside the
-  agent JAR resolves regardless of the process working directory.
-- The canvas (workspace object) context menu no longer receives plugin contributions: the UI Theme
-  plugin's Theme Manager entry and the Parameter and Parameter Batch Transfer plugins' workspace
-  entries are removed, while their palette-tab context-menu and top-menu entries are unchanged.
+- ACP-attached agents can use Turboism MCP write tools over a precompiled stdio bridge without requiring a
+  compiler on the host JRE, and sessions auto-reconnect on MCP endpoint changes.
+- `ClassPinTable.load` falls back to the system class loader when bootstrap agent classes have no defining loader.
+- Removed machine-specific paths from preview launch scripts, test harnesses, and monitors.
+- Enforced strict plugin scope lifecycle and permission checks across animation, clip mask, PSD, texture
+  atlas, and physics services, invalidating access upon plugin scope disposal.
+- Animation time scaling applies consistent affine transforms to Bézier control handles.
+- Bounded memory growth: FIFO eviction on overlay button tables, weak caching for editor binding identities,
+  and live-entry pruning for recent previews and palette walkers.
+- Texture atlas cache reuse falls back to the rebuild path when input digests cannot be computed.
+- `Motion3Validator` validates numeric ranges before narrowing segment identifiers.
+- Managed Graal installer reconciles orphan activation markers left by interrupted installations.
+- Document switching publishes newly bound models immediately, preventing evaluated reads from pinning
+  stale models.
+- Agent hook manifest resolves reliably on the boot class path regardless of process working directory.
+- Canvas context menu no longer receives extraneous workspace-level plugin injections.
+
+### Security
+
+- The MCP loopback server requires `Authorization: Bearer` token authentication for mutating `tools/call`
+  requests and session lifecycle, backed by an owner-only persisted token and stdio bridge.
+- Scope-isolated disposal guarantees and atomic hook unregistration prevent cross-session resource leaks and
+  post-disposal operations.
 
 ## [0.44.0] - 2026-09-11
 
@@ -685,7 +541,8 @@ This release supersedes the unpublished 0.43.4 candidate and includes its change
 - The Java installer is available for macOS and Linux, but macOS Cubism host readiness is not claimed and Linux Cubism hosting is unsupported.
 - Published binaries are not code-signed or notarized in this release; verify the accompanying SHA-256 sidecars before installation.
 
-[Unreleased]: https://github.com/Turboism/Turboism/compare/v0.44.0...HEAD
+[Unreleased]: https://github.com/Turboism/Turboism/compare/v0.67.0...HEAD
+[0.67.0]: https://github.com/Turboism/Turboism/releases/tag/v0.67.0
 [0.44.0]: https://github.com/Turboism/Turboism/releases/tag/v0.44.0
 [0.43.11]: https://github.com/Turboism/Turboism/releases/tag/v0.43.11
 [0.43.10]: https://github.com/Turboism/Turboism/releases/tag/v0.43.10
