@@ -384,6 +384,8 @@ final class AcpChatControllerTest {
             assertEquals("saved-session", fixture.config.value("acpSessionId"));
             assertEquals(
                     List.of(temporaryExecutable().toString()), captured.get().command());
+            // The final status line is logged after the view callback; wait for it.
+            fixture.logger.awaitInfo("ACP connection: session ready");
             assertEquals(
                     List.of(
                             "ACP connection: starting",
@@ -1809,6 +1811,16 @@ final class AcpChatControllerTest {
 
     private static final class CapturingLogger implements PluginLogger {
         private final List<String> infos = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+        private void awaitInfo(final String message) throws InterruptedException {
+            final long deadline =
+                    System.nanoTime() + java.time.Duration.ofSeconds(10).toNanos();
+            while (!infos.contains(message) && System.nanoTime() < deadline) {
+                Thread.sleep(1L);
+            }
+            assertTrue(infos.contains(message), "controller did not log " + message + "; infos=" + infos);
+        }
+
         private final List<String> warnings = new java.util.concurrent.CopyOnWriteArrayList<>();
         private final List<Throwable> errors = new java.util.concurrent.CopyOnWriteArrayList<>();
 
