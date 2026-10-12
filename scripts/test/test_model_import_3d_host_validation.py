@@ -536,12 +536,14 @@ class ProtocolTest(unittest.TestCase):
 
     def test_catalog_is_only_5302(self):
         task = json.loads((ROOT / 'scripts/preview/host-validation-tasks.json').read_text())['tasks']['model-import-3d']
-        self.assertEqual(['5302'], task['versions']); self.assertEqual({'host-slot': 1}, task['resources'])
+        matrix = json.loads((ROOT / 'compatibility/cubism/compatibility-matrix.json').read_text())
+        expected = [v.replace('.', '') for v in matrix['reviewedVersions']]
+        self.assertEqual(expected, task['versions']); self.assertEqual({'host-slot': 1}, task['resources'])
         self.assertEqual(['{version}', '{runLabel}'], task['arguments'])
 
     def test_wrapper_rejects_overrides_before_any_runner(self):
         wrapper = ROOT / 'scripts/preview/run-model-import-3d-host-validation.sh'
-        for args in (['5303', 'test'], ['5302', '../test'], ['5302', 'test', '--version', '5303'],
+        for args in (['9999', 'test'], ['5302', '../test'], ['5302', 'test', '--version', '5303'],
                      ['5302', 'test', '--fixture-host', '/tmp/other'], ['5302', 'test', '--prepare-dir']):
             result = subprocess.run(['bash', str(wrapper), *args], capture_output=True)
             self.assertEqual(2, result.returncode, result.stderr)
