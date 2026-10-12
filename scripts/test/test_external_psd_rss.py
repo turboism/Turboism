@@ -238,6 +238,20 @@ class RssObservationTests(unittest.TestCase):
             with self.assertRaises(rss.IdentityChanged):
                 rss.report_identity(dict(metadata, preparedDigest=digest), expected)
 
+    def test_admitted_host_versions_covers_all_20_versions(self):
+        expected = {
+            "5000", "5001", "5002", "5003", "5004", "5005", "5006",
+            "5100", "5101", "5102", "5103",
+            "5200", "5201", "5202", "5203",
+            "5300", "5301", "5302", "5303", "5304",
+        }
+        self.assertEqual(expected, rss.ADMITTED_HOST_VERSIONS)
+        task = self.root / "queue-1"
+        home = task / "turboism-home"
+        evidence = task / "evidence"
+        with self.assertRaises(rss.IdentityChanged):
+            rss.main([str(task), str(home), str(evidence), "", "", "queue-1", "5400", "10", "", "", ""])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -94,8 +94,14 @@ public final class AtlasImageLoadProbeSelfCheck {
         loaded.alreadyLoaded(String.class);
         check(loaded.snapshot().getProperty("event.0").contains("runtimeByteHash=NOT_OBSERVED"),
             "already loaded byte hash not invented");
-        check(AtlasImageLoadProbeAgent.targets("5203").contains("com/live2d/util/e/g"), "5203 target");
-        check(AtlasImageLoadProbeAgent.targets("5303").contains("com/live2d/util/f/g"), "5303 target");
+        check(AtlasImageLoadProbeAgent.REVIEWED.size() == 20
+            && AtlasImageLoadProbeAgent.targets("5000").contains("com/live2d/util/d/g")
+            && AtlasImageLoadProbeAgent.targets("5002").contains("com/live2d/util/d/g")
+            && AtlasImageLoadProbeAgent.targets("5003").contains("com/live2d/util/e/g")
+            && AtlasImageLoadProbeAgent.targets("5203").contains("com/live2d/util/e/g"), "5000-5203 targets");
+        check(AtlasImageLoadProbeAgent.targets("5300").contains("com/live2d/util/f/g")
+            && AtlasImageLoadProbeAgent.targets("5303").contains("com/live2d/util/f/g")
+            && AtlasImageLoadProbeAgent.targets("5304").contains("com/live2d/util/f/g"), "5300-5304 targets");
         Files.delete(output); Files.delete(run); Files.delete(temp);
         System.out.println("ATLAS_IMAGE_PROBE_SELFCHECK PASS checks=" + checks + " hostExecuted=false");
     }

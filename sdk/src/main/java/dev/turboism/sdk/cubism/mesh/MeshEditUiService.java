@@ -6,7 +6,7 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 /** Declarative contributions for Cubism's native mesh-edit tool area. */
-@CubismEditor(from = "5.2.00")
+@CubismEditor(from = "5.0.00")
 public interface MeshEditUiService {
 
     /**

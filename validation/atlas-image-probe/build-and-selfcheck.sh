@@ -26,7 +26,7 @@ while [[ $# -gt 0 ]]; do
       [[ $# -ge 2 ]] || { echo 'missing --production-agent value' >&2; exit 2; }
       production_agent="$2"; shift 2 ;;
     *)
-      echo 'Usage: build-and-selfcheck.sh [--editor-jar <read-only JAR> --version <5203|5302|5303>] [--publish [--production-agent <JAR>]]' >&2
+      echo 'Usage: build-and-selfcheck.sh [--editor-jar <read-only JAR> --version <5000..5304>] [--publish [--production-agent <JAR>]]' >&2
       exit 2 ;;
   esac
 done
@@ -34,10 +34,13 @@ if [[ -n "$editor_jar" && -z "$version" ]] || [[ -z "$editor_jar" && -n "$versio
   echo '--editor-jar and --version must be supplied together' >&2
   exit 2
 fi
-if [[ -n "$version" && "$version" != 5203 && "$version" != 5302 && "$version" != 5303 ]]; then
-  echo "unsupported version: $version" >&2
-  exit 2
-fi
+case "$version" in
+  ""|5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304) ;;
+  *)
+    echo "unsupported version: $version" >&2
+    exit 2
+    ;;
+esac
 
 fixture="${fixture_src:-}"
 fixture_sha256=2866a509322496680500090cb26432b1b59fe30404e1f5e2163536c01a8dce4e

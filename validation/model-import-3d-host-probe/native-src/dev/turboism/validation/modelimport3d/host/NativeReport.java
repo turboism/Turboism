@@ -38,7 +38,8 @@ final class NativeReport {
     NativeReport(String runId) {
         data.put("schemaVersion", "mi3d-native-n2-v1"); data.put("runId", runId);
         data.put("scope", "N2_BOOTSTRAP_CREATE_GRID_READ");
-        data.put("stageAStatus", "NOT_EVALUATED"); data.put("requestedVersion", "5302");
+        data.put("stageAStatus", "NOT_EVALUATED");
+        data.put("requestedVersion", System.getProperty("turboism.validation.hostVersion", "5302"));
         data.put("hostIdentity", null); // Never promoted from a supplied JVM property.
         data.put("checks", checks);
         data.put("deferred", DEFERRED.stream().map(id -> Map.of("id", id, "status", "NOT_RUN",

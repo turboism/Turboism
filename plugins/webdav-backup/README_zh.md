@@ -44,9 +44,9 @@ interface: swing
 
 <!-- compatibility:begin -->
 **Cubism Editor 版本支持（自动生成）：** 全部审核版本.
-- 编辑器自动备份 不适用于 5.0.00–5.0.06
-- 自动备份工件 不适用于 5.0.00–5.0.06
-- 保存触发的自动备份 不适用于 5.0.00–5.0.06
+- 编辑器自动备份 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能）
+- 自动备份工件 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能）
+- 保存触发的自动备份 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能）
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->
 
