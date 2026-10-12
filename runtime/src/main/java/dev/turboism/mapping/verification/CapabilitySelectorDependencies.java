@@ -45,6 +45,7 @@ import dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSel
 import dev.turboism.mapping.verification.selector.EditorParameterCombinedWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterDefinitionWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterInterpolationSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterStructureSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterValueWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartBasicSettingsSelectorContract;
@@ -434,6 +435,10 @@ final class CapabilitySelectorDependencies {
                 result,
                 EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
                 EditorParameterGroupsReadSelectorContract.REQUIRED_ALIASES);
+        add(
+                result,
+                EditorParameterInterpolationSelectorContract.CAPABILITY_ID,
+                EditorParameterInterpolationSelectorContract.REQUIRED_ALIASES);
         add(
                 result,
                 EditorParameterStructureSelectorContract.CAPABILITY_ID,
