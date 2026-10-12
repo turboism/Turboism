@@ -11,7 +11,7 @@
 | 能力组 | 5.0.00 | 5.0.01 | 5.0.02 | 5.0.03 | 5.0.04 | 5.0.05 | 5.0.06 | 5.1.00 | 5.1.01 | 5.1.02 | 5.1.03 | 5.2.00 | 5.2.01 | 5.2.02 | 5.2.03 | 5.3.00 | 5.3.01 | 5.3.02 | 5.3.03 | 5.3.04 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 动画与时间线 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| ArtMesh | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| ArtMesh | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 自动摆动读取 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 自动备份 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 剪贴蒙版 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -50,7 +50,6 @@
 
 - `cubism.editor-model.animation-eval`: 无已验证记录 5.0.00–5.1.03
 - `cubism.editor-model.animation-timeline.write`: 无已验证记录 5.0.00–5.1.03
-- `cubism.editor-model.art-mesh.parameter-interpolation.write`: 无已验证记录 5.0.00–5.1.03
 - `cubism.editor-model.auto-yure.read` (自动摇动读取): 无已验证记录 5.0.00–5.0.06
 - `cubism.autobackup.backup` (自动备份创建): 无已验证记录 5.0.00–5.0.06
 - `cubism.autobackup.settings`: 无已验证记录 5.0.00–5.0.06
@@ -158,7 +157,6 @@
 | `dev.turboism.sdk.cubism.model.ModelTextures#registerImageAndBind()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelTextures#textureInput()` | method | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ParameterInterpolation#ParameterInterpolation()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#alphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#maskIds()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setAlphaComposition()` | method | 5.3.00–5.3.04 |

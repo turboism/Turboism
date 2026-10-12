@@ -110,7 +110,8 @@
     "cubism.mesh-tool.session",
     "cubism.editor-model.art-mesh.evaluated-read",
     "cubism.editor-model.art-mesh.morph-authoring",
-    "cubism.editor-model.source-triangulation.read"
+    "cubism.editor-model.source-triangulation.read",
+    "cubism.editor-model.art-mesh.parameter-interpolation.write"
   ],
   "cubismVersion": "5.0.04",
   "profileId": "cubism-5.0.04",
@@ -12065,6 +12066,9 @@
     ],
     "cubism.editor-model.source-triangulation.read": [
       "structure"
+    ],
+    "cubism.editor-model.art-mesh.parameter-interpolation.write": [
+      "declaredGeneration"
     ]
   }
 }

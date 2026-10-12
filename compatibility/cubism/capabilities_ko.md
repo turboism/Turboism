@@ -11,7 +11,7 @@
 | capability 그룹 | 5.0.00 | 5.0.01 | 5.0.02 | 5.0.03 | 5.0.04 | 5.0.05 | 5.0.06 | 5.1.00 | 5.1.01 | 5.1.02 | 5.1.03 | 5.2.00 | 5.2.01 | 5.2.02 | 5.2.03 | 5.3.00 | 5.3.01 | 5.3.02 | 5.3.03 | 5.3.04 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 애니메이션과 타임라인 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 아트메시 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 아트메시 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 자동 흔들림 읽기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 자동 백업 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 클리핑 마스크 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -50,7 +50,6 @@
 
 - `cubism.editor-model.animation-eval`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.animation-timeline.write`: 검증된 레코드 없음 5.0.00–5.1.03
-- `cubism.editor-model.art-mesh.parameter-interpolation.write`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.auto-yure.read` (자동 흔들림 읽기): 검증된 레코드 없음 5.0.00–5.0.06
 - `cubism.autobackup.backup` (자동 백업 생성): 검증된 레코드 없음 5.0.00–5.0.06
 - `cubism.autobackup.settings`: 검증된 레코드 없음 5.0.00–5.0.06
@@ -158,7 +157,6 @@
 | `dev.turboism.sdk.cubism.model.ModelTextures#registerImageAndBind()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelTextures#replaceRawImagePsd()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.ModelTextures#textureInput()` | method | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.ParameterInterpolation#ParameterInterpolation()` | method | 5.2.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#alphaComposition()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#maskIds()` | method | 5.3.00–5.3.04 |
 | `dev.turboism.sdk.cubism.model.Part#setAlphaComposition()` | method | 5.3.00–5.3.04 |

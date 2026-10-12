@@ -168,7 +168,7 @@ class EditorParameterInterpolationAccessTest {
                             version + " must not be refused by the interpolation guard");
                 }
             }
-            var unadmitted = new Fixture("5.1.03", "");
+            var unadmitted = new Fixture("5.4.00", "");
             assertTrue(assertThrows(UnsupportedOperationException.class, () -> unadmitted.write(0, ELLIPSE))
                     .getMessage()
                     .startsWith(refused));
@@ -180,10 +180,7 @@ class EditorParameterInterpolationAccessTest {
     void rejectsUnverifiedVersionMissingSelectorOversizedCacheAndStaleSourceBeforeEdit() {
         EditorHostThread.dispatch("interpolation admission", () -> {
             for (var f : List.of(
-                    new Fixture("5.4.00", ""),
-                    // A reviewed generation whose record does not admit the capability.
-                    new Fixture("5.1.03", ""),
-                    new Fixture("5.3.02", M + "extended-interpolation.update-forms"))) {
+                    new Fixture("5.4.00", ""), new Fixture("5.3.02", M + "extended-interpolation.update-forms"))) {
                 assertThrows(UnsupportedOperationException.class, () -> f.write(0, ELLIPSE));
                 assertEquals(0, f.begins);
             }
