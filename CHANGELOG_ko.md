@@ -261,6 +261,12 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
   - Cubism 5.3.x(5.3.00–5.3.04, 총 5개 버전): 전 버전 143 / 143개 기능(100.0%).
   기능 집합은 마이너 라인 내 패치 간 엄격한 단조 증가성을 유지합니다. `compatibility/cubism/version-boundaries.json`에 증거 기반 버전 경계를 문서화했습니다. Cubism 5.0.x는 호스트 자동 백업, 보호된 내보내기, 자동 흔들림 읽기, 상단 메뉴 통합 및 외부 앱 편집 토글이 결여되어 있으며, edit-protocol 브릿지는 5.1.02부터, 애니메이션 타임라인 SDK/런타임, 선택 브러시, 메시 기하 읽기는 5.2.00부터, 파트 인스펙터 쓰기, 파트 불투명도 쓰기, MOC3 내보내기 읽기 및 투명도 합성(AlphaComposition)은 5.3.00부터 지원됩니다. `compatibility/cubism/` 아래에 영어, 중국어 간체, 일본어, 한국어로 된 기능 및 플러그인 호환성 매트릭스를 제공합니다.
 - 모든 퍼스트 파티 플러그인 JAR에 검토된 기능 요구사항에서 파생된 지원 Editor 버전을 선언하는 `META-INF/turboism/cubism-versions.json` 사이드카를 포함. SDK의 `@CubismEditor` 애너테이션 계약을 확립: 매개변수 없는 기본 애너테이션은 20개 검토 버전 전체 지원을 나타내며, 명시적 속성으로 특정 하위 집합을 제한합니다.
+- 퍼스트 파티 플러그인의 지원 범위가 대폭 확대되어 20개 검토 버전 전체를 지원:
+  - `parameter`, `recent-preview`, `warp-deformer-alt-symmetry`는 20개 버전 전체에서 기능 저하 없이 완전한 기능으로 동작.
+  - `mesh-edit-mirror-axis-enhance` 및 `selection-brush`는 20개 버전 전체에서 메시 편집 모드를 지원하며, 일반 모델링 뷰 선택 브러시(5.2.00부터) 및 Core 기하 읽기(5.2.00부터)를 증거 경계로 설정.
+  - `mcp`는 20개 버전 전체에서 텍스처 쓰기 및 트랜잭션 실행을 지원하고, 에디터 명령 실행은 5.1.00부터 지원.
+  - `command-palette` 및 `protected-export`는 초기 버전의 상단 메뉴 및 내보내기 조율 기능 부재로 인해 5.1.00부터를 증거 경계로 설정하며, `webdav-backup`은 20개 버전 전체를 지원하되 자동 백업 기능은 5.1.00부터 동작.
+- 실기 검증 프로브 버전 게이트가 20개 검토 Editor 버전(5.0.00–5.3.04) 전체를 포괄하도록 전면 개정되었으며, 정확한 바이트코드 형태별로 버킷화되어 지원되는 모든 Cubism 버전에 걸쳐 엔드투엔드 실기 검증을 보장.
 - 자동화된 실기 시작 대화상자 보조(`NativeFreeStartup`): 테스트 및 검증 실행 중 지원되는 모든 Cubism 버전의 대화상자 상호작용을 자동 처리. PRO 체험판 선택("PRO 버전 무료 체험 시작")과 확인 및 활성화 처리(체험판 경로가 없을 경우 무료 버전으로 대체)를 자동화하고, 업데이트 알림 및 홈 뉴스 창을 닫으며, 하위 버전에서 상위 버전 프로젝트를 열 때 표시되는 경고를 자동 수락하고, 5.0.x의 JavaFX 공지 창(`AnnouncementDialog` 백그라운드 Stage)을 JavaFX 스레드에서 숨겨 메인 창 및 메뉴 모음 비활성화를 방지합니다. 실기 검증 태스크 큐는 매트릭스의 기능 의존성에서 직접 버전 범위를 파생하여 56개의 개별 태스크를 편성합니다.
 - 3D 모델 가져오기 플러그인(`dev.turboism.plugin.model-import-3d`): 정적 불투명 GLB, glTF, OBJ/MTL 및 모델 ZIP 압축파일의 네이티브 가져오기 지원. PNG/JPEG 텍스처, XYZ 전체 360도 회전 및 유계 기하 최적화를 지원하며, 단일 실행 취소 가능 작성 트랜잭션으로 커밋합니다.
 - Turboism ACP 플러그인(`dev.turboism.plugin.acp`): ACP v1 Agent 및 설정 창을 제공하여 사용자가 설치한 ACP 호환 AI 에이전트(Claude Agent ACP, Codex ACP, Pi, Gemini CLI, OpenCode, Antigravity, Devin CLI 또는 사용자 정의 명령)를 인증된 Turboism MCP 서버에 연결. PATH 실행 파일 감지, 영구 세션 유지 및 자격 증명이 필요 없는 stdio-to-HTTP MCP 연결 브릿지를 제공합니다.
