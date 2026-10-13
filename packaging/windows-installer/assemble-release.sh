@@ -9,11 +9,11 @@
 #      启动器、README.txt / README.zh.txt / README.ja.txt、LICENSE.txt）
 #   2. 按 packaging/release-plugins.txt（唯一权威）读取获批插件模块，校验
 #      staging 严格一致后生成 plugin-sections.nsh
-#   3. 产出 turboism-<ver>-lite.zip / turboism-<ver>-full.zip + .sha256
+#   3. 产出 turboism-<ver>-thin.zip / turboism-<ver>-full.zip + .sha256
 #      （zip 内容与历史版本一致：config.json 由 config.template.json 生成，
 #       Java 安装器专属文件 config.template.json/README.java-installer.txt/
 #       uninstall.command 不进入 zip）
-#   4. makensis 构建 TurboismInstaller-<ver>.exe + .sha256（--skip-nsis 跳过）
+#   4. makensis 构建 TurboismInstaller-<ver>-full.exe 与 TurboismInstaller-<ver>-thin.exe + .sha256（--skip-nsis 跳过）
 #
 # 产物目录: build/windows-installer/<ver>/  (staging/ 与 dist/)
 
@@ -236,8 +236,7 @@ write_checksum_manifest("payload-core.sha256", core_payload)
 write_checksum_manifest("payload-plugins.sha256", plugin_payload)
 lines = []
 lines.append("; 由 assemble-release.sh 按 release-plugins.txt 权威清单生成，勿手改。")
-lines.append("; Full($Mode==1) 由隐藏载荷 Section 安装全部插件 JAR；可见 Section")
-lines.append("; 为全新安装和升级收集 disabledPlugins，其他有效用户配置保持不变。")
+lines.append("; Full 变体安装全部第一方插件 JAR；Thin 变体不携带任何插件 JAR。")
 lines.append("")
 
 # 每项永久载荷都先按目标 SHA-256 生成计划；NSIS 只把缺失或变更项解压到私有临时目录。
@@ -267,76 +266,38 @@ append_extractor(
     b"\xef\xbb\xbf" + ("\n".join(extract_lines) + "\n").encode("utf-8")
 )
 
-# 隐藏载荷 Section：Full 模式安装全部插件 JAR；Lite 模式不写任何 JAR（$Mode 守卫）。
+# 隐藏载荷 Section：Full 模式安装全部插件 JAR；Thin 模式不写任何 JAR。
 # 先用内嵌 SHA-256 清单生成计划，再只解压需要替换的条目；写入前仍校验源和目标。
-# 隐藏 Section 不出现在组件页；可见勾选在配置前置阶段更新 disabledPlugins。
+lines.append('!if "${VARIANT}" != "thin"')
 lines.append('Section "-插件载荷" SecPluginPayload')
-lines.append("  ${If} $Mode == 1")
-lines.append("    nsExec::ExecToLog '\"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"$INSTDIR\\install-jar-payload.ps1\" -ManifestPath \"$PLUGINSDIR\\Turboism-payload-manifests\\payload-plugins.sha256\" -DestinationRoot \"$INSTDIR\" -PlanRoot \"$PLUGINSDIR\\Turboism-plugin-plan\" -PlanOnly'")
-lines.append("    Pop $0")
-lines.append("    ${If} $0 != 0")
-lines.append('      MessageBox MB_ICONSTOP "$(PayloadInstallError)"')
-lines.append("      Abort")
-lines.append("    ${EndIf}")
+lines.append("  nsExec::ExecToLog '\"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"$INSTDIR\\install-jar-payload.ps1\" -ManifestPath \"$PLUGINSDIR\\Turboism-payload-manifests\\payload-plugins.sha256\" -DestinationRoot \"$INSTDIR\" -PlanRoot \"$PLUGINSDIR\\Turboism-plugin-plan\" -PlanOnly'")
+lines.append("  Pop $0")
+lines.append("  ${If} $0 != 0")
+lines.append('    MessageBox MB_ICONSTOP "$(PayloadInstallError)"')
+lines.append("    Abort")
+lines.append("  ${EndIf}")
 for index, (relative, path) in enumerate(plugin_payload):
     parent = str(Path(relative).parent).replace("/", "\\")
-    lines.append(f'    ${{If}} ${{FileExists}} "$PLUGINSDIR\\Turboism-plugin-plan\\{index:04d}.need"')
-    lines.append(f'      SetOutPath "$PLUGINSDIR\\Turboism-plugin-payload\\{parent}"')
-    lines.append(f'      File "/oname={path.name}" "${{STAGING_DIR}}/{path.relative_to(stage).as_posix()}"')
-    lines.append("    ${EndIf}")
-lines.append("    nsExec::ExecToLog '\"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"$INSTDIR\\install-jar-payload.ps1\" -SourceRoot \"$PLUGINSDIR\\Turboism-plugin-payload\" -ManifestPath \"$PLUGINSDIR\\Turboism-payload-manifests\\payload-plugins.sha256\" -DestinationRoot \"$INSTDIR\"'")
-lines.append("    Pop $0")
-lines.append("    ${If} $0 != 0")
-lines.append('      MessageBox MB_ICONSTOP "$(PayloadInstallError)"')
-lines.append("      Abort")
-lines.append("    ${EndIf}")
-lines.append('    RMDir /r "$PLUGINSDIR\\Turboism-plugin-payload"')
-lines.append('    RMDir /r "$PLUGINSDIR\\Turboism-plugin-plan"')
+    lines.append(f'  ${{If}} ${{FileExists}} "$PLUGINSDIR\\Turboism-plugin-plan\\{index:04d}.need"')
+    lines.append(f'    SetOutPath "$PLUGINSDIR\\Turboism-plugin-payload\\{parent}"')
+    lines.append(f'    File "/oname={path.name}" "${{STAGING_DIR}}/{path.relative_to(stage).as_posix()}"')
+    lines.append("  ${EndIf}")
+lines.append("  nsExec::ExecToLog '\"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"$INSTDIR\\install-jar-payload.ps1\" -SourceRoot \"$PLUGINSDIR\\Turboism-plugin-payload\" -ManifestPath \"$PLUGINSDIR\\Turboism-payload-manifests\\payload-plugins.sha256\" -DestinationRoot \"$INSTDIR\"'")
+lines.append("  Pop $0")
+lines.append("  ${If} $0 != 0")
+lines.append('    MessageBox MB_ICONSTOP "$(PayloadInstallError)"')
+lines.append("    Abort")
 lines.append("  ${EndIf}")
+lines.append('  RMDir /r "$PLUGINSDIR\\Turboism-plugin-payload"')
+lines.append('  RMDir /r "$PLUGINSDIR\\Turboism-plugin-plan"')
 lines.append('  Delete "$PLUGINSDIR\\Turboism-payload-manifests\\payload-plugins.sha256"')
 lines.append('  RMDir "$PLUGINSDIR\\Turboism-payload-manifests"')
 lines.append("SectionEnd")
+lines.append("!endif")
 lines.append("")
 
 def sanitize(s: str) -> str:
     return re.sub(r"[^A-Za-z0-9_]", "_", s)
-
-# 可见插件 Section：四语言显示名/描述均来自插件自身 i18n 资源。
-for p in plugins:
-    key = sanitize(p["id"])
-    for locale, nsis_lang in (("eng", "LANG_ENGLISH"), ("chn", "LANG_SIMPCHINESE"), ("jpn", "LANG_JAPANESE"), ("kor", "LANG_KOREAN")):
-        title = p["localized"][locale]["name"] + (" " + p["version"] if p["version"] else "")
-        description = p["localized"][locale]["description"]
-        lines.append(f'LangString PLUGIN_NAME_{key} ${{{nsis_lang}}} "{nsis_escape(title)}"')
-        lines.append(f'LangString PLUGIN_DESC_{key} ${{{nsis_lang}}} "{nsis_escape(description)}"')
-for p in plugins:
-    key = sanitize(p["id"])
-    sec = "SEC_" + key
-    lines.append(f'Section "$(PLUGIN_NAME_{key})" {sec}')
-    lines.append("SectionEnd")
-    lines.append("")
-
-lines.append("; 组件页悬停描述")
-lines.append("!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN")
-for p in plugins:
-    key = sanitize(p["id"])
-    sec = "SEC_" + key
-    lines.append(f'  !insertmacro MUI_DESCRIPTION_TEXT ${{{sec}}} "$(PLUGIN_DESC_{key})"')
-lines.append("!insertmacro MUI_FUNCTION_DESCRIPTION_END")
-lines.append("")
-
-lines.append("; 按模式设置全部插件 Section 的选中状态（$0: 1 = 选中, 0 = 取消）")
-lines.append("Function SetPluginSectionsSelected")
-for p in plugins:
-    sec = "SEC_" + sanitize(p["id"])
-    lines.append(f"  SectionGetFlags ${{{sec}}} $1")
-    lines.append("  IntOp $1 $1 & ${SECTION_OFF}")
-    lines.append("  ${If} $0 == 1")
-    lines.append("    IntOp $1 $1 | ${SF_SELECTED}")
-    lines.append("  ${EndIf}")
-    lines.append(f"  SectionSetFlags ${{{sec}}} $1")
-lines.append("FunctionEnd")
-lines.append("")
 
 lines.append("; 导出完整捆绑插件 id 清单，供前置配置提交保留无关禁用项。")
 lines.append("Function SetBundledPluginIds")
@@ -344,28 +305,13 @@ lines.append(f'  StrCpy $bundledPluginIds "{";".join(p["id"] for p in plugins)}"
 lines.append("FunctionEnd")
 lines.append("")
 
-lines.append("; 收集未勾选插件 id 到 $uncheckedPluginIds（';' 分隔）")
-lines.append("Function CollectUncheckedPluginIds")
-for p in plugins:
-    sec = "SEC_" + sanitize(p["id"])
-    lines.append(f"  SectionGetFlags ${{{sec}}} $1")
-    lines.append("  IntOp $2 $1 & ${SF_SELECTED}")
-    lines.append("  ${If} $2 == 0")
-    lines.append(f'    ${{If}} $uncheckedPluginIds == ""')
-    lines.append(f'      StrCpy $uncheckedPluginIds "{p["id"]}"')
-    lines.append("    ${Else}")
-    lines.append(f'      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;{p["id"]}"')
-    lines.append("    ${EndIf}")
-    lines.append("  ${EndIf}")
-lines.append("FunctionEnd")
-lines.append("")
-
-# 卸载白名单：与 IzPack 卸载器同语义 —— 只删安装器部署的插件 JAR，未知文件与
-# 第三方 JAR 保留（plugins 目录仅在空时被移除）。勿手改：由本生成器输出。
-lines.append("; 卸载白名单：仅删除安装器部署的插件 JAR；未知文件与第三方 JAR 保留（对齐 IzPack 卸载语义）。")
+# 卸载白名单：仅删除 Full 安装器部署的插件 JAR；未知文件与第三方 JAR 保留。Thin 安装器不删插件。
+lines.append("; 卸载白名单：仅删除 Full 安装器部署的插件 JAR；未知文件与第三方 JAR 保留。")
 lines.append("Function un.DeleteInstallerPluginJars")
+lines.append('!if "${VARIANT}" != "thin"')
 for module in modules:
     lines.append(f'  Delete "$INSTDIR\\plugins\\{module}.jar"')
+lines.append("!endif")
 lines.append("FunctionEnd")
 lines.append("")
 
@@ -379,15 +325,15 @@ PYEOF
 
 # ---------- 4. ZIP + sha256 ----------
 # 使用 python3 zipfile（避免依赖 zip CLI）。
-# 两种 zip 都携带顶层公共文件和 graal/lib；Lite 排除 plugins/。
+# 两种 zip 都携带顶层公共文件和 graal/lib；Thin 排除 plugins/。
 # Full 携带获批插件 JAR。config.json 由共享 payload 的 config.template.json 生成；
 # Java 安装器专属文件（config.template.json、README.java-installer.txt、
 # uninstall.command）不进入 Windows zip。
 zip_dir() {
-  local src="$1" out="$2" lite="$3"
-  python3 - "$src" "$out" "$lite" <<'PYEOF'
-import hashlib, os, stat, sys, zipfile
-src, out, lite = sys.argv[1], sys.argv[2], sys.argv[3] == "1"
+  local src="$1" out="$2" thin="$3"
+  python3 - "$src" "$out" "$thin" "$VER" <<'PYEOF'
+import hashlib, json, os, stat, sys, zipfile
+src, out, thin, ver = sys.argv[1], sys.argv[2], sys.argv[3] == "1", sys.argv[4]
 EXCLUDED = {"config.template.json", "README.java-installer.txt", "uninstall.command", "install-managed-graal.ps1"}
 TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 def write_bytes(archive, name, data, mode):
@@ -405,25 +351,28 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
                 continue
             full = os.path.join(root, f)
             arc = os.path.relpath(full, src).replace(os.sep, "/")
-            if lite and arc.startswith("plugins/"):
-                continue  # Lite excludes plugins but keeps common Graal libraries.
+            if thin and arc.startswith("plugins/"):
+                continue  # Thin excludes plugins but keeps common Graal libraries.
             write_bytes(z, arc, open(full, "rb").read(), stat.S_IMODE(os.stat(full).st_mode))
     names = set(z.namelist())
     graal = [name for name in names if name.startswith("graal/lib/") and name.endswith(".jar")]
     if not graal:
         raise SystemExit("error: Windows zip is missing the common Graal host closure")
-    if lite and any(name.startswith("plugins/") for name in names):
-        raise SystemExit("error: Lite zip unexpectedly contains plugin payload")
-    if not lite and not any(name.startswith("plugins/") and name.endswith(".jar") for name in names):
+    if thin and any(name.startswith("plugins/") for name in names):
+        raise SystemExit("error: Thin zip unexpectedly contains plugin payload")
+    if not thin and not any(name.startswith("plugins/") and name.endswith(".jar") for name in names):
         raise SystemExit("error: Full zip is missing plugin payload")
     # 历史契约：zip 内含 config.json（模板内容）
     config = os.path.join(src, "config.template.json")
     write_bytes(z, "config.json", open(config, "rb").read(), stat.S_IMODE(os.stat(config).st_mode))
+    # 写入安装构建元数据
+    installed_build = json.dumps({"schemaVersion": 1, "variant": "thin" if thin else "full", "version": ver}) + "\n"
+    write_bytes(z, "installed-build.json", installed_build.encode("utf-8"), 0o644)
 PYEOF
 }
 
 zip_dir "$stage" "$dist/turboism-$VER-full.zip" 0
-zip_dir "$stage" "$dist/turboism-$VER-lite.zip" 1
+zip_dir "$stage" "$dist/turboism-$VER-thin.zip" 1
 
 # ---------- 4.5 SDK 与注解处理器开发构件 ----------
 # 独立的插件开发构件：sdk jar 与发行载荷内 graal/lib 同源同字节，
@@ -446,7 +395,7 @@ cp "$event_processor_jar" "$dist/turboism-event-processor-$VER.jar"
 # sidecar 只记录同目录文件名，下载后可直接在附件目录执行 `sha256sum -c *.sha256`。
 (
   cd "$dist"
-  sha256sum "turboism-$VER-lite.zip" > "turboism-$VER-lite.zip.sha256"
+  sha256sum "turboism-$VER-thin.zip" > "turboism-$VER-thin.zip.sha256"
   sha256sum "turboism-$VER-full.zip" > "turboism-$VER-full.zip.sha256"
   sha256sum "turboism-sdk-$VER.jar" > "turboism-sdk-$VER.jar.sha256"
   sha256sum "turboism-event-processor-$VER.jar" > "turboism-event-processor-$VER.jar.sha256"
@@ -493,10 +442,12 @@ else
     nsis_args+=(-DVER_NUMERIC="$ver_numeric")
     echo "[assemble] VIProductVersion: $ver_numeric"
   fi
-  makensis "${nsis_args[@]}" "$pkg_dir/installer.nsi"
+  makensis "${nsis_args[@]}" -DVARIANT=full "$pkg_dir/installer.nsi"
+  makensis "${nsis_args[@]}" -DVARIANT=thin "$pkg_dir/installer.nsi"
   (
     cd "$dist"
-    sha256sum "TurboismInstaller-$VER.exe" > "TurboismInstaller-$VER.exe.sha256"
+    sha256sum "TurboismInstaller-$VER-full.exe" > "TurboismInstaller-$VER-full.exe.sha256"
+    sha256sum "TurboismInstaller-$VER-thin.exe" > "TurboismInstaller-$VER-thin.exe.sha256"
   )
 fi
 

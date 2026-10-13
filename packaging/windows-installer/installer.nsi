@@ -47,9 +47,17 @@ Unicode true
   !define ICON_FILE "assets/turboism.ico"
 !endif
 
+!ifndef VARIANT
+  !define VARIANT "full"
+!endif
+
 ; ---------- 基本属性 ----------
 Name "Turboism ${VER}"
-OutFile "${OUT_DIR}/TurboismInstaller-${VER}.exe"
+!if "${VARIANT}" == "thin"
+  OutFile "${OUT_DIR}/TurboismInstaller-${VER}-thin.exe"
+!else
+  OutFile "${OUT_DIR}/TurboismInstaller-${VER}-full.exe"
+!endif
 Icon "${ICON_FILE}"
 UninstallIcon "${ICON_FILE}"
 InstallDir "$LOCALAPPDATA\Turboism"
@@ -65,7 +73,11 @@ SetFont "MS Shell Dlg" 12
   VIProductVersion "${VER_NUMERIC}"
   VIAddVersionKey "ProductName" "Turboism"
   VIAddVersionKey "ProductVersion" "${VER}"
-  VIAddVersionKey "FileDescription" "Turboism Windows Installer"
+  !if "${VARIANT}" == "thin"
+    VIAddVersionKey "FileDescription" "Turboism Windows Installer (Thin)"
+  !else
+    VIAddVersionKey "FileDescription" "Turboism Windows Installer (Full)"
+  !endif
   VIAddVersionKey "FileVersion" "${VER}"
   VIAddVersionKey "CompanyName" "Turboism Contributors"
   VIAddVersionKey "LegalCopyright" "Copyright (c) Turboism Contributors"
@@ -74,7 +86,6 @@ SetFont "MS Shell Dlg" 12
 ; ---------- MUI 设置（三语言文案经 LangString 定义，见语言区块；Unicode true + UTF-8 BOM 源文件） ----------
 ; MUI_ABORTWARNING 的提示文本由 MUI 语言文件按语言提供（已本地化）
 !define MUI_ABORTWARNING
-!define MUI_COMPONENTSPAGE_SMALLDESC
 !define MUI_ICON "${ICON_FILE}"
 !define MUI_UNICON "${ICON_FILE}"
 
@@ -112,9 +123,6 @@ SetFont "MS Shell Dlg" 12
 !define MUI_LICENSEPAGE_BUTTON "$(EulaAgreeButtonText)"
 !insertmacro MUI_PAGE_LICENSE "$(EulaFile)"
 Page custom EulaAcknowledgementsCreate EulaAcknowledgementsLeave
-Page custom ModeCreate ModeLeave
-!define MUI_PAGE_CUSTOMFUNCTION_PRE ComponentsPre
-!insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_DIRECTORY
 Page custom GraalCreate GraalLeave
 Page custom GraalInstallCreate GraalInstallLeave
@@ -259,21 +267,6 @@ LangString UnKeepConfigLabel ${LANG_ENGLISH} "Keep config.json (user configurati
 LangString UnKeepConfigLabel ${LANG_SIMPCHINESE} "保留 config.json（用户配置）"
 LangString UnKeepConfigLabel ${LANG_JAPANESE} "config.json（ユーザー設定）を保持する"
 LangString UnKeepConfigLabel ${LANG_KOREAN} "config.json(사용자 설정) 유지"
-
-LangString ModePageTitle ${LANG_ENGLISH} "Select the installation mode:"
-LangString ModePageTitle ${LANG_SIMPCHINESE} "请选择安装模式："
-LangString ModePageTitle ${LANG_JAPANESE} "インストールモードを選択してください："
-LangString ModePageTitle ${LANG_KOREAN} "설치 모드를 선택하세요:"
-
-LangString ModeFullLabel ${LANG_ENGLISH} "Full installation (Full) — installs all plugins; you can disable some plugins on the next page (default)"
-LangString ModeFullLabel ${LANG_SIMPCHINESE} "完整安装（Full）—— 安装全部插件，可在下一步选择禁用部分插件（默认）"
-LangString ModeFullLabel ${LANG_JAPANESE} "フルインストール（Full）—— すべてのプラグインをインストールします。次のページで一部のプラグインを無効化できます（既定）"
-LangString ModeFullLabel ${LANG_KOREAN} "전체 설치(Full) — 모든 플러그인을 설치하며, 다음 페이지에서 일부 플러그인을 사용하지 않도록 선택할 수 있습니다(기본값)"
-
-LangString ModeLiteLabel ${LANG_ENGLISH} "Lite installation (Lite) — installs only the core runtime, no plugins"
-LangString ModeLiteLabel ${LANG_SIMPCHINESE} "精简安装（Lite）—— 仅安装核心运行时，不安装任何插件"
-LangString ModeLiteLabel ${LANG_JAPANESE} "ライトインストール（Lite）—— コアランタイムのみインストールし、プラグインはインストールしません"
-LangString ModeLiteLabel ${LANG_KOREAN} "간편 설치(Lite) — 코어 런타임만 설치하며 플러그인은 설치하지 않습니다"
 
 
 LangString ManagedGraalLabel ${LANG_ENGLISH} "Download and install Turboism-managed GraalVM (optional; about 326 MiB)"
@@ -481,10 +474,6 @@ Var EulaAck1State
 Var EulaAck2State
 Var EulaAck3State
 Var EulaAck4State
-Var Mode                 ; 0 = Lite, 1 = Full（默认 Full）
-Var ModeDialog
-Var LiteRadio
-Var FullRadio
 Var installManagedGraal  ; 1 = 用户选择下载并安装托管 GraalVM（默认 0）
 Var GraalDialog
 Var GraalNowRadio
@@ -585,7 +574,6 @@ Function .onInit
   StrCpy $EulaAck2State 0
   StrCpy $EulaAck3State 0
   StrCpy $EulaAck4State 0
-  StrCpy $Mode 1
   StrCpy $installManagedGraal 0
   StrCpy $GraalInstallGeneration 0
   StrCpy $GraalInstallState 0
@@ -656,45 +644,6 @@ Function EulaAcknowledgementsLeave
   ${OrIf} $EulaAck4State != ${BST_CHECKED}
     MessageBox MB_ICONEXCLAMATION|MB_OK "$(EulaRequired)"
     Abort
-  ${EndIf}
-FunctionEnd
-
-; ---------- 模式选择页（nsDialogs） ----------
-Function ModeCreate
-  nsDialogs::Create 1018
-  Pop $ModeDialog
-  ${If} $ModeDialog == error
-    Abort
-  ${EndIf}
-  ${NSD_CreateLabel} 0 0 100% 24u "$(ModePageTitle)"
-  Pop $0
-  ${NSD_CreateRadioButton} 0 34u 100% 14u "$(ModeFullLabel)"
-  Pop $FullRadio
-  ${NSD_CreateRadioButton} 0 52u 100% 14u "$(ModeLiteLabel)"
-  Pop $LiteRadio
-  ${If} $Mode == 1
-    ${NSD_Check} $FullRadio
-  ${Else}
-    ${NSD_Check} $LiteRadio
-  ${EndIf}
-  nsDialogs::Show
-FunctionEnd
-
-Function ModeLeave
-  ${NSD_GetState} $FullRadio $0
-  ${If} $0 == 1
-    StrCpy $Mode 1
-  ${Else}
-    StrCpy $Mode 0
-  ${EndIf}
-  ; Lite：取消全部插件 Section（其代码将不执行）；Full：恢复全选
-  StrCpy $0 $Mode
-  Call SetPluginSectionsSelected
-FunctionEnd
-
-Function ComponentsPre
-  ${If} $Mode == 0
-    Abort        ; Lite 模式跳过组件选择页
   ${EndIf}
 FunctionEnd
 
@@ -1402,15 +1351,17 @@ SectionEnd
 ; 字段、非法值）会被归一化到 v1，仅外来 format 或不可解析文件才失败关闭。
 Section "-写入配置" SecConfig
   CreateDirectory "$INSTDIR"
-  StrCpy $uncheckedPluginIds ""
-  StrCpy $bundledPluginIds ""
-  Call CollectUncheckedPluginIds
-  Call SetBundledPluginIds
   SetOutPath "$PLUGINSDIR\Turboism-config"
   File "/oname=configure_turboism.ps1" "${STAGING_DIR}/configure_turboism.ps1"
   File "/oname=cubism-launch-common.ps1" "${STAGING_DIR}/cubism-launch-common.ps1"
   File "/oname=retired-plugins.txt" "${STAGING_DIR}/retired-plugins.txt"
-  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Turboism-config\configure_turboism.ps1" -Home "$INSTDIR" -ApplyInstallerSelection -BundledPluginIds "$bundledPluginIds" -DisabledPluginIds "$uncheckedPluginIds"'
+!if "${VARIANT}" == "thin"
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Turboism-config\configure_turboism.ps1" -Home "$INSTDIR" -ApplyInstallerSelection -Variant "thin"'
+!else
+  StrCpy $bundledPluginIds ""
+  Call SetBundledPluginIds
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Turboism-config\configure_turboism.ps1" -Home "$INSTDIR" -ApplyInstallerSelection -Variant "full" -BundledPluginIds "$bundledPluginIds"'
+!endif
   Pop $0
   RMDir /r "$PLUGINSDIR\Turboism-config"
   ${If} $0 != 0
@@ -1422,6 +1373,7 @@ SectionEnd
 ; 插件 Section 由 plugin-sections.nsh 提供（见文件头注释）
 Section "-核心文件" SecCore
   SetOverwrite on
+!if "${VARIANT}" != "thin"
   ; Managed-upgrade retirement: run the CURRENT staged helper from NSIS's
   ; temporary directory, never an older installed configurator that may not
   ; support -RetirePlugins. The helper deletes only regular JARs whose embedded
@@ -1437,6 +1389,7 @@ Section "-核心文件" SecCore
     Abort
   ${EndIf}
   RMDir /r "$PLUGINSDIR\Turboism-retire"
+!endif
 
   ; 清单和校验 helper 是很小的临时引导载荷。永久核心文件先逐项检查目标 SHA-256，
   ; 仅将缺失或不同的条目解压到私有临时目录，再按同一清单校验源、复制并复核目标。
@@ -1444,7 +1397,9 @@ Section "-核心文件" SecCore
   File "/oname=install-jar-payload.ps1" "${STAGING_DIR}/install-jar-payload.ps1"
   SetOutPath "$PLUGINSDIR\Turboism-payload-manifests"
   File "${GENERATED_DIR}/payload-core.sha256"
+!if "${VARIANT}" != "thin"
   File "${GENERATED_DIR}/payload-plugins.sha256"
+!endif
   nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Turboism-payload-bootstrap\install-jar-payload.ps1" -ManifestPath "$PLUGINSDIR\Turboism-payload-manifests\payload-core.sha256" -DestinationRoot "$INSTDIR" -PlanRoot "$PLUGINSDIR\Turboism-core-plan" -PlanOnly'
   Pop $0
   ${If} $0 != 0
@@ -1462,6 +1417,14 @@ Section "-核心文件" SecCore
   RMDir /r "$PLUGINSDIR\Turboism-core-plan"
   RMDir /r "$PLUGINSDIR\Turboism-payload-bootstrap"
   Delete "$PLUGINSDIR\Turboism-payload-manifests\payload-core.sha256"
+
+  FileOpen $0 "$INSTDIR\installed-build.json" w
+!if "${VARIANT}" == "thin"
+  FileWrite $0 '{"schemaVersion":1,"variant":"thin","version":"${VER}"}$\r$\n'
+!else
+  FileWrite $0 '{"schemaVersion":1,"variant":"full","version":"${VER}"}$\r$\n'
+!endif
+  FileClose $0
 SectionEnd
 
 ; Optional engine acquisition is independent of plugin selection. Existing
@@ -1573,6 +1536,7 @@ Section "Uninstall"
   RMDir /r "$INSTDIR\state"
   RMDir /r "$INSTDIR\cache"
   ; config.json：按卸载确认页复选框决定（默认勾选 = 保留）
+  Delete "$INSTDIR\installed-build.json"
   ${If} $unKeepConfig == 0
     Delete "$INSTDIR\config.json"
   ${Else}
