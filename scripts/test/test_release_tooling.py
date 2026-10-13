@@ -141,7 +141,11 @@ class ReleaseWorkflowTest(unittest.TestCase):
             self.assertIn(pin, workflow)
             self.assertIn('candidate["pluginDirectoryRevision"] = revision', workflow)
         self.assertIn(pin, publisher)
-        self.assertIn('--ref "$PLUGIN_DIRECTORY_REVISION"', publisher)
+        # workflow_dispatch needs a branch ref: dispatch on main, guarded so main may
+        # only differ from the pinned revision by earlier catalog publications.
+        self.assertIn("--ref main", publisher)
+        self.assertIn("compare/${PLUGIN_DIRECTORY_REVISION}...main", publisher)
+        self.assertIn('startswith("public/api/v2/") or . == "catalog/v2/catalog.json"', publisher)
         verifier_refs = re.findall(
             r"repository: turboism/turboism-plugin-directory\n\s+ref: ([^\n]+)",
             publisher,
