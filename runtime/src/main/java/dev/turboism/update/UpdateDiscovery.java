@@ -184,7 +184,8 @@ public record UpdateDiscovery(int schemaVersion, String channel, Status status, 
 
             // 2. Match by variant and windows platform / installer kind
             for (final Asset asset : assets) {
-                if (asset.variant().isPresent() && variant.equalsIgnoreCase(asset.variant().get())) {
+                if (asset.variant().isPresent()
+                        && variant.equalsIgnoreCase(asset.variant().get())) {
                     if (asset.kind().startsWith("windows-installer")
                             || "windows".equalsIgnoreCase(asset.platform().orElse(""))) {
                         return Optional.of(asset);
