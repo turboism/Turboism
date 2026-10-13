@@ -653,6 +653,33 @@ class CoreShellTest {
                 .anyMatch(contribution -> "turboism-updates-automatic".equals(contribution.id())));
     }
 
+    @Test
+    void stagedPluginUpdatesShowDismissibleCanvasHintAndContributeStartupPreferenceToggle() throws Exception {
+        final FakePluginAutoUpdateManagement management = new FakePluginAutoUpdateManagement();
+        final CoreShell plugin = plugin(management);
+        final RecordingPluginContext context = new RecordingPluginContext();
+        context.useInlineUiScheduler();
+
+        plugin.start(context);
+
+        assertTrue(management.started, "plugin auto-updater must be started by the shell");
+        assertTrue(context.uiHost().settingsContributions().stream()
+                .anyMatch(contribution -> "turboism-plugin-updates-automatic".equals(contribution.id())
+                        && "startup".equals(contribution.tab().id())));
+
+        management.publish(new dev.turboism.pluginmanagement.PluginAutoUpdateControl.Snapshot(
+                dev.turboism.pluginmanagement.PluginAutoUpdateControl.Status.UPDATES_STAGED,
+                java.util.Map.of("dev.turboism.plugin.mcp", "0.2.0"),
+                false,
+                true));
+
+        final RecordedHint hint = context.uiHost().lastDismissibleCanvasHint();
+        assertNotNull(hint, "staged plugin updates must emit a dismissible canvas hint");
+        assertEquals("turboism-plugin-updates-ready", hint.notification.id());
+        assertEquals("Official plugin updates are ready; restart Cubism to apply", hint.notification.message());
+        assertTrue(hint.notification.onClick().isPresent());
+    }
+
     /**
      * Releases everything this test's context owns. {@link CoreWindows#close()} dispatches
      * dialog disposal to the EDT, so the drain below must complete before the test returns:
@@ -740,6 +767,82 @@ class CoreShellTest {
         public void close() {
             closed = true;
         }
+
+        void publish(final Snapshot snapshot) {
+            current = snapshot;
+            for (final java.util.function.Consumer<Snapshot> listener : listeners) {
+                listener.accept(snapshot);
+            }
+        }
+    }
+
+    private static final class FakePluginAutoUpdateManagement
+            implements CorePluginManagement, dev.turboism.pluginmanagement.PluginAutoUpdateControl {
+        private final java.util.concurrent.CopyOnWriteArrayList<java.util.function.Consumer<Snapshot>> listeners =
+                new java.util.concurrent.CopyOnWriteArrayList<>();
+        private volatile Snapshot current = Snapshot.idle();
+        private volatile boolean automaticEnabled = true;
+        private boolean started;
+
+        @Override
+        public List<PluginInfo> plugins() {
+            return List.of();
+        }
+
+        @Override
+        public OperationResult install() {
+            return OperationResult.rejected("Unavailable");
+        }
+
+        @Override
+        public OperationResult uninstall(final String id) {
+            return OperationResult.rejected("Unavailable");
+        }
+
+        @Override
+        public OperationResult setEnabled(final String id, final boolean enabled) {
+            return OperationResult.rejected("Unavailable");
+        }
+
+        @Override
+        public boolean autoUpdateAvailable() {
+            return true;
+        }
+
+        @Override
+        public Snapshot pluginUpdateSnapshot() {
+            return current;
+        }
+
+        @Override
+        public boolean automaticPluginUpdatesEnabled() {
+            return automaticEnabled;
+        }
+
+        @Override
+        public CoreUpdateService.PreferenceSaveResult saveAutomaticPluginUpdatesEnabled(final boolean enabled) {
+            automaticEnabled = enabled;
+            return CoreUpdateService.PreferenceSaveResult.success();
+        }
+
+        @Override
+        public void startPluginAutoUpdater() {
+            started = true;
+        }
+
+        @Override
+        public java.util.concurrent.CompletionStage<Snapshot> checkForPluginUpdates() {
+            return java.util.concurrent.CompletableFuture.completedFuture(current);
+        }
+
+        @Override
+        public Registration subscribePluginUpdates(final java.util.function.Consumer<Snapshot> listener) {
+            listeners.add(listener);
+            return () -> listeners.remove(listener);
+        }
+
+        @Override
+        public void close() {}
 
         void publish(final Snapshot snapshot) {
             current = snapshot;
