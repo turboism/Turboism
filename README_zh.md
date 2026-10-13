@@ -86,7 +86,7 @@ cd Turboism
 
 开发插件时，可从[示例插件](plugins/demo/README.md)、其[构建配置](plugins/demo/build.gradle.kts)和[插件描述文件](plugins/demo/src/main/resources/META-INF/turboism/plugin.json)开始。插件通过 `compileOnly` 依赖 `:sdk`，不要直接依赖运行时内部实现或 `com.live2d.*` 类。
 
-在本仓库**之外**开发插件无需构建 Turboism 本体。每个 GitHub Release 都会附带 `turboism-sdk-<version>.jar`（及其 `.sha256` 校验文件）：将 [templates/plugin-template](templates/plugin-template/) 复制为独立工程，把 SDK JAR 放入其中的 `libs/` 目录，并按其 README 操作即可。框架贡献者也可以把 SDK 与 `@SubscribeEvent` 注解处理器发布到本地 Maven 仓库，然后从 `mavenLocal()` 解析 `dev.turboism:sdk` 和 `dev.turboism:event-processor`：
+在本仓库**之外**开发插件无需构建 Turboism 本体。每个 GitHub Release 都会附带 `turboism-sdk-<version>.jar` 与 `turboism-event-processor-<version>.jar`（及其 `.sha256` 校验文件）：将 [templates/plugin-template](templates/plugin-template/) 复制为独立工程，运行其初始化脚本（或将 JAR 放入 `libs/` 目录），并按其 README 操作即可。框架贡献者也可以把 SDK 与 `@SubscribeEvent` 注解处理器发布到本地 Maven 仓库，然后从 `mavenLocal()` 解析 `dev.turboism:sdk` 和 `dev.turboism:event-processor`：
 
 ```bash
 ./gradlew :sdk:publishToMavenLocal :event-processor:publishToMavenLocal

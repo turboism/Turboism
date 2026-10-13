@@ -1,73 +1,113 @@
 # Turboism Plugin Template
 
+[EN / English](README.md) · [ZH / 简体中文](README_zh.md)
+
 A standalone Gradle project for building a Turboism plugin **without cloning or
-building the Turboism monorepo**. The result is a single plugin JAR you can drop
-into a Turboism installation.
+building the Turboism monorepo**. Run one setup script to fetch and verify the
+SDK and `@SubscribeEvent` annotation processor, customize your plugin identity,
+and build a single plugin JAR ready for any Turboism installation.
 
 ## Prerequisites
 
 - **JDK 17** (or newer — the plugin is compiled for Java 17 bytecode)
-- **Gradle 8.10+** on your `PATH`, or copy the Gradle wrapper (`gradlew`,
-  `gradlew.bat`, `gradle/wrapper/`) from the Turboism repository root into this
-  directory — or generate one with `gradle wrapper --gradle-version 8.10.2`
+- `curl` and `python3` (Linux/macOS) or PowerShell 5.1+ (Windows) for the setup script
+- The Gradle wrapper (`./gradlew` / `gradlew.bat`, Gradle 8.10.2) is bundled in this repository
 
-## Step 1 — provide the SDK
+## Quick start
 
-The SDK is a compile-time dependency only (`compileOnly`); the Turboism runtime
-supplies the real implementation when your plugin loads. Pick **one** source:
+1. **Create your repository** — click **Use this template** on
+   [`turboism/turboism-plugin-template`](https://github.com/turboism/turboism-plugin-template)
+   or clone it directly:
 
-### Option A — GitHub Release (recommended)
+   ```bash
+   git clone https://github.com/turboism/turboism-plugin-template.git my-turboism-plugin
+   cd my-turboism-plugin
+   ```
 
-Download `turboism-sdk-<version>.jar` (and its `.sha256` for verification) from
-<https://github.com/turboism/Turboism/releases> and put the JAR in `libs/`.
-The build picks it up automatically.
+2. **Run the setup script** — fetches `turboism-sdk-<version>.jar` and
+   `turboism-event-processor-<version>.jar`, verifies their `.sha256` sidecars,
+   and configures your plugin ID, display name, Java package, author, and
+   Cubism Editor version declaration:
 
-### Option B — local Maven publication
+   ```bash
+   # Interactive prompt (Linux / macOS / Git Bash)
+   ./scripts/setup.sh
 
-Inside a Turboism repository checkout (for example a framework contributor's
-clone), publish the SDK and annotation processor once:
+   # Non-interactive with explicit flags
+   ./scripts/setup.sh --channel stable \
+     --id com.example.myplugin \
+     --name "My Plugin" \
+     --package com.example.myplugin \
+     --author "Ada Lovelace" \
+     --yes
+   ```
+
+   On Windows PowerShell:
+
+   ```powershell
+   .\scripts\setup.ps1
+   # or non-interactive:
+   .\scripts\setup.ps1 -Channel stable -Id com.example.myplugin -Name "My Plugin" -Package com.example.myplugin -Author "Ada Lovelace" -Yes
+   ```
+
+3. **Build the plugin JAR**:
+
+   ```bash
+   ./gradlew build        # or .\gradlew.bat build on Windows
+   ```
+
+   The packaged plugin JAR is written to `build/libs/<slug>-turboism-plugin-0.1.0.jar`
+   (by default `build/libs/hello-turboism-plugin-0.1.0.jar`).
+
+4. **Install into Turboism** — copy the built JAR into the `plugins/` folder of
+   your Turboism installation, enable it under **Plugin Management**, and
+   restart. The sample plugin registers a `hello.hello` action and subscribes
+   to `HelloEvent` via `EventBus#subscribe` (with a `@SubscribeEvent` example
+   ready to uncomment whenever `turboism-event-processor` is present).
+
+## Channel and version selection
+
+`setup.sh` / `setup.ps1` resolves releases through
+`https://api.turboism.dev/v1/releases/<channel>.json` and falls back to the
+GitHub Releases API (`https://api.github.com/repos/turboism/Turboism/releases`):
+
+- **Stable channel (default)**: `./scripts/setup.sh --channel stable`
+- **Beta channel**: `./scripts/setup.sh --channel beta`
+- **Pinned version**: `./scripts/setup.sh --version 0.67.0-beta.2`
+
+The chosen version is recorded in `gradle.properties` (`turboismSdkVersion`),
+and the verified JARs are placed in `libs/`. Re-running the setup script is
+idempotent: it replaces stale JARs in `libs/` only after the new downloads pass
+SHA-256 verification and updates the existing package/class and descriptor in
+place.
+
+## Offline and manual alternatives
+
+### Option A — manual GitHub Release download
+
+Download `turboism-sdk-<version>.jar` and
+`turboism-event-processor-<version>.jar` (plus their `.sha256` sidecars) from
+<https://github.com/turboism/Turboism/releases>, verify their SHA-256 digests,
+and drop the JARs into `libs/`:
+
+```bash
+sha256sum -c turboism-sdk-<version>.jar.sha256 turboism-event-processor-<version>.jar.sha256
+mv turboism-sdk-<version>.jar turboism-event-processor-<version>.jar libs/
+./gradlew build
+```
+
+### Option B — local Maven publication (`mavenLocal()`)
+
+Inside a Turboism monorepo checkout, publish the SDK and annotation processor to
+`~/.m2/repository`:
 
 ```bash
 ./gradlew :sdk:publishToMavenLocal :event-processor:publishToMavenLocal
 ```
 
-Then keep `libs/` empty: the build resolves `dev.turboism:sdk` from
-`mavenLocal()` using `turboismSdkVersion` in `gradle.properties`
-(development builds end with `-SNAPSHOT`).
-
-## Step 2 — build
-
-```bash
-gradle jar          # or ./gradlew jar if you installed the wrapper
-```
-
-This produces `build/libs/hello-turboism-plugin-0.1.0.jar`.
-
-## Step 3 — install
-
-Copy the JAR into the `plugins/` directory inside your Turboism installation,
-then enable it under Plugin Management and restart. The plugin appears as
-"Hello Plugin" and registers a `hello.hello` action; invoking the action
-publishes a `HelloEvent` that the plugin's own subscriber logs.
-
-## Make it yours
-
-1. Rename the package `dev.example.hello` and the class `HelloPlugin`.
-2. Update `id`, `name`, `version`, `entrypoints`, `authors`, `website`,
-   `description`, and `license` in
-   `src/main/resources/META-INF/turboism/plugin.json`. The `id` is a
-   reverse-domain identifier and must stay unique across all installed plugins.
-3. Set `turboismApi` to the API range your plugin supports, e.g.
-   `"[0.1.0,0.2.0)"`. The host rejects plugins whose range does not cover the
-   running Turboism API version.
-4. Declare every permission your plugin uses under `permissions`; undeclared
-   capabilities fail closed at load time.
-5. Keep `plugin.name` / `plugin.description` plus every key your code looks up
-   in the i18n catalogs. The base catalog `messages.properties` and every
-   declared locale catalog (e.g. `messages_en.properties` for locale `en`) must
-   ship inside the JAR.
-6. Any non-class file outside `META-INF/` (images, schemas, data) must live
-   under a prefix listed in `resources`; undeclared resources are rejected.
+When `libs/` contains no `turboism-sdk-*.jar`, `build.gradle.kts` resolves
+`dev.turboism:sdk:<turboismSdkVersion>` and
+`dev.turboism:event-processor:<turboismSdkVersion>` from `mavenLocal()`.
 
 ## Cubism Editor version support
 
@@ -97,46 +137,75 @@ context.services().find(EditorCommandService.class).ifPresent(commands -> {
 });
 ```
 
-Declare your plugin's supported set by shipping
-`META-INF/turboism/cubism-versions.json` in the JAR:
+Declare your plugin's supported set in
+`src/main/resources/META-INF/turboism/cubism-versions.json`:
 
 ```json
 {
   "format": "turboism.plugin-cubism-versions/v1",
   "plugin": "dev.example.hello",
-  "supportedVersions": ["5.2.03", "5.3.02", "5.3.03", "5.3.04"],
-  "fullFeatureVersions": ["5.3.02", "5.3.03", "5.3.04"]
+  "supportedVersions": [
+    "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+    "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+    "5.2.00", "5.2.01", "5.2.02", "5.2.03",
+    "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+  ],
+  "fullFeatureVersions": [
+    "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+    "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+    "5.2.00", "5.2.01", "5.2.02", "5.2.03",
+    "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+  ]
 }
 ```
 
-The declaration is informational and never blocks loading: a `requiresCubism`
-plugin without the file is treated as *undeclared* and the loader logs a
-single note (a malformed file logs a warning the same way). First-party
-plugins in the Turboism repository do not write this file by hand — the
-compatibility-matrix generator derives it from declared capabilities and SDK
-usage and writes it for them. Derive yours the same way: cover every Editor
-version your code paths actually verify, and prefer `isAvailable()` probes
-over narrowing the declared set.
+By default, `setup.sh` / `setup.ps1` populates `cubism-versions.json` with all
+reviewed Cubism Editor versions reported by the release API's `compatibility`
+field (or Override with `--cubism-versions 5.2.03,5.3.02,5.3.03,5.3.04`). If your
+plugin requires a live Cubism Editor host, pass `--requires-cubism true` (or set
+`"requiresCubism": true` under `"environment"` in
+`src/main/resources/META-INF/turboism/plugin.json`).
 
 ## Event subscriptions
 
-The template subscribes imperatively via `context.eventBus().subscribe(...)`,
-which works with the plain SDK JAR. If you prefer the `@SubscribeEvent`
-annotation style used by `plugins/demo`, add the annotation processor
-(Option B above — it is published locally, not attached to GitHub Releases):
+Both subscription styles work out of the box:
 
-```kotlin
-annotationProcessor("dev.turboism:event-processor:$turboismSdkVersion")
-```
-
-The processor generates the `GeneratedSubscriberCatalog` service entry the
-runtime scans; without it, `@SubscribeEvent` methods are never invoked.
+- **Declarative (`@SubscribeEvent`)** — when the chosen release ships
+  `turboism-event-processor-<version>.jar`, `build.gradle.kts` wires it onto
+  `annotationProcessor`, which generates the `GeneratedSubscriberCatalog`
+  service entry at compile time. If the selected release only ships
+  `turboism-sdk-<version>.jar` (for example `0.67.0-beta.1`), `setup.sh` /
+  `setup.ps1` prints a warning and configures the build to compile without the
+  processor; use `EventBus#subscribe` or rerun setup after a release that ships
+  `turboism-event-processor`.
+- **Imperative (`context.eventBus().subscribe(...)`)** — works on every SDK
+  release without annotation processing; register the returned `Registration`
+  with `context.disposableScope()` so it is withdrawn on disable.
 
 ## Rules of the road
 
 - Depend on `dev.turboism:sdk` with `compileOnly` only — never bundle the SDK
   inside your plugin JAR, and never depend on runtime internals or
   `com.live2d.*` classes.
-- Match the SDK version to the Turboism version you target; the public API
-  surface and its guarantees are described under `sdk/api-contracts/` in the
-  Turboism repository and at <https://docs.turboism.dev>.
+- Declare every permission your plugin uses under `permissions` in
+  `META-INF/turboism/plugin.json`; undeclared capabilities fail closed at load
+  time.
+- Keep `plugin.name` / `plugin.description` plus every key your code looks up
+  in `META-INF/turboism/i18n/messages*.properties`.
+- Any non-class file outside `META-INF/` (images, schemas, data) must live
+  under a prefix listed in `resources` in `plugin.json`.
+
+## For template maintainers
+
+`templates/plugin-template/` in [`turboism/Turboism`](https://github.com/turboism/Turboism)
+is the single source of truth for this template. The standalone repository
+`turboism/turboism-plugin-template` syncs from public Turboism release tags via
+`.github/workflows/sync-from-turboism.yml` (scheduled daily and runnable on
+demand via `workflow_dispatch`):
+
+1. Resolves the latest `stable` and `beta` release tags from the Turboism
+   release API / GitHub Releases API.
+2. Fetches `templates/plugin-template/` at that tag from the public
+   `turboism/Turboism` repository (no cross-repo token or secret needed).
+3. Replaces the template repository working tree (preserving `.git`), commits
+   if changed, and tags `sdk-<version>`.

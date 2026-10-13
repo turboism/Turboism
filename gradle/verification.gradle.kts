@@ -1121,8 +1121,21 @@ tasks.register<Exec>("checkShellLint") {
     workingDir(rootDir)
     inputs.files("scripts/check_shell_lint.sh")
     inputs.files(fileTree("scripts") { include("**/*.sh") })
+    inputs.files(fileTree("templates") { include("**/*.sh") })
     VerificationStamps.apply(this)
     commandLine("bash", "scripts/check_shell_lint.sh")
+}
+
+val checkPluginTemplateSetup by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs offline unit tests for the plugin template setup scripts."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/test/test_plugin_template_setup.py",
+        fileTree("templates/plugin-template") { include("**/*") }
+    )
+    VerificationStamps.apply(this)
+    commandLine("python3", "scripts/test/test_plugin_template_setup.py")
 }
 
 /*
@@ -1177,6 +1190,7 @@ val devCheck by tasks.registering {
         "checkPythonLint",
         "checkCompatibilityMatrix",
         "checkShellLint",
+        checkPluginTemplateSetup,
         checkRepositoryHygiene,
         checkTestCorpusSelfTest,
         checkEditorModelAliases,
@@ -1590,7 +1604,7 @@ registerWorkspaceHostValidation("validateWorkspaceHost5203", "5203", "5.2.03")
 val checkExternalPluginTemplateSelfTest by tasks.registering(Exec::class) {
     group = "verification"
     description = "Runs fail-closed fixtures for the external plugin-template consumer check."
-    dependsOn(":sdk:jar", ":runtime:classes")
+    dependsOn(":sdk:jar", ":event-processor:jar", ":runtime:classes")
     workingDir(rootDir)
     inputs.files(
         "scripts/test/check_external_plugin_template.py",
@@ -1598,6 +1612,9 @@ val checkExternalPluginTemplateSelfTest by tasks.registering(Exec::class) {
     )
     inputs.file(provider {
         project(":sdk").tasks.named<Jar>("jar").get().archiveFile
+    })
+    inputs.file(provider {
+        project(":event-processor").tasks.named<Jar>("jar").get().archiveFile
     })
     inputs.files(provider {
         project(":runtime").extensions.getByType<SourceSetContainer>()
@@ -1612,6 +1629,8 @@ val checkExternalPluginTemplateSelfTest by tasks.registering(Exec::class) {
             "--repo-root", rootDir.absolutePath,
             "--sdk-jar",
             project(":sdk").tasks.named<Jar>("jar").get().archiveFile.get().asFile.absolutePath,
+            "--event-processor-jar",
+            project(":event-processor").tasks.named<Jar>("jar").get().archiveFile.get().asFile.absolutePath,
             "--sdk-version", project(":sdk").version.toString(),
             "--runtime-classpath",
             project(":runtime").extensions.getByType<SourceSetContainer>()
@@ -1627,7 +1646,7 @@ val checkExternalPluginTemplateSelfTest by tasks.registering(Exec::class) {
 tasks.register<Exec>("checkExternalPluginTemplate") {
     group = "verification"
     description = "Builds templates/plugin-template as an external consumer and validates the plugin JAR through production contract tools."
-    dependsOn(":sdk:jar", ":runtime:classes", checkExternalPluginTemplateSelfTest)
+    dependsOn(":sdk:jar", ":event-processor:jar", ":runtime:classes", checkExternalPluginTemplateSelfTest)
     workingDir(rootDir)
     inputs.files(
         "scripts/test/check_external_plugin_template.py",
@@ -1635,6 +1654,9 @@ tasks.register<Exec>("checkExternalPluginTemplate") {
     )
     inputs.file(provider {
         project(":sdk").tasks.named<Jar>("jar").get().archiveFile
+    })
+    inputs.file(provider {
+        project(":event-processor").tasks.named<Jar>("jar").get().archiveFile
     })
     inputs.files(provider {
         project(":runtime").extensions.getByType<SourceSetContainer>()
@@ -1649,6 +1671,8 @@ tasks.register<Exec>("checkExternalPluginTemplate") {
             "--repo-root", rootDir.absolutePath,
             "--sdk-jar",
             project(":sdk").tasks.named<Jar>("jar").get().archiveFile.get().asFile.absolutePath,
+            "--event-processor-jar",
+            project(":event-processor").tasks.named<Jar>("jar").get().archiveFile.get().asFile.absolutePath,
             "--sdk-version", project(":sdk").version.toString(),
             "--runtime-classpath",
             project(":runtime").extensions.getByType<SourceSetContainer>()

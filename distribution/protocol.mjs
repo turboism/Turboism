@@ -97,10 +97,12 @@ export function parseRelease(raw,sourceRevision,verifiedIdentity=null){
  if(receipt){require(verifiedIdentity&&Object.keys(receipt).every(k=>receipt[k]===verifiedIdentity[k]),'Unverified build identity');require(receipt.sourceRevision===sourceRevision&&receipt.version===version&&receipt.channel===channel,'Build identity source/version mismatch');}
  const names=[`TurboismInstaller-${version}.exe`,`TurboismInstaller-${version}.jar`,`turboism-${version}-full.zip`,`turboism-${version}-lite.zip`];
  const expected=names.flatMap(n=>[n,n+'.sha256']);
- // Releases also carry the standalone SDK jar for plugin developers. It passes the
- // same integrity checks but stays out of the mirrored files API, and older
- // releases simply do not have it: both-or-neither for the developer pair.
- const developer=[`turboism-sdk-${version}.jar`,`turboism-sdk-${version}.jar.sha256`];
+ // Releases also carry standalone developer jars (SDK and event-processor) for
+ // plugin developers. They pass the same integrity checks but stay out of the
+ // mirrored files API; older releases may have SDK-only or neither.
+ const sdkPair=[`turboism-sdk-${version}.jar`,`turboism-sdk-${version}.jar.sha256`];
+ const processorPair=[`turboism-event-processor-${version}.jar`,`turboism-event-processor-${version}.jar.sha256`];
+ const developer=[...sdkPair,...processorPair];
  const allowed=new Set([...expected,...developer]);
  require(Array.isArray(raw.assets)&&raw.assets.length<=allowed.size,'Unexpected asset count');
  const seen=new Set(),assets=new Map();
@@ -116,7 +118,9 @@ export function parseRelease(raw,sourceRevision,verifiedIdentity=null){
   assets.set(a.name,{name:a.name,key,url,mediaType:a.name.endsWith('.zip')?'application/zip':'application/octet-stream',size:a.size,sha256:digest,assetId:a.id,downloadCount:Number.isSafeInteger(a.download_count)&&a.download_count>=0?a.download_count:null});
  }
  require(expected.every(n=>seen.has(n)),'Incomplete canonical assets');
- require(developer.every(n=>seen.has(n))||developer.every(n=>!seen.has(n)),'Partial developer asset set');
+ const hasSdk=sdkPair.every(n=>seen.has(n)),noSdk=sdkPair.every(n=>!seen.has(n));
+ const hasProcessor=processorPair.every(n=>seen.has(n)),noProcessor=processorPair.every(n=>!seen.has(n));
+ require((hasSdk||noSdk)&&(hasProcessor||noProcessor)&&(!hasProcessor||hasSdk),'Partial developer asset set');
  return {releaseId:raw.id,version,tag:raw.tag_name,channel,buildNumber:receipt?.buildNumber??null,sourceRevision,publishedAt:new Date(raw.published_at).toISOString(),githubReleaseUrl:raw.html_url,changelogUrl:raw.html_url,
   provenance:receipt?{repository:REPOSITORY,workflow:'.github/workflows/release.yml',runId:receipt.runId,runAttempt:receipt.runAttempt}:{repository:REPOSITORY,workflow:null,runId:null,runAttempt:null},
   compatibility:releaseCompatibility(raw),...releaseNotes(raw,sourceRevision),

@@ -86,7 +86,7 @@ Windows では `./gradlew` の代わりに `gradlew.bat` を使用してくだ�
 
 プラグイン開発は、[デモプラグイン](plugins/demo/README.md)、その[ビルド設定](plugins/demo/build.gradle.kts)、[プラグイン記述ファイル](plugins/demo/src/main/resources/META-INF/turboism/plugin.json)を参考に始められます。プラグインは `compileOnly` で `:sdk` に依存し、ランタイムの内部実装や `com.live2d.*` クラスには直接依存しないでください。
 
-このリポジトリの**外側**でプラグインを開発する場合、Turboism 本体のビルドは不要です。各 GitHub Release には `turboism-sdk-<version>.jar`（`.sha256` サイドカー付き）が同梱されます。[templates/plugin-template](templates/plugin-template/) を独立したプロジェクトとしてコピーし、SDK JAR を `libs/` ディレクトリに入れて、その README の手順に従ってください。フレームワーク貢献者は、SDK と `@SubscribeEvent` アノテーションプロセッサをローカル Maven リポジトリに公開し、`mavenLocal()` から `dev.turboism:sdk` と `dev.turboism:event-processor` を解決することもできます：
+このリポジトリの**外側**でプラグインを開発する場合、Turboism 本体のビルドは不要です。各 GitHub Release には `turboism-sdk-<version>.jar` と `turboism-event-processor-<version>.jar`（`.sha256` サイドカー付き）が同梱されます。[templates/plugin-template](templates/plugin-template/) を独立したプロジェクトとしてコピーし、セットアップスクリプトを実行する（または JAR を `libs/` ディレクトリに入れる）か、その README の手順に従ってください。フレームワーク貢献者は、SDK と `@SubscribeEvent` アノテーションプロセッサをローカル Maven リポジトリに公開し、`mavenLocal()` から `dev.turboism:sdk` と `dev.turboism:event-processor` を解決することもできます：
 
 ```bash
 ./gradlew :sdk:publishToMavenLocal :event-processor:publishToMavenLocal
