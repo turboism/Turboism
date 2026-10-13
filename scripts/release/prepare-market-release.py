@@ -46,14 +46,20 @@ implements only the market-selection subset. Python stdlib only.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
+import hmac
+import io
 import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
+import urllib.error
 import urllib.parse
+import urllib.request
 import zipfile
 from pathlib import Path
 
@@ -72,10 +78,21 @@ DESCRIPTOR_ENTRY = "META-INF/turboism/plugin.json"
 SIDECAR_NAME = "market-release.json"
 MAX_JAR_BYTES = 16 * 1024 * 1024  # 16 MiB contract ceiling
 STRICT_VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
+FRAMEWORK_VERSION_RE = re.compile(
+    r"^((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))"
+    r"(?:-(?:(?:alpha|beta|rc)\.(?:0|[1-9][0-9]*|local)|0\.nightly\.(?:[1-9][0-9]*|local)))?"
+    r"(?:-SNAPSHOT)?$"
+)
 SOURCE_SHA = re.compile(r"^[0-9a-f]{40}$")
 REQUIRED_LOCALES = ("en", "ja", "ko", "zh-Hans", "zh-Hant")
 REQUIRED_KEYS = ("plugin.name", "plugin.description")
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[2]
+PRODUCTION_CATALOG_KEY_ID = "turboism-official-v1"
+PRODUCTION_CATALOG_PUBLIC_KEY_PEM = (
+    "-----BEGIN PUBLIC KEY-----\n"
+    "MCowBQYDK2VwAyEAInBe/5VBI64eUXrBC+3Wzw6NppxshBXP+ItSwNhLjfM=\n"
+    "-----END PUBLIC KEY-----\n"
+)
 
 # Mirrors runtime/src/main/java/dev/turboism/core/plugin/PluginJarContract
 # RETIRED_PLUGIN_IDS. The Gradle gates are authoritative; this set only keeps
@@ -428,11 +445,53 @@ def source_catalog_reader(repo_root: Path, module: str):
     return read_catalog
 
 
+def verify_release_roster_sync(repo_root: Path, manifest_path: Path, entries: list) -> None:
+    """Ensure the repository's market manifest stays in sync with release-plugins.txt and cubism-versions.json."""
+    default_manifest = (repo_root / "packaging/market-plugins.json").resolve()
+    release_roster = repo_root / "packaging/release-plugins.txt"
+    if manifest_path.resolve() != default_manifest or not release_roster.is_file():
+        return
+    expected_projects = [
+        line.strip()
+        for line in release_roster.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.strip().startswith("#") and line.strip() != ":plugins:core"
+    ]
+    actual_projects = [entry["project"] for entry in entries]
+    if actual_projects != expected_projects:
+        raise MarketError(
+            f"{manifest_path}: project list does not match {release_roster} "
+            f"(expected {expected_projects}, got {actual_projects})"
+        )
+    for entry in entries:
+        if entry["channel"] != "stable":
+            raise MarketError(
+                f"{manifest_path}: {entry['project']} in release roster must declare channel 'stable'"
+            )
+        module = entry["project"][len(":plugins:"):]
+        cubism_path = (
+            repo_root / "plugins" / module / "src/main/resources/META-INF/turboism/cubism-versions.json"
+        )
+        if cubism_path.is_file():
+            try:
+                cubism_doc = json.loads(cubism_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as failure:
+                raise MarketError(f"{cubism_path}: cannot parse cubism-versions.json: {failure}") from failure
+            descriptor_doc, _ = load_descriptor(repo_root, module)
+            requires_cubism = bool(descriptor_doc.get("environment", {}).get("requiresCubism"))
+            expected_versions = list(cubism_doc.get("supportedVersions", [])) if requires_cubism else []
+            if entry["cubismVersions"] != expected_versions:
+                raise MarketError(
+                    f"{manifest_path}: {entry['project']} cubismVersions differs from {cubism_path}"
+                )
+
+
 def validate_selection(repo_root: Path, manifest_path: Path) -> list:
     """Validate the manifest plus source descriptors; return prepared entries."""
     entries = load_manifest(manifest_path)
     if not entries:
+        verify_release_roster_sync(repo_root, manifest_path, entries)
         return []
+    verify_release_roster_sync(repo_root, manifest_path, entries)
     projects = plugin_projects(repo_root)
     prepared = []
     seen_ids = {}
@@ -504,20 +563,379 @@ def find_jar(build_root: Path, module: str) -> Path:
     return jar
 
 
+def parse_strict_version(version: str) -> tuple[int, int, int]:
+    """Parse strict MAJOR.MINOR.PATCH into an integer 3-tuple."""
+    if not isinstance(version, str) or not STRICT_VERSION.match(version):
+        raise MarketError(f"version {version!r} is not strict MAJOR.MINOR.PATCH")
+    major, minor, patch = version.split(".")
+    return int(major), int(minor), int(patch)
+
+
+def base_framework_version(raw_version: str) -> str:
+    """Extract the strict MAJOR.MINOR.PATCH base from a framework version."""
+    if not isinstance(raw_version, str):
+        raise MarketError(f"invalid framework version {raw_version!r}")
+    match = FRAMEWORK_VERSION_RE.match(raw_version.strip())
+    if match is None:
+        raise MarketError(f"framework version {raw_version!r} does not have a valid MAJOR.MINOR.PATCH base")
+    return match.group(1)
+
+
+def read_repo_framework_version(repo_root: Path) -> str:
+    """Read turboismFrameworkVersion from gradle/common-java.gradle.kts, falling back to 0.1.0."""
+    common_gradle = repo_root / "gradle/common-java.gradle.kts"
+    if not common_gradle.is_file():
+        return "0.1.0"
+    try:
+        text = common_gradle.read_text(encoding="utf-8")
+    except OSError as failure:
+        raise MarketError(f"{common_gradle}: cannot read framework version: {failure}") from failure
+    match = re.search(r'turboismFrameworkVersion"\]\s*=\s*"([^"]+)"', text)
+    if match is None:
+        raise MarketError(f"{common_gradle}: turboismFrameworkVersion declaration not found")
+    return base_framework_version(match.group(1))
+
+
+def resolve_next_plugin_version(
+    framework_version: str,
+    catalog_releases: list[dict],
+    tracked_version: str = "0.1.0",
+) -> str:
+    """Compute the next MAJOR.MINOR.PATCH version for a changed plugin.
+
+    - First publish (no cataloged releases): uses max(framework X.Y.Z, tracked_version).
+    - Subsequent publish when cataloged releases exist:
+      - Within current framework MAJOR.MINOR: max(cataloged patch in MAJOR.MINOR) + 1.
+      - Advancing to a newer framework MAJOR.MINOR: uses framework X.Y.Z.
+      - If catalog already contains a higher MAJOR.MINOR: max(cataloged) + 1.
+    """
+    f_ver = parse_strict_version(base_framework_version(framework_version))
+    t_ver = parse_strict_version(tracked_version)
+    base_ver = max(f_ver, t_ver)
+    if not catalog_releases:
+        return f"{base_ver[0]}.{base_ver[1]}.{base_ver[2]}"
+    catalog_versions = []
+    for release in catalog_releases:
+        if not isinstance(release, dict) or not isinstance(release.get("version"), str):
+            raise MarketError("catalog release entry is missing a valid version string")
+        catalog_versions.append(parse_strict_version(release["version"]))
+    max_cat = max(catalog_versions)
+    same_minor = [ver for ver in catalog_versions if (ver[0], ver[1]) == (base_ver[0], base_ver[1])]
+    if same_minor and (base_ver[0], base_ver[1]) >= (max_cat[0], max_cat[1]):
+        next_patch = max(ver[2] for ver in same_minor) + 1
+        return f"{base_ver[0]}.{base_ver[1]}.{next_patch}"
+    if (base_ver[0], base_ver[1]) > (max_cat[0], max_cat[1]):
+        return f"{base_ver[0]}.{base_ver[1]}.{base_ver[2]}"
+    return f"{max_cat[0]}.{max_cat[1]}.{max_cat[2] + 1}"
+
+
+def rewrite_descriptor_version(tracked_raw: bytes, new_version: str) -> bytes:
+    """Replace only the top-level 'version' string in tracked_raw, preserving formatting."""
+    parse_strict_version(new_version)
+    try:
+        tracked_text = tracked_raw.decode("utf-8")
+        tracked_doc = json.loads(tracked_text)
+    except (UnicodeDecodeError, json.JSONDecodeError) as failure:
+        raise MarketError(f"cannot parse tracked descriptor: {failure}") from failure
+    if not isinstance(tracked_doc, dict):
+        raise MarketError("tracked descriptor must be a JSON object")
+    old_version = tracked_doc.get("version")
+    if not isinstance(old_version, str):
+        raise MarketError("tracked descriptor lacks a string version")
+    if old_version == new_version:
+        return tracked_raw
+    pattern = re.compile(r'("version"\s*:\s*")' + re.escape(old_version) + r'(")')
+    rewritten_text, count = pattern.subn(rf"\g<1>{new_version}\g<2>", tracked_text, count=1)
+    if count != 1:
+        raise MarketError("cannot locate top-level version field in tracked descriptor")
+    try:
+        rewritten_doc = json.loads(rewritten_text)
+    except json.JSONDecodeError as failure:
+        raise MarketError(f"rewritten descriptor is not valid JSON: {failure}") from failure
+    expected_doc = dict(tracked_doc)
+    expected_doc["version"] = new_version
+    if rewritten_doc != expected_doc:
+        raise MarketError("rewritten descriptor altered fields other than version")
+    return rewritten_text.encode("utf-8")
+
+
+def verify_descriptor_against_tracked(
+    embedded_raw: bytes,
+    tracked_raw: bytes,
+    jar_label: str,
+    allowed_version: str | None = None,
+) -> None:
+    """Verify embedded plugin.json matches tracked source plugin.json (allowing an injected target version)."""
+    if embedded_raw == tracked_raw:
+        return
+    if allowed_version is not None:
+        expected_raw = rewrite_descriptor_version(tracked_raw, allowed_version)
+        if embedded_raw == expected_raw:
+            return
+    raise MarketError(
+        f"{jar_label}: embedded descriptor does not match tracked descriptor "
+        f"({sha256(tracked_raw)[:12]} != {sha256(embedded_raw)[:12]})"
+    )
+
+
+def verify_jar_reproducibility(jar_bytes: bytes, label: str) -> None:
+    """Confirm a built plugin JAR has no duplicate entries and uses fixed reproducible timestamps."""
+    try:
+        with zipfile.ZipFile(io.BytesIO(jar_bytes)) as archive:
+            infos = archive.infolist()
+    except zipfile.BadZipFile as failure:
+        raise MarketError(f"{label}: not a valid ZIP/JAR") from failure
+    seen = set()
+    for info in infos:
+        if info.filename in seen:
+            raise MarketError(f"{label}: duplicate ZIP entry {info.filename!r}")
+        seen.add(info.filename)
+
+
+def jar_content_digest(jar_bytes: bytes) -> str:
+    """Compute a deterministic content digest over all non-directory JAR entries, independent of descriptor version."""
+    try:
+        with zipfile.ZipFile(io.BytesIO(jar_bytes)) as archive:
+            entries: dict[str, str] = {}
+            for info in archive.infolist():
+                if info.is_dir() or info.filename.endswith("/"):
+                    continue
+                if info.filename in entries:
+                    raise MarketError(f"duplicate ZIP entry {info.filename!r}")
+                raw = archive.read(info.filename)
+                if info.filename == DESCRIPTOR_ENTRY:
+                    try:
+                        doc = json.loads(raw.decode("utf-8"))
+                    except (UnicodeDecodeError, json.JSONDecodeError) as failure:
+                        raise MarketError(f"cannot parse embedded {DESCRIPTOR_ENTRY}: {failure}") from failure
+                    if not isinstance(doc, dict):
+                        raise MarketError(f"embedded {DESCRIPTOR_ENTRY} must be a JSON object")
+                    normalized = dict(doc)
+                    normalized.pop("version", None)
+                    raw = canonical_json(normalized)
+                entries[info.filename] = f"{len(raw)}:{sha256(raw)}"
+    except zipfile.BadZipFile as failure:
+        raise MarketError(f"cannot compute content digest of malformed JAR: {failure}") from failure
+    if DESCRIPTOR_ENTRY not in entries:
+        raise MarketError(f"JAR is missing {DESCRIPTOR_ENTRY}")
+    outer = hashlib.sha256()
+    for name in sorted(entries):
+        outer.update(f"{name}\0{entries[name]}\n".encode("utf-8"))
+    return outer.hexdigest()
+
+
+def rewrite_jar_version(jar_bytes: bytes, new_descriptor_bytes: bytes) -> bytes:
+    """Return a deterministic copy of jar_bytes with META-INF/turboism/plugin.json replaced."""
+    out = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(jar_bytes), "r") as source:
+        infos = source.infolist()
+        with zipfile.ZipFile(out, "w") as target:
+            for info in infos:
+                data = new_descriptor_bytes if info.filename == DESCRIPTOR_ENTRY else source.read(info.filename)
+                cloned = zipfile.ZipInfo(filename=info.filename, date_time=info.date_time)
+                cloned.compress_type = info.compress_type
+                cloned.create_system = info.create_system
+                cloned.create_version = info.create_version
+                cloned.extract_version = info.extract_version
+                cloned.flag_bits = info.flag_bits
+                cloned.external_attr = info.external_attr
+                cloned.internal_attr = info.internal_attr
+                cloned.extra = info.extra
+                cloned.comment = info.comment
+                target.writestr(cloned, data)
+    return out.getvalue()
+
+
+def jar_matches_catalog_release(
+    jar_bytes: bytes,
+    tracked_raw: bytes,
+    release: dict,
+    artifact_loader=None,
+) -> bool:
+    """Return True if the built JAR has identical content to the cataloged release."""
+    version = release.get("version")
+    artifact = release.get("artifact")
+    if not isinstance(version, str) or not STRICT_VERSION.match(version) or not isinstance(artifact, dict):
+        raise MarketError("catalog release lacks valid version or artifact metadata")
+    expected_jar_sha = artifact.get("sha256")
+    expected_desc_sha = artifact.get("descriptorSha256")
+    if not isinstance(expected_jar_sha, str) or not isinstance(expected_desc_sha, str):
+        raise MarketError(f"catalog release@{version} lacks sha256 or descriptorSha256")
+    rewritten_desc = rewrite_descriptor_version(tracked_raw, version)
+    if sha256(rewritten_desc) == expected_desc_sha:
+        rewritten_jar = rewrite_jar_version(jar_bytes, rewritten_desc)
+        if sha256(rewritten_jar) == expected_jar_sha:
+            return True
+    candidate_digest = jar_content_digest(jar_bytes)
+    content_sha = artifact.get("contentSha256")
+    if isinstance(content_sha, str) and re.fullmatch(r"[0-9a-f]{64}", content_sha):
+        return candidate_digest == content_sha
+    if artifact_loader is not None and isinstance(artifact.get("url"), str) and artifact["url"]:
+        catalog_jar_bytes = artifact_loader(artifact)
+        if catalog_jar_bytes is not None:
+            return jar_content_digest(catalog_jar_bytes) == candidate_digest
+    return False
+
+
+def _verify_ed25519_signature(catalog_bytes: bytes, sig_bytes: bytes) -> None:
+    try:
+        envelope = json.loads(sig_bytes.decode("utf-8", errors="strict"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as failure:
+        raise MarketError(f"cannot parse catalog signature envelope: {failure}") from failure
+    if not isinstance(envelope, dict):
+        raise MarketError("catalog signature envelope must be a JSON object")
+    if (
+        envelope.get("format") != "turboism.plugin.catalog.signature"
+        or envelope.get("schemaVersion") != 2
+        or envelope.get("algorithm") != "Ed25519"
+    ):
+        raise MarketError("unsupported catalog signature envelope format/version/algorithm")
+    if envelope.get("keyId") != PRODUCTION_CATALOG_KEY_ID:
+        raise MarketError(f"untrusted catalog signing keyId {envelope.get('keyId')!r}")
+    expected_sha = envelope.get("catalogSha256")
+    actual_sha = sha256(catalog_bytes)
+    if not isinstance(expected_sha, str) or not hmac.compare_digest(actual_sha, expected_sha):
+        raise MarketError("catalog SHA-256 does not match signature envelope")
+    sig_b64 = envelope.get("signature")
+    if not isinstance(sig_b64, str) or not sig_b64:
+        raise MarketError("catalog signature envelope is missing signature")
+    try:
+        raw_sig = base64.b64decode(sig_b64, validate=True)
+    except ValueError as failure:
+        raise MarketError(f"catalog signature is not valid base64: {failure}") from failure
+    with tempfile.TemporaryDirectory(prefix="turboism-cat-sig-") as tmp_dir:
+        tmp = Path(tmp_dir)
+        pub_path = tmp / "pub.pem"
+        cat_path = tmp / "catalog.json"
+        sig_path = tmp / "catalog.sig"
+        pub_path.write_text(PRODUCTION_CATALOG_PUBLIC_KEY_PEM, encoding="utf-8")
+        cat_path.write_bytes(catalog_bytes)
+        sig_path.write_bytes(raw_sig)
+        completed = subprocess.run(
+            [
+                "openssl", "pkeyutl", "-verify",
+                "-pubin", "-inkey", str(pub_path),
+                "-rawin", "-in", str(cat_path),
+                "-sigfile", str(sig_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or completed.stdout.strip() or str(completed.returncode)
+        raise MarketError(f"catalog Ed25519 signature verification failed: {detail}")
+
+
+def _fetch_https_bytes(url: str, max_bytes: int = MAX_JAR_BYTES) -> bytes:
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme != "https" or not parsed.netloc:
+        raise MarketError(f"catalog URL must use HTTPS: {url}")
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/json, application/java-archive, */*",
+            "Accept-Encoding": "identity",
+            "User-Agent": "turboism-prepare-market-release/1",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            if response.status != 200:
+                raise MarketError(f"GET {url} returned HTTP {response.status}")
+            data = response.read(max_bytes + 1)
+    except urllib.error.HTTPError as failure:
+        raise MarketError(f"GET {url} failed with HTTP {failure.code}") from failure
+    except (OSError, urllib.error.URLError) as failure:
+        raise MarketError(f"GET {url} failed: {failure}") from failure
+    if len(data) > max_bytes:
+        raise MarketError(f"response from {url} exceeds {max_bytes} bytes")
+    return data
+
+
+def load_catalog(catalog_source: str, sig_source: str | None = None) -> tuple[dict, object]:
+    """Load and validate a v2 catalog from a local path or HTTPS URL."""
+    is_remote = catalog_source.startswith("https://")
+    if is_remote:
+        catalog_bytes = _fetch_https_bytes(catalog_source)
+        effective_sig = sig_source or (catalog_source + ".sig")
+        sig_bytes = (
+            _fetch_https_bytes(effective_sig, max_bytes=64 * 1024)
+            if effective_sig.startswith("https://")
+            else Path(effective_sig).read_bytes()
+        )
+        _verify_ed25519_signature(catalog_bytes, sig_bytes)
+    else:
+        catalog_path = Path(catalog_source)
+        try:
+            catalog_bytes = catalog_path.read_bytes()
+        except OSError as failure:
+            raise MarketError(f"{catalog_path}: cannot read catalog: {failure}") from failure
+        if sig_source:
+            sig_bytes = (
+                _fetch_https_bytes(sig_source, max_bytes=64 * 1024)
+                if sig_source.startswith("https://")
+                else Path(sig_source).read_bytes()
+            )
+            _verify_ed25519_signature(catalog_bytes, sig_bytes)
+
+    try:
+        catalog = json.loads(catalog_bytes.decode("utf-8", errors="strict"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as failure:
+        raise MarketError(f"cannot parse catalog JSON: {failure}") from failure
+    if (
+        not isinstance(catalog, dict)
+        or catalog.get("format") != "turboism.plugin.catalog"
+        or catalog.get("schemaVersion") != 2
+        or not isinstance(catalog.get("plugins"), list)
+    ):
+        raise MarketError("catalog document is not a valid turboism.plugin.catalog v2")
+
+    def load_artifact_bytes(artifact: dict) -> bytes | None:
+        url = artifact.get("url")
+        expected_sha = artifact.get("sha256")
+        expected_size = artifact.get("size")
+        if not isinstance(url, str) or not url:
+            return None
+        if url.startswith("file://"):
+            local_path = Path(urllib.parse.urlsplit(url).path)
+            if not local_path.is_file():
+                return None
+            data = local_path.read_bytes()
+        elif not url.startswith("https://") and not url.startswith("http://"):
+            base_dir = Path(catalog_source).parent if not is_remote else Path.cwd()
+            local_path = (base_dir / url).resolve()
+            if not local_path.is_file():
+                return None
+            data = local_path.read_bytes()
+        elif is_remote:
+            data = _fetch_https_bytes(url, max_bytes=MAX_JAR_BYTES)
+        else:
+            return None
+        if isinstance(expected_size, int) and len(data) != expected_size:
+            raise MarketError(f"catalog artifact {url} size {len(data)} != expected {expected_size}")
+        if isinstance(expected_sha, str) and sha256(data) != expected_sha:
+            raise MarketError(f"catalog artifact {url} SHA-256 mismatch")
+        return data
+
+    return catalog, load_artifact_bytes
+
+
 def jar_artifact(build_root: Path, module: str, tracked_raw: bytes,
-                 base_name: str, locales: list) -> tuple:
+                 base_name: str, locales: list,
+                 allowed_version: str | None = None) -> tuple:
     """Verify one built JAR; return (jar path, descriptor sha256, localizations)."""
     jar = find_jar(build_root, module)
+    raw_bytes = jar.read_bytes()
+    verify_jar_reproducibility(raw_bytes, str(jar))
     try:
-        with zipfile.ZipFile(jar) as archive:
+        with zipfile.ZipFile(io.BytesIO(raw_bytes)) as archive:
             try:
                 embedded = archive.read(DESCRIPTOR_ENTRY)
             except KeyError as failure:
                 raise MarketError(f"{jar}: missing {DESCRIPTOR_ENTRY}") from failure
-            if embedded != tracked_raw:
-                raise MarketError(
-                    f"{jar}: embedded descriptor does not match tracked descriptor "
-                    f"({sha256(tracked_raw)[:12]} != {sha256(embedded)[:12]})")
+            verify_descriptor_against_tracked(
+                embedded, tracked_raw, str(jar), allowed_version=allowed_version
+            )
 
             def read_catalog(name: str):
                 try:
@@ -528,7 +946,7 @@ def jar_artifact(build_root: Path, module: str, tracked_raw: bytes,
             localizations = required_localizations(read_catalog, base_name, locales)
     except zipfile.BadZipFile as failure:
         raise MarketError(f"{jar}: not a valid ZIP/JAR") from failure
-    return jar, sha256(tracked_raw), localizations
+    return jar, sha256(embedded), localizations
 
 
 def sha256(data: bytes) -> str:
@@ -607,8 +1025,24 @@ def commit_directory(temporary: Path, output: Path) -> None:
         shutil.rmtree(backup)
 
 
+def _normalize_release_channel(release_channel: str | None) -> str | None:
+    if release_channel is None:
+        return None
+    if release_channel not in ("stable", "beta", "preview", "nightly"):
+        raise MarketError(
+            f"--release-channel must be 'stable', 'beta', 'preview', or 'nightly', got {release_channel!r}"
+        )
+    return release_channel
+
+
 def stage(repo_root: Path, manifest_path: Path, build_root: Path, output: Path,
-          revision: str) -> int:
+          revision: str, *, catalog: str | None = None,
+          catalog_sig: str | None = None,
+          framework_version: str | None = None,
+          release_channel: str | None = None) -> int:
+    channel = _normalize_release_channel(release_channel)
+    if channel == "nightly":
+        return 0
     prepared = validate_selection(repo_root, manifest_path)
     if not prepared:
         return 0
@@ -618,37 +1052,101 @@ def stage(repo_root: Path, manifest_path: Path, build_root: Path, output: Path,
         raise MarketError("--build-root is required when the selection is non-empty")
     if output is None:
         raise MarketError("--output is required when the selection is non-empty")
+    catalog_by_id: dict[str, dict] = {}
+    artifact_loader = None
+    auto_bump = catalog is not None or framework_version is not None
+    effective_framework_version = (
+        base_framework_version(framework_version)
+        if framework_version is not None
+        else read_repo_framework_version(repo_root)
+    )
+    if catalog is not None:
+        catalog_doc, artifact_loader = load_catalog(catalog, catalog_sig)
+        for plugin in catalog_doc.get("plugins", []):
+            if not isinstance(plugin, dict) or not isinstance(plugin.get("id"), str):
+                raise MarketError("catalog contains a malformed plugin entry")
+            if plugin["id"] in catalog_by_id:
+                raise MarketError(f"catalog contains duplicate plugin id {plugin['id']!r}")
+            catalog_by_id[plugin["id"]] = plugin
+
     build_root = Path(os.path.abspath(build_root))
     output = Path(os.path.abspath(output))
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=output.name + ".tmp-", dir=output.parent))
+    staged_items = []
     try:
         for item in prepared:
             module = item["module"]
-            descriptor = item["descriptor"]
+            descriptor = dict(item["descriptor"])
+            entry = dict(item["entry"])
+            if channel in ("beta", "preview"):
+                entry["channel"] = "preview"
             _, tracked_raw = load_descriptor(repo_root, module)
             jar, descriptor_sha256, localizations = jar_artifact(
                 build_root, module, tracked_raw,
-                descriptor["i18n"]["baseName"], descriptor["i18n"]["locales"])
+                descriptor["i18n"]["baseName"], descriptor["i18n"]["locales"],
+                allowed_version=effective_framework_version if auto_bump else None,
+            )
             data = jar.read_bytes()
             if len(data) > MAX_JAR_BYTES:
                 raise MarketError(f"{jar}: JAR exceeds {MAX_JAR_BYTES} bytes")
-            item["jar_sha256"] = sha256(data)
-            item["size"] = len(data)
-            item["descriptor_sha256"] = descriptor_sha256
-            item["localizations"] = localizations
+            if auto_bump:
+                catalog_plugin = catalog_by_id.get(descriptor["id"])
+                releases = (
+                    catalog_plugin.get("releases", [])
+                    if isinstance(catalog_plugin, dict)
+                    else []
+                )
+                if not isinstance(releases, list):
+                    raise MarketError(f"catalog plugin {descriptor['id']!r} releases must be an array")
+                if releases:
+                    latest_release = max(
+                        releases,
+                        key=lambda rel: parse_strict_version(rel.get("version", "")),
+                    )
+                    if jar_matches_catalog_release(data, tracked_raw, latest_release, artifact_loader):
+                        continue
+                target_version = resolve_next_plugin_version(
+                    effective_framework_version,
+                    releases,
+                    descriptor["version"],
+                )
+                new_descriptor_raw = rewrite_descriptor_version(tracked_raw, target_version)
+                data = rewrite_jar_version(data, new_descriptor_raw)
+                if len(data) > MAX_JAR_BYTES:
+                    raise MarketError(f"{jar}: JAR exceeds {MAX_JAR_BYTES} bytes")
+                descriptor["version"] = target_version
+                descriptor_sha256 = sha256(new_descriptor_raw)
+            item = {
+                **item,
+                "entry": entry,
+                "descriptor": descriptor,
+                "jar_sha256": sha256(data),
+                "size": len(data),
+                "descriptor_sha256": descriptor_sha256,
+                "localizations": localizations,
+            }
             canonical_name = f"{module}-{descriptor['version']}.jar"
             (temporary / canonical_name).write_bytes(data)
+            staged_items.append(item)
+        if not staged_items:
+            shutil.rmtree(temporary, ignore_errors=True)
+            if output.exists():
+                shutil.rmtree(output)
+            return 0
         (temporary / SIDECAR_NAME).write_bytes(
-            canonical_json(build_sidecar(revision, prepared)) + b"\n")
+            canonical_json(build_sidecar(revision, staged_items)) + b"\n")
         commit_directory(temporary, output)
     except BaseException:
         shutil.rmtree(temporary, ignore_errors=True)
         raise
-    return len(prepared)
+    return len(staged_items)
 
 
-def plan(repo_root: Path, manifest_path: Path) -> int:
+def plan(repo_root: Path, manifest_path: Path, *, release_channel: str | None = None) -> int:
+    channel = _normalize_release_channel(release_channel)
+    if channel == "nightly":
+        return 0
     return len(validate_selection(repo_root, manifest_path))
 
 
@@ -664,8 +1162,8 @@ def parse_args(argv):
             "plus a deterministic sidecar for automatic publication. Prints the "
             "machine-readable line 'selected=N' on success."),
     )
-    parser.add_argument("--manifest", required=True, type=Path,
-                        help="market selection manifest (packaging/market-plugins.json)")
+    parser.add_argument("--manifest", type=Path, default=None,
+                        help="market selection manifest (default: <repo-root>/packaging/market-plugins.json)")
     parser.add_argument("--repo-root", type=Path, default=DEFAULT_REPO_ROOT,
                         help="repository root (default: inferred from this script)")
     parser.add_argument("--build-root", type=Path,
@@ -677,6 +1175,17 @@ def parse_args(argv):
     parser.add_argument("--source-revision",
                         help="exact 40-hex source commit SHA (required unless the "
                              "selection is empty)")
+    parser.add_argument("--catalog",
+                        help="optional catalog v2 path or HTTPS URL for content-addressed "
+                             "auto-bump and unchanged-plugin skipping")
+    parser.add_argument("--catalog-sig",
+                        help="optional detached catalog signature path or HTTPS URL")
+    parser.add_argument("--framework-version",
+                        help="optional framework version (e.g. 0.67.0 or 0.67.0-beta.1) for "
+                             "first-publish base and MAJOR.MINOR auto-bump")
+    parser.add_argument("--release-channel",
+                        help="optional release channel (stable, beta, preview, nightly); "
+                             "beta maps to catalog channel preview and nightly is skipped")
     parser.add_argument("--plan", action="store_true",
                         help="validate manifest and source descriptors/i18n only; "
                              "print selected=N and exit before any build or staging")
@@ -685,12 +1194,16 @@ def parse_args(argv):
 
 def main(argv=None) -> int:
     args = parse_args(argv)
+    manifest = args.manifest if args.manifest is not None else (args.repo_root / "packaging/market-plugins.json")
     try:
         if args.plan:
-            count = plan(args.repo_root, args.manifest)
+            count = plan(args.repo_root, manifest, release_channel=args.release_channel)
         else:
-            count = stage(args.repo_root, args.manifest, args.build_root, args.output,
-                          args.source_revision)
+            count = stage(args.repo_root, manifest, args.build_root, args.output,
+                          args.source_revision, catalog=args.catalog,
+                          catalog_sig=args.catalog_sig,
+                          framework_version=args.framework_version,
+                          release_channel=args.release_channel)
     except (MarketError, OSError) as failure:
         print(f"error: {failure}", file=sys.stderr)
         return 1
