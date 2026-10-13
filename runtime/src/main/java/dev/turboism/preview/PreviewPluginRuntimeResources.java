@@ -222,6 +222,12 @@ record PreviewPluginRuntimeResources(
                 // A failed check must leave a trace: the user-visible state is deliberately vague
                 // (unavailable), so the reason belongs in the log rather than nowhere at all.
                 message -> log.warn("updates", message));
+        pluginManagement.bindAutoUpdater(new dev.turboism.pluginmanagement.RuntimePluginAutoUpdater(
+                home,
+                scheduler,
+                runtimeSettings,
+                hostAccess::cubismEditorVersion,
+                message -> log.warn("plugin-updates", message)));
         final PluginLifecycleLane lifecycleLane = new PluginLifecycleLane(lifecyclePolicy);
         final RetainedPluginGenerations retention = new RetainedPluginGenerations(lifecycleLane, lifecyclePolicy, log);
         // The shutdown is assembled before the coordinator so dependency rollback can reach it.
