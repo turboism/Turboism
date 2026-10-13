@@ -27,8 +27,20 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Configure SDK via setup script (non-interactive defaults)
-        run: ./scripts/setup.sh --yes
+      - name: Configure SDK via setup script (stable, retrying beta if stable predates SDK distribution)
+        run: |
+          set -euo pipefail
+          LOG="$(mktemp)"
+          trap 'rm -f "$LOG"' EXIT
+          if ./scripts/setup.sh --channel stable --yes 2>&1 | tee "$LOG"; then
+            exit 0
+          fi
+          if grep -Fq "predates standalone SDK distribution" "$LOG"; then
+            echo "Stable release predates standalone SDK distribution; retrying with --channel beta..."
+            ./scripts/setup.sh --channel beta --yes
+          else
+            exit 1
+          fi
 
       - name: Build plugin JAR
         run: ./gradlew --no-daemon build --console=plain

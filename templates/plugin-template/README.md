@@ -61,9 +61,9 @@ and build a single plugin JAR ready for any Turboism installation.
 
 4. **Install into Turboism** — copy the built JAR into the `plugins/` folder of
    your Turboism installation, enable it under **Plugin Management**, and
-   restart. The sample plugin registers a `hello.hello` action and handles
-   `HelloEvent` via both imperative `EventBus#subscribe` and declarative
-   `@SubscribeEvent`.
+   restart. The sample plugin registers a `hello.hello` action and subscribes
+   to `HelloEvent` via `EventBus#subscribe` (with a `@SubscribeEvent` example
+   ready to uncomment whenever `turboism-event-processor` is present).
 
 ## Channel and version selection
 
@@ -170,11 +170,17 @@ plugin requires a live Cubism Editor host, pass `--requires-cubism true` (or set
 
 Both subscription styles work out of the box:
 
-- **Declarative (`@SubscribeEvent`)** — `build.gradle.kts` wires
-  `turboism-event-processor-<version>.jar` onto `annotationProcessor`, which
-  generates the `GeneratedSubscriberCatalog` service entry at compile time.
-- **Imperative (`context.eventBus().subscribe(...)`)** — register the returned
-  `Registration` with `context.disposableScope()` so it is withdrawn on disable.
+- **Declarative (`@SubscribeEvent`)** — when the chosen release ships
+  `turboism-event-processor-<version>.jar`, `build.gradle.kts` wires it onto
+  `annotationProcessor`, which generates the `GeneratedSubscriberCatalog`
+  service entry at compile time. If the selected release only ships
+  `turboism-sdk-<version>.jar` (for example `0.67.0-beta.1`), `setup.sh` /
+  `setup.ps1` prints a warning and configures the build to compile without the
+  processor; use `EventBus#subscribe` or rerun setup after a release that ships
+  `turboism-event-processor`.
+- **Imperative (`context.eventBus().subscribe(...)`)** — works on every SDK
+  release without annotation processing; register the returned `Registration`
+  with `context.disposableScope()` so it is withdrawn on disable.
 
 ## Rules of the road
 

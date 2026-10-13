@@ -126,6 +126,35 @@ function Invoke-SafeDownload {
     Invoke-WebRequest -Uri $Url -OutFile $Destination -UseBasicParsing -TimeoutSec 120 -ErrorAction Stop
 }
 
+function Invoke-OptionalDownload {
+    param([string]$Url, [string]$Destination)
+    Assert-SafeUrl -Url $Url
+    if ($Url -match '^file://') {
+        $localPath = ([Uri]$Url).LocalPath
+        if (-not (Test-Path -LiteralPath $localPath)) {
+            return 'NotFound'
+        }
+        Copy-Item -LiteralPath $localPath -Destination $Destination -Force
+        return 'Downloaded'
+    }
+    try {
+        Invoke-WebRequest -Uri $Url -OutFile $Destination -UseBasicParsing -TimeoutSec 120 -ErrorAction Stop
+        return 'Downloaded'
+    } catch {
+        if (Test-Path -LiteralPath $Destination) {
+            Remove-Item -LiteralPath $Destination -Force -ErrorAction SilentlyContinue
+        }
+        $resp = $_.Exception.Response
+        if ($null -ne $resp -and [int]$resp.StatusCode -eq 404) {
+            return 'NotFound'
+        }
+        if ($_.Exception.Message -match '\b404\b|Not Found') {
+            return 'NotFound'
+        }
+        throw
+    }
+}
+
 function Assert-ChecksumSidecar {
     param([string]$JarFile, [string]$ShaFile, [string]$ExpectedName)
     if (-not (Test-Path -LiteralPath $JarFile) -or (Get-Item -LiteralPath $JarFile).Length -le 0) {
@@ -298,14 +327,25 @@ try {
     $SdkJarName = "turboism-sdk-$ResolvedVersion.jar"
     $ProcJarName = "turboism-event-processor-$ResolvedVersion.jar"
 
-    foreach ($artifact in @($SdkJarName, "$SdkJarName.sha256", $ProcJarName, "$ProcJarName.sha256")) {
-        $url = "$DownloadBase/$Tag/$artifact"
-        Write-Host "Downloading $artifact..."
-        Invoke-SafeDownload -Url $url -Destination (Join-Path $WorkTmp $artifact)
+    Write-Host "Downloading $SdkJarName..."
+    $sdkStatus = Invoke-OptionalDownload -Url "$DownloadBase/$Tag/$SdkJarName" -Destination (Join-Path $WorkTmp $SdkJarName)
+    if ($sdkStatus -eq 'NotFound') {
+        throw "error: release $Tag does not include $SdkJarName (this release predates standalone SDK distribution); use --channel beta or --version <release with SDK>."
     }
-
+    Write-Host "Downloading $SdkJarName.sha256..."
+    Invoke-SafeDownload -Url "$DownloadBase/$Tag/$SdkJarName.sha256" -Destination (Join-Path $WorkTmp "$SdkJarName.sha256")
     Assert-ChecksumSidecar -JarFile (Join-Path $WorkTmp $SdkJarName) -ShaFile (Join-Path $WorkTmp "$SdkJarName.sha256") -ExpectedName $SdkJarName
-    Assert-ChecksumSidecar -JarFile (Join-Path $WorkTmp $ProcJarName) -ShaFile (Join-Path $WorkTmp "$ProcJarName.sha256") -ExpectedName $ProcJarName
+
+    Write-Host "Downloading $ProcJarName..."
+    $procStatus = Invoke-OptionalDownload -Url "$DownloadBase/$Tag/$ProcJarName" -Destination (Join-Path $WorkTmp $ProcJarName)
+    $HaveEventProcessor = ($procStatus -eq 'Downloaded')
+    if ($HaveEventProcessor) {
+        Write-Host "Downloading $ProcJarName.sha256..."
+        Invoke-SafeDownload -Url "$DownloadBase/$Tag/$ProcJarName.sha256" -Destination (Join-Path $WorkTmp "$ProcJarName.sha256")
+        Assert-ChecksumSidecar -JarFile (Join-Path $WorkTmp $ProcJarName) -ShaFile (Join-Path $WorkTmp "$ProcJarName.sha256") -ExpectedName $ProcJarName
+    } else {
+        Write-Warning "release $Tag does not include $ProcJarName; @SubscribeEvent catalogs will not be generated; use EventBus#subscribe, or rerun setup after a release that ships turboism-event-processor."
+    }
 
     Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
     $sdkZip = [System.IO.Compression.ZipFile]::OpenRead((Join-Path $WorkTmp $SdkJarName))
@@ -316,13 +356,15 @@ try {
     } finally {
         $sdkZip.Dispose()
     }
-    $procZip = [System.IO.Compression.ZipFile]::OpenRead((Join-Path $WorkTmp $ProcJarName))
-    try {
-        if ($null -eq $procZip.GetEntry('dev/turboism/eventprocessor/SubscribeEventProcessor.class')) {
-            throw "event-processor artifact lacks SubscribeEventProcessor.class: $ProcJarName"
+    if ($HaveEventProcessor) {
+        $procZip = [System.IO.Compression.ZipFile]::OpenRead((Join-Path $WorkTmp $ProcJarName))
+        try {
+            if ($null -eq $procZip.GetEntry('dev/turboism/eventprocessor/SubscribeEventProcessor.class')) {
+                throw "event-processor artifact lacks SubscribeEventProcessor.class: $ProcJarName"
+            }
+        } finally {
+            $procZip.Dispose()
         }
-    } finally {
-        $procZip.Dispose()
     }
 
     $LibsDir = Join-Path $ProjectRoot 'libs'
@@ -330,10 +372,17 @@ try {
     Get-ChildItem -LiteralPath $LibsDir -Filter 'turboism-sdk-*.jar*' -ErrorAction SilentlyContinue | Remove-Item -Force
     Get-ChildItem -LiteralPath $LibsDir -Filter 'turboism-event-processor-*.jar*' -ErrorAction SilentlyContinue | Remove-Item -Force
 
-    foreach ($artifact in @($SdkJarName, "$SdkJarName.sha256", $ProcJarName, "$ProcJarName.sha256")) {
+    foreach ($artifact in @($SdkJarName, "$SdkJarName.sha256")) {
         Copy-Item -LiteralPath (Join-Path $WorkTmp $artifact) -Destination (Join-Path $LibsDir $artifact) -Force
     }
-    Write-Host "Verified SHA-256 checksums and installed $SdkJarName and $ProcJarName into libs/."
+    if ($HaveEventProcessor) {
+        foreach ($artifact in @($ProcJarName, "$ProcJarName.sha256")) {
+            Copy-Item -LiteralPath (Join-Path $WorkTmp $artifact) -Destination (Join-Path $LibsDir $artifact) -Force
+        }
+        Write-Host "Verified SHA-256 checksums and installed $SdkJarName and $ProcJarName into libs/."
+    } else {
+        Write-Host "Verified SHA-256 checksum and installed $SdkJarName into libs/ (event-processor not in release)."
+    }
 
     $GradlePropsPath = Join-Path $ProjectRoot 'gradle.properties'
     if (Test-Path -LiteralPath $GradlePropsPath) {
