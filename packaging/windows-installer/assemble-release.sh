@@ -299,6 +299,16 @@ lines.append("")
 def sanitize(s: str) -> str:
     return re.sub(r"[^A-Za-z0-9_]", "_", s)
 
+# 插件四语言显示名/描述（均来自插件自身 i18n 资源）
+for p in plugins:
+    key = sanitize(p["id"])
+    for locale, nsis_lang in (("eng", "LANG_ENGLISH"), ("chn", "LANG_SIMPCHINESE"), ("jpn", "LANG_JAPANESE"), ("kor", "LANG_KOREAN")):
+        title = p["localized"][locale]["name"] + (" " + p["version"] if p["version"] else "")
+        description = p["localized"][locale]["description"]
+        lines.append(f'LangString PLUGIN_NAME_{key} ${{{nsis_lang}}} "{nsis_escape(title)}"')
+        lines.append(f'LangString PLUGIN_DESC_{key} ${{{nsis_lang}}} "{nsis_escape(description)}"')
+lines.append("")
+
 lines.append('!if "${VARIANT}" != "thin"')
 lines.append("; 导出完整捆绑插件 id 清单，供前置配置提交保留无关禁用项。")
 lines.append("Function SetBundledPluginIds")
