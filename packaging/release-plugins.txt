@@ -1,9 +1,14 @@
+:plugins:acp
 :plugins:atlas-maxrects-bssf
+:plugins:boundingbox-warp-mirror
 :plugins:clipmask-viewer
+:plugins:command-palette
 :plugins:cubism-tab-filter
+:plugins:external-psd-edit
 :plugins:history-panel
 :plugins:mcp
 :plugins:mesh-edit-mirror-axis-enhance
+:plugins:model-import-3d
 :plugins:palette-label-style
 :plugins:parameter-batch-transfer
 :plugins:perf-stats
@@ -15,4 +20,5 @@
 :plugins:selection-brush
 :plugins:texture-atlas-stats
 :plugins:ui-theme
+:plugins:warp-deformer-alt-symmetry
 :plugins:webdav-backup
