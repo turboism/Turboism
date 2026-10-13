@@ -145,6 +145,13 @@ jobs:
               echo "templates/plugin-template/ is not present in ${upstream_tag}; skipping."
               return 0
             fi
+            # Releases cut before the standalone template existed carry an older scaffold
+            # without setup scripts or this workflow; syncing them would regress the repo.
+            if [[ ! -f "$UPSTREAM_DIR/templates/plugin-template/scripts/setup.sh" || \
+                  ! -f "$UPSTREAM_DIR/templates/plugin-template/.github/workflows/sync-from-turboism.yml" ]]; then
+              echo "${upstream_tag} predates the standalone template scaffold; skipping."
+              return 0
+            fi
 
             if git show-ref --verify --quiet "refs/remotes/origin/${target_branch}"; then
               git checkout -B "$target_branch" "refs/remotes/origin/${target_branch}"
@@ -154,6 +161,24 @@ jobs:
               git checkout -B "$target_branch"
             fi
 
+            # Never move a branch back to an older Turboism release.
+            local current=""
+            if [[ -f gradle.properties ]]; then
+              current="$(sed -n 's/^turboismSdkVersion=//p' gradle.properties | head -n 1)"
+            fi
+            if [[ -n "$current" && "$current" != *-SNAPSHOT ]] && python3 - "$current" "$version" <<'PY'
+          import re, sys
+          def key(v):
+              core, _, pre = v.partition("-")
+              nums = tuple(int(x) for x in core.split("."))
+              parts = tuple((0, int(p), "") if p.isdigit() else (1, 0, p) for p in pre.split(".")) if pre else ()
+              return nums, (0,) if pre else (1,), parts
+          sys.exit(0 if key(sys.argv[1]) > key(sys.argv[2]) else 1)
+          PY
+            then
+              echo "${target_branch} already tracks newer Turboism ${current}; not syncing ${upstream_tag}."
+              return 0
+            fi
             # Replace repository contents while preserving .git
             find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
             cp -a "$UPSTREAM_DIR/templates/plugin-template/." .
