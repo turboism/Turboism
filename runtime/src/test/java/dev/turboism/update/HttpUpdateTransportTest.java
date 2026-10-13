@@ -257,6 +257,39 @@ final class HttpUpdateTransportTest {
         assertTrue(awaitTrue(connection.disconnectCompleted), "released cleanup must finish");
     }
 
+    @Test
+    void channelAwareTransportQueriesBetaAndNightlyEndpointsWhileKeepingStableUnchanged() throws Exception {
+        assertEquals(
+                URI.create("https://api.turboism.dev/v1/releases/stable.json"),
+                HttpUpdateTransport.endpointForChannel(dev.turboism.core.FrameworkBuildInfo.Channel.STABLE));
+        assertEquals(
+                URI.create("https://api.turboism.dev/v1/releases/beta.json"),
+                HttpUpdateTransport.endpointForChannel(dev.turboism.core.FrameworkBuildInfo.Channel.BETA));
+        assertEquals(
+                URI.create("https://api.turboism.dev/v1/releases/nightly.json"),
+                HttpUpdateTransport.endpointForChannel(dev.turboism.core.FrameworkBuildInfo.Channel.NIGHTLY));
+
+        final FakeConnection betaConn = new FakeConnection(200, bytes("{}"));
+        final AtomicReference<URI> betaUri = new AtomicReference<>();
+        final HttpUpdateTransport betaTransport =
+                new HttpUpdateTransport(UpdateDiscovery.CHANNEL_BETA, Duration.ofSeconds(1), endpoint -> {
+                    betaUri.set(endpoint);
+                    return betaConn;
+                });
+        betaTransport.fetch(Optional.empty()).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(URI.create("https://api.turboism.dev/v1/releases/beta.json"), betaUri.get());
+
+        final FakeConnection nightlyConn = new FakeConnection(200, bytes("{}"));
+        final AtomicReference<URI> nightlyUri = new AtomicReference<>();
+        final HttpUpdateTransport nightlyTransport =
+                new HttpUpdateTransport(UpdateDiscovery.CHANNEL_NIGHTLY, Duration.ofSeconds(1), endpoint -> {
+                    nightlyUri.set(endpoint);
+                    return nightlyConn;
+                });
+        nightlyTransport.fetch(Optional.empty()).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(URI.create("https://api.turboism.dev/v1/releases/nightly.json"), nightlyUri.get());
+    }
+
     private static HttpUpdateTransport transport(final Duration deadline, final FakeConnection connection) {
         return new HttpUpdateTransport(deadline, ignored -> connection);
     }

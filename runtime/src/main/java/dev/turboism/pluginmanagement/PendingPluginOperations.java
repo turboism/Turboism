@@ -165,7 +165,19 @@ public final class PendingPluginOperations {
                 .filter(operation -> operation.type.equals("INSTALL"))
                 .forEach(operation -> deleteQuietly(Path.of(operation.stagedJar)));
         cleanupOrphans();
+        clearStagedUpdatesQuietly();
         return new ApplyResult(Status.APPLIED, "PLUGIN_PENDING_APPLIED");
+    }
+
+    private void clearStagedUpdatesQuietly() {
+        try {
+            final PluginCatalogStateStore catalogState = new PluginCatalogStateStore(home);
+            final PluginCatalogStateStore.State current = catalogState.read();
+            if (!current.stagedUpdates().isEmpty()) {
+                catalogState.save(current.withStagedUpdates(java.util.Map.of()));
+            }
+        } catch (RuntimeException ignored) {
+        }
     }
 
     private void applyOne(final Operation operation) throws Exception {

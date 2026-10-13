@@ -137,6 +137,43 @@ final class UpdateDiscoveryParserTest {
                 () -> parser.parseNode(UpdateFileSupport.JSON.createObjectNode().put("schemaVersion", 1)));
     }
 
+    @Test
+    void parsesBetaAndNightlyChannelDocumentsWhenConfiguredForThoseChannels() {
+        final UpdateDiscoveryParser betaParser = new UpdateDiscoveryParser(UpdateDiscovery.CHANNEL_BETA);
+        final UpdateDiscovery beta =
+                betaParser.parse(bytes("{\"schemaVersion\":1,\"channel\":\"beta\",\"status\":\"ready\","
+                        + "\"release\":{\"version\":\"0.67.0-beta.1\",\"buildNumber\":14,"
+                        + "\"publishedAt\":\"2026-10-01T00:00:00Z\"}}"));
+        assertEquals(UpdateDiscovery.CHANNEL_BETA, beta.channel());
+        assertEquals(
+                UpdateVersion.parse("0.67.0"), beta.candidate().orElseThrow().version());
+        assertEquals("0.67.0-beta.1", beta.candidate().orElseThrow().versionText());
+        assertEquals("0.67.0-beta.1 (Build 14)", beta.candidate().orElseThrow().identity());
+        assertEquals(beta, betaParser.parseNode(beta.toJson(UpdateFileSupport.JSON)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> betaParser.parse(
+                        bytes("{\"schemaVersion\":1,\"channel\":\"stable\",\"status\":\"not_published\"}")));
+
+        final UpdateDiscoveryParser nightlyParser = new UpdateDiscoveryParser(UpdateDiscovery.CHANNEL_NIGHTLY);
+        final UpdateDiscovery nightly =
+                nightlyParser.parse(bytes("{\"schemaVersion\":1,\"channel\":\"nightly\",\"status\":\"ready\","
+                        + "\"release\":{\"version\":\"0.67.1-0.nightly.25\",\"buildNumber\":25,"
+                        + "\"publishedAt\":\"2026-10-02T00:00:00Z\"}}"));
+        assertEquals(UpdateDiscovery.CHANNEL_NIGHTLY, nightly.channel());
+        assertEquals(
+                UpdateVersion.parse("0.67.1"), nightly.candidate().orElseThrow().version());
+        assertEquals("0.67.1-0.nightly.25", nightly.candidate().orElseThrow().versionText());
+        assertEquals(
+                "0.67.1-0.nightly.25 (Build 25)",
+                nightly.candidate().orElseThrow().identity());
+        assertEquals(nightly, nightlyParser.parseNode(nightly.toJson(UpdateFileSupport.JSON)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> nightlyParser.parse(
+                        bytes("{\"schemaVersion\":1,\"channel\":\"beta\",\"status\":\"not_published\"}")));
+    }
+
     private static byte[] bytes(final String value) {
         return value.getBytes(StandardCharsets.UTF_8);
     }
