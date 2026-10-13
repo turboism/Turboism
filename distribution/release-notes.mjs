@@ -1,6 +1,6 @@
 import supplements from './release-notes-overrides.json' with {type:'json'};
 const REPO='https://github.com/turboism/Turboism';
-const strip=body=>String(body??'').replace(/<!-- turboism-(?:build|notes)-v1 [\s\S]*? -->/g,'').trim();
+const strip=body=>String(body??'').replace(/<!-- turboism-(?:build|notes|compatibility)-v1 [\s\S]*? -->/g,'').trim();
 const validLocales=l=>l&&typeof l==='object'&&!Array.isArray(l)&&typeof l.en==='string'&&
  Object.keys(l).every(k=>['en','zh','ja','ko'].includes(k)&&typeof l[k]==='string'&&l[k].trim().length>0&&l[k].length<=20000);
 /** Read optional display metadata, never edit release identity, notes bindings or file manifests. */

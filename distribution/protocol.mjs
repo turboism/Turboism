@@ -1,4 +1,5 @@
 import {releaseNotes} from './release-notes.mjs';
+import compatibilityOverrides from './release-compatibility-overrides.json' with {type:'json'};
 /** Public distribution contract. No dependency on the retired Updates service. */
 export const REPOSITORY='turboism/Turboism';
 export const ORIGIN='https://api.turboism.dev';
@@ -6,7 +7,56 @@ export const CHANNELS=['stable','beta','nightly'];
 export const SNAPSHOT_REFRESH_MS=15*60*1000;
 export const SNAPSHOT_MAX_STALE_MS=24*60*60*1000;
 const sha=/^[a-f0-9]{64}$/;
+const cubismVersion=/^5\.\d{1,2}\.\d{2}$/;
+const platformId=/^[a-z0-9]+-[a-z0-9]+$/;
 function require(value,message){if(!value)throw new Error(message);}
+function compareCubismVersions(a,b){
+ const x=a.split('.').map(Number),y=b.split('.').map(Number);
+ return x[0]-y[0]||x[1]-y[1]||x[2]-y[2];
+}
+function validMatrixUrl(value){
+ if(typeof value!=='string'||value.length>256)return false;
+ try{
+  const u=new URL(value);
+  return u.protocol==='https:'&&u.hostname==='turboism.dev'&&!u.port&&!u.username&&!u.password&&u.pathname.startsWith('/docs/');
+ }catch{return false;}
+}
+function normalizeCompatibility(value,requireSchema=false){
+ if(!value||typeof value!=='object'||Array.isArray(value))return null;
+ if(requireSchema&&value.schemaVersion!==1)return null;
+ if('schemaVersion' in value&&value.schemaVersion!==1)return null;
+ if(!Object.keys(value).every(k=>['schemaVersion','cubismEditor','platforms','matrixUrl'].includes(k)))return null;
+ const ce=value.cubismEditor;
+ if(!ce||typeof ce!=='object'||Array.isArray(ce))return null;
+ if(Object.keys(ce).length!==2||!Array.isArray(ce.versions)||!Array.isArray(ce.ranges))return null;
+ if(ce.versions.length<1||ce.versions.length>64||!ce.versions.every(v=>typeof v==='string'&&cubismVersion.test(v)))return null;
+ for(let i=1;i<ce.versions.length;i++)if(compareCubismVersions(ce.versions[i-1],ce.versions[i])>=0)return null;
+ const versionSet=new Set(ce.versions);
+ if(ce.ranges.length<1||ce.ranges.length>ce.versions.length)return null;
+ for(let i=0;i<ce.ranges.length;i++){
+  const r=ce.ranges[i];
+  if(!r||typeof r!=='object'||Array.isArray(r)||Object.keys(r).length!==2||typeof r.from!=='string'||typeof r.to!=='string')return null;
+  if(!versionSet.has(r.from)||!versionSet.has(r.to)||compareCubismVersions(r.from,r.to)>0)return null;
+  if(i>0&&compareCubismVersions(ce.ranges[i-1].to,r.from)>=0)return null;
+ }
+ if(ce.ranges[0].from!==ce.versions[0]||ce.ranges.at(-1).to!==ce.versions.at(-1))return null;
+ if(!ce.versions.every(v=>ce.ranges.some(r=>compareCubismVersions(r.from,v)<=0&&compareCubismVersions(v,r.to)<=0)))return null;
+ if(!Array.isArray(value.platforms)||value.platforms.length<1||value.platforms.length>8)return null;
+ if(!value.platforms.every(p=>typeof p==='string'&&p.length<=32&&platformId.test(p))||new Set(value.platforms).size!==value.platforms.length)return null;
+ if(!validMatrixUrl(value.matrixUrl))return null;
+ return {cubismEditor:{versions:[...ce.versions],ranges:ce.ranges.map(r=>({from:r.from,to:r.to}))},platforms:[...value.platforms],matrixUrl:value.matrixUrl};
+}
+export function releaseCompatibility(raw){
+ const matches=[...String(raw?.body??'').matchAll(/<!-- turboism-compatibility-v1 ([\s\S]*?) -->/g)];
+ if(matches.length===1&&matches[0][1].length<=4096){
+  try{const parsed=normalizeCompatibility(JSON.parse(matches[0][1]),true);if(parsed)return parsed;}catch{/* Invalid optional metadata falls back to null. */}
+ }
+ if(matches.length>0)return null;
+ const tag=String(raw?.tag_name??'');
+ const wildcard=/^v\d+\.\d+\.\d+-0\.nightly\.[1-9]\d*$/.test(tag)?tag.replace(/\.\d+$/,'.*'):null;
+ const saved=compatibilityOverrides[tag]??(wildcard?compatibilityOverrides[wildcard]:null);
+ return saved?normalizeCompatibility(saved,false):null;
+}
 export function versionParts(version) {
  require(typeof version==='string' && version.length<=96,'Invalid version');
  const m=/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/.exec(version);
@@ -69,7 +119,7 @@ export function parseRelease(raw,sourceRevision,verifiedIdentity=null){
  require(developer.every(n=>seen.has(n))||developer.every(n=>!seen.has(n)),'Partial developer asset set');
  return {releaseId:raw.id,version,tag:raw.tag_name,channel,buildNumber:receipt?.buildNumber??null,sourceRevision,publishedAt:new Date(raw.published_at).toISOString(),githubReleaseUrl:raw.html_url,changelogUrl:raw.html_url,
   provenance:receipt?{repository:REPOSITORY,workflow:'.github/workflows/release.yml',runId:receipt.runId,runAttempt:receipt.runAttempt}:{repository:REPOSITORY,workflow:null,runId:null,runAttempt:null},
-  compatibility:null,...releaseNotes(raw,sourceRevision),
+  compatibility:releaseCompatibility(raw),...releaseNotes(raw,sourceRevision),
   assets:names.map((name,i)=>({...assets.get(name),kind:['windows-installer','java-installer','full','lite'][i],platform:i===0?'windows':null,architecture:null,checksum:assets.get(name+'.sha256'),sources:[{id:'github',url:assets.get(name).url}]}))};
 }
 export function chooseLatest(releases,channel){
@@ -84,7 +134,8 @@ export function documentFor(snapshot,channel){
  if(!snapshotUsable(snapshot))return {...common,status:'unavailable',release:null,error:{code:'SYNC_UNAVAILABLE',retryAfterSeconds:60}};
  const selected=chooseLatest(snapshot.releases,channel);
  if(snapshot.errors?.[channel]&&!selected)return {...common,status:'unavailable',release:null,error:{code:'SYNC_UNAVAILABLE',retryAfterSeconds:60}};
- const release=selected&&!selected.notesByLanguage?{...selected,...releaseNotes({id:selected.releaseId,tag_name:selected.tag,body:selected.notes},selected.sourceRevision)}:selected;
+ let release=selected&&!selected.notesByLanguage?{...selected,...releaseNotes({id:selected.releaseId,tag_name:selected.tag,body:selected.notes},selected.sourceRevision)}:selected;
+ if(release&&release.compatibility===null){const compat=releaseCompatibility({tag_name:release.tag,body:release.notes});if(compat)release={...release,compatibility:compat};}
  return {...common,status:release?'ready':'not_published',updatedAt:snapshot.syncedAt,source:{repository:REPOSITORY,synchronizedAt:snapshot.syncedAt},release};
 }
 export async function jsonResponse(request,value,status=200){
