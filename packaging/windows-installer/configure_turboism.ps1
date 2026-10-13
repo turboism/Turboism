@@ -14,6 +14,7 @@ param(
     [switch]$ApplyInstallerSelection,
     [string]$BundledPluginIds = "",
     [string]$DisabledPluginIds = "",
+    [string]$Variant = "full",
     [switch]$Elevated,
     [string]$InstallerDiscoveryOutput = "",
     [switch]$InstallerDiscoveryWorker,
@@ -703,6 +704,76 @@ function Test-RuntimeStringSetEquals {
 }
 
 function Invoke-InstallerPluginSelection {
+    if ($Variant -ieq "thin") {
+        # Thin installer: zero bundled first-party plugins.
+        # Leaves existing plugins/ untouched and preserves existing disabledPlugins (minus retired).
+        $hadConfig = Test-Path -LiteralPath $configPath
+        $wasValid = $false
+        if ($hadConfig) {
+            $document = Read-RuntimeConfigForMigration
+            try {
+                Assert-RuntimeConfigV1 $document
+                $wasValid = $true
+            }
+            catch {
+                $document = Convert-RuntimeConfigToV1 $document
+            }
+        }
+        else {
+            $document = [pscustomobject][ordered]@{
+                format = "turboism.runtime.config"
+                schemaVersion = 1
+                worktreeId = "turboism-runtime"
+                pluginDirs = @("plugins")
+                useTextIcon = $false
+                launcher = [pscustomobject][ordered]@{ cubismJvm = "graalvm" }
+            }
+            Assert-RuntimeConfigV1 $document
+        }
+
+        $existing = @()
+        $existingProperty = $document.PSObject.Properties["disabledPlugins"]
+        if ($null -ne $existingProperty) {
+            Assert-RuntimeStringArray $existingProperty.Value "disabledPlugins"
+            $existing = @($existingProperty.Value)
+        }
+
+        $retired = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+        foreach ($id in Get-TurboismRetiredPluginIds) { [void]$retired.Add($id) }
+        $desiredSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+        foreach ($id in $existing) {
+            if (-not $retired.Contains($id)) {
+                [void]$desiredSet.Add($id)
+            }
+        }
+        $desiredList = New-Object 'System.Collections.Generic.List[string]'
+        foreach ($id in $desiredSet) { [void]$desiredList.Add($id) }
+        $desiredList.Sort([System.StringComparer]::Ordinal)
+        $desired = [string[]]$desiredList.ToArray()
+
+        if ($hadConfig -and $wasValid `
+            -and (Test-RuntimeStringSetEquals ([string[]]$existing) $desired)) {
+            Write-Host "TURBOISM_CONFIG unchanged schemaVersion=1 selection=current"
+            return
+        }
+
+        if ($desired.Count -eq 0) {
+            if ($null -ne $existingProperty) {
+                $document.PSObject.Properties.Remove("disabledPlugins")
+            }
+        }
+        elseif ($null -ne $existingProperty) {
+            $existingProperty.Value = $desired
+        }
+        else {
+            $document | Add-Member -NotePropertyName "disabledPlugins" -NotePropertyValue $desired
+        }
+        Assert-RuntimeConfigV1 $document
+        Write-RuntimeConfigAtomic $document
+        Write-Host "TURBOISM_CONFIG updated selection=thin"
+        return
+    }
+
     $bundled = @(Convert-InstallerPluginIdList $BundledPluginIds "BundledPluginIds")
     $requestedDisabled = @(Convert-InstallerPluginIdList $DisabledPluginIds "DisabledPluginIds")
     if ($bundled.Count -eq 0) { throw "BundledPluginIds is empty" }
@@ -751,8 +822,9 @@ function Invoke-InstallerPluginSelection {
     $retired = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
     foreach ($id in Get-TurboismRetiredPluginIds) { [void]$retired.Add($id) }
     $desiredSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    # Full 安装覆盖安装/更新所有第一方插件，同时保留既有 disabledPlugins
     foreach ($id in $existing) {
-        if (-not $bundledSet.Contains($id) -and -not $retired.Contains($id)) {
+        if (-not $retired.Contains($id)) {
             [void]$desiredSet.Add($id)
         }
     }

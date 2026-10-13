@@ -1841,7 +1841,6 @@ tasks.register("checkRelease") {
         checkMarketReleaseMetadata,
         "checkAsmSupplyChainAdmission",
         "checkMappingReviewWrapperArgs",
-        "checkJavaInstaller",
         "checkInstallerLocalization",
         "checkWindowsInstaller"
     )

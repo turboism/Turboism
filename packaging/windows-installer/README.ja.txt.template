@@ -14,7 +14,7 @@ JavaScript エンジンを選択するか、インストール先で次を実行
   powershell -NoProfile -ExecutionPolicy Bypass -File .\install-script-engine.ps1
 Java を実行せず、固定バージョンのサイズと SHA-256 を検証します。
 オフラインでは -OfflineSource "<展開した Full ZIP>\graal\lib" を指定できます。
-Full/Lite ZIP と Java インストーラーには従来どおり完全なエンジンを含みます。
+Full/Thin ZIP には従来どおり完全なエンジンを含みます。
 スクリプトの実行には対応する GraalVM も必要です。エンジンが未導入または破損
 している場合は診断を表示し、基本機能を維持してスクリプトのみ無効にします。
 選択を解除しても、すでにインストールしたエンジンは削除しません。
@@ -28,7 +28,7 @@ Full/Lite ZIP と Java インストーラーには従来どおり完全なエン
   launch-cubism-turboism.bat     管理対象ランチャー入口
   launch-cubism-turboism.ps1     PowerShell ランチャー実装
   cubism-launch-common.ps1       インベントリ/起動の共通ヘルパー
-  plugins/                       プラグイン jar（full のみ。lite には無し）
+  plugins/                       プラグイン jar（full のみ。thin には無し）
   README.txt / README.zh.txt / README.ja.txt / LICENSE.txt
 
 2. 使い方
@@ -73,7 +73,7 @@ format 宣言または解析不能なファイルのみが、ペイロード変�
 
 4. アンインストール
 -------------------
-- NSIS インストーラー（TurboismInstaller-<ver>.exe）の場合は Turboism home の
+- NSIS インストーラー（TurboismInstaller-<ver>-full.exe または TurboismInstaller-<ver>-thin.exe）の場合は Turboism home の
   uninstall.exe を実行します。Turboism が記録した管理対象ショートカット/状態と
   所有するファイルだけを削除します。確認ページの「config.json（ユーザー設定）を
   保持する」チェックは既定でオンです。オフにすると config.json を削除します。
