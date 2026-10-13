@@ -82,6 +82,7 @@ final class PluginSettingsWindow {
 
     private JDialog createDialog(final Optional<String> initialPluginId) {
         final JDialog win = CoreDialogs.create(i18n.text("plugin-settings.title"), 840, 560);
+        if (win == null) return null;
         win.setLayout(new BorderLayout(8, 8));
 
         final List<String> contributingIds = settingsStore != null ? settingsStore.contributingPluginIds() : List.of();

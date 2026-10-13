@@ -14,6 +14,7 @@ final class CoreDialogs {
 
     static JDialog create(final String title, final int width, final int height) {
         final JDialog dialog = TurboismWindowFactory.dialog(owner(), title, false);
+        if (dialog == null) return null;
         dialog.setDefaultCloseOperation(WindowConstants.HIDE_ON_CLOSE);
         dialog.setSize(width, height);
         dialog.setLocationRelativeTo(dialog.getOwner());
@@ -21,6 +22,7 @@ final class CoreDialogs {
     }
 
     static void show(final JDialog dialog) {
+        if (dialog == null) return;
         dialog.setLocationRelativeTo(dialog.getOwner());
         dialog.setVisible(true);
         dialog.toFront();
