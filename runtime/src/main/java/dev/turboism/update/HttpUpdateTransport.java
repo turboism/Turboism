@@ -1,5 +1,6 @@
 package dev.turboism.update;
 
+import dev.turboism.core.FrameworkBuildInfo;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -23,12 +24,27 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** Fixed-origin HTTPS transport for the small stable-channel discovery response. */
+/** Fixed-origin HTTPS transport for the small channel-aware discovery response. */
 public final class HttpUpdateTransport implements UpdateTransport {
-    public static final URI ENDPOINT = URI.create("https://api.turboism.dev/v1/releases/stable.json");
+    private static final String ENDPOINT_PREFIX = "https://api.turboism.dev/v1/releases/";
+    public static final URI ENDPOINT = endpointForChannel(UpdateDiscovery.CHANNEL_STABLE);
     public static final Duration REQUEST_DEADLINE = Duration.ofSeconds(15);
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
     private static final AtomicLong REQUEST_IDS = new AtomicLong();
+
+    /** Resolves the fixed-origin discovery endpoint for the given channel wire name. */
+    public static URI endpointForChannel(final String channel) {
+        Objects.requireNonNull(channel, "channel");
+        if (!UpdateDiscovery.isSupportedChannel(channel)) {
+            throw new IllegalArgumentException("unsupported update channel: " + channel);
+        }
+        return URI.create(ENDPOINT_PREFIX + channel + ".json");
+    }
+
+    /** Resolves the fixed-origin discovery endpoint for the given packaged build channel. */
+    public static URI endpointForChannel(final FrameworkBuildInfo.Channel channel) {
+        return endpointForChannel(InstalledBuild.channelFor(channel));
+    }
 
     @FunctionalInterface
     interface ConnectionFactory {
@@ -43,19 +59,46 @@ public final class HttpUpdateTransport implements UpdateTransport {
         return http;
     };
 
+    private final URI endpoint;
     private final Duration requestDeadline;
     private final ConnectionFactory connectionFactory;
 
+    /** Creates a transport for the installed framework's release channel. */
     public HttpUpdateTransport() {
-        this(REQUEST_DEADLINE, DEFAULT_CONNECTION_FACTORY);
+        this(FrameworkBuildInfo.current().channel());
+    }
+
+    /** Creates a transport for the specified packaged framework release channel. */
+    public HttpUpdateTransport(final FrameworkBuildInfo.Channel channel) {
+        this(endpointForChannel(channel), REQUEST_DEADLINE, DEFAULT_CONNECTION_FACTORY);
+    }
+
+    /** Creates a transport for the specified release channel wire name. */
+    public HttpUpdateTransport(final String channel) {
+        this(endpointForChannel(channel), REQUEST_DEADLINE, DEFAULT_CONNECTION_FACTORY);
     }
 
     HttpUpdateTransport(final Duration requestDeadline, final ConnectionFactory connectionFactory) {
+        this(ENDPOINT, requestDeadline, connectionFactory);
+    }
+
+    HttpUpdateTransport(
+            final String channel, final Duration requestDeadline, final ConnectionFactory connectionFactory) {
+        this(endpointForChannel(channel), requestDeadline, connectionFactory);
+    }
+
+    HttpUpdateTransport(final URI endpoint, final Duration requestDeadline, final ConnectionFactory connectionFactory) {
+        this.endpoint = Objects.requireNonNull(endpoint, "endpoint");
         this.requestDeadline = Objects.requireNonNull(requestDeadline, "requestDeadline");
         this.connectionFactory = Objects.requireNonNull(connectionFactory, "connectionFactory");
         if (requestDeadline.isZero() || requestDeadline.isNegative()) {
             throw new IllegalArgumentException("requestDeadline must be positive");
         }
+    }
+
+    /** Returns the fixed HTTPS discovery endpoint queried by this transport. */
+    public URI endpoint() {
+        return endpoint;
     }
 
     @Override
@@ -112,7 +155,7 @@ public final class HttpUpdateTransport implements UpdateTransport {
 
         private Response exchange() throws IOException {
             checkDeadline();
-            final HttpURLConnection opened = connectionFactory.open(ENDPOINT);
+            final HttpURLConnection opened = connectionFactory.open(endpoint);
             registerConnection(opened);
             checkDeadline();
 

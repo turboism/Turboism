@@ -116,4 +116,23 @@ class PluginTableModelTest {
         sorter.setRowFilter(RowFilter.regexFilter("(?i)" + java.util.regex.Pattern.quote("absent")));
         assertEquals(0, sorter.getViewRowCount());
     }
+
+    @Test
+    void pendingColumnShowsStagedAutoUpdateVersion() {
+        final CoreWindows.PluginTableModel model = new CoreWindows.PluginTableModel(I18N);
+        model.setPlugins(List.of(new CorePluginManagement.PluginInfo(
+                "dev.turboism.plugin.mcp",
+                "MCP",
+                "0.1.0",
+                "",
+                "ENABLED",
+                "ENABLED",
+                false,
+                Optional.of("UPDATE (0.2.0)"),
+                "integration",
+                List.of("mcp"),
+                List.of(new CorePluginManagement.Author("Turboism", Optional.empty())))));
+
+        assertEquals("UPDATE (0.2.0)", model.getValueAt(0, 6));
+    }
 }

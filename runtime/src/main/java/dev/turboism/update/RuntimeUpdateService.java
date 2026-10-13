@@ -66,7 +66,12 @@ public final class RuntimeUpdateService implements CoreUpdateService {
 
     public RuntimeUpdateService(
             final Path home, final RuntimeScheduler scheduler, final RuntimeSettingsService runtimeSettings) {
-        this(home, scheduler, runtimeSettings, new HttpUpdateTransport(), Clock.systemUTC());
+        this(
+                home,
+                scheduler,
+                runtimeSettings,
+                new HttpUpdateTransport(InstalledBuild.current().channel()),
+                Clock.systemUTC());
     }
 
     public RuntimeUpdateService(
@@ -106,9 +111,9 @@ public final class RuntimeUpdateService implements CoreUpdateService {
         this.startupDelay = requireNonNegative(startupDelay, "startupDelay");
         this.automaticInterval = requirePositive(automaticInterval, "automaticInterval");
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
-        this.parser = new UpdateDiscoveryParser();
+        this.parser = new UpdateDiscoveryParser(installed.channel());
         this.preferencesStore = new UpdatePreferencesStore(home, diagnostic);
-        this.stateStore = new UpdateStateStore(home, diagnostic);
+        this.stateStore = new UpdateStateStore(home, installed.channel(), diagnostic);
         this.preferences =
                 new UpdatePreferencesStoreState(preferencesStore.read().automaticChecksEnabled());
         this.state = sanitizeState(stateStore.read());
@@ -446,7 +451,7 @@ public final class RuntimeUpdateService implements CoreUpdateService {
         return new Snapshot(
                 Status.UPDATE_AVAILABLE,
                 installed.versionText(),
-                Optional.of(candidate.version().toString()),
+                Optional.of(candidate.versionText()),
                 candidate.buildNumber(),
                 userInitiated,
                 reminder);

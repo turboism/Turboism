@@ -403,6 +403,122 @@ class CoreWindowsTest {
         assertEquals(System.getProperty("turboism.expectedFrameworkVersion"), version);
     }
 
+    @Test
+    void pluginMarketLinkUsesOfficialUrlAndAutoUpdateCheckBoxPersistsToggle() {
+        assertEquals("https://turboism.dev/plugins", CoreWindows.PLUGIN_MARKET_PAGE);
+        assertTrue(CoreWindows.httpLinkAllowed(CoreWindows.PLUGIN_MARKET_PAGE));
+        final java.util.List<String> observed = new java.util.ArrayList<>();
+        final boolean[] saved = {true};
+        final CorePluginManagement management = new CorePluginManagementWithAutoUpdate(saved);
+        final CoreWindows windows = new CoreWindows(
+                I18N,
+                new RuntimeSettingsService() {
+                    @Override
+                    public RuntimeSettings read() {
+                        return new RuntimeSettings(false, "INFO", 100, false, false, false, false, "system", false);
+                    }
+
+                    @Override
+                    public RuntimeSettings save(final RuntimeSettings value) {
+                        return value;
+                    }
+
+                    @Override
+                    public DockCleanupResult cleanEmptyDocks() {
+                        return new DockCleanupResult("done");
+                    }
+                },
+                java.util.List::of,
+                management,
+                RuntimeLogReader.unavailable(),
+                dev.turboism.internal.core.KeybindingService.unavailable());
+        CoreWindows.setTestUpdateUrlObserver(observed::add);
+        try {
+            assertTrue(windows.openPluginMarketPage());
+            assertEquals(java.util.List.of("https://turboism.dev/plugins"), observed);
+
+            final JCheckBox checkBox = windows.createPluginAutoUpdateCheckBox();
+            assertTrue(checkBox.isSelected());
+            assertTrue(checkBox.isEnabled());
+            checkBox.setSelected(false);
+            for (final java.awt.event.ActionListener listener : checkBox.getActionListeners()) {
+                listener.actionPerformed(new java.awt.event.ActionEvent(checkBox, 0, "toggle"));
+            }
+            assertFalse(saved[0]);
+        } finally {
+            CoreWindows.clearTestUpdateUrlObserver();
+            windows.close();
+        }
+    }
+
+    private static final class CorePluginManagementWithAutoUpdate
+            implements CorePluginManagement, dev.turboism.pluginmanagement.PluginAutoUpdateControl {
+        private final boolean[] saved;
+
+        private CorePluginManagementWithAutoUpdate(final boolean[] saved) {
+            this.saved = saved;
+        }
+
+        @Override
+        public java.util.List<PluginInfo> plugins() {
+            return java.util.List.of();
+        }
+
+        @Override
+        public OperationResult install() {
+            return OperationResult.rejected("unavailable");
+        }
+
+        @Override
+        public OperationResult uninstall(final String id) {
+            return OperationResult.rejected("unavailable");
+        }
+
+        @Override
+        public OperationResult setEnabled(final String id, final boolean enabled) {
+            return OperationResult.rejected("unavailable");
+        }
+
+        @Override
+        public boolean autoUpdateAvailable() {
+            return true;
+        }
+
+        @Override
+        public Snapshot pluginUpdateSnapshot() {
+            return Snapshot.idle();
+        }
+
+        @Override
+        public boolean automaticPluginUpdatesEnabled() {
+            return saved[0];
+        }
+
+        @Override
+        public dev.turboism.internal.core.CoreUpdateService.PreferenceSaveResult saveAutomaticPluginUpdatesEnabled(
+                final boolean enabled) {
+            saved[0] = enabled;
+            return dev.turboism.internal.core.CoreUpdateService.PreferenceSaveResult.success();
+        }
+
+        @Override
+        public void startPluginAutoUpdater() {}
+
+        @Override
+        public java.util.concurrent.CompletionStage<Snapshot> checkForPluginUpdates() {
+            return CompletableFuture.completedFuture(Snapshot.idle());
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.Registration subscribePluginUpdates(
+                final java.util.function.Consumer<Snapshot> listener) {
+            return () -> {};
+        }
+
+        @Override
+        public void close() {}
+    }
+
     private static CorePluginManagement plugins() {
         return new CorePluginManagement() {
             @Override
