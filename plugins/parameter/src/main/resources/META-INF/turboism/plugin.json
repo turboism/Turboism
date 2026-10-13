@@ -70,6 +70,9 @@
     "requiresCubism": true,
     "ui": "embedded"
   },
+  "lifecycle": {
+    "hotReload": true
+  },
   "tags": [
     "parameter",
     "binding",

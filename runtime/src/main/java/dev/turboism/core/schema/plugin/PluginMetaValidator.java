@@ -37,7 +37,8 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
             "dependencies",
             "permissions",
             "capabilities",
-            "environment");
+            "environment",
+            "lifecycle");
     private static final Set<String> V3_ALLOWED_FIELDS;
     private static final Set<String> V4_ALLOWED_FIELDS;
     private static final Set<String> V5_ALLOWED_FIELDS;
@@ -63,6 +64,7 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
     private static final java.util.regex.Pattern KEBAB_TOKEN =
             java.util.regex.Pattern.compile("^[a-z0-9]+(?:-[a-z0-9]+)*$");
     private static final Set<String> ALLOWED_AUTHOR_FIELDS = Set.of("name", "email");
+    private static final Set<String> ALLOWED_LIFECYCLE_FIELDS = Set.of("hotReload");
     private static final Set<String> ALLOWED_I18N_FIELDS = Set.of("baseName", "locales");
     private static final Set<String> ALLOWED_ENVIRONMENT_FIELDS = Set.of("requiresCubism", "ui");
     private static final Set<String> ALLOWED_DEPENDENCY_FIELDS = Set.of("id", "version", "type", "ordering", "reason");
@@ -157,6 +159,7 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         validateResources(node, errors, source);
         validateI18n(node, errors, source);
         validateEnvironment(node, errors, source);
+        validateLifecycle(node, errors, source);
         validateDependencies(node, errors, source);
         validatePermissions(node, errors, source);
         validateStringArray(node, "capabilities", "PLUGIN_META_BAD_CAPABILITIES", errors, source, false);
@@ -686,6 +689,28 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
                     "environment.ui must be one of " + ALLOWED_ENV_UI,
                     "environment.ui",
                     source));
+        }
+    }
+
+    private void validateLifecycle(final JsonNode node, final List<SchemaValidationError> errors, final String source) {
+        if (!node.has("lifecycle")) {
+            return;
+        }
+        final JsonNode lifecycle = node.get("lifecycle");
+        if (!lifecycle.isObject()) {
+            errors.add(error("PLUGIN_META_BAD_LIFECYCLE", "lifecycle must be an object", "lifecycle", source));
+            return;
+        }
+        rejectUnknownFields(
+                lifecycle,
+                ALLOWED_LIFECYCLE_FIELDS,
+                "PLUGIN_META_UNKNOWN_LIFECYCLE_FIELD",
+                "lifecycle",
+                errors,
+                source);
+        if (lifecycle.has("hotReload") && !lifecycle.get("hotReload").isBoolean()) {
+            errors.add(error(
+                    "PLUGIN_META_BAD_LIFECYCLE", "lifecycle.hotReload must be boolean", "lifecycle.hotReload", source));
         }
     }
 

@@ -47,6 +47,9 @@
     "requiresCubism": true,
     "ui": "none"
   },
+  "lifecycle": {
+    "hotReload": true
+  },
   "tags": [
     "texture-atlas",
     "packing",

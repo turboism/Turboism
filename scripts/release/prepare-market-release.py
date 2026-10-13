@@ -384,6 +384,15 @@ def derive_descriptor(document: dict, module: str) -> dict:
     missing = [locale for locale in REQUIRED_LOCALES if locale not in locales]
     if missing:
         raise MarketError(f"plugins/{module}: descriptor i18n must declare {', '.join(missing)}")
+    lifecycle = document.get("lifecycle")
+    hot_reload = False
+    if lifecycle is not None:
+        if not isinstance(lifecycle, dict):
+            raise MarketError(f"plugins/{module}: descriptor lifecycle must be an object")
+        if "hotReload" in lifecycle:
+            if not isinstance(lifecycle["hotReload"], bool):
+                raise MarketError(f"plugins/{module}: descriptor lifecycle.hotReload must be a boolean")
+            hot_reload = bool(lifecycle["hotReload"])
     return {
         "id": plugin_id,
         "version": version,
@@ -400,6 +409,8 @@ def derive_descriptor(document: dict, module: str) -> dict:
         "eventExports": event_exports,
         "eventImports": event_imports,
         "eventContracts": event_contracts,
+        "hotReload": hot_reload,
+        "lifecycle": {"hotReload": hot_reload} if hot_reload else {},
         "i18n": {"baseName": base_name, "locales": list(locales)},
     }
 
@@ -937,6 +948,17 @@ def jar_artifact(build_root: Path, module: str, tracked_raw: bytes,
                 embedded, tracked_raw, str(jar), allowed_version=allowed_version
             )
 
+            if json.loads(embedded.decode("utf-8")).get("lifecycle", {}).get("hotReload") or json.loads(tracked_raw.decode("utf-8")).get("lifecycle", {}).get("hotReload"):
+                names = set(archive.namelist())
+                if "META-INF/turboism/hooks" in names or any(n.startswith("META-INF/turboism/hooks/") for n in names):
+                    raise MarketError(f"{jar}: plugin declares hotReload=true but built JAR contains META-INF/turboism/hooks")
+                try:
+                    manifest_data = archive.read("META-INF/MANIFEST.MF").decode("utf-8", errors="ignore")
+                    if "Premain-Class" in manifest_data or "Agent-Class" in manifest_data:
+                        raise MarketError(f"{jar}: plugin declares hotReload=true but manifest contains agent hooks")
+                except KeyError:
+                    pass
+
             def read_catalog(name: str):
                 try:
                     return archive.read(name).decode("utf-8")
@@ -992,6 +1014,7 @@ def build_sidecar(revision: str, prepared: list) -> dict:
                 "publishedEvents": descriptor["eventExports"],
                 "subscribedEvents": descriptor["eventImports"],
                 "embeddedContracts": descriptor["eventContracts"],
+                "hotReload": descriptor.get("hotReload", False),
             },
             "localizations": {
                 locale: {"name": entry["plugin.name"],
