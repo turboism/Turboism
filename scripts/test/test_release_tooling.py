@@ -315,7 +315,7 @@ class RootReadmeTest(unittest.TestCase):
             with self.subTest(page=filename):
                 text = (ROOT / filename).read_text(encoding="utf-8")
                 self.assertEqual(re.findall(r"(?m)^## (.+)$", text), headings)
-                self.assertEqual(re.findall(r"(?m)^### (ZIP|JAR|EXE)\b", text), ["ZIP", "JAR", "EXE"])
+                self.assertEqual(re.findall(r"(?m)^### (EXE|ZIP)\b", text), ["EXE", "ZIP"])
                 copyright_section = text.split("## " + headings[1], 1)[0]
                 self.assertIn("Copyright © 2026 Turboism Contributors", copyright_section)
                 self.assertIn("(LICENSE)", copyright_section)
@@ -337,9 +337,9 @@ class RootReadmeTest(unittest.TestCase):
                         "5.3.00 – 5.3.04",
                     },
                 )
-                for token in ("Windows x64", "macOS", "Linux", "Java 17", "JDK 17", ".sha256",
-                              "turboism-<version>-full.zip", "turboism-<version>-lite.zip",
-                              "TurboismInstaller-<version>.jar", "TurboismInstaller-<version>.exe",
+                for token in ("Windows x64", "macOS", "Linux", "JDK 17", ".sha256",
+                              "turboism-<version>-full.zip", "turboism-<version>-thin.zip",
+                              "TurboismInstaller-<version>-full.exe", "TurboismInstaller-<version>-thin.exe",
                               "configure_turboism.ps1", "launch-cubism-turboism.bat",
                               "gradlew.bat", "compileOnly", "com.live2d.*"):
                     self.assertIn(token, text)
@@ -350,7 +350,7 @@ class RootReadmeTest(unittest.TestCase):
             return ["\n".join(line.strip() for line in block.splitlines())
                     for block in re.findall(r"(?ms)^ *```[^\n]*\n(.*?)^ *```[ \t]*$", text)]
         english = blocks("README.md")
-        self.assertEqual(len(english), 6)
+        self.assertEqual(len(english), 5)
         for filename in self.PAGES:
             self.assertEqual(blocks(filename), english, filename)
 
