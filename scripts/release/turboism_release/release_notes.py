@@ -8,8 +8,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = 'https://github.com/turboism/Turboism'
+MATRIX_URL = 'https://turboism.dev/docs/use/compatibility'
+PLATFORMS = ('windows-x64',)
 SHA = re.compile(r'[0-9a-f]{40}')
 TAG = re.compile(r'v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?')
+CUBISM_VERSION = re.compile(r'^5\.\d{1,2}\.\d{2}$')
+COMPATIBILITY_MATRIX = Path('compatibility/cubism/compatibility-matrix.json')
+REVIEWED_HOST_ARTIFACTS = Path(
+    'runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java'
+)
 LOCALES = ('en', 'zh', 'ja', 'ko')
 MAX_COMMITS = 60
 
@@ -153,6 +160,114 @@ def reviewed_locales(root, version, english):
     return result
 
 
+def _cubism_version_key(version):
+    require(isinstance(version, str) and CUBISM_VERSION.fullmatch(version), 'Invalid Cubism version')
+    major, minor, patch = version.split('.')
+    return int(major), int(minor), int(patch)
+
+
+def compatibility_versions(root):
+    root = Path(root)
+    matrix_path = root / COMPATIBILITY_MATRIX
+    artifacts_path = root / REVIEWED_HOST_ARTIFACTS
+    artifact_versions = None
+    matrix_versions = None
+    if artifacts_path.is_file():
+        require(not artifacts_path.is_symlink(), 'Invalid ReviewedHostArtifacts file')
+        from .candidate import _load_script
+        completeness = _load_script(
+            'release_version_set_completeness',
+            Path(__file__).resolve().parents[2] / 'check_version_set_completeness.py',
+        )
+        raw_versions, problems = completeness.reviewed_host_artifacts(root)
+        require(not problems, '; '.join(problems))
+        artifact_versions = sorted(raw_versions, key=_cubism_version_key)
+        require(0 < len(artifact_versions) <= 64, 'Invalid reviewed host artifact versions')
+    if matrix_path.is_file():
+        require(not matrix_path.is_symlink() and matrix_path.stat().st_size < 2 * 1024 * 1024,
+                'Invalid compatibility matrix file')
+        matrix = json.loads(matrix_path.read_text(encoding='utf-8'))
+        require(isinstance(matrix, dict) and matrix.get('format') == 'turboism.compatibility-matrix/v1',
+                'Invalid compatibility matrix format')
+        raw_matrix = matrix.get('reviewedVersions')
+        require(isinstance(raw_matrix, list) and 0 < len(raw_matrix) <= 64,
+                'Invalid compatibility matrix versions')
+        ordered_matrix = sorted(set(raw_matrix), key=_cubism_version_key)
+        require(raw_matrix == ordered_matrix,
+                'Compatibility matrix versions must be unique and sorted')
+        matrix_versions = ordered_matrix
+    if artifact_versions is not None and matrix_versions is not None:
+        require(artifact_versions == matrix_versions,
+                'Compatibility matrix reviewedVersions drifted from ReviewedHostArtifacts')
+        return matrix_versions
+    if matrix_versions is not None:
+        return matrix_versions
+    if artifact_versions is not None:
+        return artifact_versions
+    raise ValueError('Missing reviewed Cubism versions')
+
+
+def collapse_ranges(versions, reviewed=None):
+    require(isinstance(versions, (list, tuple)) and 0 < len(versions) <= 64,
+            'Invalid Cubism version list')
+    ordered = sorted(set(versions), key=_cubism_version_key)
+    require(list(versions) == ordered, 'Cubism versions must be unique and sorted')
+    if reviewed is not None:
+        require(isinstance(reviewed, (list, tuple)) and len(reviewed) > 0,
+                'Invalid reviewed version list')
+        ordered_reviewed = sorted(set(reviewed), key=_cubism_version_key)
+        require(list(reviewed) == ordered_reviewed and set(ordered) <= set(ordered_reviewed),
+                'Cubism versions must be a sorted subset of reviewed versions')
+        index = {v: i for i, v in enumerate(ordered_reviewed)}
+        runs = [[ordered[0]]]
+        for v in ordered[1:]:
+            if index[v] == index[runs[-1][-1]] + 1:
+                runs[-1].append(v)
+            else:
+                runs.append([v])
+    else:
+        repo_matrix = Path(__file__).resolve().parents[3] / COMPATIBILITY_MATRIX
+        canonical = None
+        if repo_matrix.is_file() and not repo_matrix.is_symlink():
+            data = json.loads(repo_matrix.read_text(encoding='utf-8'))
+            rv = data.get('reviewedVersions')
+            if isinstance(rv, list) and set(ordered) <= set(rv):
+                canonical = {v: i for i, v in enumerate(rv)}
+        runs = [[ordered[0]]]
+        for v in ordered[1:]:
+            prev = runs[-1][-1]
+            maj1, min1, pat1 = _cubism_version_key(prev)
+            maj2, min2, pat2 = _cubism_version_key(v)
+            consecutive = maj1 == maj2 and (
+                (min1 == min2 and pat2 == pat1 + 1)
+                or (min2 == min1 + 1 and pat2 == 0)
+            )
+            contiguous = (canonical[v] == canonical[prev] + 1 and consecutive) if canonical is not None else consecutive
+            if contiguous:
+                runs[-1].append(v)
+            else:
+                runs.append([v])
+    return [{'from': run[0], 'to': run[-1]} for run in runs]
+
+
+def compatibility_marker(root):
+    versions = compatibility_versions(root)
+    ranges = collapse_ranges(versions)
+    payload = {
+        'schemaVersion': 1,
+        'cubismEditor': {
+            'versions': versions,
+            'ranges': ranges,
+        },
+        'platforms': list(PLATFORMS),
+        'matrixUrl': MATRIX_URL,
+    }
+    encoded = json.dumps(payload, ensure_ascii=False, separators=(',', ':'))
+    encoded = encoded.replace('<', '\\u003c').replace('>', '\\u003e')
+    require(len(encoded.encode('utf-8')) <= 4096, 'Compatibility metadata exceeds budget')
+    return '<!-- turboism-compatibility-v1 ' + encoded + ' -->\n'
+
+
 def metadata_marker(version, source, locales, context=None):
     require(all(lang in LOCALES and isinstance(text,str) and 0<len(text)<=20000 for lang,text in locales.items()), 'Invalid localized notes')
     payload = {'schemaVersion': 1, 'version': version, 'sourceRevision': source, 'locales': locales}
@@ -184,6 +299,7 @@ def candidate_notes(root, receipt, context):
                 'Reviewed release notes must include zh, ja and ko translations')
     body = locales['en'].rstrip()+f"\n\nSource: {receipt['sourceRevision']}\nBuild: {receipt['buildNumber']}\n\n"
     body += metadata_marker(receipt['version'], receipt['sourceRevision'], locales, context)
+    body += compatibility_marker(root)
     body += '<!-- turboism-build-v1 '+json.dumps(receipt,sort_keys=True,separators=(',',':'))+' -->\n'
     require(len(body.encode()) < 65000, 'Release notes exceed publication budget')
     return body
@@ -193,4 +309,5 @@ def stable_metadata(root, version, source, english):
     # Candidates from before this feature must reproduce the original tag/body binding.
     if not (Path(root)/'scripts/release/turboism_release/release_notes.py').is_file():
         return ''
-    return metadata_marker(version, source, reviewed_locales(root, version, english))
+    return (metadata_marker(version, source, reviewed_locales(root, version, english))
+            + compatibility_marker(root))
