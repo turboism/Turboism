@@ -168,9 +168,17 @@ jobs:
           MATCHES="$(matches)"
           COUNT="$(printf '%s\n' "$MATCHES" | jq -s 'length')"
           if [ "$COUNT" -eq 0 ]; then
+            # workflow_dispatch needs a branch ref. Dispatch on main only when main is the
+            # reviewed revision plus nothing but earlier catalog publications.
+            CHANGED="$(gh api "repos/turboism/turboism-plugin-directory/compare/${PLUGIN_DIRECTORY_REVISION}...main" \
+              --jq 'if (.status == "identical" or .status == "ahead") then ([.files[]?.filename] | map(select((startswith("public/api/v2/") or . == "catalog/v2/catalog.json") | not)) | length) else -1 end')"
+            if [ "$CHANGED" != "0" ]; then
+              echo "::error::turboism-plugin-directory main differs from the pinned ${PLUGIN_DIRECTORY_REVISION} outside catalog publications; re-pin after review."
+              exit 1
+            fi
             gh workflow run publish-plugin-directory-v2.yml \
               --repo turboism/turboism-plugin-directory \
-              --ref "$PLUGIN_DIRECTORY_REVISION" \
+              --ref main \
               -f source_run_id="$SOURCE_RUN_ID" \
               -f source_sha="$SOURCE_SHA" \
               -f artifact_name="$MARKET_ARTIFACT" \
