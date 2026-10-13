@@ -37,6 +37,7 @@ import java.util.function.Supplier;
  */
 public final class PluginMarketService implements AutoCloseable {
 
+    /** Installation and compatibility status category of a catalog plugin. */
     public enum StatusType {
         NOT_INSTALLED,
         INSTALLED,
@@ -44,6 +45,14 @@ public final class PluginMarketService implements AutoCloseable {
         INCOMPATIBLE
     }
 
+    /**
+     * Point-in-time market status for one plugin against the local runtime installation.
+     *
+     * @param type status category
+     * @param installedVersion currently installed version string when present
+     * @param targetRelease target release offered for installation or update
+     * @param incompatibleReason human-readable incompatibility explanation when incompatible
+     */
     public record PluginMarketStatus(
             StatusType type,
             Optional<String> installedVersion,
@@ -93,10 +102,18 @@ public final class PluginMarketService implements AutoCloseable {
         });
     }
 
+    /**
+     * Binds the runtime hot-reload coordinator to apply compatible releases without restarting.
+     *
+     * @param coordinator the active hot-reload coordinator
+     */
     public void bindHotReloadCoordinator(final PluginHotReloadCoordinator coordinator) {
         this.hotReloadCoordinator = coordinator;
     }
 
+    /**
+     * @return the most recently verified catalog instance, or {@code null} if none loaded yet
+     */
     public PluginCatalog currentCatalog() {
         return currentCatalog;
     }
@@ -428,6 +445,12 @@ public final class PluginMarketService implements AutoCloseable {
         return new CatalogPluginLocalized(name, summary);
     }
 
+    /**
+     * Localized name and summary for presentation in the market UI.
+     *
+     * @param name localized display name
+     * @param summary localized summary description
+     */
     public record CatalogPluginLocalized(String name, String summary) {}
 
     @Override
