@@ -457,6 +457,10 @@ public final class LocalPluginRuntime implements AutoCloseable {
         return loaded.stream().map(PreviewPluginSummaryFactory::active).toList();
     }
 
+    public PluginHotReloadCoordinator hotReloadCoordinator() {
+        return loadCoordinator.hotReloadCoordinator();
+    }
+
     StartupEnvironment startupEnvironment() {
         return new StartupEnvironment(
                 contextFactory.graalConfiguration(),
