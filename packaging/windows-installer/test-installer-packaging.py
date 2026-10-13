@@ -100,10 +100,19 @@ def synthetic_test() -> None:
         assert "install-script-engine.ps1" in core and "script-engine.json" in core
         # The unmodified production ZIP path remains an offline engine closure.
         full = work / "full.zip"
-        subprocess.run([sys.executable, "-", str(stage), str(full), "0"], input=production_blocks()[1], text=True, check=True)
+        subprocess.run([sys.executable, "-", str(stage), str(full), "0", "0.67.0"], input=production_blocks()[1], text=True, check=True)
         with zipfile.ZipFile(full) as archive:
             for entry in manifest["artifacts"]:
                 assert archive.read("graal/lib/" + entry["name"]) == (stage / "graal/lib" / entry["name"]).read_bytes()
+            assert any(name.startswith("plugins/") for name in archive.namelist())
+            meta = json.loads(archive.read("installed-build.json"))
+            assert meta.get("variant") == "full"
+        thin = work / "thin.zip"
+        subprocess.run([sys.executable, "-", str(stage), str(thin), "1", "0.67.0"], input=production_blocks()[1], text=True, check=True)
+        with zipfile.ZipFile(thin) as archive:
+            assert not any(name.startswith("plugins/") for name in archive.namelist()), "thin zip must contain zero plugin jars"
+            meta = json.loads(archive.read("installed-build.json"))
+            assert meta.get("variant") == "thin"
         bad = stage / "graal/lib" / manifest["artifacts"][1]["name"]
         bad.write_bytes(b"tampered library")
         failed = False
@@ -144,15 +153,15 @@ def repack(source: Path, output: Path, version: str) -> None:
         (eula / name).write_bytes(b"\xef\xbb\xbf" + (ROOT / "packaging/eula" / name).read_bytes())
     dist = output / "dist"
     dist.mkdir()
-    subprocess.run([
-        "makensis", "-WX", "-DVER=" + version, "-DSTAGING_DIR=" + str(stage),
-        "-DGENERATED_DIR=" + str(generated), "-DOUT_DIR=" + str(dist),
-        "-DLICENSE_FILE=" + str(ROOT / "LICENSE"), "-DEULA_DIR=" + str(eula),
-        "-DICON_FILE=" + str(PACKAGE / "assets/turboism.ico"), str(output / "installer.nsi"),
-    ], check=True)
-    for mode in ("full", "lite"):
-        archive = dist / ("turboism-" + version + "-" + mode + ".zip")
-        subprocess.run([sys.executable, "-", str(stage), str(archive), "1" if mode == "lite" else "0"], input=production_blocks()[1], text=True, check=True)
+    for variant in ("full", "thin"):
+        subprocess.run([
+            "makensis", "-WX", "-DVER=" + version, "-DVARIANT=" + variant, "-DSTAGING_DIR=" + str(stage),
+            "-DGENERATED_DIR=" + str(generated), "-DOUT_DIR=" + str(dist),
+            "-DLICENSE_FILE=" + str(ROOT / "LICENSE"), "-DEULA_DIR=" + str(eula),
+            "-DICON_FILE=" + str(PACKAGE / "assets/turboism.ico"), str(output / "installer.nsi"),
+        ], check=True)
+        archive = dist / ("turboism-" + version + "-" + variant + ".zip")
+        subprocess.run([sys.executable, "-", str(stage), str(archive), "1" if variant == "thin" else "0", version], input=production_blocks()[1], text=True, check=True)
     records = []
     for path in sorted(dist.iterdir()):
         checksum = digest(path)

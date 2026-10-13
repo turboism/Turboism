@@ -17,14 +17,14 @@ if str(SCRIPT_DIR) not in sys.path:
 from turboism_release.contracts import ReleaseError, read_document
 
 MEDIA_NAMES = {
-    "turboism-{version}-lite.zip",
-    "turboism-{version}-lite.zip.sha256",
+    "turboism-{version}-thin.zip",
+    "turboism-{version}-thin.zip.sha256",
     "turboism-{version}-full.zip",
     "turboism-{version}-full.zip.sha256",
-    "TurboismInstaller-{version}.exe",
-    "TurboismInstaller-{version}.exe.sha256",
-    "TurboismInstaller-{version}.jar",
-    "TurboismInstaller-{version}.jar.sha256",
+    "TurboismInstaller-{version}-full.exe",
+    "TurboismInstaller-{version}-full.exe.sha256",
+    "TurboismInstaller-{version}-thin.exe",
+    "TurboismInstaller-{version}-thin.exe.sha256",
 }
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 SOURCE_SHA = re.compile(r"^[0-9a-f]{40}$")

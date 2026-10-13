@@ -13,10 +13,10 @@ from .versions import assert_version_binding, changelog_entry, framework_version
 
 
 EXPECTED_PRIMARY = (
-    "turboism-{version}-lite.zip",
+    "turboism-{version}-thin.zip",
     "turboism-{version}-full.zip",
-    "TurboismInstaller-{version}.exe",
-    "TurboismInstaller-{version}.jar",
+    "TurboismInstaller-{version}-full.exe",
+    "TurboismInstaller-{version}-thin.exe",
 )
 # Standalone developer artifacts ship on the GitHub Release only; the product
 # artifact contract and the Updates media roster remain the four files above.

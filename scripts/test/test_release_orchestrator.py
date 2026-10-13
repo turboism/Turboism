@@ -39,14 +39,14 @@ SOURCE = "1" * 40
 
 def artifacts(version="0.43.0"):
     names = [
-        f"TurboismInstaller-{version}.exe",
-        f"TurboismInstaller-{version}.exe.sha256",
-        f"TurboismInstaller-{version}.jar",
-        f"TurboismInstaller-{version}.jar.sha256",
+        f"TurboismInstaller-{version}-full.exe",
+        f"TurboismInstaller-{version}-full.exe.sha256",
+        f"TurboismInstaller-{version}-thin.exe",
+        f"TurboismInstaller-{version}-thin.exe.sha256",
         f"turboism-{version}-full.zip",
         f"turboism-{version}-full.zip.sha256",
-        f"turboism-{version}-lite.zip",
-        f"turboism-{version}-lite.zip.sha256",
+        f"turboism-{version}-thin.zip",
+        f"turboism-{version}-thin.zip.sha256",
     ]
     return [
         {"name": name, "size": index + 1, "sha256": f"{index + 1:064x}",
