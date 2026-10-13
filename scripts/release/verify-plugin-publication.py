@@ -228,7 +228,14 @@ def verify_expected(catalog: dict[str, Any], expected: list[Any]) -> list[dict[s
 
 
 def download_artifact(url: str, size: int) -> bytes:
-    request = urllib.request.Request(url, headers={"Accept": "application/java-archive", "Accept-Encoding": "identity"})
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/java-archive",
+            "Accept-Encoding": "identity",
+            "X-Turboism-Download-Purpose": "verification",
+        },
+    )
     try:
         with urllib.request.urlopen(request, timeout=60) as response:
             data = response.read(size + 1)

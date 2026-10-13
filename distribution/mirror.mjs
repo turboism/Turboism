@@ -1,6 +1,12 @@
 import {ORIGIN} from './protocol.mjs';
 const ALLOWED_DOWNLOAD_HOSTS=new Set(['github.com','release-assets.githubusercontent.com','objects.githubusercontent.com']);
 const hexadecimal=value=>value?Array.from(new Uint8Array(value),b=>b.toString(16).padStart(2,'0')).join(''):null;
+const validCount=n=>Number.isSafeInteger(n)&&n>=0;
+function validBaseline(value,assets){
+ if(!value||typeof value!=='object'||Array.isArray(value))return false;
+ const allowed=new Set(assets.map(a=>a.name));
+ return Object.entries(value).every(([name,count])=>allowed.has(name)&&validCount(count));
+}
 export function mirrorFingerprint(release){return JSON.stringify([release.sourceRevision,...release.assets.flatMap(a=>[a,a.checksum]).map(a=>[a.name,a.size,a.sha256])]);}
 export function hasVerifiedBytes(object,asset){return Boolean(object&&object.size===asset.size&&hexadecimal(object.checksums?.sha256)===asset.sha256);}
 async function download(asset,fetcher){
@@ -27,7 +33,8 @@ export async function mirrorRelease(release,bucket,fetcher=fetch){
  if(!bucket)return release;
  const markerKey=`mirrors/${release.tag}.json`,fingerprint=mirrorFingerprint(release);
  const marker=await bucket.get(markerKey);let previous=null;
- if(marker){if(marker.size>24000)throw new Error('Mirror marker integrity error');previous=await marker.json();if(previous.schemaVersion!==1||previous.fingerprint!==fingerprint)throw new Error('Immutable mirror identity conflict');}
+ if(marker){if(marker.size>24000)throw new Error('Mirror marker integrity error');previous=await marker.json();if(previous.schemaVersion!==1||previous.fingerprint!==fingerprint)throw new Error('Immutable mirror identity conflict');if('baseline' in previous&&!validBaseline(previous.baseline,release.assets))throw new Error('Mirror marker integrity error');}
+ const pulled=new Set();
  for(const asset of release.assets.flatMap(a=>[a,a.checksum])){
   const existing=await bucket.head(asset.key);
   if(existing){if(!hasVerifiedBytes(existing,asset))throw new Error(`Existing mirror integrity conflict: ${asset.name}`);continue;}
@@ -44,11 +51,14 @@ export async function mirrorRelease(release,bucket,fetcher=fetch){
    await bucket.put(asset.key,body,{onlyIf:{etagDoesNotMatch:'*'},sha256:asset.sha256,httpMetadata:{contentType:asset.mediaType,cacheControl:'public, max-age=31536000, immutable'},customMetadata:{product:'turboism',version:release.version}});
   }finally{if(response.body&&!response.bodyUsed)await response.body.cancel().catch(()=>{});}
   if(!hasVerifiedBytes(await bucket.head(asset.key),asset))throw new Error(`Mirror upload integrity mismatch: ${asset.name}`);
+  pulled.add(asset.name);
  }
  if(!previous){
-  const completed={schemaVersion:1,fingerprint,verifiedAt:new Date().toISOString()};
+  const baseline=Object.fromEntries(release.assets.filter(a=>validCount(a.downloadCount)).map(a=>[a.name,pulled.has(a.name)?a.downloadCount+1:Math.max(1,a.downloadCount)]));
+  const completed={schemaVersion:1,fingerprint,verifiedAt:new Date().toISOString(),...(Object.keys(baseline).length?{baseline}:{})};
   const result=await bucket.put(markerKey,JSON.stringify(completed),{onlyIf:{etagDoesNotMatch:'*'},httpMetadata:{contentType:'application/json'}});
-  if(!result){const concurrent=await bucket.get(markerKey);if(!concurrent||concurrent.size>24000||(await concurrent.json()).fingerprint!==fingerprint)throw new Error('Concurrent mirror marker conflict');}
+  if(!result){const concurrent=await bucket.get(markerKey);if(!concurrent||concurrent.size>24000)throw new Error('Concurrent mirror marker conflict');const stored=await concurrent.json();if(stored.schemaVersion!==1||stored.fingerprint!==fingerprint||('baseline' in stored&&!validBaseline(stored.baseline,release.assets)))throw new Error('Concurrent mirror marker conflict');previous=stored;}
+  else previous=completed;
  }
- return {...release,assets:release.assets.map(a=>({...a,url:`${ORIGIN}/${a.key}`,checksum:{...a.checksum,url:`${ORIGIN}/${a.checksum.key}`},sources:[{id:'official',url:`${ORIGIN}/${a.key}`},...a.sources.filter(s=>s.id!=='official')]}))};
+ return {...release,assets:release.assets.map(a=>({...a,downloadCount:validCount(a.downloadCount)?a.downloadCount+(pulled.has(a.name)?1:0):a.downloadCount,...(validCount(previous?.baseline?.[a.name])?{internalBaseline:previous.baseline[a.name]}:{}),url:`${ORIGIN}/${a.key}`,checksum:{...a.checksum,url:`${ORIGIN}/${a.checksum.key}`},sources:[{id:'official',url:`${ORIGIN}/${a.key}`},...a.sources.filter(s=>s.id!=='official')]}))};
 }

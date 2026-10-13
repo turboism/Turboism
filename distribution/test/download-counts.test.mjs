@@ -90,3 +90,104 @@ test('concurrent duplicate starts increment once and expired fingerprints are pr
  assert.equal(c.read([binary]).count,1);assert.equal(s.sql.exec('SELECT COUNT(*) AS n FROM download_seen').toArray()[0].n,1);
  time+=1800001;c.prune();assert.equal(s.sql.exec('SELECT COUNT(*) AS n FROM download_seen').toArray()[0].n,0);assert.equal(c.read([binary]).count,1);
 });
+test('first mirror sync captures immutable post-pull baseline in R2 marker and subtracts internal downloads',async()=>{
+ const {countsDocument,DownloadCounter}=await implementation(),s=realStorage(),c=new DownloadCounter(s,()=>baseTime);c.initialize();
+ const {createHash}=await import('node:crypto');
+ const hash=x=>createHash('sha256').update(x).digest('hex');
+ const raw=fixture('1.4.0');
+ const bytes=new Map();
+ for(const a of raw.assets.filter(a=>!a.name.endsWith('.sha256'))){
+  const b=Buffer.from('payload '+a.name);a.size=b.length;a.digest='sha256:'+hash(b);a.download_count=2;bytes.set(a.name,b);
+ }
+ for(const a of raw.assets.filter(a=>a.name.endsWith('.sha256'))){
+  const name=a.name.slice(0,-7),b=Buffer.from(hash(bytes.get(name))+'  '+name+'\n');a.size=b.length;a.digest='sha256:'+hash(b);a.download_count=9;bytes.set(a.name,b);
+ }
+ const store=new Map();
+ const meta=(key,x)=>({key,size:x.bytes.length,etag:'stored-'+hash(x.bytes),checksums:{sha256:Uint8Array.from(Buffer.from(hash(x.bytes),'hex')).buffer}});
+ const bucket={
+  async head(key){const x=store.get(key);return x?meta(key,x):null;},
+  async get(key){const x=store.get(key);return x?{...meta(key,x),body:new Response(x.bytes).body,json:async()=>JSON.parse(x.bytes),text:async()=>x.bytes.toString()}:null;},
+  async put(key,body,options={}){assert.equal(options.onlyIf?.etagDoesNotMatch,'*');if(store.has(key))return null;const b=Buffer.from(await new Response(body).arrayBuffer());store.set(key,{bytes:b});return meta(key,{bytes:b});}
+ };
+ const fetcher=async url=>{
+  const u=new URL(url);
+  if(u.hostname==='api.github.com')return Response.json(u.pathname.endsWith('/releases')?[raw]:{object:{type:'commit',sha:source}});
+  const b=bytes.get(u.pathname.split('/').at(-1));
+  return new Response(b,{headers:{'Content-Length':String(b.length),'Content-Type':'application/octet-stream'}});
+ };
+ const first=await synchronize(null,{DOWNLOADS:bucket},fetcher);
+ const marker=JSON.parse(store.get('mirrors/v1.4.0.json').bytes.toString());
+ assert.deepEqual(marker.baseline,{
+  'TurboismInstaller-1.4.0.exe':3,
+  'TurboismInstaller-1.4.0.jar':3,
+  'turboism-1.4.0-full.zip':3,
+  'turboism-1.4.0-lite.zip':3,
+ });
+ const initialCounts=countsDocument('1.4.0',first.known['v1.4.0'],c.read(first.releases[0].assets));
+ assert.equal(initialCounts.github.internalBaseline,12);
+ assert.equal(initialCounts.github.count,0);
+ assert.equal(initialCounts.total,0);
+ assert.deepEqual(initialCounts.assets.map(a=>a.github),[0,0,0,0]);
+ assert.deepEqual(initialCounts.assets.map(a=>a.internalBaseline),[3,3,3,3]);
+
+ // Next sync: GitHub reflects the mirror pull (+1 -> 3) plus 5 public downloads on exe (-> 8).
+ for(const a of raw.assets.filter(a=>!a.name.endsWith('.sha256')))a.download_count=a.name.endsWith('.exe')?8:3;
+ const second=await synchronize(first,{DOWNLOADS:bucket},fetcher);
+ const updatedCounts=countsDocument('1.4.0',second.known['v1.4.0'],c.read(second.releases[0].assets));
+ assert.equal(updatedCounts.github.internalBaseline,12);
+ assert.equal(updatedCounts.github.count,5);
+ assert.equal(updatedCounts.total,5);
+ assert.deepEqual(updatedCounts.assets.map(a=>a.github),[5,0,0,0]);
+});
+test('reviewed baseline overrides subtract pre-baseline internal downloads and clamp never-negative',async()=>{
+ const {countsDocument,DownloadCounter}=await implementation(),s=realStorage(),c=new DownloadCounter(s,()=>baseTime);c.initialize();
+ const betaRaw=fixture('0.67.0-beta.1',true);
+ const observed={'TurboismInstaller-0.67.0-beta.1.exe':3,'TurboismInstaller-0.67.0-beta.1.jar':3,'turboism-0.67.0-beta.1-full.zip':3,'turboism-0.67.0-beta.1-lite.zip':2};
+ for(const a of betaRaw.assets)a.download_count=observed[a.name]??2;
+ const betaRelease=parseRelease(betaRaw,source);
+ const betaRecord={active:true,countsAsOf:new Date(baseTime).toISOString(),release:betaRelease};
+ const betaCounts=countsDocument('0.67.0-beta.1',betaRecord,c.read(betaRelease.assets));
+ assert.equal(betaCounts.status,'ready');
+ assert.equal(betaCounts.github.internalBaseline,11);
+ assert.equal(betaCounts.github.count,0);
+ assert.equal(betaCounts.official.count,0);
+ assert.equal(betaCounts.total,0);
+ assert.deepEqual(betaCounts.assets.map(a=>a.internalBaseline),[3,3,3,2]);
+ assert.deepEqual(betaCounts.assets.map(a=>a.github),[0,0,0,0]);
+ assert.deepEqual(betaCounts.assets.map(a=>a.total),[0,0,0,0]);
+
+ // Never-negative when upstream count is lower than baseline (e.g. lagging GitHub cache = 0).
+ for(const a of betaRelease.assets)a.downloadCount=0;
+ const clamped=countsDocument('0.67.0-beta.1',betaRecord,c.read(betaRelease.assets));
+ assert.equal(clamped.github.internalBaseline,11);
+ assert.equal(clamped.github.count,0);
+ assert.deepEqual(clamped.assets.map(a=>a.github),[0,0,0,0]);
+
+ // Historical release v0.44.0 uses derived mirror baseline = 1 per binary (4 total).
+ const v044Raw=fixture('0.44.0',false,false);
+ const v044Observed={'TurboismInstaller-0.44.0.exe':3,'TurboismInstaller-0.44.0.jar':2,'turboism-0.44.0-full.zip':12,'turboism-0.44.0-lite.zip':3};
+ for(const a of v044Raw.assets)a.download_count=v044Observed[a.name]??2;
+ const v044Release=parseRelease(v044Raw,source);
+ const v044Counts=countsDocument('0.44.0',{active:true,countsAsOf:new Date(baseTime).toISOString(),release:v044Release},c.read(v044Release.assets));
+ assert.equal(v044Counts.github.internalBaseline,4);
+ assert.equal(v044Counts.github.count,16);
+ assert.deepEqual(v044Counts.assets.map(a=>a.github),[2,1,11,2]);
+});
+test('missing baseline defaults to zero without fabricating counts for null upstream data',async()=>{
+ const {countsDocument,DownloadCounter,baselineFor}=await implementation(),s=realStorage(),c=new DownloadCounter(s,()=>baseTime);c.initialize();
+ const raw=fixture('9.9.9');raw.assets.filter(a=>!a.name.endsWith('.sha256')).forEach((a,i)=>a.download_count=i+1);
+ const release=parseRelease(raw,source);
+ assert.equal(baselineFor('v9.9.9',release.assets[0]),0);
+ const d=countsDocument('9.9.9',{active:true,countsAsOf:new Date(baseTime).toISOString(),release},c.read(release.assets));
+ assert.equal(d.github.internalBaseline,0);
+ assert.deepEqual(d.assets.map(a=>a.internalBaseline),[0,0,0,0]);
+ assert.deepEqual(d.assets.map(a=>a.github),[1,2,3,4]);
+ assert.equal(d.github.count,10);
+
+ release.assets[0].downloadCount=null;
+ const partial=countsDocument('9.9.9',{active:true,countsAsOf:new Date(baseTime).toISOString(),release},c.read(release.assets));
+ assert.equal(partial.status,'partial');
+ assert.equal(partial.github.count,null);
+ assert.equal(partial.github.internalBaseline,0);
+ assert.equal(partial.assets[0].github,null);
+});
