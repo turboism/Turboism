@@ -2,6 +2,8 @@ package dev.turboism.shell;
 
 import dev.turboism.core.net.HttpLinks;
 import dev.turboism.internal.core.CorePluginManagement;
+import dev.turboism.internal.core.CoreUpdateService;
+import dev.turboism.pluginmanagement.PluginAutoUpdateControl;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.runtime.RuntimeLogReader;
 import dev.turboism.sdk.runtime.RuntimeSettings;
@@ -65,6 +67,8 @@ final class CoreWindows implements AutoCloseable {
     private long pluginRefreshRequest;
     /** Fixed first-party download page; the client never opens a URL taken from the feed. */
     static final String UPDATE_DOWNLOAD_PAGE = "https://turboism.dev/download";
+    /** Fixed first-party online Plugin Directory page. */
+    static final String PLUGIN_MARKET_PAGE = "https://turboism.dev/plugins";
 
     private static volatile Consumer<String> testUpdateUrlObserver;
     static final String ABOUT_HOMEPAGE = "https://www.turboism.dev";
@@ -300,6 +304,26 @@ final class CoreWindows implements AutoCloseable {
             for (SettingsSnapshot.Entry entry : tab.contributions()) {
                 saves.add(renderControl(
                         owner, rendered.panel(), row++, entry.contribution().control()));
+            }
+        }
+        if (plugins instanceof PluginAutoUpdateControl pluginUpdates && pluginUpdates.autoUpdateAvailable()) {
+            final boolean alreadyContributed = settingsContributions.snapshot().stream()
+                    .flatMap(tab -> tab.contributions().stream())
+                    .anyMatch(entry -> CoreUpdateSettingsContribution.PLUGIN_UPDATES_CONTRIBUTION_ID.equals(
+                            entry.contribution().id()));
+            if (!alreadyContributed) {
+                renderedTabs.stream()
+                        .filter(candidate -> "startup".equals(candidate.id()))
+                        .findFirst()
+                        .ifPresent(startupTab -> {
+                            final int row = startupTab.panel().getComponentCount() / 2;
+                            saves.add(renderControl(
+                                    owner,
+                                    startupTab.panel(),
+                                    row,
+                                    CoreUpdateSettingsContribution.createPluginUpdates(i18n, pluginUpdates)
+                                            .control()));
+                        });
             }
         }
         renderedTabs.sort(java.util.Comparator.comparingInt(RenderedTab::index).thenComparing(RenderedTab::id));
@@ -647,6 +671,13 @@ final class CoreWindows implements AutoCloseable {
             }
         });
 
+        final JCheckBox autoUpdate = createPluginAutoUpdateCheckBox();
+        final JButton checkUpdates = new JButton(text("plugins.updates.check"));
+        checkUpdates.setName("plugins.updates.check");
+        checkUpdates.addActionListener(ignored -> checkPluginUpdatesFromDialog());
+        final JButton openMarket = new JButton(text("plugins.market.open"));
+        openMarket.setName("plugins.market.open");
+        openMarket.addActionListener(ignored -> openPluginMarketFromDialog());
         final JButton install = new JButton(text("plugins.install"));
         install.addActionListener(
                 ignored -> plugins.requestInstall(result -> CoreDialogs.onEdt(() -> operationCompleted(result))));
@@ -667,8 +698,11 @@ final class CoreWindows implements AutoCloseable {
         final JPanel filtering = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         filtering.add(new JLabel(text("plugins.filter")));
         filtering.add(filter);
+        filtering.add(autoUpdate);
         actions.add(filtering, BorderLayout.WEST);
         final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        buttons.add(checkUpdates);
+        buttons.add(openMarket);
         buttons.add(install);
         buttons.add(enable);
         buttons.add(disable);
@@ -969,8 +1003,69 @@ final class CoreWindows implements AutoCloseable {
         }
     }
 
+    JCheckBox createPluginAutoUpdateCheckBox() {
+        final PluginAutoUpdateControl control = pluginAutoUpdate();
+        final JCheckBox checkBox =
+                new JCheckBox(text("settings.plugins.automatic-updates"), control.automaticPluginUpdatesEnabled());
+        checkBox.setName(CoreUpdateSettingsContribution.PLUGIN_UPDATES_CONTRIBUTION_ID);
+        checkBox.setEnabled(control.autoUpdateAvailable());
+        checkBox.addActionListener(ignored -> {
+            final boolean selected = checkBox.isSelected();
+            final CoreUpdateService.PreferenceSaveResult saved = control.saveAutomaticPluginUpdatesEnabled(selected);
+            if (!saved.saved()) {
+                checkBox.setSelected(!selected);
+                CoreDialogs.message(pluginsDialog, text("common.turboism"), saved.message());
+            }
+        });
+        return checkBox;
+    }
+
+    private PluginAutoUpdateControl pluginAutoUpdate() {
+        return plugins instanceof PluginAutoUpdateControl control ? control : PluginAutoUpdateControl.unavailable();
+    }
+
+    private void checkPluginUpdatesFromDialog() {
+        final PluginAutoUpdateControl control = pluginAutoUpdate();
+        if (!control.autoUpdateAvailable()) {
+            if (pluginStatus != null) {
+                pluginStatus.setText(text("plugins.updates.unavailable"));
+            }
+            return;
+        }
+        if (pluginStatus != null) {
+            pluginStatus.setText(text("plugins.updates.checking"));
+        }
+        control.checkForPluginUpdates()
+                .whenComplete((snapshot, failure) -> CoreDialogs.onEdt(() -> {
+                    if (closed.get()) return;
+                    if (pluginStatus != null) {
+                        if (failure != null || snapshot == null) {
+                            pluginStatus.setText(text("plugins.updates.unavailable"));
+                        } else {
+                            pluginStatus.setText(
+                                    switch (snapshot.status()) {
+                                        case UPDATES_STAGED -> text("plugins.updates.hint.ready");
+                                        case UP_TO_DATE -> text("plugins.updates.up-to-date");
+                                        default -> text("plugins.updates.unavailable");
+                                    });
+                        }
+                    }
+                    refreshPlugins();
+                }));
+    }
+
+    private void openPluginMarketFromDialog() {
+        if (!openPluginMarketPage()) {
+            CoreDialogs.message(pluginsDialog, text("common.turboism"), text("plugins.details.open-failed"));
+        }
+    }
+
     boolean openUpdateDownloadPage() {
         return openUpdateHttpLink(UPDATE_DOWNLOAD_PAGE);
+    }
+
+    boolean openPluginMarketPage() {
+        return openUpdateHttpLink(PLUGIN_MARKET_PAGE);
     }
 
     /** Package-private test seam used only to observe the validated production download action. */
@@ -984,7 +1079,7 @@ final class CoreWindows implements AutoCloseable {
     }
 
     private static boolean openUpdateHttpLink(final String value) {
-        if (!UPDATE_DOWNLOAD_PAGE.equals(value)) return false;
+        if (!UPDATE_DOWNLOAD_PAGE.equals(value) && !PLUGIN_MARKET_PAGE.equals(value)) return false;
         final Consumer<String> observer = testUpdateUrlObserver;
         if (observer != null) {
             try {
