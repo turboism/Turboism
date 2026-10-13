@@ -68,13 +68,14 @@ final class AcpChatControllerTest {
         try (AcpChatController controller = fixture.controller()) {
             controller.connect("custom", "/new/agent", "new instructions");
             fixture.view.awaitFailure("status.settings-save-failed");
+            // Rollback runs on the serial lane; wait for it before close() can drain the lane.
+            awaitConfigValue(fixture, "agentId", "codex");
+            awaitConfigValue(fixture, "customCommand", "/old/agent");
+            awaitConfigValue(fixture, "initialPrompt", "old instructions");
         }
 
-        awaitConfigValue(fixture, "agentId", "codex");
         assertEquals("codex", fixture.config.value("agentId"));
-        awaitConfigValue(fixture, "customCommand", "/old/agent");
         assertEquals("/old/agent", fixture.config.value("customCommand"));
-        awaitConfigValue(fixture, "initialPrompt", "old instructions");
         assertEquals("old instructions", fixture.config.value("initialPrompt"));
     }
 
@@ -89,13 +90,14 @@ final class AcpChatControllerTest {
             try (AcpChatController controller = fixture.controller()) {
                 controller.connect("custom", "/new/agent", "new instructions");
                 fixture.view.awaitFailure("status.settings-save-failed");
+                // Rollback runs on the serial lane; wait for it before close() can drain the lane.
+                awaitConfigValue(fixture, "agentId", "codex");
+                awaitConfigValue(fixture, "customCommand", "/old/agent");
+                awaitConfigValue(fixture, "initialPrompt", "old instructions");
             }
 
-            awaitConfigValue(fixture, "agentId", "codex");
             assertEquals("codex", fixture.config.value("agentId"));
-            awaitConfigValue(fixture, "customCommand", "/old/agent");
             assertEquals("/old/agent", fixture.config.value("customCommand"));
-            awaitConfigValue(fixture, "initialPrompt", "old instructions");
             assertEquals("old instructions", fixture.config.value("initialPrompt"));
         }
     }
@@ -1392,7 +1394,9 @@ final class AcpChatControllerTest {
             throws InterruptedException {
         // Settings rollback runs on the serial lane after the failure status publishes, so
         // awaiting the status alone can race ahead of the restored values.
-        for (int attempt = 0; !expected.equals(fixture.config.value(key)) && attempt < 2000; attempt++) {
+        final long deadline =
+                System.nanoTime() + java.time.Duration.ofSeconds(10).toNanos();
+        while (!expected.equals(fixture.config.value(key)) && System.nanoTime() < deadline) {
             Thread.sleep(1L);
         }
     }
