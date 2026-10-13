@@ -1810,7 +1810,6 @@ val checkReleaseTooling by tasks.registering(Exec::class) {
         "scripts/test/test_release_orchestrator.py",
         "scripts/test/test_release_promotion.py",
         ".github/workflows/release-github-only.yml",
-        ".github/workflows/release-publisher.yml",
         "RELEASING.md",
         "CHANGELOG.md",
         ".github/workflows/release.yml"

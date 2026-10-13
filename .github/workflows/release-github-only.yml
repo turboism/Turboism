@@ -28,6 +28,9 @@ permissions:
   actions: read
   contents: write
 
+env:
+  PLUGIN_DIRECTORY_REVISION: c556c90adee0f12b5ce81c9c8108eab8e53aec16
+
 concurrency:
   group: turboism-production-release
   cancel-in-progress: false
@@ -37,7 +40,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
     environment: production-release
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Check out trusted publisher tooling
         uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
@@ -79,6 +82,145 @@ jobs:
           path: build/github-release-fallback/candidate
           github-token: ${{ github.token }}
           run-id: ${{ inputs.candidate_run_id }}
+
+      - name: Preflight candidate payload before any remote mutation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_HOST: github.com
+          RUN_ID: ${{ inputs.candidate_run_id }}
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
+          RUN_ATTEMPT: ${{ steps.source.outputs.run_attempt }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          python3 release-tools/scripts/release/promote-github-release.py promote \
+            --verify-only \
+            --run-id "$RUN_ID" --source-sha "$SOURCE_SHA" --attempt "$RUN_ATTEMPT" \
+            --confirmation "$CONFIRMATION" --source-root release-source \
+            --bundle-root build/github-release-fallback/candidate
+
+      - name: Download and verify market publication bundle if present
+        id: market
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_HOST: github.com
+          RUN_ID: ${{ inputs.candidate_run_id }}
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
+          RUN_ATTEMPT: ${{ steps.source.outputs.run_attempt }}
+        run: |
+          set -euo pipefail
+          MARKET_ARTIFACT="turboism-market-release-${SOURCE_SHA}-${RUN_ID}-${RUN_ATTEMPT}"
+          FOUND="$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts?per_page=100" \
+            --jq ".artifacts[] | select(.expired == false and .name == \"$MARKET_ARTIFACT\") | .id")"
+          if [ -z "$FOUND" ]; then
+            echo "has_plugins=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          rm -rf build/github-release-fallback/market-release
+          mkdir -p build/github-release-fallback/market-release
+          gh run download "$RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$MARKET_ARTIFACT" \
+            --dir build/github-release-fallback/market-release
+          python3 release-tools/scripts/release/promote-github-release.py plugin-plan \
+            --source-root release-source \
+            --source-sha "$SOURCE_SHA" \
+            --market-dir build/github-release-fallback/market-release \
+            --output build/github-release-fallback/plan.json
+          echo "has_plugins=true" >> "$GITHUB_OUTPUT"
+          echo "market_artifact=$MARKET_ARTIFACT" >> "$GITHUB_OUTPUT"
+
+      - name: Check out public Plugin Directory verifier
+        if: steps.market.outputs.has_plugins == 'true'
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          repository: turboism/turboism-plugin-directory
+          ref: ${{ env.PLUGIN_DIRECTORY_REVISION }}
+          path: build/github-release-fallback/plugin-directory
+          persist-credentials: false
+
+      - name: Verify pinned Plugin Directory revision
+        if: steps.market.outputs.has_plugins == 'true'
+        run: test "$(git -C build/github-release-fallback/plugin-directory rev-parse HEAD)" = "$PLUGIN_DIRECTORY_REVISION"
+
+      - name: Dispatch or resume exact Plugin Directory request
+        if: steps.market.outputs.has_plugins == 'true'
+        id: provider
+        env:
+          GH_TOKEN: ${{ secrets.PLUGIN_DIRECTORY_DISPATCH_TOKEN }}
+          SOURCE_RUN_ID: ${{ inputs.candidate_run_id }}
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
+          RUN_ATTEMPT: ${{ steps.source.outputs.run_attempt }}
+          MARKET_ARTIFACT: ${{ steps.market.outputs.market_artifact }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN"
+          REQUEST_ID="release-${SOURCE_SHA:0:12}-${SOURCE_RUN_ID}-${RUN_ATTEMPT}"
+          DISPLAY_TITLE="Publish Plugin Directory v2 catalog · request ${REQUEST_ID}"
+          matches() {
+            gh run list \
+              --repo turboism/turboism-plugin-directory \
+              --workflow publish-plugin-directory-v2.yml \
+              --event workflow_dispatch \
+              --limit 100 \
+              --json databaseId,displayTitle,status,conclusion,url \
+              --jq ".[] | select(.displayTitle == \"$DISPLAY_TITLE\")"
+          }
+          MATCHES="$(matches)"
+          COUNT="$(printf '%s\n' "$MATCHES" | jq -s 'length')"
+          if [ "$COUNT" -eq 0 ]; then
+            gh workflow run publish-plugin-directory-v2.yml \
+              --repo turboism/turboism-plugin-directory \
+              --ref "$PLUGIN_DIRECTORY_REVISION" \
+              -f source_run_id="$SOURCE_RUN_ID" \
+              -f source_sha="$SOURCE_SHA" \
+              -f artifact_name="$MARKET_ARTIFACT" \
+              -f request_id="$REQUEST_ID"
+            for _ in $(seq 1 30); do
+              sleep 2
+              MATCHES="$(matches)"
+              COUNT="$(printf '%s\n' "$MATCHES" | jq -s 'length')"
+              if [ "$COUNT" -ne 0 ]; then break; fi
+            done
+          fi
+          if [ "$COUNT" -ne 1 ]; then
+            echo "expected exactly one Plugin Directory run for $REQUEST_ID, found $COUNT"
+            exit 1
+          fi
+          PROVIDER_RUN_ID="$(printf '%s\n' "$MATCHES" | jq -r .databaseId)"
+          PROVIDER_STATUS="$(printf '%s\n' "$MATCHES" | jq -r .status)"
+          PROVIDER_CONCLUSION="$(printf '%s\n' "$MATCHES" | jq -r '.conclusion // ""')"
+          if [ "$PROVIDER_STATUS" = completed ]; then
+            test "$PROVIDER_CONCLUSION" = success
+          else
+            gh run watch "$PROVIDER_RUN_ID" \
+              --repo turboism/turboism-plugin-directory \
+              --interval 10 \
+              --exit-status
+          fi
+          echo "provider_run_id=$PROVIDER_RUN_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Verify public signed catalog and planned plugin bytes
+        if: steps.market.outputs.has_plugins == 'true'
+        id: verify
+        run: |
+          set -euo pipefail
+          python3 release-tools/scripts/release/verify-plugin-publication.py \
+            --plan build/github-release-fallback/plan.json \
+            --verifier-repo build/github-release-fallback/plugin-directory \
+            --timeout 300 \
+            --output build/github-release-fallback/catalog-state.json
+          CATALOG_FINGERPRINT="$(jq -c .catalogFingerprint build/github-release-fallback/catalog-state.json)"
+          echo "catalog_fingerprint=$CATALOG_FINGERPRINT" >> "$GITHUB_OUTPUT"
+          for _ in $(seq 1 30); do
+            if curl -L --fail --silent --show-error --compressed \
+                https://turboism.dev/plugins > build/github-release-fallback/directory-home.html && \
+                grep -Fq "Turboism Plugin Directory" build/github-release-fallback/directory-home.html; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Plugin Directory website https://turboism.dev/plugins did not respond before timeout"
+          exit 1
 
       - name: Verify payload then create or resume official tag and Release
         env:

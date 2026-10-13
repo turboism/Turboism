@@ -402,10 +402,64 @@ class TransportAndWorkflowTest(unittest.TestCase):
         self.assertNotIn('./gradlew', workflow)
         self.assertNotIn('--clobber', workflow)
         self.assertLess(workflow.index('Download verified candidate payload'),
-                        workflow.index('promote-github-release.py promote'))
-        legacy = (ROOT / '.github/workflows/release-publisher.yml').read_text()
-        self.assertIn("github.event.workflow_run.name != 'Product release candidate'", legacy)
-        self.assertIn("github.event.workflow_run.event == 'push'", legacy)
+                        workflow.index('Preflight candidate payload before any remote mutation'))
+        self.assertLess(workflow.index('Preflight candidate payload before any remote mutation'),
+                        workflow.index('Dispatch or resume exact Plugin Directory request'))
+        self.assertLess(workflow.index('Verify public signed catalog and planned plugin bytes'),
+                        workflow.index('Verify payload then create or resume official tag and Release'))
+        self.assertFalse((ROOT / '.github/workflows/release-publisher.yml').exists())
+        self.assertNotIn('turboism/turboism-updates', workflow)
+        self.assertNotIn('UPDATES_RELEASE_DISPATCH_TOKEN', workflow)
+
+    def test_verify_only_checks_candidate_without_remote_mutations(self):
+        fx = PromotionTest()
+        fx.setUp()
+        try:
+            tag = p.promote(fx.gh, fx.source, fx.bundle, '123', fx.sha, 2,
+                            'publish-github-only:' + fx.sha, verify_only=True)
+            self.assertEqual(tag, 'v1.2.3')
+            self.assertEqual(fx.gh.writes, [])
+        finally:
+            fx.doCleanups()
+
+    def test_plugin_publication_polling_retries_with_backoff_until_verified(self):
+        from unittest.mock import patch
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            'verify_plugin_pub', ROOT / 'scripts/release/verify-plugin-publication.py')
+        vpp = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(vpp)
+        attempts = []
+        sleeps = []
+        now = [0.0]
+
+        def clock():
+            return now[0]
+
+        def sleeper(seconds):
+            sleeps.append(seconds)
+            now[0] += seconds
+
+        def fake_verify_once(*_args):
+            attempts.append(now[0])
+            if len(attempts) < 3:
+                raise vpp.ReleaseError('catalog still serving old generation')
+            return {'schemaVersion': 2, 'catalogFingerprint': {'catalogVersion': '2'}, 'plugins': []}
+
+        with patch.object(vpp, 'verify_once', side_effect=fake_verify_once):
+            out = vpp.poll_until_verified(
+                [{'id': 'dev.turboism.plugin.mcp', 'version': '0.67.0'}],
+                ROOT,
+                vpp.CATALOG_URL,
+                vpp.SIGNATURE_URL,
+                timeout=300.0,
+                initial_interval=5.0,
+                clock=clock,
+                sleeper=sleeper,
+            )
+        self.assertEqual(out['catalogFingerprint']['catalogVersion'], '2')
+        self.assertEqual(len(attempts), 3)
+        self.assertEqual(sleeps, [5.0, 7.5])
 
     def test_direct_local_promotion_is_refused_without_remote_calls(self):
         from unittest.mock import patch
