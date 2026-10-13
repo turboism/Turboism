@@ -51,6 +51,40 @@ public final class SettingsContributionStore implements SettingsContributionSour
         entries.clear();
     }
 
+    public synchronized List<String> contributingPluginIds() {
+        final List<String> result = new ArrayList<>();
+        for (Entry entry : entries.values()) {
+            if (!dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID.equals(entry.pluginId())
+                    && !result.contains(entry.pluginId())) {
+                result.add(entry.pluginId());
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    public synchronized List<SettingsSnapshot.Tab> snapshotForPlugin(final String pluginId) {
+        if (pluginId == null || pluginId.isBlank()) return List.of();
+        final Map<String, List<Entry>> byTab = new LinkedHashMap<>();
+        for (Entry entry : entries.values()) {
+            if (pluginId.equals(entry.pluginId())) {
+                byTab.computeIfAbsent(entry.contribution().tab().id(), ignored -> new ArrayList<>())
+                        .add(entry);
+            }
+        }
+        return buildSnapshotTabs(byTab);
+    }
+
+    public synchronized List<SettingsSnapshot.Tab> snapshotFramework() {
+        final Map<String, List<Entry>> byTab = new LinkedHashMap<>();
+        for (Entry entry : entries.values()) {
+            if (dev.turboism.internal.core.CorePluginManagement.CORE_PLUGIN_ID.equals(entry.pluginId())) {
+                byTab.computeIfAbsent(entry.contribution().tab().id(), ignored -> new ArrayList<>())
+                        .add(entry);
+            }
+        }
+        return buildSnapshotTabs(byTab);
+    }
+
     @Override
     public synchronized List<SettingsSnapshot.Tab> snapshot() {
         final Map<String, List<Entry>> byTab = new LinkedHashMap<>();
@@ -58,6 +92,10 @@ public final class SettingsContributionStore implements SettingsContributionSour
             byTab.computeIfAbsent(entry.contribution().tab().id(), ignored -> new ArrayList<>())
                     .add(entry);
         }
+        return buildSnapshotTabs(byTab);
+    }
+
+    private static List<SettingsSnapshot.Tab> buildSnapshotTabs(final Map<String, List<Entry>> byTab) {
         final List<TabGroup> groups = new ArrayList<>();
         for (Map.Entry<String, List<Entry>> grouped : byTab.entrySet()) {
             final List<Entry> sortedEntries =

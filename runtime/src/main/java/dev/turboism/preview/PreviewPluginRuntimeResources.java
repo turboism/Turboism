@@ -242,23 +242,26 @@ record PreviewPluginRuntimeResources(
                 lifecyclePolicy,
                 retention,
                 new PluginLifecycleEvents(contextFactory.eventBroker(), log));
+        final PreviewPluginLoadCoordinator coordinator = new PreviewPluginLoadCoordinator(
+                home,
+                home.resolve("plugins"),
+                contextFactory,
+                log,
+                loaded,
+                parameterHookRegistry,
+                partHookRegistry,
+                editorObjectHookRegistry,
+                projectLifecycleHookRegistry,
+                lifecycleLane,
+                lifecyclePolicy,
+                retention,
+                shutdown);
+        pluginManagement.bindHotReloadCoordinator(coordinator.hotReloadCoordinator());
+        pluginManagement.bindCubismVersion(hostAccess::cubismEditorVersion);
         return new PreviewPluginRuntimeResources(
                 lane,
                 failureCollector,
-                new PreviewPluginLoadCoordinator(
-                        home,
-                        home.resolve("plugins"),
-                        contextFactory,
-                        log,
-                        loaded,
-                        parameterHookRegistry,
-                        partHookRegistry,
-                        editorObjectHookRegistry,
-                        projectLifecycleHookRegistry,
-                        lifecycleLane,
-                        lifecyclePolicy,
-                        retention,
-                        shutdown),
+                coordinator,
                 shutdown,
                 pluginManagement,
                 contextFactory,

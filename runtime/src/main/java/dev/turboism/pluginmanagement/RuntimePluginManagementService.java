@@ -10,6 +10,7 @@ import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 import dev.turboism.ui.host.EdtDispatch;
 import java.awt.Component;
 import java.awt.HeadlessException;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -57,10 +58,13 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     private final PendingPluginOperations pending;
     private final PluginCatalogStateStore catalogState;
     private final ExecutorService installExecutor;
+    private final PluginMarketService marketService;
     private final AtomicReference<InstallRequest> currentInstall = new AtomicReference<>();
     private final AtomicBoolean active = new AtomicBoolean(true);
     private final LocalizationDiagnosticSink metadataDiagnostics;
     private volatile PluginAutoUpdateControl autoUpdater = PluginAutoUpdateControl.unavailable();
+    private volatile dev.turboism.preview.PluginHotReloadCoordinator hotReloadCoordinator;
+    private volatile Supplier<Optional<String>> cubismVersion = Optional::empty;
 
     public RuntimePluginManagementService(final Path home, final Supplier<List<PluginInfo>> runtimePlugins) {
         this(
@@ -181,11 +185,45 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         pending = new PendingPluginOperations(normalized);
         catalogState = new PluginCatalogStateStore(normalized, diagnostic);
         this.installExecutor = java.util.Objects.requireNonNull(installExecutor, "installExecutor");
+        this.marketService = new PluginMarketService(
+                normalized,
+                new PluginCatalogClient(),
+                new PluginCatalogVerifier(),
+                catalogState,
+                pending,
+                this,
+                () -> cubismVersion.get(),
+                dev.turboism.core.version.PluginVersion.parse("0.1.0"),
+                diagnostic);
+    }
+
+    /** Binds the hot-reload coordinator for immediate runtime lifecycle operations. */
+    public void bindHotReloadCoordinator(final dev.turboism.preview.PluginHotReloadCoordinator coordinator) {
+        this.hotReloadCoordinator = coordinator;
+        if (marketService != null) {
+            marketService.bindHotReloadCoordinator(coordinator);
+        }
+        if (autoUpdater instanceof RuntimePluginAutoUpdater rpau) {
+            rpau.bindHotReloadCoordinator(coordinator);
+        }
+    }
+
+    /** Binds the host Cubism version provider. */
+    public void bindCubismVersion(final Supplier<Optional<String>> versionSupplier) {
+        this.cubismVersion = Objects.requireNonNull(versionSupplier, "versionSupplier");
+    }
+
+    /** Returns the market service for in-app catalog browsing and installs. */
+    public PluginMarketService marketService() {
+        return marketService;
     }
 
     /** Binds the background official-plugin auto-updater owned by this management service. */
     public void bindAutoUpdater(final PluginAutoUpdateControl autoUpdater) {
         this.autoUpdater = Objects.requireNonNull(autoUpdater, "autoUpdater");
+        if (autoUpdater instanceof RuntimePluginAutoUpdater rpau && hotReloadCoordinator != null) {
+            rpau.bindHotReloadCoordinator(hotReloadCoordinator);
+        }
     }
 
     @Override
@@ -390,6 +428,21 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         if (installedArchive(pluginId).isEmpty()) {
             return OperationResult.rejected("PLUGIN_NOT_INSTALLED", "Plugin is not installed.");
         }
+        if (hotReloadCoordinator != null && hotReloadCoordinator.isLoaded(pluginId)) {
+            final var hotResult = hotReloadCoordinator.hotUnload(pluginId);
+            if (hotResult.succeeded()) {
+                final Optional<Path> archive = installedArchive(pluginId);
+                if (archive.isPresent()) {
+                    try {
+                        Files.deleteIfExists(archive.get());
+                        return OperationResult.accepted(
+                                "PLUGIN_HOT_APPLIED", "Plugin was uninstalled and applied immediately.");
+                    } catch (IOException locked) {
+                        // File locked; fall back to staging
+                    }
+                }
+            }
+        }
         final PendingPluginOperations.StagedUninstall result = pending.stageUninstall(pluginId);
         if (result.accepted()) {
             return OperationResult.accepted(result.code(), "Plugin uninstall is pending; restart Cubism to apply it.");
@@ -411,6 +464,24 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         }
         try {
             config.setPluginEnabled(pluginId, enabled);
+            if (hotReloadCoordinator != null) {
+                if (!enabled && hotReloadCoordinator.isLoaded(pluginId)) {
+                    final var unloadResult = hotReloadCoordinator.hotUnload(pluginId);
+                    if (unloadResult.succeeded()) {
+                        return OperationResult.accepted(
+                                "PLUGIN_HOT_APPLIED", "Plugin was disabled and applied immediately.");
+                    }
+                } else if (enabled && !hotReloadCoordinator.isLoaded(pluginId)) {
+                    final Optional<Path> archive = installedArchive(pluginId);
+                    if (archive.isPresent()) {
+                        final var loadResult = hotReloadCoordinator.hotLoad(archive.get());
+                        if (loadResult.succeeded()) {
+                            return OperationResult.accepted(
+                                    "PLUGIN_HOT_APPLIED", "Plugin was enabled and applied immediately.");
+                        }
+                    }
+                }
+            }
             return OperationResult.accepted(
                     enabled ? "PLUGIN_ENABLE_PENDING" : "PLUGIN_DISABLE_PENDING",
                     (enabled ? "Enable" : "Disable") + " is pending; restart Cubism to apply it.");
@@ -439,6 +510,12 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
             autoUpdater.close();
         } catch (RuntimeException failure) {
             closeFailure = failure;
+        }
+        try {
+            if (marketService != null) marketService.close();
+        } catch (RuntimeException failure) {
+            if (closeFailure == null) closeFailure = failure;
+            else closeFailure.addSuppressed(failure);
         }
         try {
             packageChooser.close();
