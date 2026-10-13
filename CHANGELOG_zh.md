@@ -226,6 +226,8 @@ Turboism 的所有重要变更都记录在本文件中。
 - 启动设置页提供 Cubism JVM ZGC 启动控制与编辑期间挂起自动备份开关。
 - `devCheck` 新增版本适配门禁：补丁线单调性、字面版本集登记、SDK `@CubismEditor` 注解基线与实机验证任务版本。规则见 `CONTRIBUTING.md`。
 - 测试资产：`test-assets/model-import-3d/` 收录自建小型 GLB 模型；新增版本化测试语料（`test-assets/corpus.json`、`scripts/test_corpus.py fetch|verify`），CC0-1.0 许可的纹理图集 CMO3/PSD 大型测试集以 GitHub Release 资产发布。远端卫生检查拒绝提交 `.cmo3`、`.can3`、`.psd` 与 `.moc3` 文件。
+- 每个发布都会在元数据中声明支持的 Cubism Editor 版本；下载站按通道显示，并链接到新的兼容性页面（https://turboism.dev/docs/use/compatibility）。
+- 插件开发者可以从独立模板仓库 `turboism/turboism-plugin-template` 开始：setup 脚本会拉取并校验 SDK 和新增的发布文件 `turboism-event-processor-<version>.jar`（`@SubscribeEvent` 需要它），重命名脚手架并写入 Cubism 版本声明。
 
 ### 变更
 
