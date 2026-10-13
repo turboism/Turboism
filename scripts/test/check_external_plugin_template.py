@@ -229,10 +229,10 @@ def validate_jar(java: str, classpath: str, descriptor: Path, jar: Path, log: Pa
     )
 
 
-def built_jar(project: Path) -> Path:
-    jars = sorted(project.glob(f"build/libs/{PLUGIN_JAR_GLOB}"))
+def built_jar(project: Path, glob_pattern: str = PLUGIN_JAR_GLOB) -> Path:
+    jars = sorted(project.glob(f"build/libs/{glob_pattern}"))
     if len(jars) != 1:
-        fail(f"expected exactly one {PLUGIN_JAR_GLOB} under {project / 'build/libs'}, found {jars}")
+        fail(f"expected exactly one {glob_pattern} under {project / 'build/libs'}, found {jars}")
     return jars[0]
 
 
@@ -244,10 +244,90 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def resolve_processor_jar(args: argparse.Namespace, sdk_jar: Path, sdk_version: str) -> Path | None:
+    if getattr(args, "event_processor_jar", None):
+        return Path(args.event_processor_jar)
+    candidate = sdk_jar.parents[2] / "event-processor" / "libs" / f"event-processor-{sdk_version}.jar"
+    if candidate.is_file():
+        return candidate
+    return None
+
+
+def stage_local_release_fixture(
+    fixture_dir: Path,
+    sdk_jar: Path,
+    processor_jar: Path | None,
+    version: str,
+) -> dict[str, str]:
+    tag = f"v{version}"
+    dl_dir = fixture_dir / "releases" / "download" / tag
+    dl_dir.mkdir(parents=True, exist_ok=True)
+    sdk_name = f"turboism-sdk-{version}.jar"
+    proc_name = f"turboism-event-processor-{version}.jar"
+    (dl_dir / sdk_name).write_bytes(sdk_jar.read_bytes())
+    (dl_dir / f"{sdk_name}.sha256").write_text(f"{sha256(sdk_jar)}  {sdk_name}\n", encoding="utf-8")
+    if processor_jar is not None:
+        (dl_dir / proc_name).write_bytes(processor_jar.read_bytes())
+        (dl_dir / f"{proc_name}.sha256").write_text(f"{sha256(processor_jar)}  {proc_name}\n", encoding="utf-8")
+    else:
+        (dl_dir / proc_name).unlink(missing_ok=True)
+        (dl_dir / f"{proc_name}.sha256").unlink(missing_ok=True)
+
+    api_dir = fixture_dir / "v1" / "releases"
+    api_dir.mkdir(parents=True, exist_ok=True)
+    channel = "beta" if "-" in version else "stable"
+    compat_versions = ["5.0.00", "5.2.03", "5.3.02", "5.3.03", "5.3.04"]
+    release_doc = {
+        "schemaVersion": 1,
+        "channel": channel,
+        "status": "ready",
+        "release": {
+            "version": version,
+            "tag": tag,
+            "channel": channel,
+            "compatibility": {
+                "cubismEditor": {
+                    "versions": compat_versions,
+                    "ranges": [{"from": compat_versions[0], "to": compat_versions[-1]}],
+                },
+                "platforms": ["windows-x64"],
+                "matrixUrl": "https://turboism.dev/docs/use/compatibility",
+            },
+        },
+    }
+    (api_dir / f"{channel}.json").write_text(json.dumps(release_doc), encoding="utf-8")
+    env = os.environ.copy()
+    env["TURBOISM_SETUP_RELEASE_API_URL"] = f"file://{api_dir}"
+    env["TURBOISM_SETUP_GITHUB_API_URL"] = f"file://{fixture_dir}/github"
+    env["TURBOISM_SETUP_DOWNLOAD_BASE_URL"] = f"file://{fixture_dir}/releases/download"
+    return env
+
+
+def verify_subscriber_catalog(jar_path: Path, expected_provider: str) -> None:
+    service_entry = "META-INF/services/dev.turboism.sdk.event.GeneratedSubscriberCatalog"
+    class_entry = expected_provider.replace(".", "/") + ".class"
+    with zipfile.ZipFile(jar_path) as archive:
+        names = set(archive.namelist())
+        if service_entry not in names:
+            fail(f"built plugin jar {jar_path.name} is missing {service_entry} (event-processor did not run)")
+        if class_entry not in names:
+            fail(f"built plugin jar {jar_path.name} is missing generated catalog class {class_entry}")
+        providers = [
+            line.strip()
+            for line in archive.read(service_entry).decode("utf-8").splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        ]
+        if providers != [expected_provider]:
+            fail(f"unexpected subscriber catalog providers in {jar_path.name}: {providers}")
+        if "META-INF/turboism/cubism-versions.json" not in names:
+            fail(f"built plugin jar {jar_path.name} is missing META-INF/turboism/cubism-versions.json")
+
+
 def check(args: argparse.Namespace) -> int:
     work = Path(tempfile.mkdtemp(prefix="run-", dir=args.work_dir))
     sdk_jar = Path(args.sdk_jar)
     sdk_version = args.sdk_version or sdk_version_from(sdk_jar)
+    processor_jar = resolve_processor_jar(args, sdk_jar, sdk_version)
     inputs = template_inputs(Path(args.repo_root))
     project = stage_template(work, Path(args.repo_root), inputs)
 
@@ -257,23 +337,38 @@ def check(args: argparse.Namespace) -> int:
     if stale:
         fail(f"staged template already carries SDK jars: {stale}")
 
-    # libs/ carries the real :sdk:jar bytes under the release-asset name.
-    placed = project / "libs" / f"turboism-sdk-{sdk_version}.jar"
-    placed.write_bytes(sdk_jar.read_bytes())
+    # 1. SDK-only release mode (processor absent, e.g. 0.67.0-beta.1):
+    # setup.sh must warn clearly and configure the project to build without the processor.
+    sdk_only_env = stage_local_release_fixture(work / "release-fixture-sdk-only", sdk_jar, None, sdk_version)
+    sdk_only_res = subprocess.run(
+        ["bash", str(project / "scripts/setup.sh"), "--version", sdk_version, "--yes"],
+        cwd=project,
+        env=sdk_only_env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if sdk_only_res.returncode != 0:
+        fail(f"setup.sh SDK-only run failed:\n{sdk_only_res.stderr}\n{sdk_only_res.stdout}")
+    if "@SubscribeEvent catalogs will not be generated" not in sdk_only_res.stderr:
+        fail(f"setup.sh SDK-only run did not warn about absent event-processor:\n{sdk_only_res.stderr}")
 
     init_script = work / "clear-repositories.init.gradle"
     init_script.write_text(ISOLATION_INIT, encoding="utf-8")
+    gradle_home = isolated_gradle_home(work, args.shared_gradle_home)
 
     build = gradle_build(
         project,
         work / "gradle-build.log",
-        isolated_gradle_home(work, args.shared_gradle_home),
+        gradle_home,
         sdk_version,
         ["-I", str(init_script)],
     )
     if build.returncode != 0:
         fail(f"template build failed (see {work / 'gradle-build.log'}):\n{log_tail(work / 'gradle-build.log')}")
     jar = built_jar(project)
+    jar_name = jar.name
+    jar_sha = sha256(jar)
 
     descriptor = project / DESCRIPTOR
     meta = validate_descriptor(args.java, args.runtime_classpath, descriptor, work / "plugin-meta-validation.log")
@@ -283,9 +378,83 @@ def check(args: argparse.Namespace) -> int:
     if contract.returncode != 0:
         fail(f"FirstPartyMetadataVerificationCli rejected the built plugin jar:\n{log_tail(work / 'jar-contract-validation.log')}")
 
+    if processor_jar is not None:
+        # 2. Full developer-asset release mode (SDK + event-processor) with rename and @SubscribeEvent:
+        fixture_env = stage_local_release_fixture(work / "release-fixture-full", sdk_jar, processor_jar, sdk_version)
+        rename_res = subprocess.run(
+            [
+                "bash",
+                str(project / "scripts/setup.sh"),
+                "--version",
+                sdk_version,
+                "--id",
+                "com.acme.widget",
+                "--name",
+                "Acme Widget",
+                "--package",
+                "com.acme.widget",
+                "--author",
+                "Ada Lovelace",
+                "--yes",
+            ],
+            cwd=project,
+            env=fixture_env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if rename_res.returncode != 0:
+            fail(f"setup.sh rename run failed:\n{rename_res.stderr}\n{rename_res.stdout}")
+        renamed_java = project / "src/main/java/com/acme/widget/AcmeWidgetPlugin.java"
+        java_source = renamed_java.read_text(encoding="utf-8")
+        java_source = java_source.replace(
+            "    // @dev.turboism.sdk.event.SubscribeEvent\n"
+            "    // public void onHello(HelloEvent event) {\n"
+            "    //     logger.info(\"AcmeWidgetPlugin received event: \" + event.message());\n"
+            "    // }",
+            "    @dev.turboism.sdk.event.SubscribeEvent\n"
+            "    public void onHello(HelloEvent event) {\n"
+            "        logger.info(\"AcmeWidgetPlugin received event: \" + event.message());\n"
+            "    }",
+        )
+        renamed_java.write_text(java_source, encoding="utf-8")
+        shutil.rmtree(project / "build", ignore_errors=True)
+        renamed_build = gradle_build(
+            project,
+            work / "gradle-renamed-build.log",
+            gradle_home,
+            sdk_version,
+            ["-I", str(init_script)],
+        )
+        if renamed_build.returncode != 0:
+            fail(
+                f"renamed template build failed (see {work / 'gradle-renamed-build.log'}):\n"
+                f"{log_tail(work / 'gradle-renamed-build.log')}"
+            )
+        renamed_jar = built_jar(project, "widget-turboism-plugin-*.jar")
+        renamed_meta = validate_descriptor(
+            args.java, args.runtime_classpath, descriptor, work / "renamed-meta-validation.log"
+        )
+        if renamed_meta.returncode != 0:
+            fail(
+                f"PluginMetaValidationCli rejected the renamed descriptor:\n"
+                f"{log_tail(work / 'renamed-meta-validation.log')}"
+            )
+        renamed_contract = validate_jar(
+            args.java, args.runtime_classpath, descriptor, renamed_jar, work / "renamed-jar-validation.log"
+        )
+        if renamed_contract.returncode != 0:
+            fail(
+                f"FirstPartyMetadataVerificationCli rejected the renamed plugin jar:\n"
+                f"{log_tail(work / 'renamed-jar-validation.log')}"
+            )
+        verify_subscriber_catalog(renamed_jar, "com.acme.widget.AcmeWidgetPlugin__TurboismSubscriberCatalog")
+
     has_tests = (project / "src" / "test").is_dir()
-    print(f"external-consumer build OK: {jar.name} sha256={sha256(jar)}")
+    print(f"external-consumer build OK: {jar_name} sha256={jar_sha}")
     print(f"  sdk artifact: {sdk_jar.name} version={sdk_version} sha256={sha256(sdk_jar)}")
+    if processor_jar is not None:
+        print(f"  event-processor artifact: {processor_jar.name} sha256={sha256(processor_jar)}")
     print("  descriptor: PluginMetaValidationCli PASS; jar contract: FirstPartyMetadataVerificationCli PASS")
     if not has_tests:
         print("  note: template ships no src/test — Gradle 'test' is NO-SOURCE and is not a test pass")
@@ -466,6 +635,7 @@ def main() -> int:
     parser.add_argument("mode", choices=("check", "selftest"))
     parser.add_argument("--repo-root", default=str(ROOT))
     parser.add_argument("--sdk-jar", required=True)
+    parser.add_argument("--event-processor-jar", default=None)
     parser.add_argument("--sdk-version", default=None)
     parser.add_argument("--runtime-classpath", required=True)
     parser.add_argument("--java", default="java")

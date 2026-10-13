@@ -1,0 +1,10 @@
+.gradle/
+build/
+libs/*.jar
+libs/*.sha256
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+local.properties

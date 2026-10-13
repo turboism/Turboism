@@ -68,6 +68,14 @@ public class HelloPlugin implements TurboismPlugin {
         logger.info("HelloPlugin shutdown");
     }
 
+    // When turboism-event-processor-<version>.jar is present in libs/, you can also
+    // subscribe declaratively with @dev.turboism.sdk.event.SubscribeEvent:
+    //
+    // @dev.turboism.sdk.event.SubscribeEvent
+    // public void onHello(HelloEvent event) {
+    //     logger.info("HelloPlugin received event: " + event.message());
+    // }
+
     /** Example event published by the hello action and logged by the subscriber. */
     public record HelloEvent(String message) implements TurboismEvent {
     }

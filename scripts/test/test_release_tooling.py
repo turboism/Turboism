@@ -66,6 +66,20 @@ def sdk_archive(path: Path) -> None:
         output.writestr("dev/turboism/sdk/plugin/TurboismPlugin.class", b"class")
 
 
+def event_processor_archive(path: Path) -> None:
+    """Minimal developer event-processor JAR carrying the annotation processor."""
+    with zipfile.ZipFile(path, "w") as output:
+        output.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\r\n\r\n")
+        output.writestr(
+            "dev/turboism/eventprocessor/SubscribeEventProcessor.class",
+            b"class",
+        )
+        output.writestr(
+            "META-INF/services/javax.annotation.processing.Processor",
+            "dev.turboism.eventprocessor.SubscribeEventProcessor\n",
+        )
+
+
 class ReleaseNotesTest(unittest.TestCase):
     def test_extracts_exact_section(self):
         text = "# Changelog\n\n## [Unreleased]\n\nNext\n\n## [0.42.0] - 2026-08-25\n\nBody\n\n## [0.41.0] - 2026-08-01\n\nOld\n"
@@ -391,13 +405,15 @@ class ReleaseVerifierTest(unittest.TestCase):
         staged_sdk = stage / "graal" / "lib" / f"sdk-{version}.jar"
         staged_sdk.parent.mkdir(parents=True)
         sdk = dist / f"turboism-sdk-{version}.jar"
+        processor = dist / f"turboism-event-processor-{version}.jar"
         archive(lite, version)
         archive(full, version, self.PLUGINS)
         exe.write_bytes(b"exe")
         jar.write_bytes(b"jar")
         sdk_archive(staged_sdk)
         sdk.write_bytes(staged_sdk.read_bytes())
-        for path in (lite, full, exe, jar, sdk):
+        event_processor_archive(processor)
+        for path in (lite, full, exe, jar, sdk, processor):
             sidecar(path)
         return dist, roster, stage
 
@@ -411,7 +427,7 @@ class ReleaseVerifierTest(unittest.TestCase):
         dist, roster, stage = self.fixture()
         manifest = release.artifact_manifest(dist, "0.42.0", roster, stage)
         self.assertEqual(manifest["format"], "turboism.framework-artifacts")
-        self.assertEqual(len(manifest["artifacts"]), 10)
+        self.assertEqual(len(manifest["artifacts"]), 12)
         self.assertEqual(
             sorted(path.name for path in dist.iterdir()),
             sorted(item["name"] for item in manifest["artifacts"]),
@@ -530,6 +546,28 @@ class ReleaseVerifierTest(unittest.TestCase):
         self.assertEqual(
             request.get_header("X-turboism-download-purpose"), "verification"
         )
+
+    def test_rejects_event_processor_missing_service_or_class(self):
+        for entries in (
+            {"META-INF/MANIFEST.MF": b"Manifest-Version: 1.0\r\n\r\n"},
+            {
+                "META-INF/MANIFEST.MF": b"Manifest-Version: 1.0\r\n\r\n",
+                "dev/turboism/eventprocessor/SubscribeEventProcessor.class": b"class",
+            },
+            {
+                "META-INF/MANIFEST.MF": b"Manifest-Version: 1.0\r\n\r\n",
+                "dev/turboism/eventprocessor/SubscribeEventProcessor.class": b"class",
+                "META-INF/services/javax.annotation.processing.Processor": b"dev.example.Other\n",
+            },
+        ):
+            fixture = self.fixture()
+            processor = fixture[0] / "turboism-event-processor-0.42.0.jar"
+            with zipfile.ZipFile(processor, "w") as output:
+                for name, data in entries.items():
+                    output.writestr(name, data)
+            sidecar(processor)
+            with self.assertRaises(ValueError):
+                self.verify(fixture)
 
 
 if __name__ == "__main__":

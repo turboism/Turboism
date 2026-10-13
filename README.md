@@ -86,7 +86,7 @@ On Windows, use `gradlew.bat` instead of `./gradlew`. Make changes on a separate
 
 For plugin development, start with the [demo plugin](plugins/demo/README.md), its [build configuration](plugins/demo/build.gradle.kts) and [plugin descriptor](plugins/demo/src/main/resources/META-INF/turboism/plugin.json). Plugins depend on `:sdk` with `compileOnly` scope; do not directly depend on runtime internals or `com.live2d.*` classes.
 
-Building a plugin **outside** this repository does not require building Turboism. Every GitHub Release ships `turboism-sdk-<version>.jar` (with a `.sha256` sidecar): copy [templates/plugin-template](templates/plugin-template/) as a standalone project, drop the SDK JAR into its `libs/` directory and follow its README. Framework contributors can also publish the SDK and the `@SubscribeEvent` annotation processor to the local Maven repository, then resolve `dev.turboism:sdk` and `dev.turboism:event-processor` from `mavenLocal()`:
+Building a plugin **outside** this repository does not require building Turboism. Every GitHub Release ships `turboism-sdk-<version>.jar` and `turboism-event-processor-<version>.jar` (with `.sha256` sidecars): copy [templates/plugin-template](templates/plugin-template/) as a standalone project, run its setup script (or drop the JARs into `libs/`) and follow its README. Framework contributors can also publish the SDK and the `@SubscribeEvent` annotation processor to the local Maven repository, then resolve `dev.turboism:sdk` and `dev.turboism:event-processor` from `mavenLocal()`:
 
 ```bash
 ./gradlew :sdk:publishToMavenLocal :event-processor:publishToMavenLocal

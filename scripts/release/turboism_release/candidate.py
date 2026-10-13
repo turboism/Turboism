@@ -22,6 +22,7 @@ EXPECTED_PRIMARY = (
 # artifact contract and the Updates media roster remain the four files above.
 DEVELOPER_PRIMARY = (
     "turboism-sdk-{version}.jar",
+    "turboism-event-processor-{version}.jar",
 )
 MEDIA_TYPES = {
     ".zip": "application/zip",
