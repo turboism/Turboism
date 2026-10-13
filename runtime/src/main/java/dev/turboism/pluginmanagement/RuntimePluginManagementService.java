@@ -588,7 +588,8 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
                 metadata.locales(),
                 metadata.eventExports(),
                 metadata.eventImports(),
-                metadata.readme());
+                metadata.readme(),
+                metadata.hotReload());
     }
 
     private PluginDetails coreDetails(final PluginInfo plugin) {
@@ -632,7 +633,8 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
                                 imported.abiSha256(),
                                 imported.required()))
                         .toList(),
-                Optional.empty());
+                Optional.empty(),
+                false);
     }
 
     static void configurePluginJarChooser(final JFileChooser chooser) {

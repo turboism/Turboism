@@ -26,6 +26,9 @@
     "requiresCubism": true,
     "ui": "swing"
   },
+  "lifecycle": {
+    "hotReload": true
+  },
   "tags": [
     "context-menu",
     "productivity"

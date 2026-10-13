@@ -57,6 +57,9 @@
     "requiresCubism": true,
     "ui": "swing"
   },
+  "lifecycle": {
+    "hotReload": true
+  },
   "tags": [
     "recent-files",
     "preview",

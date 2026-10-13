@@ -32,6 +32,9 @@
     "requiresCubism": true,
     "ui": "none"
   },
+  "lifecycle": {
+    "hotReload": true
+  },
   "tags": [
     "tab-filter",
     "workspace"
