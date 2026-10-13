@@ -117,11 +117,32 @@ python3 scripts/release/product.py promote \
 The wrapper dispatches `release-github-only.yml` into the existing
 `production-release` environment. Trusted publisher code separately checks the
 exact source, successful run, channel, receipt, all file bytes and remote tag
-identity. It publishes the same checked files without rebuilding. Stable remains
-a final release; Beta is always a prerelease and never GitHub's stable latest.
-The publisher has no channel override: a Beta candidate cannot become Stable by
-unchecking the GitHub prerelease box. A different embedded version requires a
-new candidate and a newly allocated build number.
+identity before any remote mutation. For Stable and Beta candidates whose
+`prepare-market-release.py` pass staged changed first-party plugins (via
+content-addressed auto-bump against the live signed v2 catalog at
+`https://plugin.turboism.dev/api/v2/catalog.json`; Nightly never publishes to
+the catalog), promotion publishes plugins **first**:
+
+1. Dispatches `publish-plugin-directory-v2.yml` in
+   `turboism/turboism-plugin-directory` using `PLUGIN_DIRECTORY_DISPATCH_TOKEN`
+   with `source_run_id`, `source_sha`, `artifact_name`, and `request_id`,
+   locates the workflow run by its correlated `run-name`, and watches it to
+   completion.
+2. Polls `scripts/release/verify-plugin-publication.py` with backoff (up to 5
+   minutes) until the signed public catalog exposes the new plugin versions and
+   every GitHub Release JAR matches its planned SHA-256 and descriptor hash,
+   then probes `https://turboism.dev/plugins` with `curl -L`.
+3. Only after plugin publication and verification succeed does it publish the
+   framework GitHub Release without rebuilding. If plugin publication fails,
+   framework promotion stops before any public tag or Release is created.
+
+Stable remains a final release; Beta is always a prerelease and never GitHub's
+stable latest. The publisher has no channel override: a Beta candidate cannot
+become Stable by unchecking the GitHub prerelease box. A different embedded
+version requires a new candidate and a newly allocated build number. The legacy
+`release-publisher.yml` workflow, `turboism/turboism-updates`, and
+`UPDATES_RELEASE_DISPATCH_TOKEN` are retired and superseded by
+`release-github-only.yml` and `notify-release-api.yml`.
 
 Retries resume the same immutable draft/tag/assets; never delete/move tags or use
 `--clobber`. Conflicting bytes, a changed receipt or an incomplete already-public

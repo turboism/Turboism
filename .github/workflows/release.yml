@@ -146,31 +146,39 @@ jobs:
         run: python3 -m pip install 'ruff==0.16.9'
 
       - name: Validate store eligibility policy
-        if: needs.preflight.outputs.channel == 'stable'
+        if: needs.preflight.outputs.channel != 'nightly'
         id: policy
         run: |
           OUTPUT="$(python3 scripts/release/prepare-market-release.py \
             --repo-root "$GITHUB_WORKSPACE" \
             --manifest packaging/market-plugins.json \
+            --release-channel "${{ needs.preflight.outputs.channel }}" \
             --plan)"
           ELIGIBLE="$(printf '%s\n' "$OUTPUT" | sed -n 's/^selected=//p')"
           echo "eligible=${ELIGIBLE:-0}" >> "$GITHUB_OUTPUT"
 
       - name: Validate and build eligible plugin metadata
-        if: needs.preflight.outputs.channel == 'stable' && steps.policy.outputs.eligible != '0'
+        if: needs.preflight.outputs.channel != 'nightly' && steps.policy.outputs.eligible != '0'
         env:
           TURBOISM_WORKTREE_ID: market-publish
         run: ./gradlew --no-daemon validatePluginMeta verifyFirstPartyPluginMetadata
 
       - name: Stage all eligible plugin candidates
-        if: needs.preflight.outputs.channel == 'stable' && steps.policy.outputs.eligible != '0'
+        if: needs.preflight.outputs.channel != 'nightly' && steps.policy.outputs.eligible != '0'
+        id: market
         run: |
-          python3 scripts/release/prepare-market-release.py \
+          OUTPUT="$(python3 scripts/release/prepare-market-release.py \
             --repo-root "$GITHUB_WORKSPACE" \
             --manifest packaging/market-plugins.json \
             --build-root build/worktree/market-publish \
             --output build/market-release \
-            --source-revision "${{ github.sha }}"
+            --source-revision "${{ github.sha }}" \
+            --catalog https://plugin.turboism.dev/api/v2/catalog.json \
+            --framework-version "${{ steps.version.outputs.version }}" \
+            --release-channel "${{ needs.preflight.outputs.channel }}")"
+          printf '%s\n' "$OUTPUT"
+          STAGED="$(printf '%s\n' "$OUTPUT" | sed -n 's/^selected=//p')"
+          echo "staged=${STAGED:-0}" >> "$GITHUB_OUTPUT"
 
       - name: Run release verification
         run: |
@@ -203,7 +211,7 @@ jobs:
           python3 scripts/release/promote-github-release.py candidate-tag \
             --source-root "$GITHUB_WORKSPACE" --source-sha "$GITHUB_SHA"
           market_args=()
-          if [ "${{ steps.policy.outputs.eligible }}" != 0 ]; then
+          if [ "${{ steps.market.outputs.staged || '0' }}" != 0 ]; then
             market_args=(--market-dir build/market-release)
           fi
           python3 scripts/release/turboism-release.py build \
@@ -266,7 +274,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload market publication bundle
-        if: needs.preflight.outputs.channel == 'stable' && steps.policy.outputs.eligible != '0'
+        if: needs.preflight.outputs.channel != 'nightly' && steps.market.outputs.staged != '0' && steps.market.outputs.staged != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: turboism-market-release-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}

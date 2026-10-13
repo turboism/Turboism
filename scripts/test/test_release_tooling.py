@@ -132,21 +132,15 @@ class ReleaseWorkflowTest(unittest.TestCase):
                 encoding="utf-8"
             ),
         ]
-        publisher = (ROOT / ".github/workflows/release-publisher.yml").read_text(
+        publisher = (ROOT / ".github/workflows/release-github-only.yml").read_text(
             encoding="utf-8"
         )
+        self.assertFalse((ROOT / ".github/workflows/release-publisher.yml").exists())
         pin = f"PLUGIN_DIRECTORY_REVISION: {self.PLUGIN_DIRECTORY_REVISION}"
         for workflow in candidate_workflows:
             self.assertIn(pin, workflow)
             self.assertIn('candidate["pluginDirectoryRevision"] = revision', workflow)
         self.assertIn(pin, publisher)
-        self.assertIn("plugin_directory_revision: ${{ steps.plan.outputs.plugin_directory_revision }}", publisher)
-        self.assertIn('plan["pluginDirectoryRevision"] = revision', publisher)
-        self.assertIn(
-            'test "$PLUGIN_DIRECTORY_REVISION" = '
-            '"${{ needs.preflight.outputs.plugin_directory_revision }}"',
-            publisher,
-        )
         self.assertIn('--ref "$PLUGIN_DIRECTORY_REVISION"', publisher)
         verifier_refs = re.findall(
             r"repository: turboism/turboism-plugin-directory\n\s+ref: ([^\n]+)",
@@ -154,10 +148,7 @@ class ReleaseWorkflowTest(unittest.TestCase):
         )
         self.assertEqual(
             verifier_refs,
-            [
-                "${{ env.PLUGIN_DIRECTORY_REVISION }}",
-                "${{ needs.preflight.outputs.plugin_directory_revision }}",
-            ],
+            ["${{ env.PLUGIN_DIRECTORY_REVISION }}"],
         )
         top_permissions = re.search(
             r"(?m)^permissions:\n((?:  [^\n]+\n)+)", publisher
@@ -165,14 +156,9 @@ class ReleaseWorkflowTest(unittest.TestCase):
         self.assertIsNotNone(top_permissions)
         self.assertEqual(
             set(top_permissions.group(1).splitlines()),
-            {"  actions: read", "  contents: read"},
+            {"  actions: read", "  contents: write"},
         )
         self.assertEqual(publisher.count("contents: write"), 1)
-        self.assertRegex(
-            publisher,
-            r"(?m)^  publish-framework:\n(?:.*\n)*?    permissions:\n"
-            r"      actions: read\n      contents: write$",
-        )
 
     def test_does_not_claim_unavailable_licensed_evidence(self):
         workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
@@ -184,32 +170,29 @@ class ReleaseWorkflowTest(unittest.TestCase):
         self.assertIn("scripts/release/extract-release-notes.py", workflow)
         self.assertIn('CHANGELOG.md "${{ steps.version.outputs.version }}"', workflow)
         self.assertIn("build/release-orchestrator/release-notes.md", workflow)
-        publisher = (ROOT / ".github/workflows/release-publisher.yml").read_text(encoding="utf-8")
-        self.assertIn('--notes-file "$NOTES"', publisher)
+        publisher = (ROOT / ".github/workflows/release-github-only.yml").read_text(encoding="utf-8")
         self.assertNotIn("--generate-notes", workflow + publisher)
 
     def test_release_workflow_never_clobbers_immutable_assets(self):
         workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
-        publisher = (ROOT / ".github/workflows/release-publisher.yml").read_text(encoding="utf-8")
+        publisher = (ROOT / ".github/workflows/release-github-only.yml").read_text(encoding="utf-8")
         self.assertNotIn("--clobber", workflow + publisher)
         self.assertIn("scripts/check_remote_hygiene.py --all", workflow)
         self.assertIn("turboism-release.py", workflow)
 
     def test_all_release_verifier_calls_supply_roster_and_windows_stage(self):
         workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
-        publisher = (ROOT / ".github/workflows/release-publisher.yml").read_text(encoding="utf-8")
         runbook = (ROOT / "RELEASING.md").read_text(encoding="utf-8")
         candidate = (
             ROOT / "scripts/release/turboism_release/candidate.py"
         ).read_text(encoding="utf-8")
-        for text in (workflow, publisher, runbook):
+        for text in (workflow, runbook):
             self.assertIn("scripts/release/verify-release.py", text)
             self.assertIn("--release-plugins", text)
             self.assertIn("--windows-stage", text)
         self.assertIn("packaging/release-plugins.txt", candidate)
         self.assertIn('dist.resolve().parent / "staging"', candidate)
         self.assertIn("build/windows-installer/staging", workflow)
-        self.assertIn('WINDOWS_STAGE="$(dirname "$DIST")/staging"', publisher)
         self.assertIn("build/windows-installer/staging", runbook)
 
     def test_candidate_artifact_includes_windows_stage(self):
@@ -236,29 +219,30 @@ class ReleaseWorkflowTest(unittest.TestCase):
         self.assertIn("Stage all eligible plugin candidates", workflow)
         self.assertIn("Upload market publication bundle", workflow)
         self.assertIn("--market-dir build/market-release", workflow)
+        self.assertIn("needs.preflight.outputs.channel != 'nightly'", workflow)
+        self.assertIn("--catalog https://plugin.turboism.dev/api/v2/catalog.json", workflow)
 
     def test_protected_publisher_correlates_and_verifies_provider(self):
-        publisher = (ROOT / ".github/workflows/release-publisher.yml").read_text(encoding="utf-8")
-        self.assertIn(".github/workflows/release.yml", publisher)
-        self.assertIn(".github/workflows/publish-selected-plugins.yml", publisher)
+        publisher = (ROOT / ".github/workflows/release-github-only.yml").read_text(encoding="utf-8")
+        self.assertIn("publish-plugin-directory-v2.yml", publisher)
         self.assertIn("expected exactly one Plugin Directory run", publisher)
+        self.assertIn("-f source_run_id=", publisher)
+        self.assertIn("-f source_sha=", publisher)
+        self.assertIn("-f artifact_name=", publisher)
+        self.assertIn("-f request_id=", publisher)
+        self.assertNotIn("-f plan_id=", publisher)
         self.assertIn("gh run watch", publisher)
         self.assertIn("verify-plugin-publication.py", publisher)
-        self.assertIn("--plugin-directory-repo build/release-publisher/plugin-directory", publisher)
-        self.assertIn("build-updates-manifests.py", publisher)
-        self.assertIn("publish-release.yml", publisher)
-        self.assertIn("publish-stable-pointer.yml", publisher)
-        self.assertIn("publish-plugin-catalog.yml", publisher)
-        self.assertIn("turboism-framework-manifest-", publisher)
-        self.assertIn("manifest_artifact_name", publisher)
-        self.assertIn("gh run download", publisher)
-        self.assertIn("turboism-release-plan-${EXPECTED_PLAN_ID}", publisher)
-        self.assertIn("RECOVERED=true", publisher)
-        self.assertNotIn("--extra-allowed release.json", publisher)
-        self.assertNotIn('gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" build/release-publisher/release.json', publisher)
-        self.assertIn("contains(fromJSON('[\"plugins\",\"combined\"]'), needs.preflight.outputs.intent)", publisher)
-        self.assertNotIn("Plugin Directory deployment must be verified", publisher)
-        self.assertNotIn("Updates repository dispatch requires", publisher)
+        self.assertIn("--timeout 300", publisher)
+        self.assertIn("--verifier-repo build/github-release-fallback/plugin-directory", publisher)
+        self.assertIn("curl -L --fail --silent --show-error --compressed", publisher)
+        self.assertIn("https://turboism.dev/plugins", publisher)
+        self.assertNotIn("turboism/turboism-updates", publisher)
+        self.assertNotIn("UPDATES_RELEASE_DISPATCH_TOKEN", publisher)
+        self.assertLess(
+            publisher.index("Verify public signed catalog and planned plugin bytes"),
+            publisher.index("Verify payload then create or resume official tag and Release"),
+        )
 
     def test_releasing_runbook_documents_one_command_and_roster_separation(self):
         runbook = (ROOT / "RELEASING.md").read_text(encoding="utf-8")
