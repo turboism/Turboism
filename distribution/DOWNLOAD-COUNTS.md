@@ -71,7 +71,7 @@ are derived from the release workflows (`release.yml`, `release-github-only.yml`
 
 | Tag | `.exe` | `.jar` | `-full.zip` | `-lite.zip` | Total baseline | Observed GitHub (`.exe` / `.jar` / `-full` / `-lite`) | Derivation |
 | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| `v0.67.0-beta.1` | 3 | 3 | 3 | 2 | 11 | 3 / 3 / 3 / 2 | Observed pre-fix counts are 100% internal (1 R2 mirror pull + maintainer/rollout verification checks). |
+| `v0.67.0-beta.1` | 2 | 2 | 2 | 2 | 8 | 3 / 3 / 3 / 2 | Known internal pulls only: 1 R2 mirror pull + 1 maintainer mirror simulation per binary. The remaining exe/jar/full download each cannot be attributed to an internal process and stays public. |
 | `v0.44.1-0.nightly.11` | 1 | 1 | 1 | 1 | 4 | 3 / 3 / 4 / 4 | 0 publisher/verifier GitHub downloads + 1 R2 mirror pull per binary. |
 | `v0.44.1-0.nightly.10` | 1 | 1 | 1 | 1 | 4 | 3 / 3 / 3 / 3 (2 / 2 / 2 / 2 at last active sync) | 0 publisher/verifier GitHub downloads + 1 R2 mirror pull per binary. |
 | `v0.44.0` | 1 | 1 | 1 | 1 | 4 | 3 / 2 / 12 / 3 | 0 publisher/verifier GitHub downloads + 1 R2 mirror pull per binary. |
