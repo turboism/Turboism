@@ -299,10 +299,12 @@ lines.append("")
 def sanitize(s: str) -> str:
     return re.sub(r"[^A-Za-z0-9_]", "_", s)
 
+lines.append('!if "${VARIANT}" != "thin"')
 lines.append("; 导出完整捆绑插件 id 清单，供前置配置提交保留无关禁用项。")
 lines.append("Function SetBundledPluginIds")
 lines.append(f'  StrCpy $bundledPluginIds "{";".join(p["id"] for p in plugins)}"')
 lines.append("FunctionEnd")
+lines.append("!endif")
 lines.append("")
 
 # 卸载白名单：仅删除 Full 安装器部署的插件 JAR；未知文件与第三方 JAR 保留。Thin 安装器不删插件。

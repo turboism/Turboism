@@ -48,21 +48,27 @@ final class UpdateDiscoveryParserTest {
         final String newFormat = "{\"schemaVersion\":1,\"channel\":\"stable\",\"status\":\"ready\","
                 + "\"release\":{\"version\":\"0.67.0\",\"buildNumber\":5,\"publishedAt\":\"2026-10-14T00:00:00Z\","
                 + "\"assets\":["
-                + "{\"name\":\"TurboismInstaller-0.67.0-full.exe\",\"kind\":\"windows-installer-full\",\"variant\":\"full\",\"platform\":\"windows\",\"url\":\"https://api.turboism.dev/files/full.exe\",\"size\":1000,\"sha256\":\"" + "a".repeat(64) + "\"},"
-                + "{\"name\":\"TurboismInstaller-0.67.0-thin.exe\",\"kind\":\"windows-installer-thin\",\"variant\":\"thin\",\"platform\":\"windows\",\"url\":\"https://api.turboism.dev/files/thin.exe\",\"size\":500,\"sha256\":\"" + "b".repeat(64) + "\"},"
-                + "{\"name\":\"turboism-0.67.0-full.zip\",\"kind\":\"full\",\"variant\":\"full\",\"url\":\"https://api.turboism.dev/files/full.zip\",\"size\":2000,\"sha256\":\"" + "c".repeat(64) + "\"},"
-                + "{\"name\":\"turboism-0.67.0-thin.zip\",\"kind\":\"thin\",\"variant\":\"thin\",\"url\":\"https://api.turboism.dev/files/thin.zip\",\"size\":1500,\"sha256\":\"" + "d".repeat(64) + "\"}"
+                + "{\"name\":\"TurboismInstaller-0.67.0-full.exe\",\"kind\":\"windows-installer-full\",\"variant\":\"full\",\"platform\":\"windows\",\"url\":\"https://api.turboism.dev/files/full.exe\",\"size\":1000,\"sha256\":\""
+                + "a".repeat(64) + "\"},"
+                + "{\"name\":\"TurboismInstaller-0.67.0-thin.exe\",\"kind\":\"windows-installer-thin\",\"variant\":\"thin\",\"platform\":\"windows\",\"url\":\"https://api.turboism.dev/files/thin.exe\",\"size\":500,\"sha256\":\""
+                + "b".repeat(64) + "\"},"
+                + "{\"name\":\"turboism-0.67.0-full.zip\",\"kind\":\"full\",\"variant\":\"full\",\"url\":\"https://api.turboism.dev/files/full.zip\",\"size\":2000,\"sha256\":\""
+                + "c".repeat(64) + "\"},"
+                + "{\"name\":\"turboism-0.67.0-thin.zip\",\"kind\":\"thin\",\"variant\":\"thin\",\"url\":\"https://api.turboism.dev/files/thin.zip\",\"size\":1500,\"sha256\":\""
+                + "d".repeat(64) + "\"}"
                 + "]}}";
         final UpdateDiscovery discovery = parser.parse(bytes(newFormat));
         final UpdateDiscovery.Candidate candidate = discovery.candidate().orElseThrow();
         assertEquals(4, candidate.assets().size());
 
-        final UpdateDiscovery.Asset fullInstaller = candidate.pickInstallerAsset("full").orElseThrow();
+        final UpdateDiscovery.Asset fullInstaller =
+                candidate.pickInstallerAsset("full").orElseThrow();
         assertEquals("TurboismInstaller-0.67.0-full.exe", fullInstaller.name());
         assertEquals("windows-installer-full", fullInstaller.kind());
         assertEquals(Optional.of("full"), fullInstaller.variant());
 
-        final UpdateDiscovery.Asset thinInstaller = candidate.pickInstallerAsset("thin").orElseThrow();
+        final UpdateDiscovery.Asset thinInstaller =
+                candidate.pickInstallerAsset("thin").orElseThrow();
         assertEquals("TurboismInstaller-0.67.0-thin.exe", thinInstaller.name());
         assertEquals("windows-installer-thin", thinInstaller.kind());
         assertEquals(Optional.of("thin"), thinInstaller.variant());

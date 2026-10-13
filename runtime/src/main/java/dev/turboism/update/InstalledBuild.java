@@ -19,11 +19,7 @@ import java.util.Set;
  * number.</p>
  */
 public record InstalledBuild(
-        Optional<UpdateVersion> version,
-        OptionalLong buildNumber,
-        String display,
-        String channel,
-        String variant) {
+        Optional<UpdateVersion> version, OptionalLong buildNumber, String display, String channel, String variant) {
     public static final String VARIANT_FULL = "full";
     public static final String VARIANT_THIN = "thin";
     public static final String METADATA_FILE_NAME = "installed-build.json";
@@ -122,7 +118,9 @@ public record InstalledBuild(
                 final JsonNode tree = UpdateFileSupport.readObject(home, metadata);
                 if (tree != null) {
                     final JsonNode variantNode = tree.get("variant");
-                    if (variantNode != null && variantNode.isTextual() && !variantNode.textValue().isBlank()) {
+                    if (variantNode != null
+                            && variantNode.isTextual()
+                            && !variantNode.textValue().isBlank()) {
                         final String v = variantNode.textValue().trim().toLowerCase(Locale.ROOT);
                         if (VARIANT_FULL.equals(v) || VARIANT_THIN.equals(v)) {
                             return v;
