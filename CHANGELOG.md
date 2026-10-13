@@ -73,6 +73,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Plugin developers can start from the standalone template repository `turboism/turboism-plugin-template`: its
   setup script fetches and verifies the SDK and the new `turboism-event-processor-<version>.jar` release asset
   (needed for `@SubscribeEvent`), renames the scaffold and writes the Cubism version declaration.
+- In-Cubism Plugin Market (Turboism → Plugin Market…): browse, install, update and uninstall plugins from the
+  signed Plugin Directory. Plugins declaring `lifecycle.hotReload` apply immediately; others apply after
+  restarting Cubism. First-party plugins update automatically in the background and can be opted out in
+  settings. The web market at https://turboism.dev/plugins shows each plugin's README and supports filtering.
+- The Cubism menu is now named "Turboism" and gains a dedicated Plugin Settings window.
+- Releases ship Full and Thin variants: `TurboismInstaller-<v>-full.exe`/`-thin.exe` and
+  `turboism-<v>-full.zip`/`-thin.zip`. Full includes every first-party plugin and Thin includes none;
+  installers no longer offer mode or plugin selection. The Java installer is no longer published.
 
 ### Changed
 

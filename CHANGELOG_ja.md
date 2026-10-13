@@ -300,6 +300,9 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 - テスト資産：`test-assets/model-import-3d/` に自作の小さな GLB モデルを収録。バージョン付きテストコーパス（`test-assets/corpus.json`、`scripts/test_corpus.py fetch|verify`）を追加し、CC0-1.0 のテクスチャアトラス CMO3/PSD セットは GitHub Release アセットとして公開します。リモート衛生チェックは `.cmo3`・`.can3`・`.psd`・`.moc3` のコミットを拒否します。
 - 各リリースは対応する Cubism Editor のバージョンをメタデータで宣言します。ダウンロードサイトはチャンネルごとに表示し、新しい互換性ページ（https://turboism.dev/docs/use/compatibility）にリンクします。
 - プラグイン開発者は独立したテンプレートリポジトリ `turboism/turboism-plugin-template` から始められます。setup スクリプトが SDK と新しいリリースアセット `turboism-event-processor-<version>.jar`（`@SubscribeEvent` に必要）を取得・検証し、スキャフォールドの名前を変更して Cubism バージョン宣言を書き込みます。
+- Cubism 内プラグインマーケット（Turboism → プラグインマーケット…）：署名済みプラグインディレクトリからプラグインを閲覧・インストール・更新・アンインストールできます。`lifecycle.hotReload` を宣言したプラグインは即時に反映され、その他は Cubism の再起動後に反映されます。ファーストパーティプラグインはバックグラウンドで自動更新され、設定で無効にできます。Web マーケット https://turboism.dev/plugins では各プラグインの README を表示し、絞り込みに対応します。
+- Cubism のメニュー名を「Turboism」に変更し、専用のプラグイン設定ウィンドウを追加しました。
+- リリースを Full 版と Thin 版に分けました：`TurboismInstaller-<v>-full.exe`/`-thin.exe` と `turboism-<v>-full.zip`/`-thin.zip`。Full 版は全ファーストパーティプラグインを含み、Thin 版は含みません。インストーラーのモード選択とプラグイン選択はなくなりました。Java インストーラーは公開を終了しました。
 
 ### 変更
 

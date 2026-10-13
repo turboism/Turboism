@@ -228,6 +228,9 @@ Turboism 的所有重要变更都记录在本文件中。
 - 测试资产：`test-assets/model-import-3d/` 收录自建小型 GLB 模型；新增版本化测试语料（`test-assets/corpus.json`、`scripts/test_corpus.py fetch|verify`），CC0-1.0 许可的纹理图集 CMO3/PSD 大型测试集以 GitHub Release 资产发布。远端卫生检查拒绝提交 `.cmo3`、`.can3`、`.psd` 与 `.moc3` 文件。
 - 每个发布都会在元数据中声明支持的 Cubism Editor 版本；下载站按通道显示，并链接到新的兼容性页面（https://turboism.dev/docs/use/compatibility）。
 - 插件开发者可以从独立模板仓库 `turboism/turboism-plugin-template` 开始：setup 脚本会拉取并校验 SDK 和新增的发布文件 `turboism-event-processor-<version>.jar`（`@SubscribeEvent` 需要它），重命名脚手架并写入 Cubism 版本声明。
+- Cubism 内插件市场（Turboism → 插件市场…）：从已签名的插件目录浏览、安装、更新和卸载插件。声明 `lifecycle.hotReload` 的插件立即生效，其余在重启 Cubism 后生效。第一方插件会在后台自动更新，可在设置中关闭。网页插件市场 https://turboism.dev/plugins 显示每个插件的 README 并支持筛选。
+- Cubism 菜单更名为“Turboism”，并新增独立的插件设置窗口。
+- 发布分为完整版与精简版：`TurboismInstaller-<v>-full.exe`/`-thin.exe` 与 `turboism-<v>-full.zip`/`-thin.zip`。完整版包含全部第一方插件，精简版不含任何插件；安装器不再提供模式或插件选择。不再发布 Java 安装器。
 
 ### 变更
 
