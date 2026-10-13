@@ -51,6 +51,9 @@ public final class SettingsContributionStore implements SettingsContributionSour
         entries.clear();
     }
 
+    /**
+     * @return list of distinct plugin IDs contributing settings, excluding the core framework
+     */
     public synchronized List<String> contributingPluginIds() {
         final List<String> result = new ArrayList<>();
         for (Entry entry : entries.values()) {
@@ -62,6 +65,12 @@ public final class SettingsContributionStore implements SettingsContributionSour
         return List.copyOf(result);
     }
 
+    /**
+     * Produces a settings tab snapshot containing only contributions from the specified plugin.
+     *
+     * @param pluginId unique plugin identifier
+     * @return settings tabs for the plugin in display order
+     */
     public synchronized List<SettingsSnapshot.Tab> snapshotForPlugin(final String pluginId) {
         if (pluginId == null || pluginId.isBlank()) return List.of();
         final Map<String, List<Entry>> byTab = new LinkedHashMap<>();
@@ -74,6 +83,11 @@ public final class SettingsContributionStore implements SettingsContributionSour
         return buildSnapshotTabs(byTab);
     }
 
+    /**
+     * Produces a settings tab snapshot containing only core framework settings contributions.
+     *
+     * @return framework settings tabs in display order
+     */
     public synchronized List<SettingsSnapshot.Tab> snapshotFramework() {
         final Map<String, List<Entry>> byTab = new LinkedHashMap<>();
         for (Entry entry : entries.values()) {
