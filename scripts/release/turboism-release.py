@@ -53,7 +53,7 @@ def parser() -> argparse.ArgumentParser:
     release.add_argument("--candidate-run-id")
     release.add_argument("--production", action="store_true")
     release.add_argument("--confirm")
-    release.add_argument("--publisher-workflow", default="release-publisher.yml")
+    release.add_argument("--publisher-workflow", default="release-github-only.yml")
     release.add_argument("--github-repo", default="turboism/Turboism")
     return root
 
@@ -80,7 +80,7 @@ def _publish_arguments(command: argparse.ArgumentParser) -> None:
     command.add_argument("--candidate-run-id")
     command.add_argument("--production", action="store_true")
     command.add_argument("--confirm")
-    command.add_argument("--publisher-workflow", default="release-publisher.yml")
+    command.add_argument("--publisher-workflow", default="release-github-only.yml")
     command.add_argument("--github-repo", default="turboism/Turboism")
 
 

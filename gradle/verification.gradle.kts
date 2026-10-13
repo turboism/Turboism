@@ -541,6 +541,8 @@ val checkCompatibilityMatrix by tasks.registering(Exec::class) {
         "validation/cubism-version-matrix/campaign-jobs.json",
         "validation/cubism-version-matrix/inventory.json",
         "compatibility/cubism/compatibility-matrix.json",
+        "packaging/release-plugins.txt",
+        "packaging/market-plugins.json",
         fileTree("compatibility/cubism/verification") { include("*.json") },
         fileTree("scripts/verification-sources/families") { include("*.json") },
         fileTree("scripts/verification-sources/templates") { include("**/*.java") },
@@ -1041,6 +1043,7 @@ val checkMarketReleaseMetadata by tasks.registering(Exec::class) {
         "scripts/plugin_event_metadata.py",
         "scripts/release/prepare-market-release.py",
         "scripts/test/test_prepare_market_release.py",
+        "packaging/release-plugins.txt",
         "packaging/market-plugins.json",
         ".github/workflows/publish-selected-plugins.yml"
     )
@@ -1807,7 +1810,6 @@ val checkReleaseTooling by tasks.registering(Exec::class) {
         "scripts/test/test_release_orchestrator.py",
         "scripts/test/test_release_promotion.py",
         ".github/workflows/release-github-only.yml",
-        ".github/workflows/release-publisher.yml",
         "RELEASING.md",
         "CHANGELOG.md",
         ".github/workflows/release.yml"
