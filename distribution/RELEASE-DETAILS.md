@@ -1,8 +1,16 @@
 # Localized release details and file-level statistics
 
-Release JSON adds `notesByLanguage` (`en`, `zh`, `ja`, `ko`) and `notesCompareUrl`.
+Release JSON adds `compatibility` (`{cubismEditor:{versions,ranges},platforms,matrixUrl}`
+or `null`), `notesByLanguage` (`en`, `zh`, `ja`, `ko`) and `notesCompareUrl`.
 `notes` remains the English fallback. Invalid optional display metadata never
 disables verified downloads. Language selection happens locally in the website.
+
+`compatibility` is populated from the validated `<!-- turboism-compatibility-v1 ... -->`
+marker in the GitHub Release body (requiring `schemaVersion: 1`, sorted `5.x.yy`
+versions, valid contiguous ranges, bounded sizes, and an `https://turboism.dev/docs/...`
+`matrixUrl`), or from `release-compatibility-overrides.json` for releases published
+before the marker existed (`v0.44.0`, `v0.44.1-0.nightly.*`, `v0.67.0-beta.1`), and
+otherwise `null`.
 
 New Beta/Nightly candidates use evidence schema 2. Nightly freezes a published,
 ancestral baseline and real Git commit subjects in `notesContext` during candidate

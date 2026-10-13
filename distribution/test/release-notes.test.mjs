@@ -5,6 +5,8 @@ const marker=(data)=>'<!-- turboism-notes-v1 '+JSON.stringify(data)+' -->';
 test('release locales are source/version bound and internal markers do not leak to readers',()=>{
  const r=fixture();r.body='Original notes\n'+marker({schemaVersion:1,version:'1.2.3',sourceRevision:source,locales:{en:'Changes',zh:'新增与修复',ja:'変更点',ko:'변경 사항'}});
  const parsed=parseRelease(r,source);assert.equal(parsed.notesByLanguage?.zh,'新增与修复');assert.equal(parsed.notesByLanguage?.ko,'변경 사항');assert.doesNotMatch(parsed.notes,/turboism-notes/);
+ r.body='Original notes\n<!-- turboism-compatibility-v1 {"schemaVersion":1,"cubismEditor":{"versions":["5.2.03"],"ranges":[{"from":"5.2.03","to":"5.2.03"}]},"platforms":["windows-x64"],"matrixUrl":"https://turboism.dev/docs/use/compatibility"} -->';
+ assert.equal(parseRelease(r,source).notes,'Original notes');assert.doesNotMatch(parseRelease(r,source).notes,/turboism-compatibility/);
  r.body='Original notes\n'+marker({schemaVersion:1,version:'9.9.9',sourceRevision:source,locales:{en:'wrong',zh:'wrong'}});
  assert.equal(parseRelease(r,source).notesByLanguage?.zh,undefined);assert.equal(parseRelease(r,source).notes,'Original notes');
 });
