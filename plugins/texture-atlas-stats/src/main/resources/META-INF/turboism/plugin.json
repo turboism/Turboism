@@ -32,6 +32,9 @@
     "requiresCubism": true,
     "ui": "swing"
   },
+  "lifecycle": {
+    "hotReload": true
+  },
   "tags": [
     "texture-atlas",
     "metrics",

@@ -67,6 +67,9 @@
     "requiresCubism": true,
     "ui": "swing"
   },
+  "lifecycle": {
+    "hotReload": true
+  },
   "tags": [
     "clip-mask",
     "viewer",

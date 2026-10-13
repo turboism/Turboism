@@ -74,6 +74,7 @@ public final class PluginDescriptorParser {
             final SchemaValidationError first = errors.get(0);
             throw new DescriptorParseException(first.code(), first.message(), first.path());
         }
+        final boolean hotReload = root.path("lifecycle").path("hotReload").asBoolean(false);
         return new CorePluginDescriptor(
                 root.get("id").asText(),
                 root.get("name").asText(),
@@ -94,7 +95,8 @@ public final class PluginDescriptorParser {
                 classified ? listOrEmpty(root, "tags") : List.of(),
                 schemaVersion >= 4 ? parseEventExports(root) : List.of(),
                 schemaVersion >= 4 ? parseEventImports(root) : List.of(),
-                schemaVersion >= 5 ? parseEventContracts(root) : List.of());
+                schemaVersion >= 5 ? parseEventContracts(root) : List.of(),
+                hotReload);
     }
 
     private static String textOrEmpty(final JsonNode node, final String field) {

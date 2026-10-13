@@ -41,6 +41,10 @@ public final class MainToolbarHomeEntryService {
     /** Internal catalog key for the home action label; used only by production localization. */
     public static final String ACTION_LABEL_KEY = "main-toolbar.home.action";
 
+    public static final String MARKET_ACTION_ID = "turboism.core.market.open";
+    public static final String MARKET_MENU_LABEL_KEY = "main-toolbar.market-menu.label";
+    public static final String PLUGIN_SETTINGS_ACTION_ID = "turboism.core.plugin-settings.open";
+    public static final String PLUGIN_SETTINGS_MENU_LABEL_KEY = "main-toolbar.plugin-settings-menu.label";
     public static final String SETTINGS_ACTION_ID = "turboism.core.settings.open";
     public static final String PLUGINS_ACTION_ID = "turboism.core.plugins.open";
     public static final String LOGS_ACTION_ID = "turboism.core.logs.open";
@@ -175,16 +179,16 @@ public final class MainToolbarHomeEntryService {
     }
 
     /**
-     * Contributes the Settings item under the Turboism menu.
+     * Contributes the Plugin Market item under the Turboism menu.
      *
      * @return the menu registration; closing it removes the item
      */
-    public Registration registerSettingsMenu() {
-        return menu(localization.text(SETTINGS_MENU_LABEL_KEY), SETTINGS_ACTION_ID, ORDER);
+    public Registration registerPluginMarketMenu() {
+        return menu(localization.text(MARKET_MENU_LABEL_KEY), MARKET_ACTION_ID, ORDER);
     }
 
     /**
-     * Contributes the plugin-management item under the Turboism menu, ordered after Settings.
+     * Contributes the plugin-management item under the Turboism menu, ordered after Market.
      *
      * @return the menu registration; closing it removes the item
      */
@@ -193,21 +197,39 @@ public final class MainToolbarHomeEntryService {
     }
 
     /**
-     * Contributes the Logs item under the Turboism menu, ordered after plugin management.
+     * Contributes the Plugin Settings item under the Turboism menu, ordered after plugin management.
      *
      * @return the menu registration; closing it removes the item
      */
-    public Registration registerLogsMenu() {
-        return menu(localization.text(LOGS_MENU_LABEL_KEY), LOGS_ACTION_ID, ORDER + 2);
+    public Registration registerPluginSettingsMenu() {
+        return menu(localization.text(PLUGIN_SETTINGS_MENU_LABEL_KEY), PLUGIN_SETTINGS_ACTION_ID, ORDER + 2);
     }
 
     /**
-     * Contributes the Keybindings item under the Turboism menu, ordered after Logs.
+     * Contributes the Settings item under the Turboism menu.
+     *
+     * @return the menu registration; closing it removes the item
+     */
+    public Registration registerSettingsMenu() {
+        return menu(localization.text(SETTINGS_MENU_LABEL_KEY), SETTINGS_ACTION_ID, ORDER + 11);
+    }
+
+    /**
+     * Contributes the Keybindings item under the Turboism menu.
      *
      * @return the menu registration; closing it removes the item
      */
     public Registration registerKeybindingsMenu() {
-        return menu(localization.text(KEYBINDINGS_MENU_LABEL_KEY), KEYBINDINGS_ACTION_ID, ORDER + 3);
+        return menu(localization.text(KEYBINDINGS_MENU_LABEL_KEY), KEYBINDINGS_ACTION_ID, ORDER + 12);
+    }
+
+    /**
+     * Contributes the Logs item under the Turboism menu.
+     *
+     * @return the menu registration; closing it removes the item
+     */
+    public Registration registerLogsMenu() {
+        return menu(localization.text(LOGS_MENU_LABEL_KEY), LOGS_ACTION_ID, ORDER + 13);
     }
 
     /**
@@ -216,7 +238,7 @@ public final class MainToolbarHomeEntryService {
      * @return the menu registration; closing it removes the item
      */
     public Registration registerAboutMenu() {
-        return menu(localization.text(ABOUT_MENU_LABEL_KEY), ABOUT_ACTION_ID, ORDER + 4);
+        return menu(localization.text(ABOUT_MENU_LABEL_KEY), ABOUT_ACTION_ID, ORDER + 80);
     }
 
     /**

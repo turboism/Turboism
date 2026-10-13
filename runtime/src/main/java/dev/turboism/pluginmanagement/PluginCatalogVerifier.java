@@ -164,7 +164,8 @@ public final class PluginCatalogVerifier {
             "publishedEvents",
             "subscribedEvents",
             "embeddedContracts",
-            "artifact");
+            "artifact",
+            "hotReload");
     private static final Set<String> ARTIFACT_REQUIRED_KEYS =
             Set.of("mediaType", "fileName", "url", "sha256", "descriptorSha256", "size");
     private static final Set<String> ARTIFACT_ALLOWED_KEYS = Set.of(
@@ -728,6 +729,8 @@ public final class PluginCatalogVerifier {
         }
 
         final CatalogArtifact artifact = parseArtifact(node.get("artifact"), path + ".artifact");
+        final boolean hotReload =
+                node.has("hotReload") ? requireBoolean(node, "hotReload", path + ".hotReload") : false;
         return new CatalogRelease(
                 version,
                 channel,
@@ -743,7 +746,8 @@ public final class PluginCatalogVerifier {
                 permissions,
                 releaseUrl,
                 sourceRevision,
-                artifact);
+                artifact,
+                hotReload);
     }
 
     private static CatalogDependency parseDependency(final JsonNode item, final String path) {

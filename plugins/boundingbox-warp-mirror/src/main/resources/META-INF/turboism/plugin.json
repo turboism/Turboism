@@ -53,6 +53,9 @@
     "requiresCubism": true,
     "ui": "none"
   },
+  "lifecycle": {
+    "hotReload": true
+  },
   "tags": [
     "deformer",
     "warp",

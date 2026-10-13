@@ -113,8 +113,7 @@ final class PreviewPluginDiscovery {
                 < 0;
     }
 
-    private PreviewPluginCandidate readCandidate(
-            final Path jar, final List<LocalPluginRuntime.PluginFailure> failures) {
+    PreviewPluginCandidate readCandidate(final Path jar, final List<LocalPluginRuntime.PluginFailure> failures) {
         try (JarFile archive = new JarFile(jar.toFile())) {
             final JarEntry entry = archive.getJarEntry(DESCRIPTOR_PATH);
             if (entry == null || entry.isDirectory()) {
