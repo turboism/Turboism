@@ -38,8 +38,8 @@ def receipt_from_body(body, expected_channel=None):
 
 def names_for(version):
     require(channel_for(version) in ('beta','nightly'), 'Not a prerelease version')
-    primary = [f'TurboismInstaller-{version}.exe', f'TurboismInstaller-{version}.jar',
-               f'turboism-{version}-full.zip', f'turboism-{version}-lite.zip',
+    primary = [f'TurboismInstaller-{version}-full.exe', f'TurboismInstaller-{version}-thin.exe',
+               f'turboism-{version}-full.zip', f'turboism-{version}-thin.zip',
                f'turboism-sdk-{version}.jar', f'turboism-event-processor-{version}.jar']
     return {name for item in primary for name in (item, item+'.sha256')}
 

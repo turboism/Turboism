@@ -95,8 +95,20 @@ export function parseRelease(raw,sourceRevision,verifiedIdentity=null){
  require(typeof raw.published_at==='string'&&Number.isFinite(Date.parse(raw.published_at)),'Invalid publication date');
  const receipt=buildReceipt(raw.body);
  if(receipt){require(verifiedIdentity&&Object.keys(receipt).every(k=>receipt[k]===verifiedIdentity[k]),'Unverified build identity');require(receipt.sourceRevision===sourceRevision&&receipt.version===version&&receipt.channel===channel,'Build identity source/version mismatch');}
- const names=[`TurboismInstaller-${version}.exe`,`TurboismInstaller-${version}.jar`,`turboism-${version}-full.zip`,`turboism-${version}-lite.zip`];
+ const isNew=raw.assets?.some(a=>a.name===`TurboismInstaller-${version}-full.exe`||a.name===`turboism-${version}-thin.zip`);
+ const names=isNew
+  ?[`TurboismInstaller-${version}-full.exe`,`TurboismInstaller-${version}-thin.exe`,`turboism-${version}-full.zip`,`turboism-${version}-thin.zip`]
+  :[`TurboismInstaller-${version}.exe`,`TurboismInstaller-${version}.jar`,`turboism-${version}-full.zip`,`turboism-${version}-lite.zip`];
  const expected=names.flatMap(n=>[n,n+'.sha256']);
+ const kinds=isNew
+  ?['windows-installer-full','windows-installer-thin','full','thin']
+  :['windows-installer','java-installer','full','lite'];
+ const variants=isNew
+  ?['full','thin','full','thin']
+  :[null,null,'full','thin'];
+ const platforms=isNew
+  ?['windows','windows',null,null]
+  :['windows',null,null,null];
  // Releases also carry standalone developer jars (SDK and event-processor) for
  // plugin developers. They pass the same integrity checks but stay out of the
  // mirrored files API; older releases may have SDK-only or neither.
@@ -124,7 +136,7 @@ export function parseRelease(raw,sourceRevision,verifiedIdentity=null){
  return {releaseId:raw.id,version,tag:raw.tag_name,channel,buildNumber:receipt?.buildNumber??null,sourceRevision,publishedAt:new Date(raw.published_at).toISOString(),githubReleaseUrl:raw.html_url,changelogUrl:raw.html_url,
   provenance:receipt?{repository:REPOSITORY,workflow:'.github/workflows/release.yml',runId:receipt.runId,runAttempt:receipt.runAttempt}:{repository:REPOSITORY,workflow:null,runId:null,runAttempt:null},
   compatibility:releaseCompatibility(raw),...releaseNotes(raw,sourceRevision),
-  assets:names.map((name,i)=>({...assets.get(name),kind:['windows-installer','java-installer','full','lite'][i],platform:i===0?'windows':null,architecture:null,checksum:assets.get(name+'.sha256'),sources:[{id:'github',url:assets.get(name).url}]}))};
+  assets:names.map((name,i)=>({...assets.get(name),kind:kinds[i],variant:variants[i],platform:platforms[i],architecture:null,checksum:assets.get(name+'.sha256'),sources:[{id:'github',url:assets.get(name).url}]}))};
 }
 export function chooseLatest(releases,channel){
  require(CHANNELS.includes(channel),'Unknown channel');

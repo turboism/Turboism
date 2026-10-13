@@ -1,8 +1,11 @@
 package dev.turboism.update;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -77,6 +80,19 @@ public record UpdateDiscovery(int schemaVersion, String channel, Status status, 
                 node.put("buildNumber", value.buildNumber().getAsLong());
             }
             value.publishedAt().ifPresent(instant -> node.put("publishedAt", instant.toString()));
+            if (!value.assets().isEmpty()) {
+                final ArrayNode array = node.putArray("assets");
+                for (final Asset asset : value.assets()) {
+                    final ObjectNode item = array.addObject();
+                    item.put("name", asset.name());
+                    item.put("kind", asset.kind());
+                    asset.variant().ifPresent(v -> item.put("variant", v));
+                    asset.platform().ifPresent(p -> item.put("platform", p));
+                    item.put("url", asset.url());
+                    item.put("size", asset.size());
+                    item.put("sha256", asset.sha256());
+                }
+            }
         });
         return root;
     }
@@ -85,13 +101,49 @@ public record UpdateDiscovery(int schemaVersion, String channel, Status status, 
         return status.name().toLowerCase(Locale.ROOT);
     }
 
+    /** Validated release asset metadata. */
+    public record Asset(
+            String name,
+            String kind,
+            Optional<String> variant,
+            Optional<String> platform,
+            String url,
+            long size,
+            String sha256) {
+        public Asset {
+            name = Objects.requireNonNull(name, "name");
+            kind = Objects.requireNonNull(kind, "kind");
+            variant = Objects.requireNonNull(variant, "variant");
+            platform = Objects.requireNonNull(platform, "platform");
+            url = Objects.requireNonNull(url, "url");
+            sha256 = Objects.requireNonNull(sha256, "sha256");
+            if (name.isBlank()) throw new IllegalArgumentException("name must not be blank");
+            if (kind.isBlank()) throw new IllegalArgumentException("kind must not be blank");
+            if (url.isBlank()) throw new IllegalArgumentException("url must not be blank");
+            if (size <= 0) throw new IllegalArgumentException("size must be positive");
+            if (sha256.length() != 64) throw new IllegalArgumentException("sha256 is invalid");
+        }
+    }
+
     /** One published product build offered by the requested channel. */
     public record Candidate(
-            UpdateVersion version, String versionText, OptionalLong buildNumber, Optional<Instant> publishedAt) {
+            UpdateVersion version,
+            String versionText,
+            OptionalLong buildNumber,
+            Optional<Instant> publishedAt,
+            List<Asset> assets) {
         /** Creates a candidate whose wire version text equals the canonical numeric version. */
         public Candidate(
                 final UpdateVersion version, final OptionalLong buildNumber, final Optional<Instant> publishedAt) {
-            this(Objects.requireNonNull(version, "version"), version.toString(), buildNumber, publishedAt);
+            this(Objects.requireNonNull(version, "version"), version.toString(), buildNumber, publishedAt, List.of());
+        }
+
+        public Candidate(
+                final UpdateVersion version,
+                final String versionText,
+                final OptionalLong buildNumber,
+                final Optional<Instant> publishedAt) {
+            this(version, versionText, buildNumber, publishedAt, List.of());
         }
 
         public Candidate {
@@ -102,12 +154,53 @@ public record UpdateDiscovery(int schemaVersion, String channel, Status status, 
             }
             buildNumber = Objects.requireNonNull(buildNumber, "buildNumber");
             publishedAt = Objects.requireNonNull(publishedAt, "publishedAt");
+            assets = Collections.unmodifiableList(Objects.requireNonNull(assets, "assets"));
             if (buildNumber.isPresent()) {
                 final long value = buildNumber.getAsLong();
                 if (value <= 0 || value > MAX_BUILD_NUMBER) {
                     throw new IllegalArgumentException("buildNumber is outside the allowed range");
                 }
             }
+        }
+
+        /**
+         * Picks the matching installer asset for the target installed variant.
+         *
+         * <p>For 'full', looks for 'windows-installer-full' (or variant 'full'); falls back to legacy
+         * 'windows-installer'. For 'thin', looks for 'windows-installer-thin' (or variant 'thin'); falls back
+         * to legacy 'windows-installer'.</p>
+         */
+        public Optional<Asset> pickInstallerAsset(final String targetVariant) {
+            final String variant =
+                    targetVariant == null ? InstalledBuild.VARIANT_FULL : targetVariant.toLowerCase(Locale.ROOT);
+            final String targetKind = "thin".equals(variant) ? "windows-installer-thin" : "windows-installer-full";
+
+            // 1. Exact match by kind
+            for (final Asset asset : assets) {
+                if (targetKind.equalsIgnoreCase(asset.kind())) {
+                    return Optional.of(asset);
+                }
+            }
+
+            // 2. Match by variant and windows platform / installer kind
+            for (final Asset asset : assets) {
+                if (asset.variant().isPresent()
+                        && variant.equalsIgnoreCase(asset.variant().get())) {
+                    if (asset.kind().startsWith("windows-installer")
+                            || "windows".equalsIgnoreCase(asset.platform().orElse(""))) {
+                        return Optional.of(asset);
+                    }
+                }
+            }
+
+            // 3. Fallback to legacy windows-installer
+            for (final Asset asset : assets) {
+                if ("windows-installer".equalsIgnoreCase(asset.kind())) {
+                    return Optional.of(asset);
+                }
+            }
+
+            return Optional.empty();
         }
 
         /** Human-readable candidate identity, including the recorded build number when present. */

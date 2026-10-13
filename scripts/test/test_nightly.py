@@ -22,8 +22,8 @@ OTHER = 'b' * 40
 def published(source=SHA, number=7, draft=False):
     receipt = dict(bi.identity(f'1.2.4-0.nightly.{number}', source, str(100+number), 1), buildNumber=number)
     version = receipt['version']
-    names = [f'TurboismInstaller-{version}.exe', f'TurboismInstaller-{version}.jar',
-             f'turboism-{version}-full.zip', f'turboism-{version}-lite.zip',
+    names = [f'TurboismInstaller-{version}-full.exe', f'TurboismInstaller-{version}-thin.exe',
+             f'turboism-{version}-full.zip', f'turboism-{version}-thin.zip',
              f'turboism-sdk-{version}.jar', f'turboism-event-processor-{version}.jar']
     return {'id': 1000+number, 'tag_name': 'v'+version, 'draft': draft, 'prerelease': True,
             'published_at': '2026-09-09T00:00:00Z',
