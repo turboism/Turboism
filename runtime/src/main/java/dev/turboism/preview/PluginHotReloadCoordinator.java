@@ -215,10 +215,22 @@ public final class PluginHotReloadCoordinator {
                 "HOT_RELOAD_FAILED", "New generation failed to start and rollback was unavailable.");
     }
 
+    /**
+     * Checks whether a plugin with the given ID is currently loaded in the runtime.
+     *
+     * @param pluginId unique plugin identifier
+     * @return {@code true} if loaded
+     */
     public boolean isLoaded(final String pluginId) {
         return findLoaded(pluginId).isPresent();
     }
 
+    /**
+     * Finds the loaded plugin generation for the given plugin identifier.
+     *
+     * @param pluginId unique plugin identifier
+     * @return optional loaded plugin generation
+     */
     public Optional<LocalPluginRuntime.LoadedPlugin> findLoaded(final String pluginId) {
         return loaded.stream()
                 .filter(entry -> entry.runtime().id().equals(pluginId))
@@ -247,19 +259,45 @@ public final class PluginHotReloadCoordinator {
         return false;
     }
 
+    /**
+     * Result of a hot lifecycle operation.
+     *
+     * @param succeeded whether the operation succeeded
+     * @param rolledBack whether a failed reload rolled back to the previous generation
+     * @param code machine-readable outcome code
+     * @param message human-readable detail message
+     */
     public record HotReloadResult(boolean succeeded, boolean rolledBack, String code, String message) {
+        /**
+         * @return successful hot reload result
+         */
         public static HotReloadResult success() {
             return new HotReloadResult(true, false, "APPLIED", "Applied immediately.");
         }
 
+        /**
+         * @param code failure code
+         * @param message failure message
+         * @return failed hot reload result without rollback
+         */
         public static HotReloadResult failed(final String code, final String message) {
             return new HotReloadResult(false, false, code, message);
         }
 
+        /**
+         * @param code failure code
+         * @param message rollback message
+         * @return hot reload result indicating successful rollback
+         */
         public static HotReloadResult rolledBack(final String code, final String message) {
             return new HotReloadResult(false, true, code, message);
         }
 
+        /**
+         * @param code rejection code
+         * @param message rejection message
+         * @return rejected hot reload result
+         */
         public static HotReloadResult rejected(final String code, final String message) {
             return new HotReloadResult(false, false, code, message);
         }

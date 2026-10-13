@@ -457,6 +457,9 @@ public final class LocalPluginRuntime implements AutoCloseable {
         return loaded.stream().map(PreviewPluginSummaryFactory::active).toList();
     }
 
+    /**
+     * @return the coordinator for runtime hot load, hot unload, and hot reload operations
+     */
     public PluginHotReloadCoordinator hotReloadCoordinator() {
         return loadCoordinator.hotReloadCoordinator();
     }
