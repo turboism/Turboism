@@ -12,73 +12,97 @@ Section "-插件载荷" SecPluginPayload
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0000.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=clipmask-viewer.jar" "${STAGING_DIR}/plugins/clipmask-viewer.jar"
+      File "/oname=acp.jar" "${STAGING_DIR}/plugins/acp.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0001.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=cubism-tab-filter.jar" "${STAGING_DIR}/plugins/cubism-tab-filter.jar"
+      File "/oname=boundingbox-warp-mirror.jar" "${STAGING_DIR}/plugins/boundingbox-warp-mirror.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0002.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=history-panel.jar" "${STAGING_DIR}/plugins/history-panel.jar"
+      File "/oname=clipmask-viewer.jar" "${STAGING_DIR}/plugins/clipmask-viewer.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0003.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=mcp.jar" "${STAGING_DIR}/plugins/mcp.jar"
+      File "/oname=command-palette.jar" "${STAGING_DIR}/plugins/command-palette.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0004.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=mesh-edit-mirror-axis-enhance.jar" "${STAGING_DIR}/plugins/mesh-edit-mirror-axis-enhance.jar"
+      File "/oname=cubism-tab-filter.jar" "${STAGING_DIR}/plugins/cubism-tab-filter.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0005.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=palette-label-style.jar" "${STAGING_DIR}/plugins/palette-label-style.jar"
+      File "/oname=external-psd-edit.jar" "${STAGING_DIR}/plugins/external-psd-edit.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0006.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=parameter-batch-transfer.jar" "${STAGING_DIR}/plugins/parameter-batch-transfer.jar"
+      File "/oname=history-panel.jar" "${STAGING_DIR}/plugins/history-panel.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0007.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=perf-stats.jar" "${STAGING_DIR}/plugins/perf-stats.jar"
+      File "/oname=mcp.jar" "${STAGING_DIR}/plugins/mcp.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0008.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=physics-editor.jar" "${STAGING_DIR}/plugins/physics-editor.jar"
+      File "/oname=mesh-edit-mirror-axis-enhance.jar" "${STAGING_DIR}/plugins/mesh-edit-mirror-axis-enhance.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0009.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=protected-export.jar" "${STAGING_DIR}/plugins/protected-export.jar"
+      File "/oname=model-import-3d.jar" "${STAGING_DIR}/plugins/model-import-3d.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0010.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=psd-clip-mask-import.jar" "${STAGING_DIR}/plugins/psd-clip-mask-import.jar"
+      File "/oname=palette-label-style.jar" "${STAGING_DIR}/plugins/palette-label-style.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0011.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=recent-preview.jar" "${STAGING_DIR}/plugins/recent-preview.jar"
+      File "/oname=parameter-batch-transfer.jar" "${STAGING_DIR}/plugins/parameter-batch-transfer.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0012.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
+      File "/oname=perf-stats.jar" "${STAGING_DIR}/plugins/perf-stats.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0013.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=selection-brush.jar" "${STAGING_DIR}/plugins/selection-brush.jar"
+      File "/oname=physics-editor.jar" "${STAGING_DIR}/plugins/physics-editor.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0014.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
+      File "/oname=protected-export.jar" "${STAGING_DIR}/plugins/protected-export.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0015.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
+      File "/oname=psd-clip-mask-import.jar" "${STAGING_DIR}/plugins/psd-clip-mask-import.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0016.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
+      File "/oname=recent-preview.jar" "${STAGING_DIR}/plugins/recent-preview.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0017.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0018.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=selection-brush.jar" "${STAGING_DIR}/plugins/selection-brush.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0019.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0020.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0021.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0022.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=warp-deformer-alt-symmetry.jar" "${STAGING_DIR}/plugins/warp-deformer-alt-symmetry.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0023.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
       File "/oname=webdav-backup.jar" "${STAGING_DIR}/plugins/webdav-backup.jar"
     ${EndIf}
@@ -95,6 +119,22 @@ Section "-插件载荷" SecPluginPayload
   RMDir "$PLUGINSDIR\Turboism-payload-manifests"
 SectionEnd
 
+LangString PLUGIN_NAME_dev_turboism_plugin_acp ${LANG_ENGLISH} "Turboism ACP 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_acp ${LANG_ENGLISH} "ACP v1 Agent and Settings windows connecting a user-installed agent to the authenticated Turboism MCP server."
+LangString PLUGIN_NAME_dev_turboism_plugin_acp ${LANG_SIMPCHINESE} "Turboism ACP 智能体 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_acp ${LANG_SIMPCHINESE} "将用户安装的 ACP v1 Agent 连接到已认证的 Turboism MCP 服务器的 Agent/设置窗口。"
+LangString PLUGIN_NAME_dev_turboism_plugin_acp ${LANG_JAPANESE} "Turboism ACP エージェント 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_acp ${LANG_JAPANESE} "ユーザーがインストールした ACP v1 エージェントを認証済み Turboism MCP サーバーに接続するエージェント/設定ウィンドウ。"
+LangString PLUGIN_NAME_dev_turboism_plugin_acp ${LANG_KOREAN} "Turboism ACP 에이전트 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_acp ${LANG_KOREAN} "사용자가 설치한 ACP v1 에이전트를 인증된 Turboism MCP 서버에 연결하는 에이전트/설정 창."
+LangString PLUGIN_NAME_dev_turboism_plugin_boundingbox_warp_mirror ${LANG_ENGLISH} "BoundingBox Warp Mirror 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_boundingbox_warp_mirror ${LANG_ENGLISH} "Adds a BoundingBox overlay button that opens a mirror-direction dialog and applies a one-shot whole-object Warp Deformer mirror, optionally preserving descendant geometry."
+LangString PLUGIN_NAME_dev_turboism_plugin_boundingbox_warp_mirror ${LANG_SIMPCHINESE} "包围框弯曲镜像 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_boundingbox_warp_mirror ${LANG_SIMPCHINESE} "在包围框叠加层添加镜像按钮，打开镜像方向对话框并对所选弯曲变形器执行单次整体镜像，可选保持子物体形状不变。"
+LangString PLUGIN_NAME_dev_turboism_plugin_boundingbox_warp_mirror ${LANG_JAPANESE} "バウンディングボックス ワープミラー 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_boundingbox_warp_mirror ${LANG_JAPANESE} "バウンディングボックスのオーバーレイにミラーボタンを追加し、方向選択ダイアログから選択中のワープデフォーマ全体を一括ミラーリングします（子オブジェクトの形状維持に対応）。"
+LangString PLUGIN_NAME_dev_turboism_plugin_boundingbox_warp_mirror ${LANG_KOREAN} "바운딩 박스 워프 미러 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_boundingbox_warp_mirror ${LANG_KOREAN} "바운딩 박스 오버레이에 미러 버튼을 추가하여 미러 방향 대화상자를 열고, 선택한 워프 디포머 전체에 일회성 미러를 적용합니다(자식 오브젝트 형태 유지 선택 가능)."
 LangString PLUGIN_NAME_dev_turboism_plugin_clipmask_viewer ${LANG_ENGLISH} "Clip Mask Viewer 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_clipmask_viewer ${LANG_ENGLISH} "Read-only clip-mask duplicate checker and visualizer: Turboism tab entry, graph/table inspector window, editor selection highlight, GUID copy."
 LangString PLUGIN_NAME_dev_turboism_plugin_clipmask_viewer ${LANG_SIMPCHINESE} "剪裁蒙版查看器 0.1.0"
@@ -103,6 +143,14 @@ LangString PLUGIN_NAME_dev_turboism_plugin_clipmask_viewer ${LANG_JAPANESE} "ク
 LangString PLUGIN_DESC_dev_turboism_plugin_clipmask_viewer ${LANG_JAPANESE} "Turboism のクリップマスクビューアー。"
 LangString PLUGIN_NAME_dev_turboism_plugin_clipmask_viewer ${LANG_KOREAN} "클립 마스크 뷰어 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_clipmask_viewer ${LANG_KOREAN} "Turboism 클립 마스크 뷰어 플러그인입니다."
+LangString PLUGIN_NAME_dev_turboism_plugin_command_palette ${LANG_ENGLISH} "Command Palette 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_command_palette ${LANG_ENGLISH} "Ctrl+K command launcher over the supported Editor commands."
+LangString PLUGIN_NAME_dev_turboism_plugin_command_palette ${LANG_SIMPCHINESE} "命令面板 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_command_palette ${LANG_SIMPCHINESE} "通过 Ctrl+K 启动受支持的 Editor 命令的启动器。"
+LangString PLUGIN_NAME_dev_turboism_plugin_command_palette ${LANG_JAPANESE} "コマンドパレット 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_command_palette ${LANG_JAPANESE} "対応する Editor コマンドを Ctrl+K で起動するランチャー。"
+LangString PLUGIN_NAME_dev_turboism_plugin_command_palette ${LANG_KOREAN} "커맨드 팔레트 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_command_palette ${LANG_KOREAN} "지원되는 Editor 명령을 Ctrl+K로 실행하는 런처입니다."
 LangString PLUGIN_NAME_dev_turboism_plugin_cubism_tab_filter ${LANG_ENGLISH} "Cubism Tab Filter 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_cubism_tab_filter ${LANG_ENGLISH} "Adds keyword filter boxes to the Parameter, Deformer, Scene and Log palette tabs."
 LangString PLUGIN_NAME_dev_turboism_plugin_cubism_tab_filter ${LANG_SIMPCHINESE} "Cubism 标签筛选器 0.1.0"
@@ -111,6 +159,14 @@ LangString PLUGIN_NAME_dev_turboism_plugin_cubism_tab_filter ${LANG_JAPANESE} "C
 LangString PLUGIN_DESC_dev_turboism_plugin_cubism_tab_filter ${LANG_JAPANESE} "Turboism のCubism タブフィルター。"
 LangString PLUGIN_NAME_dev_turboism_plugin_cubism_tab_filter ${LANG_KOREAN} "Cubism 탭 필터 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_cubism_tab_filter ${LANG_KOREAN} "Turboism Cubism 탭 필터 플러그인입니다."
+LangString PLUGIN_NAME_dev_turboism_plugin_external_psd_edit ${LANG_ENGLISH} "External PSD Edit Plugin 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_external_psd_edit ${LANG_ENGLISH} "Edit the complete raw PSD of selected ArtMeshes in the system default PSD application; saves replace the raw image through the Cubism native importer."
+LangString PLUGIN_NAME_dev_turboism_plugin_external_psd_edit ${LANG_SIMPCHINESE} "外部 PSD 编辑插件 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_external_psd_edit ${LANG_SIMPCHINESE} "在系统默认 PSD 程序中编辑所选 ArtMesh 的完整原图 PSD；保存后通过 Cubism 原生导入器替换原图。"
+LangString PLUGIN_NAME_dev_turboism_plugin_external_psd_edit ${LANG_JAPANESE} "外部PSD編集プラグイン 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_external_psd_edit ${LANG_JAPANESE} "選択したArtMeshの完全な原画PSDをシステムのデフォルトPSDアプリケーションで編集します。保存するとCubismネイティブインポーターで原画が置き換えられます。"
+LangString PLUGIN_NAME_dev_turboism_plugin_external_psd_edit ${LANG_KOREAN} "외부 PSD 편집 플러그인 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_external_psd_edit ${LANG_KOREAN} "선택한 ArtMesh의 전체 원본 이미지 PSD를 시스템 기본 PSD 애플리케이션에서 편집합니다. 저장하면 Cubism 네이티브 가져오기로 원본 이미지가 교체됩니다."
 LangString PLUGIN_NAME_dev_turboism_plugin_historypanel ${LANG_ENGLISH} "History Panel Plugin 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_historypanel ${LANG_ENGLISH} "Photoshop-style history pane with native Undo history and snapshot-bound Undo/Redo navigation."
 LangString PLUGIN_NAME_dev_turboism_plugin_historypanel ${LANG_SIMPCHINESE} "历史记录面板插件 0.1.0"
@@ -135,6 +191,14 @@ LangString PLUGIN_NAME_dev_turboism_plugin_mesh_edit_mirror_axis_enhance ${LANG_
 LangString PLUGIN_DESC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance ${LANG_JAPANESE} "Turboism のメッシュ検査とミラー軸ツール。"
 LangString PLUGIN_NAME_dev_turboism_plugin_mesh_edit_mirror_axis_enhance ${LANG_KOREAN} "메시 검사 및 미러 축 도구 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance ${LANG_KOREAN} "Turboism 메시 검사 및 미러 축 도구 플러그인입니다."
+LangString PLUGIN_NAME_dev_turboism_plugin_model_import_3d ${LANG_ENGLISH} "3D Model Import 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_model_import_3d ${LANG_ENGLISH} "Imports static opaque GLB, glTF, OBJ/MTL, and model ZIP packages as native Cubism meshes with PNG/JPEG base-color textures, XYZ full-circle rotation, and bounded geometry optimization."
+LangString PLUGIN_NAME_dev_turboism_plugin_model_import_3d ${LANG_SIMPCHINESE} "3D 模型导入 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_model_import_3d ${LANG_SIMPCHINESE} "将静态不透明 GLB、glTF、OBJ/MTL 与模型 ZIP 包导入为原生 Cubism 网格，支持 PNG/JPEG 基础色贴图、XYZ 整圈旋转及有界几何优化。"
+LangString PLUGIN_NAME_dev_turboism_plugin_model_import_3d ${LANG_JAPANESE} "3D モデルのインポート 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_model_import_3d ${LANG_JAPANESE} "静的な不透明 GLB、glTF、OBJ/MTL、およびモデル ZIP パッケージをネイティブ Cubism メッシュとしてインポートします（PNG/JPEG ベースカラーテクスチャ、XYZ 全周回転、有界ジオメトリ最適化に対応）。"
+LangString PLUGIN_NAME_dev_turboism_plugin_model_import_3d ${LANG_KOREAN} "3D 모델 가져오기 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_model_import_3d ${LANG_KOREAN} "정적 불투명 GLB, glTF, OBJ/MTL 및 모델 ZIP 패키지를 네이티브 Cubism 메시로 가져옵니다(PNG/JPEG 기본 색상 텍스처, XYZ 360도 회전 및 유계 지오메트리 최적화 지원)."
 LangString PLUGIN_NAME_dev_turboism_plugin_palette_label_style ${LANG_ENGLISH} "Palette Label Style Plugin 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_palette_label_style ${LANG_ENGLISH} "Label text and background colors for Deformer, Part, and Parameter palette entries via context menus."
 LangString PLUGIN_NAME_dev_turboism_plugin_palette_label_style ${LANG_SIMPCHINESE} "调色板标签样式插件 0.1.0"
@@ -231,6 +295,14 @@ LangString PLUGIN_NAME_dev_turboism_plugin_uitheme ${LANG_JAPANESE} "UI テー�
 LangString PLUGIN_DESC_dev_turboism_plugin_uitheme ${LANG_JAPANESE} "TurboismのUI テーマプラグイン。"
 LangString PLUGIN_NAME_dev_turboism_plugin_uitheme ${LANG_KOREAN} "UI 테마 플러그인 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_uitheme ${LANG_KOREAN} "Turboism UI 테마 플러그인입니다."
+LangString PLUGIN_NAME_dev_turboism_plugin_warp_deformer_alt_symmetry ${LANG_ENGLISH} "Warp Deformer Alt Symmetry 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_warp_deformer_alt_symmetry ${LANG_ENGLISH} "Extends bounding-box Alt symmetric semantics to Warp Deformer control points: Alt drags mirror across the vertical grid axis, Alt+Shift across the horizontal grid axis."
+LangString PLUGIN_NAME_dev_turboism_plugin_warp_deformer_alt_symmetry ${LANG_SIMPCHINESE} "弯曲变形器 Alt 对称 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_warp_deformer_alt_symmetry ${LANG_SIMPCHINESE} "将包围框 Alt 对称语义扩展到弯曲变形器控制点：按住 Alt 拖拽沿垂直网格轴镜像，按住 Alt+Shift 沿水平网格轴镜像。"
+LangString PLUGIN_NAME_dev_turboism_plugin_warp_deformer_alt_symmetry ${LANG_JAPANESE} "ワープデフォーマ Alt 対称 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_warp_deformer_alt_symmetry ${LANG_JAPANESE} "バウンディングボックスの Alt 対称ドラッグ操作をワープデフォーマの制御点に拡張します（Alt で垂直軸ミラー、Alt+Shift で水平軸ミラー）。"
+LangString PLUGIN_NAME_dev_turboism_plugin_warp_deformer_alt_symmetry ${LANG_KOREAN} "워프 디포머 Alt 대칭 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_warp_deformer_alt_symmetry ${LANG_KOREAN} "바운딩 박스의 Alt 대칭 드래그 동작을 워프 디포머 제어점으로 확장합니다(Alt 드래그는 수직 그리드 축 미러, Alt+Shift는 수평 그리드 축 미러)."
 LangString PLUGIN_NAME_dev_turboism_plugin_webdav ${LANG_ENGLISH} "WebDAV Auto-Backup Sync Plugin 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_webdav ${LANG_ENGLISH} "Uploads Cubism auto-backup artifacts to a WebDAV endpoint (JDK HttpClient only)."
 LangString PLUGIN_NAME_dev_turboism_plugin_webdav ${LANG_SIMPCHINESE} "WebDAV 自动备份同步插件 0.1.0"
@@ -239,10 +311,22 @@ LangString PLUGIN_NAME_dev_turboism_plugin_webdav ${LANG_JAPANESE} "WebDAV 自�
 LangString PLUGIN_DESC_dev_turboism_plugin_webdav ${LANG_JAPANESE} "TurboismのWebDAV 自動バックアップ同期プラグイン。"
 LangString PLUGIN_NAME_dev_turboism_plugin_webdav ${LANG_KOREAN} "WebDAV 자동 백업 동기화 플러그인 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_webdav ${LANG_KOREAN} "Turboism WebDAV 자동 백업 동기화 플러그인입니다."
+Section "$(PLUGIN_NAME_dev_turboism_plugin_acp)" SEC_dev_turboism_plugin_acp
+SectionEnd
+
+Section "$(PLUGIN_NAME_dev_turboism_plugin_boundingbox_warp_mirror)" SEC_dev_turboism_plugin_boundingbox_warp_mirror
+SectionEnd
+
 Section "$(PLUGIN_NAME_dev_turboism_plugin_clipmask_viewer)" SEC_dev_turboism_plugin_clipmask_viewer
 SectionEnd
 
+Section "$(PLUGIN_NAME_dev_turboism_plugin_command_palette)" SEC_dev_turboism_plugin_command_palette
+SectionEnd
+
 Section "$(PLUGIN_NAME_dev_turboism_plugin_cubism_tab_filter)" SEC_dev_turboism_plugin_cubism_tab_filter
+SectionEnd
+
+Section "$(PLUGIN_NAME_dev_turboism_plugin_external_psd_edit)" SEC_dev_turboism_plugin_external_psd_edit
 SectionEnd
 
 Section "$(PLUGIN_NAME_dev_turboism_plugin_historypanel)" SEC_dev_turboism_plugin_historypanel
@@ -252,6 +336,9 @@ Section "$(PLUGIN_NAME_dev_turboism_plugin_mcp)" SEC_dev_turboism_plugin_mcp
 SectionEnd
 
 Section "$(PLUGIN_NAME_dev_turboism_plugin_mesh_edit_mirror_axis_enhance)" SEC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance
+SectionEnd
+
+Section "$(PLUGIN_NAME_dev_turboism_plugin_model_import_3d)" SEC_dev_turboism_plugin_model_import_3d
 SectionEnd
 
 Section "$(PLUGIN_NAME_dev_turboism_plugin_palette_label_style)" SEC_dev_turboism_plugin_palette_label_style
@@ -290,16 +377,24 @@ SectionEnd
 Section "$(PLUGIN_NAME_dev_turboism_plugin_uitheme)" SEC_dev_turboism_plugin_uitheme
 SectionEnd
 
+Section "$(PLUGIN_NAME_dev_turboism_plugin_warp_deformer_alt_symmetry)" SEC_dev_turboism_plugin_warp_deformer_alt_symmetry
+SectionEnd
+
 Section "$(PLUGIN_NAME_dev_turboism_plugin_webdav)" SEC_dev_turboism_plugin_webdav
 SectionEnd
 
 ; 组件页悬停描述
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_acp} "$(PLUGIN_DESC_dev_turboism_plugin_acp)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_boundingbox_warp_mirror} "$(PLUGIN_DESC_dev_turboism_plugin_boundingbox_warp_mirror)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_clipmask_viewer} "$(PLUGIN_DESC_dev_turboism_plugin_clipmask_viewer)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_command_palette} "$(PLUGIN_DESC_dev_turboism_plugin_command_palette)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_cubism_tab_filter} "$(PLUGIN_DESC_dev_turboism_plugin_cubism_tab_filter)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_external_psd_edit} "$(PLUGIN_DESC_dev_turboism_plugin_external_psd_edit)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_historypanel} "$(PLUGIN_DESC_dev_turboism_plugin_historypanel)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_mcp} "$(PLUGIN_DESC_dev_turboism_plugin_mcp)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance} "$(PLUGIN_DESC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_model_import_3d} "$(PLUGIN_DESC_dev_turboism_plugin_model_import_3d)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_palette_label_style} "$(PLUGIN_DESC_dev_turboism_plugin_palette_label_style)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_parameter_batch_transfer} "$(PLUGIN_DESC_dev_turboism_plugin_parameter_batch_transfer)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_perf_stats} "$(PLUGIN_DESC_dev_turboism_plugin_perf_stats)"
@@ -312,23 +407,48 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_texture_atlas} "$(PLUGIN_DESC_dev_turboism_plugin_texture_atlas)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_texture_atlas_stats} "$(PLUGIN_DESC_dev_turboism_plugin_texture_atlas_stats)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_uitheme} "$(PLUGIN_DESC_dev_turboism_plugin_uitheme)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_warp_deformer_alt_symmetry} "$(PLUGIN_DESC_dev_turboism_plugin_warp_deformer_alt_symmetry)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_webdav} "$(PLUGIN_DESC_dev_turboism_plugin_webdav)"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ; 按模式设置全部插件 Section 的选中状态（$0: 1 = 选中, 0 = 取消）
 Function SetPluginSectionsSelected
+  SectionGetFlags ${SEC_dev_turboism_plugin_acp} $1
+  IntOp $1 $1 & ${SECTION_OFF}
+  ${If} $0 == 1
+    IntOp $1 $1 | ${SF_SELECTED}
+  ${EndIf}
+  SectionSetFlags ${SEC_dev_turboism_plugin_acp} $1
+  SectionGetFlags ${SEC_dev_turboism_plugin_boundingbox_warp_mirror} $1
+  IntOp $1 $1 & ${SECTION_OFF}
+  ${If} $0 == 1
+    IntOp $1 $1 | ${SF_SELECTED}
+  ${EndIf}
+  SectionSetFlags ${SEC_dev_turboism_plugin_boundingbox_warp_mirror} $1
   SectionGetFlags ${SEC_dev_turboism_plugin_clipmask_viewer} $1
   IntOp $1 $1 & ${SECTION_OFF}
   ${If} $0 == 1
     IntOp $1 $1 | ${SF_SELECTED}
   ${EndIf}
   SectionSetFlags ${SEC_dev_turboism_plugin_clipmask_viewer} $1
+  SectionGetFlags ${SEC_dev_turboism_plugin_command_palette} $1
+  IntOp $1 $1 & ${SECTION_OFF}
+  ${If} $0 == 1
+    IntOp $1 $1 | ${SF_SELECTED}
+  ${EndIf}
+  SectionSetFlags ${SEC_dev_turboism_plugin_command_palette} $1
   SectionGetFlags ${SEC_dev_turboism_plugin_cubism_tab_filter} $1
   IntOp $1 $1 & ${SECTION_OFF}
   ${If} $0 == 1
     IntOp $1 $1 | ${SF_SELECTED}
   ${EndIf}
   SectionSetFlags ${SEC_dev_turboism_plugin_cubism_tab_filter} $1
+  SectionGetFlags ${SEC_dev_turboism_plugin_external_psd_edit} $1
+  IntOp $1 $1 & ${SECTION_OFF}
+  ${If} $0 == 1
+    IntOp $1 $1 | ${SF_SELECTED}
+  ${EndIf}
+  SectionSetFlags ${SEC_dev_turboism_plugin_external_psd_edit} $1
   SectionGetFlags ${SEC_dev_turboism_plugin_historypanel} $1
   IntOp $1 $1 & ${SECTION_OFF}
   ${If} $0 == 1
@@ -347,6 +467,12 @@ Function SetPluginSectionsSelected
     IntOp $1 $1 | ${SF_SELECTED}
   ${EndIf}
   SectionSetFlags ${SEC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance} $1
+  SectionGetFlags ${SEC_dev_turboism_plugin_model_import_3d} $1
+  IntOp $1 $1 & ${SECTION_OFF}
+  ${If} $0 == 1
+    IntOp $1 $1 | ${SF_SELECTED}
+  ${EndIf}
+  SectionSetFlags ${SEC_dev_turboism_plugin_model_import_3d} $1
   SectionGetFlags ${SEC_dev_turboism_plugin_palette_label_style} $1
   IntOp $1 $1 & ${SECTION_OFF}
   ${If} $0 == 1
@@ -419,6 +545,12 @@ Function SetPluginSectionsSelected
     IntOp $1 $1 | ${SF_SELECTED}
   ${EndIf}
   SectionSetFlags ${SEC_dev_turboism_plugin_uitheme} $1
+  SectionGetFlags ${SEC_dev_turboism_plugin_warp_deformer_alt_symmetry} $1
+  IntOp $1 $1 & ${SECTION_OFF}
+  ${If} $0 == 1
+    IntOp $1 $1 | ${SF_SELECTED}
+  ${EndIf}
+  SectionSetFlags ${SEC_dev_turboism_plugin_warp_deformer_alt_symmetry} $1
   SectionGetFlags ${SEC_dev_turboism_plugin_webdav} $1
   IntOp $1 $1 & ${SECTION_OFF}
   ${If} $0 == 1
@@ -429,11 +561,29 @@ FunctionEnd
 
 ; 导出完整捆绑插件 id 清单，供前置配置提交保留无关禁用项。
 Function SetBundledPluginIds
-  StrCpy $bundledPluginIds "dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.protected-export;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.selection-brush;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.uitheme;dev.turboism.plugin.webdav"
+  StrCpy $bundledPluginIds "dev.turboism.plugin.acp;dev.turboism.plugin.boundingbox-warp-mirror;dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.command-palette;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.external-psd-edit;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.model-import-3d;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.protected-export;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.selection-brush;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.uitheme;dev.turboism.plugin.warp-deformer-alt-symmetry;dev.turboism.plugin.webdav"
 FunctionEnd
 
 ; 收集未勾选插件 id 到 $uncheckedPluginIds（';' 分隔）
 Function CollectUncheckedPluginIds
+  SectionGetFlags ${SEC_dev_turboism_plugin_acp} $1
+  IntOp $2 $1 & ${SF_SELECTED}
+  ${If} $2 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.acp"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.acp"
+    ${EndIf}
+  ${EndIf}
+  SectionGetFlags ${SEC_dev_turboism_plugin_boundingbox_warp_mirror} $1
+  IntOp $2 $1 & ${SF_SELECTED}
+  ${If} $2 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.boundingbox-warp-mirror"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.boundingbox-warp-mirror"
+    ${EndIf}
+  ${EndIf}
   SectionGetFlags ${SEC_dev_turboism_plugin_clipmask_viewer} $1
   IntOp $2 $1 & ${SF_SELECTED}
   ${If} $2 == 0
@@ -443,6 +593,15 @@ Function CollectUncheckedPluginIds
       StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.clipmask-viewer"
     ${EndIf}
   ${EndIf}
+  SectionGetFlags ${SEC_dev_turboism_plugin_command_palette} $1
+  IntOp $2 $1 & ${SF_SELECTED}
+  ${If} $2 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.command-palette"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.command-palette"
+    ${EndIf}
+  ${EndIf}
   SectionGetFlags ${SEC_dev_turboism_plugin_cubism_tab_filter} $1
   IntOp $2 $1 & ${SF_SELECTED}
   ${If} $2 == 0
@@ -450,6 +609,15 @@ Function CollectUncheckedPluginIds
       StrCpy $uncheckedPluginIds "dev.turboism.plugin.cubism-tab-filter"
     ${Else}
       StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.cubism-tab-filter"
+    ${EndIf}
+  ${EndIf}
+  SectionGetFlags ${SEC_dev_turboism_plugin_external_psd_edit} $1
+  IntOp $2 $1 & ${SF_SELECTED}
+  ${If} $2 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.external-psd-edit"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.external-psd-edit"
     ${EndIf}
   ${EndIf}
   SectionGetFlags ${SEC_dev_turboism_plugin_historypanel} $1
@@ -477,6 +645,15 @@ Function CollectUncheckedPluginIds
       StrCpy $uncheckedPluginIds "dev.turboism.plugin.mesh-edit-mirror-axis-enhance"
     ${Else}
       StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.mesh-edit-mirror-axis-enhance"
+    ${EndIf}
+  ${EndIf}
+  SectionGetFlags ${SEC_dev_turboism_plugin_model_import_3d} $1
+  IntOp $2 $1 & ${SF_SELECTED}
+  ${If} $2 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.model-import-3d"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.model-import-3d"
     ${EndIf}
   ${EndIf}
   SectionGetFlags ${SEC_dev_turboism_plugin_palette_label_style} $1
@@ -587,6 +764,15 @@ Function CollectUncheckedPluginIds
       StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.uitheme"
     ${EndIf}
   ${EndIf}
+  SectionGetFlags ${SEC_dev_turboism_plugin_warp_deformer_alt_symmetry} $1
+  IntOp $2 $1 & ${SF_SELECTED}
+  ${If} $2 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.warp-deformer-alt-symmetry"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.warp-deformer-alt-symmetry"
+    ${EndIf}
+  ${EndIf}
   SectionGetFlags ${SEC_dev_turboism_plugin_webdav} $1
   IntOp $2 $1 & ${SF_SELECTED}
   ${If} $2 == 0
@@ -600,12 +786,17 @@ FunctionEnd
 
 ; 卸载白名单：仅删除安装器部署的插件 JAR；未知文件与第三方 JAR 保留（对齐 IzPack 卸载语义）。
 Function un.DeleteInstallerPluginJars
+  Delete "$INSTDIR\plugins\acp.jar"
   Delete "$INSTDIR\plugins\atlas-maxrects-bssf.jar"
+  Delete "$INSTDIR\plugins\boundingbox-warp-mirror.jar"
   Delete "$INSTDIR\plugins\clipmask-viewer.jar"
+  Delete "$INSTDIR\plugins\command-palette.jar"
   Delete "$INSTDIR\plugins\cubism-tab-filter.jar"
+  Delete "$INSTDIR\plugins\external-psd-edit.jar"
   Delete "$INSTDIR\plugins\history-panel.jar"
   Delete "$INSTDIR\plugins\mcp.jar"
   Delete "$INSTDIR\plugins\mesh-edit-mirror-axis-enhance.jar"
+  Delete "$INSTDIR\plugins\model-import-3d.jar"
   Delete "$INSTDIR\plugins\palette-label-style.jar"
   Delete "$INSTDIR\plugins\parameter-batch-transfer.jar"
   Delete "$INSTDIR\plugins\perf-stats.jar"
@@ -617,6 +808,7 @@ Function un.DeleteInstallerPluginJars
   Delete "$INSTDIR\plugins\selection-brush.jar"
   Delete "$INSTDIR\plugins\texture-atlas-stats.jar"
   Delete "$INSTDIR\plugins\ui-theme.jar"
+  Delete "$INSTDIR\plugins\warp-deformer-alt-symmetry.jar"
   Delete "$INSTDIR\plugins\webdav-backup.jar"
 FunctionEnd
 
