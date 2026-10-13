@@ -184,16 +184,15 @@ public interface CoreUpdateService extends AutoCloseable {
      */
     final class Unavailable implements CoreUpdateService {
         private static final Unavailable INSTANCE = new Unavailable();
-        private static final Snapshot SNAPSHOT =
-                new Snapshot(
-                        Status.UNAVAILABLE,
-                        "unknown",
-                        Optional.empty(),
-                        OptionalLong.empty(),
-                        false,
-                        false,
-                        Optional.empty(),
-                        Optional.empty());
+        private static final Snapshot SNAPSHOT = new Snapshot(
+                Status.UNAVAILABLE,
+                "unknown",
+                Optional.empty(),
+                OptionalLong.empty(),
+                false,
+                false,
+                Optional.empty(),
+                Optional.empty());
         private static final Preferences PREFERENCES = new Preferences(true);
 
         private Unavailable() {}
