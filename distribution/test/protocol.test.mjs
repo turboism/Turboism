@@ -22,18 +22,26 @@ test('raw release produces four verified binary choices and preserves no invente
 test('partial assets, unsafe URLs, invalid digests and tag mismatch fail closed',()=>{
  for(const mutate of [r=>r.assets.pop(),r=>r.assets[0].digest=null,r=>r.assets[0].browser_download_url='https://evil.invalid/a',r=>r.assets.push(r.assets[0])]){const r=fixture();mutate(r);assert.throws(()=>parseRelease(r,'b'.repeat(40)));}
 });
-test('developer SDK assets are validated but never mirrored, and the pair is all-or-nothing',()=>{
- const withSdk=parseRelease(fixture(),'b'.repeat(40));
- assert.equal(withSdk.assets.length,4);
- assert.ok(withSdk.assets.every(a=>!a.name.startsWith('turboism-sdk-')));
+test('developer SDK and event-processor assets are validated but never mirrored, and legacy SDK-only or neither still parse',()=>{
+ const withBoth=parseRelease(fixture(),'b'.repeat(40));
+ assert.equal(withBoth.assets.length,4);
+ assert.ok(withBoth.assets.every(a=>!a.name.startsWith('turboism-sdk-')&&!a.name.startsWith('turboism-event-processor-')));
+ const sdkOnly=parseRelease(fixture('1.2.3',false,'sdk'),'b'.repeat(40));
+ assert.equal(sdkOnly.assets.length,4);
  const legacy=parseRelease(fixture('1.2.3',false,false),'b'.repeat(40));
  assert.equal(legacy.assets.length,4);
- const partial=fixture();partial.assets=partial.assets.filter(a=>a.name!=='turboism-sdk-1.2.3.jar.sha256');
- assert.throws(()=>parseRelease(partial,'b'.repeat(40)),/developer/i);
+ const partialSdk=fixture();partialSdk.assets=partialSdk.assets.filter(a=>a.name!=='turboism-sdk-1.2.3.jar.sha256');
+ assert.throws(()=>parseRelease(partialSdk,'b'.repeat(40)),/developer/i);
+ const partialProcessor=fixture();partialProcessor.assets=partialProcessor.assets.filter(a=>a.name!=='turboism-event-processor-1.2.3.jar.sha256');
+ assert.throws(()=>parseRelease(partialProcessor,'b'.repeat(40)),/developer/i);
+ const processorWithoutSdk=fixture();processorWithoutSdk.assets=processorWithoutSdk.assets.filter(a=>!a.name.startsWith('turboism-sdk-'));
+ assert.throws(()=>parseRelease(processorWithoutSdk,'b'.repeat(40)),/developer/i);
  const unknown=fixture();unknown.assets.push({id:99,name:'turboism-sdk-1.2.3-extra.jar',state:'uploaded',size:1,digest:'sha256:'+'a'.repeat(64),content_type:'application/octet-stream',browser_download_url:'https://github.com/turboism/Turboism/releases/download/v1.2.3/turboism-sdk-1.2.3-extra.jar'});
  assert.throws(()=>parseRelease(unknown,'b'.repeat(40)));
  const badDigest=fixture();badDigest.assets.find(a=>a.name==='turboism-sdk-1.2.3.jar').digest='not-a-digest';
  assert.throws(()=>parseRelease(badDigest,'b'.repeat(40)),/digest/i);
+ const badProcessorDigest=fixture();badProcessorDigest.assets.find(a=>a.name==='turboism-event-processor-1.2.3.jar').digest='not-a-digest';
+ assert.throws(()=>parseRelease(badProcessorDigest,'b'.repeat(40)),/digest/i);
 });
 test('receipt is source-bound; historical metadata is null, not a sync-assigned number',()=>{
  assert.equal(buildReceipt('notes'),null);

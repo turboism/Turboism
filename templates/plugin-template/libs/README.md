@@ -1,7 +1,12 @@
-Drop `turboism-sdk-<version>.jar` here.
+Run `./scripts/setup.sh` (or `.\scripts\setup.ps1` on Windows) from the project
+root to download `turboism-sdk-<version>.jar` and
+`turboism-event-processor-<version>.jar` into this directory and verify their
+`.sha256` checksums automatically.
 
-Download it (and its `.sha256` sidecar) from the Turboism GitHub Releases page:
+For offline or manual setup, download both JARs (and their `.sha256` sidecars)
+from the Turboism GitHub Releases page and place the JARs here:
 https://github.com/turboism/Turboism/releases
 
-When a `turboism-sdk-*.jar` is present in this directory, the build uses it
-directly; otherwise it falls back to `dev.turboism:sdk` from `mavenLocal()`.
+When `turboism-sdk-*.jar` (and `turboism-event-processor-*.jar`) are present in
+this directory, the build uses them directly; otherwise it falls back to
+`dev.turboism:sdk` and `dev.turboism:event-processor` from `mavenLocal()`.

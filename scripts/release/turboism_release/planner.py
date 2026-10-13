@@ -59,11 +59,11 @@ def classify_framework(
         return {"action": "none", "reason": "source has no exact release tag"}
     if not isinstance(artifacts, list) or len(artifacts) != 8:
         raise ReleaseError("tagged framework candidate must contain exactly eight verified artifacts")
-    # Developer artifacts (the standalone SDK jar) are GitHub Release assets only;
-    # they never enter the product or Updates media contracts.
+    # Developer artifacts (the standalone SDK and event-processor jars) are GitHub
+    # Release assets only; they never enter the product or Updates media contracts.
     developer = framework.get("developerArtifacts")
-    if not isinstance(developer, list) or len(developer) != 2:
-        raise ReleaseError("tagged framework candidate must contain exactly two developer artifacts")
+    if not isinstance(developer, list) or len(developer) != 4:
+        raise ReleaseError("tagged framework candidate must contain exactly four developer artifacts")
     expected = _artifact_map(artifacts, "framework candidate")
     github_expected = {**expected, **_artifact_map(developer, "framework candidate developer")}
     github_result = _classify_artifact_host(github_expected, github, "GitHub Release")

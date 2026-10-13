@@ -57,6 +57,8 @@ def artifacts(version="0.43.0"):
 
 def developer_artifacts(version="0.43.0"):
     names = [
+        f"turboism-event-processor-{version}.jar",
+        f"turboism-event-processor-{version}.jar.sha256",
         f"turboism-sdk-{version}.jar",
         f"turboism-sdk-{version}.jar.sha256",
     ]
