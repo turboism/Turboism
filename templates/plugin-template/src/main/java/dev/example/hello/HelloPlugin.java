@@ -2,7 +2,6 @@ package dev.example.hello;
 
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.event.EventBus;
-import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.event.TurboismEvent;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -69,12 +68,13 @@ public class HelloPlugin implements TurboismPlugin {
         logger.info("HelloPlugin shutdown");
     }
 
-    @SubscribeEvent
-    public void onHello(HelloEvent event) {
-        if (logger != null) {
-            logger.info("HelloPlugin @SubscribeEvent handler received: " + event.message());
-        }
-    }
+    // When turboism-event-processor-<version>.jar is present in libs/, you can also
+    // subscribe declaratively with @dev.turboism.sdk.event.SubscribeEvent:
+    //
+    // @dev.turboism.sdk.event.SubscribeEvent
+    // public void onHello(HelloEvent event) {
+    //     logger.info("HelloPlugin received event: " + event.message());
+    // }
 
     /** Example event published by the hello action and logged by the subscriber. */
     public record HelloEvent(String message) implements TurboismEvent {

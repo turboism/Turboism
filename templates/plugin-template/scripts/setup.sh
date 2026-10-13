@@ -196,6 +196,43 @@ fetch_url() {
   fi
 }
 
+# Downloads an asset URL to dest.
+# Exit codes:
+#   0 - downloaded
+#   2 - asset absent (HTTP 404 or missing local file:// target)
+#   1 - transport or server error
+download_asset() {
+  local url="$1"
+  local dest="$2"
+  validate_url "$url"
+  if [[ "$url" =~ ^file:// ]]; then
+    local local_path="${url#file://}"
+    if [[ ! -e "$local_path" ]]; then
+      return 2
+    fi
+    cp "$local_path" "$dest" || return 1
+    return 0
+  fi
+  local http_code
+  local curl_opts=(-sSL -w '%{http_code}' --connect-timeout 15 --max-time 120 -o "$dest")
+  if [[ "$url" =~ ^https:// ]]; then
+    curl_opts=(--proto '=https' --tlsv1.2 --retry 2 "${curl_opts[@]}")
+  fi
+  http_code="$(curl "${curl_opts[@]}" "$url")" || {
+    rm -f "$dest"
+    return 1
+  }
+  if [[ "$http_code" == "200" ]]; then
+    return 0
+  elif [[ "$http_code" == "404" ]]; then
+    rm -f "$dest"
+    return 2
+  else
+    rm -f "$dest"
+    return 1
+  fi
+}
+
 compute_sha256() {
   local file="$1"
   if command -v sha256sum >/dev/null 2>&1; then
@@ -431,32 +468,56 @@ fi
 
 [[ -n "$RESOLVED_VERSION" ]] || die "resolved version is empty"
 
-# Step 3 & 4: Download SDK and event-processor JARs + .sha256 sidecars, verify hashes,
-# place in libs/, and update gradle.properties.
+# Step 3 & 4: Download SDK and (when present in the release) event-processor JARs +
+# .sha256 sidecars, verify hashes, place in libs/, and update gradle.properties.
 TAG="v${RESOLVED_VERSION}"
 SDK_JAR_NAME="turboism-sdk-${RESOLVED_VERSION}.jar"
 PROC_JAR_NAME="turboism-event-processor-${RESOLVED_VERSION}.jar"
 
-for artifact in "$SDK_JAR_NAME" "${SDK_JAR_NAME}.sha256" "$PROC_JAR_NAME" "${PROC_JAR_NAME}.sha256"; do
-  url="${DOWNLOAD_BASE%/}/${TAG}/${artifact}"
-  printf 'Downloading %s...\n' "$artifact"
-  fetch_url "$url" "$WORK_TMP/$artifact" || die "failed to download $url"
-done
+sdk_url="${DOWNLOAD_BASE%/}/${TAG}/${SDK_JAR_NAME}"
+printf 'Downloading %s...\n' "$SDK_JAR_NAME"
+sdk_rc=0
+download_asset "$sdk_url" "$WORK_TMP/$SDK_JAR_NAME" || sdk_rc=$?
+if [[ "$sdk_rc" -eq 2 ]]; then
+  die "release ${TAG} does not include ${SDK_JAR_NAME} (this release predates standalone SDK distribution); use --channel beta or --version <release with SDK>."
+elif [[ "$sdk_rc" -ne 0 ]]; then
+  die "failed to download $sdk_url"
+fi
 
+sdk_sha_url="${DOWNLOAD_BASE%/}/${TAG}/${SDK_JAR_NAME}.sha256"
+printf 'Downloading %s.sha256...\n' "$SDK_JAR_NAME"
+download_asset "$sdk_sha_url" "$WORK_TMP/${SDK_JAR_NAME}.sha256" || die "failed to download $sdk_sha_url"
 verify_sidecar "$WORK_TMP/$SDK_JAR_NAME" "$WORK_TMP/${SDK_JAR_NAME}.sha256" "$SDK_JAR_NAME"
-verify_sidecar "$WORK_TMP/$PROC_JAR_NAME" "$WORK_TMP/${PROC_JAR_NAME}.sha256" "$PROC_JAR_NAME"
+
+proc_url="${DOWNLOAD_BASE%/}/${TAG}/${PROC_JAR_NAME}"
+printf 'Downloading %s...\n' "$PROC_JAR_NAME"
+proc_rc=0
+download_asset "$proc_url" "$WORK_TMP/$PROC_JAR_NAME" || proc_rc=$?
+HAVE_EVENT_PROCESSOR=0
+if [[ "$proc_rc" -eq 0 ]]; then
+  HAVE_EVENT_PROCESSOR=1
+  proc_sha_url="${DOWNLOAD_BASE%/}/${TAG}/${PROC_JAR_NAME}.sha256"
+  printf 'Downloading %s.sha256...\n' "$PROC_JAR_NAME"
+  download_asset "$proc_sha_url" "$WORK_TMP/${PROC_JAR_NAME}.sha256" || die "failed to download $proc_sha_url"
+  verify_sidecar "$WORK_TMP/$PROC_JAR_NAME" "$WORK_TMP/${PROC_JAR_NAME}.sha256" "$PROC_JAR_NAME"
+elif [[ "$proc_rc" -eq 2 ]]; then
+  printf 'warning: release %s does not include %s; @SubscribeEvent catalogs will not be generated; use EventBus#subscribe, or rerun setup after a release that ships turboism-event-processor.\n' "$TAG" "$PROC_JAR_NAME" >&2
+else
+  die "failed to download $proc_url"
+fi
 
 # Validate JAR structure before installing into libs/
-python3 - "$WORK_TMP/$SDK_JAR_NAME" "$WORK_TMP/$PROC_JAR_NAME" <<'PY'
+python3 - "$WORK_TMP/$SDK_JAR_NAME" "$WORK_TMP/$PROC_JAR_NAME" "$HAVE_EVENT_PROCESSOR" <<'PY'
 import sys, zipfile
-sdk_path, proc_path = sys.argv[1], sys.argv[2]
+sdk_path, proc_path, have_proc = sys.argv[1], sys.argv[2], sys.argv[3] == "1"
 try:
     with zipfile.ZipFile(sdk_path) as z:
         if "dev/turboism/sdk/plugin/TurboismPlugin.class" not in z.namelist():
             raise SystemExit(f"error: {sdk_path} is not a valid Turboism SDK JAR")
-    with zipfile.ZipFile(proc_path) as z:
-        if "dev/turboism/eventprocessor/SubscribeEventProcessor.class" not in z.namelist():
-            raise SystemExit(f"error: {proc_path} is not a valid Turboism event-processor JAR")
+    if have_proc:
+        with zipfile.ZipFile(proc_path) as z:
+            if "dev/turboism/eventprocessor/SubscribeEventProcessor.class" not in z.namelist():
+                raise SystemExit(f"error: {proc_path} is not a valid Turboism event-processor JAR")
 except zipfile.BadZipFile as exc:
     raise SystemExit(f"error: corrupted JAR archive: {exc}")
 PY
@@ -467,9 +528,13 @@ rm -f "$PROJECT_ROOT"/libs/turboism-event-processor-*.jar "$PROJECT_ROOT"/libs/t
 
 cp "$WORK_TMP/$SDK_JAR_NAME" "$PROJECT_ROOT/libs/$SDK_JAR_NAME"
 cp "$WORK_TMP/${SDK_JAR_NAME}.sha256" "$PROJECT_ROOT/libs/${SDK_JAR_NAME}.sha256"
-cp "$WORK_TMP/$PROC_JAR_NAME" "$PROJECT_ROOT/libs/$PROC_JAR_NAME"
-cp "$WORK_TMP/${PROC_JAR_NAME}.sha256" "$PROJECT_ROOT/libs/${PROC_JAR_NAME}.sha256"
-printf 'Verified SHA-256 checksums and installed %s and %s into libs/.\n' "$SDK_JAR_NAME" "$PROC_JAR_NAME"
+if [[ "$HAVE_EVENT_PROCESSOR" -eq 1 ]]; then
+  cp "$WORK_TMP/$PROC_JAR_NAME" "$PROJECT_ROOT/libs/$PROC_JAR_NAME"
+  cp "$WORK_TMP/${PROC_JAR_NAME}.sha256" "$PROJECT_ROOT/libs/${PROC_JAR_NAME}.sha256"
+  printf 'Verified SHA-256 checksums and installed %s and %s into libs/.\n' "$SDK_JAR_NAME" "$PROC_JAR_NAME"
+else
+  printf 'Verified SHA-256 checksum and installed %s into libs/ (event-processor not in release).\n' "$SDK_JAR_NAME"
+fi
 
 # Record turboismSdkVersion in gradle.properties
 GRADLE_PROPS="$PROJECT_ROOT/gradle.properties"
