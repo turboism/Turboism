@@ -1,123 +1,122 @@
 ﻿; 由 assemble-release.sh 按 release-plugins.txt 权威清单生成，勿手改。
-; Full($Mode==1) 由隐藏载荷 Section 安装全部插件 JAR；可见 Section
-; 为全新安装和升级收集 disabledPlugins，其他有效用户配置保持不变。
+; Full 变体安装全部第一方插件 JAR；Thin 变体不携带任何插件 JAR。
 
+!if "${VARIANT}" != "thin"
 Section "-插件载荷" SecPluginPayload
-  ${If} $Mode == 1
-    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-jar-payload.ps1" -ManifestPath "$PLUGINSDIR\Turboism-payload-manifests\payload-plugins.sha256" -DestinationRoot "$INSTDIR" -PlanRoot "$PLUGINSDIR\Turboism-plugin-plan" -PlanOnly'
-    Pop $0
-    ${If} $0 != 0
-      MessageBox MB_ICONSTOP "$(PayloadInstallError)"
-      Abort
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0000.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=acp.jar" "${STAGING_DIR}/plugins/acp.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0001.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=boundingbox-warp-mirror.jar" "${STAGING_DIR}/plugins/boundingbox-warp-mirror.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0002.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=clipmask-viewer.jar" "${STAGING_DIR}/plugins/clipmask-viewer.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0003.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=command-palette.jar" "${STAGING_DIR}/plugins/command-palette.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0004.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=cubism-tab-filter.jar" "${STAGING_DIR}/plugins/cubism-tab-filter.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0005.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=external-psd-edit.jar" "${STAGING_DIR}/plugins/external-psd-edit.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0006.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=history-panel.jar" "${STAGING_DIR}/plugins/history-panel.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0007.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=mcp.jar" "${STAGING_DIR}/plugins/mcp.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0008.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=mesh-edit-mirror-axis-enhance.jar" "${STAGING_DIR}/plugins/mesh-edit-mirror-axis-enhance.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0009.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=model-import-3d.jar" "${STAGING_DIR}/plugins/model-import-3d.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0010.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=palette-label-style.jar" "${STAGING_DIR}/plugins/palette-label-style.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0011.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=parameter-batch-transfer.jar" "${STAGING_DIR}/plugins/parameter-batch-transfer.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0012.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=perf-stats.jar" "${STAGING_DIR}/plugins/perf-stats.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0013.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=physics-editor.jar" "${STAGING_DIR}/plugins/physics-editor.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0014.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=protected-export.jar" "${STAGING_DIR}/plugins/protected-export.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0015.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=psd-clip-mask-import.jar" "${STAGING_DIR}/plugins/psd-clip-mask-import.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0016.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=recent-preview.jar" "${STAGING_DIR}/plugins/recent-preview.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0017.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0018.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=selection-brush.jar" "${STAGING_DIR}/plugins/selection-brush.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0019.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0020.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0021.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0022.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=warp-deformer-alt-symmetry.jar" "${STAGING_DIR}/plugins/warp-deformer-alt-symmetry.jar"
-    ${EndIf}
-    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0023.need"
-      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=webdav-backup.jar" "${STAGING_DIR}/plugins/webdav-backup.jar"
-    ${EndIf}
-    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-jar-payload.ps1" -SourceRoot "$PLUGINSDIR\Turboism-plugin-payload" -ManifestPath "$PLUGINSDIR\Turboism-payload-manifests\payload-plugins.sha256" -DestinationRoot "$INSTDIR"'
-    Pop $0
-    ${If} $0 != 0
-      MessageBox MB_ICONSTOP "$(PayloadInstallError)"
-      Abort
-    ${EndIf}
-    RMDir /r "$PLUGINSDIR\Turboism-plugin-payload"
-    RMDir /r "$PLUGINSDIR\Turboism-plugin-plan"
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-jar-payload.ps1" -ManifestPath "$PLUGINSDIR\Turboism-payload-manifests\payload-plugins.sha256" -DestinationRoot "$INSTDIR" -PlanRoot "$PLUGINSDIR\Turboism-plugin-plan" -PlanOnly'
+  Pop $0
+  ${If} $0 != 0
+    MessageBox MB_ICONSTOP "$(PayloadInstallError)"
+    Abort
   ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0000.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=acp.jar" "${STAGING_DIR}/plugins/acp.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0001.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=boundingbox-warp-mirror.jar" "${STAGING_DIR}/plugins/boundingbox-warp-mirror.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0002.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=clipmask-viewer.jar" "${STAGING_DIR}/plugins/clipmask-viewer.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0003.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=command-palette.jar" "${STAGING_DIR}/plugins/command-palette.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0004.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=cubism-tab-filter.jar" "${STAGING_DIR}/plugins/cubism-tab-filter.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0005.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=external-psd-edit.jar" "${STAGING_DIR}/plugins/external-psd-edit.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0006.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=history-panel.jar" "${STAGING_DIR}/plugins/history-panel.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0007.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=mcp.jar" "${STAGING_DIR}/plugins/mcp.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0008.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=mesh-edit-mirror-axis-enhance.jar" "${STAGING_DIR}/plugins/mesh-edit-mirror-axis-enhance.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0009.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=model-import-3d.jar" "${STAGING_DIR}/plugins/model-import-3d.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0010.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=palette-label-style.jar" "${STAGING_DIR}/plugins/palette-label-style.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0011.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=parameter-batch-transfer.jar" "${STAGING_DIR}/plugins/parameter-batch-transfer.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0012.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=perf-stats.jar" "${STAGING_DIR}/plugins/perf-stats.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0013.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=physics-editor.jar" "${STAGING_DIR}/plugins/physics-editor.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0014.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=protected-export.jar" "${STAGING_DIR}/plugins/protected-export.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0015.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=psd-clip-mask-import.jar" "${STAGING_DIR}/plugins/psd-clip-mask-import.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0016.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=recent-preview.jar" "${STAGING_DIR}/plugins/recent-preview.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0017.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0018.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=selection-brush.jar" "${STAGING_DIR}/plugins/selection-brush.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0019.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0020.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0021.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0022.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=warp-deformer-alt-symmetry.jar" "${STAGING_DIR}/plugins/warp-deformer-alt-symmetry.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0023.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=webdav-backup.jar" "${STAGING_DIR}/plugins/webdav-backup.jar"
+  ${EndIf}
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-jar-payload.ps1" -SourceRoot "$PLUGINSDIR\Turboism-plugin-payload" -ManifestPath "$PLUGINSDIR\Turboism-payload-manifests\payload-plugins.sha256" -DestinationRoot "$INSTDIR"'
+  Pop $0
+  ${If} $0 != 0
+    MessageBox MB_ICONSTOP "$(PayloadInstallError)"
+    Abort
+  ${EndIf}
+  RMDir /r "$PLUGINSDIR\Turboism-plugin-payload"
+  RMDir /r "$PLUGINSDIR\Turboism-plugin-plan"
   Delete "$PLUGINSDIR\Turboism-payload-manifests\payload-plugins.sha256"
   RMDir "$PLUGINSDIR\Turboism-payload-manifests"
 SectionEnd
+!endif
 
 LangString PLUGIN_NAME_dev_turboism_plugin_acp ${LANG_ENGLISH} "Turboism ACP 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_acp ${LANG_ENGLISH} "ACP v1 Agent and Settings windows connecting a user-installed agent to the authenticated Turboism MCP server."
@@ -311,481 +310,17 @@ LangString PLUGIN_NAME_dev_turboism_plugin_webdav ${LANG_JAPANESE} "WebDAV 自�
 LangString PLUGIN_DESC_dev_turboism_plugin_webdav ${LANG_JAPANESE} "TurboismのWebDAV 自動バックアップ同期プラグイン。"
 LangString PLUGIN_NAME_dev_turboism_plugin_webdav ${LANG_KOREAN} "WebDAV 자동 백업 동기화 플러그인 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_webdav ${LANG_KOREAN} "Turboism WebDAV 자동 백업 동기화 플러그인입니다."
-Section "$(PLUGIN_NAME_dev_turboism_plugin_acp)" SEC_dev_turboism_plugin_acp
-SectionEnd
 
-Section "$(PLUGIN_NAME_dev_turboism_plugin_boundingbox_warp_mirror)" SEC_dev_turboism_plugin_boundingbox_warp_mirror
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_clipmask_viewer)" SEC_dev_turboism_plugin_clipmask_viewer
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_command_palette)" SEC_dev_turboism_plugin_command_palette
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_cubism_tab_filter)" SEC_dev_turboism_plugin_cubism_tab_filter
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_external_psd_edit)" SEC_dev_turboism_plugin_external_psd_edit
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_historypanel)" SEC_dev_turboism_plugin_historypanel
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_mcp)" SEC_dev_turboism_plugin_mcp
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_mesh_edit_mirror_axis_enhance)" SEC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_model_import_3d)" SEC_dev_turboism_plugin_model_import_3d
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_palette_label_style)" SEC_dev_turboism_plugin_palette_label_style
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_parameter_batch_transfer)" SEC_dev_turboism_plugin_parameter_batch_transfer
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_perf_stats)" SEC_dev_turboism_plugin_perf_stats
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_physics_editor)" SEC_dev_turboism_plugin_physics_editor
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_protected_export)" SEC_dev_turboism_plugin_protected_export
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_psd_clip_mask_import)" SEC_dev_turboism_plugin_psd_clip_mask_import
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_recent_preview)" SEC_dev_turboism_plugin_recent_preview
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_scene_palette_enhancer)" SEC_dev_turboism_plugin_scene_palette_enhancer
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_selection_brush)" SEC_dev_turboism_plugin_selection_brush
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_texture_atlas)" SEC_dev_turboism_plugin_texture_atlas
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_texture_atlas_stats)" SEC_dev_turboism_plugin_texture_atlas_stats
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_uitheme)" SEC_dev_turboism_plugin_uitheme
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_warp_deformer_alt_symmetry)" SEC_dev_turboism_plugin_warp_deformer_alt_symmetry
-SectionEnd
-
-Section "$(PLUGIN_NAME_dev_turboism_plugin_webdav)" SEC_dev_turboism_plugin_webdav
-SectionEnd
-
-; 组件页悬停描述
-!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_acp} "$(PLUGIN_DESC_dev_turboism_plugin_acp)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_boundingbox_warp_mirror} "$(PLUGIN_DESC_dev_turboism_plugin_boundingbox_warp_mirror)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_clipmask_viewer} "$(PLUGIN_DESC_dev_turboism_plugin_clipmask_viewer)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_command_palette} "$(PLUGIN_DESC_dev_turboism_plugin_command_palette)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_cubism_tab_filter} "$(PLUGIN_DESC_dev_turboism_plugin_cubism_tab_filter)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_external_psd_edit} "$(PLUGIN_DESC_dev_turboism_plugin_external_psd_edit)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_historypanel} "$(PLUGIN_DESC_dev_turboism_plugin_historypanel)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_mcp} "$(PLUGIN_DESC_dev_turboism_plugin_mcp)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance} "$(PLUGIN_DESC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_model_import_3d} "$(PLUGIN_DESC_dev_turboism_plugin_model_import_3d)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_palette_label_style} "$(PLUGIN_DESC_dev_turboism_plugin_palette_label_style)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_parameter_batch_transfer} "$(PLUGIN_DESC_dev_turboism_plugin_parameter_batch_transfer)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_perf_stats} "$(PLUGIN_DESC_dev_turboism_plugin_perf_stats)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_physics_editor} "$(PLUGIN_DESC_dev_turboism_plugin_physics_editor)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_protected_export} "$(PLUGIN_DESC_dev_turboism_plugin_protected_export)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_psd_clip_mask_import} "$(PLUGIN_DESC_dev_turboism_plugin_psd_clip_mask_import)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_recent_preview} "$(PLUGIN_DESC_dev_turboism_plugin_recent_preview)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_scene_palette_enhancer} "$(PLUGIN_DESC_dev_turboism_plugin_scene_palette_enhancer)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_selection_brush} "$(PLUGIN_DESC_dev_turboism_plugin_selection_brush)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_texture_atlas} "$(PLUGIN_DESC_dev_turboism_plugin_texture_atlas)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_texture_atlas_stats} "$(PLUGIN_DESC_dev_turboism_plugin_texture_atlas_stats)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_uitheme} "$(PLUGIN_DESC_dev_turboism_plugin_uitheme)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_warp_deformer_alt_symmetry} "$(PLUGIN_DESC_dev_turboism_plugin_warp_deformer_alt_symmetry)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_webdav} "$(PLUGIN_DESC_dev_turboism_plugin_webdav)"
-!insertmacro MUI_FUNCTION_DESCRIPTION_END
-
-; 按模式设置全部插件 Section 的选中状态（$0: 1 = 选中, 0 = 取消）
-Function SetPluginSectionsSelected
-  SectionGetFlags ${SEC_dev_turboism_plugin_acp} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_acp} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_boundingbox_warp_mirror} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_boundingbox_warp_mirror} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_clipmask_viewer} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_clipmask_viewer} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_command_palette} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_command_palette} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_cubism_tab_filter} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_cubism_tab_filter} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_external_psd_edit} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_external_psd_edit} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_historypanel} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_historypanel} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_mcp} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_mcp} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_model_import_3d} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_model_import_3d} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_palette_label_style} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_palette_label_style} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_parameter_batch_transfer} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_parameter_batch_transfer} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_perf_stats} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_perf_stats} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_physics_editor} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_physics_editor} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_protected_export} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_protected_export} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_psd_clip_mask_import} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_psd_clip_mask_import} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_recent_preview} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_recent_preview} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_scene_palette_enhancer} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_scene_palette_enhancer} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_selection_brush} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_selection_brush} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_texture_atlas} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_texture_atlas} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_texture_atlas_stats} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_texture_atlas_stats} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_uitheme} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_uitheme} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_warp_deformer_alt_symmetry} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_warp_deformer_alt_symmetry} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_webdav} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_webdav} $1
-FunctionEnd
-
+!if "${VARIANT}" != "thin"
 ; 导出完整捆绑插件 id 清单，供前置配置提交保留无关禁用项。
 Function SetBundledPluginIds
   StrCpy $bundledPluginIds "dev.turboism.plugin.acp;dev.turboism.plugin.boundingbox-warp-mirror;dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.command-palette;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.external-psd-edit;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.model-import-3d;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.protected-export;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.selection-brush;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.uitheme;dev.turboism.plugin.warp-deformer-alt-symmetry;dev.turboism.plugin.webdav"
 FunctionEnd
+!endif
 
-; 收集未勾选插件 id 到 $uncheckedPluginIds（';' 分隔）
-Function CollectUncheckedPluginIds
-  SectionGetFlags ${SEC_dev_turboism_plugin_acp} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.acp"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.acp"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_boundingbox_warp_mirror} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.boundingbox-warp-mirror"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.boundingbox-warp-mirror"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_clipmask_viewer} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.clipmask-viewer"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.clipmask-viewer"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_command_palette} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.command-palette"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.command-palette"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_cubism_tab_filter} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.cubism-tab-filter"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.cubism-tab-filter"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_external_psd_edit} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.external-psd-edit"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.external-psd-edit"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_historypanel} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.historypanel"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.historypanel"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_mcp} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.mcp"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.mcp"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.mesh-edit-mirror-axis-enhance"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.mesh-edit-mirror-axis-enhance"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_model_import_3d} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.model-import-3d"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.model-import-3d"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_palette_label_style} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.palette-label-style"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.palette-label-style"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_parameter_batch_transfer} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.parameter-batch-transfer"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.parameter-batch-transfer"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_perf_stats} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.perf-stats"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.perf-stats"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_physics_editor} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.physics-editor"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.physics-editor"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_protected_export} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.protected-export"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.protected-export"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_psd_clip_mask_import} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.psd-clip-mask-import"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.psd-clip-mask-import"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_recent_preview} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.recent-preview"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.recent-preview"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_scene_palette_enhancer} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.scene-palette-enhancer"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.scene-palette-enhancer"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_selection_brush} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.selection-brush"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.selection-brush"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_texture_atlas} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.texture-atlas"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.texture-atlas"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_texture_atlas_stats} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.texture-atlas-stats"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.texture-atlas-stats"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_uitheme} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.uitheme"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.uitheme"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_warp_deformer_alt_symmetry} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.warp-deformer-alt-symmetry"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.warp-deformer-alt-symmetry"
-    ${EndIf}
-  ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_webdav} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.webdav"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.webdav"
-    ${EndIf}
-  ${EndIf}
-FunctionEnd
-
-; 卸载白名单：仅删除安装器部署的插件 JAR；未知文件与第三方 JAR 保留（对齐 IzPack 卸载语义）。
+; 卸载白名单：仅删除 Full 安装器部署的插件 JAR；未知文件与第三方 JAR 保留。
 Function un.DeleteInstallerPluginJars
+!if "${VARIANT}" != "thin"
   Delete "$INSTDIR\plugins\acp.jar"
   Delete "$INSTDIR\plugins\atlas-maxrects-bssf.jar"
   Delete "$INSTDIR\plugins\boundingbox-warp-mirror.jar"
@@ -810,5 +345,6 @@ Function un.DeleteInstallerPluginJars
   Delete "$INSTDIR\plugins\ui-theme.jar"
   Delete "$INSTDIR\plugins\warp-deformer-alt-symmetry.jar"
   Delete "$INSTDIR\plugins\webdav-backup.jar"
+!endif
 FunctionEnd
 

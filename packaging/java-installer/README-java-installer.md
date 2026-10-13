@@ -1,17 +1,12 @@
-# Turboism cross-platform Java installer
+# Turboism cross-platform Java installer (Retired)
 
-IzPack-based installer JAR that installs the same Turboism agent and
-first-party plugin payload on Windows, macOS, and Linux. The NSIS EXE and
-Lite/Full ZIP artifacts remain the Windows-native delivery; this JAR is the
-cross-platform option and requires a Java 17+ runtime.
+> **Notice**: The Java installer (`TurboismInstaller-<version>.jar`) has been retired from official release assets.
+> The product release assets are now the four variants:
+> - `TurboismInstaller-<version>-full.exe` and `TurboismInstaller-<version>-thin.exe` (Windows installers)
+> - `turboism-<version>-full.zip` and `turboism-<version>-thin.zip` (Portable archives)
+>
+> On macOS and Linux, users should extract either `turboism-<version>-full.zip` (bundled plugins) or `turboism-<version>-thin.zip` (runtime only).
 
-## Artifacts
-
-A release build retains (all under `build/windows-installer/dist/`):
-
-- `turboism-<version>-lite.zip`, `turboism-<version>-full.zip` (+ `.sha256`);
-- `TurboismInstaller-<version>.exe` (+ `.sha256`) — NSIS, preferred on Windows;
-- `TurboismInstaller-<version>.jar` (+ `.sha256`) — this installer.
 
 ## Build
 

@@ -27,23 +27,35 @@ Turboism is a Windows-first runtime enhancement tool and plugin framework for **
 
 **Windows x64** is the supported Cubism host platform. Unlisted Editor versions are not claimed compatible; unavailable adapters or features fail closed. Version support does not mean every plugin feature is available on every version.
 
-The Java installer can also package/install files on macOS and Linux. macOS packaging is preview-only with no verified Cubism host support; Linux covers installer/payload behavior only and is not a supported Cubism host.
+On macOS and Linux, download and extract either portable ZIP archive (`turboism-<version>-full.zip` or `turboism-<version>-thin.zip`). macOS packaging is preview-only with no verified Cubism host support; Linux covers runtime behavior only and is not a supported Cubism host.
 
 ## Installation
 
-Download a package and its matching `.sha256` file from the [latest GitHub Release](https://github.com/turboism/Turboism/releases/latest). Choose **one** installation format below. Close Cubism and back up your projects before installing or updating.
+Download a package and its matching `.sha256` file from the [latest GitHub Release](https://github.com/turboism/Turboism/releases/latest). Four product assets are provided across two variants:
+- **Full** (`TurboismInstaller-<version>-full.exe`, `turboism-<version>-full.zip`): runtime framework plus every bundled first-party plugin.
+- **Thin** (`TurboismInstaller-<version>-thin.exe`, `turboism-<version>-thin.zip`): runtime framework only, zero first-party plugins (plugins are installed later via plugin management from the plugin market).
+
+Choose **one** installation format below. Close Cubism and back up your projects before installing or updating.
 
 Every Turboism installer ships in **English, Simplified Chinese, Japanese and Korean**. Choosing a language only changes the installer's own interface; the language Turboism uses at runtime still comes from `config.json` (`locale`).
 
 Installers are currently unsigned. Verify the downloaded file against its checksum before running it. For example, in PowerShell (replace `<version>` with the downloaded version):
 
 ```powershell
-Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256
+Get-FileHash ".\TurboismInstaller-<version>-full.exe" -Algorithm SHA256
 ```
+
+### EXE — recommended on Windows
+
+Run `TurboismInstaller-<version>-full.exe` (Full) or `TurboismInstaller-<version>-thin.exe` (Thin) and follow the setup wizard to choose the installation directory and launch options. The full installer installs every first-party plugin without per-plugin deselection; the thin installer installs none. Plugins can be disabled or managed later in plugin management. The wizard offers a language picker (English, Simplified Chinese, Japanese, Korean) before the welcome page; it applies to the installer only. Use the generated Turboism shortcut afterward.
+
+Integration with the official Cubism startup BAT is **optional** and must be explicitly selected. It uses hash-guarded backups; later user edits can prevent automatic restoration. Keep your project backups separate from these installer-managed backups.
+
+Upgrades are safe: running the thin installer over an existing full installation leaves your existing `plugins/` untouched; running the full installer over a thin installation installs or updates all first-party plugins while respecting existing `disabledPlugins`.
 
 ### ZIP — manual setup on Windows
 
-1. Choose `turboism-<version>-full.zip` for the bundled first-party plugins, or `turboism-<version>-lite.zip` for the runtime without plugin JARs.
+1. Choose `turboism-<version>-full.zip` for the bundled first-party plugins, or `turboism-<version>-thin.zip` for the runtime without plugin JARs.
 2. Extract the **whole archive** into a separate Turboism folder, not into the Cubism installation directory.
 3. From the extracted folder, open the configurator:
 
@@ -53,22 +65,6 @@ Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256
 
    The execution-policy option applies only to that PowerShell process. Select the Cubism installations and plugins you want, then save.
 4. Start Cubism using the generated Turboism shortcut or `launch-cubism-turboism.bat` in that folder.
-
-### JAR — Java installer
-
-Install **Java 17 or newer**, then run:
-
-```bash
-java -jar "TurboismInstaller-<version>.jar"
-```
-
-Complete the license/declaration prompts, choose the installation directory and package options, and finish setup. The wizard starts with a language-selection dialog for the four supported languages; pass `-language eng|chn|jpn|kor` to preselect one and skip that dialog. On Windows, use the installed `configure_turboism.ps1` to configure Cubism if needed, then launch through Turboism. Installing files on macOS/Linux does not imply Cubism host compatibility there.
-
-### EXE — recommended on Windows
-
-Run `TurboismInstaller-<version>.exe` and follow the setup wizard to choose the installation directory, plugins and launch options. The wizard offers a language picker (English, Simplified Chinese, Japanese, Korean) before the welcome page; it applies to the installer only. Use the generated Turboism shortcut afterward.
-
-Integration with the official Cubism startup BAT is **optional** and must be explicitly selected. It uses hash-guarded backups; later user edits can prevent automatic restoration. Keep your project backups separate from these installer-managed backups.
 
 No release package includes managed fx runtime bytes or the development-only Turboism with fx plugin.
 

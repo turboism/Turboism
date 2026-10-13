@@ -46,12 +46,34 @@ public interface CoreUpdateService extends AutoCloseable {
             Optional<String> availableVersion,
             OptionalLong availableBuildNumber,
             boolean userInitiated,
-            boolean reminder) {
+            boolean reminder,
+            Optional<String> downloadUrl,
+            Optional<String> assetName) {
+        public Snapshot(
+                final Status status,
+                final String localVersion,
+                final Optional<String> availableVersion,
+                final OptionalLong availableBuildNumber,
+                final boolean userInitiated,
+                final boolean reminder) {
+            this(
+                    status,
+                    localVersion,
+                    availableVersion,
+                    availableBuildNumber,
+                    userInitiated,
+                    reminder,
+                    Optional.empty(),
+                    Optional.empty());
+        }
+
         public Snapshot {
             status = Objects.requireNonNull(status, "status");
             localVersion = Objects.requireNonNull(localVersion, "localVersion");
             availableVersion = Objects.requireNonNull(availableVersion, "availableVersion");
             availableBuildNumber = Objects.requireNonNull(availableBuildNumber, "availableBuildNumber");
+            downloadUrl = Objects.requireNonNull(downloadUrl, "downloadUrl");
+            assetName = Objects.requireNonNull(assetName, "assetName");
             if (availableVersion.isPresent() && availableVersion.orElseThrow().isBlank()) {
                 throw new IllegalArgumentException("availableVersion must not be blank");
             }
@@ -69,7 +91,15 @@ public interface CoreUpdateService extends AutoCloseable {
 
         /** Creates an idle snapshot for a local framework identity. */
         public static Snapshot idle(final String localVersion) {
-            return new Snapshot(Status.IDLE, localVersion, Optional.empty(), OptionalLong.empty(), false, false);
+            return new Snapshot(
+                    Status.IDLE,
+                    localVersion,
+                    Optional.empty(),
+                    OptionalLong.empty(),
+                    false,
+                    false,
+                    Optional.empty(),
+                    Optional.empty());
         }
 
         /** Returns the advertised candidate identity for display, e.g. {@code 0.43.11 (Build 5)}. */
@@ -154,8 +184,15 @@ public interface CoreUpdateService extends AutoCloseable {
      */
     final class Unavailable implements CoreUpdateService {
         private static final Unavailable INSTANCE = new Unavailable();
-        private static final Snapshot SNAPSHOT =
-                new Snapshot(Status.UNAVAILABLE, "unknown", Optional.empty(), OptionalLong.empty(), false, false);
+        private static final Snapshot SNAPSHOT = new Snapshot(
+                Status.UNAVAILABLE,
+                "unknown",
+                Optional.empty(),
+                OptionalLong.empty(),
+                false,
+                false,
+                Optional.empty(),
+                Optional.empty());
         private static final Preferences PREFERENCES = new Preferences(true);
 
         private Unavailable() {}

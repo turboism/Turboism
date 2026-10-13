@@ -13,6 +13,9 @@ import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -132,11 +135,38 @@ public final class UpdateDiscoveryParser {
         }
         final String rawVersion = text(node, "version");
         final UpdateVersion version = parseReleaseVersion(rawVersion);
+        final List<UpdateDiscovery.Asset> assets = parseAssets(node);
         return new UpdateDiscovery.Candidate(
                 version,
                 rawVersion,
                 optionalPositiveLong(node, "buildNumber"),
-                optionalUtcInstant(node, "publishedAt"));
+                optionalUtcInstant(node, "publishedAt"),
+                assets);
+    }
+
+    private List<UpdateDiscovery.Asset> parseAssets(final ObjectNode node) {
+        final JsonNode assetsNode = node.get("assets");
+        if (assetsNode == null || assetsNode.isNull()) {
+            return List.of();
+        }
+        if (!assetsNode.isArray()) {
+            throw invalid("assets must be an array");
+        }
+        final List<UpdateDiscovery.Asset> list = new ArrayList<>();
+        for (final JsonNode item : assetsNode) {
+            if (!(item instanceof ObjectNode assetObj)) {
+                throw invalid("asset must be a JSON object");
+            }
+            final String name = text(assetObj, "name");
+            final String kind = text(assetObj, "kind");
+            final Optional<String> variant = optionalText(assetObj, "variant");
+            final Optional<String> platform = optionalText(assetObj, "platform");
+            final String url = text(assetObj, "url");
+            final long size = longValue(assetObj, "size");
+            final String sha256 = text(assetObj, "sha256");
+            list.add(new UpdateDiscovery.Asset(name, kind, variant, platform, url, size, sha256));
+        }
+        return Collections.unmodifiableList(list);
     }
 
     private UpdateVersion parseReleaseVersion(final String rawVersion) {
@@ -183,6 +213,23 @@ public final class UpdateDiscoveryParser {
             throw invalid(name + " must be a non-blank string");
         }
         return value.textValue();
+    }
+
+    private static Optional<String> optionalText(final ObjectNode object, final String name) {
+        final JsonNode value = object.get(name);
+        if (value == null || value.isNull()) return Optional.empty();
+        if (!value.isTextual() || value.textValue().isBlank()) return Optional.empty();
+        return Optional.of(value.textValue());
+    }
+
+    private static long longValue(final ObjectNode object, final String name) {
+        final JsonNode value = required(object, name);
+        if (!value.isIntegralNumber() || !value.canConvertToLong()) {
+            throw invalid(name + " must be an integer");
+        }
+        final long converted = value.longValue();
+        if (converted <= 0) throw invalid(name + " must be positive");
+        return converted;
     }
 
     private static OptionalLong optionalPositiveLong(final ObjectNode object, final String name) {
