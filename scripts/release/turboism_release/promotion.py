@@ -8,12 +8,13 @@ import subprocess
 from pathlib import Path
 
 from .build_identity import verify_receipt
-from .candidate import _load_script, developer_artifacts, framework_artifacts
-from .contracts import ReleaseError, read_document
+from .candidate import _load_script, developer_artifacts, framework_artifacts, plugin_candidates
+from .contracts import ReleaseError, plan_id, read_document, write_document
 from .versions import CHANGELOG_HEADING, SOURCE_SHA, STRICT_VERSION, compare_versions, framework_version, git_source
 
 REPOSITORY = "turboism/Turboism"
 WORKFLOW = ".github/workflows/release.yml"
+PLUGIN_WORKFLOW = ".github/workflows/publish-selected-plugins.yml"
 SCRIPTS = Path(__file__).resolve().parents[1]
 
 
@@ -31,14 +32,24 @@ def validate_run(run, run_id, source_sha, attempt=None):
         require(isinstance(run.get(key), dict)
                 and run[key].get("full_name", "").lower() == REPOSITORY.lower(),
                 "candidate run must originate in the release repository")
-    require(run.get("path") == WORKFLOW and run.get("name") == "Product release candidate",
-            "unsupported candidate workflow")
+    path = run.get("path")
+    name = run.get("name")
+    is_product = path == WORKFLOW and name == "Product release candidate"
+    is_plugin = path == PLUGIN_WORKFLOW and name == "Plugin release candidate"
+    require(is_product or is_plugin, "unsupported candidate workflow")
     require(run.get("status") == "completed" and run.get("conclusion") == "success",
             "candidate run must have completed successfully")
     require(run.get("head_sha") == source_sha, "candidate run source mismatch")
     actual_attempt = run.get("run_attempt")
     require(type(actual_attempt) is int and actual_attempt > 0, "invalid candidate run attempt")
     event = run.get("event")
+    if is_plugin:
+        require(run.get("head_branch") == "main" and event in ("push", "workflow_dispatch"),
+                "plugin candidate must originate on main via push or workflow_dispatch")
+        require(attempt is not None, "plugin candidate requires an explicit run attempt")
+        require(str(attempt) == str(actual_attempt), "candidate run attempt mismatch")
+        return {"source_sha": source_sha, "run_attempt": actual_attempt,
+                "artifact_name": f"turboism-plugin-candidate-{source_sha}-{run_id}-{actual_attempt}"}
     if event == "workflow_dispatch":
         require(run.get("head_branch") == "main", "dispatched candidate must originate on main")
         require(attempt is not None, "dispatched candidate requires an explicit run attempt")
@@ -50,6 +61,53 @@ def validate_run(run, run_id, source_sha, attempt=None):
         require(str(attempt) == str(actual_attempt), "candidate run attempt mismatch")
     return {"source_sha": source_sha, "run_attempt": actual_attempt,
             "artifact_name": f"turboism-release-candidate-{source_sha}-{run_id}-{actual_attempt}"}
+
+
+def build_plugin_plan(source_root, source_sha, market_dir, output_path):
+    """Validate a staged market bundle and write a canonical release plan for catalog verification."""
+    require(SOURCE_SHA.fullmatch(source_sha), "invalid candidate source SHA")
+    market_dir = Path(market_dir).resolve()
+    sidecar_path = market_dir / "market-release.json"
+    require(sidecar_path.is_file() and not sidecar_path.is_symlink(), "missing market-release.json sidecar")
+    try:
+        sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as failure:
+        raise ReleaseError(f"cannot parse market-release.json: {failure}") from failure
+    require(sidecar.get("source") == {"revision": source_sha},
+            "market release sidecar source revision mismatch")
+    plugins = plugin_candidates(Path(source_root).resolve(), market_dir)
+    candidates = plugins.get("candidates", [])
+    require(bool(candidates), "market release bundle contains no plugin candidates")
+    payload = {
+        "format": "turboism.release-plan",
+        "schemaVersion": 1,
+        "source": {"repository": REPOSITORY, "revision": source_sha, "tag": None},
+        "intent": "plugins",
+        "channel": "stable",
+        "framework": {"action": "none", "reason": "plugin-directory handoff"},
+        "plugins": {
+            "action": "publish",
+            "actions": [
+                {"id": item["id"], "module": item["module"], "version": item["version"], "action": "publish"}
+                for item in candidates
+            ],
+            "expectedCandidates": [
+                {
+                    "id": item["id"],
+                    "version": item["version"],
+                    "jarSha256": item["jarSha256"],
+                    "jarSize": item["jarSize"],
+                    "descriptorSha256": item["descriptorSha256"],
+                    "policySha256": item["policySha256"],
+                }
+                for item in candidates
+            ],
+        },
+        "steps": [],
+    }
+    plan = {**payload, "planId": plan_id(payload)}
+    write_document(Path(output_path), plan, "plan")
+    return plan
 
 
 def prepare_candidate_tag(repo_root, expected_source_sha):
@@ -197,11 +255,18 @@ def release_by_id(github, release):
             "release identity is unavailable")
     return github.api(f"releases/{release['id']}")
 
-def promote(github, source_root, bundle_root, run_id, source_sha, attempt, confirmation):
+def promote(github, source_root, bundle_root, run_id, source_sha, attempt, confirmation, *, verify_only=False):
     require(confirmation == f"publish-github-only:{source_sha}", "explicit source confirmation required")
     require(re.fullmatch(r"[1-9][0-9]{0,19}", str(run_id)), "invalid candidate run id")
     run = github.api(f"actions/runs/{run_id}")
     validate_run(run, run_id, source_sha, attempt)
+    if run.get("path") == PLUGIN_WORKFLOW:
+        document = read_document(unique_file(Path(bundle_root), "candidate.json"), "candidate")
+        require(document.get("source") == {"repository": REPOSITORY, "revision": source_sha, "tag": None},
+                "plugin candidate source binding mismatch")
+        require(isinstance(document.get("framework"), dict) and document["framework"].get("eligible") is False,
+                "plugin candidate must not be framework-eligible")
+        return "plugins"
     prerelease_files = list(Path(bundle_root).rglob("prerelease-candidate.json"))
     if prerelease_files:
         require(len(prerelease_files) == 1 and not list(Path(bundle_root).rglob("candidate.json")),
@@ -217,6 +282,8 @@ def promote(github, source_root, bundle_root, run_id, source_sha, attempt, confi
         manifest, receipt, notes = verify_candidate(github, source_root, candidate_root, source_sha,
                                                    str(run_id), run["run_attempt"], expected_channel="beta")
         validate_run(github.api(f"actions/runs/{run_id}"), run_id, source_sha, run["run_attempt"])
+        if verify_only:
+            return f"v{receipt['version']}"
         return publish_prerelease(github, candidate_root / "dist", receipt, manifest, notes)
     tag, dist, notes, expected = verify_bundle(source_root, bundle_root, run, source_sha)
     receipt = verify_receipt(github, source_root, bundle_root, tag[1:], source_sha, str(run_id), run["run_attempt"])
@@ -247,6 +314,8 @@ def promote(github, source_root, bundle_root, run_id, source_sha, attempt, confi
         require(compare_versions(tag[1:], latest_tag[1:]) >= 0, "newer release already published")
     # All local verification and remote conflict observations precede the first remote write.
     validate_run(github.api(f"actions/runs/{run_id}"), run_id, source_sha, run["run_attempt"])
+    if verify_only:
+        return tag
     ensure_tag(github, tag, source_sha, binding)
     if release is None:
         release = github.api("releases", method="POST", data={

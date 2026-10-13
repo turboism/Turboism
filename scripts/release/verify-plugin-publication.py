@@ -9,6 +9,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 import zipfile
 import urllib.error
 import urllib.parse
@@ -34,38 +35,111 @@ def parser() -> argparse.ArgumentParser:
     root.add_argument("--verifier-repo", required=True, type=Path)
     root.add_argument("--catalog-url", default=CATALOG_URL)
     root.add_argument("--signature-url", default=SIGNATURE_URL)
+    root.add_argument("--timeout", type=float, default=0.0,
+                      help="poll with backoff up to this many seconds (default: 0, single attempt)")
+    root.add_argument("--poll-interval", type=float, default=5.0,
+                      help="initial backoff interval in seconds when --timeout > 0 (default: 5)")
     root.add_argument("--output", type=Path)
     return root
+
+
+def load_expected_candidates(path: Path) -> list[dict[str, Any]]:
+    raw = parse_object(path.read_bytes(), "plan or sidecar")
+    if raw.get("format") == "turboism.market-release" and raw.get("schemaVersion") == 1:
+        artifacts = raw.get("artifacts")
+        if not isinstance(artifacts, list) or not artifacts:
+            raise ReleaseError("market release sidecar has no plugin artifacts to verify")
+        expected = []
+        for item in artifacts:
+            if not isinstance(item, dict) or not isinstance(item.get("descriptor"), dict):
+                raise ReleaseError("market release artifact lacks descriptor metadata")
+            expected.append({
+                "id": item["descriptor"].get("id"),
+                "version": item["descriptor"].get("version"),
+                "jarSha256": item.get("sha256"),
+                "jarSize": item.get("size"),
+                "descriptorSha256": item.get("descriptorSha256"),
+            })
+        return expected
+    plan = read_document(path, "plan")
+    expected = plan.get("plugins", {}).get("expectedCandidates")
+    if not isinstance(expected, list) or not expected:
+        raise ReleaseError("release plan has no plugin candidates to verify")
+    return expected
+
+
+def verify_once(
+    expected: list[dict[str, Any]],
+    verifier_repo: Path,
+    catalog_url: str,
+    signature_url: str,
+) -> dict[str, Any]:
+    catalog_bytes = fetch(catalog_url, "application/json")
+    signature_bytes = fetch(signature_url, "application/json")
+    verify_signature(verifier_repo, catalog_bytes, signature_bytes)
+    catalog = parse_object(catalog_bytes, "plugin catalog")
+    signature = parse_object(signature_bytes, "plugin catalog signature")
+    result = verify_expected(catalog, expected)
+    fingerprint = {
+        "catalogVersion": str(catalog.get("catalogVersion")),
+        "generation": generation(catalog),
+        "sha256": hashlib.sha256(catalog_bytes).hexdigest(),
+        "keyId": signature.get("keyId"),
+        "url": catalog_url,
+    }
+    if not isinstance(fingerprint["keyId"], str) or not fingerprint["keyId"]:
+        raise ReleaseError("verified signature lacks a keyId")
+    return {
+        "schemaVersion": 2,
+        "catalogFingerprint": fingerprint,
+        "plugins": result,
+    }
+
+
+def poll_until_verified(
+    expected: list[dict[str, Any]],
+    verifier_repo: Path,
+    catalog_url: str,
+    signature_url: str,
+    timeout: float,
+    initial_interval: float,
+    clock=time.monotonic,
+    sleeper=time.sleep,
+) -> dict[str, Any]:
+    if timeout < 0 or initial_interval <= 0:
+        raise ReleaseError("poll timeout must be >= 0 and poll interval must be > 0")
+    deadline = clock() + timeout
+    delay = initial_interval
+    while True:
+        try:
+            return verify_once(expected, verifier_repo, catalog_url, signature_url)
+        except ReleaseError as failure:
+            remaining = deadline - clock()
+            if remaining <= 0:
+                raise
+            wait = min(delay, remaining)
+            print(
+                f"catalog not yet showing expected plugin versions ({failure}); "
+                f"retrying in {wait:.1f}s...",
+                file=sys.stderr,
+            )
+            sleeper(wait)
+            delay = min(delay * 1.5, 15.0)
 
 
 def main(argv=None) -> int:
     args = parser().parse_args(argv)
     try:
-        plan = read_document(args.plan, "plan")
-        expected = plan.get("plugins", {}).get("expectedCandidates")
-        if not isinstance(expected, list) or not expected:
-            raise ReleaseError("release plan has no plugin candidates to verify")
+        expected = load_expected_candidates(args.plan)
         verifier_repo = args.verifier_repo.resolve()
-        catalog_bytes = fetch(args.catalog_url, "application/json")
-        signature_bytes = fetch(args.signature_url, "application/json")
-        verify_signature(verifier_repo, catalog_bytes, signature_bytes)
-        catalog = parse_object(catalog_bytes, "plugin catalog")
-        signature = parse_object(signature_bytes, "plugin catalog signature")
-        result = verify_expected(catalog, expected)
-        fingerprint = {
-            "catalogVersion": str(catalog.get("catalogVersion")),
-            "generation": generation(catalog),
-            "sha256": hashlib.sha256(catalog_bytes).hexdigest(),
-            "keyId": signature.get("keyId"),
-            "url": args.catalog_url,
-        }
-        if not isinstance(fingerprint["keyId"], str) or not fingerprint["keyId"]:
-            raise ReleaseError("verified signature lacks a keyId")
-        output = {
-            "schemaVersion": 2,
-            "catalogFingerprint": fingerprint,
-            "plugins": result,
-        }
+        output = poll_until_verified(
+            expected,
+            verifier_repo,
+            args.catalog_url,
+            args.signature_url,
+            args.timeout,
+            args.poll_interval,
+        )
         encoded = json.dumps(output, ensure_ascii=False, allow_nan=False, separators=(",", ":"), sort_keys=True) + "\n"
         if args.output:
             args.output.resolve().parent.mkdir(parents=True, exist_ok=True)
@@ -73,7 +147,7 @@ def main(argv=None) -> int:
         else:
             sys.stdout.write(encoded)
         return 0
-    except ReleaseError as failure:
+    except (ReleaseError, OSError) as failure:
         print(f"plugin publication verification failed: {failure}", file=sys.stderr)
         return 1
 
