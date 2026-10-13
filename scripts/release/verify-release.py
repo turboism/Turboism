@@ -79,7 +79,7 @@ def verify_zip(path: Path, version: str, full: bool, plugins: set[str]) -> None:
             f"expected: {sorted(plugins)}\nactual: {sorted(packaged)}"
         )
     if not full and packaged:
-        raise ValueError(f"lite archive contains plugins: {path}")
+        raise ValueError(f"thin archive contains plugins: {path}")
     if version not in readme:
         raise ValueError(f"README does not contain release version: {path}")
     if manifest_version(agent) != version:
@@ -94,10 +94,10 @@ def release_artifacts(dist: Path, version: str, channel: str = "stable") -> list
     from turboism_release.channels import require_version
     require_version(version, channel)
     primary = [
-        dist / f"turboism-{version}-lite.zip",
+        dist / f"turboism-{version}-thin.zip",
         dist / f"turboism-{version}-full.zip",
-        dist / f"TurboismInstaller-{version}.exe",
-        dist / f"TurboismInstaller-{version}.jar",
+        dist / f"TurboismInstaller-{version}-full.exe",
+        dist / f"TurboismInstaller-{version}-thin.exe",
         dist / f"turboism-sdk-{version}.jar",
         dist / f"turboism-event-processor-{version}.jar",
     ]
@@ -173,7 +173,7 @@ def verify(
         raise ValueError("release plugin roster is required")
     plugins = release_plugin_modules(release_plugins)
     verify_zip(
-        dist / f"turboism-{version}-lite.zip",
+        dist / f"turboism-{version}-thin.zip",
         version,
         full=False,
         plugins=plugins,
