@@ -1,3 +1,5 @@
+plugin.description
+plugin.name
 warp-alt-symmetry.description
 warp-alt-symmetry.hint.horizontal
 warp-alt-symmetry.hint.vertical

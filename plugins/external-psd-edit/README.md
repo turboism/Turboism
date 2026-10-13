@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.external-psd-edit
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: modeling
 tags: psd, texture, external-edit
 turboismApi: "[0.1.0,0.2.0)"
@@ -14,7 +14,7 @@ interface: embedded
 
 # External PSD Edit Plugin
 
-> **Official Turboism plugin** · **Status: Development**
+> **Official Turboism plugin** · **Status: Preview**
 
 Right-click ArtMeshes to edit their complete raw PSD in the operating system's default PSD application; each stable save applies a Cubism native explicit-target raw-image replacement.
 
@@ -59,7 +59,7 @@ Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 
 ## Install and enable
 
-This is a **development-only** module, not a published store listing or release-delivery plugin. Load it only through the repository's development runtime and enable it in **Plugin Management** while validating the feature.
+Bundled with the official Turboism distribution. Select it in the installer or enable and disable it in **Plugin Management**.
 
 ## How to use
 
@@ -105,7 +105,7 @@ Plugin lifecycle and failure records can appear in Turboism's session log with t
 
 ## Status and limitations
 
-- **Status:** Development; host evidence for the full edit/save/replace loop is still being gathered.
+- **Status:** Preview; host evidence for the full edit/save/replace loop continues to expand.
 - The export is Cubism's native layered-image rebuild. PSD-only constructs that Cubism does not model are not guaranteed to round-trip.
 - Only saves to the issued temporary file are imported. "Save As" to another path, closing without saving, or editing a copy does not trigger replacement.
 - A raw image shared by several model images or ArtMeshes is edited once; the replacement affects every dependent object.

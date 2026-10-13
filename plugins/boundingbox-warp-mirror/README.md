@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.boundingbox-warp-mirror
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: modeling
 tags: deformer, warp, editing, symmetry, boundingbox
 turboismApi: "[0.1.0,0.2.0)"
@@ -14,7 +14,7 @@ interface: none
 
 # BoundingBox Warp Mirror
 
-> **Official Turboism plugin** · **Status: Development**
+> **Official Turboism plugin** · **Status: Preview**
 
 Ports the legacy BoundingBox overlay mirror workflow: an overlay button opens a
 mirror-direction dialog and applies a one-shot, whole-object mirror to every selected
@@ -89,7 +89,7 @@ nothing anywhere.
 
 ## Status and limitations
 
-- Development status. Whole-object mirroring only — control-point subsets are not
+- Preview status. Whole-object mirroring only — control-point subsets are not
   supported. ArtMesh and Rotation Deformers are never mirror targets.
 - Rejects locked targets/descendants, Glue-bearing models, non-stored keyform edit
   contexts, degenerate grids, and unsolvable compensation instead of weakening the

@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.warp-deformer-alt-symmetry
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: modeling
 tags: deformer, warp, editing, symmetry
 turboismApi: "[0.1.0,0.2.0)"
@@ -14,7 +14,7 @@ interface: none
 
 # Warp Deformer Alt Symmetry
 
-> **Official Turboism plugin** · **Status: Development**
+> **Official Turboism plugin** · **Status: Preview**
 
 Extends Cubism's native bounding-box Alt symmetric semantics to Warp Deformer
 control points, with a canvas-strip mirror-axis button and a drawing-area hint.
@@ -58,10 +58,8 @@ Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 
 ## Install and enable
 
-This is a **development-only** module, not a published store listing or
-release-delivery plugin. Load it only through the repository's development
-runtime and enable it in **Plugin Management** when validating the
-mirror-axis workflow.
+Bundled with the official Turboism distribution. Select it in the installer or
+enable and disable it in **Plugin Management**.
 
 ## How to use
 
@@ -109,7 +107,7 @@ Cubism's host log with the plugin ID attached.
 
 ## Status and limitations
 
-- **Status:** Development.
+- **Status:** Preview.
 - Undo needs two steps for v1: one for the native drag, one for the mirrored
   commit (the SDK exposes no history-merge API yet).
 - Points resting on the active mirror axis only follow the native drag.

@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.command-palette
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: workflow
 tags: launcher, commands, shortcut
 turboismApi: "[0.1.0,0.2.0)"
@@ -14,7 +14,7 @@ interface: swing
 
 # Command Palette
 
-> **Official Turboism plugin** · **Status: Development**
+> **Official Turboism plugin** · **Status: Preview**
 
 Opens a Ctrl+K launcher over the Editor's supported menu commands and other plugins' registered actions, searchable by id or localized name.
 
@@ -54,7 +54,7 @@ Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 
 ## Install and enable
 
-This official plugin is under development and not yet part of release packaging. Build it with `./gradlew :plugins:command-palette:jar`, place the jar in the Turboism `plugins/` directory, then enable it in **Plugin Management**. Disable or uninstall it from the same window when the workflow is not needed.
+Bundled with the official Turboism distribution. Select it in the installer or enable and disable it in **Plugin Management**.
 
 ## How to use
 
@@ -101,7 +101,7 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 
 ## Status and limitations
 
-- **Status:** Development.
+- **Status:** Preview.
 - The palette lists the parameterless Editor command set exposed by `EditorCommandService` and plugin actions exposed by `ActionCatalogService`; file-path and parameterized commands are not included.
 - Only commands the host reports as currently available (and permitted for this plugin) appear in the list; actions appear while their owning plugin stays enabled. The palette's own action and the shell's internal `turboism.core` actions are excluded.
 - Action rows display the label supplied by the owning plugin, which may be English-only when that plugin does not localize its action labels.

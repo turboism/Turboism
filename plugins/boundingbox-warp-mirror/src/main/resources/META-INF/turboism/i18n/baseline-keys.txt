@@ -9,6 +9,8 @@ dialog.preserveChildren
 dialog.preserveChildren.tooltip
 dialog.title
 overlay.tooltip
+plugin.description
+plugin.name
 result.blocker.degenerate-geometry
 result.blocker.descendant-locked
 result.blocker.glue-present

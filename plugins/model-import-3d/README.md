@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.model-import-3d
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: workflow
 tags: 3d, glb, gltf, obj, import
 turboismApi: "[0.1.0,0.2.0)"
@@ -12,7 +12,7 @@ requiresCubism: true
 interface: embedded
 ---
 
-# 3D 模型导入
+# 3D Model Import
 
 ## What it does
 
@@ -31,7 +31,7 @@ Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 
 ## Install and enable
 
-This is a development plugin, not a released store package. Build with `./gradlew :plugins:model-import-3d:jar --offline`, then install the resulting JAR through your Turboism development plugin workflow and enable it. The JAR contains the SDK-only importer and excludes HostProbe, Turboism runtime and official Editor classes. Host validation uses isolated queued sessions. Unit tests that exercise large local 3D model fixtures (`artifacts/` and `build/model-import-3d-inputs/`) skip via JUnit `Assumptions` on clean checkouts; stage or symlink the directories (or set `TURBOISM_IMPORT_3D_ARTIFACTS` / `TURBOISM_IMPORT_3D_INPUTS`) to run them, and pass `-Pturboism.requireImport3dFixtures=true` (or `TURBOISM_REQUIRE_IMPORT_3D_FIXTURES=true`) to fail if any fixture is missing.
+Bundled with the official Turboism distribution; select **3D Model Import** in the installer or enable it in **Plugin Management**. For local builds, run `./gradlew :plugins:model-import-3d:jar --offline`. The JAR contains the SDK-only importer and excludes HostProbe, Turboism runtime and official Editor classes. Host validation uses isolated queued sessions. Unit tests that exercise large local 3D model fixtures (`artifacts/` and `build/model-import-3d-inputs/`) skip via JUnit `Assumptions` on clean checkouts; stage or symlink the directories (or set `TURBOISM_IMPORT_3D_ARTIFACTS` / `TURBOISM_IMPORT_3D_INPUTS`) to run them, and pass `-Pturboism.requireImport3dFixtures=true` (or `TURBOISM_REQUIRE_IMPORT_3D_FIXTURES=true`) to fail if any fixture is missing.
 
 ## How to use
 

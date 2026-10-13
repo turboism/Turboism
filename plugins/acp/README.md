@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.acp
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: integration
 tags: automation, acp, agent
 turboismApi: "[0.1.0,0.2.0)"
@@ -14,7 +14,7 @@ interface: swing
 
 # Turboism ACP
 
-> **Turboism official plugin** · **Status: Development — not released**
+> **Turboism official plugin** · **Status: Preview**
 
 Opens an Agent conversation window and a Settings window. Drives a user-installed, ACP v1 compatible agent through the Agent Client Protocol and attaches the local Turboism MCP server through a credential-free stdio bridge.
 
@@ -86,7 +86,7 @@ Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 
 ## Status and limitations
 
-- Development plugin: the surface and persisted state format may change between releases.
+- Preview plugin: the surface and persisted state format may evolve between releases.
 - Agent-side features (durable sessions, model selectors, modes) depend on the capabilities each agent advertises.
 
 ## Troubleshooting

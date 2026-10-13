@@ -12763,7 +12763,7 @@
   },
   {
    "id": "dev.turboism.plugin.model-import-3d",
-   "name": "3D 模型导入",
+   "name": "3D Model Import",
    "directory": "model-import-3d",
    "requiresCubism": true,
    "supportedVersions": [
