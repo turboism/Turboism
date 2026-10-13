@@ -273,6 +273,8 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 - 설정 탭에서 Cubism JVM ZGC 실행 제어 및 편집 중 자동 백업 일시 중단 스위치 제공.
 - `devCheck`에 버전 적응 게이트 추가: 패치 라인 단조성, 리터럴 버전 집합 등록, SDK `@CubismEditor` 어노테이션 기준선, 실기 검증 작업 버전. 규칙은 `CONTRIBUTING.md`에 정리되어 있습니다.
 - 테스트 자산: `test-assets/model-import-3d/`에 자체 제작한 소형 GLB 모델을 포함하고, 버전별 테스트 코퍼스(`test-assets/corpus.json`, `scripts/test_corpus.py fetch|verify`)를 추가했습니다. CC0-1.0 텍스처 아틀라스 CMO3/PSD 세트는 GitHub Release 자산으로 배포됩니다. 원격 위생 검사는 `.cmo3`, `.can3`, `.psd`, `.moc3` 커밋을 거부합니다.
+- 각 릴리스는 지원하는 Cubism Editor 버전을 메타데이터에 선언합니다. 다운로드 사이트는 채널별로 이를 표시하고 새 호환성 페이지(https://turboism.dev/docs/use/compatibility)로 연결합니다.
+- 플러그인 개발자는 독립 템플릿 저장소 `turboism/turboism-plugin-template`에서 시작할 수 있습니다. setup 스크립트가 SDK와 새 릴리스 자산 `turboism-event-processor-<version>.jar`(`@SubscribeEvent`에 필요)를 가져와 검증하고, 스캐폴드 이름을 바꾸고 Cubism 버전 선언을 작성합니다.
 
 ### 변경
 

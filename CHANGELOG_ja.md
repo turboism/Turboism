@@ -298,6 +298,8 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 - 設定タブに Cubism JVM ZGC 起動制御と編集中の一時的自動バックアップ停止スイッチを追加。
 - `devCheck` にバージョン適応ゲートを追加：パッチラインの単調性、バージョン集合リテラルの登録、SDK `@CubismEditor` アノテーションのベースライン、実機検証タスクのバージョン。ルールは `CONTRIBUTING.md` に記載しています。
 - テスト資産：`test-assets/model-import-3d/` に自作の小さな GLB モデルを収録。バージョン付きテストコーパス（`test-assets/corpus.json`、`scripts/test_corpus.py fetch|verify`）を追加し、CC0-1.0 のテクスチャアトラス CMO3/PSD セットは GitHub Release アセットとして公開します。リモート衛生チェックは `.cmo3`・`.can3`・`.psd`・`.moc3` のコミットを拒否します。
+- 各リリースは対応する Cubism Editor のバージョンをメタデータで宣言します。ダウンロードサイトはチャンネルごとに表示し、新しい互換性ページ（https://turboism.dev/docs/use/compatibility）にリンクします。
+- プラグイン開発者は独立したテンプレートリポジトリ `turboism/turboism-plugin-template` から始められます。setup スクリプトが SDK と新しいリリースアセット `turboism-event-processor-<version>.jar`（`@SubscribeEvent` に必要）を取得・検証し、スキャフォールドの名前を変更して Cubism バージョン宣言を書き込みます。
 
 ### 変更
 

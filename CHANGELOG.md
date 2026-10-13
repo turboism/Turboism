@@ -68,6 +68,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   (`test-assets/corpus.json`, `scripts/test_corpus.py fetch|verify`) whose large CC0-1.0 texture-atlas
   CMO3/PSD set is published as a GitHub Release asset. Remote hygiene rejects committed `.cmo3`, `.can3`,
   `.psd` and `.moc3` files.
+- Each release declares its supported Cubism Editor versions in its metadata; the download site shows them per
+  channel and links to the new compatibility page (https://turboism.dev/docs/use/compatibility).
+- Plugin developers can start from the standalone template repository `turboism/turboism-plugin-template`: its
+  setup script fetches and verifies the SDK and the new `turboism-event-processor-<version>.jar` release asset
+  (needed for `@SubscribeEvent`), renames the scaffold and writes the Cubism version declaration.
 
 ### Changed
 
