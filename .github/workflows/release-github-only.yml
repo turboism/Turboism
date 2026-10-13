@@ -29,7 +29,7 @@ permissions:
   contents: write
 
 env:
-  PLUGIN_DIRECTORY_REVISION: a5aac1f7bdae6eb7f27f7045d25b50c7454ef0c8
+  PLUGIN_DIRECTORY_REVISION: 8c3df121973846f4cece0dbcf60ba56ecc70b50a
 
 concurrency:
   group: turboism-production-release
