@@ -27,23 +27,35 @@ Turboism は **Live2D Cubism Editor** 向けの、Windows を主な対象とす�
 
 Cubism のホスト環境として対応しているのは **Windows x64** です。記載のない Editor バージョンとの互換性は保証しません。必要なアダプターや機能が利用できない場合は、安全のため動作を拒否します。対応バージョンであっても、すべてのプラグイン機能が利用できるとは限りません。
 
-Java インストーラーは macOS と Linux へのファイル配置にも対応しています。ただし、macOS のパッケージングはプレビュー段階で、Cubism ホストとしての動作は未検証です。Linux はインストーラーとファイル配置の動作のみを対象としており、Cubism ホストとしては非対応です。
+macOS と Linux ではポータブル ZIP アーカイブ（`turboism-<version>-full.zip` または `turboism-<version>-thin.zip`）を展開して使用できます。ただし、macOS のパッケージングはプレビュー段階で、Cubism ホストとしての動作は未検証です。Linux はファイル配置とランタイム動作のみを対象としており、Cubism ホストとしては非対応です。
 
 ## インストール
 
-[最新の GitHub Release](https://github.com/turboism/Turboism/releases/latest)からパッケージと対応する `.sha256` ファイルをダウンロードしてください。以下の**いずれか一つ**の方法を選びます。インストールや更新の前に Cubism を終了し、プロジェクトをバックアップしてください。
+[最新の GitHub Release](https://github.com/turboism/Turboism/releases/latest)からパッケージと対応する `.sha256` ファイルをダウンロードしてください。2 つのバリアントに分かれた 4 つの正式リリース資産が提供されます：
+- **Full**（`TurboismInstaller-<version>-full.exe`、`turboism-<version>-full.zip`）：ランタイムフレームワークとすべての同梱ファーストパーティープラグイン。
+- **Thin**（`TurboismInstaller-<version>-thin.exe`、`turboism-<version>-thin.zip`）：ランタイムフレームワークのみ（ファーストパーティープラグインは含まれず、後からプラグインマーケットより導入します）。
+
+以下のインストール方法を選びます。インストールや更新の前に Cubism を終了し、プロジェクトをバックアップしてください。
 
 すべての Turboism インストーラーは**英語、簡体字中国語、日本語、韓国語**に対応しています。言語の選択はインストーラー自身の表示だけを変え、実行時の Turboism の言語は引き続き `config.json` の `locale` で決まります。
 
 現在のインストーラーにはコード署名がありません。実行前に、ダウンロードしたファイルの SHA-256 を付属のチェックサムと照合してください。PowerShell の例です（`<version>` はダウンロードしたバージョンに置き換えます）。
 
 ```powershell
-Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256
+Get-FileHash ".\TurboismInstaller-<version>-full.exe" -Algorithm SHA256
 ```
+
+### EXE — Windows での推奨方法
+
+`TurboismInstaller-<version>-full.exe`（Full）または `TurboismInstaller-<version>-thin.exe`（Thin）を実行し、ウィザードに従ってインストール先と起動オプションを選択します。Full インストーラーはすべてのファーストパーティープラグインをインストールし、個別選択画面はありません。Thin インストーラーはプラグインをインストールしません。プラグインの無効化・設定は後からプラグイン管理で行えます。ようこそページの前に言語選択（英語、簡体字中国語、日本語、韓国語）が表示され、インストーラーにのみ適用されます。インストール後は、作成された Turboism ショートカットを使用してください。
+
+Cubism 公式の起動 BAT との統合は**任意**であり、明示的な選択が必要です。ハッシュ検証付きのバックアップを使用しますが、後から手動で編集されたファイルは自動復元できない場合があります。これらのインストーラー管理下のバックアップとは別に、プロジェクトのバックアップを保存してください。
+
+安全なアップグレード：既にある Full インストール環境に Thin インストーラーを適用しても既存の `plugins/` はそのまま保持されます。Thin 環境に Full インストーラーを適用すると、既存の `disabledPlugins` 設定を尊重しながらすべてのファーストパーティープラグインを導入・更新します。
 
 ### ZIP — Windows での手動セットアップ
 
-1. 同梱のファーストパーティープラグインを使う場合は `turboism-<version>-full.zip`、プラグイン JAR を含まないランタイムのみの場合は `turboism-<version>-lite.zip` を選びます。
+1. 同梱のファーストパーティープラグインを使う場合は `turboism-<version>-full.zip`、プラグイン JAR を含まないランタイムのみの場合は `turboism-<version>-thin.zip` を選びます。
 2. **アーカイブ全体**を独立した Turboism フォルダーに展開してください。Cubism のインストール先には展開しないでください。
 3. 展開先のフォルダーから設定ツールを開きます。
 
@@ -53,22 +65,6 @@ Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256
 
    実行ポリシーの指定は、この PowerShell プロセスだけに適用されます。使用する Cubism のインストール先とプラグインを選択し、保存してください。
 4. 作成された Turboism ショートカット、または同じフォルダー内の `launch-cubism-turboism.bat` から Cubism を起動します。
-
-### JAR — Java インストーラー
-
-**Java 17 以降**をインストールしてから実行します。
-
-```bash
-java -jar "TurboismInstaller-<version>.jar"
-```
-
-ライセンスと声明を確認し、インストール先とパッケージのオプションを選んでセットアップを完了します。ウィザードの起動時に 4 言語の言語選択ダイアログが開きます。`-language eng|chn|jpn|kor` を渡すと選択を省略できます。Windows では、必要に応じてインストール先の `configure_turboism.ps1` で Cubism を設定し、Turboism 経由で起動してください。macOS/Linux にファイルをインストールできることは、その環境での Cubism ホスト対応を意味しません。
-
-### EXE — Windows での推奨方法
-
-`TurboismInstaller-<version>.exe` を実行し、ウィザードに従ってインストール先、プラグイン、起動オプションを選択します。ようこそページの前に言語選択（英語、簡体字中国語、日本語、韓国語）が表示され、インストーラーにのみ適用されます。インストール後は、作成された Turboism ショートカットを使用してください。
-
-Cubism 公式の起動 BAT との統合は**任意**であり、明示的な選択が必要です。ハッシュ検証付きのバックアップを使用しますが、後から手動で編集されたファイルは自動復元できない場合があります。これらのインストーラー管理下のバックアップとは別に、プロジェクトのバックアップを保存してください。
 
 どのリリースパッケージにも、管理対象の fx ランタイムファイルや開発専用の Turboism with fx プラグインは含まれません。
 
