@@ -642,6 +642,48 @@ final class RuntimeUpdateServiceTest {
         }
     }
 
+    @Test
+    void betaAndNightlyBuildsQueryTheirOwnChannelAndPersistIndependentPluginUpdatePreference(@TempDir final Path home)
+            throws Exception {
+        final UpdatePreferencesStore prefs = new UpdatePreferencesStore(home);
+        assertTrue(prefs.read().automaticChecksEnabled());
+        assertTrue(prefs.automaticPluginUpdatesEnabled());
+        assertTrue(prefs.saveAutomaticPluginUpdatesEnabled(false).saved());
+        assertTrue(prefs.read().automaticChecksEnabled());
+        assertFalse(prefs.automaticPluginUpdatesEnabled());
+        assertTrue(prefs.save(new CoreUpdateService.Preferences(false)).saved());
+        assertFalse(prefs.read().automaticChecksEnabled());
+        assertFalse(prefs.automaticPluginUpdatesEnabled());
+
+        final DeferredTransport transport = new DeferredTransport();
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeUpdateService betaService = installedService(
+                home,
+                scheduler,
+                transport,
+                InstalledBuild.of(
+                        "0.67.0-beta.1",
+                        UpdateDiscovery.CHANNEL_BETA,
+                        java.util.OptionalLong.of(10L),
+                        "0.67.0-beta.1 (beta, Build 10)"),
+                ignored -> {});
+        try {
+            final CompletionStage<CoreUpdateService.Snapshot> check = betaService.checkManual();
+            assertTrue(transport.requested.await(2, TimeUnit.SECONDS));
+            transport.completeWithDocument("{\"schemaVersion\":1,\"channel\":\"beta\",\"status\":\"ready\","
+                    + "\"release\":{\"version\":\"0.67.0-beta.2\",\"buildNumber\":11,"
+                    + "\"publishedAt\":\"2026-10-01T00:00:00Z\"}}");
+            final CoreUpdateService.Snapshot snapshot =
+                    check.toCompletableFuture().get(2, TimeUnit.SECONDS);
+            assertEquals(CoreUpdateService.Status.UPDATE_AVAILABLE, snapshot.status());
+            assertEquals(Optional.of("0.67.0-beta.2"), snapshot.availableVersion());
+            assertEquals(Optional.of("0.67.0-beta.2 (Build 11)"), snapshot.availableIdentity());
+        } finally {
+            betaService.close();
+            scheduler.shutdown();
+        }
+    }
+
     private static RuntimeUpdateService installedService(
             final Path home,
             final RuntimeScheduler scheduler,

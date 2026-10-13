@@ -4,6 +4,7 @@ import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.internal.core.CoreUpdateService;
 import dev.turboism.internal.core.ShellHandle;
 import dev.turboism.internal.core.ShellServices;
+import dev.turboism.pluginmanagement.PluginAutoUpdateControl;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
@@ -40,10 +41,13 @@ public final class CoreShell implements ShellHandle {
     private CoreWindows windows;
     private volatile boolean closed;
     private final AtomicLong updateUiGeneration = new AtomicLong();
+    private final AtomicLong pluginUpdateUiGeneration = new AtomicLong();
     /** Keyed hint id: re-issuing the same key refreshes the native hint instead of stacking one. */
     private static final String UPDATE_HINT_ID = "turboism-update-available";
 
     private static final String CHECK_RESULT_HINT_ID = "turboism-update-check-result";
+    private static final String PLUGIN_UPDATE_HINT_ID = "turboism-plugin-updates-ready";
+    private static final String PLUGIN_UPDATE_CHECK_RESULT_HINT_ID = "turboism-plugin-update-check-result";
     private static final float CHECK_RESULT_HINT_SECONDS = 5.0f;
     /** Sits after the core menu items, which occupy 10..14. */
     private static final int UPDATE_MENU_ORDER = 15;
@@ -199,6 +203,7 @@ public final class CoreShell implements ShellHandle {
                         .contributeSettings(AtlasCacheReuseSettingsContribution.create(
                                 localization(context), services.atlasCacheReuseSettings())));
         registerUpdateFeatures();
+        registerPluginUpdateFeatures();
         registerPluginActions();
         registerPanelTabActions();
         context.disposableScope().register(plugins);
@@ -212,6 +217,9 @@ public final class CoreShell implements ShellHandle {
         context.disposableScope().register(homeEntryService.registerAboutMenu());
         context.disposableScope().register(homeEntryService.registerHomeEntry());
         if (services.update().available()) services.update().start();
+        if (plugins instanceof PluginAutoUpdateControl pluginUpdates && pluginUpdates.autoUpdateAvailable()) {
+            pluginUpdates.startPluginAutoUpdater();
+        }
         logger.info("Turboism main toolbar icon mode selected: " + (settings.useTextIcon() ? "text" : "installer"));
         applyAutoBackupPreference(services.cubismJvmSettings().reduceAutoBackup());
         logger.info("Turboism core enabled");
@@ -312,12 +320,86 @@ public final class CoreShell implements ShellHandle {
     public void close() {
         closed = true;
         updateUiGeneration.incrementAndGet();
+        pluginUpdateUiGeneration.incrementAndGet();
         closeUpdateHint();
         if (historyProviderRegistration != null) {
             historyProviderRegistration.unregister();
             historyProviderRegistration = null;
         }
         logger.info("Turboism core shutdown");
+    }
+
+    private void registerPluginUpdateFeatures() {
+        if (!(plugins instanceof PluginAutoUpdateControl pluginUpdates) || !pluginUpdates.autoUpdateAvailable()) {
+            return;
+        }
+        registerAction(
+                PluginAutoUpdateControl.MANUAL_CHECK_ACTION_ID,
+                localized("plugins.updates.check", "Check for plugin updates"),
+                ignored -> pluginUpdates.checkForPluginUpdates());
+        try {
+            context.disposableScope()
+                    .register(context.services()
+                            .require(UiHostCapabilityService.class)
+                            .contributeSettings(CoreUpdateSettingsContribution.createPluginUpdates(
+                                    localization(context), pluginUpdates)));
+        } catch (RuntimeException unavailable) {
+            logger.warn("Plugin update preference contribution unavailable; continuing without it");
+        }
+        context.disposableScope().register(pluginUpdates.subscribePluginUpdates(this::onPluginUpdateSnapshot));
+    }
+
+    private void onPluginUpdateSnapshot(final PluginAutoUpdateControl.Snapshot snapshot) {
+        if (closed) return;
+        final long expectedUiGeneration = pluginUpdateUiGeneration.incrementAndGet();
+        try {
+            context.disposableScope()
+                    .register(context.uiScheduler()
+                            .runOnUiThread(() -> applyPluginUpdateSnapshot(snapshot, expectedUiGeneration)));
+        } catch (RuntimeException rejected) {
+            logger.warn("Plugin update UI dispatch was rejected safely");
+        }
+    }
+
+    private void applyPluginUpdateSnapshot(
+            final PluginAutoUpdateControl.Snapshot snapshot, final long expectedUiGeneration) {
+        if (closed || pluginUpdateUiGeneration.get() != expectedUiGeneration) return;
+        try {
+            if (snapshot.status() == PluginAutoUpdateControl.Status.UPDATES_STAGED) {
+                if (snapshot.reminder() || snapshot.userInitiated()) {
+                    final String message = localized(
+                            "plugins.updates.hint.ready", "Official plugin updates are ready; restart Cubism to apply");
+                    context.disposableScope()
+                            .register(context.services()
+                                    .require(UiHostCapabilityService.class)
+                                    .notifyDismissibleCanvasHint(new CanvasHintNotification(
+                                            PLUGIN_UPDATE_HINT_ID, message, CanvasHintNotification.UNTIL_DISMISSED)));
+                    logger.info("PLUGIN_UPDATE_HINT_SENT id=" + PLUGIN_UPDATE_HINT_ID + " count="
+                            + snapshot.stagedUpdates().size());
+                }
+                refreshPanel();
+            } else if (snapshot.userInitiated()) {
+                final String message =
+                        switch (snapshot.status()) {
+                            case UP_TO_DATE ->
+                                localized("plugins.updates.up-to-date", "Official plugins are up to date.");
+                            case UNAVAILABLE ->
+                                localized(
+                                        "plugins.updates.unavailable",
+                                        "Official plugin updates are currently unavailable.");
+                            default -> null;
+                        };
+                if (message != null) {
+                    context.disposableScope()
+                            .register(context.services()
+                                    .require(UiHostCapabilityService.class)
+                                    .notifyDismissibleCanvasHint(new CanvasHintNotification(
+                                            PLUGIN_UPDATE_CHECK_RESULT_HINT_ID, message, CHECK_RESULT_HINT_SECONDS)));
+                }
+            }
+        } catch (RuntimeException unavailable) {
+            logger.warn("Plugin update canvas hint was unavailable");
+        }
     }
 
     private void registerUpdateFeatures() {
