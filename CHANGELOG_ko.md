@@ -275,6 +275,9 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 - 테스트 자산: `test-assets/model-import-3d/`에 자체 제작한 소형 GLB 모델을 포함하고, 버전별 테스트 코퍼스(`test-assets/corpus.json`, `scripts/test_corpus.py fetch|verify`)를 추가했습니다. CC0-1.0 텍스처 아틀라스 CMO3/PSD 세트는 GitHub Release 자산으로 배포됩니다. 원격 위생 검사는 `.cmo3`, `.can3`, `.psd`, `.moc3` 커밋을 거부합니다.
 - 각 릴리스는 지원하는 Cubism Editor 버전을 메타데이터에 선언합니다. 다운로드 사이트는 채널별로 이를 표시하고 새 호환성 페이지(https://turboism.dev/docs/use/compatibility)로 연결합니다.
 - 플러그인 개발자는 독립 템플릿 저장소 `turboism/turboism-plugin-template`에서 시작할 수 있습니다. setup 스크립트가 SDK와 새 릴리스 자산 `turboism-event-processor-<version>.jar`(`@SubscribeEvent`에 필요)를 가져와 검증하고, 스캐폴드 이름을 바꾸고 Cubism 버전 선언을 작성합니다.
+- Cubism 내 플러그인 마켓(Turboism → 플러그인 마켓…): 서명된 플러그인 디렉터리에서 플러그인을 탐색, 설치, 업데이트, 제거할 수 있습니다. `lifecycle.hotReload`를 선언한 플러그인은 즉시 적용되고, 나머지는 Cubism 재시작 후 적용됩니다. 퍼스트파티 플러그인은 백그라운드에서 자동 업데이트되며 설정에서 끌 수 있습니다. 웹 마켓 https://turboism.dev/plugins 에서 각 플러그인의 README를 보고 필터링할 수 있습니다.
+- Cubism 메뉴 이름이 "Turboism"으로 바뀌고 전용 플러그인 설정 창이 추가되었습니다.
+- 릴리스가 Full과 Thin 변형으로 나뉩니다: `TurboismInstaller-<v>-full.exe`/`-thin.exe`와 `turboism-<v>-full.zip`/`-thin.zip`. Full은 모든 퍼스트파티 플러그인을 포함하고 Thin은 포함하지 않으며, 설치 프로그램의 모드 및 플러그인 선택이 없어졌습니다. Java 설치 프로그램은 더 이상 배포하지 않습니다.
 
 ### 변경
 
