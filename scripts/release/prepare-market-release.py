@@ -1014,7 +1014,7 @@ def build_sidecar(revision: str, prepared: list) -> dict:
                 "publishedEvents": descriptor["eventExports"],
                 "subscribedEvents": descriptor["eventImports"],
                 "embeddedContracts": descriptor["eventContracts"],
-                "hotReload": descriptor.get("hotReload", False),
+                "lifecycle": {"hotReload": bool(descriptor.get("hotReload", False))},
             },
             "localizations": {
                 locale: {"name": entry["plugin.name"],
