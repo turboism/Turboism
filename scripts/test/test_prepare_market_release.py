@@ -235,11 +235,28 @@ class ManifestValidationTest(unittest.TestCase):
         self.assertEqual(result.stdout.strip(), "selected=0")
         self.assertFalse((self.tmp / "out").exists())
 
-    def test_real_repo_empty_manifest_plan(self):
+    def test_real_repo_manifest_plan(self):
+        expected_projects = [
+            line.strip()
+            for line in (REPO_ROOT / "packaging/release-plugins.txt").read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.strip().startswith("#") and line.strip() != ":plugins:core"
+        ]
         result = run_script(REPO_ROOT, "--manifest",
                             str(REPO_ROOT / "packaging/market-plugins.json"), "--plan")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.strip(), "selected=0")
+        self.assertEqual(result.stdout.strip(), f"selected={len(expected_projects)}")
+        default_result = run_script(REPO_ROOT, "--plan")
+        self.assertEqual(default_result.returncode, 0, default_result.stderr)
+        self.assertEqual(default_result.stdout.strip(), f"selected={len(expected_projects)}")
+
+    def test_release_roster_sync_gate_rejects_drift(self):
+        (self.tmp / "packaging/release-plugins.txt").write_text(
+            ":plugins:mcp\n:plugins:metrics\n:plugins:webdav-backup\n",
+            encoding="utf-8",
+        )
+        result = run_script(self.tmp, "--plan")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("does not match", result.stderr)
 
     def test_duplicate_entries_rejected(self):
         self.plan([
@@ -791,6 +808,252 @@ class StagingTest(unittest.TestCase):
         self.assertFalse(self.output.exists())
         leftovers = list(self.tmp.glob("release.tmp-*"))
         self.assertEqual(leftovers, [])
+
+
+class ContentAddressedAutoBumpTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.fixture = Fixture(self.tmp)
+        self.manifest = self.fixture.write_manifest([
+            {"project": ":plugins:mcp", "channel": "stable",
+             "cubismVersions": ["5.3.02"],
+             "repository": "https://example.invalid/mcp",
+             "support": "https://example.invalid/mcp/support"},
+            {"project": ":plugins:webdav-backup", "channel": "stable",
+             "cubismVersions": ["5.2.03", "5.3.02"],
+             "repository": "https://example.invalid/webdav-backup",
+             "support": "https://example.invalid/webdav-backup/support"},
+        ])
+        self.build_root = self.tmp / "build" / "market-publish"
+        self.output = self.tmp / "release"
+        self.catalog_path = self.tmp / "catalog.json"
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def write_catalog(self, plugins: list) -> Path:
+        doc = {
+            "format": "turboism.plugin.catalog",
+            "schemaVersion": 2,
+            "catalogVersion": 1,
+            "publishedAt": "2026-08-16T08:48:40Z",
+            "plugins": plugins,
+        }
+        self.catalog_path.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+        return self.catalog_path
+
+    def test_first_publish_assigns_framework_base_and_injects_descriptor_version(self):
+        self.write_catalog([])
+        result = run_script(
+            self.tmp,
+            "--manifest", str(self.manifest),
+            "--build-root", str(self.build_root),
+            "--output", str(self.output),
+            "--source-revision", GIT_SHA,
+            "--catalog", str(self.catalog_path),
+            "--framework-version", "0.67.0",
+            "--release-channel", "stable",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "selected=2")
+        # Source descriptors remain untouched at 0.1.0.
+        self.assertEqual(json.loads(self.fixture.mcp_descriptor.read_text())["version"], "0.1.0")
+        self.assertEqual(json.loads(self.fixture.backup_descriptor.read_text())["version"], "0.1.0")
+        # Staged JARs and sidecar carry the injected 0.67.0 version.
+        names = sorted(p.name for p in self.output.iterdir())
+        self.assertEqual(names, ["market-release.json", "mcp-0.67.0.jar", "webdav-backup-0.67.0.jar"])
+        sidecar = json.loads((self.output / "market-release.json").read_text(encoding="utf-8"))
+        for artifact in sidecar["artifacts"]:
+            self.assertEqual(artifact["descriptor"]["version"], "0.67.0")
+            self.assertEqual(artifact["policy"]["channel"], "stable")
+            jar_path = self.output / artifact["asset"]
+            with zipfile.ZipFile(jar_path) as archive:
+                embedded_raw = archive.read(DESCRIPTOR_ENTRY)
+            self.assertEqual(hashlib.sha256(embedded_raw).hexdigest(), artifact["descriptorSha256"])
+            self.assertEqual(json.loads(embedded_raw)["version"], "0.67.0")
+
+    def test_changed_plugin_bumps_patch_and_unchanged_plugin_is_skipped(self):
+        # First publish at 0.67.0
+        self.write_catalog([])
+        run_script(
+            self.tmp,
+            "--manifest", str(self.manifest),
+            "--build-root", str(self.build_root),
+            "--output", str(self.output),
+            "--source-revision", GIT_SHA,
+            "--catalog", str(self.catalog_path),
+            "--framework-version", "0.67.0",
+        )
+        first_sidecar = json.loads((self.output / "market-release.json").read_text(encoding="utf-8"))
+        catalog_plugins = []
+        for art in first_sidecar["artifacts"]:
+            published_jar = self.tmp / f"published-{art['asset']}"
+            shutil.copy(self.output / art["asset"], published_jar)
+            catalog_plugins.append({
+                "id": art["descriptor"]["id"],
+                "releases": [{
+                    "version": art["descriptor"]["version"],
+                    "channel": "stable",
+                    "artifact": {
+                        "url": published_jar.as_uri(),
+                        "sha256": art["sha256"],
+                        "size": art["size"],
+                        "descriptorSha256": art["descriptorSha256"],
+                    },
+                }],
+            })
+        self.write_catalog(catalog_plugins)
+
+        # Modify only mcp's class bytes; leave webdav-backup untouched.
+        mcp_jar = self.build_root / "mcp/libs/mcp-0.42.0-SNAPSHOT-market-publish.jar"
+        with zipfile.ZipFile(mcp_jar, "a") as archive:
+            archive.writestr("dev/turboism/plugin/fixture/Extra.class", b"changed-bytecode")
+
+        second_out = self.tmp / "release-2"
+        result = run_script(
+            self.tmp,
+            "--manifest", str(self.manifest),
+            "--build-root", str(self.build_root),
+            "--output", str(second_out),
+            "--source-revision", GIT_SHA,
+            "--catalog", str(self.catalog_path),
+            "--framework-version", "0.67.0",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "selected=1")
+        self.assertEqual(sorted(p.name for p in second_out.iterdir()), ["market-release.json", "mcp-0.67.1.jar"])
+        second_sidecar = json.loads((second_out / "market-release.json").read_text(encoding="utf-8"))
+        self.assertEqual(len(second_sidecar["artifacts"]), 1)
+        self.assertEqual(second_sidecar["artifacts"][0]["module"], "mcp")
+        self.assertEqual(second_sidecar["artifacts"][0]["descriptor"]["version"], "0.67.1")
+
+    def test_all_unchanged_skips_all_and_removes_output(self):
+        self.write_catalog([])
+        run_script(
+            self.tmp,
+            "--manifest", str(self.manifest),
+            "--build-root", str(self.build_root),
+            "--output", str(self.output),
+            "--source-revision", GIT_SHA,
+            "--catalog", str(self.catalog_path),
+            "--framework-version", "0.67.0",
+        )
+        first_sidecar = json.loads((self.output / "market-release.json").read_text(encoding="utf-8"))
+        self.write_catalog([
+            {
+                "id": art["descriptor"]["id"],
+                "releases": [{
+                    "version": art["descriptor"]["version"],
+                    "channel": "stable",
+                    "artifact": {
+                        "sha256": art["sha256"],
+                        "size": art["size"],
+                        "descriptorSha256": art["descriptorSha256"],
+                    },
+                }],
+            }
+            for art in first_sidecar["artifacts"]
+        ])
+        result = run_script(
+            self.tmp,
+            "--manifest", str(self.manifest),
+            "--build-root", str(self.build_root),
+            "--output", str(self.output),
+            "--source-revision", GIT_SHA,
+            "--catalog", str(self.catalog_path),
+            "--framework-version", "0.67.0",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "selected=0")
+        self.assertFalse(self.output.exists())
+
+    def test_normalized_digest_skips_when_zip_order_or_timestamps_differ(self):
+        pmr = load_script()
+        mcp_jar = self.build_root / "mcp/libs/mcp-0.42.0-SNAPSHOT-market-publish.jar"
+        reordered = self.tmp / "reordered-mcp.jar"
+        with zipfile.ZipFile(mcp_jar, "r") as source:
+            infos = list(reversed(source.infolist()))
+            with zipfile.ZipFile(reordered, "w") as target:
+                for info in infos:
+                    data = source.read(info.filename)
+                    if info.filename == DESCRIPTOR_ENTRY:
+                        data = pmr.rewrite_descriptor_version(data, "0.67.3")
+                    zinfo = zipfile.ZipInfo(info.filename, date_time=(2025, 6, 1, 12, 0, 0))
+                    target.writestr(zinfo, data)
+        reordered_bytes = reordered.read_bytes()
+        self.assertEqual(pmr.jar_content_digest(mcp_jar.read_bytes()), pmr.jar_content_digest(reordered_bytes))
+        release_entry = {
+            "version": "0.67.3",
+            "artifact": {
+                "url": reordered.as_uri(),
+                "sha256": hashlib.sha256(reordered_bytes).hexdigest(),
+                "size": len(reordered_bytes),
+                "descriptorSha256": "0" * 64,
+            },
+        }
+        _, loader = pmr.load_catalog(str(self.write_catalog([])))
+        self.assertTrue(
+            pmr.jar_matches_catalog_release(
+                mcp_jar.read_bytes(),
+                self.fixture.mcp_descriptor.read_bytes(),
+                release_entry,
+                loader,
+            )
+        )
+
+    def test_beta_maps_to_preview_and_nightly_never_publishes(self):
+        self.write_catalog([])
+        nightly = run_script(
+            self.tmp,
+            "--manifest", str(self.manifest),
+            "--build-root", str(self.build_root),
+            "--output", str(self.output),
+            "--source-revision", GIT_SHA,
+            "--catalog", str(self.catalog_path),
+            "--framework-version", "0.67.0-0.nightly.12",
+            "--release-channel", "nightly",
+        )
+        self.assertEqual(nightly.returncode, 0, nightly.stderr)
+        self.assertEqual(nightly.stdout.strip(), "selected=0")
+        self.assertFalse(self.output.exists())
+
+        beta = run_script(
+            self.tmp,
+            "--manifest", str(self.manifest),
+            "--build-root", str(self.build_root),
+            "--output", str(self.output),
+            "--source-revision", GIT_SHA,
+            "--catalog", str(self.catalog_path),
+            "--framework-version", "0.67.0-beta.1",
+            "--release-channel", "beta",
+        )
+        self.assertEqual(beta.returncode, 0, beta.stderr)
+        self.assertEqual(beta.stdout.strip(), "selected=2")
+        sidecar = json.loads((self.output / "market-release.json").read_text(encoding="utf-8"))
+        for artifact in sidecar["artifacts"]:
+            self.assertEqual(artifact["descriptor"]["version"], "0.67.0")
+            self.assertEqual(artifact["policy"]["channel"], "preview")
+
+    def test_version_progression_across_minor_lines(self):
+        pmr = load_script()
+        self.assertEqual(pmr.resolve_next_plugin_version("0.67.0", []), "0.67.0")
+        self.assertEqual(
+            pmr.resolve_next_plugin_version("0.67.0", [{"version": "0.67.0"}]),
+            "0.67.1",
+        )
+        self.assertEqual(
+            pmr.resolve_next_plugin_version("0.67.0-beta.2", [{"version": "0.67.0"}, {"version": "0.67.1"}]),
+            "0.67.2",
+        )
+        self.assertEqual(
+            pmr.resolve_next_plugin_version("0.68.0", [{"version": "0.67.0"}, {"version": "0.67.2"}]),
+            "0.68.0",
+        )
+        self.assertEqual(
+            pmr.resolve_next_plugin_version("0.68.0", [{"version": "0.67.2"}, {"version": "0.68.0"}]),
+            "0.68.1",
+        )
 
 
 class WorkflowStaticTest(unittest.TestCase):

@@ -120,23 +120,10 @@ def plugin_candidates(repo_root: Path, market_dir: Path | None) -> dict[str, Any
     if market_dir is None:
         preparer = _load_script("prepare_market_candidate", repo_root / "scripts/release/prepare-market-release.py")
         try:
-            prepared = preparer.validate_selection(repo_root, manifest)
+            preparer.validate_selection(repo_root, manifest)
         except (OSError, preparer.MarketError) as failure:
             raise ReleaseError(f"market policy validation failed: {failure}") from failure
-        candidates = []
-        for item in prepared:
-            descriptor_path = preparer.descriptor_path(repo_root, item["module"])
-            candidates.append({
-                "project": item["entry"]["project"],
-                "module": item["module"],
-                "id": item["descriptor"]["id"],
-                "version": item["descriptor"]["version"],
-                "descriptorSha256": file_sha256(descriptor_path),
-                "policy": item["entry"],
-                "policySha256": hashlib.sha256(canonical_bytes(item["entry"])).hexdigest(),
-                "built": False,
-            })
-        return {"policySha256": policy_hash, "candidates": candidates}
+        return {"policySha256": policy_hash, "candidates": []}
 
     sidecar = market_dir / "market-release.json"
     try:
