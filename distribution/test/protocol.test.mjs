@@ -53,4 +53,67 @@ test('a previously verified release snapshot remains available during a transien
  const document=documentFor(snapshot,'stable');
  assert.equal(document.status,'ready');
  assert.equal(document.release.version,'1.2.3');
+ assert.equal(document.release.compatibility,null);
+});
+test('compatibility marker is parsed and validated strictly, falling back to overrides or null',()=>{
+ const source='b'.repeat(40);
+ const validMarker={
+  schemaVersion:1,
+  cubismEditor:{versions:['5.0.00','5.0.01','5.2.03'],ranges:[{from:'5.0.00',to:'5.0.01'},{from:'5.2.03',to:'5.2.03'}]},
+  platforms:['windows-x64'],
+  matrixUrl:'https://turboism.dev/docs/use/compatibility'
+ };
+ const withMarker=parseRelease({...fixture(),body:'Release notes\n<!-- turboism-compatibility-v1 '+JSON.stringify(validMarker)+' -->'},source);
+ assert.deepEqual(withMarker.compatibility,{
+  cubismEditor:validMarker.cubismEditor,
+  platforms:['windows-x64'],
+  matrixUrl:'https://turboism.dev/docs/use/compatibility'
+ });
+ assert.equal(withMarker.notes,'Release notes');
+
+ const v044=parseRelease(fixture('0.44.0'),source);
+ assert.deepEqual(v044.compatibility,{
+  cubismEditor:{versions:['5.2.03','5.3.02','5.3.03'],ranges:[{from:'5.2.03',to:'5.2.03'},{from:'5.3.02',to:'5.3.03'}]},
+  platforms:['windows-x64'],
+  matrixUrl:'https://turboism.dev/docs/use/compatibility'
+ });
+ const nightly=parseRelease(fixture('0.44.1-0.nightly.11',true),source);
+ assert.deepEqual(nightly.compatibility,v044.compatibility);
+ const wildcardNightly=parseRelease(fixture('0.44.1-0.nightly.9',true),source);
+ assert.deepEqual(wildcardNightly.compatibility,v044.compatibility);
+
+ const beta=parseRelease(fixture('0.67.0-beta.1',true),source);
+ assert.equal(beta.compatibility?.cubismEditor.versions.length,20);
+ assert.deepEqual(beta.compatibility?.cubismEditor.ranges,[{from:'5.0.00',to:'5.3.04'}]);
+
+ const overriddenByMarker=parseRelease({...fixture('0.44.0'),body:'Notes\n<!-- turboism-compatibility-v1 '+JSON.stringify(validMarker)+' -->'},source);
+ assert.deepEqual(overriddenByMarker.compatibility.cubismEditor,validMarker.cubismEditor);
+
+ assert.equal(parseRelease(fixture('1.2.3'),source).compatibility,null);
+
+ const invalidPayloads=[
+  {...validMarker,schemaVersion:2},
+  {...validMarker,extra:true},
+  {...validMarker,cubismEditor:{versions:[],ranges:[]}},
+  {...validMarker,cubismEditor:{versions:['4.2.00'],ranges:[{from:'4.2.00',to:'4.2.00'}]}},
+  {...validMarker,cubismEditor:{versions:['5.3.03','5.3.02'],ranges:[{from:'5.3.02',to:'5.3.03'}]}},
+  {...validMarker,cubismEditor:{versions:['5.3.02','5.3.02'],ranges:[{from:'5.3.02',to:'5.3.02'}]}},
+  {...validMarker,cubismEditor:{versions:['5.2.03','5.3.02'],ranges:[{from:'5.2.03',to:'5.2.03'}]}},
+  {...validMarker,cubismEditor:{versions:['5.2.03','5.3.02'],ranges:[{from:'5.3.02',to:'5.2.03'}]}},
+  {...validMarker,platforms:[]},
+  {...validMarker,platforms:['Windows x64']},
+  {...validMarker,matrixUrl:'http://turboism.dev/docs/use/compatibility'},
+  {...validMarker,matrixUrl:'https://evil.invalid/docs/use/compatibility'},
+  {...validMarker,matrixUrl:'https://turboism.dev/other'},
+ ];
+ for(const bad of invalidPayloads){
+  const r=parseRelease({...fixture('0.44.0'),body:'Notes\n<!-- turboism-compatibility-v1 '+JSON.stringify(bad)+' -->'},source);
+  assert.equal(r.compatibility,null);
+ }
+ const malformed=parseRelease({...fixture('0.44.0'),body:'Notes\n<!-- turboism-compatibility-v1 {not-json -->'},source);
+ assert.equal(malformed.compatibility,null);
+ const oversized=parseRelease({...fixture('0.44.0'),body:'Notes\n<!-- turboism-compatibility-v1 '+' '.repeat(5000)+JSON.stringify(validMarker)+' -->'},source);
+ assert.equal(oversized.compatibility,null);
+ const duplicate=parseRelease({...fixture('0.44.0'),body:'Notes\n<!-- turboism-compatibility-v1 '+JSON.stringify(validMarker)+' -->\n<!-- turboism-compatibility-v1 '+JSON.stringify(validMarker)+' -->'},source);
+ assert.equal(duplicate.compatibility,null);
 });

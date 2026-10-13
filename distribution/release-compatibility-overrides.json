@@ -1,0 +1,130 @@
+{
+  "v0.44.0": {
+    "cubismEditor": {
+      "versions": [
+        "5.2.03",
+        "5.3.02",
+        "5.3.03"
+      ],
+      "ranges": [
+        {
+          "from": "5.2.03",
+          "to": "5.2.03"
+        },
+        {
+          "from": "5.3.02",
+          "to": "5.3.03"
+        }
+      ]
+    },
+    "platforms": [
+      "windows-x64"
+    ],
+    "matrixUrl": "https://turboism.dev/docs/use/compatibility"
+  },
+  "v0.44.1-0.nightly.10": {
+    "cubismEditor": {
+      "versions": [
+        "5.2.03",
+        "5.3.02",
+        "5.3.03"
+      ],
+      "ranges": [
+        {
+          "from": "5.2.03",
+          "to": "5.2.03"
+        },
+        {
+          "from": "5.3.02",
+          "to": "5.3.03"
+        }
+      ]
+    },
+    "platforms": [
+      "windows-x64"
+    ],
+    "matrixUrl": "https://turboism.dev/docs/use/compatibility"
+  },
+  "v0.44.1-0.nightly.11": {
+    "cubismEditor": {
+      "versions": [
+        "5.2.03",
+        "5.3.02",
+        "5.3.03"
+      ],
+      "ranges": [
+        {
+          "from": "5.2.03",
+          "to": "5.2.03"
+        },
+        {
+          "from": "5.3.02",
+          "to": "5.3.03"
+        }
+      ]
+    },
+    "platforms": [
+      "windows-x64"
+    ],
+    "matrixUrl": "https://turboism.dev/docs/use/compatibility"
+  },
+  "v0.44.1-0.nightly.*": {
+    "cubismEditor": {
+      "versions": [
+        "5.2.03",
+        "5.3.02",
+        "5.3.03"
+      ],
+      "ranges": [
+        {
+          "from": "5.2.03",
+          "to": "5.2.03"
+        },
+        {
+          "from": "5.3.02",
+          "to": "5.3.03"
+        }
+      ]
+    },
+    "platforms": [
+      "windows-x64"
+    ],
+    "matrixUrl": "https://turboism.dev/docs/use/compatibility"
+  },
+  "v0.67.0-beta.1": {
+    "cubismEditor": {
+      "versions": [
+        "5.0.00",
+        "5.0.01",
+        "5.0.02",
+        "5.0.03",
+        "5.0.04",
+        "5.0.05",
+        "5.0.06",
+        "5.1.00",
+        "5.1.01",
+        "5.1.02",
+        "5.1.03",
+        "5.2.00",
+        "5.2.01",
+        "5.2.02",
+        "5.2.03",
+        "5.3.00",
+        "5.3.01",
+        "5.3.02",
+        "5.3.03",
+        "5.3.04"
+      ],
+      "ranges": [
+        {
+          "from": "5.0.00",
+          "to": "5.3.04"
+        }
+      ]
+    },
+    "platforms": [
+      "windows-x64"
+    ],
+    "matrixUrl": "https://turboism.dev/docs/use/compatibility"
+  }
+}

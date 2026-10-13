@@ -8,7 +8,12 @@ No software is built or published by the synchronization service.
 
 - `GET /v1/releases/stable.json` (default), `/beta.json`, `/nightly.json`
 - HTTP 200 `ready` contains a published release with `version`, `buildNumber`,
-  `channel`, resolved source commit, release notes, SHA-256, size and sources.
+  `channel`, resolved source commit, `compatibility`, release notes, SHA-256, size
+  and sources.
+- `compatibility` carries `{cubismEditor:{versions,ranges},platforms,matrixUrl}`
+  when validated from the release body's `<!-- turboism-compatibility-v1 ... -->`
+  marker or `release-compatibility-overrides.json` for pre-marker releases;
+  otherwise `null`.
 - `buildNumber: null` means a historical release has no build receipt. It is never
   replaced with a timestamp, Release ID, sync counter or a guessed number.
 - HTTP 200 `not_published` requires a complete, successful GitHub enumeration.
