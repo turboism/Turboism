@@ -509,6 +509,28 @@ class ReleaseVerifierTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.verify(fixture)
 
+    def test_plugin_publication_verifier_marks_artifact_downloads_as_verification(self):
+        from unittest import mock
+
+        plugin_verifier = load(
+            "verify_plugin_publication",
+            ROOT / "scripts/release/verify-plugin-publication.py",
+        )
+        response = mock.MagicMock()
+        response.__enter__.return_value.read.return_value = b"jar-bytes"
+        with mock.patch.object(
+            plugin_verifier.urllib.request, "urlopen", return_value=response
+        ) as urlopen:
+            data = plugin_verifier.download_artifact(
+                "https://github.com/turboism/Turboism/releases/download/plugin-v1/plugin.jar",
+                9,
+            )
+        self.assertEqual(data, b"jar-bytes")
+        request = urlopen.call_args.args[0]
+        self.assertEqual(
+            request.get_header("X-turboism-download-purpose"), "verification"
+        )
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

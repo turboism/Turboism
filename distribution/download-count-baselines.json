@@ -1,0 +1,50 @@
+{
+  "v0.67.0-beta.1": {
+    "TurboismInstaller-0.67.0-beta.1.exe": 3,
+    "TurboismInstaller-0.67.0-beta.1.jar": 3,
+    "turboism-0.67.0-beta.1-full.zip": 3,
+    "turboism-0.67.0-beta.1-lite.zip": 2
+  },
+  "v0.44.1-0.nightly.11": {
+    "TurboismInstaller-0.44.1-0.nightly.11.exe": 1,
+    "TurboismInstaller-0.44.1-0.nightly.11.jar": 1,
+    "turboism-0.44.1-0.nightly.11-full.zip": 1,
+    "turboism-0.44.1-0.nightly.11-lite.zip": 1
+  },
+  "v0.44.1-0.nightly.10": {
+    "TurboismInstaller-0.44.1-0.nightly.10.exe": 1,
+    "TurboismInstaller-0.44.1-0.nightly.10.jar": 1,
+    "turboism-0.44.1-0.nightly.10-full.zip": 1,
+    "turboism-0.44.1-0.nightly.10-lite.zip": 1
+  },
+  "v0.44.0": {
+    "TurboismInstaller-0.44.0.exe": 1,
+    "TurboismInstaller-0.44.0.jar": 1,
+    "turboism-0.44.0-full.zip": 1,
+    "turboism-0.44.0-lite.zip": 1
+  },
+  "v0.43.11": {
+    "TurboismInstaller-0.43.11.exe": 1,
+    "TurboismInstaller-0.43.11.jar": 1,
+    "turboism-0.43.11-full.zip": 1,
+    "turboism-0.43.11-lite.zip": 1
+  },
+  "v0.43.10": {
+    "TurboismInstaller-0.43.10.exe": 1,
+    "TurboismInstaller-0.43.10.jar": 1,
+    "turboism-0.43.10-full.zip": 1,
+    "turboism-0.43.10-lite.zip": 1
+  },
+  "v0.43.10-0.nightly.3": {
+    "TurboismInstaller-0.43.10-0.nightly.3.exe": 1,
+    "TurboismInstaller-0.43.10-0.nightly.3.jar": 1,
+    "turboism-0.43.10-0.nightly.3-full.zip": 1,
+    "turboism-0.43.10-0.nightly.3-lite.zip": 1
+  },
+  "v0.43.9": {
+    "TurboismInstaller-0.43.9.exe": 1,
+    "TurboismInstaller-0.43.9.jar": 1,
+    "turboism-0.43.9-full.zip": 1,
+    "turboism-0.43.9-lite.zip": 1
+  }
+}
