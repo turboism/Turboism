@@ -165,8 +165,12 @@ jobs:
               --json databaseId,displayTitle,status,conclusion,url \
               --jq ".[] | select(.displayTitle == \"$DISPLAY_TITLE\")"
           }
-          MATCHES="$(matches)"
-          COUNT="$(printf '%s\n' "$MATCHES" | jq -s 'length')"
+          # Failed attempts of the same request are history, not a blocker: the publisher is
+          # idempotent (no-clobber Releases, fail-closed catalog), so a retry dispatches anew.
+          live() { matches | jq -c 'select(.status != "completed" or .conclusion == "success")'; }
+          SEEN="$(matches | jq -s -c '[.[].databaseId]')"
+          MATCHES="$(live)"
+          COUNT="$(printf '%s\n' "$MATCHES" | jq -s 'map(select(. != null)) | length')"
           if [ "$COUNT" -eq 0 ]; then
             # workflow_dispatch needs a branch ref. Dispatch on main only when main is the
             # reviewed revision plus nothing but earlier catalog publications.
@@ -185,13 +189,13 @@ jobs:
               -f request_id="$REQUEST_ID"
             for _ in $(seq 1 30); do
               sleep 2
-              MATCHES="$(matches)"
-              COUNT="$(printf '%s\n' "$MATCHES" | jq -s 'length')"
+              MATCHES="$(matches | jq -c --argjson seen "$SEEN" 'select((.databaseId | IN($seen[])) | not)')"
+              COUNT="$(printf '%s\n' "$MATCHES" | jq -s 'map(select(. != null)) | length')"
               if [ "$COUNT" -ne 0 ]; then break; fi
             done
           fi
           if [ "$COUNT" -ne 1 ]; then
-            echo "expected exactly one Plugin Directory run for $REQUEST_ID, found $COUNT"
+            echo "expected exactly one live Plugin Directory run for $REQUEST_ID, found $COUNT"
             exit 1
           fi
           PROVIDER_RUN_ID="$(printf '%s\n' "$MATCHES" | jq -r .databaseId)"
