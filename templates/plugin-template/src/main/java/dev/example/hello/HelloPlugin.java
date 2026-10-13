@@ -2,6 +2,7 @@ package dev.example.hello;
 
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.event.TurboismEvent;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -66,6 +67,13 @@ public class HelloPlugin implements TurboismPlugin {
     @Override
     public void shutdown() throws Exception {
         logger.info("HelloPlugin shutdown");
+    }
+
+    @SubscribeEvent
+    public void onHello(HelloEvent event) {
+        if (logger != null) {
+            logger.info("HelloPlugin @SubscribeEvent handler received: " + event.message());
+        }
     }
 
     /** Example event published by the hello action and logged by the subscriber. */

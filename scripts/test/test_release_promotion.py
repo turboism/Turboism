@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts/release"))
 from turboism_release import promotion as p
 from turboism_release.candidate import developer_artifacts, framework_artifacts
-from scripts.test.test_release_tooling import archive, sdk_archive, sidecar
+from scripts.test.test_release_tooling import archive, event_processor_archive, sdk_archive, sidecar
 
 
 class FakeGitHub:
@@ -113,6 +113,7 @@ class PromotionTest(unittest.TestCase):
         staged_sdk.parent.mkdir(parents=True)
         sdk_archive(staged_sdk)
         (self.dist / 'turboism-sdk-1.2.3.jar').write_bytes(staged_sdk.read_bytes())
+        event_processor_archive(self.dist / 'turboism-event-processor-1.2.3.jar')
         for path in list(self.dist.iterdir()):
             sidecar(path)
         self.candidate = {"format": "turboism.release-candidate", "schemaVersion": 1,
@@ -146,7 +147,7 @@ class PromotionTest(unittest.TestCase):
         self.assertEqual(self.gh.tag_object['object']['sha'], self.sha)
         self.assertEqual(self.gh.ref['object']['type'], 'tag')
         self.assertFalse(self.gh.release['draft'])
-        self.assertEqual(len(self.gh.release['assets']), 10)
+        self.assertEqual(len(self.gh.release['assets']), 12)
         writes = copy.deepcopy(self.gh.writes)
         self.promote()
         self.assertEqual(self.gh.writes, writes)
@@ -215,7 +216,7 @@ class PromotionTest(unittest.TestCase):
         self.assertTrue(self.gh.release['draft'])
         self.promote()
         self.assertEqual(sum(path == 'git/refs' for _, path, _ in self.gh.writes), 1)
-        self.assertEqual(len(self.gh.release['assets']), 10)
+        self.assertEqual(len(self.gh.release['assets']), 12)
         self.assertFalse(self.gh.release['draft'])
 
     def test_conflicting_tag_or_existing_assets_never_overwritten(self):
