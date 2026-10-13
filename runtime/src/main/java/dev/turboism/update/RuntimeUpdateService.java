@@ -86,7 +86,7 @@ public final class RuntimeUpdateService implements CoreUpdateService {
                 runtimeSettings,
                 transport,
                 clock,
-                InstalledBuild.current(),
+                InstalledBuild.forHome(home),
                 STARTUP_DELAY,
                 AUTOMATIC_INTERVAL,
                 ignored -> {});
@@ -448,13 +448,16 @@ public final class RuntimeUpdateService implements CoreUpdateService {
         final String identity = candidate.identity();
         final boolean reminder = !identity.equals(lastRemindedIdentity);
         if (reminder) lastRemindedIdentity = identity;
+        final Optional<UpdateDiscovery.Asset> matchedAsset = candidate.pickInstallerAsset(installed.variant());
         return new Snapshot(
                 Status.UPDATE_AVAILABLE,
                 installed.versionText(),
                 Optional.of(candidate.versionText()),
                 candidate.buildNumber(),
                 userInitiated,
-                reminder);
+                reminder,
+                matchedAsset.map(UpdateDiscovery.Asset::url),
+                matchedAsset.map(UpdateDiscovery.Asset::name));
     }
 
     /**

@@ -684,6 +684,85 @@ final class RuntimeUpdateServiceTest {
         }
     }
 
+    @Test
+    void infersInstalledVariantAndPicksMatchingInstallerAsset(@TempDir final Path home) throws Exception {
+        // 1. Inferred from installed-build.json
+        final Path metadata = home.resolve("installed-build.json");
+        java.nio.file.Files.writeString(metadata, "{\"schemaVersion\":1,\"variant\":\"thin\",\"version\":\"0.43.9\"}");
+        final InstalledBuild thinBuild = InstalledBuild.forHome(home);
+        assertEquals("thin", thinBuild.variant());
+
+        java.nio.file.Files.writeString(metadata, "{\"schemaVersion\":1,\"variant\":\"full\",\"version\":\"0.43.9\"}");
+        final InstalledBuild fullBuild = InstalledBuild.forHome(home);
+        assertEquals("full", fullBuild.variant());
+
+        // 2. When absent, infer full if first-party plugins present
+        java.nio.file.Files.delete(metadata);
+        final Path plugins = home.resolve("plugins");
+        java.nio.file.Files.createDirectories(plugins);
+        java.nio.file.Files.writeString(plugins.resolve("mcp.jar"), "dummy");
+        final InstalledBuild inferredFull = InstalledBuild.forHome(home);
+        assertEquals("full", inferredFull.variant());
+
+        // 3. When absent and no first-party plugins, infer thin
+        java.nio.file.Files.delete(plugins.resolve("mcp.jar"));
+        java.nio.file.Files.writeString(plugins.resolve("custom-third-party.jar"), "dummy");
+        final InstalledBuild inferredThin = InstalledBuild.forHome(home);
+        assertEquals("thin", inferredThin.variant());
+
+        // 4. Update snapshot picks matching installer asset
+        final String discoveryJson = "{\"schemaVersion\":1,\"channel\":\"stable\",\"status\":\"ready\","
+                + "\"release\":{\"version\":\"0.43.10\",\"buildNumber\":5,\"publishedAt\":\"2026-09-07T00:00:00Z\","
+                + "\"assets\":["
+                + "{\"name\":\"TurboismInstaller-0.43.10-full.exe\",\"kind\":\"windows-installer-full\",\"variant\":\"full\",\"platform\":\"windows\",\"url\":\"https://api.turboism.dev/files/full.exe\",\"size\":1000,\"sha256\":\""
+                + "a".repeat(64) + "\"},"
+                + "{\"name\":\"TurboismInstaller-0.43.10-thin.exe\",\"kind\":\"windows-installer-thin\",\"variant\":\"thin\",\"platform\":\"windows\",\"url\":\"https://api.turboism.dev/files/thin.exe\",\"size\":500,\"sha256\":\""
+                + "b".repeat(64) + "\"}"
+                + "]}}";
+
+        final DeferredTransport transportFull = new DeferredTransport();
+        final RuntimeScheduler schedulerFull = scheduler();
+        final RuntimeUpdateService serviceFull = installedService(
+                home,
+                schedulerFull,
+                transportFull,
+                InstalledBuild.of("0.43.9", "stable", "full", java.util.OptionalLong.empty(), "0.43.9"),
+                ignored -> {});
+        try {
+            final CompletionStage<CoreUpdateService.Snapshot> req = serviceFull.checkManual();
+            assertTrue(transportFull.requested.await(2, TimeUnit.SECONDS));
+            transportFull.completeWithDocument(discoveryJson);
+            final CoreUpdateService.Snapshot snap = req.toCompletableFuture().get(2, TimeUnit.SECONDS);
+            assertEquals(CoreUpdateService.Status.UPDATE_AVAILABLE, snap.status());
+            assertEquals(Optional.of("TurboismInstaller-0.43.10-full.exe"), snap.assetName());
+            assertEquals(Optional.of("https://api.turboism.dev/files/full.exe"), snap.downloadUrl());
+        } finally {
+            serviceFull.close();
+            schedulerFull.shutdown();
+        }
+
+        final DeferredTransport transportThin = new DeferredTransport();
+        final RuntimeScheduler schedulerThin = scheduler();
+        final RuntimeUpdateService serviceThin = installedService(
+                home,
+                schedulerThin,
+                transportThin,
+                InstalledBuild.of("0.43.9", "stable", "thin", java.util.OptionalLong.empty(), "0.43.9"),
+                ignored -> {});
+        try {
+            final CompletionStage<CoreUpdateService.Snapshot> req = serviceThin.checkManual();
+            assertTrue(transportThin.requested.await(2, TimeUnit.SECONDS));
+            transportThin.completeWithDocument(discoveryJson);
+            final CoreUpdateService.Snapshot snap = req.toCompletableFuture().get(2, TimeUnit.SECONDS);
+            assertEquals(CoreUpdateService.Status.UPDATE_AVAILABLE, snap.status());
+            assertEquals(Optional.of("TurboismInstaller-0.43.10-thin.exe"), snap.assetName());
+            assertEquals(Optional.of("https://api.turboism.dev/files/thin.exe"), snap.downloadUrl());
+        } finally {
+            serviceThin.close();
+            schedulerThin.shutdown();
+        }
+    }
+
     private static RuntimeUpdateService installedService(
             final Path home,
             final RuntimeScheduler scheduler,
