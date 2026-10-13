@@ -4,6 +4,8 @@ import dev.turboism.config.RuntimeConfigRepository;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.i18n.LocalizationDiagnosticSink;
 import dev.turboism.internal.core.CorePluginManagement;
+import dev.turboism.internal.core.CoreUpdateService;
+import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 import dev.turboism.ui.host.EdtDispatch;
 import java.awt.Component;
@@ -17,8 +19,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -34,7 +38,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 /** Runtime-owned desired-state manager; package mutation is applied only before next discovery. */
-public final class RuntimePluginManagementService implements CorePluginManagement {
+public final class RuntimePluginManagementService implements CorePluginManagement, PluginAutoUpdateControl {
     /** Supplies the locale used to select localized plugin descriptor metadata. */
     @FunctionalInterface
     public interface MetadataLocaleProvider {
@@ -51,10 +55,12 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     private final MetadataLocaleProvider metadataLocale;
     private final RuntimeConfigRepository config;
     private final PendingPluginOperations pending;
+    private final PluginCatalogStateStore catalogState;
     private final ExecutorService installExecutor;
     private final AtomicReference<InstallRequest> currentInstall = new AtomicReference<>();
     private final AtomicBoolean active = new AtomicBoolean(true);
     private final LocalizationDiagnosticSink metadataDiagnostics;
+    private volatile PluginAutoUpdateControl autoUpdater = PluginAutoUpdateControl.unavailable();
 
     public RuntimePluginManagementService(final Path home, final Supplier<List<PluginInfo>> runtimePlugins) {
         this(
@@ -173,7 +179,48 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         this.metadataDiagnostics = value -> diagnostic.accept(value.code() + ": " + value.message());
         config = new RuntimeConfigRepository(normalized, ignored -> {});
         pending = new PendingPluginOperations(normalized);
+        catalogState = new PluginCatalogStateStore(normalized, diagnostic);
         this.installExecutor = java.util.Objects.requireNonNull(installExecutor, "installExecutor");
+    }
+
+    /** Binds the background official-plugin auto-updater owned by this management service. */
+    public void bindAutoUpdater(final PluginAutoUpdateControl autoUpdater) {
+        this.autoUpdater = Objects.requireNonNull(autoUpdater, "autoUpdater");
+    }
+
+    @Override
+    public boolean autoUpdateAvailable() {
+        return autoUpdater.autoUpdateAvailable();
+    }
+
+    @Override
+    public Snapshot pluginUpdateSnapshot() {
+        return autoUpdater.pluginUpdateSnapshot();
+    }
+
+    @Override
+    public boolean automaticPluginUpdatesEnabled() {
+        return autoUpdater.automaticPluginUpdatesEnabled();
+    }
+
+    @Override
+    public CoreUpdateService.PreferenceSaveResult saveAutomaticPluginUpdatesEnabled(final boolean enabled) {
+        return autoUpdater.saveAutomaticPluginUpdatesEnabled(enabled);
+    }
+
+    @Override
+    public void startPluginAutoUpdater() {
+        autoUpdater.startPluginAutoUpdater();
+    }
+
+    @Override
+    public CompletionStage<Snapshot> checkForPluginUpdates() {
+        return autoUpdater.checkForPluginUpdates();
+    }
+
+    @Override
+    public Registration subscribePluginUpdates(final Consumer<Snapshot> listener) {
+        return autoUpdater.subscribePluginUpdates(listener);
     }
 
     @Override
@@ -184,6 +231,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         final PluginInfo loadedCore = catalog.get(CORE_PLUGIN_ID);
         catalog.put(CORE_PLUGIN_ID, loadedCore == null ? corePlugin() : withCoreFlag(loadedCore));
         final Set<String> disabled = config.disabledPlugins();
+        final Map<String, String> stagedUpdates = catalogState.read().stagedUpdates();
         List<PendingPluginOperations.Operation> operations;
         try {
             operations = pending.operations();
@@ -192,7 +240,16 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         }
         for (PendingPluginOperations.Operation operation : operations) {
             final PluginInfo existing = catalog.get(operation.pluginId());
-            final String pendingLabel = operation.type().equals("INSTALL") ? "INSTALL" : "UNINSTALL";
+            final String pendingLabel;
+            if (operation.type().equals("INSTALL")) {
+                if (existing != null && Objects.equals(stagedUpdates.get(operation.pluginId()), operation.version())) {
+                    pendingLabel = "UPDATE (" + operation.version() + ")";
+                } else {
+                    pendingLabel = "INSTALL";
+                }
+            } else {
+                pendingLabel = "UNINSTALL";
+            }
             if (existing != null) catalog.put(existing.id(), withDesired(existing, disabled, pendingLabel));
             if (existing == null && operation.type().equals("INSTALL")) {
                 catalog.put(
@@ -379,9 +436,15 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         if (!active.compareAndSet(true, false)) return;
         RuntimeException closeFailure = null;
         try {
-            packageChooser.close();
+            autoUpdater.close();
         } catch (RuntimeException failure) {
             closeFailure = failure;
+        }
+        try {
+            packageChooser.close();
+        } catch (RuntimeException failure) {
+            if (closeFailure == null) closeFailure = failure;
+            else closeFailure.addSuppressed(failure);
         }
         final InstallRequest request = currentInstall.get();
         if (request != null) {

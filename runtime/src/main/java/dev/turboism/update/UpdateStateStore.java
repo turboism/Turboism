@@ -19,18 +19,24 @@ public final class UpdateStateStore {
     private final Path path;
     private final Object lock;
     private final Consumer<String> diagnostic;
-    private final UpdateDiscoveryParser parser = new UpdateDiscoveryParser();
+    private final UpdateDiscoveryParser parser;
 
     public UpdateStateStore(final Path home) {
-        this(home, ignored -> {});
+        this(home, UpdateDiscovery.CHANNEL_STABLE, ignored -> {});
     }
 
     public UpdateStateStore(final Path home, final Consumer<String> diagnostic) {
+        this(home, UpdateDiscovery.CHANNEL_STABLE, diagnostic);
+    }
+
+    /** Creates an update-state store bound to the expected release channel. */
+    public UpdateStateStore(final Path home, final String expectedChannel, final Consumer<String> diagnostic) {
         this.home = UpdateFileSupport.normalizeHome(home);
         this.path = this.home.resolve(FILE_NAME).normalize();
         if (!path.startsWith(this.home)) throw new IllegalArgumentException("state path escaped home");
         this.lock = UpdateFileSupport.lockFor(path);
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
+        this.parser = new UpdateDiscoveryParser(expectedChannel);
     }
 
     /** Returns the isolated update-state file path. */
