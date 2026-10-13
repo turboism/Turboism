@@ -111,6 +111,7 @@ final class PluginMarketWindow {
 
     private JDialog createDialog() {
         final JDialog win = CoreDialogs.create(i18n.text("market.title"), 1050, 680);
+        if (win == null) return null;
         win.setLayout(new BorderLayout(0, 0));
 
         tableModel = new MarketTableModel();
