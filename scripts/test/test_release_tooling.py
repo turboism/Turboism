@@ -229,7 +229,8 @@ class ReleaseWorkflowTest(unittest.TestCase):
     def test_protected_publisher_correlates_and_verifies_provider(self):
         publisher = (ROOT / ".github/workflows/release-github-only.yml").read_text(encoding="utf-8")
         self.assertIn("publish-plugin-directory-v2.yml", publisher)
-        self.assertIn("expected exactly one Plugin Directory run", publisher)
+        self.assertIn("expected exactly one live Plugin Directory run", publisher)
+        self.assertIn('select(.status != "completed" or .conclusion == "success")', publisher)
         self.assertIn("-f source_run_id=", publisher)
         self.assertIn("-f source_sha=", publisher)
         self.assertIn("-f artifact_name=", publisher)
