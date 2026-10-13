@@ -521,8 +521,9 @@ Var integrateCubismBat
 Var StartMenuCheckbox
 Var DesktopShortcutCheckbox
 Var IntegrateBatCheckbox
-Var uncheckedPluginIds   ; 本次未勾选的插件 id，';' 分隔（Full 模式）
+!if "${VARIANT}" != "thin"
 Var bundledPluginIds     ; 当前发布包内的全部插件 id，';' 分隔
+!endif
 Var pos
 Var ch
 Var len
