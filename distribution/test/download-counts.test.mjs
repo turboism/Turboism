@@ -148,18 +148,18 @@ test('reviewed baseline overrides subtract pre-baseline internal downloads and c
  const betaRecord={active:true,countsAsOf:new Date(baseTime).toISOString(),release:betaRelease};
  const betaCounts=countsDocument('0.67.0-beta.1',betaRecord,c.read(betaRelease.assets));
  assert.equal(betaCounts.status,'ready');
- assert.equal(betaCounts.github.internalBaseline,11);
- assert.equal(betaCounts.github.count,0);
+ assert.equal(betaCounts.github.internalBaseline,8);
+ assert.equal(betaCounts.github.count,3);
  assert.equal(betaCounts.official.count,0);
- assert.equal(betaCounts.total,0);
- assert.deepEqual(betaCounts.assets.map(a=>a.internalBaseline),[3,3,3,2]);
- assert.deepEqual(betaCounts.assets.map(a=>a.github),[0,0,0,0]);
- assert.deepEqual(betaCounts.assets.map(a=>a.total),[0,0,0,0]);
+ assert.equal(betaCounts.total,3);
+ assert.deepEqual(betaCounts.assets.map(a=>a.internalBaseline),[2,2,2,2]);
+ assert.deepEqual(betaCounts.assets.map(a=>a.github),[1,1,1,0]);
+ assert.deepEqual(betaCounts.assets.map(a=>a.total),[1,1,1,0]);
 
  // Never-negative when upstream count is lower than baseline (e.g. lagging GitHub cache = 0).
  for(const a of betaRelease.assets)a.downloadCount=0;
  const clamped=countsDocument('0.67.0-beta.1',betaRecord,c.read(betaRelease.assets));
- assert.equal(clamped.github.internalBaseline,11);
+ assert.equal(clamped.github.internalBaseline,8);
  assert.equal(clamped.github.count,0);
  assert.deepEqual(clamped.assets.map(a=>a.github),[0,0,0,0]);
 
