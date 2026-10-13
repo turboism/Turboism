@@ -34,6 +34,7 @@ if receipt['channel'] in ('beta','nightly'):
     prepared=prepare(QALedger(),ROOT,bundle,receipt['sourceRevision'],'1',1,receipt['version'])
     manifest,checked,notes=verify_candidate(QALedger(),ROOT,bundle,receipt['sourceRevision'],'1',1,receipt['channel'])
     assert checked==receipt and manifest==prepared['manifest']
+    assert notes.count('<!-- turboism-compatibility-v1 ') == 1
     (bundle/'release-notes.md').write_text(notes+'tampered')
     try:
         verify_candidate(QALedger(),ROOT,bundle,receipt['sourceRevision'],'1',1,receipt['channel'])

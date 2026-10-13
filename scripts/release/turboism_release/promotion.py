@@ -84,7 +84,9 @@ def verify_bundle(source_root, bundle_root, run, source_sha):
     require(result.returncode == 0 and result.stdout.strip() == source_sha, "source checkout mismatch")
     clean = subprocess.run(["git", "-C", str(source_root), "diff", "--quiet", "HEAD", "--",
                             "gradle/common-java.gradle.kts", "CHANGELOG.md", "packaging/release-plugins.txt",
-                            "release-notes", "scripts/release/turboism_release/release_notes.py"],
+                            "release-notes", "scripts/release/turboism_release/release_notes.py",
+                            "compatibility/cubism/compatibility-matrix.json",
+                            "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java"],
                            capture_output=True)
     require(clean.returncode == 0, "source release metadata was modified after checkout")
     document = read_document(unique_file(bundle_root, "candidate.json"), "candidate")
@@ -224,6 +226,7 @@ def promote(github, source_root, bundle_root, run_id, source_sha, attempt, confi
         if localized:
             notes += '\n' + localized
         notes += "\n\n<!-- turboism-build-v1 " + json.dumps(receipt, sort_keys=True, separators=(",", ":")) + " -->\n"
+        require(len(notes.encode("utf-8")) < 65000, "release notes exceed publication budget")
     binding = None
     if run["event"] == "workflow_dispatch":
         identity = {"source": source_sha, "tag": tag, "assets": expected, "notes": notes}
