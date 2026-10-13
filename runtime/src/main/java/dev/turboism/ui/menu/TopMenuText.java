@@ -11,7 +11,7 @@ public final class TopMenuText {
 
     private static final String BUNDLE = "dev.turboism.ui.menu.messages";
     private static final String SHARED_ROOT_KEY = "menu.shared-root";
-    private static final String SHARED_ROOT_FALLBACK = "Plugins";
+    private static final String SHARED_ROOT_FALLBACK = "Turboism";
 
     private TopMenuText() {}
 

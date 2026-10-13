@@ -74,6 +74,9 @@
     "requiresCubism": false,
     "ui": "none"
   },
+  "lifecycle": {
+    "hotReload": true
+  },
   "tags": [
     "example",
     "sdk"

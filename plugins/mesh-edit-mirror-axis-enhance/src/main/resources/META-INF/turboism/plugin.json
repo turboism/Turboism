@@ -64,6 +64,9 @@
     "requiresCubism": true,
     "ui": "embedded"
   },
+  "lifecycle": {
+    "hotReload": true
+  },
   "tags": [
     "mesh",
     "artmesh",

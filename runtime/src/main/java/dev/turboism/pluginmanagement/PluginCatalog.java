@@ -148,6 +148,7 @@ public record PluginCatalog(
      * @param releaseUrl HTTPS release page URL
      * @param sourceRevision optional 40-hex source commit SHA
      * @param artifact immutable JAR artifact metadata
+     * @param hotReload whether this release supports safe runtime hot reload / install / update
      */
     public record CatalogRelease(
             String version,
@@ -164,7 +165,8 @@ public record PluginCatalog(
             List<CatalogPermission> permissions,
             String releaseUrl,
             Optional<String> sourceRevision,
-            CatalogArtifact artifact) {
+            CatalogArtifact artifact,
+            boolean hotReload) {
         /** Stable release channel value. */
         public static final String CHANNEL_STABLE = "stable";
 
@@ -176,6 +178,41 @@ public record PluginCatalog(
 
         /** Yanked release status value. */
         public static final String STATUS_YANKED = "yanked";
+
+        public CatalogRelease(
+                String version,
+                String channel,
+                String status,
+                Instant publishedAt,
+                String category,
+                List<String> tags,
+                String turboismApi,
+                boolean requiresCubism,
+                List<String> cubismVersions,
+                List<String> platforms,
+                List<CatalogDependency> dependencies,
+                List<CatalogPermission> permissions,
+                String releaseUrl,
+                Optional<String> sourceRevision,
+                CatalogArtifact artifact) {
+            this(
+                    version,
+                    channel,
+                    status,
+                    publishedAt,
+                    category,
+                    tags,
+                    turboismApi,
+                    requiresCubism,
+                    cubismVersions,
+                    platforms,
+                    dependencies,
+                    permissions,
+                    releaseUrl,
+                    sourceRevision,
+                    artifact,
+                    false);
+        }
 
         public CatalogRelease {
             version = Objects.requireNonNull(version, "version");
