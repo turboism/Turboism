@@ -61,6 +61,8 @@ final class OfficialPluginCatalogCompleteness {
             "about.eula",
             "about.github",
             "common.turboism",
+            "main-toolbar.menu-root.label",
+            "menu.shared-root",
             "plugins.column.id",
             "plugins.details.api",
             "plugins.details.id",
