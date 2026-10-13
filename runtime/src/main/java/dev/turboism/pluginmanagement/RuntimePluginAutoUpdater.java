@@ -104,6 +104,7 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
     private final Object lock = new Object();
     private final CopyOnWriteArrayList<Consumer<Snapshot>> listeners = new CopyOnWriteArrayList<>();
 
+    private volatile dev.turboism.preview.PluginHotReloadCoordinator hotReloadCoordinator;
     private boolean automaticEnabled;
     private Snapshot snapshot = Snapshot.idle();
     private RuntimeTimerHandle automaticTimer;
@@ -170,6 +171,11 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
         this.pending = new PendingPluginOperations(this.home);
         this.automaticEnabled = preferencesStore.automaticPluginUpdatesEnabled();
         this.executor = Executors.newSingleThreadExecutor(new PluginUpdaterThreadFactory());
+    }
+
+    /** Binds the runtime hot-reload coordinator to apply updates without restart when safe. */
+    public void bindHotReloadCoordinator(final dev.turboism.preview.PluginHotReloadCoordinator coordinator) {
+        this.hotReloadCoordinator = coordinator;
     }
 
     @Override
@@ -470,7 +476,9 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
                 continue;
             }
             finalizedPluginIds.add(next.pluginId());
-            if (attempt == StageAttempt.STAGED) {
+            if (attempt == StageAttempt.HOT_APPLIED) {
+                workingVersions.put(next.pluginId(), next.targetVersion());
+            } else if (attempt == StageAttempt.STAGED) {
                 workingVersions.put(next.pluginId(), next.targetVersion());
                 stagedUpdates.put(next.pluginId(), next.release().version());
                 stateStore.recordStagedUpdate(next.pluginId(), next.release().version());
@@ -506,6 +514,42 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
             if (!MessageDigest.isEqual(expectedDescHash, actualDescHash)) {
                 report("PLUGIN_UPDATE_DESCRIPTOR_HASH_MISMATCH");
                 return StageAttempt.FAILED;
+            }
+            if (update.release().hotReload() && hotReloadCoordinator != null) {
+                final Path target = pluginsDirectory.resolve(update.pluginId() + ".jar");
+                if (Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)
+                        && hotReloadCoordinator.isHotReloadSafe(
+                                staged.prepared().stagedJar())) {
+                    final Path stagingDir = home.resolve("state/runtime/plugin-management/packages");
+                    final Path backup = stagingDir.resolve(
+                            ".backup-" + update.pluginId() + "-" + java.util.UUID.randomUUID() + ".jar");
+                    try {
+                        Files.copy(target, backup, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                        try {
+                            Files.copy(
+                                    staged.prepared().stagedJar(),
+                                    target,
+                                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                            final var reloadRes = hotReloadCoordinator.hotReload(update.pluginId(), target, backup);
+                            if (reloadRes.succeeded()) {
+                                Files.deleteIfExists(backup);
+                                Files.deleteIfExists(staged.prepared().stagedJar());
+                                return StageAttempt.HOT_APPLIED;
+                            } else if (reloadRes.rolledBack()) {
+                                Files.copy(backup, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                Files.deleteIfExists(backup);
+                            }
+                        } catch (IOException locked) {
+                            // File locked on Windows; keep staged in pending journal for restart
+                        }
+                    } catch (Exception e) {
+                        if (backup != null)
+                            try {
+                                Files.deleteIfExists(backup);
+                            } catch (IOException ignored) {
+                            }
+                    }
+                }
             }
             return StageAttempt.STAGED;
         } catch (IOException | RuntimeException failure) {
@@ -834,6 +878,7 @@ public final class RuntimePluginAutoUpdater implements PluginAutoUpdateControl {
 
     private enum StageAttempt {
         STAGED,
+        HOT_APPLIED,
         FALLBACK_RELEASE,
         FAILED
     }

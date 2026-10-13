@@ -137,11 +137,13 @@ class CoreShellTest {
         assertTrue(!panel.content().toString().contains("Safe Mode"));
         assertEquals(
                 List.of(
-                        "Plugins/Settings:turboism.core.settings.open:10",
-                        "Plugins/Plugin Management:turboism.core.plugins.open:11",
-                        "Plugins/Logs:turboism.core.logs.open:12",
-                        "Plugins/Keybindings:turboism.core.keybindings.open:13",
-                        "Plugins/About:turboism.core.about.open:14"),
+                        "Turboism/Plugin Market…:turboism.core.market.open:10",
+                        "Turboism/Manage Plugins…:turboism.core.plugins.open:11",
+                        "Turboism/Plugin Settings…:turboism.core.plugin-settings.open:12",
+                        "Turboism/Turboism Settings…:turboism.core.settings.open:21",
+                        "Turboism/Keybindings:turboism.core.keybindings.open:22",
+                        "Turboism/Logs:turboism.core.logs.open:23",
+                        "Turboism/About:turboism.core.about.open:90"),
                 context.menus().contributions().stream()
                         .map(value -> value.menuPath() + ":" + value.actionId() + ":" + value.order())
                         .toList());
@@ -1088,8 +1090,11 @@ class CoreShellTest {
                 @Override
                 public String text(final String key) {
                     return switch (key) {
-                        case "main-toolbar.settings-menu.label" -> "Settings";
-                        case "main-toolbar.plugins-menu.label" -> "Plugin Management";
+                        case "main-toolbar.menu-root.label" -> "Turboism";
+                        case "main-toolbar.market-menu.label" -> "Plugin Market…";
+                        case "main-toolbar.plugins-menu.label" -> "Manage Plugins…";
+                        case "main-toolbar.plugin-settings-menu.label" -> "Plugin Settings…";
+                        case "main-toolbar.settings-menu.label" -> "Turboism Settings…";
                         case "context-menu.panel-tab.float" -> "Float";
                         case "main-toolbar.logs-menu.label" -> "Logs";
                         case "main-toolbar.keybindings-menu.label" -> "Keybindings";
@@ -1105,8 +1110,11 @@ class CoreShellTest {
 
                 @Override
                 public boolean contains(final String key) {
-                    return key.equals("main-toolbar.settings-menu.label")
+                    return key.equals("main-toolbar.menu-root.label")
+                            || key.equals("main-toolbar.market-menu.label")
                             || key.equals("main-toolbar.plugins-menu.label")
+                            || key.equals("main-toolbar.plugin-settings-menu.label")
+                            || key.equals("main-toolbar.settings-menu.label")
                             || key.equals("context-menu.panel-tab.float")
                             || key.equals("main-toolbar.logs-menu.label")
                             || key.equals("main-toolbar.keybindings-menu.label")

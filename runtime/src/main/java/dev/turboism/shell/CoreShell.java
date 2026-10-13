@@ -17,6 +17,7 @@ import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.shell.service.MainToolbarHomeEntryService;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -49,8 +50,8 @@ public final class CoreShell implements ShellHandle {
     private static final String PLUGIN_UPDATE_HINT_ID = "turboism-plugin-updates-ready";
     private static final String PLUGIN_UPDATE_CHECK_RESULT_HINT_ID = "turboism-plugin-update-check-result";
     private static final float CHECK_RESULT_HINT_SECONDS = 5.0f;
-    /** Sits after the core menu items, which occupy 10..14. */
-    private static final int UPDATE_MENU_ORDER = 15;
+    /** Sits after the core plugin management items, which occupy 10..14. */
+    private static final int UPDATE_MENU_ORDER = 20;
 
     private Registration updateHint;
     /** Identity currently shown by the hint, so a newer build replaces the message. */
@@ -93,15 +94,24 @@ public final class CoreShell implements ShellHandle {
                 localization(context).text(MainToolbarHomeEntryService.ACTION_LABEL_KEY),
                 ignored -> windows.showSettings());
         registerAction(
-                MainToolbarHomeEntryService.SETTINGS_ACTION_ID,
-                localization(context).text("main-toolbar.settings-menu.label"),
-                "Ctrl+Alt+S",
-                ignored -> windows.showSettings());
+                MainToolbarHomeEntryService.MARKET_ACTION_ID,
+                localization(context).text("main-toolbar.market-menu.label"),
+                "Ctrl+Alt+M",
+                ignored -> windows.showPluginMarket());
         registerAction(
                 MainToolbarHomeEntryService.PLUGINS_ACTION_ID,
                 localization(context).text("main-toolbar.plugins-menu.label"),
                 "Ctrl+Alt+P",
                 ignored -> windows.showPlugins());
+        registerAction(
+                MainToolbarHomeEntryService.PLUGIN_SETTINGS_ACTION_ID,
+                localization(context).text("main-toolbar.plugin-settings-menu.label"),
+                ignored -> windows.showPluginSettings(Optional.empty()));
+        registerAction(
+                MainToolbarHomeEntryService.SETTINGS_ACTION_ID,
+                localization(context).text("main-toolbar.settings-menu.label"),
+                "Ctrl+Alt+S",
+                ignored -> windows.showSettings());
         registerAction(
                 MainToolbarHomeEntryService.LOGS_ACTION_ID,
                 localization(context).text("main-toolbar.logs-menu.label"),
@@ -210,10 +220,12 @@ public final class CoreShell implements ShellHandle {
         registerHistoryProvider();
         context.disposableScope().register(windows);
         refreshPanel();
-        context.disposableScope().register(homeEntryService.registerSettingsMenu());
+        context.disposableScope().register(homeEntryService.registerPluginMarketMenu());
         context.disposableScope().register(homeEntryService.registerPluginManagementMenu());
-        context.disposableScope().register(homeEntryService.registerLogsMenu());
+        context.disposableScope().register(homeEntryService.registerPluginSettingsMenu());
+        context.disposableScope().register(homeEntryService.registerSettingsMenu());
         context.disposableScope().register(homeEntryService.registerKeybindingsMenu());
+        context.disposableScope().register(homeEntryService.registerLogsMenu());
         context.disposableScope().register(homeEntryService.registerAboutMenu());
         context.disposableScope().register(homeEntryService.registerHomeEntry());
         if (services.update().available()) services.update().start();
@@ -410,7 +422,7 @@ public final class CoreShell implements ShellHandle {
                 localized("updates.check", "Check for updates"),
                 ignored -> updates.checkManual());
         try {
-            final String root = localized("main-toolbar.menu-root.label", "Plugins");
+            final String root = localized("main-toolbar.menu-root.label", "Turboism");
             context.disposableScope()
                     .register(context.menus().contribute(new dev.turboism.sdk.menu.MenuRegistry.MenuContribution() {
                         @Override
@@ -867,7 +879,7 @@ public final class CoreShell implements ShellHandle {
             public String text(final String key) {
                 return switch (key) {
                     case "common.turboism" -> "Turboism";
-                    case "main-toolbar.menu-root.label" -> "Plugins";
+                    case "main-toolbar.menu-root.label" -> "Turboism";
                     case "main-toolbar.home.action" -> "Open Turboism";
                     case "main-toolbar.settings-menu.label" -> "Settings";
                     case "main-toolbar.plugins-menu.label" -> "Plugin Management";
