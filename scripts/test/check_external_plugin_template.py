@@ -256,7 +256,7 @@ def resolve_processor_jar(args: argparse.Namespace, sdk_jar: Path, sdk_version: 
 def stage_local_release_fixture(
     fixture_dir: Path,
     sdk_jar: Path,
-    processor_jar: Path,
+    processor_jar: Path | None,
     version: str,
 ) -> dict[str, str]:
     tag = f"v{version}"
@@ -266,8 +266,12 @@ def stage_local_release_fixture(
     proc_name = f"turboism-event-processor-{version}.jar"
     (dl_dir / sdk_name).write_bytes(sdk_jar.read_bytes())
     (dl_dir / f"{sdk_name}.sha256").write_text(f"{sha256(sdk_jar)}  {sdk_name}\n", encoding="utf-8")
-    (dl_dir / proc_name).write_bytes(processor_jar.read_bytes())
-    (dl_dir / f"{proc_name}.sha256").write_text(f"{sha256(processor_jar)}  {proc_name}\n", encoding="utf-8")
+    if processor_jar is not None:
+        (dl_dir / proc_name).write_bytes(processor_jar.read_bytes())
+        (dl_dir / f"{proc_name}.sha256").write_text(f"{sha256(processor_jar)}  {proc_name}\n", encoding="utf-8")
+    else:
+        (dl_dir / proc_name).unlink(missing_ok=True)
+        (dl_dir / f"{proc_name}.sha256").unlink(missing_ok=True)
 
     api_dir = fixture_dir / "v1" / "releases"
     api_dir.mkdir(parents=True, exist_ok=True)
@@ -333,21 +337,21 @@ def check(args: argparse.Namespace) -> int:
     if stale:
         fail(f"staged template already carries SDK jars: {stale}")
 
-    if processor_jar is not None:
-        fixture_env = stage_local_release_fixture(work / "release-fixture", sdk_jar, processor_jar, sdk_version)
-        setup_res = subprocess.run(
-            ["bash", str(project / "scripts/setup.sh"), "--version", sdk_version, "--yes"],
-            cwd=project,
-            env=fixture_env,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        if setup_res.returncode != 0:
-            fail(f"setup.sh default run failed:\n{setup_res.stderr}\n{setup_res.stdout}")
-    else:
-        placed = project / "libs" / f"turboism-sdk-{sdk_version}.jar"
-        placed.write_bytes(sdk_jar.read_bytes())
+    # 1. SDK-only release mode (processor absent, e.g. 0.67.0-beta.1):
+    # setup.sh must warn clearly and configure the project to build without the processor.
+    sdk_only_env = stage_local_release_fixture(work / "release-fixture-sdk-only", sdk_jar, None, sdk_version)
+    sdk_only_res = subprocess.run(
+        ["bash", str(project / "scripts/setup.sh"), "--version", sdk_version, "--yes"],
+        cwd=project,
+        env=sdk_only_env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if sdk_only_res.returncode != 0:
+        fail(f"setup.sh SDK-only run failed:\n{sdk_only_res.stderr}\n{sdk_only_res.stdout}")
+    if "@SubscribeEvent catalogs will not be generated" not in sdk_only_res.stderr:
+        fail(f"setup.sh SDK-only run did not warn about absent event-processor:\n{sdk_only_res.stderr}")
 
     init_script = work / "clear-repositories.init.gradle"
     init_script.write_text(ISOLATION_INIT, encoding="utf-8")
@@ -373,10 +377,10 @@ def check(args: argparse.Namespace) -> int:
     contract = validate_jar(args.java, args.runtime_classpath, descriptor, jar, work / "jar-contract-validation.log")
     if contract.returncode != 0:
         fail(f"FirstPartyMetadataVerificationCli rejected the built plugin jar:\n{log_tail(work / 'jar-contract-validation.log')}")
-    if processor_jar is not None:
-        verify_subscriber_catalog(jar, "dev.example.hello.HelloPlugin__TurboismSubscriberCatalog")
 
-        # Also exercise setup.sh rename and verify the renamed project builds and passes contracts
+    if processor_jar is not None:
+        # 2. Full developer-asset release mode (SDK + event-processor) with rename and @SubscribeEvent:
+        fixture_env = stage_local_release_fixture(work / "release-fixture-full", sdk_jar, processor_jar, sdk_version)
         rename_res = subprocess.run(
             [
                 "bash",
@@ -401,6 +405,19 @@ def check(args: argparse.Namespace) -> int:
         )
         if rename_res.returncode != 0:
             fail(f"setup.sh rename run failed:\n{rename_res.stderr}\n{rename_res.stdout}")
+        renamed_java = project / "src/main/java/com/acme/widget/AcmeWidgetPlugin.java"
+        java_source = renamed_java.read_text(encoding="utf-8")
+        java_source = java_source.replace(
+            "    // @dev.turboism.sdk.event.SubscribeEvent\n"
+            "    // public void onHello(HelloEvent event) {\n"
+            "    //     logger.info(\"AcmeWidgetPlugin received event: \" + event.message());\n"
+            "    // }",
+            "    @dev.turboism.sdk.event.SubscribeEvent\n"
+            "    public void onHello(HelloEvent event) {\n"
+            "        logger.info(\"AcmeWidgetPlugin received event: \" + event.message());\n"
+            "    }",
+        )
+        renamed_java.write_text(java_source, encoding="utf-8")
         shutil.rmtree(project / "build", ignore_errors=True)
         renamed_build = gradle_build(
             project,

@@ -80,6 +80,8 @@ class PluginTemplateSetupTest(unittest.TestCase):
         compat_versions: list[str] | None = None,
         tamper_sdk_hash: bool = False,
         tamper_proc_hash: bool = False,
+        include_sdk: bool = True,
+        include_proc: bool = True,
         sdk_jar_source: Path | None = None,
         proc_jar_source: Path | None = None,
     ) -> None:
@@ -92,27 +94,27 @@ class PluginTemplateSetupTest(unittest.TestCase):
         sdk_path = dl_dir / sdk_name
         proc_path = dl_dir / proc_name
 
-        if sdk_jar_source is not None:
-            sdk_bytes = sdk_jar_source.read_bytes()
-            sdk_path.write_bytes(sdk_bytes)
-        else:
-            sdk_bytes = make_fake_sdk_jar(sdk_path)
+        if include_sdk:
+            if sdk_jar_source is not None:
+                sdk_bytes = sdk_jar_source.read_bytes()
+                sdk_path.write_bytes(sdk_bytes)
+            else:
+                sdk_bytes = make_fake_sdk_jar(sdk_path)
+            sdk_hash = "0" * 64 if tamper_sdk_hash else sha256_hex(sdk_bytes)
+            (dl_dir / f"{sdk_name}.sha256").write_text(
+                f"{sdk_hash}  {sdk_name}\n", encoding="utf-8"
+            )
 
-        if proc_jar_source is not None:
-            proc_bytes = proc_jar_source.read_bytes()
-            proc_path.write_bytes(proc_bytes)
-        else:
-            proc_bytes = make_fake_processor_jar(proc_path)
-
-        sdk_hash = "0" * 64 if tamper_sdk_hash else sha256_hex(sdk_bytes)
-        proc_hash = "0" * 64 if tamper_proc_hash else sha256_hex(proc_bytes)
-
-        (dl_dir / f"{sdk_name}.sha256").write_text(
-            f"{sdk_hash}  {sdk_name}\n", encoding="utf-8"
-        )
-        (dl_dir / f"{proc_name}.sha256").write_text(
-            f"{proc_hash}  {proc_name}\n", encoding="utf-8"
-        )
+        if include_proc:
+            if proc_jar_source is not None:
+                proc_bytes = proc_jar_source.read_bytes()
+                proc_path.write_bytes(proc_bytes)
+            else:
+                proc_bytes = make_fake_processor_jar(proc_path)
+            proc_hash = "0" * 64 if tamper_proc_hash else sha256_hex(proc_bytes)
+            (dl_dir / f"{proc_name}.sha256").write_text(
+                f"{proc_hash}  {proc_name}\n", encoding="utf-8"
+            )
 
         if compat_versions is None:
             compat_versions = ["5.2.03", "5.3.02", "5.3.03", "5.3.04"]
@@ -310,6 +312,115 @@ class PluginTemplateSetupTest(unittest.TestCase):
             finally:
                 httpd.shutdown()
 
+    def test_sdk_only_release_warns_and_configures_without_processor(self) -> None:
+        serve = self.work / "sdk-only-serve"
+        self.populate_release_fixture(
+            serve,
+            version="0.67.0-beta.1",
+            channel="beta",
+            compat_versions=["5.0.00", "5.3.04"],
+            include_sdk=True,
+            include_proc=False,
+        )
+        handler = lambda *a, **kw: QuietHandler(*a, directory=str(serve), **kw)  # noqa: E731
+        with socketserver.TCPServer(("127.0.0.1", 0), handler) as httpd:
+            port = httpd.server_address[1]
+            thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+            thread.start()
+            try:
+                project = self.copy_template("sdk-only-project")
+                env = os.environ.copy()
+                env["TURBOISM_SETUP_RELEASE_API_URL"] = f"http://127.0.0.1:{port}/v1/releases"
+                env["TURBOISM_SETUP_GITHUB_API_URL"] = (
+                    f"http://127.0.0.1:{port}/repos/turboism/Turboism/releases"
+                )
+                env["TURBOISM_SETUP_DOWNLOAD_BASE_URL"] = (
+                    f"http://127.0.0.1:{port}/releases/download"
+                )
+                res = subprocess.run(
+                    ["bash", str(project / "scripts/setup.sh"), "--channel", "beta", "--yes"],
+                    cwd=project,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(res.returncode, 0, res.stderr + "\n" + res.stdout)
+                self.assertIn("@SubscribeEvent catalogs will not be generated", res.stderr)
+                self.assertIn("use EventBus#subscribe", res.stderr)
+                self.assertTrue((project / "libs/turboism-sdk-0.67.0-beta.1.jar").is_file())
+                self.assertEqual(
+                    list((project / "libs").glob("turboism-event-processor-*.jar")), []
+                )
+            finally:
+                httpd.shutdown()
+
+    def test_release_without_sdk_fails_with_actionable_message_and_ci_fallback_works(self) -> None:
+        serve = self.work / "no-sdk-serve"
+        # stable 0.44.0 has no SDK jar; beta 0.67.0-beta.1 has SDK only
+        self.populate_release_fixture(
+            serve,
+            version="0.44.0",
+            channel="stable",
+            compat_versions=["5.2.03", "5.3.02", "5.3.03"],
+            include_sdk=False,
+            include_proc=False,
+        )
+        self.populate_release_fixture(
+            serve,
+            version="0.67.0-beta.1",
+            channel="beta",
+            compat_versions=["5.0.00", "5.3.04"],
+            include_sdk=True,
+            include_proc=False,
+        )
+        handler = lambda *a, **kw: QuietHandler(*a, directory=str(serve), **kw)  # noqa: E731
+        with socketserver.TCPServer(("127.0.0.1", 0), handler) as httpd:
+            port = httpd.server_address[1]
+            thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+            thread.start()
+            try:
+                project = self.copy_template("no-sdk-project")
+                env = os.environ.copy()
+                env["TURBOISM_SETUP_RELEASE_API_URL"] = f"http://127.0.0.1:{port}/v1/releases"
+                env["TURBOISM_SETUP_GITHUB_API_URL"] = (
+                    f"http://127.0.0.1:{port}/repos/turboism/Turboism/releases"
+                )
+                env["TURBOISM_SETUP_DOWNLOAD_BASE_URL"] = (
+                    f"http://127.0.0.1:{port}/releases/download"
+                )
+                res = subprocess.run(
+                    ["bash", str(project / "scripts/setup.sh"), "--channel", "stable", "--yes"],
+                    cwd=project,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertNotEqual(res.returncode, 0)
+                self.assertIn("predates standalone SDK distribution", res.stderr)
+                self.assertIn(
+                    "use --channel beta or --version <release with SDK>", res.stderr
+                )
+                self.assertEqual(list((project / "libs").glob("*.jar")), [])
+
+                # Verify the CI workflow's stable -> beta fallback logic against this fixture
+                ci_cmd = (
+                    'set -euo pipefail; LOG="$(mktemp)"; trap \'rm -f "$LOG"\' EXIT; '
+                    'if ./scripts/setup.sh --channel stable --yes 2>&1 | tee "$LOG"; then exit 0; fi; '
+                    'if grep -Fq "predates standalone SDK distribution" "$LOG"; then '
+                    './scripts/setup.sh --channel beta --yes; else exit 1; fi'
+                )
+                ci_res = subprocess.run(
+                    ["bash", "-c", ci_cmd],
+                    cwd=project,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(ci_res.returncode, 0, ci_res.stderr + "\n" + ci_res.stdout)
+                self.assertTrue((project / "libs/turboism-sdk-0.67.0-beta.1.jar").is_file())
+            finally:
+                httpd.shutdown()
+
     def test_powershell_script_contract_parity(self) -> None:
         ps1 = (TEMPLATE_DIR / "scripts/setup.ps1").read_text(encoding="utf-8")
         for token in (
@@ -321,11 +432,19 @@ class PluginTemplateSetupTest(unittest.TestCase):
             "META-INF/turboism/cubism-versions.json",
             "turboism.plugin-cubism-versions/v1",
             "turboismSdkVersion=$ResolvedVersion",
+            "Invoke-OptionalDownload",
+            "predates standalone SDK distribution",
+            "use --channel beta or --version <release with SDK>",
+            "@SubscribeEvent catalogs will not be generated; use EventBus#subscribe, or rerun setup after a release that ships turboism-event-processor.",
         ):
             self.assertIn(token, ps1)
         self.assertNotIn("X-Turboism-Download-Purpose", ps1)
         sh = (TEMPLATE_DIR / "scripts/setup.sh").read_text(encoding="utf-8")
         self.assertNotIn("X-Turboism-Download-Purpose", sh)
+        workflow = (TEMPLATE_DIR / ".github/workflows/build.yml").read_text(encoding="utf-8")
+        self.assertIn("./scripts/setup.sh --channel stable --yes", workflow)
+        self.assertIn("predates standalone SDK distribution", workflow)
+        self.assertIn("./scripts/setup.sh --channel beta --yes", workflow)
 
 
 if __name__ == "__main__":
