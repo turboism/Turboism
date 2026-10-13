@@ -18,9 +18,16 @@ import java.util.OptionalLong;
 public record UpdateDiscovery(int schemaVersion, String channel, Status status, Optional<Candidate> candidate) {
     public static final int SCHEMA_VERSION = 1;
     public static final String CHANNEL_STABLE = "stable";
+    public static final String CHANNEL_BETA = "beta";
+    public static final String CHANNEL_NIGHTLY = "nightly";
 
     /** Maximum accepted build number; mirrors the JSON safe-integer bound. */
     public static final long MAX_BUILD_NUMBER = 9_007_199_254_740_991L;
+
+    /** Returns whether {@code channel} is one of the supported product release channels. */
+    public static boolean isSupportedChannel(final String channel) {
+        return CHANNEL_STABLE.equals(channel) || CHANNEL_BETA.equals(channel) || CHANNEL_NIGHTLY.equals(channel);
+    }
 
     /** Published state of the requested release channel. */
     public enum Status {
@@ -65,7 +72,7 @@ public record UpdateDiscovery(int schemaVersion, String channel, Status status, 
         root.put("status", statusWireName());
         candidate.ifPresent(value -> {
             final ObjectNode node = root.putObject("release");
-            node.put("version", value.version().toString());
+            node.put("version", value.versionText());
             if (value.buildNumber().isPresent()) {
                 node.put("buildNumber", value.buildNumber().getAsLong());
             }
@@ -79,9 +86,20 @@ public record UpdateDiscovery(int schemaVersion, String channel, Status status, 
     }
 
     /** One published product build offered by the requested channel. */
-    public record Candidate(UpdateVersion version, OptionalLong buildNumber, Optional<Instant> publishedAt) {
+    public record Candidate(
+            UpdateVersion version, String versionText, OptionalLong buildNumber, Optional<Instant> publishedAt) {
+        /** Creates a candidate whose wire version text equals the canonical numeric version. */
+        public Candidate(
+                final UpdateVersion version, final OptionalLong buildNumber, final Optional<Instant> publishedAt) {
+            this(Objects.requireNonNull(version, "version"), version.toString(), buildNumber, publishedAt);
+        }
+
         public Candidate {
             version = Objects.requireNonNull(version, "version");
+            versionText = Objects.requireNonNull(versionText, "versionText");
+            if (versionText.isBlank()) {
+                throw new IllegalArgumentException("versionText must not be blank");
+            }
             buildNumber = Objects.requireNonNull(buildNumber, "buildNumber");
             publishedAt = Objects.requireNonNull(publishedAt, "publishedAt");
             if (buildNumber.isPresent()) {
@@ -94,7 +112,7 @@ public record UpdateDiscovery(int schemaVersion, String channel, Status status, 
 
         /** Human-readable candidate identity, including the recorded build number when present. */
         public String identity() {
-            return buildNumber.isPresent() ? version + " (Build " + buildNumber.getAsLong() + ")" : version.toString();
+            return buildNumber.isPresent() ? versionText + " (Build " + buildNumber.getAsLong() + ")" : versionText;
         }
     }
 }

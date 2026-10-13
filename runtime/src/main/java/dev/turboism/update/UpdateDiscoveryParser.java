@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.core.FrameworkBuildInfo;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
@@ -15,6 +16,7 @@ import java.time.format.DateTimeParseException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.regex.Pattern;
 
 /**
  * Strict parser for the {@code /v1/releases/<channel>.json} discovery document
@@ -28,10 +30,39 @@ public final class UpdateDiscoveryParser {
     private static final String STATUS_READY = "ready";
     private static final String STATUS_NOT_PUBLISHED = "not_published";
     private static final String STATUS_UNAVAILABLE = "unavailable";
+    private static final Pattern BETA_VERSION = Pattern.compile(
+            "(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-(?:alpha|beta|rc)\\.(?:0|[1-9][0-9]*))?");
+    private static final Pattern NIGHTLY_VERSION =
+            Pattern.compile("(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-0\\.nightly\\.(?:[1-9][0-9]*))?");
     private static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
                     .enable(com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION)
                     .build())
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+
+    private final String expectedChannel;
+
+    /** Creates a parser expecting the default {@code stable} release channel. */
+    public UpdateDiscoveryParser() {
+        this(UpdateDiscovery.CHANNEL_STABLE);
+    }
+
+    /** Creates a parser bound to a specific release channel wire name. */
+    public UpdateDiscoveryParser(final String expectedChannel) {
+        this.expectedChannel = Objects.requireNonNull(expectedChannel, "expectedChannel");
+        if (!UpdateDiscovery.isSupportedChannel(expectedChannel)) {
+            throw new IllegalArgumentException("unsupported discovery channel: " + expectedChannel);
+        }
+    }
+
+    /** Creates a parser bound to the release channel of the installed framework build. */
+    public UpdateDiscoveryParser(final FrameworkBuildInfo.Channel channel) {
+        this(InstalledBuild.channelFor(channel));
+    }
+
+    /** Returns the release channel wire name this parser accepts. */
+    public String expectedChannel() {
+        return expectedChannel;
+    }
 
     /** Parses bounded UTF-8 discovery bytes into a validated discovery record. */
     public UpdateDiscovery parse(final byte[] bytes) {
@@ -70,7 +101,7 @@ public final class UpdateDiscoveryParser {
             throw invalid("unsupported discovery schema version");
         }
         final String channel = text(object, "channel");
-        if (!UpdateDiscovery.CHANNEL_STABLE.equals(channel)) {
+        if (!expectedChannel.equals(channel)) {
             throw invalid("unexpected discovery channel");
         }
         final String statusName = text(object, "status");
@@ -99,14 +130,36 @@ public final class UpdateDiscoveryParser {
         if (!(release instanceof ObjectNode node)) {
             throw invalid("release must be a JSON object");
         }
-        final UpdateVersion version;
+        final String rawVersion = text(node, "version");
+        final UpdateVersion version = parseReleaseVersion(rawVersion);
+        return new UpdateDiscovery.Candidate(
+                version,
+                rawVersion,
+                optionalPositiveLong(node, "buildNumber"),
+                optionalUtcInstant(node, "publishedAt"));
+    }
+
+    private UpdateVersion parseReleaseVersion(final String rawVersion) {
         try {
-            version = UpdateVersion.parse(text(node, "version"));
+            return switch (expectedChannel) {
+                case UpdateDiscovery.CHANNEL_STABLE -> UpdateVersion.parse(rawVersion);
+                case UpdateDiscovery.CHANNEL_BETA -> {
+                    if (!BETA_VERSION.matcher(rawVersion).matches()) {
+                        throw invalid("beta release version is not canonical");
+                    }
+                    yield UpdateVersion.parseInstalled(rawVersion);
+                }
+                case UpdateDiscovery.CHANNEL_NIGHTLY -> {
+                    if (!NIGHTLY_VERSION.matcher(rawVersion).matches()) {
+                        throw invalid("nightly release version is not canonical");
+                    }
+                    yield UpdateVersion.parseInstalled(rawVersion);
+                }
+                default -> throw invalid("unsupported discovery channel");
+            };
         } catch (IllegalArgumentException invalidVersion) {
             throw invalid("release version is not canonical", invalidVersion);
         }
-        return new UpdateDiscovery.Candidate(
-                version, optionalPositiveLong(node, "buildNumber"), optionalUtcInstant(node, "publishedAt"));
     }
 
     private static void requireAbsentRelease(final ObjectNode object) {
