@@ -99,6 +99,7 @@ def release_artifacts(dist: Path, version: str, channel: str = "stable") -> list
         dist / f"TurboismInstaller-{version}.exe",
         dist / f"TurboismInstaller-{version}.jar",
         dist / f"turboism-sdk-{version}.jar",
+        dist / f"turboism-event-processor-{version}.jar",
     ]
     return sorted(primary + [path.with_name(path.name + ".sha256") for path in primary])
 
@@ -117,6 +118,31 @@ def verify_sdk_jar(path: Path, version: str, windows_stage: Path | None) -> None
         raise ValueError(
             f"SDK artifact bytes differ from the shipped runtime library: {path}"
         )
+
+
+def verify_event_processor_jar(path: Path) -> None:
+    """Verify the standalone developer event annotation processor artifact."""
+    processor_class = "dev/turboism/eventprocessor/SubscribeEventProcessor.class"
+    service_entry = "META-INF/services/javax.annotation.processing.Processor"
+    with zipfile.ZipFile(path) as archive:
+        names = set(archive.namelist())
+        if processor_class not in names:
+            raise ValueError(
+                f"event-processor artifact lacks SubscribeEventProcessor: {path}"
+            )
+        if service_entry not in names:
+            raise ValueError(
+                f"event-processor artifact lacks Processor service descriptor: {path}"
+            )
+        providers = [
+            line.strip()
+            for line in archive.read(service_entry).decode("utf-8").splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        ]
+        if "dev.turboism.eventprocessor.SubscribeEventProcessor" not in providers:
+            raise ValueError(
+                f"event-processor service descriptor does not register SubscribeEventProcessor: {path}"
+            )
 
 
 def verify(
@@ -159,6 +185,7 @@ def verify(
         plugins=plugins,
     )
     verify_sdk_jar(dist / f"turboism-sdk-{version}.jar", version, windows_stage)
+    verify_event_processor_jar(dist / f"turboism-event-processor-{version}.jar")
 
 
 def artifact_manifest(
@@ -168,7 +195,7 @@ def artifact_manifest(
     windows_stage: Path | None = None,
     channel: str = "stable",
 ) -> dict:
-    """Return a deterministic manifest without writing into the ten-file dist."""
+    """Return a deterministic manifest without writing into the twelve-file dist."""
     verify(dist, version, release_plugins, windows_stage, channel)
     artifacts = []
     for path in release_artifacts(dist, version, channel):
