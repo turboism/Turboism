@@ -328,14 +328,13 @@ def normalize_v1(doc):
     return validate_v1(normalized)
 
 
-def desired_disabled(doc, mode, unchecked, bundled_ids):
+def desired_disabled(doc, mode="full", unchecked=None, bundled_ids=BUNDLED_IDS):
     existing = list(doc.get("disabledPlugins", []))
     require_string_array(existing, "disabledPlugins")
-    bundled = set(bundled_ids)
-    requested = set(bundled_ids if mode == "lite" else unchecked)
-    if not requested <= bundled:
+    requested = set(unchecked or [])
+    if not requested <= set(bundled_ids):
         raise ValueError("unchecked plugin is not bundled")
-    return sorted((set(existing) - bundled - set(RETIRED_IDS)) | requested)
+    return sorted((set(existing) - set(RETIRED_IDS)) | requested)
 
 
 def installer_write_config(mode, unchecked, existing_text, bundled_ids=BUNDLED_IDS):
@@ -372,8 +371,10 @@ def installer_write_config(mode, unchecked, existing_text, bundled_ids=BUNDLED_I
 
 
 def nsis_jars_after(mode, prev_jars):
-    """镜像 NSIS 升级：先按受控历史模块名退休旧官方 JAR，再执行
-    隐藏载荷 Section。Full($Mode==1) 安装全部当前插件，Lite 不写新 JAR。"""
+    """镜像 NSIS 升级：Full 退休旧官方 JAR 并安装全部当前插件；
+    Thin 安装器不执行退休且不写新 JAR（plugins/ 原样保留）。"""
+    if mode in ("thin", "lite"):
+        return sorted(prev_jars)
     retained = [module for module in prev_jars if module not in RETIRED_MODULES]
     if mode == "full":
         return sorted(set(retained) | set(BUNDLED_MODULES))
@@ -483,24 +484,19 @@ def check_config_migration_contract():
           and '${STAGING_DIR}/configure_turboism.ps1' in section
           and '${STAGING_DIR}/cubism-launch-common.ps1' in section)
     check("CM3 installer selection is explicit and complete",
-          "Call CollectUncheckedPluginIds" in section
-          and "Call SetBundledPluginIds" in section
+          "Call SetBundledPluginIds" in section
           and "-ApplyInstallerSelection" in section
+          and '-Variant "thin"' in section
+          and '-Variant "full"' in section
           and '-BundledPluginIds "$bundledPluginIds"' in section
-          and '-DisabledPluginIds "$uncheckedPluginIds"' in section
           and "Function SetBundledPluginIds" in generated)
     exported = re.search(
         r'Function SetBundledPluginIds\s+StrCpy \$bundledPluginIds "([^"]+)"',
         generated,
     )
-    collected = re.findall(
-        r'StrCpy \$uncheckedPluginIds "(dev\.turboism\.plugin\.[^"]+)"',
-        generated,
-    )
-    check("CM3b bundled selection inventory exactly matches visible plugin sections",
+    check("CM3b bundled selection inventory matches release plugin manifest",
           exported is not None
-          and exported.group(1).split(";") == collected
-          and len(collected) == len(set(collected)) == len(REAL_MODULES))
+          and len(exported.group(1).split(";")) == len(REAL_MODULES))
     check("CM4 config failure aborts before payload mutation",
           "ConfigMigrationError" in section and "Abort" in section
           and "-RetirePlugins" not in section)
@@ -574,9 +570,9 @@ def check_managed_graal_installer_contract():
     check("GI1 managed Graal option defaults to later",
           "StrCpy $installManagedGraal 0" in text
           and "${NSD_Check} $GraalLaterRadio" in text)
-    check("GI2 managed Graal choice is independent of Full/Lite",
+    check("GI2 managed Graal choice is independent of variant",
           "${NSD_CreateRadioButton}" in text and "$(GraalNowChoice)" in text
-          and "$(GraalLaterChoice)" in text and "Function ModeLeave" in text)
+          and "$(GraalLaterChoice)" in text)
     check("GI3 no install occurs unless selected",
           "${If} $installManagedGraal != 1" in text
           and "install-managed-graal.ps1" in text)
@@ -1168,9 +1164,12 @@ def check_eula_contract():
     statement = text.index('!insertmacro MUI_PAGE_LICENSE "$(EulaFile)"')
     acknowledgements_page = text.index(
         "Page custom EulaAcknowledgementsCreate EulaAcknowledgementsLeave")
-    mode_page = text.index("Page custom ModeCreate ModeLeave")
+    directory_page = text.index("!insertmacro MUI_PAGE_DIRECTORY")
     check("EULA statement and acknowledgements are separate pages after AGPL-3.0-only",
-          first < statement < acknowledgements_page < mode_page)
+          first < statement < acknowledgements_page < directory_page)
+    check("Mode page and Components page are removed",
+          "Page custom ModeCreate ModeLeave" not in text
+          and "!insertmacro MUI_PAGE_COMPONENTS" not in text)
     check("Simplified Chinese AGPL-3.0-only acceptance consistently uses 我同意",
           'LangString LicenseBottomText ${LANG_SIMPCHINESE} "如果您同意 AGPL-3.0-only，请勾选下方复选框后继续。"' in text
           and 'LangString LicenseAcceptText ${LANG_SIMPCHINESE} "我同意 AGPL-3.0-only"' in text
@@ -1421,44 +1420,44 @@ def main():
     check('T2b JSON 数组形状（无多余引号、"," 分隔）', expected_fragment in out,
           "fragment=%s" % expected_fragment + " out=%s" % out[:160])
 
-    # T3: current v1 更新只改 disabledPlugins，并让本次勾选真正生效。
+    # T3: current v1 更新保留既有 disabledPlugins 与用户字段。
     existing = json.dumps({"format": "turboism.runtime.config", "schemaVersion": 1,
                            "worktreeId": "user-runtime", "pluginDirs": ["custom"],
                            "disabledPlugins": [a, UNRELATED], "logLevel": "DEBUG", "useTextIcon": True}, indent=2)
-    out = installer_write_config("full", [b], existing)
+    out = installer_write_config("full", [], existing)
     doc = json.loads(out)
-    check("T3 current schema 应用本次插件选择",
-          doc["disabledPlugins"] == [b, UNRELATED], str(doc.get("disabledPlugins")))
+    check("T3 current schema 保留既有 disabledPlugins",
+          doc["disabledPlugins"] == sorted([a, UNRELATED]), str(doc.get("disabledPlugins")))
     check("T3 current schema 保留其他用户字段",
           doc["worktreeId"] == "user-runtime" and doc["pluginDirs"] == ["custom"]
           and doc["logLevel"] == "DEBUG" and doc["useTextIcon"] is True)
 
-    # T4: Lite 更新禁用全部捆绑插件，同时保留无关禁用项和其他字段。
-    out = installer_write_config("lite", BUNDLED_IDS, existing)
+    # T4: Thin 更新保留用户既有 disabledPlugins，同时保留无关禁用项和其他字段。
+    out = installer_write_config("thin", [], existing)
     doc = json.loads(out)
-    check("T4 Lite 更新禁用全部捆绑插件",
-          doc["disabledPlugins"] == sorted(BUNDLED_IDS + [UNRELATED]))
-    check("T4 Lite 更新保留其他用户字段",
+    check("T4 Thin 更新保留用户既有 disabledPlugins",
+          doc["disabledPlugins"] == sorted([a, UNRELATED]))
+    check("T4 Thin 更新保留其他用户字段",
           doc["worktreeId"] == "user-runtime" and doc["pluginDirs"] == ["custom"])
 
-    # T5: Lite 全新安装仍写入全部捆绑 id。
-    out = installer_write_config("lite", [a, b], None)
+    # T5: Thin 全新安装不写入 disabledPlugins。
+    out = installer_write_config("thin", [], None)
     doc = json.loads(out)
-    check("T5 fresh lite 禁用全部捆绑 id", doc["disabledPlugins"] == BUNDLED_IDS,
+    check("T5 fresh thin 无 disabledPlugins", "disabledPlugins" not in doc or doc["disabledPlugins"] == [],
           str(doc.get("disabledPlugins")))
 
-    # T6: schema-less v0 迁移到 v1，保留已知设置并应用本次插件选择。
+    # T6: schema-less v0 迁移到 v1，保留已知设置并保留插件选择。
     legacy = json.dumps({"worktreeId": "legacy-runtime", "pluginDirs": ["custom"],
                          "disabledPlugins": [a, UNRELATED], "logLevel": "DEBUG",
                          "useTextIcon": True, "cubismJvm": "bundled"})
-    out = installer_write_config("full", [b], legacy)
+    out = installer_write_config("full", [], legacy)
     doc = json.loads(out)
     check("T6 v0 迁移到 current schema",
           doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1)
     check("T6 v0 保留用户设置",
           doc["worktreeId"] == "legacy-runtime" and doc["pluginDirs"] == ["custom"]
           and doc["logLevel"] == "DEBUG" and doc["useTextIcon"] is True)
-    check("T6 v0 应用插件选择", doc["disabledPlugins"] == [b, UNRELATED])
+    check("T6 v0 保留既有插件选择", doc["disabledPlugins"] == [a, UNRELATED])
     check("T6 v0 JVM 字段迁入 launcher", doc["launcher"]["cubismJvm"] == "bundled")
 
     # T7: 未知字段在归一化时被丢弃而不是失败关闭。
@@ -1529,41 +1528,41 @@ def main():
     doc = json.loads(out)
     check("TI1 disabledPlugins == 未勾选", doc["disabledPlugins"] == [a, c], str(doc.get("disabledPlugins")))
 
-    # TI2: 后续 Full 更新仍铺设完整 JAR，并应用新的选择。
-    out = installer_write_config("full", [b], out)
+    # TI2: 后续 Full 更新仍铺设完整 JAR，并保留既有 disabledPlugins。
+    out = installer_write_config("full", [], out)
     doc = json.loads(out)
     jars = nsis_jars_after("full", jars)
     check("TI2 更新后 JAR 库存完整", jars == BUNDLED_MODULES, str(jars))
-    check("TI2 更新应用新的插件选择", doc["disabledPlugins"] == [b])
+    check("TI2 更新保留既有 disabledPlugins", doc["disabledPlugins"] == [a, c])
 
-    # TI2b: legacy v0 迁移后同样应用安装页选择并保留无关禁用项。
+    # TI2b: legacy v0 迁移后同样保留既有 disabledPlugins。
     existing = '{"disabledPlugins": ["' + a + '","' + UNRELATED + '"]}'
-    out = installer_write_config("full", [b], existing)
+    out = installer_write_config("full", [], existing)
     doc = json.loads(out)
-    check("TI2b v0 迁移应用插件设置", doc["disabledPlugins"] == [b, UNRELATED],
+    check("TI2b v0 迁移保留既有 disabledPlugins", doc["disabledPlugins"] == sorted([a, UNRELATED]),
           str(doc.get("disabledPlugins")))
 
-    # TI3: 全新 Lite → 无插件 JAR；禁用全部捆绑 id
-    jars = nsis_jars_after("lite", [])
-    check("TI3 Lite 全新无插件 JAR", jars == [], str(jars))
-    out = installer_write_config("lite", [], None)
+    # TI3: 全新 Thin → 无插件 JAR；无 disabledPlugins
+    jars = nsis_jars_after("thin", [])
+    check("TI3 Thin 全新无插件 JAR", jars == [], str(jars))
+    out = installer_write_config("thin", [], None)
     doc = json.loads(out)
-    check("TI3 Lite 禁用全部捆绑 id", doc["disabledPlugins"] == BUNDLED_IDS, str(doc.get("disabledPlugins")))
+    check("TI3 Thin 全新无 disabledPlugins", "disabledPlugins" not in doc or doc["disabledPlugins"] == [], str(doc.get("disabledPlugins")))
 
-    # TI4: Full→Lite 不写新 JAR，但会禁用全部仍留盘的捆绑插件。
-    jars = nsis_jars_after("lite", BUNDLED_MODULES)
-    check("TI4 Full→Lite 不写新 JAR（当前旧 JAR 留盘）", jars == BUNDLED_MODULES, str(jars))
+    # TI4: Full→Thin 不写新 JAR 且原样保留 plugins/ 插件，保留用户既有 disabledPlugins。
+    jars = nsis_jars_after("thin", BUNDLED_MODULES)
+    check("TI4 Full→Thin 不写新 JAR（当前旧 JAR 原样留盘）", jars == BUNDLED_MODULES, str(jars))
     existing = json.dumps({"format": "turboism.runtime.config", "schemaVersion": 1,
                            "worktreeId": "turboism-runtime", "pluginDirs": ["plugins"],
                            "disabledPlugins": [a]})
-    out = installer_write_config("lite", [], existing)
+    out = installer_write_config("thin", [], existing)
     doc = json.loads(out)
-    check("TI4 Full→Lite 禁用全部捆绑插件", doc["disabledPlugins"] == BUNDLED_IDS)
+    check("TI4 Full→Thin 保留用户既有 disabledPlugins", doc["disabledPlugins"] == [a])
 
-    # TI5: NSIS 升级先删除受控历史模块，再根据当前模式铺设 payload。
-    jars = nsis_jars_after("lite", RETIRED_MODULES + BUNDLED_MODULES + ["third-party"])
-    check("TI5 Lite 升级退休历史 JAR 并保留未知 JAR",
-          jars == sorted(BUNDLED_MODULES + ["third-party"]), str(jars))
+    # TI5: NSIS 升级：Thin 升级不删插件；Full 升级退休历史模块并铺设全量。
+    jars = nsis_jars_after("thin", RETIRED_MODULES + BUNDLED_MODULES + ["third-party"])
+    check("TI5 Thin 升级保留全部既有插件 JAR（包含未知与第三方 JAR）",
+          jars == sorted(RETIRED_MODULES + BUNDLED_MODULES + ["third-party"]), str(jars))
     jars = nsis_jars_after("full", RETIRED_MODULES + ["third-party"])
     check("TI5 Full 升级退休历史 JAR、安装当前全量并保留未知 JAR",
           jars == sorted(BUNDLED_MODULES + ["third-party"]), str(jars))
