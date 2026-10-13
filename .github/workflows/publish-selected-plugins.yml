@@ -30,7 +30,7 @@ permissions:
   contents: read
 
 env:
-  PLUGIN_DIRECTORY_REVISION: c556c90adee0f12b5ce81c9c8108eab8e53aec16
+  PLUGIN_DIRECTORY_REVISION: e49017551ac850bc5cc3cb6a5b4d45edbe030ac1
 
 jobs:
   build-plugin-candidate:
