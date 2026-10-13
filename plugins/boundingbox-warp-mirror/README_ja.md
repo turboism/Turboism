@@ -1,0 +1,89 @@
+---
+turboismReadmeSchema: 1
+pluginId: dev.turboism.plugin.boundingbox-warp-mirror
+version: 0.1.0
+kind: feature
+status: preview
+delivery: store-candidate
+category: modeling
+tags: deformer, warp, editing, symmetry, boundingbox
+turboismApi: "[0.1.0,0.2.0)"
+requiresCubism: true
+interface: none
+---
+
+# バウンディングボックス ワープミラー
+
+> **Turboism 公式プラグイン** · **ステータス: プレビュー**
+
+バウンディングボックスのオーバーレイから方向選択ダイアログを開き、選択中のすべてのワープデフォーマに対して一括で全体ミラーを適用します。対話的な Alt ドラッグミラー（`warp-deformer-alt-symmetry`）を補完する機能であり、互いに干渉しません。
+
+| 項目 | 値 |
+|---|---|
+| バージョン | `0.1.0` |
+| プラグイン ID | `dev.turboism.plugin.boundingbox-warp-mirror` |
+| カテゴリ | `modeling` |
+| タグ | deformer, warp, editing, symmetry, boundingbox |
+| Turboism API | `[0.1.0,0.2.0)` |
+| Cubism 必須 | はい |
+| インターフェース | `none` |
+| ライセンス | Project License |
+
+## 機能概要
+
+- ネイティブのバウンディングボックスオーバーレイにミラーボタン（`boundingbox-warp-mirror.mirror`）を追加します。
+- クリックすると 4 方向（左 → 右、右 → 左、上 → 下、下 → 上）と「子オブジェクトに影響しない」チェックボックス（既定でオン）を備えたモーダルダイアログを開きます。
+- 確定すると選択中の各ワープデフォーマの制御点グリッド全体をミラーリングします。キャンセル時は書き込みを行いません。
+- 子オブジェクト維持がオンの場合、すべての子孫（ArtMesh、ネストされたワープデフォーマ、回転デフォーマ）は現在のキャンバス形状を維持します。維持保証を証明できない場合は静かにスキップせず操作を拒否します。
+- 親の書き込みと子孫の補正を単一のホストトランザクション（1 回の Undo 履歴）としてコミットし、失敗時はロールバックして理由を表示します。
+
+## 要件と互換性
+
+- Turboism ランタイム上で動作する Cubism Editor セッションが必要です。
+- 検証済みの Editor モデルスライスが必要です。非対応ホストバージョンではサービスが `UNAVAILABLE` を返します。
+- 方向ラベルは実際のミラー結果を表します（旧実装の左右反転は修正されています）。
+
+<!-- compatibility:begin -->
+**Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
+完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
+<!-- compatibility:end -->
+
+## インストールと有効化
+
+Turboism ディストリビューションに同梱されています。インストーラーまたはプラグイン管理画面から有効化・無効化できます。
+
+## 使い方
+
+1. 1 つ以上のワープデフォーマを選択します（親子がともに選択されている場合は親から順に適用されます）。
+2. バウンディングボックスオーバーレイのミラーボタンをクリックします。
+3. 方向を選択し、「子オブジェクトに影響しない」のオン／オフを確認して決定します。
+4. ブロックまたは失敗した対象は通知ダイアログに理由が表示され、書き込みは行われません。
+
+## 機能
+
+- `cubism.deformer.read`
+- `cubism.deformer.warp-mirror`
+
+## 権限
+
+- `turboism.cubism.model.read`
+- `turboism.cubism.model.write`
+- `turboism.ui.overlay.contribute`
+
+## プライバシーとデータ
+
+現在の選択状態とモデルジオメトリのみを読み取り、データの保存や外部送信は一切行いません。
+
+## 状態と制限
+
+- プレビューステータスです。オブジェクト全体のミラーリングのみ対応しており、制御点の部分選択ミラーには対応していません。ArtMesh と回転デフォーマは対象外です。
+- ロックされた対象・子孫、グルーを含むモデル、保存済みキーフォーム以外の編集コンテキスト、退化したグリッド、補償解が求まらないケースでは安全のため操作を拒否します。
+
+## トラブルシューティング
+
+- ボタンをクリックしても対象がないと表示される：少なくとも 1 つのワープデフォーマが選択されているか確認してください。
+- 対象がブロックされたと報告される：通知内の理由（ロック状態、グルーの有無、補間中の編集コンテキスト、補償計算不能）を確認してください。
+
+## サポートとライセンス
+
+Project License。問題は標準の Turboism サポートチャンネルから報告してください。

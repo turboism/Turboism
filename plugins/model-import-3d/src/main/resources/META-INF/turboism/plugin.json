@@ -2,9 +2,9 @@
   "format": "turboism.plugin.meta",
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.model-import-3d",
-  "name": "3D 模型导入",
+  "name": "3D Model Import",
   "version": "0.1.0",
-  "description": "静态不透明 GLB、glTF、OBJ/MTL 与 ZIP 原生导入；支持 PNG/JPEG 基础色贴图、XYZ 整圈旋转及有界几何优化。",
+  "description": "Imports static opaque GLB, glTF, OBJ/MTL, and model ZIP packages as native Cubism meshes with PNG/JPEG base-color textures, XYZ full-circle rotation, and bounded geometry optimization.",
   "entrypoints": [
     "dev.turboism.validation.modelimport3d.host.ModelImportPlugin"
   ],
@@ -32,32 +32,32 @@
     {
       "id": "turboism.action.register",
       "scope": "application",
-      "reason": "注册用户导入操作"
+      "reason": "Registers the 3D model import action."
     },
     {
       "id": "turboism.ui.menu.contribute",
       "scope": "application",
-      "reason": "提供模型导入菜单"
+      "reason": "Contributes the 3D model import menu item."
     },
     {
       "id": "turboism.ui.file-chooser.request",
       "scope": "application",
-      "reason": "请求用户选择 GLB、glTF、OBJ 或模型 ZIP"
+      "reason": "Requests user selection of a GLB, glTF, OBJ, or model ZIP file."
     },
     {
       "id": "turboism.file.read",
       "scope": "application",
-      "reason": "读取用户所选模型文件及包内贴图"
+      "reason": "Reads the user-selected model file and referenced textures."
     },
     {
       "id": "turboism.cubism.model.read",
       "scope": "application",
-      "reason": "检查当前模型及参数"
+      "reason": "Inspects the active model and parameters."
     },
     {
       "id": "turboism.cubism.model.write",
       "scope": "application",
-      "reason": "以单个可撤销事务创建模型及参数"
+      "reason": "Creates model meshes and parameters in a single undoable transaction."
     }
   ],
   "capabilities": [],
