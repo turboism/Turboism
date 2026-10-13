@@ -18,6 +18,9 @@ class ReleaseDetailsTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
+        matrix = self.root / 'compatibility/cubism/compatibility-matrix.json'
+        matrix.parent.mkdir(parents=True)
+        matrix.write_bytes((ROOT / 'compatibility/cubism/compatibility-matrix.json').read_bytes())
         self.git('init','-q')
         self.git('config','user.name','Tests'); self.git('config','user.email','tests@example.invalid')
         self.base = self.commit('initial')
@@ -82,6 +85,7 @@ class ReleaseDetailsTests(unittest.TestCase):
         path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','englishSha256':digest,'locales':{'zh':'新增改动','ja':'変更を追加','ko':'변경 사항 추가'}}))
         body=m.candidate_notes(self.root,receipt,None)
         self.assertIn('turboism-notes-v1',body);self.assertIn('변경 사항 추가',body)
+        self.assertEqual(body.count('<!-- turboism-compatibility-v1 '),1)
 
     def test_context_tampering_and_nonancestor_fail(self):
         m=self.module();c=m.history_context(self.root,self.head,self.base,'v1.2.2')
@@ -98,6 +102,7 @@ class ReleaseDetailsTests(unittest.TestCase):
             select.side_effect=AssertionError('Publishing must not query a moving baseline')
             manifest,receipt,notes=prerelease.verify_candidate(object(),self.root,bundle,self.head,'123',1,'nightly')
             self.assertIn('fix: preserve',notes);self.assertEqual(receipt,self.receipt)
+            self.assertEqual(notes.count('<!-- turboism-compatibility-v1 '),1)
 
     def test_v1_candidate_notes_still_verify_unchanged(self):
         import hashlib
@@ -117,6 +122,7 @@ class ReleaseDetailsTests(unittest.TestCase):
         path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','englishSha256':hashlib.sha256(english.encode()).hexdigest(),'locales':{'zh':'新增改动','ja':'変更を追加'}}))
         text=m.stable_metadata(self.root,'1.2.3',self.head,english)
         self.assertIn('新增改动',text);self.assertIn(self.head,text)
+        self.assertEqual(text.count('<!-- turboism-compatibility-v1 '),1)
         with self.assertRaises(ValueError):m.stable_metadata(self.root,'1.2.3',self.head,english+' changed')
 
     def test_first_nightly_uses_published_ancestral_stable_not_later_release(self):
@@ -129,5 +135,82 @@ class ReleaseDetailsTests(unittest.TestCase):
                 raise AssertionError(path)
         c=m.select_context(API(),self.root,self.receipt,cutoff='2026-09-11T00:00:00Z')
         self.assertEqual(c['baseRevision'],self.base);self.assertEqual(c['baseTag'],'v1.2.2')
+
+    def test_compatibility_marker_derives_admitted_versions_ranges_and_is_deterministic(self):
+        m=self.module()
+        marker=m.compatibility_marker(ROOT)
+        self.assertEqual(marker, m.compatibility_marker(ROOT))
+        self.assertTrue(marker.startswith('<!-- turboism-compatibility-v1 '))
+        self.assertTrue(marker.endswith(' -->\n'))
+        self.assertLess(len(marker.encode('utf-8')), 4096)
+        payload=json.loads(marker[len('<!-- turboism-compatibility-v1 '):-len(' -->\n')])
+        self.assertEqual(payload['schemaVersion'], 1)
+        self.assertEqual(payload['platforms'], ['windows-x64'])
+        self.assertEqual(payload['matrixUrl'], 'https://turboism.dev/docs/use/compatibility')
+        expected_versions=[
+            '5.0.00','5.0.01','5.0.02','5.0.03','5.0.04','5.0.05','5.0.06',
+            '5.1.00','5.1.01','5.1.02','5.1.03',
+            '5.2.00','5.2.01','5.2.02','5.2.03',
+            '5.3.00','5.3.01','5.3.02','5.3.03','5.3.04',
+        ]
+        self.assertEqual(payload['cubismEditor']['versions'], expected_versions)
+        self.assertEqual(payload['cubismEditor']['ranges'], [{'from': '5.0.00', 'to': '5.3.04'}])
+
+    def test_compatibility_ranges_follow_reviewed_order_and_reject_invalid_inputs(self):
+        m=self.module()
+        self.assertEqual(
+            m.collapse_ranges(['5.2.03', '5.3.02', '5.3.03']),
+            [{'from': '5.2.03', 'to': '5.2.03'}, {'from': '5.3.02', 'to': '5.3.03'}],
+        )
+        self.assertEqual(
+            m.collapse_ranges(['5.0.06', '5.1.00']),
+            [{'from': '5.0.06', 'to': '5.1.00'}],
+        )
+        self.assertEqual(
+            m.collapse_ranges(['5.0.05', '5.1.00']),
+            [{'from': '5.0.05', 'to': '5.0.05'}, {'from': '5.1.00', 'to': '5.1.00'}],
+        )
+        for invalid in [[], ['5.3.03', '5.3.02'], ['5.3.02', '5.3.02'], ['4.2.00']]:
+            with self.assertRaises(ValueError):
+                m.collapse_ranges(invalid)
+
+    def test_compatibility_marker_checks_sources_and_publication_budget(self):
+        m=self.module()
+        with tempfile.TemporaryDirectory() as d:
+            empty=Path(d)
+            with self.assertRaises(ValueError):
+                m.compatibility_marker(empty)
+            artifacts=empty/'runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java'
+            artifacts.parent.mkdir(parents=True)
+            artifacts.write_text(
+                'public final class ReviewedHostArtifacts {\n'
+                '    public static final String CUBISM_5_2_03_VERSION = "5.2.03";\n'
+                '    public static final String CUBISM_5_3_02_VERSION = "5.3.02";\n'
+                '    public static final String CUBISM_5_3_03_VERSION = "5.3.03";\n'
+                '    public static final HostArtifactDigest CUBISM_5_2_03 = new HostArtifactDigest(1L, "a");\n'
+                '    public static final HostArtifactDigest CUBISM_5_3_02 = new HostArtifactDigest(2L, "b");\n'
+                '    public static final HostArtifactDigest CUBISM_5_3_03 = new HostArtifactDigest(3L, "c");\n'
+                '}\n',
+                encoding='utf-8',
+            )
+            sub_marker=m.compatibility_marker(empty)
+            sub_payload=json.loads(sub_marker[len('<!-- turboism-compatibility-v1 '):-len(' -->\n')])
+            self.assertEqual(sub_payload['cubismEditor']['versions'], ['5.2.03', '5.3.02', '5.3.03'])
+            self.assertEqual(
+                sub_payload['cubismEditor']['ranges'],
+                [{'from': '5.2.03', 'to': '5.2.03'}, {'from': '5.3.02', 'to': '5.3.03'}],
+            )
+            matrix=empty/'compatibility/cubism/compatibility-matrix.json'
+            matrix.parent.mkdir(parents=True)
+            matrix.write_text(json.dumps({
+                'format': 'turboism.compatibility-matrix/v1',
+                'reviewedVersions': ['5.2.03', '5.3.03'],
+            }))
+            with self.assertRaises(ValueError):
+                m.compatibility_marker(empty)
+        context=m.history_context(self.root,self.head,self.base,'v1.2.2')
+        nightly_body=m.candidate_notes(self.root,self.receipt,context)
+        self.assertLess(len(nightly_body.encode('utf-8')),65000)
+        self.assertEqual(nightly_body.count('<!-- turboism-compatibility-v1 '),1)
 
 if __name__=='__main__':unittest.main()
