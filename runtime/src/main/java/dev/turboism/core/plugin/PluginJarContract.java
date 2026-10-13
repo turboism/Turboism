@@ -92,6 +92,20 @@ public final class PluginJarContract {
         validateResourceRoots(descriptor, content, logicalPath);
         validateI18n(descriptor, content, logicalPath);
         rejectUndeclaredResources(descriptor, content, logicalPath);
+        validateHotReloadCompatibility(descriptor, content, logicalPath);
+    }
+
+    private static void validateHotReloadCompatibility(
+            final PluginDescriptor descriptor, final Set<String> content, final String logicalPath)
+            throws PluginJarContractException {
+        if (descriptor instanceof dev.turboism.core.descriptor.CorePluginDescriptor cpd && cpd.hotReload()) {
+            if (content.contains("META-INF/turboism/hooks")
+                    || content.stream().anyMatch(entry -> entry.startsWith("META-INF/turboism/hooks/"))) {
+                throw problem(
+                        "PLUGIN_HOT_RELOAD_INCOMPATIBLE",
+                        logicalPath + " (declares hotReload=true but contributes META-INF/turboism/hooks)");
+            }
+        }
     }
 
     private static void rejectRetiredId(final PluginDescriptor descriptor, final String logicalPath)

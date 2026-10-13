@@ -65,6 +65,9 @@
     "requiresCubism": true,
     "ui": "embedded"
   },
+  "lifecycle": {
+    "hotReload": true
+  },
   "category": "workflow",
   "tags": [
     "3d",

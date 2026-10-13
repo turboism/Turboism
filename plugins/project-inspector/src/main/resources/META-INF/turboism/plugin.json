@@ -37,6 +37,9 @@
     "requiresCubism": true,
     "ui": "swing"
   },
+  "lifecycle": {
+    "hotReload": true
+  },
   "tags": [
     "project",
     "inspection",

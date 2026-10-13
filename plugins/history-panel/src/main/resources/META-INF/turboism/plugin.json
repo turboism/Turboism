@@ -73,6 +73,9 @@
     "requiresCubism": false,
     "ui": "embedded"
   },
+  "lifecycle": {
+    "hotReload": true
+  },
   "tags": [
     "history",
     "navigation",

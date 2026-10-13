@@ -122,6 +122,41 @@ public final class FirstPartyMetadataVerificationCli {
                     "FIRST_PARTY_CLASSIFICATION_MISMATCH",
                     "packaged category/tags differ from tracked metadata");
         }
+        final boolean sourceHotReload =
+                (source instanceof dev.turboism.core.descriptor.CorePluginDescriptor cpd && cpd.hotReload());
+        final boolean embeddedHotReload =
+                (embedded instanceof dev.turboism.core.descriptor.CorePluginDescriptor cpd && cpd.hotReload());
+        if (sourceHotReload != embeddedHotReload) {
+            throw new FirstPartyRejection(
+                    descriptorPath,
+                    "FIRST_PARTY_HOT_RELOAD_MISMATCH",
+                    "tracked hotReload (" + sourceHotReload + ") differs from embedded (" + embeddedHotReload + ")");
+        }
+        if (sourceHotReload) {
+            try (JarFile jar = new JarFile(jarPath.toFile())) {
+                if (jar.getJarEntry("META-INF/turboism/hooks") != null) {
+                    throw new FirstPartyRejection(
+                            descriptorPath,
+                            "FIRST_PARTY_HOT_RELOAD_UNSAFE",
+                            "plugin declares hotReload=true but built JAR contains META-INF/turboism/hooks");
+                }
+                final var manifest = jar.getManifest();
+                if (manifest != null) {
+                    final var attrs = manifest.getMainAttributes();
+                    if (attrs.getValue("Premain-Class") != null || attrs.getValue("Agent-Class") != null) {
+                        throw new FirstPartyRejection(
+                                descriptorPath,
+                                "FIRST_PARTY_HOT_RELOAD_UNSAFE",
+                                "plugin declares hotReload=true but manifest contains Premain-Class or Agent-Class");
+                    }
+                }
+            } catch (IOException failure) {
+                throw new FirstPartyRejection(
+                        descriptorPath,
+                        "FIRST_PARTY_JAR_UNREADABLE",
+                        "built JAR cannot be inspected: " + failure.getMessage());
+            }
+        }
     }
 
     private static List<String> entryNames(final JarFile jar) {

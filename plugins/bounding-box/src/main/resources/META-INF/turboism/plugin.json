@@ -37,6 +37,9 @@
     "requiresCubism": false,
     "ui": "none"
   },
+  "lifecycle": {
+    "hotReload": true
+  },
   "tags": [
     "bounding-box",
     "overlay",
