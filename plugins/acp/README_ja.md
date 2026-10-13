@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.acp
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: integration
 tags: automation, acp, agent
 turboismApi: "[0.1.0,0.2.0)"
@@ -14,11 +14,11 @@ interface: swing
 
 # Turboism ACP
 
-> **Turboism 公式プラグイン** · **ステータス: 開発中 — 未公開**
+> **Turboism 公式プラグイン** · **ステータス: プレビュー**
 
 Agent 会話ウィンドウと Agent 設定ウィンドウを開き、ユーザーがインストールした ACP v1 対応エージェントを Agent Client Protocol 経由で駆動し、認証情報を持たない stdio ブリッジでローカル Turboism MCP サーバーへ接続します。
 
-## このプラグインの機能
+## 機能概要
 
 - **Agent**（会話）と **Agent 設定** の 2 つの Swing ウィンドウを開きます。
 - stdin/stdout JSON-RPC でユーザーインストールの ACP エージェントを起動します：Claude Agent ACP、Codex ACP、Antigravity、Gemini CLI、OpenCode、Pi、Devin CLI、またはカスタムコマンド。
@@ -43,7 +43,7 @@ Agent 会話ウィンドウと Agent 設定ウィンドウを開き、ユーザ�
 - このプラグインは Turboism に同梱され、既定で有効です。
 - **Agent 設定** を開いてエージェントを選択するか、カスタムコマンドを入力してください。
 
-## 使用方法
+## 使い方
 
 1. メインツールバーの ACP Agent アイコンをクリックするか、Turboism メニューから Agent ウィンドウを開きます。
 2. **Agent 設定** でエージェントを選択するか、カスタムコマンドを入力して保存します。
@@ -84,9 +84,9 @@ Agent 会話ウィンドウと Agent 設定ウィンドウを開き、ユーザ�
 - MCP bearer token は ACP ペイロード、コマンドライン引数、環境変数、UI テキスト、ログのいずれにも入りません。stdio ブリッジが MCP プラグイン状態ディレクトリ内でそれを読み取ります。
 - プロンプトとトランスクリプトの内容はローカルに起動したエージェントプロセスにのみ送られます。
 
-## 制限とステータス
+## 状態と制限
 
-- 開発中プラグイン：インターフェースと永続状態の形式はリリース間で変更される場合があります。
+- プレビュープラグイン：インターフェースと永続状態の形式はリリース間で変更される場合があります。
 - エージェント側機能（永続セッション、モデルセレクター、モード）は各エージェントが宣言する機能に依存します。
 
 ## トラブルシューティング
