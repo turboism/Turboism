@@ -387,22 +387,22 @@ class ReleaseVerifierTest(unittest.TestCase):
             ":plugins:acp\n:plugins:core\n:plugins:mcp\n",
             encoding="utf-8",
         )
-        lite = dist / f"turboism-{version}-lite.zip"
+        thin = dist / f"turboism-{version}-thin.zip"
         full = dist / f"turboism-{version}-full.zip"
-        exe = dist / f"TurboismInstaller-{version}.exe"
-        jar = dist / f"TurboismInstaller-{version}.jar"
+        full_exe = dist / f"TurboismInstaller-{version}-full.exe"
+        thin_exe = dist / f"TurboismInstaller-{version}-thin.exe"
         staged_sdk = stage / "graal" / "lib" / f"sdk-{version}.jar"
         staged_sdk.parent.mkdir(parents=True)
         sdk = dist / f"turboism-sdk-{version}.jar"
         processor = dist / f"turboism-event-processor-{version}.jar"
-        archive(lite, version)
+        archive(thin, version)
         archive(full, version, self.PLUGINS)
-        exe.write_bytes(b"exe")
-        jar.write_bytes(b"jar")
+        full_exe.write_bytes(b"exe")
+        thin_exe.write_bytes(b"thin")
         sdk_archive(staged_sdk)
         sdk.write_bytes(staged_sdk.read_bytes())
         event_processor_archive(processor)
-        for path in (lite, full, exe, jar, sdk, processor):
+        for path in (thin, full, full_exe, thin_exe, sdk, processor):
             sidecar(path)
         return dist, roster, stage
 
@@ -439,7 +439,7 @@ class ReleaseVerifierTest(unittest.TestCase):
         fixture = self.fixture()
         self.rewrite_archive(
             fixture,
-            "turboism-0.42.0-lite.zip",
+            "turboism-0.42.0-thin.zip",
             version="0.42.0-SNAPSHOT",
         )
         with self.assertRaises(ValueError):
@@ -465,11 +465,11 @@ class ReleaseVerifierTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.verify(fixture)
 
-    def test_rejects_lite_plugin(self):
+    def test_rejects_thin_plugin(self):
         fixture = self.fixture()
         self.rewrite_archive(
             fixture,
-            "turboism-0.42.0-lite.zip",
+            "turboism-0.42.0-thin.zip",
             plugins=("acp",),
         )
         with self.assertRaises(ValueError):
@@ -490,7 +490,7 @@ class ReleaseVerifierTest(unittest.TestCase):
     def test_rejects_symlink_in_dist(self):
         fixture = self.fixture()
         (fixture[0] / "unexpected-link").symlink_to(
-            fixture[0] / "TurboismInstaller-0.42.0.exe"
+            fixture[0] / "TurboismInstaller-0.42.0-full.exe"
         )
         with self.assertRaises(ValueError):
             self.verify(fixture)
@@ -506,7 +506,7 @@ class ReleaseVerifierTest(unittest.TestCase):
 
     def test_rejects_nonportable_sidecar_path(self):
         fixture = self.fixture()
-        artifact = fixture[0] / "TurboismInstaller-0.42.0.exe"
+        artifact = fixture[0] / "TurboismInstaller-0.42.0-full.exe"
         artifact.with_name(artifact.name + ".sha256").write_text(
             f"{release.sha256(artifact)}  build/windows-installer/dist/{artifact.name}\n",
             encoding="utf-8",
