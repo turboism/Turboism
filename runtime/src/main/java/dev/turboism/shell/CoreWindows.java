@@ -24,8 +24,10 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import javax.swing.BorderFactory;
@@ -79,6 +81,8 @@ final class CoreWindows implements AutoCloseable {
     private JTable pluginTable;
     private TableRowSorter<PluginTableModel> pluginSorter;
     private JLabel pluginStatus;
+    private final PluginSettingsWindow pluginSettingsWindow;
+    private final PluginMarketWindow pluginMarketWindow;
 
     CoreWindows(
             final PluginLocalization i18n,
@@ -93,6 +97,32 @@ final class CoreWindows implements AutoCloseable {
         this.plugins = Objects.requireNonNull(plugins, "plugins");
         this.logWindow = new CoreLogWindow(i18n, logs);
         this.keybindingsWindow = new KeybindingsWindow(i18n, keybindings);
+        this.pluginSettingsWindow = new PluginSettingsWindow(
+                i18n,
+                settingsContributions instanceof dev.turboism.ui.settings.SettingsContributionStore s ? s : null,
+                plugins,
+                this::renderControl);
+        final dev.turboism.pluginmanagement.PluginMarketService marketService =
+                plugins instanceof dev.turboism.pluginmanagement.RuntimePluginManagementService rpms
+                        ? rpms.marketService()
+                        : null;
+        this.pluginMarketWindow = marketService != null
+                ? new PluginMarketWindow(i18n, marketService, plugins, Locale.getDefault(Locale.Category.DISPLAY))
+                : null;
+    }
+
+    void showPluginMarket() {
+        if (pluginMarketWindow != null) {
+            pluginMarketWindow.show();
+        } else {
+            openPluginMarketPage();
+        }
+    }
+
+    void showPluginSettings(final Optional<String> initialPluginId) {
+        if (pluginSettingsWindow != null) {
+            pluginSettingsWindow.show(initialPluginId);
+        }
     }
 
     void showSettings() {
@@ -133,6 +163,8 @@ final class CoreWindows implements AutoCloseable {
         CoreDialogs.onEdt(() -> {
             logWindow.close();
             keybindingsWindow.close();
+            if (pluginSettingsWindow != null) pluginSettingsWindow.close();
+            if (pluginMarketWindow != null) pluginMarketWindow.close();
             final ActiveSettingsAction active = activeSettingsAction;
             activeSettingsAction = null;
             if (active != null) {
@@ -290,7 +322,11 @@ final class CoreWindows implements AutoCloseable {
                     entry.getValue().panel()));
         }
         final List<java.util.function.BooleanSupplier> saves = new ArrayList<>();
-        for (SettingsSnapshot.Tab tab : settingsContributions.snapshot()) {
+        final List<SettingsSnapshot.Tab> tabsToRender =
+                settingsContributions instanceof dev.turboism.ui.settings.SettingsContributionStore store
+                        ? store.snapshotFramework()
+                        : settingsContributions.snapshot();
+        for (SettingsSnapshot.Tab tab : tabsToRender) {
             RenderedTab rendered = renderedTabs.stream()
                     .filter(candidate -> candidate.id().equals(tab.id()))
                     .findFirst()
@@ -344,7 +380,7 @@ final class CoreWindows implements AutoCloseable {
         });
     }
 
-    private java.util.function.BooleanSupplier renderControl(
+    java.util.function.BooleanSupplier renderControl(
             final JDialog owner, final JPanel panel, final int row, final SettingsControl control) {
         if (control instanceof SettingsControl.Choice choice) {
             final JComboBox<SettingsControl.Option> combo =
@@ -677,7 +713,7 @@ final class CoreWindows implements AutoCloseable {
         checkUpdates.addActionListener(ignored -> checkPluginUpdatesFromDialog());
         final JButton openMarket = new JButton(text("plugins.market.open"));
         openMarket.setName("plugins.market.open");
-        openMarket.addActionListener(ignored -> openPluginMarketFromDialog());
+        openMarket.addActionListener(ignored -> showPluginMarket());
         final JButton install = new JButton(text("plugins.install"));
         install.addActionListener(
                 ignored -> plugins.requestInstall(result -> CoreDialogs.onEdt(() -> operationCompleted(result))));
@@ -781,6 +817,11 @@ final class CoreWindows implements AutoCloseable {
                 "plugins.details.pending",
                 plugin.pendingOperation().orElse(text("common.none")));
         row = detail(metadata, row, "plugins.details.category", text("plugin.category." + plugin.category()));
+        row = detail(
+                metadata,
+                row,
+                "plugins.details.hot-reload",
+                details.hotReload() ? text("market.hot-reload.supported") : text("market.hot-reload.restart-required"));
         row = detail(metadata, row, "plugins.details.tags", valueOrNone(String.join(", ", plugin.tags())));
         row = detail(metadata, row, "plugins.details.api", valueOrNone(details.turboismApi()));
         row = detail(metadata, row, "plugins.details.authors", valueOrNone(formatAuthors(details.authors())));

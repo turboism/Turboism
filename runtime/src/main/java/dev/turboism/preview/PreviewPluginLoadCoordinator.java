@@ -27,6 +27,7 @@ final class PreviewPluginLoadCoordinator {
     private final PreviewPluginShutdown shutdown;
     private final List<LocalPluginRuntime.LoadedPlugin> loaded;
     private final PreviewLog log;
+    private final PluginHotReloadCoordinator hotReloadCoordinator;
 
     PreviewPluginLoadCoordinator(
             final Path home,
@@ -59,6 +60,11 @@ final class PreviewPluginLoadCoordinator {
         this.shutdown = java.util.Objects.requireNonNull(shutdown, "shutdown");
         this.loaded = loaded;
         this.log = log;
+        this.hotReloadCoordinator = new PluginHotReloadCoordinator(discovery, loader, shutdown, loaded, log);
+    }
+
+    PluginHotReloadCoordinator hotReloadCoordinator() {
+        return hotReloadCoordinator;
     }
 
     LocalPluginRuntime.LoadReport loadAll() {

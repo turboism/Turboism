@@ -32,6 +32,7 @@ import java.util.Optional;
  * @param eventExports public event contracts provided to declared dependents
  * @param eventImports public event contracts consumed from declared dependencies
  * @param eventContracts published public event contract artifacts embedded in the plugin JAR
+ * @param hotReload whether this plugin declares safe runtime hot reload / install / update capability
  */
 public record CorePluginDescriptor(
         String id,
@@ -53,8 +54,55 @@ public record CorePluginDescriptor(
         List<String> tags,
         List<EventExport> eventExports,
         List<EventImport> eventImports,
-        List<EventContract> eventContracts)
+        List<EventContract> eventContracts,
+        boolean hotReload)
         implements PluginDescriptor {
+
+    /** Compatibility constructor for descriptors without hotReload flag. */
+    public CorePluginDescriptor(
+            final String id,
+            final String name,
+            final String version,
+            final String description,
+            final List<String> entrypoints,
+            final String turboismApi,
+            final List<Author> authors,
+            final String license,
+            final Optional<String> website,
+            final List<String> resources,
+            final I18n i18n,
+            final List<DependencyRef> dependencies,
+            final List<PermissionRef> permissions,
+            final List<String> capabilities,
+            final Environment environment,
+            final Optional<String> category,
+            final List<String> tags,
+            final List<EventExport> eventExports,
+            final List<EventImport> eventImports,
+            final List<EventContract> eventContracts) {
+        this(
+                id,
+                name,
+                version,
+                description,
+                entrypoints,
+                turboismApi,
+                authors,
+                license,
+                website,
+                resources,
+                i18n,
+                dependencies,
+                permissions,
+                capabilities,
+                environment,
+                category,
+                tags,
+                eventExports,
+                eventImports,
+                eventContracts,
+                false);
+    }
 
     /** Compatibility constructor for schema v2/v3 descriptors without public events. */
     public CorePluginDescriptor(

@@ -42,7 +42,8 @@ record PluginArchiveMetadata(
         List<String> locales,
         List<CorePluginManagement.EventExport> eventExports,
         List<CorePluginManagement.EventImport> eventImports,
-        Optional<String> readme) {
+        Optional<String> readme,
+        boolean hotReload) {
     private static final String DESCRIPTOR = "META-INF/turboism/plugin.json";
     private static final List<String> BASE_README_PATHS = List.of(
             "META-INF/turboism/readme/README.md",
@@ -155,7 +156,8 @@ record PluginArchiveMetadata(
                                 imported.abiSha256(),
                                 imported.required()))
                         .toList(),
-                readme);
+                readme,
+                descriptor instanceof dev.turboism.core.descriptor.CorePluginDescriptor cpd && cpd.hotReload());
     }
 
     private static Optional<String> readme(final JarFile jar, final Locale locale) {

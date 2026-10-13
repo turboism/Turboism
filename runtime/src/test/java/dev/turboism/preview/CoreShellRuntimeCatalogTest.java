@@ -31,7 +31,7 @@ class CoreShellRuntimeCatalogTest {
                             .toList());
             assertTrue(localization.reportSnapshot().catalogs().stream()
                     .allMatch(catalog -> catalog.state().equals("AVAILABLE")));
-            assertEquals("Plugin Management", localization.text("main-toolbar.plugins-menu.label"));
+            assertEquals("Manage Plugins…", localization.text("main-toolbar.plugins-menu.label"));
             assertEquals("Settings", localization.text("main-toolbar.settings-menu.label"));
             assertEquals("Turboism settings", localization.text("main-toolbar.home.aria-label"));
             assertEquals("Open Turboism settings", localization.text("main-toolbar.home.tooltip"));

@@ -158,7 +158,8 @@ public interface CorePluginManagement extends AutoCloseable {
             List<String> locales,
             List<EventExport> eventExports,
             List<EventImport> eventImports,
-            Optional<String> readme) {
+            Optional<String> readme,
+            boolean hotReload) {
         public PluginDetails {
             if (plugin == null) throw new IllegalArgumentException("plugin must not be null");
             turboismApi = textOr(turboismApi, "");
@@ -176,6 +177,45 @@ public interface CorePluginManagement extends AutoCloseable {
             eventExports = eventExports == null ? List.of() : List.copyOf(eventExports);
             eventImports = eventImports == null ? List.of() : List.copyOf(eventImports);
             readme = readme == null ? Optional.empty() : readme;
+        }
+
+        public PluginDetails(
+                final PluginInfo plugin,
+                final String turboismApi,
+                final List<Author> authors,
+                final String license,
+                final Optional<String> website,
+                final List<Dependency> dependencies,
+                final List<Permission> permissions,
+                final List<String> capabilities,
+                final boolean requiresCubism,
+                final String ui,
+                final List<String> entrypoints,
+                final List<String> resources,
+                final String i18nBaseName,
+                final List<String> locales,
+                final List<EventExport> eventExports,
+                final List<EventImport> eventImports,
+                final Optional<String> readme) {
+            this(
+                    plugin,
+                    turboismApi,
+                    authors,
+                    license,
+                    website,
+                    dependencies,
+                    permissions,
+                    capabilities,
+                    requiresCubism,
+                    ui,
+                    entrypoints,
+                    resources,
+                    i18nBaseName,
+                    locales,
+                    eventExports,
+                    eventImports,
+                    readme,
+                    false);
         }
 
         /**
