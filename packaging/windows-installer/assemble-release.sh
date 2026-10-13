@@ -42,6 +42,7 @@ generated="$repo_root/build/windows-installer/generated"
 echo "[assemble] gradle: stageInstallerPayload :event-processor:jar"
 ./gradlew stageInstallerPayload :event-processor:jar \
   -PinstallerVersion="$VER" \
+  -PturboismVersion="$VER" \
   -PturboismRelease=true \
   --console=plain
 if [[ ! -f "$stage/turboism-agent.jar" || ! -d "$stage/plugins" ]]; then
