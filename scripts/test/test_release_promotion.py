@@ -105,10 +105,10 @@ class PromotionTest(unittest.TestCase):
         self.dist = self.bundle / "windows-installer/dist"
         self.dist.mkdir(parents=True)
         (self.dist.parent / "staging").mkdir()
-        archive(self.dist / 'turboism-1.2.3-lite.zip', '1.2.3')
+        archive(self.dist / 'turboism-1.2.3-thin.zip', '1.2.3')
         archive(self.dist / 'turboism-1.2.3-full.zip', '1.2.3', ('mcp',))
-        (self.dist / 'TurboismInstaller-1.2.3.exe').write_bytes(b'exe')
-        (self.dist / 'TurboismInstaller-1.2.3.jar').write_bytes(b'jar')
+        (self.dist / 'TurboismInstaller-1.2.3-full.exe').write_bytes(b'exe')
+        (self.dist / 'TurboismInstaller-1.2.3-thin.exe').write_bytes(b'thin')
         staged_sdk = self.dist.parent / "staging" / "graal" / "lib" / "sdk-1.2.3.jar"
         staged_sdk.parent.mkdir(parents=True)
         sdk_archive(staged_sdk)
@@ -172,7 +172,7 @@ class PromotionTest(unittest.TestCase):
         self.assertEqual(self.gh.writes, [])
 
     def test_payload_tampering_rejected_before_mutation(self):
-        (self.dist / 'TurboismInstaller-1.2.3.exe').write_bytes(b'tampered')
+        (self.dist / 'TurboismInstaller-1.2.3-full.exe').write_bytes(b'tampered')
         with self.assertRaises(p.ReleaseError):
             self.promote()
         self.assertEqual(self.gh.writes, [])
@@ -342,7 +342,7 @@ class PromotionTest(unittest.TestCase):
         self.assertIsNone(self.gh.release)
         self.gh.api = original
         self.gh.writes.clear()
-        exe = self.dist / 'TurboismInstaller-1.2.3.exe'
+        exe = self.dist / 'TurboismInstaller-1.2.3-full.exe'
         exe.write_bytes(b'another valid build at same source')
         sidecar(exe)
         self.candidate['framework']['artifacts'] = framework_artifacts(self.source, self.dist, '1.2.3')

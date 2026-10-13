@@ -254,7 +254,7 @@ Generic `--yes` confirmation is intentionally unsupported. The run ID must ident
 
 ## Immutable release rules
 
-- A framework version has exactly twelve GitHub Release assets: four product files and four portable SHA-256 sidecars, plus the `turboism-sdk-<version>.jar` and `turboism-event-processor-<version>.jar` developer artifacts and their sidecars. The standalone SDK JAR is byte-identical to the SDK JAR bundled inside the staged product payload.
+- A framework version has exactly twelve GitHub Release assets: four product files (`TurboismInstaller-<version>-full.exe`, `TurboismInstaller-<version>-thin.exe`, `turboism-<version>-full.zip`, `turboism-<version>-thin.zip`) and four portable SHA-256 sidecars, plus the `turboism-sdk-<version>.jar` and `turboism-event-processor-<version>.jar` developer artifacts and their sidecars. The standalone SDK JAR is byte-identical to the SDK JAR bundled inside the staged product payload.
 - The SDK and event-processor pairs are GitHub-only developer artifacts: they never enter the Updates `release.json` media contract, the distribution API's four public binaries, or the R2 mirror. The candidate binds them under `framework.developerArtifacts` so the original eight product artifacts keep their existing contract.
 - The reviewed Updates `release.json` is transferred as a digest-bound Actions artifact and is never a thirteenth GitHub Release asset.
 - Existing assets and versioned R2 objects are reused only after exact name, size, and SHA-256 equality.
