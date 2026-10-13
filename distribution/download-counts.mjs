@@ -1,3 +1,4 @@
+import baselineOverrides from './download-count-baselines.json' with {type: 'json'};
 /** Optional request analytics; independent from release verification and binary integrity. */
 export const DEDUP_WINDOW_SECONDS = 1800;
 const WINDOW_MS = DEDUP_WINDOW_SECONDS * 1000;
@@ -68,22 +69,32 @@ export class DownloadCounter {
   }
 }
 
+export function baselineFor(tag, asset, record = null) {
+  const captured = asset?.internalBaseline ?? record?.internalBaseline?.[asset?.name];
+  if (validCount(captured)) return captured;
+  const override = baselineOverrides[tag]?.[asset?.name];
+  return validCount(override) ? override : 0;
+}
+
 export function countsDocument(version, record, official) {
   if (!record?.active || record.release.tag !== 'v'+version || record.release.assets.length !== 4) throw new Error('Unknown release');
+  const tag = record.release.tag;
   const githubAsOf = Number.isFinite(Date.parse(record.countsAsOf)) ? record.countsAsOf : null;
-  const github = githubAsOf ? sum(record.release.assets.map(a=>a.downloadCount)) : null;
+  const assets = record.release.assets.map(a => {
+    const stored = official?.assets?.find(row => row.key === a.key)?.count;
+    const direct = validCount(stored) ? stored : null;
+    const internalBaseline = baselineFor(tag, a, record);
+    const upstream = githubAsOf && validCount(a.downloadCount) ? Math.max(0, a.downloadCount - internalBaseline) : null;
+    return {key:a.key,name:a.name,sha256:a.sha256,official:direct,github:upstream,internalBaseline,total:sum([direct,upstream])};
+  });
+  const github = githubAsOf ? sum(assets.map(a => a.github)) : null;
+  const internalBaseline = sum(assets.map(a => a.internalBaseline));
   const officialCount = official && validCount(official.count) ? official.count : null;
   const complete = officialCount !== null && github !== null;
   const total = complete ? sum([officialCount,github]) : null;
-  return {schemaVersion:1, status:complete && total !== null ? 'ready':'partial', version, tag:record.release.tag,
-    unit:'download_requests', total,
-    assets:record.release.assets.map(a=>{
-      const stored=official?.assets?.find(row=>row.key===a.key)?.count;
-      const direct=validCount(stored)?stored:null;
-      const upstream=githubAsOf&&validCount(a.downloadCount)?a.downloadCount:null;
-      return {key:a.key,name:a.name,sha256:a.sha256,official:direct,github:upstream,total:sum([direct,upstream])};
-    }),
+  return {schemaVersion:1, status:complete && total !== null ? 'ready':'partial', version, tag,
+    unit:'download_requests', total, assets,
     official:{count:officialCount,since:official?.since ?? null,dedupWindowSeconds:DEDUP_WINDOW_SECONDS},
-    github:{count:github,asOf:githubAsOf},
+    github:{count:github,internalBaseline,asOf:githubAsOf},
     asOf:[official?.updatedAt,githubAsOf].filter(Boolean).sort().at(-1) ?? new Date().toISOString()};
 }

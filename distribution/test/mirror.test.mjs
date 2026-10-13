@@ -42,3 +42,9 @@ test('existing size-only objects are not trusted and unsupported redirect origin
 test('missing R2 binding preserves honest GitHub-only sources',async()=>{
  const x=setup();assert.equal(await mirrorRelease(x.release,null,x.fetcher),x.release);assert.equal(x.events.length,0);assert.equal(typeof mirrorFingerprint(x.release),'string');
 });
+test('corrupted mirror marker baseline is rejected fail-closed',async()=>{
+ const x=setup();await mirrorRelease(x.release,x.bucket,x.fetcher);
+ const marker=JSON.parse(x.store.get('mirrors/v1.2.3.json').bytes.toString());
+ x.store.set('mirrors/v1.2.3.json',{bytes:Buffer.from(JSON.stringify({...marker,baseline:{[x.release.assets[0].name]:-1}}))});
+ await assert.rejects(()=>mirrorRelease(x.release,x.bucket,x.fetcher),/integrity/i);
+});
