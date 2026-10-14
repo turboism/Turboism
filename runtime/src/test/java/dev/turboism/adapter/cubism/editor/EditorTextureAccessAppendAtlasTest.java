@@ -53,12 +53,16 @@ class EditorTextureAccessAppendAtlasTest {
         originalKillSwitch = System.getProperty(HostUndoMutationScope.ENABLED_PROPERTY);
         System.clearProperty(HostUndoMutationScope.ENABLED_PROPERTY);
         Undo.rejectListener = false;
+        Undo.throwOnForceRedo = false;
+        Undo.undoCount = 0;
         GroupUndo.rejectUndo = false;
     }
 
     @AfterEach
     void tearDown() {
         Undo.rejectListener = false;
+        Undo.throwOnForceRedo = false;
+        Undo.undoCount = 0;
         GroupUndo.rejectUndo = false;
         if (originalKillSwitch != null) {
             System.setProperty(HostUndoMutationScope.ENABLED_PROPERTY, originalKillSwitch);
@@ -321,6 +325,7 @@ class EditorTextureAccessAppendAtlasTest {
                     IllegalStateException.class, () -> textures.appendTextureAtlasPages(plan));
             assertTrue(ex.getMessage().contains("rejected the texture Undo entry"));
 
+            assertEquals(1, Undo.undoCount, "Exactly 1 native undo must be invoked, no double-undo");
             // Verify rollback: atlas pages restored to before-state (1 page) without double-undo corruption
             assertEquals(1, textures.textureAtlases().size());
             assertEquals(new TextureAtlasId("atlas-1"), textures.textureAtlases().get(0).id());
@@ -332,6 +337,43 @@ class EditorTextureAccessAppendAtlasTest {
             assertTrue(fixture.editMode.lastAborted, "Edit mode must be ended with abort=true");
         } finally {
             GroupUndo.rejectUndo = false;
+        }
+    }
+
+    @Test
+    void standaloneAppendRevertsWhenForceRedoThrowsMidWay() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final EditorTextureAccess access = createAccess(VERSION, true, null);
+        final ModelTextures textures = access.textures(IDENTITY, fixture.source, fixture.model);
+
+        final HostModelImage image2 = new HostModelImage("image-2", "Image B", 128, 128);
+        fixture.manager.allModelImages.add(image2);
+        final HostArtMesh mesh2 = new HostArtMesh("mesh-2", image2);
+        fixture.source.artMeshes.add(mesh2);
+
+        final AtlasPageAppendPlan plan = new AtlasPageAppendPlan(
+                1024,
+                1024,
+                1,
+                List.of(new ModelImagePlacement(new ModelImageId("image-2"), 0, 10, 10, 128, 128)));
+
+        Undo.throwOnForceRedo = true;
+        try {
+            final RuntimeException ex = assertThrows(
+                    RuntimeException.class, () -> textures.appendTextureAtlasPages(plan));
+            assertNotNull(ex);
+
+            assertEquals(1, Undo.undoCount, "Native undo must be invoked to revert partial forceRedo");
+            assertEquals(1, textures.textureAtlases().size(), "Manager atlases restored to old page");
+            assertEquals(new TextureAtlasId("atlas-1"), textures.textureAtlases().get(0).id());
+
+            final Optional<ArtMeshTextureInput> input = textures.textureInput(new ArtMeshId("mesh-2"));
+            assertTrue(input.isPresent());
+            assertEquals(ArtMeshTextureInput.Kind.MODEL_IMAGE, input.get().kind());
+            assertTrue(fixture.editMode.lastAborted, "Edit mode must be ended with abort=true");
+        } finally {
+            Undo.throwOnForceRedo = false;
         }
     }
 
@@ -1276,6 +1318,8 @@ class EditorTextureAccessAppendAtlasTest {
         final List<HostTextureAtlas> newAtlases;
         final List<Listener> listeners = new ArrayList<>();
         static boolean rejectListener;
+        static boolean throwOnForceRedo;
+        static int undoCount;
 
         @SuppressWarnings("unchecked")
         public Undo(final String label, final ModelSource source, final List<?> oldAtlases, final List<?> newAtlases) {
@@ -1295,6 +1339,9 @@ class EditorTextureAccessAppendAtlasTest {
         public Undo forceRedo() {
             source.manager.textureAtlases.clear();
             source.manager.textureAtlases.addAll(newAtlases);
+            if (throwOnForceRedo) {
+                throw new RuntimeException("Force-redo failure mid-way");
+            }
             for (final Listener listener : listeners) {
                 listener.action(Boolean.TRUE);
             }
@@ -1302,6 +1349,7 @@ class EditorTextureAccessAppendAtlasTest {
         }
 
         public void undo() {
+            undoCount++;
             source.manager.textureAtlases.clear();
             source.manager.textureAtlases.addAll(oldAtlases);
             for (final Listener listener : listeners) {
