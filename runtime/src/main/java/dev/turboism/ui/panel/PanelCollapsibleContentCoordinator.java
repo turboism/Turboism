@@ -47,13 +47,20 @@ public final class PanelCollapsibleContentCoordinator {
 
     private static final PanelCollapsibleContentCoordinator SHARED = new PanelCollapsibleContentCoordinator();
 
+    public static final String CLIPPING_MASK_SHARED_SECTION_ID = "clipping-mask.section";
+    private static final Set<String> SHARED_SECTION_IDS = Set.of(CLIPPING_MASK_SHARED_SECTION_ID);
+
     /** 注入条目的注册归属：贡献者 pluginId + 注入贡献本身。 */
     private record OwnerSection(String pluginId, CollapsibleSectionContribution contribution) {}
 
     private final Object monitor = new Object();
     private final Set<EmbeddedPanelId> registeredPanels = new HashSet<>();
-    /** 内容表：targetPanelId → sectionId → (pluginId, 注入贡献)。插入序 map：冲突时后注册覆盖。 */
-    private final Map<EmbeddedPanelId, Map<String, OwnerSection>> sections = new HashMap<>();
+    /** 内容表：targetPanelId → sectionId → 注入贡献列表。多插件可向明确的共享 sectionId 注入，渲染时合并为一个折叠区。 */
+    private final Map<EmbeddedPanelId, Map<String, List<OwnerSection>>> sections = new HashMap<>();
+
+    private static boolean isSharedSection(final String sectionId) {
+        return SHARED_SECTION_IDS.contains(sectionId);
+    }
 
     /**
      * 在内容表中登记一个注入分区（B 入口）。目标 panel 尚未注册时条目保持 pending，
@@ -63,7 +70,7 @@ public final class PanelCollapsibleContentCoordinator {
      * @param contribution 注入贡献，自带目标 panel、sectionId、order 与内容
      * @return 注销句柄；幂等，且只会移除本次注册自己的条目（同 sectionId 被他人覆盖时不误删）
      * @throws NullPointerException 任一参数为 {@code null}
-     * @throws IllegalStateException 同一目标 panel 上该 sectionId 已被登记
+     * @throws IllegalStateException 普通 sectionId 重复登记，或同一插件在共享 sectionId 上重复登记
      */
     public Registration register(final String pluginId, final CollapsibleSectionContribution contribution) {
         Objects.requireNonNull(pluginId, "pluginId");
@@ -71,14 +78,25 @@ public final class PanelCollapsibleContentCoordinator {
         final EmbeddedPanelId target = contribution.targetPanelId();
         final String sectionId = contribution.sectionId();
         synchronized (monitor) {
-            final Map<String, OwnerSection> panelSections =
+            final Map<String, List<OwnerSection>> panelSections =
                     sections.computeIfAbsent(target, ignored -> new LinkedHashMap<>());
-            if (panelSections.containsKey(sectionId)) {
-                throw new IllegalStateException(
-                        "collapsible section " + sectionId + " is already registered for panel \"" + target.value());
+            final List<OwnerSection> list = panelSections.computeIfAbsent(sectionId, ignored -> new ArrayList<>());
+            if (!isSharedSection(sectionId)) {
+                if (!list.isEmpty()) {
+                    throw new IllegalStateException("collapsible section " + sectionId
+                            + " is already registered for panel \"" + target.value() + "\"");
+                }
+            } else {
+                for (OwnerSection existing : list) {
+                    if (existing.pluginId().equals(pluginId)) {
+                        throw new IllegalStateException("collapsible section " + sectionId
+                                + " is already registered for panel \"" + target.value() + "\" by plugin " + pluginId);
+                    }
+                }
             }
-            panelSections.put(sectionId, new OwnerSection(pluginId, contribution));
-            return () -> unregister(target, sectionId, contribution);
+            final OwnerSection owner = new OwnerSection(pluginId, contribution);
+            list.add(owner);
+            return () -> unregister(target, sectionId, owner);
         }
     }
 
@@ -113,25 +131,52 @@ public final class PanelCollapsibleContentCoordinator {
     /**
      * 注入分区视图：order 升序、同 order 按 sectionId 字典序；每个注入分区渲染为
      * {@link PanelView.CollapsibleSection} 节点（title/expandedByDefault + 内容）。
+     * 若有多个插件向相同 sectionId 注入，合并为一个 CollapsibleSection。
      */
     public List<PanelView> injectedSections(final EmbeddedPanelId panelId) {
         Objects.requireNonNull(panelId, "panelId");
-        final List<OwnerSection> snapshot;
+        final List<List<OwnerSection>> snapshot;
         synchronized (monitor) {
-            final Map<String, OwnerSection> panelSections = sections.get(panelId);
+            final Map<String, List<OwnerSection>> panelSections = sections.get(panelId);
             if (panelSections == null) {
                 return List.of();
             }
-            snapshot = new ArrayList<>(panelSections.values());
+            snapshot = panelSections.values().stream()
+                    .filter(list -> !list.isEmpty())
+                    .map(List::copyOf)
+                    .toList();
         }
-        snapshot.sort(Comparator.comparingInt(
-                        (OwnerSection owner) -> owner.contribution().order())
-                .thenComparing(owner -> owner.contribution().sectionId()));
-        return snapshot.stream()
-                .map(owner -> (PanelView) PanelView.collapsibleSection(
-                        owner.contribution().title(),
-                        owner.contribution().expandedByDefault(),
-                        owner.contribution().content()))
+        final List<List<OwnerSection>> sortedSections = new ArrayList<>(snapshot);
+        sortedSections.sort(Comparator.comparingInt((List<OwnerSection> list) -> list.stream()
+                        .mapToInt(o -> o.contribution().order())
+                        .min()
+                        .orElse(0))
+                .thenComparing(list -> list.get(0).contribution().sectionId()));
+        return sortedSections.stream()
+                .map(list -> {
+                    if (list.size() == 1) {
+                        final CollapsibleSectionContribution c = list.get(0).contribution();
+                        return (PanelView) PanelView.collapsibleSection(c.title(), c.expandedByDefault(), c.content());
+                    }
+                    final List<OwnerSection> sorted = new ArrayList<>(list);
+                    sorted.sort(Comparator.comparingInt(
+                                    (OwnerSection o) -> o.contribution().order())
+                            .thenComparing(OwnerSection::pluginId));
+                    final List<PanelView> children = new ArrayList<>();
+                    for (OwnerSection owner : sorted) {
+                        final PanelView content = owner.contribution().content();
+                        if (content instanceof PanelView.Column column) {
+                            children.addAll(column.children());
+                        } else {
+                            children.add(content);
+                        }
+                    }
+                    final CollapsibleSectionContribution primary = sorted.get(0).contribution();
+                    final boolean anyExpanded =
+                            sorted.stream().anyMatch(o -> o.contribution().expandedByDefault());
+                    return (PanelView)
+                            PanelView.collapsibleSection(primary.title(), anyExpanded, new PanelView.Column(children));
+                })
                 .toList();
     }
 
@@ -163,17 +208,22 @@ public final class PanelCollapsibleContentCoordinator {
      */
     public Map<String, String> actionOwners(final EmbeddedPanelId panelId) {
         Objects.requireNonNull(panelId, "panelId");
-        final List<OwnerSection> snapshot;
+        final List<List<OwnerSection>> snapshot;
         synchronized (monitor) {
-            final Map<String, OwnerSection> panelSections = sections.get(panelId);
+            final Map<String, List<OwnerSection>> panelSections = sections.get(panelId);
             if (panelSections == null) {
                 return Map.of();
             }
-            snapshot = new ArrayList<>(panelSections.values());
+            snapshot = panelSections.values().stream()
+                    .filter(list -> !list.isEmpty())
+                    .map(List::copyOf)
+                    .toList();
         }
         final Map<String, String> owners = new HashMap<>();
-        for (OwnerSection owner : snapshot) {
-            collectButtonOwners(owner.contribution().content(), owner.pluginId(), owners);
+        for (List<OwnerSection> list : snapshot) {
+            for (OwnerSection owner : list) {
+                collectButtonOwners(owner.contribution().content(), owner.pluginId(), owners);
+            }
         }
         return owners;
     }
@@ -199,18 +249,22 @@ public final class PanelCollapsibleContentCoordinator {
 
     // Ownership removal is identity-scoped: only the registering contribution may unregister.
     @SuppressWarnings("ReferenceEquality")
-    private void unregister(
-            final EmbeddedPanelId target, final String sectionId, final CollapsibleSectionContribution contribution) {
+    private void unregister(final EmbeddedPanelId target, final String sectionId, final OwnerSection owner) {
         synchronized (monitor) {
-            final Map<String, OwnerSection> panelSections = sections.get(target);
-            if (panelSections == null
-                    || panelSections.get(sectionId) == null
-                    || panelSections.get(sectionId).contribution() != contribution) {
-                return; // 幂等：仅移除本注册自己的条目
+            final Map<String, List<OwnerSection>> panelSections = sections.get(target);
+            if (panelSections == null) {
+                return;
             }
-            panelSections.remove(sectionId);
-            if (panelSections.isEmpty()) {
-                sections.remove(target);
+            final List<OwnerSection> list = panelSections.get(sectionId);
+            if (list == null) {
+                return;
+            }
+            list.removeIf(existing -> existing == owner);
+            if (list.isEmpty()) {
+                panelSections.remove(sectionId);
+                if (panelSections.isEmpty()) {
+                    sections.remove(target);
+                }
             }
         }
     }

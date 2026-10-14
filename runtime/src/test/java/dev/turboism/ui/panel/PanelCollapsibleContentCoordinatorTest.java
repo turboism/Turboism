@@ -66,6 +66,116 @@ class PanelCollapsibleContentCoordinatorTest {
     }
 
     @Test
+    void duplicateSectionIdAcrossDifferentPluginsIsRejectedForNormalSections() {
+        coordinator.register("plugin-a", section(PANEL, "s1", 0, "one"));
+        assertThrows(
+                IllegalStateException.class, () -> coordinator.register("plugin-b", section(PANEL, "s1", 0, "two")));
+    }
+
+    @Test
+    void sharedSectionMergesMultiplePluginsIntoSingleCollapsibleSection() {
+        final String sharedId = PanelCollapsibleContentCoordinator.CLIPPING_MASK_SHARED_SECTION_ID;
+        final Registration regA = coordinator.register(
+                "plugin-a",
+                new CollapsibleSectionContribution(
+                        PANEL,
+                        sharedId,
+                        "Clipping Masks",
+                        100,
+                        true,
+                        PanelView.column(PanelView.button("btn-a", "Open Viewer", "action-a"))));
+        final Registration regB = coordinator.register(
+                "plugin-b",
+                new CollapsibleSectionContribution(
+                        PANEL,
+                        sharedId,
+                        "Clipping Masks",
+                        110,
+                        true,
+                        PanelView.column(PanelView.button("btn-b", "Import PSD", "action-b"))));
+
+        final List<PanelView> sections = coordinator.injectedSections(PANEL);
+        assertEquals(1, sections.size());
+
+        final PanelView.CollapsibleSection section =
+                assertInstanceOf(PanelView.CollapsibleSection.class, sections.get(0));
+        assertEquals("Clipping Masks", section.title());
+        assertTrue(section.expandedByDefault());
+
+        final PanelView.Column column =
+                assertInstanceOf(PanelView.Column.class, section.children().get(0));
+        assertEquals(2, column.children().size());
+        assertEquals(
+                "btn-a",
+                assertInstanceOf(PanelView.Button.class, column.children().get(0))
+                        .id());
+        assertEquals(
+                "btn-b",
+                assertInstanceOf(PanelView.Button.class, column.children().get(1))
+                        .id());
+
+        final Map<String, String> owners = coordinator.actionOwners(PANEL);
+        assertEquals("plugin-a", owners.get("action-a"));
+        assertEquals("plugin-b", owners.get("action-b"));
+
+        // Disable plugin-a: only plugin-b's controls remain
+        regA.close();
+        final List<PanelView> sectionsAfterAClosed = coordinator.injectedSections(PANEL);
+        assertEquals(1, sectionsAfterAClosed.size());
+        final PanelView.CollapsibleSection sectionAfterA =
+                assertInstanceOf(PanelView.CollapsibleSection.class, sectionsAfterAClosed.get(0));
+        final PanelView.Column colAfterA = assertInstanceOf(
+                PanelView.Column.class, sectionAfterA.children().get(0));
+        assertEquals(1, colAfterA.children().size());
+        assertEquals(
+                "btn-b",
+                assertInstanceOf(PanelView.Button.class, colAfterA.children().get(0))
+                        .id());
+        assertEquals(Map.of("action-b", "plugin-b"), coordinator.actionOwners(PANEL));
+
+        // Disable plugin-b: section completely removed
+        regB.close();
+        assertTrue(coordinator.injectedSections(PANEL).isEmpty());
+        assertTrue(coordinator.actionOwners(PANEL).isEmpty());
+    }
+
+    @Test
+    void sharedSectionRejectsDuplicateFromSamePlugin() {
+        final String sharedId = PanelCollapsibleContentCoordinator.CLIPPING_MASK_SHARED_SECTION_ID;
+        coordinator.register(
+                "plugin-a",
+                new CollapsibleSectionContribution(
+                        PANEL, sharedId, "Clipping Masks", 100, true, PanelView.text("one")));
+        assertThrows(
+                IllegalStateException.class,
+                () -> coordinator.register(
+                        "plugin-a",
+                        new CollapsibleSectionContribution(
+                                PANEL, sharedId, "Clipping Masks", 100, true, PanelView.text("two"))));
+    }
+
+    @Test
+    void staleSharedSectionRegistrationCloseDoesNotRemoveReRegisteredEntry() {
+        final String sharedId = PanelCollapsibleContentCoordinator.CLIPPING_MASK_SHARED_SECTION_ID;
+        final Registration reg1 = coordinator.register(
+                "plugin-a",
+                new CollapsibleSectionContribution(PANEL, sharedId, "Clipping Masks", 100, true, PanelView.text("v1")));
+        reg1.close();
+
+        final Registration reg2 = coordinator.register(
+                "plugin-a",
+                new CollapsibleSectionContribution(PANEL, sharedId, "Clipping Masks", 100, true, PanelView.text("v2")));
+        assertEquals(1, coordinator.injectedSections(PANEL).size());
+
+        // Stale close should be no-op and not remove reg2
+        reg1.close();
+        assertEquals(1, coordinator.injectedSections(PANEL).size());
+
+        reg2.close();
+        assertTrue(coordinator.injectedSections(PANEL).isEmpty());
+    }
+
+    @Test
     void sameSectionIdAcrossPanelsIsAllowed() {
         coordinator.register("plugin-a", section(PANEL, "s1", 0, "one"));
         coordinator.register("plugin-a", section(OTHER_PANEL, "s1", 0, "two"));

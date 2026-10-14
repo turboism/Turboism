@@ -1062,7 +1062,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                                         EditorUiFamily.MENU, hostGeneration, verificationEvidence(topMenu.admission())),
                                 new VerifiedTopMenuHostOperations(topMenu.resolver()),
                                 editorUiActionRouter,
-                                () -> dev.turboism.ui.menu.TopMenuText.sharedRootLabel(effectiveLocale.get())));
+                                () -> dev.turboism.ui.menu.TopMenuText.sharedRootLabel(effectiveLocale.get()),
+                                () -> dev.turboism.ui.menu.TopMenuText.pluginsGroupLabel(effectiveLocale.get())));
                     }
                     if (overlay != null) {
                         providers.add(new BoundingBoxOverlayButtonContributionProvider(

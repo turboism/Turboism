@@ -21,17 +21,20 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
             .thenComparing(TopMenuItemDescriptor::pluginId)
             .thenComparing(TopMenuItemDescriptor::contributionId);
 
+    private static final String FIRST_PARTY_PLUGIN_PREFIX = "dev.turboism.plugin.";
+
     private final EditorUiProviderAdmission admission;
     private final TopMenuHostOperations host;
     private final EditorUiActionRouter actionRouter;
     private final Supplier<String> sharedRootLabel;
+    private final Supplier<String> pluginsGroupLabel;
 
     public TopMenuContributionProvider(
             final EditorUiProviderAdmission admission,
             final TopMenuHostOperations host,
             final EditorUiActionRouter actionRouter,
             final String sharedRootLabel) {
-        this(admission, host, actionRouter, fixedLabel(sharedRootLabel));
+        this(admission, host, actionRouter, fixedLabel(sharedRootLabel), () -> "Plugins");
     }
 
     /**
@@ -43,6 +46,15 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
             final TopMenuHostOperations host,
             final EditorUiActionRouter actionRouter,
             final Supplier<String> sharedRootLabel) {
+        this(admission, host, actionRouter, sharedRootLabel, () -> "Plugins");
+    }
+
+    public TopMenuContributionProvider(
+            final EditorUiProviderAdmission admission,
+            final TopMenuHostOperations host,
+            final EditorUiActionRouter actionRouter,
+            final Supplier<String> sharedRootLabel,
+            final Supplier<String> pluginsGroupLabel) {
         this.admission = Objects.requireNonNull(admission, "admission");
         if (admission.family() != EditorUiFamily.MENU) {
             throw new IllegalArgumentException("top-menu provider requires MENU admission");
@@ -50,6 +62,7 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
         this.host = Objects.requireNonNull(host, "host");
         this.actionRouter = Objects.requireNonNull(actionRouter, "actionRouter");
         this.sharedRootLabel = Objects.requireNonNull(sharedRootLabel, "sharedRootLabel");
+        this.pluginsGroupLabel = Objects.requireNonNull(pluginsGroupLabel, "pluginsGroupLabel");
     }
 
     private static Supplier<String> fixedLabel(final String label) {
@@ -72,11 +85,35 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
         if (!admission.isAdmittedTo(hostGeneration)) {
             throw new IllegalStateException("top-menu provider admission is stale");
         }
-        final List<TopMenuItemDescriptor> items = contributions.stream()
+        final List<TopMenuItemDescriptor> rawItems = contributions.stream()
                 .map(TopMenuItemDescriptor::from)
                 .flatMap(java.util.Optional::stream)
                 .sorted(ITEM_ORDER)
                 .toList();
+        final String groupLabel = pluginsGroupLabel.get();
+        final List<TopMenuItemDescriptor> items = new ArrayList<>(rawItems.size());
+        for (TopMenuItemDescriptor item : rawItems) {
+            if (RESERVED_SHARED_ROOT.equals(item.rootLabel())
+                    && item.pluginId().startsWith(FIRST_PARTY_PLUGIN_PREFIX)) {
+                final List<String> currentSubmenu = item.submenuPath();
+                if (currentSubmenu.isEmpty() || !currentSubmenu.get(0).equals(groupLabel)) {
+                    final List<String> newSubmenu = new ArrayList<>(currentSubmenu.size() + 1);
+                    newSubmenu.add(groupLabel);
+                    newSubmenu.addAll(currentSubmenu);
+                    items.add(new TopMenuItemDescriptor(
+                            item.pluginId(),
+                            item.contributionId(),
+                            item.nativeItemId(),
+                            item.rootLabel(),
+                            newSubmenu,
+                            item.label(),
+                            item.actionId(),
+                            item.order()));
+                    continue;
+                }
+            }
+            items.add(item);
+        }
         final LinkedHashMap<MenuKey, List<TopMenuItemDescriptor>> grouped = new LinkedHashMap<>();
         for (TopMenuItemDescriptor item : items) {
             final boolean shared = RESERVED_SHARED_ROOT.equals(item.rootLabel());

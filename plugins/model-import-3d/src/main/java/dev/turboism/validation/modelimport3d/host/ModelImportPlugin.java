@@ -123,14 +123,14 @@ public final class ModelImportPlugin implements TurboismPlugin {
         }
     }
 
-    private final Ui ui;
+    private Ui ui;
 
     public ModelImportPlugin() {
-        this(new SwingUi());
+        this(null);
     }
 
     ModelImportPlugin(Ui ui) {
-        this.ui = Objects.requireNonNull(ui);
+        this.ui = ui;
     }
 
     private PluginContext context;
@@ -142,6 +142,36 @@ public final class ModelImportPlugin implements TurboismPlugin {
     @Override
     public void init(PluginContext value) {
         context = Objects.requireNonNull(value);
+        if (ui == null) {
+            ui = new SwingUi(() -> context != null ? context.localization() : null);
+        }
+    }
+
+    private String text(String key, String fallback) {
+        if (context == null) return fallback;
+        try {
+            var loc = context.localization();
+            if (loc != null) {
+                String val = loc.text(key);
+                return key.equals(val) ? fallback : val;
+            }
+        } catch (Exception ignored) {
+        }
+        return fallback;
+    }
+
+    private String format(String key, String fallback, Object... args) {
+        if (context == null) return java.text.MessageFormat.format(fallback, args);
+        try {
+            var loc = context.localization();
+            if (loc != null) {
+                String pattern = loc.text(key);
+                if (key.equals(pattern)) return java.text.MessageFormat.format(fallback, args);
+                return loc.format(key, args);
+            }
+        } catch (Exception ignored) {
+        }
+        return java.text.MessageFormat.format(fallback, args);
     }
 
     @Override
@@ -156,7 +186,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
 
             @Override
             public String label() {
-                return "导入 3D 模型…";
+                return text("action.import.label", "导入 3D 模型…");
             }
 
             @Override
@@ -167,7 +197,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
         context.disposableScope().register(context.menus().contribute(new MenuRegistry.MenuContribution() {
             @Override
             public String menuPath() {
-                return "插件/3D 模型/导入 3D 模型…";
+                return "Turboism/" + text("menu.group", "3D 模型") + "/" + text("action.import.label", "导入 3D 模型…");
             }
 
             @Override
@@ -201,10 +231,12 @@ public final class ModelImportPlugin implements TurboismPlugin {
         if (!active(token) || busyEpoch == token) return;
         busyEpoch = token; // Set before opening a modal dialog (which pumps nested events).
         try {
-            var document = context.cubism().activeDocument().orElseThrow(() -> new IllegalStateException("请先打开目标模型。"));
+            var document = context.cubism()
+                    .activeDocument()
+                    .orElseThrow(() -> new IllegalStateException(text("error.no-active-document", "请先打开目标模型。")));
             var target = context.cubism().model().active();
             if (target.canvas().widthPixels() != 1024 || target.canvas().heightPixels() != 1024)
-                throw new IllegalArgumentException("当前导入需要 1024×1024 画布。");
+                throw new IllegalArgumentException(text("error.invalid-canvas-size", "当前导入需要 1024×1024 画布。"));
             int choice = ui.appearance();
             if (choice < 0 || choice == 2 || !active(token)) {
                 release(token);
@@ -215,7 +247,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     : SurfaceBaseColorPlan.Appearance.FACE_COLORS;
             String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
             var request = new SurfaceImport.Request(
-                    "3D 模型",
+                    text("model.default-name", "3D 模型"),
                     new ParameterId("Param3DYaw" + suffix),
                     new ParameterId("Param3DPitch" + suffix),
                     new SurfaceProjection.Camera(512, 512, 200, new SurfaceProjection.Vertex(0, 0, 0)),
@@ -226,7 +258,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
             var files = context.userFiles();
             files.request(new UserFileRequest(
                             "import-model-" + suffix,
-                            "选择 GLB、glTF、OBJ 或模型 ZIP",
+                            text("file.chooser.title", "选择 GLB、glTF、OBJ 或模型 ZIP"),
                             List.of("glb", "gltf", "obj", "zip"),
                             UserFileMode.READ,
                             UserFileLifetime.ONE_OPERATION))
@@ -234,7 +266,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
                         if (selected.status() == UserFileRequestStatus.CANCELED)
                             return CompletableFuture.completedFuture(Optional.<PreparedImport>empty());
                         if (selected.status() != UserFileRequestStatus.GRANTED)
-                            throw new CompletionException(new IllegalStateException("无法选择文件：" + selected.status()));
+                            throw new CompletionException(new IllegalStateException(
+                                    format("error.file-select", "无法选择文件：{0}", selected.status())));
                         if (!active(token)) {
                             selected.handle().orElseThrow().close();
                             return CompletableFuture.completedFuture(Optional.<PreparedImport>empty());
@@ -244,12 +277,17 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                     if (!active(token))
                                         return CompletableFuture.completedFuture(Optional.<PreparedImport>empty());
                                     if (read.truncated())
-                                        throw new CompletionException(
-                                                new IllegalArgumentException("模型文件超过 16 MiB 限制。"));
-                                    byte[] bytes =
-                                            read.value().orElseThrow(() -> new IllegalStateException("无法读取所选模型。"));
+                                        throw new CompletionException(new IllegalArgumentException(
+                                                text("error.file-too-large", "模型文件超过 16 MiB 限制。")));
+                                    byte[] bytes = read.value()
+                                            .orElseThrow(() ->
+                                                    new IllegalStateException(text("error.file-read", "无法读取所选模型。")));
                                     return ModelInputFiles.normalize(
-                                                    bytes, files, "import-model-" + suffix, () -> active(token))
+                                                    bytes,
+                                                    files,
+                                                    "import-model-" + suffix,
+                                                    () -> active(token),
+                                                    context.localization())
                                             .thenApplyAsync(normalized -> {
                                                 if (normalized.isEmpty() || !active(token))
                                                     return Optional.<PreparedImport>empty();
@@ -310,9 +348,11 @@ public final class ModelImportPlugin implements TurboismPlugin {
                 : prepared.vertices() != null
                         ? SurfaceVertexAuthoring.apply(prepared.vertices(), current, transactions)
                         : SurfaceWarpLayerAuthoring.apply(prepared.layered(), current, transactions, stage -> {});
-        if (result.outcome() != AuthoringTransactionOutcome.COMMITTED)
-            throw new IllegalStateException("导入未完成：" + result.outcome()
-                    + result.diagnosticId().map(id -> "（" + id + "）").orElse(""));
+        if (result.outcome() != AuthoringTransactionOutcome.COMMITTED) {
+            String diag = result.diagnosticId().map(id -> "（" + id + "）").orElse("");
+            throw new IllegalStateException(
+                    format("error.transaction-uncommitted", "导入未完成：{0}{1}", result.outcome(), diag));
+        }
         ui.message(
                 prepared.vertices() != null
                                 || prepared.layered() != null
@@ -321,8 +361,10 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                                 .request
                                                 .roll()
                                                 .isPresent()
-                        ? "导入完成。拖动新增的 X / Y / Z 旋转参数（各 ±180°）即可旋转一整圈。\n整体移动或缩放时，请选择“整体定位”变形器。"
-                        : "导入完成。拖动新增的 Yaw / Pitch 参数即可旋转。",
+                        ? text(
+                                "success.xyz-rotation",
+                                "导入完成。拖动新增的 X / Y / Z 旋转参数（各 ±180°）即可旋转一整圈。\n整体移动或缩放时，请选择“整体定位”变形器。")
+                        : text("success.yaw-pitch", "导入完成。拖动新增的 Yaw / Pitch 参数即可旋转。"),
                 false);
     }
 
@@ -359,24 +401,63 @@ public final class ModelImportPlugin implements TurboismPlugin {
                         .map(d -> d.documentId().equals(documentId))
                         .orElse(false)
                 || !context.cubism().model().active().id().equals(target.id()))
-            throw new IllegalStateException("目标文档已切换，请重新发起导入。");
+            throw new IllegalStateException(text("error.target-switched", "目标文档已切换，请重新发起导入。"));
         target.canvas(); // Exercise the retained SDK handle's native generation guard.
     }
 
     private void show(Throwable failure) {
         while (failure.getCause() != null && failure instanceof CompletionException) failure = failure.getCause();
         context.logger().warn("3D import failed: " + failure);
-        ui.message(failure.getMessage(), true);
+        String msg = failure.getMessage();
+        if ("XYZ 360° 导入使用源模型材质与贴图。".equals(msg)) {
+            msg = text("error.source-material-required", msg);
+        }
+        ui.message(msg, true);
     }
 
     private static final class SwingUi implements Ui {
+        private final java.util.function.Supplier<dev.turboism.sdk.i18n.PluginLocalization> i18nSupplier;
+
+        SwingUi(java.util.function.Supplier<dev.turboism.sdk.i18n.PluginLocalization> i18nSupplier) {
+            this.i18nSupplier = Objects.requireNonNull(i18nSupplier);
+        }
+
+        private String text(String key, String fallback) {
+            var loc = i18nSupplier.get();
+            if (loc == null) return fallback;
+            try {
+                String val = loc.text(key);
+                return key.equals(val) ? fallback : val;
+            } catch (Exception ignored) {
+                return fallback;
+            }
+        }
+
+        private String format(String key, String fallback, Object... args) {
+            var loc = i18nSupplier.get();
+            if (loc == null) return java.text.MessageFormat.format(fallback, args);
+            try {
+                String pattern = loc.text(key);
+                if (key.equals(pattern)) return java.text.MessageFormat.format(fallback, args);
+                return loc.format(key, args);
+            } catch (Exception ignored) {
+                return java.text.MessageFormat.format(fallback, args);
+            }
+        }
+
         @Override
         public int appearance() {
-            Object[] choices = {"保留原材质", "按面区分颜色", "取消"};
+            Object[] choices = {
+                text("dialog.appearance.option.source-material", "保留原材质"),
+                text("dialog.appearance.option.face-colors", "按面区分颜色"),
+                text("dialog.appearance.option.cancel", "取消")
+            };
             return JOptionPane.showOptionDialog(
                     null,
-                    "支持不透明静态 GLB、glTF、OBJ 与模型 ZIP。\n选择单独模型后，可按提示补选引用的材质、buffer 和 PNG/JPEG 贴图；也可一起打包为 ZIP。\n仅还原基础颜色；凹凸、光照与透明材质暂不支持。\n原材质模式：X / Y / Z 各 ±180°，支持整圈旋转。\n按面区分颜色为 ±30° 检查模式。\n颜色方式：",
-                    "导入 3D 模型",
+                    text(
+                            "dialog.appearance.message",
+                            "支持不透明静态 GLB、glTF、OBJ 与模型 ZIP。\n选择单独模型后，可按提示补选引用的材质、buffer 和 PNG/JPEG 贴图；也可一起打包为 ZIP。\n仅还原基础颜色；凹凸、光照与透明材质暂不支持。\n原材质模式：X / Y / Z 各 ±180°，支持整圈旋转。\n按面区分颜色为 ±30° 检查模式。\n颜色方式："),
+                    text("dialog.appearance.title", "导入 3D 模型"),
                     JOptionPane.DEFAULT_OPTION,
                     JOptionPane.QUESTION_MESSAGE,
                     null,
@@ -389,10 +470,14 @@ public final class ModelImportPlugin implements TurboismPlugin {
             int faces = p.geometry.patches().size(), keys = p.geometry.keys().size();
             return JOptionPane.showConfirmDialog(
                             null,
-                            "将创建 " + faces + " 个网格，共 " + faces * keys + " 个形态。\n水平 / 垂直参数绑定点："
-                                    + p.geometry.grid().yawKeys().size() + " / "
-                                    + p.geometry.grid().pitchKeys().size() + "。\n可用一次撤销撤回本次导入。继续？",
-                            "确认导入",
+                            format(
+                                    "dialog.confirm.simple",
+                                    "将创建 {0} 个网格，共 {1} 个形态。\n水平 / 垂直参数绑定点：{2} / {3}。\n可用一次撤销撤回本次导入。继续？",
+                                    faces,
+                                    faces * keys,
+                                    p.geometry.grid().yawKeys().size(),
+                                    p.geometry.grid().pitchKeys().size()),
+                            text("dialog.confirm.title", "确认导入"),
                             JOptionPane.OK_CANCEL_OPTION)
                     == JOptionPane.OK_OPTION;
         }
@@ -401,14 +486,21 @@ public final class ModelImportPlugin implements TurboismPlugin {
         public boolean confirmLayers(SurfaceWarpLayerAuthoring.Prepared layered) {
             var p = layered.surface();
             int meshes = p.geometry.meshes().size();
+            String rollNote =
+                    p.request.roll().isPresent() ? text("dialog.confirm.layers.roll-note", " Z 旋转：5 点，三轴各 ±180°。") : "";
             return JOptionPane.showConfirmDialog(
                             null,
-                            "将创建 " + meshes + " 个曲面网格和 " + (p.request.roll().isPresent() ? 3 : 2)
-                                    + " 个变形器，保留源模型几何与贴图。\n水平 / 垂直参数绑定点：" + p.yawKeys.size() + " / " + p.pitchKeys.size()
-                                    + "。" + (p.request.roll().isPresent() ? " Z 旋转：5 点，三轴各 ±180°。" : "") + "\n遮挡层序采样点："
-                                    + layered.layerYawKeys().size() + " / "
-                                    + layered.layerPitchKeys().size() + "。\n复杂交叠在旋转时仍可能有偏差。可用一次撤销撤回本次导入。继续？",
-                            "确认导入",
+                            format(
+                                    "dialog.confirm.layers",
+                                    "将创建 {0} 个曲面网格和 {1} 个变形器，保留源模型几何与贴图。\n水平 / 垂直参数绑定点：{2} / {3}。{4}\n遮挡层序采样点：{5} / {6}。\n复杂交叠在旋转时仍可能有偏差。可用一次撤销撤回本次导入。继续？",
+                                    meshes,
+                                    (p.request.roll().isPresent() ? 3 : 2),
+                                    p.yawKeys.size(),
+                                    p.pitchKeys.size(),
+                                    rollNote,
+                                    layered.layerYawKeys().size(),
+                                    layered.layerPitchKeys().size()),
+                            text("dialog.confirm.title", "确认导入"),
                             JOptionPane.OK_CANCEL_OPTION)
                     == JOptionPane.OK_OPTION;
         }
@@ -421,9 +513,12 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     .sum();
             return JOptionPane.showConfirmDialog(
                             null,
-                            "将创建 " + meshes + " 个曲面网格，保留原始 " + triangles
-                                    + " 个三角形、UV 和贴图。\nX / Y 各 9 个绑定点，使用椭圆插值；Z 旋转：5 点，三轴各 ±180°。\n遮挡采用分组近似，复杂交叠仍可能有少量偏差。\n可用一次撤销撤回本次导入。整体移动或缩放时选择“整体定位”变形器。继续？",
-                            "确认导入",
+                            format(
+                                    "dialog.confirm.vertices",
+                                    "将创建 {0} 个曲面网格，保留原始 {1} 个三角形、UV 和贴图。\nX / Y 各 9 个绑定点，使用椭圆插值；Z 旋转：5 点，三轴各 ±180°。\n遮挡采用分组近似，复杂交叠仍可能有少量偏差。\n可用一次撤销撤回本次导入。整体移动或缩放时选择“整体定位”变形器。继续？",
+                                    meshes,
+                                    triangles),
+                            text("dialog.confirm.title", "确认导入"),
                             JOptionPane.OK_CANCEL_OPTION)
                     == JOptionPane.OK_OPTION;
         }
@@ -431,14 +526,17 @@ public final class ModelImportPlugin implements TurboismPlugin {
         @Override
         public boolean confirmVertices(SurfaceVertexAuthoring.Prepared p, OptimizationSummary optimization) {
             if (optimization == null) return confirmVertices(p);
+            String bound = String.format(Locale.ROOT, "%.2f", optimization.combinedErrorBoundPixels());
             return JOptionPane.showConfirmDialog(
                             null,
-                            "将创建 " + p.geometry().meshes().size() + " 个曲面网格。\n源模型 " + optimization.sourceTriangles()
-                                    + " 面 → 导入 " + optimization.outputTriangles()
-                                    + " 面，保留材质边界和 UV 接缝。\n曲面几何与参数插值的合计偏差上界："
-                                    + String.format(Locale.ROOT, "%.2f", optimization.combinedErrorBoundPixels())
-                                    + " 像素（不含遮挡分组近似）。\nX / Y 各 9 点椭圆插值；Z 5 点；三轴各 ±180°。\n整体移动或缩放时选择“整体定位”变形器。可用一次撤销撤回本次导入。继续？",
-                            "确认导入",
+                            format(
+                                    "dialog.confirm.vertices-optimized",
+                                    "将创建 {0} 个曲面网格。\n源模型 {1} 面 → 导入 {2} 面，保留材质边界和 UV 接缝。\n曲面几何与参数插值的合计偏差上界：{3} 像素（不含遮挡分组近似）。\nX / Y 各 9 点椭圆插值；Z 5 点；三轴各 ±180°。\n整体移动或缩放时选择“整体定位”变形器。可用一次撤销撤回本次导入。继续？",
+                                    p.geometry().meshes().size(),
+                                    optimization.sourceTriangles(),
+                                    optimization.outputTriangles(),
+                                    bound),
+                            text("dialog.confirm.title", "确认导入"),
                             JOptionPane.OK_CANCEL_OPTION)
                     == JOptionPane.OK_OPTION;
         }
@@ -448,7 +546,9 @@ public final class ModelImportPlugin implements TurboismPlugin {
             JOptionPane.showMessageDialog(
                     null,
                     text,
-                    error ? "无法导入 3D 模型" : "3D 模型",
+                    error
+                            ? text("dialog.message.error.title", "无法导入 3D 模型")
+                            : text("dialog.message.info.title", "3D 模型"),
                     error ? JOptionPane.ERROR_MESSAGE : JOptionPane.INFORMATION_MESSAGE);
         }
     }

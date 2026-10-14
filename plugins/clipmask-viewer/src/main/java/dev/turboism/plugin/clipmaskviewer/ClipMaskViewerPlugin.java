@@ -42,7 +42,7 @@ import javax.swing.SwingUtilities;
 public final class ClipMaskViewerPlugin implements TurboismPlugin {
 
     static final String OPEN_VIEWER_ACTION_ID = "clipmask-viewer.open.viewer";
-    static final String SECTION_ID = "clipmask-viewer.section";
+    static final String SECTION_ID = "clipping-mask.section";
     static final String BUTTON_ID = "clipmask-viewer.open";
     static final String TURBOISM_PANEL_ID = "turboism.panel.main";
     static final String MENU_ROOT = "Turboism";
