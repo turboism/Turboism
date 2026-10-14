@@ -250,6 +250,7 @@ class CompleteCubismModelReadApiContractTest {
                 ModelTextures.class,
                 "addModelImageGroup",
                 "addTextureAtlas",
+                "appendTextureAtlasPages",
                 "bindModelImage",
                 "exportRawImagePsd",
                 "modelImageGroups",
@@ -261,6 +262,7 @@ class CompleteCubismModelReadApiContractTest {
                 "removeTextureAtlas",
                 "replaceRawImagePsd",
                 "sources",
+                "supportsAppendTextureAtlasPages",
                 "textureAtlases",
                 "textureInput");
         assertMethods(
