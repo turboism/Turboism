@@ -128,46 +128,52 @@ final class SurfaceImport {
         return apply(prepared,current,transactions,stage -> { });
     }
 
+    static Imported assemble(CubismModel model, Prepared prepared, Observer observer) {
+        Objects.requireNonNull(model, "model");
+        Objects.requireNonNull(prepared, "prepared");
+        Objects.requireNonNull(observer, "observer");
+        var request = prepared.request;
+        // Check both identities before the first write; never replace existing user parameters.
+        if (model.parameters().all().stream().anyMatch(p -> p.id().equals(request.yaw()) || p.id().equals(request.pitch()))) {
+            throw new IllegalArgumentException("import parameter ID already exists");
+        }
+        var yaw = SurfaceKeyformBake.bindingKeys(prepared.geometry.grid().yawKeys());
+        var pitch = SurfaceKeyformBake.bindingKeys(prepared.geometry.grid().pitchKeys());
+        model.parameters().createMany(List.of(
+            new ParameterDefinition(request.yaw(), request.name() + " Yaw", yaw.get(0), 0, yaw.get(yaw.size() - 1), ParameterType.NORMAL, false),
+            new ParameterDefinition(request.pitch(), request.name() + " Pitch", pitch.get(0), 0, pitch.get(pitch.size() - 1), ParameterType.NORMAL, false)));
+        observer.completed(Stage.AXES);
+        var part = model.parts().create(request.name(), null, -1);
+        observer.completed(Stage.GROUP);
+        var geometry = SurfaceImportGeometry.create(model, prepared.geometry, request.yaw(), request.pitch(), part,
+            request.name(), prepared.appearance.patches().stream().map(p -> p.material().textured()
+                ? SurfaceImportGeometry.UvMode.EDGE_PADDED_IMAGE_PIXELS : SurfaceImportGeometry.UvMode.FLAT_COLOR_INTERIOR).toList());
+        observer.completed(Stage.GEOMETRY);
+        geometry.bake(model);
+        observer.completed(Stage.BAKE);
+        var materials = SurfaceImportAppearance.bind(model, geometry, prepared.appearance);
+        observer.completed(Stage.MATERIAL);
+        boolean culling = prepared.sheetOrders == null;
+        for (var patch : geometry.patches()) model.drawables().find(patch.meshId()).setCulling(culling);
+        for (var patch : geometry.patches()) {
+            var mesh = model.drawables().find(patch.meshId());
+            if (mesh.culling() != culling) throw new IllegalStateException("native culling state was not retained");
+            patch.bake().verify(mesh);
+        }
+        if (prepared.sheetOrders != null) for (int i = 0; i < geometry.patches().size(); i++)
+            SurfaceSheetOrderBake.write(model.drawables().find(geometry.patches().get(i).meshId()),
+                prepared.sheetOrders, prepared.geometry.patches().get(i).surfaceIndex(), request.yaw());
+        observer.completed(Stage.VISIBILITY);
+        return new Imported(prepared.inputSha256, part.id(), request.yaw(), request.pitch(), geometry, materials);
+    }
+
     /** Package-only observation points allow the native probe to inject failures in the actual importer. */
     static AuthoringTransactionResult<Imported> apply(Prepared prepared, Supplier<CubismModel> current,
             AuthoringTransactionService transactions, Observer observer) {
         Objects.requireNonNull(prepared,"prepared"); Objects.requireNonNull(current,"current");
         Objects.requireNonNull(transactions,"transactions"); Objects.requireNonNull(observer,"observer");
         return transactions.execute(AuthoringTransactionOptions.of("Import 3D " + prepared.request.name()), () -> {
-            var model=Objects.requireNonNull(current.get(),"current model");
-            var request=prepared.request;
-            // Check both identities before the first write; never replace existing user parameters.
-            if(model.parameters().all().stream().anyMatch(p -> p.id().equals(request.yaw()) || p.id().equals(request.pitch()))) {
-                throw new IllegalArgumentException("import parameter ID already exists");
-            }
-            var yaw=SurfaceKeyformBake.bindingKeys(prepared.geometry.grid().yawKeys());
-            var pitch=SurfaceKeyformBake.bindingKeys(prepared.geometry.grid().pitchKeys());
-            model.parameters().createMany(List.of(
-                new ParameterDefinition(request.yaw(),request.name()+" Yaw",yaw.get(0),0,yaw.get(yaw.size()-1),ParameterType.NORMAL,false),
-                new ParameterDefinition(request.pitch(),request.name()+" Pitch",pitch.get(0),0,pitch.get(pitch.size()-1),ParameterType.NORMAL,false)));
-            observer.completed(Stage.AXES);
-            var part=model.parts().create(request.name(),null,-1);
-            observer.completed(Stage.GROUP);
-            var geometry=SurfaceImportGeometry.create(model,prepared.geometry,request.yaw(),request.pitch(),part,
-                request.name(),prepared.appearance.patches().stream().map(p->p.material().textured()
-                    ? SurfaceImportGeometry.UvMode.EDGE_PADDED_IMAGE_PIXELS : SurfaceImportGeometry.UvMode.FLAT_COLOR_INTERIOR).toList());
-            observer.completed(Stage.GEOMETRY);
-            geometry.bake(model);
-            observer.completed(Stage.BAKE);
-            var materials=SurfaceImportAppearance.bind(model,geometry,prepared.appearance);
-            observer.completed(Stage.MATERIAL);
-            boolean culling=prepared.sheetOrders==null;
-            for(var patch:geometry.patches()) model.drawables().find(patch.meshId()).setCulling(culling);
-            for(var patch:geometry.patches()) {
-                var mesh=model.drawables().find(patch.meshId());
-                if(mesh.culling()!=culling) throw new IllegalStateException("native culling state was not retained");
-                patch.bake().verify(mesh);
-            }
-            if(prepared.sheetOrders!=null) for(int i=0;i<geometry.patches().size();i++)
-                SurfaceSheetOrderBake.write(model.drawables().find(geometry.patches().get(i).meshId()),
-                    prepared.sheetOrders,prepared.geometry.patches().get(i).surfaceIndex(),request.yaw());
-            observer.completed(Stage.VISIBILITY);
-            return new Imported(prepared.inputSha256,part.id(),request.yaw(),request.pitch(),geometry,materials);
+            return assemble(Objects.requireNonNull(current.get(), "current model"), prepared, observer);
         });
     }
 }

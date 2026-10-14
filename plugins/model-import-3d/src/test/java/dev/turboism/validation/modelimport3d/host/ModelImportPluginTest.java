@@ -55,6 +55,12 @@ class ModelImportPluginTest {
                 if (stale) throw new IllegalStateException("stale generation");
                 return proxy(Canvas.class, (x, n, v) -> 1024f);
             }
+            if (m.getName().equals("textures"))
+                return proxy(ModelTextures.class, (tx, txn, txa) -> {
+                    if (txn.getName().equals("supportsAppendTextureAtlasPages")) return true;
+                    if (txn.getName().equals("textureAtlases")) return List.of();
+                    return null;
+                });
             if (m.getName().equals("drawables"))
                 return proxy(m.getReturnType(), (x, n, v) -> {
                     if (!n.getName().equals("previewSourceTriangulation"))

@@ -9,7 +9,7 @@ val engine = listOf("StrictJson", "GlbSurfaceReader", "EmbeddedBaseColorTexture"
 sourceSets.main {
     java.srcDir(rootProject.file("validation/model-import-3d-host-probe/input-src"))
     java.srcDir(rootProject.file("validation/model-import-3d-host-probe/native-src"))
-    java.setIncludes((engine + listOf("ModelImportPlugin", "ModelInputNormalizer", "ModelInputFiles", "SurfaceSimplifier", "SurfacePatchCollapseProof", "SurfaceImportCostPlan", "ObjModelInput", "ModelTextureNormalizer")).map { "**/$it.java" }.toSet())
+    java.setIncludes((engine + listOf("ModelImportPlugin", "ModelInputNormalizer", "ModelInputFiles", "SurfaceSimplifier", "SurfacePatchCollapseProof", "SurfaceImportCostPlan", "ObjModelInput", "ModelTextureNormalizer", "ModelTextureAtlasPlanner", "ModelTextureAtlasAuthoring")).map { "**/$it.java" }.toSet())
 }
 
 tasks.test {
