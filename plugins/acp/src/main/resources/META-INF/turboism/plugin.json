@@ -22,7 +22,7 @@
   "dependencies": [
     {
       "id": "dev.turboism.plugin.mcp",
-      "version": "[0.1.0,0.2.0)",
+      "version": "[0.1.0,0.68.0)",
       "type": "required",
       "ordering": "after",
       "reason": "Requires the authenticated Turboism MCP endpoint before creating an ACP session."
