@@ -4,6 +4,8 @@ import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
+import dev.turboism.sdk.cubism.command.EditorCommand;
+import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.id.TextureAtlasId;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.ArtMeshTextureInput;
@@ -47,6 +49,8 @@ import javax.swing.SwingUtilities;
 public final class AutoAtlasHostProbePlugin implements TurboismPlugin {
 
     private PluginContext context;
+    private volatile String startupDocumentId;
+    private volatile boolean newDocumentRequested;
     private final Map<String, Object> report = new LinkedHashMap<>();
 
     @Override
@@ -76,9 +80,29 @@ public final class AutoAtlasHostProbePlugin implements TurboismPlugin {
                         System.getProperty("turboism.autoatlas.immediate", "false"));
                 final Path trigger = context.paths().stateDir().resolve("probe.trigger");
                 final boolean triggerPresent = Files.exists(trigger);
-                final boolean docPresent = context.cubism().activeDocument().isPresent();
+                final var activeDocument = context.cubism().activeDocument();
+                final boolean docPresent = activeDocument.isPresent();
 
                 if ((immediate || triggerPresent) && docPresent) {
+                    if (!newDocumentRequested) {
+                        startupDocumentId = activeDocument.orElseThrow().documentId();
+                        newDocumentRequested = true;
+                        SwingUtilities.invokeLater(() -> {
+                            try {
+                                final var result = context.services().require(EditorCommandService.class)
+                                        .execute(EditorCommand.NEW_MODEL);
+                                if (!result.executed()) {
+                                    poller.shutdown();
+                                    writeFailure("NEW_MODEL failed: " + result.status());
+                                }
+                            } catch (Throwable failure) {
+                                poller.shutdown();
+                                writeFailure("NEW_MODEL failed: " + failure);
+                            }
+                        });
+                        return;
+                    }
+                    if (startupDocumentId.equals(activeDocument.orElseThrow().documentId())) return;
                     poller.shutdown();
                     System.out.println("[AUTO_ATLAS_PROBE] Ready marker observed (trigger="
                             + triggerPresent + ", immediate=" + immediate + "), dispatching to EDT...");
