@@ -117,74 +117,111 @@ final class AcpAgentDetectionRegressionTest {
         Files.writeString(sleepingScript, "#!/bin/sh\nsleep 30\n");
         makeExecutable(sleepingScript);
 
-        // Probe with 100ms timeout should cleanly fail without hanging
         final long start = System.nanoTime();
         final boolean result = AgentLocator.probe(sleepingScript, Duration.ofMillis(100));
         final long elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
 
-        assertFalse(result, "timed-out probe must not be considered available");
+        assertFalse(result, "timed-out probe must return false");
         assertTrue(elapsed < 5000, "probe should abort within bounded timeout");
     }
 
     @Test
-    void probeSucceedsForFastExecutableEvenWithNonZeroExitCode() throws Exception {
+    void probeRejectsCrashingOrNonZeroExitPrograms() throws Exception {
         final Path exitOneScript = temporaryDirectory.resolve("exit-one.sh");
         Files.writeString(exitOneScript, "#!/bin/sh\nexit 1\n");
         makeExecutable(exitOneScript);
 
-        assertTrue(
+        assertFalse(
                 AgentLocator.probe(exitOneScript, Duration.ofSeconds(2)),
-                "probe verifies spawnability on host even if --version returns non-zero");
+                "probe must reject programs that exit non-zero on --version");
     }
 
     @Test
-    void unconfiguredSettingsAutoSelectsFirstAvailableAgent() {
+    void probeSucceedsForCleanExitZeroVersion() throws Exception {
+        final Path validScript = temporaryDirectory.resolve("valid-agent.sh");
+        Files.writeString(validScript, "#!/bin/sh\necho \"agent 1.0.0\"\nexit 0\n");
+        makeExecutable(validScript);
+
+        assertTrue(
+                AgentLocator.probe(validScript, Duration.ofSeconds(2)),
+                "probe must accept programs that cleanly exit 0 on --version");
+    }
+
+    @Test
+    void settingsAgentIdGetterIsPureInMemoryAndDoesNotBlockOrProbe() {
         final MemoryConfig config = new MemoryConfig();
         try (AcpPluginSettings settings = new AcpPluginSettings(config, new CapturingLogger())) {
             assertFalse(settings.hasPersistedAgentId());
-            assertEquals(AcpPluginSettings.defaultAgentId(), settings.agentId());
+            // Before detection, getter returns catalog fallback in memory
+            assertEquals("claude", settings.agentId());
+
+            // Applying inferred agent updates memory
+            assertTrue(settings.applyInferredAgentId("opencode"));
+            assertEquals("opencode", settings.agentId());
+
+            // Persisting an explicit choice overrides inferred
+            assertTrue(settings.writeUserSettings("devin", null, ""));
+            assertTrue(settings.hasPersistedAgentId());
+            assertEquals("devin", settings.agentId());
+
+            // Inferred cannot override persisted
+            assertFalse(settings.applyInferredAgentId("opencode"));
+            assertEquals("devin", settings.agentId());
+        }
+    }
+
+    @Test
+    void firstConnectRunsDetectionAndInfersAgentBeforeConnecting() throws Exception {
+        final TestFixture fixture = new TestFixture();
+        final AtomicReference<AgentLaunchSpec> launched = new AtomicReference<>();
+        try (AcpChatController controller = fixture.controller((spec, listener) -> {
+            launched.set(spec);
+            throw new IOException("test launch stop");
+        })) {
+            controller.connect();
+            fixture.view.awaitConnecting(5, TimeUnit.SECONDS);
+
+            // Wait for failure indicating connect reached startClient
+            fixture.view.awaitFailure(5, TimeUnit.SECONDS);
+
+            // Detection must have run and broadcasted results to view
+            final Map<String, String> detected = fixture.view.awaitDetectedAgents(5, TimeUnit.SECONDS);
+            assertNotNull(detected);
+
+            // If an agent was detected on this host (opencode or devin), it was inferred and launched
             final Optional<AgentProfile> available = AgentCatalog.findFirstAvailable();
             if (available.isPresent()) {
-                assertEquals(available.get().id(), settings.agentId());
-            } else {
-                assertEquals(AgentCatalog.fallbackAgentId(), settings.agentId());
+                assertEquals(available.get().id(), fixture.settings.agentId());
+                assertNotNull(launched.get());
+                assertTrue(launched.get().executable().contains(available.get().id()));
             }
         }
     }
 
     @Test
-    void persistedCustomSettingsArePreservedAndNotOverwrittenByAutoDetection() {
+    void persistedCustomSettingsArePreservedAndNotOverwrittenByAutoDetection() throws Exception {
         final MemoryConfig config = new MemoryConfig();
         try (AcpPluginSettings first = new AcpPluginSettings(config, new CapturingLogger())) {
             assertTrue(first.writeUserSettings("codex", "/custom/bin", "prompt"));
         }
 
-        try (AcpPluginSettings second = new AcpPluginSettings(config, new CapturingLogger())) {
-            assertTrue(second.hasPersistedAgentId());
-            assertEquals("codex", second.agentId());
-            assertEquals("/custom/bin", second.customCommand());
-            assertEquals("prompt", second.initialPrompt().orElseThrow());
-        }
-    }
-
-    @Test
-    void detectAgentsEmitsProbeResultsToView() throws Exception {
-        final TestFixture fixture = new TestFixture();
+        final TestFixture fixture = new TestFixture(config);
         try (AcpChatController controller = fixture.controller()) {
             controller.detectAgents();
-            final Map<String, String> detected = fixture.view.awaitDetectedAgents(5, TimeUnit.SECONDS);
-            assertNotNull(detected);
-            for (AgentProfile profile : AgentCatalog.profiles()) {
-                assertTrue(detected.containsKey(profile.id()));
-            }
+            fixture.view.awaitDetectedAgents(5, TimeUnit.SECONDS);
+
+            assertTrue(fixture.settings.hasPersistedAgentId());
+            assertEquals("codex", fixture.settings.agentId());
+            assertEquals("/custom/bin", fixture.settings.customCommand());
+            assertEquals("prompt", fixture.settings.initialPrompt().orElseThrow());
         }
     }
 
     @Test
     void missingExecutableInConnectLogsClearWarningAndFailsWithKey() throws Exception {
-        final TestFixture fixture = new TestFixture();
-        // Configure an agent whose executable is absent
-        fixture.config.values.put("agentId", "antigravity");
+        final MemoryConfig config = new MemoryConfig();
+        config.values.put("agentId", "antigravity");
+        final TestFixture fixture = new TestFixture(config);
         try (AcpChatController controller = fixture.controller()) {
             controller.connect();
             final String failure = fixture.view.awaitFailure(5, TimeUnit.SECONDS);
@@ -212,19 +249,28 @@ final class AcpAgentDetectionRegressionTest {
     }
 
     private final class TestFixture {
-        private final MemoryConfig config = new MemoryConfig();
+        private final MemoryConfig config;
         private final CapturingLogger logger = new CapturingLogger();
         private final TestView view = new TestView();
+        private final AcpPluginSettings settings;
+
+        TestFixture() {
+            this(new MemoryConfig());
+        }
+
+        TestFixture(final MemoryConfig config) {
+            this.config = config;
+            this.settings = new AcpPluginSettings(config, logger);
+        }
 
         private AcpChatController controller() {
-            return new AcpChatController(
-                    context(),
-                    new AcpPluginSettings(config, logger),
-                    view,
-                    (spec, listener) -> {
-                        throw new IOException("mock clientStarter rejection");
-                    },
-                    Duration.ofSeconds(5));
+            return controller((spec, listener) -> {
+                throw new IOException("mock clientStarter rejection");
+            });
+        }
+
+        private AcpChatController controller(final AcpChatController.ClientStarter clientStarter) {
+            return new AcpChatController(context(), settings, view, clientStarter, Duration.ofSeconds(5));
         }
 
         private PluginContext context() {
@@ -299,11 +345,17 @@ final class AcpAgentDetectionRegressionTest {
     private static final class TestView implements AcpChatController.View {
         private final CountDownLatch detectedLatch = new CountDownLatch(1);
         private final CountDownLatch failureLatch = new CountDownLatch(1);
+        private final CountDownLatch connectingLatch = new CountDownLatch(1);
         private final AtomicReference<Map<String, String>> detectedRef = new AtomicReference<>();
         private final AtomicReference<String> failureRef = new AtomicReference<>();
+        private final AtomicReference<String> connectingRef = new AtomicReference<>();
+        private final AtomicReference<String> selectedAgentRef = new AtomicReference<>();
 
         @Override
-        public void showConnecting(String agentLabel) {}
+        public void showConnecting(String agentLabel) {
+            connectingRef.set(agentLabel);
+            connectingLatch.countDown();
+        }
 
         @Override
         public void showConnected(
@@ -326,6 +378,11 @@ final class AcpAgentDetectionRegressionTest {
         public void showDetectedAgents(Map<String, String> detectedPaths) {
             detectedRef.set(detectedPaths);
             detectedLatch.countDown();
+        }
+
+        @Override
+        public void showAgentSelected(String agentId) {
+            selectedAgentRef.set(agentId);
         }
 
         @Override
@@ -371,6 +428,13 @@ final class AcpAgentDetectionRegressionTest {
                 return detectedRef.get();
             }
             throw new AssertionError("timeout awaiting detected agents");
+        }
+
+        String awaitConnecting(long timeout, TimeUnit unit) throws InterruptedException {
+            if (connectingLatch.await(timeout, unit)) {
+                return connectingRef.get();
+            }
+            throw new AssertionError("timeout awaiting connecting");
         }
 
         String awaitFailure(long timeout, TimeUnit unit) throws InterruptedException {

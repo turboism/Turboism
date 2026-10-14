@@ -66,6 +66,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     private final AtomicReference<java.util.Optional<McpHttpConnection>> lastMcpSnapshot =
             new AtomicReference<>(java.util.Optional.empty());
     private final AtomicBoolean mcpReconnectQueued = new AtomicBoolean();
+    private final AtomicBoolean detectionCompleted = new AtomicBoolean();
 
     AcpChatController(final PluginContext context, final AcpPluginSettings settings, final View view) {
         this(context, settings, view, AcpClient::start);
@@ -100,9 +101,10 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         });
     }
 
-    /** Connects using the persisted agent selection. */
+    /** Connects using the persisted or auto-detected agent selection. */
     void connect() {
         submit(() -> {
+            ensureDetectionNow();
             ui(() -> view.showConnecting(agentLabel(settings.agentId())));
             connectNow();
         });
@@ -140,18 +142,38 @@ final class AcpChatController implements AutoCloseable, AcpListener {
 
     /** Resolves every catalog profile and reports which executables were found. */
     void detectAgents() {
-        submit(() -> {
-            final Map<String, String> detected = new LinkedHashMap<>();
-            for (AgentProfile profile : AgentCatalog.profiles()) {
-                final java.util.Optional<java.nio.file.Path> located = AgentLocator.locate(profile);
-                if (located.isPresent() && AgentLocator.probe(located.get(), Duration.ofMillis(1500))) {
-                    detected.put(profile.id(), located.get().toString());
-                } else {
-                    detected.put(profile.id(), "");
+        submit(this::detectAgentsNow);
+    }
+
+    private void ensureDetectionNow() {
+        if (!detectionCompleted.get()) {
+            detectAgentsNow();
+        }
+    }
+
+    private void detectAgentsNow() {
+        final Map<String, String> detected = new LinkedHashMap<>();
+        AgentProfile firstAvailable = null;
+        for (AgentProfile profile : AgentCatalog.profiles()) {
+            final java.util.Optional<java.nio.file.Path> located = AgentLocator.locate(profile);
+            if (located.isPresent() && AgentLocator.probe(located.get(), Duration.ofMillis(1500))) {
+                detected.put(profile.id(), located.get().toString());
+                if (firstAvailable == null) {
+                    firstAvailable = profile;
                 }
+            } else {
+                detected.put(profile.id(), "");
             }
-            ui(() -> view.showDetectedAgents(detected));
-        });
+        }
+        detectionCompleted.set(true);
+        if (!settings.hasPersistedAgentId() && pendingSettings.get() == null && firstAvailable != null) {
+            final String selectedId = firstAvailable.id();
+            if (settings.applyInferredAgentId(selectedId)) {
+                context.logger().info("ACP auto-detection: selected available agent '" + selectedId + "'");
+                ui(() -> view.showAgentSelected(selectedId));
+            }
+        }
+        ui(() -> view.showDetectedAgents(detected));
     }
 
     /** Runs the advertised ACP authentication method selected by the user. */
@@ -1346,6 +1368,9 @@ final class AcpChatController implements AutoCloseable, AcpListener {
 
         /** Detection results keyed by agent id; the value is the executable path or empty. */
         default void showDetectedAgents(final Map<String, String> detectedPaths) {}
+
+        /** Notifies the view that an agent has been automatically selected by detection. */
+        default void showAgentSelected(final String agentId) {}
 
         void clearTranscript();
 
