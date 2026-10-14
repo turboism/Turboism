@@ -1,11 +1,13 @@
 # Append-Only Texture Atlas Real-Host Validation Probe
 
 ## Overview
+
+Real-host execution has not yet completed. The checks below describe the probe, not verified host support.
 This directory contains the standalone, procedural real-host probe for verifying the native append-only texture atlas capability (`ModelTextures.appendTextureAtlasPages`).
 
 It uses programmatically synthesized procedural PNG textures and quad geometries without relying on proprietary 3D fixtures or external assets.
 
-## Verified Invariants on Host (Cubism 5.3.04)
+## Checks Performed by the Probe (Target: Cubism 5.3.04)
 1. **Capability Pre-Check**: `model.textures().supportsAppendTextureAtlasPages()` returns `true` before transaction.
 2. **Zero-Atlas Standalone Bootstrap**: Appending from an unatlased model creates page 1 (`1024x1024`) and binds `mesh1` to `TEXTURE_ATLAS_REGION`.
 3. **Single-Root Authoring Transaction Append**:
@@ -29,7 +31,7 @@ It uses programmatically synthesized procedural PNG textures and quad geometries
      - Pre-existing pages 1 & 2 and meshes 1 & 2 remain untouched.
 
 ## Explicit Verification Scope Boundaries
-- **Verified**: Native protocol, object/GUID invariance, single-root Undo/Redo, transaction rollback, and in-memory exportMoc ARGB texel sampling.
+- **Probe coverage (host execution pending)**: Native protocol, object/GUID invariance, single-root Undo/Redo, transaction rollback, and in-memory exportMoc ARGB texel sampling.
 - **Excluded by Minimal Contract**: Host `.cmo3` file save/reopen persistence cycles across separate JVM launches, and full GPU viewport shader readback (which belongs to full fixture suites).
 
 ## Build and Run Instructions for Primary Agent / Isolated Prefix
