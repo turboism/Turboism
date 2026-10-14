@@ -843,6 +843,48 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
         self.catalog_path.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
         return self.catalog_path
 
+    def stage_with_dependency(self, version_range):
+        descriptor = json.loads(self.fixture.backup_descriptor.read_text())
+        descriptor["dependencies"] = [{
+            "id": "dev.turboism.plugin.mcp", "version": version_range,
+            "type": "required", "ordering": "after", "reason": "fixture",
+        }]
+        self.fixture.backup_descriptor.write_text(json.dumps(descriptor) + "\n")
+        self.fixture.build_modules([("webdav-backup", self.fixture.backup_descriptor.read_bytes())])
+        self.write_catalog([])
+        return run_script(
+            self.tmp, "--manifest", str(self.manifest),
+            "--build-root", str(self.build_root), "--output", str(self.output),
+            "--source-revision", GIT_SHA, "--catalog", str(self.catalog_path),
+            "--framework-version", "0.67.0",
+        )
+
+    def test_incompatible_published_dependency_preserves_previous_output(self):
+        self.output.mkdir()
+        marker = self.output / "previous.txt"
+        marker.write_text("previous release")
+        result = self.stage_with_dependency("[0.1.0,0.2.0)")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("publication provides 0.67.0", result.stderr)
+        self.assertEqual(marker.read_text(), "previous release")
+        self.assertEqual(list(self.output.iterdir()), [marker])
+        self.assertEqual(list(self.tmp.glob("release.tmp-*")), [])
+
+    def test_compatible_published_dependency_succeeds(self):
+        result = self.stage_with_dependency("[0.1.0,0.68.0)")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.output / "webdav-backup-0.67.0.jar").exists())
+
+    def test_dependency_range_matches_runtime_boundaries(self):
+        pmr = load_script()
+        self.assertTrue(pmr.dependency_range_contains("0.67.1", "0.67.1"))
+        self.assertFalse(pmr.dependency_range_contains("0.67.1", "0.67.0"))
+        self.assertTrue(pmr.dependency_range_contains("[0.1.0,0.68.0)", "0.1.0"))
+        self.assertFalse(pmr.dependency_range_contains("[0.1.0,0.68.0)", "0.68.0"))
+        for invalid in ("[0.68.0,0.1.0)", "[00.1.0,0.68.0)", ">=0.1.0"):
+            with self.subTest(invalid=invalid), self.assertRaises(pmr.MarketError):
+                pmr.dependency_range_contains(invalid, "0.67.1")
+
     def test_first_publish_assigns_framework_base_and_injects_descriptor_version(self):
         self.write_catalog([])
         result = run_script(
@@ -874,6 +916,13 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
             self.assertEqual(json.loads(embedded_raw)["version"], "0.67.0")
 
     def test_changed_plugin_bumps_patch_and_unchanged_plugin_is_skipped(self):
+        descriptor = json.loads(self.fixture.mcp_descriptor.read_text())
+        descriptor["dependencies"] = [{
+            "id": "dev.turboism.plugin.webdav", "version": "[0.67.0,0.68.0)",
+            "type": "required", "ordering": "after", "reason": "fixture",
+        }]
+        self.fixture.mcp_descriptor.write_text(json.dumps(descriptor) + "\n")
+        self.fixture.build_modules([("mcp", self.fixture.mcp_descriptor.read_bytes())])
         # First publish at 0.67.0
         self.write_catalog([])
         run_script(

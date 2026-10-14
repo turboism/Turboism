@@ -582,6 +582,43 @@ def parse_strict_version(version: str) -> tuple[int, int, int]:
     return int(major), int(minor), int(patch)
 
 
+def dependency_range_contains(version_range: str, version: str) -> bool:
+    """Match runtime VersionRange: exact or bounded half-open interval."""
+    strict = r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
+    if not isinstance(version_range, str) or re.fullmatch(
+        rf"{strict}|\[{strict},{strict}\)", version_range
+    ) is None:
+        raise MarketError(f"unsupported dependency version range {version_range!r}")
+    actual = parse_strict_version(version)
+    if isinstance(version_range, str) and version_range.startswith("[") and version_range.endswith(")"):
+        bounds = version_range[1:-1].split(",")
+        if len(bounds) != 2:
+            raise MarketError(f"unsupported dependency version range {version_range!r}")
+        lower, upper = map(parse_strict_version, bounds)
+        if lower >= upper:
+            raise MarketError(f"dependency version range inverted or empty: {version_range!r}")
+        return lower <= actual < upper
+    return actual == parse_strict_version(version_range)
+
+
+def validate_published_dependencies(descriptors: dict[str, dict]) -> None:
+    """Check selected plugins against their final staged or unchanged catalog versions."""
+    for descriptor in descriptors.values():
+        for dependency in descriptor.get("dependencies", []):
+            if dependency.get("type") != "required":
+                continue
+            target = descriptors.get(dependency["id"])
+            # Dependencies outside this selection are resolved by the host/catalog.
+            if target is None:
+                continue
+            if not dependency_range_contains(dependency["version"], target["version"]):
+                raise MarketError(
+                    f"{descriptor['id']} {descriptor['version']} requires "
+                    f"{dependency['id']} {dependency['version']}, but publication provides "
+                    f"{target['version']}"
+                )
+
+
 def base_framework_version(raw_version: str) -> str:
     """Extract the strict MAJOR.MINOR.PATCH base from a framework version."""
     if not isinstance(raw_version, str):
@@ -1097,6 +1134,7 @@ def stage(repo_root: Path, manifest_path: Path, build_root: Path, output: Path,
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=output.name + ".tmp-", dir=output.parent))
     staged_items = []
+    published_descriptors = {}
     try:
         for item in prepared:
             module = item["module"]
@@ -1128,6 +1166,8 @@ def stage(repo_root: Path, manifest_path: Path, build_root: Path, output: Path,
                         key=lambda rel: parse_strict_version(rel.get("version", "")),
                     )
                     if jar_matches_catalog_release(data, tracked_raw, latest_release, artifact_loader):
+                        descriptor["version"] = latest_release["version"]
+                        published_descriptors[descriptor["id"]] = descriptor
                         continue
                 target_version = resolve_next_plugin_version(
                     effective_framework_version,
@@ -1152,6 +1192,8 @@ def stage(repo_root: Path, manifest_path: Path, build_root: Path, output: Path,
             canonical_name = f"{module}-{descriptor['version']}.jar"
             (temporary / canonical_name).write_bytes(data)
             staged_items.append(item)
+            published_descriptors[descriptor["id"]] = descriptor
+        validate_published_dependencies(published_descriptors)
         if not staged_items:
             shutil.rmtree(temporary, ignore_errors=True)
             if output.exists():
