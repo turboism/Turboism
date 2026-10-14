@@ -65,7 +65,7 @@ class ClipMaskViewerPluginTest {
         assertEquals(
                 List.of(new CollapsibleSectionContribution(
                         EmbeddedPanelId.of("turboism.panel.main"),
-                        "clipmask-viewer.section",
+                        "clipping-mask.section",
                         "section.title",
                         100,
                         true,

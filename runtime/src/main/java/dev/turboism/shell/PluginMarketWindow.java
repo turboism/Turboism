@@ -432,7 +432,7 @@ final class PluginMarketWindow {
                     return;
                 }
             }
-            statusLabel.setText("Installing " + loc.name() + "…");
+            statusLabel.setText(i18n.format("market.status.installing", loc.name()));
             installOrUpdateBtn.setEnabled(false);
             marketService
                     .installOrUpdate(plugin, targetRel)
@@ -441,7 +441,8 @@ final class PluginMarketWindow {
                         refreshCatalog(false);
                     }))
                     .exceptionally(err -> {
-                        CoreDialogs.onEdt(() -> statusLabel.setText("Install failed: " + err.getMessage()));
+                        CoreDialogs.onEdt(() ->
+                                statusLabel.setText(i18n.format("market.status.install-failed", err.getMessage())));
                         return null;
                     });
         });
@@ -475,7 +476,7 @@ final class PluginMarketWindow {
         readmePane.setCaretPosition(0);
 
         final JScrollPane readmeScroll = new JScrollPane(readmePane);
-        readmeScroll.setBorder(BorderFactory.createTitledBorder("README"));
+        readmeScroll.setBorder(BorderFactory.createTitledBorder(i18n.text("plugins.details.readme")));
 
         detailContainer.add(header, BorderLayout.NORTH);
         detailContainer.add(readmeScroll, BorderLayout.CENTER);

@@ -149,6 +149,66 @@ class TopMenuContributionProviderTest {
     }
 
     @Test
+    void
+            firstPartyFunctionalPluginsUnderTurboismAreCollapsedIntoPluginsSubmenuWhileFrameworkAndThirdPartyRemainAtRoot() {
+        final RecordingHost host = new RecordingHost();
+        final List<String> actions = new ArrayList<>();
+        final TopMenuContributionProvider provider = new TopMenuContributionProvider(
+                admission(7),
+                host,
+                (pluginId, actionId) -> actions.add(pluginId + ":" + actionId),
+                () -> "Turboism",
+                () -> "Plugins");
+
+        final Registration registration = provider.apply(
+                7,
+                List.of(
+                        contribution("turboism.core", "market", "Turboism/Market", 10),
+                        contribution("com.thirdparty.foo", "custom", "Turboism/Custom Action", 15),
+                        contribution("dev.turboism.plugin.acp", "acp", "Turboism/ACP Settings", 100),
+                        contribution(
+                                "dev.turboism.plugin.model-import-3d", "3d", "Turboism/3D Model/Import 3D Model…", 100),
+                        contribution(
+                                "dev.turboism.plugin.clipmask-viewer", "viewer", "Turboism/Clip Mask Viewer", 100)));
+
+        assertEquals(1, host.installed.size());
+        final TopMenuDescriptor turboism = host.installed.get(0);
+        assertEquals("Turboism", turboism.label());
+
+        final List<String> paths = turboism.items().stream()
+                .map(item ->
+                        (item.submenuPath().isEmpty() ? "" : String.join("/", item.submenuPath()) + "/") + item.label())
+                .toList();
+
+        assertEquals(
+                List.of(
+                        "Market",
+                        "Custom Action",
+                        "Plugins/ACP Settings",
+                        "Plugins/Clip Mask Viewer",
+                        "Plugins/3D Model/Import 3D Model…"),
+                paths);
+
+        // Actions still route to respective owners
+        host.actions.get(0).accept(turboism.items().get(0));
+        host.actions.get(0).accept(turboism.items().get(1));
+        host.actions.get(0).accept(turboism.items().get(2));
+        host.actions.get(0).accept(turboism.items().get(3));
+        host.actions.get(0).accept(turboism.items().get(4));
+
+        assertEquals(
+                List.of(
+                        "turboism.core:action.market",
+                        "com.thirdparty.foo:action.custom",
+                        "dev.turboism.plugin.acp:action.acp",
+                        "dev.turboism.plugin.clipmask-viewer:action.viewer",
+                        "dev.turboism.plugin.model-import-3d:action.3d"),
+                actions);
+
+        registration.close();
+    }
+
+    @Test
     void sameLabelRootsFromUnrelatedPluginsRemainPluginOwned() {
         final RecordingHost host = new RecordingHost();
         final TopMenuContributionProvider provider =
