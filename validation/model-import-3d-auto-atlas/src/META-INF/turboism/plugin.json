@@ -32,8 +32,5 @@
     "requiresCubism": true,
     "ui": "embedded"
   },
-  "lifecycle": {
-    "hotReload": false
-  },
-  "category": "validation"
+  "category": "analysis"
 }
