@@ -15,13 +15,7 @@ import java.util.Objects;
  * @param height the positive pixel height of the placed region
  */
 @CubismEditor(from = "5.0.00")
-public record ModelImagePlacement(
-        ModelImageId modelImageId,
-        int pageIndex,
-        int x,
-        int y,
-        int width,
-        int height) {
+public record ModelImagePlacement(ModelImageId modelImageId, int pageIndex, int x, int y, int width, int height) {
 
     public ModelImagePlacement {
         Objects.requireNonNull(modelImageId, "modelImageId");

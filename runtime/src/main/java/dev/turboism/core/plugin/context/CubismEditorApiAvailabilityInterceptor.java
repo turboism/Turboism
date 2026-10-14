@@ -266,8 +266,7 @@ final class CubismEditorApiAvailabilityInterceptor {
                     "addTextureAtlas",
                     "removeTextureAtlas",
                     "removeRawImage",
-                    "appendTextureAtlasPages" ->
-                true;
+                    "appendTextureAtlasPages" -> true;
             default -> false;
         };
     }

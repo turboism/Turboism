@@ -3,12 +3,10 @@ package dev.turboism.adapter.cubism.editor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
-import dev.turboism.adapter.cubism.editor.transaction.VerifiedEditorAuthoringTransactionHost;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
@@ -17,9 +15,7 @@ import dev.turboism.mapping.verification.selector.EditorEditSessionSelectorContr
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
-import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ModelImageId;
-import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.id.TextureAtlasId;
 import dev.turboism.sdk.cubism.model.ArtMeshTextureInput;
 import dev.turboism.sdk.cubism.model.AtlasPageAppendPlan;
@@ -31,11 +27,8 @@ import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
 import java.awt.geom.AffineTransform;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
@@ -183,10 +176,7 @@ class EditorTextureAccessAppendAtlasTest {
         assertEquals(Optional.of(new ModelImageId("image-2")), inputBefore.get().modelImageId());
 
         final AtlasPageAppendPlan plan = new AtlasPageAppendPlan(
-                1024,
-                1024,
-                1,
-                List.of(new ModelImagePlacement(new ModelImageId("image-2"), 0, 50, 50, 128, 128)));
+                1024, 1024, 1, List.of(new ModelImagePlacement(new ModelImageId("image-2"), 0, 50, 50, 128, 128)));
 
         final List<TextureAtlasId> createdIds = textures.appendTextureAtlasPages(plan);
         assertEquals(1, createdIds.size());
@@ -194,7 +184,8 @@ class EditorTextureAccessAppendAtlasTest {
         // Verify mesh-2 is now bound to TEXTURE_ATLAS_REGION on the new page
         final Optional<ArtMeshTextureInput> inputAfter = textures.textureInput(new ArtMeshId("mesh-2"));
         assertTrue(inputAfter.isPresent());
-        assertEquals(ArtMeshTextureInput.Kind.TEXTURE_ATLAS_REGION, inputAfter.get().kind());
+        assertEquals(
+                ArtMeshTextureInput.Kind.TEXTURE_ATLAS_REGION, inputAfter.get().kind());
         assertEquals(Optional.of(createdIds.get(0)), inputAfter.get().textureAtlasId());
 
         // Execute Undo -> mesh-2 restores to MODEL_IMAGE
@@ -208,7 +199,8 @@ class EditorTextureAccessAppendAtlasTest {
         fixture.editMode.redo();
         final Optional<ArtMeshTextureInput> inputRedone = textures.textureInput(new ArtMeshId("mesh-2"));
         assertTrue(inputRedone.isPresent());
-        assertEquals(ArtMeshTextureInput.Kind.TEXTURE_ATLAS_REGION, inputRedone.get().kind());
+        assertEquals(
+                ArtMeshTextureInput.Kind.TEXTURE_ATLAS_REGION, inputRedone.get().kind());
         assertEquals(Optional.of(createdIds.get(0)), inputRedone.get().textureAtlasId());
     }
 
@@ -230,19 +222,14 @@ class EditorTextureAccessAppendAtlasTest {
             fixture.source.artMeshes.add(mesh2);
 
             final AtlasPageAppendPlan plan = new AtlasPageAppendPlan(
-                    1024,
-                    1024,
-                    1,
-                    List.of(new ModelImagePlacement(new ModelImageId("image-2"), 0, 10, 10, 128, 128)));
+                    1024, 1024, 1, List.of(new ModelImagePlacement(new ModelImageId("image-2"), 0, 10, 10, 128, 128)));
 
             final var binding = new EditorAuthoringTransactionCoordinator.Binding(
                     "test-plugin", "doc-1", 1L, "model-1", 1L, Thread.currentThread());
 
             // Run transaction that performs append and then throws
-            final AuthoringTransactionResult<Void> result = coordinator.execute(
-                    binding,
-                    AuthoringTransactionOptions.of("Failing Import"),
-                    () -> {
+            final AuthoringTransactionResult<Void> result =
+                    coordinator.execute(binding, AuthoringTransactionOptions.of("Failing Import"), () -> {
                         final List<TextureAtlasId> newPages = textures.appendTextureAtlasPages(plan);
                         assertEquals(1, newPages.size());
                         assertEquals(2, textures.textureAtlases().size());
@@ -253,7 +240,9 @@ class EditorTextureAccessAppendAtlasTest {
 
             // Verify complete rollback: atlases reverted to 1
             assertEquals(1, textures.textureAtlases().size());
-            assertEquals(new TextureAtlasId("atlas-1"), textures.textureAtlases().get(0).id());
+            assertEquals(
+                    new TextureAtlasId("atlas-1"),
+                    textures.textureAtlases().get(0).id());
 
             // Verify mesh-2 input restored to MODEL_IMAGE
             final Optional<ArtMeshTextureInput> input = textures.textureInput(new ArtMeshId("mesh-2"));
@@ -276,20 +265,19 @@ class EditorTextureAccessAppendAtlasTest {
         fixture.source.artMeshes.add(mesh2);
 
         final AtlasPageAppendPlan plan = new AtlasPageAppendPlan(
-                1024,
-                1024,
-                1,
-                List.of(new ModelImagePlacement(new ModelImageId("image-2"), 0, 10, 10, 128, 128)));
+                1024, 1024, 1, List.of(new ModelImagePlacement(new ModelImageId("image-2"), 0, 10, 10, 128, 128)));
 
         Undo.rejectListener = true;
         try {
-            final IllegalStateException ex = assertThrows(
-                    IllegalStateException.class, () -> textures.appendTextureAtlasPages(plan));
+            final IllegalStateException ex =
+                    assertThrows(IllegalStateException.class, () -> textures.appendTextureAtlasPages(plan));
             assertTrue(ex.getMessage().contains("rejected the texture-atlas Undo/Redo refresh listener"));
 
             // Verify rollback: atlas pages restored to before-state (1 page)
             assertEquals(1, textures.textureAtlases().size());
-            assertEquals(new TextureAtlasId("atlas-1"), textures.textureAtlases().get(0).id());
+            assertEquals(
+                    new TextureAtlasId("atlas-1"),
+                    textures.textureAtlases().get(0).id());
 
             // Verify mesh-2 remains MODEL_IMAGE
             final Optional<ArtMeshTextureInput> input = textures.textureInput(new ArtMeshId("mesh-2"));
@@ -314,21 +302,20 @@ class EditorTextureAccessAppendAtlasTest {
         fixture.source.artMeshes.add(mesh2);
 
         final AtlasPageAppendPlan plan = new AtlasPageAppendPlan(
-                1024,
-                1024,
-                1,
-                List.of(new ModelImagePlacement(new ModelImageId("image-2"), 0, 10, 10, 128, 128)));
+                1024, 1024, 1, List.of(new ModelImagePlacement(new ModelImageId("image-2"), 0, 10, 10, 128, 128)));
 
         GroupUndo.rejectUndo = true;
         try {
-            final IllegalStateException ex = assertThrows(
-                    IllegalStateException.class, () -> textures.appendTextureAtlasPages(plan));
+            final IllegalStateException ex =
+                    assertThrows(IllegalStateException.class, () -> textures.appendTextureAtlasPages(plan));
             assertTrue(ex.getMessage().contains("rejected the texture Undo entry"));
 
             assertEquals(1, Undo.undoCount, "Exactly 1 native undo must be invoked, no double-undo");
             // Verify rollback: atlas pages restored to before-state (1 page) without double-undo corruption
             assertEquals(1, textures.textureAtlases().size());
-            assertEquals(new TextureAtlasId("atlas-1"), textures.textureAtlases().get(0).id());
+            assertEquals(
+                    new TextureAtlasId("atlas-1"),
+                    textures.textureAtlases().get(0).id());
 
             // Verify mesh-2 remains MODEL_IMAGE
             final Optional<ArtMeshTextureInput> input = textures.textureInput(new ArtMeshId("mesh-2"));
@@ -353,20 +340,19 @@ class EditorTextureAccessAppendAtlasTest {
         fixture.source.artMeshes.add(mesh2);
 
         final AtlasPageAppendPlan plan = new AtlasPageAppendPlan(
-                1024,
-                1024,
-                1,
-                List.of(new ModelImagePlacement(new ModelImageId("image-2"), 0, 10, 10, 128, 128)));
+                1024, 1024, 1, List.of(new ModelImagePlacement(new ModelImageId("image-2"), 0, 10, 10, 128, 128)));
 
         Undo.throwOnForceRedo = true;
         try {
-            final RuntimeException ex = assertThrows(
-                    RuntimeException.class, () -> textures.appendTextureAtlasPages(plan));
+            final RuntimeException ex =
+                    assertThrows(RuntimeException.class, () -> textures.appendTextureAtlasPages(plan));
             assertNotNull(ex);
 
             assertEquals(1, Undo.undoCount, "Native undo must be invoked to revert partial forceRedo");
             assertEquals(1, textures.textureAtlases().size(), "Manager atlases restored to old page");
-            assertEquals(new TextureAtlasId("atlas-1"), textures.textureAtlases().get(0).id());
+            assertEquals(
+                    new TextureAtlasId("atlas-1"),
+                    textures.textureAtlases().get(0).id());
 
             final Optional<ArtMeshTextureInput> input = textures.textureInput(new ArtMeshId("mesh-2"));
             assertTrue(input.isPresent());
@@ -395,19 +381,15 @@ class EditorTextureAccessAppendAtlasTest {
             fixture.source.artMeshes.add(mesh2);
 
             final AtlasPageAppendPlan plan = new AtlasPageAppendPlan(
-                    1024,
-                    1024,
-                    1,
-                    List.of(new ModelImagePlacement(new ModelImageId("image-2"), 0, 10, 10, 128, 128)));
+                    1024, 1024, 1, List.of(new ModelImagePlacement(new ModelImageId("image-2"), 0, 10, 10, 128, 128)));
 
             final var binding = new EditorAuthoringTransactionCoordinator.Binding(
                     "test-plugin", "doc-1", 1L, "model-1", 1L, Thread.currentThread());
 
-            // Transaction appends atlas, then deletes mesh2 (as an outer transaction rollback would delete newly added meshes), then throws
-            final AuthoringTransactionResult<Void> result = coordinator.execute(
-                    binding,
-                    AuthoringTransactionOptions.of("Rollback with Deleted Mesh"),
-                    () -> {
+            // Transaction appends atlas, then deletes mesh2 (as an outer transaction rollback would delete newly added
+            // meshes), then throws
+            final AuthoringTransactionResult<Void> result =
+                    coordinator.execute(binding, AuthoringTransactionOptions.of("Rollback with Deleted Mesh"), () -> {
                         textures.appendTextureAtlasPages(plan);
                         // Simulate root transaction undo removing the newly imported mesh
                         fixture.source.artMeshes.remove(mesh2);
@@ -435,13 +417,10 @@ class EditorTextureAccessAppendAtlasTest {
 
         // Appending 3 pages would make total 33 > 32
         final AtlasPageAppendPlan plan = new AtlasPageAppendPlan(
-                512,
-                512,
-                3,
-                List.of(new ModelImagePlacement(new ModelImageId("image-1"), 0, 0, 0, 256, 128)));
+                512, 512, 3, List.of(new ModelImagePlacement(new ModelImageId("image-1"), 0, 0, 0, 256, 128)));
 
-        final IllegalArgumentException ex = assertThrows(
-                IllegalArgumentException.class, () -> textures.appendTextureAtlasPages(plan));
+        final IllegalArgumentException ex =
+                assertThrows(IllegalArgumentException.class, () -> textures.appendTextureAtlasPages(plan));
         assertTrue(ex.getMessage().contains("exceeds maximum allowed"));
         assertEquals(30, textures.textureAtlases().size(), "No mutation on pre-validation rejection");
     }
@@ -455,13 +434,10 @@ class EditorTextureAccessAppendAtlasTest {
 
         // image-1 is already in atlas-1 (see Fixture setup)
         final AtlasPageAppendPlan plan = new AtlasPageAppendPlan(
-                1024,
-                1024,
-                1,
-                List.of(new ModelImagePlacement(new ModelImageId("image-1"), 0, 0, 0, 256, 128)));
+                1024, 1024, 1, List.of(new ModelImagePlacement(new ModelImageId("image-1"), 0, 0, 0, 256, 128)));
 
-        final IllegalArgumentException ex = assertThrows(
-                IllegalArgumentException.class, () -> textures.appendTextureAtlasPages(plan));
+        final IllegalArgumentException ex =
+                assertThrows(IllegalArgumentException.class, () -> textures.appendTextureAtlasPages(plan));
         assertTrue(ex.getMessage().contains("already placed"));
         assertEquals(1, textures.textureAtlases().size(), "Model must not be mutated");
     }
@@ -478,13 +454,10 @@ class EditorTextureAccessAppendAtlasTest {
 
         // Plan specifies 128x128 but image is 256x256
         final AtlasPageAppendPlan plan = new AtlasPageAppendPlan(
-                1024,
-                1024,
-                1,
-                List.of(new ModelImagePlacement(new ModelImageId("image-2"), 0, 0, 0, 128, 128)));
+                1024, 1024, 1, List.of(new ModelImagePlacement(new ModelImageId("image-2"), 0, 0, 0, 128, 128)));
 
-        final IllegalArgumentException ex = assertThrows(
-                IllegalArgumentException.class, () -> textures.appendTextureAtlasPages(plan));
+        final IllegalArgumentException ex =
+                assertThrows(IllegalArgumentException.class, () -> textures.appendTextureAtlasPages(plan));
         assertTrue(ex.getMessage().contains("must match ModelImage dimensions"));
         assertEquals(1, textures.textureAtlases().size(), "Model must not be mutated");
     }
@@ -492,18 +465,13 @@ class EditorTextureAccessAppendAtlasTest {
     @Test
     void planValidationRejectsOverlapEmptyAndExcess() {
         // Empty placements
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> new AtlasPageAppendPlan(1024, 1024, 1, List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new AtlasPageAppendPlan(1024, 1024, 1, List.of()));
 
         // Page count exceeds 32
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new AtlasPageAppendPlan(
-                        1024,
-                        1024,
-                        33,
-                        List.of(new ModelImagePlacement(new ModelImageId("img-1"), 0, 0, 0, 10, 10))));
+                        1024, 1024, 33, List.of(new ModelImagePlacement(new ModelImageId("img-1"), 0, 0, 0, 10, 10))));
 
         // Mismatched pageNames count
         assertThrows(
@@ -558,7 +526,10 @@ class EditorTextureAccessAppendAtlasTest {
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> texturesNoCap.appendTextureAtlasPages(new AtlasPageAppendPlan(
-                        512, 512, 1, List.of(new ModelImagePlacement(new ModelImageId("image-1"), 0, 0, 0, 256, 128)))));
+                        512,
+                        512,
+                        1,
+                        List.of(new ModelImagePlacement(new ModelImageId("image-1"), 0, 0, 0, 256, 128)))));
 
         // 2. With kill switch set to "false"
         System.setProperty(HostUndoMutationScope.ENABLED_PROPERTY, "false");
@@ -572,10 +543,7 @@ class EditorTextureAccessAppendAtlasTest {
             final boolean includeCapability,
             final EditorAuthoringTransactionCoordinator coordinator) {
         return new EditorTextureAccess(
-                resolver(version, includeCapability),
-                (identity, model) -> {},
-                coordinator,
-                () -> null);
+                resolver(version, includeCapability), (identity, model) -> {}, coordinator, () -> null);
     }
 
     private static VerifiedMemberResolver resolver(final String version, final boolean includeCapability) {
@@ -597,8 +565,8 @@ class EditorTextureAccessAppendAtlasTest {
                 Host.class,
                 "completePack",
                 desc(CompletePack.class)));
-        selectors.add(StaticSelector.classSelector(
-                "cubism.editor-model.modeling-document.class", internal(Document.class)));
+        selectors.add(
+                StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)));
         selectors.add(method(
                 "cubism.editor-model.modeling-document.model-source",
                 Document.class,
@@ -623,13 +591,16 @@ class EditorTextureAccessAppendAtlasTest {
         selectors.add(method(
                 "cubism.editor-model.undo.add-listener", Undo.class, "addListener", "(" + type(Listener.class) + ")Z"));
         selectors.add(method("cubism.editor-model.texture-undo.undo", Undo.class, "undo", "()V"));
-        selectors.add(method("cubism.texture-atlas.undo.force-redo", Undo.class, "forceRedo", "()L" + internal(Undo.class) + ";"));
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.undo-listener.class", internal(Listener.class)));
+        selectors.add(method(
+                "cubism.texture-atlas.undo.force-redo", Undo.class, "forceRedo", "()L" + internal(Undo.class) + ";"));
+        selectors.add(
+                StaticSelector.classSelector("cubism.editor-model.undo-listener.class", internal(Listener.class)));
         selectors.add(method(
                 "cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", "()V"));
         selectors.add(method(
                 "cubism.editor-model.complete-pack.update-part-palette", CompletePack.class, "updateParts", "(Z)V"));
-        selectors.add(method("cubism.editor-model.complete-pack.repaint-canvas", CompletePack.class, "repaint", "(Z)V"));
+        selectors.add(
+                method("cubism.editor-model.complete-pack.repaint-canvas", CompletePack.class, "repaint", "(Z)V"));
         selectors.add(method(
                 "cubism.editor-model.model-source.texture-manager",
                 ModelSource.class,
@@ -689,20 +660,27 @@ class EditorTextureAccessAppendAtlasTest {
                 HostModelImageGroup.class,
                 "modelImages",
                 "()Ljava/util/List;"));
-        selectors.add(StaticSelector.classSelector(
-                "cubism.editor-model.model-image.class", internal(HostModelImage.class)));
+        selectors.add(
+                StaticSelector.classSelector("cubism.editor-model.model-image.class", internal(HostModelImage.class)));
         selectors.add(method("cubism.editor-model.model-image.guid", HostModelImage.class, "guid", desc(Id.class)));
-        selectors.add(method("cubism.editor-model.model-image.name", HostModelImage.class, "name", "()Ljava/lang/String;"));
+        selectors.add(
+                method("cubism.editor-model.model-image.name", HostModelImage.class, "name", "()Ljava/lang/String;"));
         selectors.add(method("cubism.editor-model.model-image.width", HostModelImage.class, "width", "()I"));
         selectors.add(method("cubism.editor-model.model-image.height", HostModelImage.class, "height", "()I"));
         selectors.add(StaticSelector.classSelector(
                 "cubism.editor-model.texture-atlas.class", internal(HostTextureAtlas.class)));
         selectors.add(method("cubism.editor-model.texture-atlas.guid", HostTextureAtlas.class, "guid", desc(Id.class)));
-        selectors.add(method("cubism.editor-model.texture-atlas.name", HostTextureAtlas.class, "name", "()Ljava/lang/String;"));
+        selectors.add(method(
+                "cubism.editor-model.texture-atlas.name", HostTextureAtlas.class, "name", "()Ljava/lang/String;"));
         selectors.add(method("cubism.editor-model.texture-atlas.width", HostTextureAtlas.class, "width", "()I"));
         selectors.add(method("cubism.editor-model.texture-atlas.height", HostTextureAtlas.class, "height", "()I"));
-        selectors.add(method("cubism.editor-model.texture-atlas.atlas-version", HostTextureAtlas.class, "atlasVersion", "()I"));
-        selectors.add(method("cubism.editor-model.texture-atlas.model-images", HostTextureAtlas.class, "modelImages", "()Ljava/util/List;"));
+        selectors.add(method(
+                "cubism.editor-model.texture-atlas.atlas-version", HostTextureAtlas.class, "atlasVersion", "()I"));
+        selectors.add(method(
+                "cubism.editor-model.texture-atlas.model-images",
+                HostTextureAtlas.class,
+                "modelImages",
+                "()Ljava/util/List;"));
         selectors.add(method("cubism.editor-model.guid.value", Id.class, "value", "()Ljava/lang/String;"));
 
         selectors.add(StaticSelector.constructor(
@@ -737,8 +715,8 @@ class EditorTextureAccessAppendAtlasTest {
                 internal(HostTextureAtlas.class),
                 "(L" + internal(ModelSource.class) + ";Ljava/lang/String;II)V",
                 StaticSelector.ACCESS_PUBLIC));
-        selectors.add(method(
-                "cubism.texture-atlas.atlas.entries", HostTextureAtlas.class, "entries", "()Ljava/util/List;"));
+        selectors.add(
+                method("cubism.texture-atlas.atlas.entries", HostTextureAtlas.class, "entries", "()Ljava/util/List;"));
         selectors.add(StaticSelector.classSelector(
                 "cubism.texture-atlas.entry.class", internal(HostTextureAtlasEntry.class)));
         selectors.add(StaticSelector.classSelector("cubism.texture-atlas.affine.class", internal(Affine.class)));
@@ -750,7 +728,8 @@ class EditorTextureAccessAppendAtlasTest {
                 internal(HostTextureAtlasEntry.class),
                 "(" + type(HostTextureAtlas.class) + type(Id.class) + type(Affine.class) + ")V",
                 StaticSelector.ACCESS_PUBLIC));
-        selectors.add(method("cubism.texture-atlas.entry.image", HostTextureAtlasEntry.class, "image", desc(HostModelImage.class)));
+        selectors.add(method(
+                "cubism.texture-atlas.entry.image", HostTextureAtlasEntry.class, "image", desc(HostModelImage.class)));
         selectors.add(method("cubism.texture-atlas.image.guid", HostModelImage.class, "guid", desc(Id.class)));
 
         selectors.add(StaticSelector.constructor(
@@ -783,10 +762,7 @@ class EditorTextureAccessAppendAtlasTest {
                 "changeInputToAtlas",
                 "()V"));
         selectors.add(method(
-                "cubism.texture-atlas.texture-manager.reinit-input",
-                TextureManager.class,
-                "reinitInput",
-                "()V"));
+                "cubism.texture-atlas.texture-manager.reinit-input", TextureManager.class, "reinitInput", "()V"));
 
         // ArtMesh queries and texture inputs
         selectors.add(method(
@@ -794,9 +770,10 @@ class EditorTextureAccessAppendAtlasTest {
                 ModelSource.class,
                 "allArtMeshes",
                 "()Ljava/util/List;"));
-        selectors.add(StaticSelector.classSelector(
-                "cubism.editor-model.art-mesh-source.class", internal(HostArtMesh.class)));
-        selectors.add(method("cubism.editor-model.parameter-controllable-source.id", HostArtMesh.class, "id", desc(Id.class)));
+        selectors.add(
+                StaticSelector.classSelector("cubism.editor-model.art-mesh-source.class", internal(HostArtMesh.class)));
+        selectors.add(method(
+                "cubism.editor-model.parameter-controllable-source.id", HostArtMesh.class, "id", desc(Id.class)));
         selectors.add(method("cubism.editor-model.id.value", Id.class, "value", "()Ljava/lang/String;"));
         selectors.add(method(
                 "cubism.editor-model.art-mesh-source.texture-input-extension",
@@ -816,7 +793,8 @@ class EditorTextureAccessAppendAtlasTest {
                 "modelImage",
                 desc(HostModelImage.class)));
         selectors.add(StaticSelector.classSelector(
-                "cubism.editor-model.texture-input-texture-atlas-region.class", internal(HostTextureInputAtlasRegion.class)));
+                "cubism.editor-model.texture-input-texture-atlas-region.class",
+                internal(HostTextureInputAtlasRegion.class)));
         selectors.add(method(
                 "cubism.editor-model.texture-atlas-guid",
                 HostTextureInputAtlasRegion.class,
@@ -935,7 +913,8 @@ class EditorTextureAccessAppendAtlasTest {
             instancesUpdated = true;
         }
 
-        public static void verify(final ModelSource source, final boolean a, final Object b, final int c, final Object d) {}
+        public static void verify(
+                final ModelSource source, final boolean a, final Object b, final int c, final Object d) {}
     }
 
     public static final class Model {}
@@ -1382,15 +1361,7 @@ class EditorTextureAccessAppendAtlasTest {
         @Override
         public HistorySnapshot history(final EditorAuthoringTransactionCoordinator.Binding binding) {
             return new HistorySnapshot(
-                    HistorySnapshot.Availability.AVAILABLE,
-                    1,
-                    1L,
-                    0,
-                    List.of(),
-                    false,
-                    false,
-                    "doc-1",
-                    "model-1");
+                    HistorySnapshot.Availability.AVAILABLE, 1, 1L, 0, List.of(), false, false, "doc-1", "model-1");
         }
 
         @Override
@@ -1415,7 +1386,8 @@ class EditorTextureAccessAppendAtlasTest {
         }
 
         @Override
-        public void endEdit(final EditorAuthoringTransactionCoordinator.Binding binding, final Object edit, final boolean abort) {
+        public void endEdit(
+                final EditorAuthoringTransactionCoordinator.Binding binding, final Object edit, final boolean abort) {
             document.editMode.end(abort, null);
         }
 
@@ -1427,7 +1399,9 @@ class EditorTextureAccessAppendAtlasTest {
         }
 
         @Override
-        public void refresh(final EditorAuthoringTransactionCoordinator.Binding binding, final Set<dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement> requirements) {
+        public void refresh(
+                final EditorAuthoringTransactionCoordinator.Binding binding,
+                final Set<dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement> requirements) {
             source.updateInstances();
             if (document.pack != null) {
                 document.pack.repaint(true);
