@@ -261,7 +261,12 @@ final class CubismEditorApiAvailabilityInterceptor {
             return false;
         }
         return switch (method.getName()) {
-            case "addModelImageGroup", "removeModelImage", "addTextureAtlas", "removeTextureAtlas", "removeRawImage" ->
+            case "addModelImageGroup",
+                    "removeModelImage",
+                    "addTextureAtlas",
+                    "removeTextureAtlas",
+                    "removeRawImage",
+                    "appendTextureAtlasPages" ->
                 true;
             default -> false;
         };
