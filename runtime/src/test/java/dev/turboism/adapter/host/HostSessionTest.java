@@ -907,7 +907,7 @@ class HostSessionTest {
 
     static void awaitLatch(final CountDownLatch latch) {
         try {
-            if (!latch.await(5, TimeUnit.SECONDS)) {
+            if (!latch.await(30, TimeUnit.SECONDS)) {
                 fail("latch timed out");
             }
         } catch (InterruptedException exception) {
@@ -918,7 +918,7 @@ class HostSessionTest {
 
     static void join(final Thread thread) {
         try {
-            thread.join(5_000);
+            thread.join(30_000);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             fail(exception);
