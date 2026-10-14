@@ -30,6 +30,12 @@ tasks.named<ProcessResources>("processResources") {
     }
 }
 
+tasks.named<Javadoc>("javadoc") {
+    options.encoding = "UTF-8"
+    (options as StandardJavadocDocletOptions).charSet("UTF-8")
+    (options as StandardJavadocDocletOptions).docEncoding("UTF-8")
+}
+
 val asyncHostReadContractTest by tasks.registering(Test::class) {
     group = "verification"
     description = "Runs the frozen async host-read SDK contract tests."
