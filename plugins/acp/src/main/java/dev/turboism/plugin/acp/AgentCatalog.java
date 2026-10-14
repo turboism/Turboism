@@ -111,10 +111,9 @@ final class AgentCatalog {
     }
 
     /**
-     * Returns the default agent ID: the first available discovered ACP agent,
-     * or the catalog fallback if none is detected.
+     * Returns the catalog default fallback agent ID without performing background probes.
      */
     static String defaultAgentId() {
-        return findFirstAvailable().map(AgentProfile::id).orElseGet(AgentCatalog::fallbackAgentId);
+        return fallbackAgentId();
     }
 }
