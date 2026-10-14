@@ -112,16 +112,16 @@ final class AgentLocator {
      * Probes whether the candidate executable can be spawned by the host operating system.
      * Non-destructive verification that uses {@code --version} and respects Windows batch shims.
      * Output is discarded so the child process cannot block on full pipe buffers.
-     * All spawned processes and their descendants are guaranteed to be cleaned up.
+     * Timed-out or interrupted probes attempt to stop the process and its descendants.
      */
     static boolean probe(final Path executable, final java.time.Duration timeout) {
         Objects.requireNonNull(executable, "executable");
         Objects.requireNonNull(timeout, "timeout");
         if (!usable(executable)) return false;
-        final List<String> command =
-                AcpProcessTransport.windowsCommandShim(List.of(executable.toString(), "--version"));
         Process process = null;
         try {
+            final List<String> command =
+                    AcpProcessTransport.windowsCommandShim(List.of(executable.toString(), "--version"));
             final ProcessBuilder builder = new ProcessBuilder(command);
             builder.redirectOutput(ProcessBuilder.Redirect.DISCARD);
             builder.redirectError(ProcessBuilder.Redirect.DISCARD);
@@ -135,7 +135,7 @@ final class AgentLocator {
                 return false;
             }
             return true;
-        } catch (java.io.IOException failure) {
+        } catch (java.io.IOException | IllegalArgumentException failure) {
             return false;
         } catch (InterruptedException failure) {
             Thread.currentThread().interrupt();
