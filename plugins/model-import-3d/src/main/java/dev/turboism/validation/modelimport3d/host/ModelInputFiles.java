@@ -87,7 +87,8 @@ final class ModelInputFiles {
                     if (!active.getAsBoolean()) return CompletableFuture.completedFuture(Optional.<byte[]>empty());
                     if (resources.size() >= 64 || resources.containsKey(missing.key))
                         return CompletableFuture.<Optional<byte[]>>failedFuture(
-                                new IllegalArgumentException(text("error.resource-limit", "模型资源数量超限或无法关联。")));
+                                new ModelImportPlugin.LocalizedIllegalArgumentException(
+                                        "error.resource-limit", "模型资源数量超限或无法关联。"));
                     String name = missing.reference;
                     String title = format("resource.chooser.title", "选择模型引用的资源：{0}", name);
                     if (title.length() > 256) title = title.substring(0, 253) + "…";
@@ -105,8 +106,9 @@ final class ModelInputFiles {
                                 if (selected.status() == UserFileRequestStatus.CANCELED)
                                     return CompletableFuture.completedFuture(Optional.<byte[]>empty());
                                 if (selected.status() != UserFileRequestStatus.GRANTED)
-                                    return CompletableFuture.<Optional<byte[]>>failedFuture(new IllegalStateException(
-                                            format("error.resource-select", "无法选择模型资源：{0}", selected.status())));
+                                    return CompletableFuture.<Optional<byte[]>>failedFuture(
+                                            new ModelImportPlugin.LocalizedIllegalStateException(
+                                                    "error.resource-select", "无法选择模型资源：{0}", selected.status()));
                                 var handle = selected.handle().orElseThrow();
                                 if (!active.getAsBoolean()) {
                                     handle.close();
@@ -124,15 +126,18 @@ final class ModelInputFiles {
                                             if (!active.getAsBoolean())
                                                 return CompletableFuture.completedFuture(Optional.<byte[]>empty());
                                             if (value.truncated())
-                                                throw new CompletionException(new IllegalArgumentException(
-                                                        text("error.resource-too-large", "模型资源超过 16 MiB 限制。")));
+                                                throw new CompletionException(
+                                                        new ModelImportPlugin.LocalizedIllegalArgumentException(
+                                                                "error.resource-too-large", "模型资源超过 16 MiB 限制。"));
                                             byte[] bytes = value.value()
-                                                    .orElseThrow(() -> new IllegalStateException(
-                                                            text("error.resource-read", "无法读取模型资源。")));
+                                                    .orElseThrow(
+                                                            () -> new ModelImportPlugin.LocalizedIllegalStateException(
+                                                                    "error.resource-read", "无法读取模型资源。"));
                                             total += bytes.length;
                                             if (total > GlbSurfaceReader.MAX_BYTES)
-                                                throw new CompletionException(new IllegalArgumentException(
-                                                        text("error.total-too-large", "模型及外部资源合计超过 16 MiB 限制。")));
+                                                throw new CompletionException(
+                                                        new ModelImportPlugin.LocalizedIllegalArgumentException(
+                                                                "error.total-too-large", "模型及外部资源合计超过 16 MiB 限制。"));
                                             resources.put(missing.key, bytes);
                                             return resolve();
                                         });

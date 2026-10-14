@@ -274,6 +274,47 @@ class ModelImportPluginTest {
     }
 
     @Test
+    void underlyingChineseExceptionDisplaysLocalizedGenericFailure() throws Exception {
+        var w = new World();
+        w.localization = proxy(PluginLocalization.class, (o, m, a) -> switch (m.getName()) {
+            case "text" ->
+                "error.generic-failure".equals(a[0])
+                        ? "Import failed. Please check file."
+                        : (a.length > 1 ? a[1] : a[0]);
+            case "format" -> "formatted";
+            default -> "";
+        });
+        w.start();
+        w.grant();
+        w.read.completeExceptionally(new RuntimeException("OBJ 包含不支持的多边形指令"));
+        w.done();
+        assertFalse(w.error.contains("多边形"), "Raw Chinese internal error must not leak to user");
+        assertTrue(w.error.contains("Import failed. Please check file."), w.error);
+        assertNull(w.prepared);
+    }
+
+    @Test
+    void emptyOrNullUnderlyingExceptionDisplaysLocalizedGenericFailure() throws Exception {
+        var w = new World();
+        w.localization = proxy(PluginLocalization.class, (o, m, a) -> switch (m.getName()) {
+            case "text" ->
+                "error.generic-failure".equals(a[0])
+                        ? "Import failed. Please check file."
+                        : (a.length > 1 ? a[1] : a[0]);
+            case "format" -> "formatted";
+            default -> "";
+        });
+        w.start();
+        w.grant();
+        w.read.completeExceptionally(new NullPointerException());
+        w.done();
+        assertNotNull(w.error);
+        assertFalse(w.error.isBlank());
+        assertTrue(w.error.contains("Import failed. Please check file."), w.error);
+        assertNull(w.prepared);
+    }
+
+    @Test
     void staleRetainedModelRefusesWriteEvenWithSameId() throws Exception {
         var w = new World();
         w.start();
