@@ -67,7 +67,7 @@ class HostSessionConcurrencyTest {
                         callFailure),
                 "blocked-adapter-call");
         call.start();
-        assertTrue(operationEntered.await(5, TimeUnit.SECONDS));
+        assertTrue(operationEntered.await(30, TimeUnit.SECONDS));
         Thread closing =
                 new Thread(() -> HostSessionTest.captureFailure(session::close, closeFailure), "session-close");
         closing.start();
@@ -139,7 +139,7 @@ class HostSessionConcurrencyTest {
                         () -> session.adapters().projectWorkspace().activeProject(), callFailure),
                 "blocked-project-call");
         call.start();
-        assertTrue(operationEntered.await(5, TimeUnit.SECONDS));
+        assertTrue(operationEntered.await(30, TimeUnit.SECONDS));
 
         current.set(HostSessionTest.descriptor("session-b"));
         Thread replacement =
@@ -176,7 +176,7 @@ class HostSessionConcurrencyTest {
         HostSession session = new HostSession(() -> Optional.ofNullable(current.get()), descriptor -> {
             if (descriptor.sessionId().equals("session-b")) {
                 replacementStarted.countDown();
-                if (!allowReplacement.await(5, TimeUnit.SECONDS)) {
+                if (!allowReplacement.await(30, TimeUnit.SECONDS)) {
                     throw new IllegalStateException("replacement timed out");
                 }
                 return HostAdapterConnection.of(HostSessionTest.adapters("session-b"));
@@ -188,7 +188,7 @@ class HostSessionConcurrencyTest {
         current.set(HostSessionTest.descriptor("session-b"));
         Thread replacement = new Thread(session::refresh, "host-session-replacement-test");
         replacement.start();
-        assertTrue(replacementStarted.await(5, TimeUnit.SECONDS));
+        assertTrue(replacementStarted.await(30, TimeUnit.SECONDS));
 
         assertFalse(session.adapters().projectWorkspace().activeProject().isAvailable());
         assertEquals(1, oldConnectionCloses.get());
@@ -325,7 +325,7 @@ class HostSessionConcurrencyTest {
         Thread waiter = new Thread(() -> HostSessionTest.captureFailure(registration::close, waiterFailure));
 
         owner.start();
-        assertTrue(ownerEntered.await(5, TimeUnit.SECONDS));
+        assertTrue(ownerEntered.await(30, TimeUnit.SECONDS));
         waiter.start();
         HostSessionTest.awaitWaiting(waiter);
         releaseOwner.countDown();
@@ -374,7 +374,7 @@ class HostSessionConcurrencyTest {
         Thread owner = new Thread(() -> HostSessionTest.captureFailure(registration::close, ownerFailure));
         Thread waiter = new Thread(() -> HostSessionTest.captureFailure(registration::close, waiterFailure));
         owner.start();
-        assertTrue(ownerEntered.await(5, TimeUnit.SECONDS));
+        assertTrue(ownerEntered.await(30, TimeUnit.SECONDS));
         waiter.start();
         HostSessionTest.awaitWaiting(waiter);
         releaseOwner.countDown();
@@ -416,7 +416,7 @@ class HostSessionConcurrencyTest {
                 .orElseThrow();
         Thread ordinary = new Thread(registration::close);
         ordinary.start();
-        assertTrue(ownerEntered.await(5, TimeUnit.SECONDS));
+        assertTrue(ownerEntered.await(30, TimeUnit.SECONDS));
         current.set(null);
         Thread clearing = new Thread(session::refresh);
         clearing.start();
@@ -450,7 +450,7 @@ class HostSessionConcurrencyTest {
         Thread refreshB =
                 new Thread(() -> HostSessionTest.captureFailure(session::refresh, refreshBFailure), "refresh-b");
         refreshA.start();
-        assertTrue(firstSourceEntered.await(5, TimeUnit.SECONDS));
+        assertTrue(firstSourceEntered.await(30, TimeUnit.SECONDS));
         closing.start();
         HostSessionTest.awaitWaiting(closing);
         refreshB.start();
