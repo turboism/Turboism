@@ -143,11 +143,12 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         submit(() -> {
             final Map<String, String> detected = new LinkedHashMap<>();
             for (AgentProfile profile : AgentCatalog.profiles()) {
-                detected.put(
-                        profile.id(),
-                        AgentLocator.locate(profile)
-                                .map(java.nio.file.Path::toString)
-                                .orElse(""));
+                final java.util.Optional<java.nio.file.Path> located = AgentLocator.locate(profile);
+                if (located.isPresent() && AgentLocator.probe(located.get(), Duration.ofMillis(1500))) {
+                    detected.put(profile.id(), located.get().toString());
+                } else {
+                    detected.put(profile.id(), "");
+                }
             }
             ui(() -> view.showDetectedAgents(detected));
         });
@@ -269,10 +270,14 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             try {
                 spec = resolveLaunchSpec();
             } catch (IllegalArgumentException | IllegalStateException failure) {
-                ui(() -> view.showFailure(
+                final String failureKey =
                         failure.getMessage() != null && failure.getMessage().startsWith("status.")
                                 ? failure.getMessage()
-                                : "status.agent-not-found-generic"));
+                                : "status.agent-not-found-generic";
+                context.logger()
+                        .warn("ACP connection: failed to resolve agent executable for '" + settings.agentId() + "': "
+                                + failureKey + " (" + failure.getMessage() + ")");
+                ui(() -> view.showFailure(failureKey));
                 return;
             }
             launchSpec = spec;
