@@ -2126,21 +2126,9 @@ final class EditorTextureAccess {
             final Object editMode = resolver.invoke(EDIT_MODE, document);
             final Object edit = resolver.invoke(BEGIN_EDIT, editMode, "Turboism: Append Texture Atlas Pages");
             boolean completed = false;
-            boolean undoRegistered = false;
-            boolean redoApplied = false;
             try {
                 resolver.invoke(ATLAS_UNDO_FORCE_REDO, undo);
-                redoApplied = true;
-
-                try {
-                    registerAppliedUndo(edit, undo);
-                    undoRegistered = true;
-                } catch (Throwable undoRegError) {
-                    relinkTextureInputs(source, manager, oldPageCount > 0);
-                    refreshAtlas(source, completePack);
-                    verifyAtlasRestored(manager, oldAtlases, oldGuids, source, beforeMeshInputs);
-                    throw undoRegError;
-                }
+                registerAppliedUndo(edit, undo);
 
                 final Object listener = createRelinkListener(source, manager, completePack, oldPageCount);
                 final Object accepted = resolver.invoke(UNDO_ADD_LISTENER, undo, listener);
@@ -2158,28 +2146,35 @@ final class EditorTextureAccess {
                 }
                 completed = true;
             } catch (Throwable failure) {
-                if (redoApplied && undoRegistered) {
-                    try {
-                        rollbackAppend(undo, source, manager, completePack, oldPageCount);
-                        if (!verifyAtlasRestored(manager, oldAtlases, oldGuids, source, beforeMeshInputs)) {
-                            throw new IllegalStateException("Texture atlas append rollback postcondition failed.");
-                        }
-                    } catch (Throwable rollbackError) {
-                        failure.addSuppressed(rollbackError);
+                try {
+                    final List<?> current = list(TEXTURE_ATLASES, manager, "texture atlas");
+                    final boolean atlasesAlreadyReverted = samePageCountAndInstances(current, oldAtlases);
+                    if (!atlasesAlreadyReverted) {
+                        resolver.invoke(UNDO_REVERT, undo);
                     }
-                } else if (redoApplied && !undoRegistered) {
-                    try {
-                        rollbackAppend(undo, source, manager, completePack, oldPageCount);
-                        verifyAtlasRestored(manager, oldAtlases, oldGuids, source, beforeMeshInputs);
-                    } catch (Throwable rollbackError) {
-                        failure.addSuppressed(rollbackError);
+                    relinkTextureInputs(source, manager, oldPageCount > 0);
+                    refreshAtlas(source, completePack);
+                    if (!verifyAtlasRestored(manager, oldAtlases, oldGuids, source, beforeMeshInputs)) {
+                        throw new IllegalStateException("Texture atlas append rollback postcondition failed.");
                     }
+                } catch (Throwable rollbackError) {
+                    failure.addSuppressed(rollbackError);
                 }
                 throw failure;
             } finally {
                 resolver.invoke(END_EDIT, editMode, Boolean.valueOf(!completed), null);
             }
             return createdPageIds;
+        }
+
+        private static boolean samePageCountAndInstances(final List<?> current, final List<?> expected) {
+            if (current == null || expected == null || current.size() != expected.size()) {
+                return false;
+            }
+            for (int i = 0; i < expected.size(); i++) {
+                if (current.get(i) != expected.get(i)) return false;
+            }
+            return true;
         }
 
         private Object createRelinkListener(
