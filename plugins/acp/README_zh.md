@@ -24,7 +24,9 @@ interface: swing
 - 通过 stdin/stdout JSON-RPC 启动用户安装的 ACP Agent：Claude Agent ACP、Codex ACP、Antigravity、Gemini CLI、OpenCode、Pi、Devin CLI 或自定义命令。
 - 按 ACP v1 契约驱动 `initialize`、`authenticate`、`session/new`、`session/load`、`session/resume`、`session/prompt`、`session/cancel`、`session/close`、`session/list`、`session/update`、`session/request_permission`、`session/set_config_option` 与 `logout`。
 - 将 Turboism MCP 服务器作为 ACP stdio MCP 服务器接入，使 Agent 可以使用 Cubism 工具。HTTP 端点保留为只读回退，用于仅声明 HTTP MCP 支持的 Agent。
-- 在 PATH 与常见安装目录中检测 Agent 可执行文件，并持久化少量插件自有状态（已选 Agent、自定义命令、持久会话 ID、初始指令）。
+- 在 PATH 与常见安装目录中检测 Agent 可执行文件，未配置时自动选择首个可用 ACP Agent；持久化插件自有状态（已选 Agent、自定义命令、持久会话 ID、初始指令）并保留用户自定义配置。
+- 区分普通 CLI 与支持 ACP 握手的代理：仅将声明支持 ACP 的工具（如 OpenCode、Devin CLI、Claude Agent ACP 等）纳入检测与连接，避免普通原生 CLI 冒充 ACP。
+- 支持安全命令启动探测（验证 OS 级可执行性并兼容 Windows `.cmd`/`.bat` shim），并在窗口打开及连接失败时提供明确的不可用原因与日志输出。
 
 ## 要求与兼容性
 

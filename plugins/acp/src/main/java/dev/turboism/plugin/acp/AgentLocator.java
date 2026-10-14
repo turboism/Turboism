@@ -91,10 +91,76 @@ final class AgentLocator {
     private static boolean usable(final Path candidate) {
         try {
             if (!Files.isRegularFile(candidate)) return false;
-            if (isWindows()) return true;
+            if (isWindows()) {
+                final Path fileName = candidate.getFileName();
+                final String lower = fileName != null ? fileName.toString().toLowerCase(Locale.ROOT) : "";
+                if (!lower.endsWith(".exe")
+                        && !lower.endsWith(".cmd")
+                        && !lower.endsWith(".bat")
+                        && !lower.endsWith(".com")) {
+                    return false;
+                }
+                return true;
+            }
             return Files.isExecutable(candidate);
         } catch (SecurityException failure) {
             return false;
+        }
+    }
+
+    /**
+     * Probes whether the candidate executable can be spawned by the host operating system.
+     * Non-destructive verification that uses {@code --version} and respects Windows batch shims.
+     * Output is discarded so the child process cannot block on full pipe buffers.
+     * All spawned processes and their descendants are guaranteed to be cleaned up.
+     */
+    static boolean probe(final Path executable, final java.time.Duration timeout) {
+        Objects.requireNonNull(executable, "executable");
+        Objects.requireNonNull(timeout, "timeout");
+        if (!usable(executable)) return false;
+        final List<String> command =
+                AcpProcessTransport.windowsCommandShim(List.of(executable.toString(), "--version"));
+        Process process = null;
+        try {
+            final ProcessBuilder builder = new ProcessBuilder(command);
+            builder.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+            builder.redirectError(ProcessBuilder.Redirect.DISCARD);
+            process = builder.start();
+            final boolean finished = process.waitFor(timeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
+            if (!finished) {
+                cleanupProcess(process);
+                return false;
+            }
+            return true;
+        } catch (java.io.IOException failure) {
+            return false;
+        } catch (InterruptedException failure) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (SecurityException failure) {
+            return false;
+        } finally {
+            if (process != null && process.isAlive()) {
+                cleanupProcess(process);
+            }
+        }
+    }
+
+    private static void cleanupProcess(final Process process) {
+        try {
+            process.descendants().forEach(handle -> {
+                try {
+                    handle.destroyForcibly();
+                } catch (SecurityException ignored) {
+                }
+            });
+        } catch (UnsupportedOperationException | SecurityException ignored) {
+        }
+        process.destroyForcibly();
+        try {
+            process.waitFor(200L, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (InterruptedException failure) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -132,8 +198,14 @@ final class AgentLocator {
         final Map<String, String> env = System.getenv();
         if (isWindows()) {
             add(directories, env.get("APPDATA"), "npm");
+            add(directories, env.get("LOCALAPPDATA"), "Programs");
+            add(directories, env.get("LOCALAPPDATA"), "Microsoft", "WinGet", "Links");
+            add(directories, env.get("LOCALAPPDATA"), "pnpm");
+            add(directories, env.get("LOCALAPPDATA"), "Yarn", "bin");
+            add(directories, home, ".cargo", "bin");
             add(directories, home, ".local", "bin");
             add(directories, home, "scoop", "shims");
+            add(directories, env.get("ProgramFiles"), "nodejs");
             return;
         }
         add(directories, home, ".local", "bin");
@@ -145,6 +217,8 @@ final class AgentLocator {
         add(directories, "/usr", "local", "bin");
         add(directories, "/opt", "homebrew", "bin");
         add(directories, "/opt", "bin");
+        add(directories, "/usr", "bin");
+        add(directories, "/bin");
         // Per-version Node managers install global bins below versioned directories.
         addGlobbed(directories, home, ".nvm", "versions", "node");
         addGlobbed(directories, home, ".local", "share", "mise", "installs", "node");
