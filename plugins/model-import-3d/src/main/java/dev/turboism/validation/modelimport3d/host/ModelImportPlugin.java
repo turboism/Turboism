@@ -32,6 +32,57 @@ public final class ModelImportPlugin implements TurboismPlugin {
         void message(String text, boolean error);
     }
 
+    interface LocalizedMessageCarrier {
+        String messageKey();
+
+        Object[] messageArgs();
+
+        String getMessage();
+    }
+
+    static final class LocalizedIllegalStateException extends IllegalStateException implements LocalizedMessageCarrier {
+        private final String key;
+        private final Object[] args;
+
+        LocalizedIllegalStateException(String key, String fallback, Object... args) {
+            super(args.length == 0 ? fallback : java.text.MessageFormat.format(fallback, args));
+            this.key = Objects.requireNonNull(key, "key");
+            this.args = args;
+        }
+
+        @Override
+        public String messageKey() {
+            return key;
+        }
+
+        @Override
+        public Object[] messageArgs() {
+            return args;
+        }
+    }
+
+    static final class LocalizedIllegalArgumentException extends IllegalArgumentException
+            implements LocalizedMessageCarrier {
+        private final String key;
+        private final Object[] args;
+
+        LocalizedIllegalArgumentException(String key, String fallback, Object... args) {
+            super(args.length == 0 ? fallback : java.text.MessageFormat.format(fallback, args));
+            this.key = Objects.requireNonNull(key, "key");
+            this.args = args;
+        }
+
+        @Override
+        public String messageKey() {
+            return key;
+        }
+
+        @Override
+        public Object[] messageArgs() {
+            return args;
+        }
+    }
+
     record OptimizationSummary(
             int sourceTriangles, int outputTriangles, double geometryErrorPixels, double combinedErrorBoundPixels) {}
 
@@ -63,7 +114,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
         bytes = ModelInputNormalizer.normalize(bytes);
         if (request.roll().isPresent()) {
             if (appearance != SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL)
-                throw new IllegalArgumentException("XYZ 360° 导入使用源模型材质与贴图。");
+                throw new LocalizedIllegalArgumentException("error.source-material-required", "XYZ 360° 导入使用源模型材质与贴图。");
             try {
                 var candidate = SurfaceWarpImportCandidate.prepareFramed(
                         bytes, request, SurfaceWarpImportCandidate.FULL_CIRCLE);
@@ -233,10 +284,10 @@ public final class ModelImportPlugin implements TurboismPlugin {
         try {
             var document = context.cubism()
                     .activeDocument()
-                    .orElseThrow(() -> new IllegalStateException(text("error.no-active-document", "请先打开目标模型。")));
+                    .orElseThrow(() -> new LocalizedIllegalStateException("error.no-active-document", "请先打开目标模型。"));
             var target = context.cubism().model().active();
             if (target.canvas().widthPixels() != 1024 || target.canvas().heightPixels() != 1024)
-                throw new IllegalArgumentException(text("error.invalid-canvas-size", "当前导入需要 1024×1024 画布。"));
+                throw new LocalizedIllegalArgumentException("error.invalid-canvas-size", "当前导入需要 1024×1024 画布。");
             int choice = ui.appearance();
             if (choice < 0 || choice == 2 || !active(token)) {
                 release(token);
@@ -266,8 +317,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
                         if (selected.status() == UserFileRequestStatus.CANCELED)
                             return CompletableFuture.completedFuture(Optional.<PreparedImport>empty());
                         if (selected.status() != UserFileRequestStatus.GRANTED)
-                            throw new CompletionException(new IllegalStateException(
-                                    format("error.file-select", "无法选择文件：{0}", selected.status())));
+                            throw new CompletionException(new LocalizedIllegalStateException(
+                                    "error.file-select", "无法选择文件：{0}", selected.status()));
                         if (!active(token)) {
                             selected.handle().orElseThrow().close();
                             return CompletableFuture.completedFuture(Optional.<PreparedImport>empty());
@@ -277,11 +328,11 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                     if (!active(token))
                                         return CompletableFuture.completedFuture(Optional.<PreparedImport>empty());
                                     if (read.truncated())
-                                        throw new CompletionException(new IllegalArgumentException(
-                                                text("error.file-too-large", "模型文件超过 16 MiB 限制。")));
+                                        throw new CompletionException(new LocalizedIllegalArgumentException(
+                                                "error.file-too-large", "模型文件超过 16 MiB 限制。"));
                                     byte[] bytes = read.value()
                                             .orElseThrow(() ->
-                                                    new IllegalStateException(text("error.file-read", "无法读取所选模型。")));
+                                                    new LocalizedIllegalStateException("error.file-read", "无法读取所选模型。"));
                                     return ModelInputFiles.normalize(
                                                     bytes,
                                                     files,
@@ -350,8 +401,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
                         : SurfaceWarpLayerAuthoring.apply(prepared.layered(), current, transactions, stage -> {});
         if (result.outcome() != AuthoringTransactionOutcome.COMMITTED) {
             String diag = result.diagnosticId().map(id -> "（" + id + "）").orElse("");
-            throw new IllegalStateException(
-                    format("error.transaction-uncommitted", "导入未完成：{0}{1}", result.outcome(), diag));
+            throw new LocalizedIllegalStateException(
+                    "error.transaction-uncommitted", "导入未完成：{0}{1}", result.outcome(), diag);
         }
         ui.message(
                 prepared.vertices() != null
@@ -401,18 +452,39 @@ public final class ModelImportPlugin implements TurboismPlugin {
                         .map(d -> d.documentId().equals(documentId))
                         .orElse(false)
                 || !context.cubism().model().active().id().equals(target.id()))
-            throw new IllegalStateException(text("error.target-switched", "目标文档已切换，请重新发起导入。"));
+            throw new LocalizedIllegalStateException("error.target-switched", "目标文档已切换，请重新发起导入。");
         target.canvas(); // Exercise the retained SDK handle's native generation guard.
     }
 
     private void show(Throwable failure) {
         while (failure.getCause() != null && failure instanceof CompletionException) failure = failure.getCause();
         context.logger().warn("3D import failed: " + failure);
-        String msg = failure.getMessage();
-        if ("XYZ 360° 导入使用源模型材质与贴图。".equals(msg)) {
-            msg = text("error.source-material-required", msg);
+
+        final String userMessage;
+        if (failure instanceof LocalizedMessageCarrier carrier) {
+            userMessage = carrier.messageArgs().length == 0
+                    ? text(carrier.messageKey(), carrier.getMessage())
+                    : format(carrier.messageKey(), carrier.getMessage(), carrier.messageArgs());
+        } else {
+            String raw = failure.getMessage();
+            if (raw == null || raw.isBlank() || containsCjk(raw)) {
+                userMessage = text("error.generic-failure", "3D 模型导入失败，请检查文件或重试。");
+            } else {
+                userMessage = raw;
+            }
         }
-        ui.message(msg, true);
+        ui.message(userMessage, true);
+    }
+
+    private static boolean containsCjk(String s) {
+        if (s == null) return false;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (Character.UnicodeScript.of(c) == Character.UnicodeScript.HAN) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static final class SwingUi implements Ui {

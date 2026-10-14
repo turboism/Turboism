@@ -15,6 +15,7 @@ dialog.message.info.title
 error.file-read
 error.file-select
 error.file-too-large
+error.generic-failure
 error.invalid-canvas-size
 error.no-active-document
 error.resource-limit
