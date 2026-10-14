@@ -229,6 +229,7 @@ public final class TurboismAcpPlugin implements TurboismPlugin {
                         () -> next.saveSettings(created.agentId(), created.customCommand(), created.initialPrompt()));
                 window = created;
                 controller = next;
+                next.detectAgents();
             }
             toShow = window;
             if (toShow != null && controller != null && target == WindowTarget.AGENT && toShow.claimAutoConnect()) {

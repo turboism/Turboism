@@ -86,7 +86,11 @@ final class AcpProcessTransport implements AcpTransport {
      * {@code !}) or that could break the outer {@code /s /c} parse.
      */
     static List<String> windowsCommandShim(final List<String> argv) {
-        if (!tracksWindowsShim(System.getProperty("os.name", "")) || argv.isEmpty()) {
+        return windowsCommandShim(argv, System.getProperty("os.name", ""));
+    }
+
+    static List<String> windowsCommandShim(final List<String> argv, final String operatingSystem) {
+        if (!tracksWindowsShim(operatingSystem) || argv.isEmpty()) {
             return argv;
         }
         final String executable = argv.get(0).toLowerCase(Locale.ROOT);

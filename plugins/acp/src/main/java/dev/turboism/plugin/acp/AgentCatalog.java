@@ -81,4 +81,40 @@ final class AgentCatalog {
     static Optional<AgentProfile> profile(final String id) {
         return PROFILES.stream().filter(profile -> profile.id().equals(id)).findFirst();
     }
+
+    /** Fallback agent ID when no catalog agent executable is found on the system. */
+    static String fallbackAgentId() {
+        return PROFILES.get(0).id();
+    }
+
+    /** Finds the first catalog profile whose executable candidate is discovered and runnable. */
+    static Optional<AgentProfile> findFirstAvailable() {
+        for (AgentProfile profile : PROFILES) {
+            final Optional<java.nio.file.Path> located = AgentLocator.locate(profile);
+            if (located.isPresent() && AgentLocator.probe(located.get(), java.time.Duration.ofMillis(1500))) {
+                return Optional.of(profile);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** Returns all catalog profiles currently discovered and probeable on this system. */
+    static List<AgentProfile> availableProfiles() {
+        final java.util.ArrayList<AgentProfile> available = new java.util.ArrayList<>();
+        for (AgentProfile profile : PROFILES) {
+            final Optional<java.nio.file.Path> located = AgentLocator.locate(profile);
+            if (located.isPresent() && AgentLocator.probe(located.get(), java.time.Duration.ofMillis(1500))) {
+                available.add(profile);
+            }
+        }
+        return List.copyOf(available);
+    }
+
+    /**
+     * Returns the default agent ID: the first available discovered ACP agent,
+     * or the catalog fallback if none is detected.
+     */
+    static String defaultAgentId() {
+        return findFirstAvailable().map(AgentProfile::id).orElseGet(AgentCatalog::fallbackAgentId);
+    }
 }

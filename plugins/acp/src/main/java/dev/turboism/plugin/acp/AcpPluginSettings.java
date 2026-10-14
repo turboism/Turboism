@@ -75,7 +75,12 @@ final class AcpPluginSettings implements AutoCloseable {
     }
 
     static String defaultAgentId() {
-        return AgentCatalog.profiles().get(0).id();
+        return AgentCatalog.defaultAgentId();
+    }
+
+    /** Returns whether the user has explicitly persisted an agent selection. */
+    synchronized boolean hasPersistedAgentId() {
+        return agentIdSnapshot != null;
     }
 
     /** Returns the user-edited custom command line used when {@code agentId} is {@code custom}. */
