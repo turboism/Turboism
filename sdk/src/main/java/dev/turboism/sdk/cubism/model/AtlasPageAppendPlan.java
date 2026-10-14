@@ -20,11 +20,7 @@ import java.util.Objects;
  */
 @CubismEditor(from = "5.0.00")
 public record AtlasPageAppendPlan(
-        int pageWidth,
-        int pageHeight,
-        int pageCount,
-        List<String> pageNames,
-        List<ModelImagePlacement> placements) {
+        int pageWidth, int pageHeight, int pageCount, List<String> pageNames, List<ModelImagePlacement> placements) {
 
     public static final int MAX_PAGE_COUNT = 32;
     public static final int MAX_PAGE_DIMENSION = 8192;
@@ -36,9 +32,8 @@ public record AtlasPageAppendPlan(
                     "page dimensions must be positive: width=" + pageWidth + ", height=" + pageHeight);
         }
         if (pageWidth > MAX_PAGE_DIMENSION || pageHeight > MAX_PAGE_DIMENSION) {
-            throw new IllegalArgumentException(
-                    "page dimensions exceed maximum allowed (" + MAX_PAGE_DIMENSION + "): width="
-                            + pageWidth + ", height=" + pageHeight);
+            throw new IllegalArgumentException("page dimensions exceed maximum allowed (" + MAX_PAGE_DIMENSION
+                    + "): width=" + pageWidth + ", height=" + pageHeight);
         }
         if (pageCount <= 0 || pageCount > MAX_PAGE_COUNT) {
             throw new IllegalArgumentException(
@@ -95,8 +90,8 @@ public record AtlasPageAppendPlan(
                                 + placement.width() + "x" + placement.height());
             }
             if (!seenImages.add(placement.modelImageId())) {
-                throw new IllegalArgumentException(
-                        "duplicate placement for model image: " + placement.modelImageId().value());
+                throw new IllegalArgumentException("duplicate placement for model image: "
+                        + placement.modelImageId().value());
             }
 
             // Check overlap with existing placements on the same page
@@ -107,9 +102,9 @@ public record AtlasPageAppendPlan(
                 final boolean overlapY = (long) placement.y() < (long) existing.y() + (long) existing.height()
                         && (long) placement.y() + (long) placement.height() > (long) existing.y();
                 if (overlapX && overlapY) {
-                    throw new IllegalArgumentException(
-                            "placements overlap on page " + placement.pageIndex() + ": "
-                                    + placement.modelImageId().value() + " and " + existing.modelImageId().value());
+                    throw new IllegalArgumentException("placements overlap on page " + placement.pageIndex() + ": "
+                            + placement.modelImageId().value() + " and "
+                            + existing.modelImageId().value());
                 }
             }
             onPage.add(placement);

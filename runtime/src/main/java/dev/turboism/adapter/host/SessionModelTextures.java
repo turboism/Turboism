@@ -165,7 +165,6 @@ final class SessionModelTextures
     public java.util.List<dev.turboism.sdk.cubism.id.TextureAtlasId> appendTextureAtlasPages(
             final dev.turboism.sdk.cubism.model.AtlasPageAppendPlan plan) {
         return host.guarded(
-                generation,
-                () -> delegate.appendTextureAtlasPages(java.util.Objects.requireNonNull(plan, "plan")));
+                generation, () -> delegate.appendTextureAtlasPages(java.util.Objects.requireNonNull(plan, "plan")));
     }
 }
