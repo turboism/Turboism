@@ -1958,8 +1958,7 @@ final class EditorTextureAccess {
 
         @Override
         public List<TextureAtlasId> appendTextureAtlasPages(final AtlasPageAppendPlan plan) {
-            return EditorHostThread.dispatch(
-                    "Cubism texture write", () -> appendTextureAtlasPagesOnEdt(plan));
+            return EditorHostThread.dispatch("Cubism texture write", () -> appendTextureAtlasPagesOnEdt(plan));
         }
 
         private List<TextureAtlasId> appendTextureAtlasPagesOnEdt(final AtlasPageAppendPlan plan) {
@@ -1976,9 +1975,8 @@ final class EditorTextureAccess {
             final int oldPageCount = oldAtlases.size();
             final int totalPageCount = oldPageCount + plan.pageCount();
             if (totalPageCount > AtlasPageAppendPlan.MAX_PAGE_COUNT) {
-                throw new IllegalArgumentException(
-                        "Total atlas page count (" + totalPageCount + ") exceeds maximum allowed ("
-                                + AtlasPageAppendPlan.MAX_PAGE_COUNT + ")");
+                throw new IllegalArgumentException("Total atlas page count (" + totalPageCount
+                        + ") exceeds maximum allowed (" + AtlasPageAppendPlan.MAX_PAGE_COUNT + ")");
             }
 
             long totalPixels = 0L;
@@ -1989,8 +1987,8 @@ final class EditorTextureAccess {
             }
             totalPixels += (long) plan.pageWidth() * (long) plan.pageHeight() * (long) plan.pageCount();
             if (totalPixels > AtlasPageAppendPlan.MAX_TOTAL_PIXELS) {
-                throw new IllegalArgumentException(
-                        "Total atlas pixel budget exceeded: " + totalPixels + " > " + AtlasPageAppendPlan.MAX_TOTAL_PIXELS);
+                throw new IllegalArgumentException("Total atlas pixel budget exceeded: " + totalPixels + " > "
+                        + AtlasPageAppendPlan.MAX_TOTAL_PIXELS);
             }
 
             final List<String> oldGuids = new ArrayList<>(oldPageCount);
@@ -2058,11 +2056,13 @@ final class EditorTextureAccess {
 
             for (int i = 0; i < plan.pageCount(); i++) {
                 final int pageIndex = oldPageCount + i;
-                final String pageName = (plan.pageNames() != null && i < plan.pageNames().size() && !plan.pageNames().get(i).isBlank())
+                final String pageName = (plan.pageNames() != null
+                                && i < plan.pageNames().size()
+                                && !plan.pageNames().get(i).isBlank())
                         ? plan.pageNames().get(i).strip()
                         : "Atlas Page " + (pageIndex + 1);
-                final Object newAtlas = resolver.construct(
-                        ATLAS_CREATE, source, pageName, plan.pageWidth(), plan.pageHeight());
+                final Object newAtlas =
+                        resolver.construct(ATLAS_CREATE, source, pageName, plan.pageWidth(), plan.pageHeight());
                 newAtlases.add(newAtlas);
             }
 
@@ -2083,11 +2083,7 @@ final class EditorTextureAccess {
             }
 
             final Object undo = resolver.construct(
-                    ATLAS_UNDO_CREATE,
-                    "Turboism: Append Texture Atlas Pages",
-                    source,
-                    oldAtlases,
-                    newAtlases);
+                    ATLAS_UNDO_CREATE, "Turboism: Append Texture Atlas Pages", source, oldAtlases, newAtlases);
 
             final Object app = resolver.invokeStatic(APP_INSTANCE);
             final Object document = resolver.invoke(CURRENT_DOCUMENT, app);
@@ -2095,29 +2091,39 @@ final class EditorTextureAccess {
 
             final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
             if (ambientJoin.isPresent()) {
-                ambientJoin.orElseThrow().admit(
-                        "cubism.texture.write",
-                        "texture:Turboism: Append Texture Atlas Pages",
-                        "Turboism: Append Texture Atlas Pages",
-                        (edit, transactionLabel) -> {
-                            applyUndoAndRegisterListener(edit, undo, source, manager, completePack, oldPageCount);
-                        },
-                        () -> {
-                            relinkTextureInputs(source, manager, true);
-                            refreshAtlas(source, completePack);
-                        },
-                        () -> verifyAtlasApplied(
-                                manager, oldAtlases, oldGuids, newAtlases, plan.pageCount(),
-                                source, beforeMeshInputs, plan.placements(), createdPageIds),
-                        () -> {
-                            rollbackAppend(undo, source, manager, completePack, oldPageCount);
-                        },
-                        () -> verifyAtlasRestored(manager, oldAtlases, oldGuids, source, beforeMeshInputs),
-                        EnumSet.of(
-                                EditorRefreshRequirement.MODEL_INSTANCES,
-                                EditorRefreshRequirement.PART_PALETTE,
-                                EditorRefreshRequirement.CANVAS,
-                                EditorRefreshRequirement.MARK_DIRTY));
+                ambientJoin
+                        .orElseThrow()
+                        .admit(
+                                "cubism.texture.write",
+                                "texture:Turboism: Append Texture Atlas Pages",
+                                "Turboism: Append Texture Atlas Pages",
+                                (edit, transactionLabel) -> {
+                                    applyUndoAndRegisterListener(
+                                            edit, undo, source, manager, completePack, oldPageCount);
+                                },
+                                () -> {
+                                    relinkTextureInputs(source, manager, true);
+                                    refreshAtlas(source, completePack);
+                                },
+                                () -> verifyAtlasApplied(
+                                        manager,
+                                        oldAtlases,
+                                        oldGuids,
+                                        newAtlases,
+                                        plan.pageCount(),
+                                        source,
+                                        beforeMeshInputs,
+                                        plan.placements(),
+                                        createdPageIds),
+                                () -> {
+                                    rollbackAppend(undo, source, manager, completePack, oldPageCount);
+                                },
+                                () -> verifyAtlasRestored(manager, oldAtlases, oldGuids, source, beforeMeshInputs),
+                                EnumSet.of(
+                                        EditorRefreshRequirement.MODEL_INSTANCES,
+                                        EditorRefreshRequirement.PART_PALETTE,
+                                        EditorRefreshRequirement.CANVAS,
+                                        EditorRefreshRequirement.MARK_DIRTY));
                 return createdPageIds;
             }
 
@@ -2140,8 +2146,15 @@ final class EditorTextureAccess {
                 refreshAtlas(source, completePack);
                 resolver.invoke(MARK_DIRTY, document);
                 if (!verifyAtlasApplied(
-                        manager, oldAtlases, oldGuids, newAtlases, plan.pageCount(),
-                        source, beforeMeshInputs, plan.placements(), createdPageIds)) {
+                        manager,
+                        oldAtlases,
+                        oldGuids,
+                        newAtlases,
+                        plan.pageCount(),
+                        source,
+                        beforeMeshInputs,
+                        plan.placements(),
+                        createdPageIds)) {
                     throw new IllegalStateException("Texture atlas append postcondition failed.");
                 }
                 completed = true;
@@ -2258,7 +2271,8 @@ final class EditorTextureAccess {
                         final TextureAtlasId expectedAtlasId = expectedAtlasByImage.get(imgId);
                         if (now.isEmpty()
                                 || now.get().kind() != ArtMeshTextureInput.Kind.TEXTURE_ATLAS_REGION
-                                || !expectedAtlasId.equals(now.get().textureAtlasId().orElse(null))) {
+                                || !expectedAtlasId.equals(
+                                        now.get().textureAtlasId().orElse(null))) {
                             return false;
                         }
                         continue;
@@ -2314,15 +2328,12 @@ final class EditorTextureAccess {
                     && Objects.equals(inputA.textureAtlasId(), inputB.textureAtlasId());
         }
 
-        private void relinkTextureInputs(final Object modelSource, final Object textureManager, final boolean selectAtlas) {
+        private void relinkTextureInputs(
+                final Object modelSource, final Object textureManager, final boolean selectAtlas) {
             final Object helper = resolver.readStaticField(RELINK_HELPER);
             resolver.invoke(RELINK_REBUILD, helper, modelSource);
             resolver.invokeStatic(MODEL_SOURCE_VERIFY, modelSource, Boolean.TRUE, null, 2, null);
-            resolver.invoke(
-                    !selectAtlas
-                            ? REINIT_INPUT
-                            : CHANGE_INPUT_TO_ATLAS,
-                    textureManager);
+            resolver.invoke(!selectAtlas ? REINIT_INPUT : CHANGE_INPUT_TO_ATLAS, textureManager);
         }
 
         private void refreshAtlas(final Object modelSource, final Object completePack) {
