@@ -40,7 +40,7 @@ public final class PsdClipMaskImportService implements AutoCloseable {
     public static final String ACTION_ID = "psd-clip-mask-import.import";
     public static final String PREVIEW_DIALOG_ID = "psd-clip-mask-import.preview";
     public static final String TURBOISM_PANEL_ID = "turboism.panel.main";
-    public static final String SECTION_ID = "psd-clip-mask-import.section";
+    public static final String SECTION_ID = "clipping-mask.section";
     public static final int SECTION_ORDER = 110;
     private static final int MAX_NO_WRITE_SKIP_ROWS = 10;
 

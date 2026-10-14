@@ -6,6 +6,7 @@ import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.*;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.model.*;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.*;
 import dev.turboism.sdk.ui.*;
 import java.lang.reflect.*;
@@ -39,6 +40,7 @@ class ModelImportPluginTest {
         boolean stale = false;
         Runnable onConfirm = () -> {}, onAppearance = () -> {};
         String error;
+        PluginLocalization localization;
         SurfaceImport.Prepared prepared;
         SurfaceWarpLayerAuthoring.Prepared layered;
         SurfaceVertexAuthoring.Prepared vertices;
@@ -103,6 +105,17 @@ class ModelImportPluginTest {
                         return (Registration) () -> {};
                     });
                 case "logger" -> proxy(m.getReturnType(), (x, n, v) -> null);
+                case "localization" ->
+                    localization != null
+                            ? localization
+                            : proxy(PluginLocalization.class, (x, n, v) -> switch (n.getName()) {
+                                case "text" -> v.length > 1 ? v[1] : v[0];
+                                case "format" -> {
+                                    Object[] args = Arrays.copyOfRange(v, 1, v.length);
+                                    yield java.text.MessageFormat.format(String.valueOf(v[0]), args);
+                                }
+                                default -> "";
+                            });
                 case "userFiles" ->
                     proxy(UserFileAccessService.class, (x, n, v) -> {
                         if (n.getName().equals("request")) return choose;
@@ -190,7 +203,7 @@ class ModelImportPluginTest {
         w.choice = 2;
         w.start();
         assertEquals(
-                List.of("插件", "3D 模型", w.action.label()),
+                List.of("Turboism", "3D 模型", w.action.label()),
                 List.of(w.menu.menuPath().split("/")));
         assertEquals(w.action.id(), w.menu.actionId());
     }
@@ -239,6 +252,24 @@ class ModelImportPluginTest {
         w.cube();
         w.done();
         assertTrue(w.error.contains("目标文档"), w.error);
+        assertNull(w.prepared);
+    }
+
+    @Test
+    void dynamicErrorUsesLocalizationWhenConfigured() throws Exception {
+        var w = new World();
+        w.localization = proxy(PluginLocalization.class, (o, m, a) -> switch (m.getName()) {
+            case "text" ->
+                "error.target-switched".equals(a[0]) ? "Document was switched" : (a.length > 1 ? a[1] : a[0]);
+            case "format" -> "formatted";
+            default -> "";
+        });
+        w.start();
+        w.grant();
+        edt(() -> w.document = "other");
+        w.cube();
+        w.done();
+        assertTrue(w.error.contains("Document was switched"), w.error);
         assertNull(w.prepared);
     }
 
