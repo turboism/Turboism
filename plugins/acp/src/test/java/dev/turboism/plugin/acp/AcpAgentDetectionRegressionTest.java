@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import dev.turboism.sdk.config.ConfigKey;
 import dev.turboism.sdk.config.ConfigMigration;
@@ -33,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -199,6 +201,66 @@ final class AcpAgentDetectionRegressionTest {
     }
 
     @Test
+    void unpersistedUserSelectionInUiIsNotOverwrittenByLateDetection() {
+        assumeFalse(
+                java.awt.GraphicsEnvironment.isHeadless(),
+                "AcpChatWindow frame construction requires non-headless environment");
+        final AcpChatWindow window = new AcpChatWindow(
+                new dev.turboism.sdk.i18n.PluginLocalization() {
+                    @Override
+                    public String text(String key) {
+                        return key;
+                    }
+
+                    @Override
+                    public String format(String key, Object... args) {
+                        return key;
+                    }
+
+                    @Override
+                    public boolean contains(String key) {
+                        return true;
+                    }
+
+                    @Override
+                    public java.util.Locale locale() {
+                        return java.util.Locale.ROOT;
+                    }
+                },
+                "claude",
+                null,
+                "");
+        assertFalse(window.isUserSelectionDirty());
+
+        // Programmatic showAgentSelected before user edit works
+        window.showAgentSelected("gemini");
+        assertEquals("gemini", window.agentId());
+
+        // Simulate user dropdown interaction
+        window.agentSelector().setSelectedIndex(1);
+        final String userSelected = window.agentId();
+        assertTrue(window.isUserSelectionDirty());
+
+        // Late background detection returning "opencode" MUST NOT overwrite user's edit
+        window.showAgentSelected("opencode");
+        assertEquals(userSelected, window.agentId());
+    }
+
+    @Test
+    void dirtyUiViewPreventsControllerFromOverwritingInferredSelection() throws Exception {
+        final TestFixture fixture = new TestFixture();
+        fixture.view.userSelectionDirty = true;
+        try (AcpChatController controller = fixture.controller()) {
+            controller.detectAgents();
+            fixture.view.awaitDetectedAgents(5, TimeUnit.SECONDS);
+
+            // Because view is dirty, controller must not apply inferred agent ID
+            assertEquals(AgentCatalog.fallbackAgentId(), fixture.settings.agentId());
+            assertFalse(fixture.view.agentSelectedCalled.get());
+        }
+    }
+
+    @Test
     void persistedCustomSettingsArePreservedAndNotOverwrittenByAutoDetection() throws Exception {
         final MemoryConfig config = new MemoryConfig();
         try (AcpPluginSettings first = new AcpPluginSettings(config, new CapturingLogger())) {
@@ -350,6 +412,13 @@ final class AcpAgentDetectionRegressionTest {
         private final AtomicReference<String> failureRef = new AtomicReference<>();
         private final AtomicReference<String> connectingRef = new AtomicReference<>();
         private final AtomicReference<String> selectedAgentRef = new AtomicReference<>();
+        volatile boolean userSelectionDirty;
+        final AtomicBoolean agentSelectedCalled = new AtomicBoolean();
+
+        @Override
+        public boolean isUserSelectionDirty() {
+            return userSelectionDirty;
+        }
 
         @Override
         public void showConnecting(String agentLabel) {
@@ -382,6 +451,7 @@ final class AcpAgentDetectionRegressionTest {
 
         @Override
         public void showAgentSelected(String agentId) {
+            agentSelectedCalled.set(true);
             selectedAgentRef.set(agentId);
         }
 

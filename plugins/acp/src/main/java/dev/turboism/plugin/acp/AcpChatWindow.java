@@ -125,6 +125,7 @@ final class AcpChatWindow implements AcpChatController.View {
     private boolean applyingOptions;
     private boolean applyingSessions;
     private boolean applyingAgents;
+    private volatile boolean userSelectionDirty;
     private boolean connected;
     private boolean connecting;
     private boolean durableSessionsAvailable;
@@ -184,6 +185,10 @@ final class AcpChatWindow implements AcpChatController.View {
         onAgentLogin = Objects.requireNonNull(agentLoginAction, "agentLoginAction");
         onAgentLogout = Objects.requireNonNull(agentLogoutAction, "agentLogoutAction");
         onSaveSettings = Objects.requireNonNull(saveSettingsAction, "saveSettingsAction");
+    }
+
+    JComboBox<AgentItem> agentSelector() {
+        return agentSelector;
     }
 
     String agentId() {
@@ -348,8 +353,13 @@ final class AcpChatWindow implements AcpChatController.View {
     }
 
     @Override
+    public boolean isUserSelectionDirty() {
+        return userSelectionDirty;
+    }
+
+    @Override
     public void showAgentSelected(final String agentId) {
-        if (!acceptingEvents.get()) return;
+        if (!acceptingEvents.get() || userSelectionDirty) return;
         selectAgentItem(agentId);
         updateAgentDetail();
     }
@@ -634,7 +644,24 @@ final class AcpChatWindow implements AcpChatController.View {
         authenticate.addActionListener(ignored -> offerAuthMethods());
         agentSelector.addActionListener(ignored -> {
             if (applyingAgents) return;
+            userSelectionDirty = true;
             updateAgentDetail();
+        });
+        customCommand.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                userSelectionDirty = true;
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                userSelectionDirty = true;
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                userSelectionDirty = true;
+            }
         });
         send.addActionListener(ignored -> submitPrompt());
         cancel.addActionListener(ignored -> onCancel.run());
