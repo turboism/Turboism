@@ -348,6 +348,13 @@ final class AcpChatWindow implements AcpChatController.View {
     }
 
     @Override
+    public void showAgentSelected(final String agentId) {
+        if (!acceptingEvents.get()) return;
+        selectAgentItem(agentId);
+        updateAgentDetail();
+    }
+
+    @Override
     public void clearTranscript() {
         if (!acceptingEvents.get()) return;
         transcriptEntries.clear();

@@ -34,6 +34,7 @@ final class AcpPluginSettings implements AutoCloseable {
     private String customCommandSnapshot;
     private String sessionIdSnapshot;
     private String initialPromptSnapshot = "";
+    private String inferredAgentId;
 
     /** Loads persisted settings, dropping values that no longer decode to sane shapes. */
     AcpPluginSettings(final PluginConfigRegistry config, final PluginLogger logger) {
@@ -69,9 +70,15 @@ final class AcpPluginSettings implements AutoCloseable {
         }
     }
 
-    /** Returns the selected agent profile id, or the catalog default. */
+    /** Returns the selected agent profile id, the dynamically inferred agent, or the catalog default. */
     synchronized String agentId() {
-        return agentIdSnapshot == null ? defaultAgentId() : agentIdSnapshot;
+        if (agentIdSnapshot != null) {
+            return agentIdSnapshot;
+        }
+        if (inferredAgentId != null) {
+            return inferredAgentId;
+        }
+        return defaultAgentId();
     }
 
     static String defaultAgentId() {
@@ -81,6 +88,21 @@ final class AcpPluginSettings implements AutoCloseable {
     /** Returns whether the user has explicitly persisted an agent selection. */
     synchronized boolean hasPersistedAgentId() {
         return agentIdSnapshot != null;
+    }
+
+    /**
+     * Updates the in-memory inferred agent selection discovered during background detection.
+     * Ignored if the user has already persisted an explicit selection.
+     */
+    synchronized boolean applyInferredAgentId(final String agentId) {
+        if (agentIdSnapshot != null || agentId == null || agentId.isBlank()) {
+            return false;
+        }
+        if (AgentCatalog.profile(agentId).isEmpty()) {
+            return false;
+        }
+        inferredAgentId = agentId;
+        return true;
     }
 
     /** Returns the user-edited custom command line used when {@code agentId} is {@code custom}. */

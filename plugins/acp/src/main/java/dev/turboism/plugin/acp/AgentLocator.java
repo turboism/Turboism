@@ -131,6 +131,9 @@ final class AgentLocator {
                 cleanupProcess(process);
                 return false;
             }
+            if (process.exitValue() != 0) {
+                return false;
+            }
             return true;
         } catch (java.io.IOException failure) {
             return false;
