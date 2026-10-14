@@ -155,4 +155,17 @@ final class SessionModelTextures
             final dev.turboism.sdk.cubism.id.ArtMeshId target) {
         return host.guarded(generation, () -> delegate.textureInput(target));
     }
+
+    @Override
+    public boolean supportsAppendTextureAtlasPages() {
+        return host.guarded(generation, delegate::supportsAppendTextureAtlasPages);
+    }
+
+    @Override
+    public java.util.List<dev.turboism.sdk.cubism.id.TextureAtlasId> appendTextureAtlasPages(
+            final dev.turboism.sdk.cubism.model.AtlasPageAppendPlan plan) {
+        return host.guarded(
+                generation,
+                () -> delegate.appendTextureAtlasPages(java.util.Objects.requireNonNull(plan, "plan")));
+    }
 }

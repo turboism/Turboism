@@ -209,6 +209,37 @@ public interface ModelTextures {
         throw unavailable("ArtMesh texture input observation");
     }
 
+    /**
+     * Reports whether append-only texture atlas authoring is available in the active runtime.
+     *
+     * <p>Callers should query this capability before opening an authoring transaction so that
+     * unsupported environments fail early before creating meshes or parameters.</p>
+     *
+     * @return {@code true} if append-only atlas creation and layout is supported
+     */
+    @CubismEditor(from = "5.0.00")
+    default boolean supportsAppendTextureAtlasPages() {
+        return false;
+    }
+
+    /**
+     * Appends new texture-atlas pages with the given placements to the model's texture
+     * atlas library, preserving all existing atlas pages, entries, IDs, and UVs.
+     *
+     * <p>When called inside an active authoring transaction, this mutation joins the
+     * ambient transaction scope and rolls back atomically on failure. Outside a
+     * transaction, it executes in a standalone native Undo envelope.</p>
+     *
+     * @param plan the append-only layout plan specifying page dimensions, page count,
+     *             and model-image placements
+     * @return the list of stable IDs for the newly created and appended atlas pages
+     */
+    @CubismEditor(from = "5.0.00")
+    default List<TextureAtlasId> appendTextureAtlasPages(final AtlasPageAppendPlan plan) {
+        Objects.requireNonNull(plan, "plan");
+        throw unavailable("Append texture atlas pages");
+    }
+
     private static UnsupportedOperationException unavailable(final String feature) {
         return new UnsupportedOperationException(feature + " is unavailable.");
     }

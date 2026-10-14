@@ -218,6 +218,19 @@ final class PermissionCheckedModel implements CubismModel {
             }
 
             @Override
+            public boolean supportsAppendTextureAtlasPages() {
+                facade.requireModelRead("model.textures.supportsAppendTextureAtlasPages");
+                return textures.supportsAppendTextureAtlasPages();
+            }
+
+            @Override
+            public List<dev.turboism.sdk.cubism.id.TextureAtlasId> appendTextureAtlasPages(
+                    final dev.turboism.sdk.cubism.model.AtlasPageAppendPlan plan) {
+                facade.requireModelWrite("model.textures.appendTextureAtlasPages");
+                return textures.appendTextureAtlasPages(java.util.Objects.requireNonNull(plan, "plan"));
+            }
+
+            @Override
             public dev.turboism.sdk.cubism.model.ModelImageBinding registerImageAndBind(
                     final dev.turboism.sdk.cubism.model.AuthorizedImageContent image,
                     final dev.turboism.sdk.cubism.id.ArtMeshId target) {
