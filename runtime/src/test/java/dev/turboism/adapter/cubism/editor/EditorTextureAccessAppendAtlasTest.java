@@ -52,10 +52,14 @@ class EditorTextureAccessAppendAtlasTest {
     void setUp() {
         originalKillSwitch = System.getProperty(HostUndoMutationScope.ENABLED_PROPERTY);
         System.clearProperty(HostUndoMutationScope.ENABLED_PROPERTY);
+        Undo.rejectListener = false;
+        GroupUndo.rejectUndo = false;
     }
 
     @AfterEach
     void tearDown() {
+        Undo.rejectListener = false;
+        GroupUndo.rejectUndo = false;
         if (originalKillSwitch != null) {
             System.setProperty(HostUndoMutationScope.ENABLED_PROPERTY, originalKillSwitch);
         } else {
@@ -253,6 +257,82 @@ class EditorTextureAccessAppendAtlasTest {
             assertEquals(ArtMeshTextureInput.Kind.MODEL_IMAGE, input.get().kind());
             return null;
         });
+    }
+
+    @Test
+    void standaloneAppendRevertsNativeStateWhenUndoListenerIsRejected() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final EditorTextureAccess access = createAccess(VERSION, true, null);
+        final ModelTextures textures = access.textures(IDENTITY, fixture.source, fixture.model);
+
+        final HostModelImage image2 = new HostModelImage("image-2", "Image B", 128, 128);
+        fixture.manager.allModelImages.add(image2);
+        final HostArtMesh mesh2 = new HostArtMesh("mesh-2", image2);
+        fixture.source.artMeshes.add(mesh2);
+
+        final AtlasPageAppendPlan plan = new AtlasPageAppendPlan(
+                1024,
+                1024,
+                1,
+                List.of(new ModelImagePlacement(new ModelImageId("image-2"), 0, 10, 10, 128, 128)));
+
+        Undo.rejectListener = true;
+        try {
+            final IllegalStateException ex = assertThrows(
+                    IllegalStateException.class, () -> textures.appendTextureAtlasPages(plan));
+            assertTrue(ex.getMessage().contains("rejected the texture-atlas Undo/Redo refresh listener"));
+
+            // Verify rollback: atlas pages restored to before-state (1 page)
+            assertEquals(1, textures.textureAtlases().size());
+            assertEquals(new TextureAtlasId("atlas-1"), textures.textureAtlases().get(0).id());
+
+            // Verify mesh-2 remains MODEL_IMAGE
+            final Optional<ArtMeshTextureInput> input = textures.textureInput(new ArtMeshId("mesh-2"));
+            assertTrue(input.isPresent());
+            assertEquals(ArtMeshTextureInput.Kind.MODEL_IMAGE, input.get().kind());
+            assertTrue(fixture.editMode.lastAborted, "Edit mode must be ended with abort=true");
+        } finally {
+            Undo.rejectListener = false;
+        }
+    }
+
+    @Test
+    void standaloneAppendRevertsNativeStateWhenRegisterAppliedUndoFails() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final EditorTextureAccess access = createAccess(VERSION, true, null);
+        final ModelTextures textures = access.textures(IDENTITY, fixture.source, fixture.model);
+
+        final HostModelImage image2 = new HostModelImage("image-2", "Image B", 128, 128);
+        fixture.manager.allModelImages.add(image2);
+        final HostArtMesh mesh2 = new HostArtMesh("mesh-2", image2);
+        fixture.source.artMeshes.add(mesh2);
+
+        final AtlasPageAppendPlan plan = new AtlasPageAppendPlan(
+                1024,
+                1024,
+                1,
+                List.of(new ModelImagePlacement(new ModelImageId("image-2"), 0, 10, 10, 128, 128)));
+
+        GroupUndo.rejectUndo = true;
+        try {
+            final IllegalStateException ex = assertThrows(
+                    IllegalStateException.class, () -> textures.appendTextureAtlasPages(plan));
+            assertTrue(ex.getMessage().contains("rejected the texture Undo entry"));
+
+            // Verify rollback: atlas pages restored to before-state (1 page) without double-undo corruption
+            assertEquals(1, textures.textureAtlases().size());
+            assertEquals(new TextureAtlasId("atlas-1"), textures.textureAtlases().get(0).id());
+
+            // Verify mesh-2 remains MODEL_IMAGE
+            final Optional<ArtMeshTextureInput> input = textures.textureInput(new ArtMeshId("mesh-2"));
+            assertTrue(input.isPresent());
+            assertEquals(ArtMeshTextureInput.Kind.MODEL_IMAGE, input.get().kind());
+            assertTrue(fixture.editMode.lastAborted, "Edit mode must be ended with abort=true");
+        } finally {
+            GroupUndo.rejectUndo = false;
+        }
     }
 
     @Test
@@ -1138,6 +1218,7 @@ class EditorTextureAccessAppendAtlasTest {
     public static final class EditMode {
         final List<GroupUndo> edits = new ArrayList<>();
         boolean active;
+        boolean lastAborted;
 
         public GroupUndo begin(final String label) {
             active = true;
@@ -1148,6 +1229,7 @@ class EditorTextureAccessAppendAtlasTest {
 
         public void end(final boolean abort, final Object unused) {
             active = false;
+            lastAborted = abort;
         }
 
         public void undo() {
@@ -1165,8 +1247,12 @@ class EditorTextureAccessAppendAtlasTest {
 
     public static final class GroupUndo {
         final List<Undo> undos = new ArrayList<>();
+        static boolean rejectUndo;
 
         public boolean add(final Undo undo, final boolean value) {
+            if (rejectUndo) {
+                return false;
+            }
             undos.add(undo);
             return true;
         }
@@ -1189,6 +1275,7 @@ class EditorTextureAccessAppendAtlasTest {
         final List<HostTextureAtlas> oldAtlases;
         final List<HostTextureAtlas> newAtlases;
         final List<Listener> listeners = new ArrayList<>();
+        static boolean rejectListener;
 
         @SuppressWarnings("unchecked")
         public Undo(final String label, final ModelSource source, final List<?> oldAtlases, final List<?> newAtlases) {
@@ -1198,6 +1285,9 @@ class EditorTextureAccessAppendAtlasTest {
         }
 
         public boolean addListener(final Listener listener) {
+            if (rejectListener) {
+                return false;
+            }
             listeners.add(listener);
             return true;
         }

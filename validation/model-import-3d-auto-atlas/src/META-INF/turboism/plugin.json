@@ -1,0 +1,39 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.validation.auto-atlas",
+  "name": "Auto Atlas Host Probe",
+  "version": "0.1.0",
+  "description": "Procedural real-host probe for native append-only texture atlas creation, layout, and transaction rollback.",
+  "entrypoints": [
+    "dev.turboism.validation.autoatlas.AutoAtlasHostProbePlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    {
+      "name": "Turboism Contributors"
+    }
+  ],
+  "license": "Project License",
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Inspects model texture atlas and meshes."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Creates meshes, registers textures, and appends texture atlas pages."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  },
+  "lifecycle": {
+    "hotReload": false
+  },
+  "category": "validation"
+}
