@@ -1,9 +1,11 @@
 action.import.label
+atlas.page-name
 dialog.appearance.message
 dialog.appearance.option.cancel
 dialog.appearance.option.face-colors
 dialog.appearance.option.source-material
 dialog.appearance.title
+dialog.confirm.atlas-info
 dialog.confirm.layers
 dialog.confirm.layers.roll-note
 dialog.confirm.simple
@@ -12,6 +14,9 @@ dialog.confirm.vertices
 dialog.confirm.vertices-optimized
 dialog.message.error.title
 dialog.message.info.title
+error.atlas-budget-exceeded
+error.atlas-layout-failed
+error.atlas-oversized
 error.file-read
 error.file-select
 error.file-too-large
@@ -24,6 +29,7 @@ error.resource-select
 error.resource-too-large
 error.source-material-required
 error.target-switched
+error.texture-atlas-unavailable
 error.total-too-large
 error.transaction-uncommitted
 file.chooser.title

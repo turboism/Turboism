@@ -14,19 +14,38 @@ import javax.swing.*;
 
 /** User-mediated static model import using the same bounded engine as the native validation. */
 public final class ModelImportPlugin implements TurboismPlugin {
+    public record AtlasSummary(int pageCount, int width, int height) {}
+
     interface Ui {
         int appearance();
 
         boolean confirm(SurfaceImport.Prepared prepared);
 
+        default boolean confirm(SurfaceImport.Prepared prepared, AtlasSummary atlas) {
+            return confirm(prepared);
+        }
+
         boolean confirmLayers(SurfaceWarpLayerAuthoring.Prepared prepared);
+
+        default boolean confirmLayers(SurfaceWarpLayerAuthoring.Prepared prepared, AtlasSummary atlas) {
+            return confirmLayers(prepared);
+        }
 
         default boolean confirmVertices(SurfaceVertexAuthoring.Prepared prepared) {
             return false;
         }
 
+        default boolean confirmVertices(SurfaceVertexAuthoring.Prepared prepared, AtlasSummary atlas) {
+            return confirmVertices(prepared);
+        }
+
         default boolean confirmVertices(SurfaceVertexAuthoring.Prepared prepared, OptimizationSummary optimization) {
             return confirmVertices(prepared);
+        }
+
+        default boolean confirmVertices(
+                SurfaceVertexAuthoring.Prepared prepared, OptimizationSummary optimization, AtlasSummary atlas) {
+            return confirmVertices(prepared, optimization);
         }
 
         void message(String text, boolean error);
@@ -45,7 +64,11 @@ public final class ModelImportPlugin implements TurboismPlugin {
         private final Object[] args;
 
         LocalizedIllegalStateException(String key, String fallback, Object... args) {
-            super(args.length == 0 ? fallback : java.text.MessageFormat.format(fallback, args));
+            this(key, null, fallback, args);
+        }
+
+        LocalizedIllegalStateException(String key, Throwable cause, String fallback, Object... args) {
+            super(args.length == 0 ? fallback : java.text.MessageFormat.format(fallback, args), cause);
             this.key = Objects.requireNonNull(key, "key");
             this.args = args;
         }
@@ -67,7 +90,11 @@ public final class ModelImportPlugin implements TurboismPlugin {
         private final Object[] args;
 
         LocalizedIllegalArgumentException(String key, String fallback, Object... args) {
-            super(args.length == 0 ? fallback : java.text.MessageFormat.format(fallback, args));
+            this(key, null, fallback, args);
+        }
+
+        LocalizedIllegalArgumentException(String key, Throwable cause, String fallback, Object... args) {
+            super(args.length == 0 ? fallback : java.text.MessageFormat.format(fallback, args), cause);
             this.key = Objects.requireNonNull(key, "key");
             this.args = args;
         }
@@ -288,6 +315,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
             var target = context.cubism().model().active();
             if (target.canvas().widthPixels() != 1024 || target.canvas().heightPixels() != 1024)
                 throw new LocalizedIllegalArgumentException("error.invalid-canvas-size", "当前导入需要 1024×1024 画布。");
+            if (!target.textures().supportsAppendTextureAtlasPages())
+                throw new LocalizedIllegalStateException("error.texture-atlas-unavailable", "当前环境不支持纹理图集功能。");
             int choice = ui.appearance();
             if (choice < 0 || choice == 2 || !active(token)) {
                 release(token);
@@ -373,6 +402,32 @@ public final class ModelImportPlugin implements TurboismPlugin {
         if (busyEpoch == token) busyEpoch = 0;
     }
 
+    static ModelTextureAtlasPlanner.PlannedAtlas planAtlas(
+            CubismModel target, PreparedImport prepared, java.util.function.IntFunction<String> pageNameProvider) {
+        var items = new ArrayList<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem>();
+        if (prepared.simple() != null) {
+            var materials = prepared.simple().appearance.materials();
+            for (int i = 0; i < materials.size(); i++) {
+                var m = materials.get(i);
+                items.add(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem(
+                        "mat-" + i, m.width(), m.height()));
+            }
+        } else if (prepared.layered() != null) {
+            var images = prepared.layered().surface().images;
+            for (int i = 0; i < images.imageCount(); i++) {
+                items.add(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem(
+                        "layer-img-" + i, images.width, images.height));
+            }
+        } else {
+            var images = prepared.vertices().images();
+            for (int i = 0; i < images.imageCount(); i++) {
+                items.add(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem(
+                        "vert-img-" + i, images.width, images.height));
+            }
+        }
+        return ModelTextureAtlasPlanner.plan(items, ModelTextureAtlasPlanner.Options.DEFAULT, pageNameProvider);
+    }
+
     private void commit(long token, String documentId, CubismModel target, PreparedImport prepared) {
         requireTarget(token, documentId, target);
         if (prepared.vertices() != null) {
@@ -383,22 +438,86 @@ public final class ModelImportPlugin implements TurboismPlugin {
                 return result;
             });
         }
-        if (!(prepared.simple() != null
-                ? ui.confirm(prepared.simple())
+        String requestName = prepared.simple() != null
+                ? prepared.simple().request.name()
                 : prepared.vertices() != null
-                        ? ui.confirmVertices(prepared.vertices(), prepared.optimization())
-                        : ui.confirmLayers(prepared.layered()))) return;
+                        ? prepared.vertices().request().name()
+                        : prepared.layered().surface().request.name();
+
+        int existingCount = target.textures().textureAtlases().size();
+        java.util.function.IntFunction<String> pageNames =
+                pageIdx -> format("atlas.page-name", "{0} 图集 {1}", requestName, existingCount + pageIdx + 1);
+
+        var atlasPlan = planAtlas(target, prepared, pageNames);
+        var atlasSummary = new AtlasSummary(atlasPlan.pageCount(), atlasPlan.pageWidth(), atlasPlan.pageHeight());
+
+        boolean confirmed = prepared.simple() != null
+                ? ui.confirm(prepared.simple(), atlasSummary)
+                : prepared.vertices() != null
+                        ? ui.confirmVertices(prepared.vertices(), prepared.optimization(), atlasSummary)
+                        : ui.confirmLayers(prepared.layered(), atlasSummary);
+        if (!confirmed) return;
         requireTarget(token, documentId, target);
         java.util.function.Supplier<CubismModel> current = () -> {
             requireTarget(token, documentId, target);
             return target;
         };
+
         var transactions = context.cubism().authoringTransactions();
-        var result = prepared.simple() != null
-                ? SurfaceImport.apply(prepared.simple(), current, transactions)
-                : prepared.vertices() != null
-                        ? SurfaceVertexAuthoring.apply(prepared.vertices(), current, transactions)
-                        : SurfaceWarpLayerAuthoring.apply(prepared.layered(), current, transactions, stage -> {});
+        final PreparedImport finalPrepared = prepared;
+
+        var result = transactions.execute(
+                dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("Import 3D " + requestName), () -> {
+                    requireTarget(token, documentId, target);
+                    var meshIds = new ArrayList<dev.turboism.sdk.cubism.id.ArtMeshId>();
+                    var bindingsBySourceId =
+                            new LinkedHashMap<String, dev.turboism.sdk.cubism.model.ModelImageBinding>();
+                    var meshImageBindings = new LinkedHashMap<
+                            dev.turboism.sdk.cubism.id.ArtMeshId, dev.turboism.sdk.cubism.model.ModelImageBinding>();
+
+                    if (finalPrepared.simple() != null) {
+                        var imported = SurfaceImport.assemble(target, finalPrepared.simple(), stage -> {});
+                        for (var patch : imported.geometry().patches()) {
+                            meshIds.add(patch.meshId());
+                        }
+                        var patches = finalPrepared.simple().appearance.patches();
+                        var materials = finalPrepared.simple().appearance.materials();
+                        for (int i = 0; i < patches.size(); i++) {
+                            var mat = patches.get(i).material();
+                            int materialIndex = materials.indexOf(mat);
+                            var bound = imported.materials().get(i);
+                            bindingsBySourceId.putIfAbsent("mat-" + materialIndex, bound.binding());
+                            meshImageBindings.put(
+                                    imported.geometry().patches().get(i).meshId(), bound.binding());
+                        }
+                    } else if (finalPrepared.vertices() != null) {
+                        var created = SurfaceVertexAuthoring.assemble(target, finalPrepared.vertices());
+                        meshIds.addAll(created.meshes());
+                        var images = finalPrepared.vertices().images();
+                        for (int m = 0; m < created.meshes().size(); m++) {
+                            int imageIndex = images.meshImages.get(m);
+                            var binding = created.images().get(m);
+                            var meshId = created.meshes().get(m);
+                            bindingsBySourceId.putIfAbsent("vert-img-" + imageIndex, binding);
+                            meshImageBindings.put(meshId, binding);
+                        }
+                    } else {
+                        var created = SurfaceWarpLayerAuthoring.assemble(target, finalPrepared.layered(), stage -> {});
+                        meshIds.addAll(created.meshIds());
+                        var images = finalPrepared.layered().surface().images;
+                        for (int m = 0; m < created.meshIds().size(); m++) {
+                            int imageIndex = images.meshImages.get(m);
+                            var binding = created.imageBindings().get(m);
+                            var meshId = created.meshIds().get(m);
+                            bindingsBySourceId.putIfAbsent("layer-img-" + imageIndex, binding);
+                            meshImageBindings.put(meshId, binding);
+                        }
+                    }
+
+                    requireTarget(token, documentId, target);
+                    ModelTextureAtlasAuthoring.apply(target, meshIds, bindingsBySourceId, meshImageBindings, atlasPlan);
+                    return null;
+                });
         if (result.outcome() != AuthoringTransactionOutcome.COMMITTED) {
             String diag = result.diagnosticId().map(id -> "（" + id + "）").orElse("");
             throw new LocalizedIllegalStateException(
@@ -539,16 +658,30 @@ public final class ModelImportPlugin implements TurboismPlugin {
 
         @Override
         public boolean confirm(SurfaceImport.Prepared p) {
+            return confirm(p, null);
+        }
+
+        @Override
+        public boolean confirm(SurfaceImport.Prepared p, AtlasSummary atlas) {
             int faces = p.geometry.patches().size(), keys = p.geometry.keys().size();
+            String atlasInfo = atlas != null
+                    ? format(
+                            "dialog.confirm.atlas-info",
+                            "纹理图集：将创建 {0} 张 {1}×{2} 图集。",
+                            atlas.pageCount(),
+                            atlas.width(),
+                            atlas.height())
+                    : "";
             return JOptionPane.showConfirmDialog(
                             null,
                             format(
                                     "dialog.confirm.simple",
-                                    "将创建 {0} 个网格，共 {1} 个形态。\n水平 / 垂直参数绑定点：{2} / {3}。\n可用一次撤销撤回本次导入。继续？",
+                                    "将创建 {0} 个网格，共 {1} 个形态。\n水平 / 垂直参数绑定点：{2} / {3}。\n{4}\n可用一次撤销撤回本次导入。继续？",
                                     faces,
                                     faces * keys,
                                     p.geometry.grid().yawKeys().size(),
-                                    p.geometry.grid().pitchKeys().size()),
+                                    p.geometry.grid().pitchKeys().size(),
+                                    atlasInfo),
                             text("dialog.confirm.title", "确认导入"),
                             JOptionPane.OK_CANCEL_OPTION)
                     == JOptionPane.OK_OPTION;
@@ -556,22 +689,36 @@ public final class ModelImportPlugin implements TurboismPlugin {
 
         @Override
         public boolean confirmLayers(SurfaceWarpLayerAuthoring.Prepared layered) {
+            return confirmLayers(layered, null);
+        }
+
+        @Override
+        public boolean confirmLayers(SurfaceWarpLayerAuthoring.Prepared layered, AtlasSummary atlas) {
             var p = layered.surface();
             int meshes = p.geometry.meshes().size();
             String rollNote =
                     p.request.roll().isPresent() ? text("dialog.confirm.layers.roll-note", " Z 旋转：5 点，三轴各 ±180°。") : "";
+            String atlasInfo = atlas != null
+                    ? format(
+                            "dialog.confirm.atlas-info",
+                            "纹理图集：将创建 {0} 张 {1}×{2} 图集。",
+                            atlas.pageCount(),
+                            atlas.width(),
+                            atlas.height())
+                    : "";
             return JOptionPane.showConfirmDialog(
                             null,
                             format(
                                     "dialog.confirm.layers",
-                                    "将创建 {0} 个曲面网格和 {1} 个变形器，保留源模型几何与贴图。\n水平 / 垂直参数绑定点：{2} / {3}。{4}\n遮挡层序采样点：{5} / {6}。\n复杂交叠在旋转时仍可能有偏差。可用一次撤销撤回本次导入。继续？",
+                                    "将创建 {0} 个曲面网格和 {1} 个变形器，保留源模型几何与贴图。\n水平 / 垂直参数绑定点：{2} / {3}。{4}\n遮挡层序采样点：{5} / {6}。\n{7}\n复杂交叠在旋转时仍可能有偏差。可用一次撤销撤回本次导入。继续？",
                                     meshes,
                                     (p.request.roll().isPresent() ? 3 : 2),
                                     p.yawKeys.size(),
                                     p.pitchKeys.size(),
                                     rollNote,
                                     layered.layerYawKeys().size(),
-                                    layered.layerPitchKeys().size()),
+                                    layered.layerPitchKeys().size(),
+                                    atlasInfo),
                             text("dialog.confirm.title", "确认导入"),
                             JOptionPane.OK_CANCEL_OPTION)
                     == JOptionPane.OK_OPTION;
@@ -579,35 +726,58 @@ public final class ModelImportPlugin implements TurboismPlugin {
 
         @Override
         public boolean confirmVertices(SurfaceVertexAuthoring.Prepared p) {
-            int meshes = p.geometry().meshes().size();
-            long triangles = p.geometry().meshes().stream()
-                    .mapToLong(m -> m.triangles().size())
-                    .sum();
-            return JOptionPane.showConfirmDialog(
-                            null,
-                            format(
-                                    "dialog.confirm.vertices",
-                                    "将创建 {0} 个曲面网格，保留原始 {1} 个三角形、UV 和贴图。\nX / Y 各 9 个绑定点，使用椭圆插值；Z 旋转：5 点，三轴各 ±180°。\n遮挡采用分组近似，复杂交叠仍可能有少量偏差。\n可用一次撤销撤回本次导入。整体移动或缩放时选择“整体定位”变形器。继续？",
-                                    meshes,
-                                    triangles),
-                            text("dialog.confirm.title", "确认导入"),
-                            JOptionPane.OK_CANCEL_OPTION)
-                    == JOptionPane.OK_OPTION;
+            return confirmVertices(p, (OptimizationSummary) null, null);
+        }
+
+        @Override
+        public boolean confirmVertices(SurfaceVertexAuthoring.Prepared p, AtlasSummary atlas) {
+            return confirmVertices(p, (OptimizationSummary) null, atlas);
         }
 
         @Override
         public boolean confirmVertices(SurfaceVertexAuthoring.Prepared p, OptimizationSummary optimization) {
-            if (optimization == null) return confirmVertices(p);
+            return confirmVertices(p, optimization, null);
+        }
+
+        @Override
+        public boolean confirmVertices(
+                SurfaceVertexAuthoring.Prepared p, OptimizationSummary optimization, AtlasSummary atlas) {
+            String atlasInfo = atlas != null
+                    ? format(
+                            "dialog.confirm.atlas-info",
+                            "纹理图集：将创建 {0} 张 {1}×{2} 图集。",
+                            atlas.pageCount(),
+                            atlas.width(),
+                            atlas.height())
+                    : "";
+            if (optimization == null) {
+                int meshes = p.geometry().meshes().size();
+                long triangles = p.geometry().meshes().stream()
+                        .mapToLong(m -> m.triangles().size())
+                        .sum();
+                return JOptionPane.showConfirmDialog(
+                                null,
+                                format(
+                                        "dialog.confirm.vertices",
+                                        "将创建 {0} 个曲面网格，保留原始 {1} 个三角形、UV 和贴图。\n{2}\nX / Y 各 9 个绑定点，使用椭圆插值；Z 旋转：5 点，三轴各 ±180°。\n遮挡采用分组近似，复杂交叠仍可能有少量偏差。\n可用一次撤销撤回本次导入。整体移动或缩放时选择“整体定位”变形器。继续？",
+                                        meshes,
+                                        triangles,
+                                        atlasInfo),
+                                text("dialog.confirm.title", "确认导入"),
+                                JOptionPane.OK_CANCEL_OPTION)
+                        == JOptionPane.OK_OPTION;
+            }
             String bound = String.format(Locale.ROOT, "%.2f", optimization.combinedErrorBoundPixels());
             return JOptionPane.showConfirmDialog(
                             null,
                             format(
                                     "dialog.confirm.vertices-optimized",
-                                    "将创建 {0} 个曲面网格。\n源模型 {1} 面 → 导入 {2} 面，保留材质边界和 UV 接缝。\n曲面几何与参数插值的合计偏差上界：{3} 像素（不含遮挡分组近似）。\nX / Y 各 9 点椭圆插值；Z 5 点；三轴各 ±180°。\n整体移动或缩放时选择“整体定位”变形器。可用一次撤销撤回本次导入。继续？",
+                                    "将创建 {0} 个曲面网格。\n源模型 {1} 面 → 导入 {2} 面，保留材质边界和 UV 接缝。\n{4}\n曲面几何与参数插值的合计偏差上界：{3} 像素（不含遮挡分组近似）。\nX / Y 各 9 点椭圆插值；Z 5 点；三轴各 ±180°。\n整体移动或缩放时选择“整体定位”变形器。可用一次撤销撤回本次导入。继续？",
                                     p.geometry().meshes().size(),
                                     optimization.sourceTriangles(),
                                     optimization.outputTriangles(),
-                                    bound),
+                                    bound,
+                                    atlasInfo),
                             text("dialog.confirm.title", "确认导入"),
                             JOptionPane.OK_CANCEL_OPTION)
                     == JOptionPane.OK_OPTION;
