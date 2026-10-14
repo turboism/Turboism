@@ -166,7 +166,10 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             }
         }
         detectionCompleted.set(true);
-        if (!settings.hasPersistedAgentId() && pendingSettings.get() == null && firstAvailable != null) {
+        if (!settings.hasPersistedAgentId()
+                && pendingSettings.get() == null
+                && !view.isUserSelectionDirty()
+                && firstAvailable != null) {
             final String selectedId = firstAvailable.id();
             if (settings.applyInferredAgentId(selectedId)) {
                 context.logger().info("ACP auto-detection: selected available agent '" + selectedId + "'");
@@ -1368,6 +1371,11 @@ final class AcpChatController implements AutoCloseable, AcpListener {
 
         /** Detection results keyed by agent id; the value is the executable path or empty. */
         default void showDetectedAgents(final Map<String, String> detectedPaths) {}
+
+        /** Returns whether the user has unpersisted selection edits in the UI. */
+        default boolean isUserSelectionDirty() {
+            return false;
+        }
 
         /** Notifies the view that an agent has been automatically selected by detection. */
         default void showAgentSelected(final String agentId) {}
