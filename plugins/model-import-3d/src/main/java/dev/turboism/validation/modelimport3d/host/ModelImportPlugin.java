@@ -588,7 +588,11 @@ public final class ModelImportPlugin implements TurboismPlugin {
                 dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("Import 3D " + requestName), () -> {
                     requireTarget(token, documentId, target);
                     if (finalPrepared.character() != null) {
-                        NativeModelImport.assemble(target, finalPrepared.character(), atlasPlan);
+                        NativeModelImport.assemble(
+                                target,
+                                finalPrepared.character(),
+                                atlasPlan,
+                                stage -> context.logger().info("Native import stage: " + stage));
                         requireTarget(token, documentId, target);
                         return null;
                     }

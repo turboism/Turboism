@@ -84,6 +84,19 @@ public final class NativeCharacterAuthoring {
             ImageDimensionProvider imageDimensions,
             java.util.function.IntFunction<String> appearanceGroups,
             java.util.function.IntFunction<String> bodyParts) {
+        return assemble(model, plan, binder, imageDimensions, appearanceGroups, bodyParts, created -> {});
+    }
+
+    /** Completes composed source writes before the expensive interpolation caches are initialized. */
+    static Created assemble(
+            CubismModel model,
+            NativeCharacterPlan.Plan plan,
+            MeshMaterialBinder binder,
+            ImageDimensionProvider imageDimensions,
+            java.util.function.IntFunction<String> appearanceGroups,
+            java.util.function.IntFunction<String> bodyParts,
+            java.util.function.Consumer<Created> sourceWrites) {
+        Objects.requireNonNull(sourceWrites, "sourceWrites");
         Objects.requireNonNull(bodyParts, "bodyParts");
         Objects.requireNonNull(appearanceGroups, "appearanceGroups");
         Objects.requireNonNull(model, "model");
@@ -340,17 +353,24 @@ public final class NativeCharacterAuthoring {
             }
         }
 
+        DeformerId rollId = rollDeformer != null ? rollDeformer.id() : null;
+        var created = new Created(rootPart.id(), rollId, meshIds, meshToSourceIndex);
+        // Atlas and local Warp writes can rebuild the entire model. Initialize caches
+        // only after those writes, so they do not repeatedly rebuild earlier caches.
+        sourceWrites.accept(created);
+
         // 9. Set interpolation on parameter bindings and verify patch refresh scope
         for (int pIdx = 0; pIdx < meshIds.size(); pIdx++) {
             var mesh = model.drawables().find(meshIds.get(pIdx));
             if (!plan.partitions().get(pIdx).visible()) continue;
+            var beforeInterpolation = mesh.authoringSnapshot();
             var sampling = plan.sampling().get(pIdx);
             model.parameterBindings(request.yaw())
                     .setInterpolation(ParameterBindingTarget.artMesh(mesh.id()), sampling.yaw());
             model.parameterBindings(request.pitch())
                     .setInterpolation(ParameterBindingTarget.artMesh(mesh.id()), sampling.pitch());
 
-            if (!banks.get(pIdx).equals(mesh.authoringSnapshot())) {
+            if (!beforeInterpolation.equals(mesh.authoringSnapshot())) {
                 throw new IllegalStateException("Interpolation changed source banks for partition " + pIdx);
             }
             if (!mesh.parentPartId().equals(Optional.of(patchParts.get(pIdx)))) {
@@ -359,8 +379,7 @@ public final class NativeCharacterAuthoring {
             }
         }
 
-        DeformerId rollId = rollDeformer != null ? rollDeformer.id() : null;
-        return new Created(rootPart.id(), rollId, meshIds, meshToSourceIndex);
+        return created;
     }
 
     static final class Frame {
