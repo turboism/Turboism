@@ -55,4 +55,26 @@ class AuthorizedImageContentDimensionsTest {
         assertTrue(grant.consumed());
         assertThrows(IllegalStateException.class, grant::claim);
     }
+
+    @Test
+    void boundedImageAcceptsFourKWithoutWideningLegacyGrant() throws Exception {
+        var bytes = png(4096, 4096);
+        assertThrows(
+                IllegalArgumentException.class, () -> AuthorizedImageContent.ofDimensions(bytes, "legacy", 4096, 4096));
+        var grant = AuthorizedImageContent.ofDimensionsBounded(bytes, "large material", 4096, 4096);
+        assertEquals(4096, grant.width());
+        assertEquals(4096, grant.height());
+        assertArrayEquals(bytes, grant.copyBytes());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> AuthorizedImageContent.ofDimensionsBounded(bytes, "over budget", 4097, 4096));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> AuthorizedImageContent.ofDimensionsBounded(bytes, "wide", 8193, 1));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> AuthorizedImageContent.ofDimensionsBounded(bytes, "wrong header", 4096, 4095));
+        grant.claim();
+        assertThrows(IllegalStateException.class, grant::claim);
+    }
 }
