@@ -40,6 +40,9 @@ final class ValidationFileGrants {
     static final String SURFACE_FILE_NAME = "mi3d-surface-model.cmo3";
     static final String XYZ_REQUEST_ID = "mi3d-xyz-menu-save";
     static final String XYZ_FILE_NAME = "mi3d-xyz-model.cmo3";
+    static final String CHARACTER_PLUGIN_ID = "dev.turboism.validation.native-character";
+    static final String CHARACTER_REQUEST_ID = "native-character-save";
+    static final String CHARACTER_FILE_NAME = "native-character.cmo3";
     static final String SAVE_PROPERTY = "turboism.validation.mi3d.persistenceSave";
     static final String MODE_PROPERTY = "turboism.validation.mi3d.mode";
 
@@ -47,14 +50,23 @@ final class ValidationFileGrants {
 
     static UserFileGrantSource source(final String pluginId, final PluginHomePaths paths) {
         Objects.requireNonNull(pluginId, "pluginId");
-        if ((!PLUGIN_ID.equals(pluginId) && !APPLE_PLUGIN_ID.equals(pluginId))
+        if ((!PLUGIN_ID.equals(pluginId) && !APPLE_PLUGIN_ID.equals(pluginId) && !CHARACTER_PLUGIN_ID.equals(pluginId))
                 || !"true".equals(System.getProperty(SAVE_PROPERTY))) {
             return UserFileGrantSource.unavailable();
         }
         final String mode = System.getProperty(MODE_PROPERTY, "");
         final String requestId;
         final String fileName;
+        // Keep the new validation identity isolated from every existing profile.
+        if (CHARACTER_PLUGIN_ID.equals(pluginId) && !"native-character-save".equals(mode)) {
+            return UserFileGrantSource.unavailable();
+        }
         switch (mode) {
+            case "native-character-save" -> {
+                if (!CHARACTER_PLUGIN_ID.equals(pluginId)) return UserFileGrantSource.unavailable();
+                requestId = CHARACTER_REQUEST_ID;
+                fileName = CHARACTER_FILE_NAME;
+            }
             case "cat-vertex-save",
                     "cat-optimized-save",
                     "cat-adaptive-save",
@@ -123,6 +135,7 @@ final class ValidationFileGrants {
             }
         }
         if (!List.of(
+                                "native-character-save",
                                 "apple-menu-save",
                                 "apple-menu-save-compact",
                                 "apple-menu-atlas-save-compact",

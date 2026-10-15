@@ -9,7 +9,7 @@ import java.util.*;
  * Bounded geometry planner for native 3D humanoid character authoring in Cubism.
  *
  * <p>Preserves exact triangle topology (no silent face drops) while partitioning
- * large meshes along spatial and normal dimensions to provide a bounded painter's
+ * large meshes along spatial dimensions to provide a bounded painter's
  * algorithm approximation for dynamic internal occlusion across full-sphere XYZ rotation.
  * This is a visibility approximation, not an exact occlusion proof. Keyforms use a unified
  * 5x5 grid (25 forms) bounded strictly within the 6,000,000 slot serialization budget
@@ -29,6 +29,7 @@ public final class NativeCharacterPlan {
     public static final ParameterInterpolation DEFAULT_INTERPOLATION =
             new ParameterInterpolation(ParameterInterpolation.Method.ELLIPSE, 3, 1f);
 
+    /** One source-preserving spatial partition with explicit source visibility. */
     public record Partition(
             int partitionIndex,
             int sourceMeshIndex,
@@ -52,9 +53,11 @@ public final class NativeCharacterPlan {
         }
     }
 
+    /** Axis interpolation densities, cache grid size and theoretical chord error bound. */
     public record Sampling(
             ParameterInterpolation yaw, ParameterInterpolation pitch, long grid, double errorBoundPixels) {}
 
+    /** Bounded native authoring plan; painter ordering remains an approximation. */
     public record Plan(
             SurfaceImport.Request request,
             SurfaceProjection.Camera camera,
@@ -271,6 +274,13 @@ public final class NativeCharacterPlan {
                     }
                 }
 
+                // Neutral painter order changes face traversal only; source slots and winding remain intact.
+                var neutralFaces = new ArrayList<>(cluster);
+                neutralFaces.sort(Comparator.comparingDouble(Face::cz).thenComparingInt(Face::triangleIndex));
+                partIndices.clear();
+                for (Face face : neutralFaces)
+                    for (int c = 0; c < 3; c++) partIndices.add(uniqueSlots.get(rawInd[face.triangleIndex * 3 + c]));
+
                 int vCount = partPositions.size();
                 SurfaceProjection.Vertex center = new SurfaceProjection.Vertex(
                         vCount > 0 ? sumX / vCount : 0, vCount > 0 ? sumY / vCount : 0, vCount > 0 ? sumZ / vCount : 0);
@@ -321,32 +331,7 @@ public final class NativeCharacterPlan {
                     + " > " + MAX_TOTAL_KEYFORM_SLOTS);
         }
 
-        // Calculate dynamic draw orders for 25 keyforms
-        var centers = partitions.stream().map(Partition::center).toList();
-        var orders = new ArrayList<List<Integer>>(KEYS.size() * KEYS.size());
-
-        for (float yaw : KEYS) {
-            for (float pitch : KEYS) {
-                var sample = SurfaceProjection.project(centers, camera, new SurfaceProjection.Pose(yaw, pitch));
-                var depths = sample.depths();
-
-                var sorted = new ArrayList<Integer>(centers.size());
-                for (int i = 0; i < centers.size(); i++) sorted.add(i);
-
-                // Painter's algorithm: largest depth is drawn first (lowest drawOrder)
-                sorted.sort(Comparator.comparingDouble((Integer i) -> depths.get(i))
-                        .reversed()
-                        .thenComparingInt(Integer::intValue));
-
-                var ranks = new ArrayList<>(Collections.nCopies(centers.size(), 0));
-                for (int rank = 0; rank < sorted.size(); rank++) {
-                    int pIdx = sorted.get(rank);
-                    int order = sorted.size() == 1 ? 500 : (int) Math.round(1000.0 * rank / (sorted.size() - 1));
-                    ranks.set(pIdx, order);
-                }
-                orders.add(List.copyOf(ranks));
-            }
-        }
+        var orders = NativeCharacterVisibility.compile(partitions, camera, scene);
 
         // Achievable chord error bound for 5x5 keys under framing radius (e.g. 400px)
         double frameRadiusBound =

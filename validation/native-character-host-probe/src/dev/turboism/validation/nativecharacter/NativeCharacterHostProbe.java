@@ -1,0 +1,308 @@
+package dev.turboism.validation.nativecharacter;
+
+import dev.turboism.sdk.action.ActionCatalogService;
+import dev.turboism.sdk.cubism.command.*;
+import dev.turboism.sdk.cubism.id.ArtMeshId;
+import dev.turboism.sdk.cubism.model.*;
+import dev.turboism.sdk.plugin.*;
+import dev.turboism.sdk.ui.*;
+import java.awt.*;
+import java.nio.file.*;
+import java.security.MessageDigest;
+import java.util.*;
+import java.util.List;
+import java.util.concurrent.*;
+import java.util.function.Supplier;
+import javax.imageio.ImageIO;
+import javax.swing.*;
+
+/** Test-only production menu, native geometry, Undo/Redo, rotation and official save probe. */
+public final class NativeCharacterHostProbe implements TurboismPlugin {
+    private PluginContext context;
+    private volatile Thread worker;
+    private final Properties report = new Properties();
+    private JOptionPane lastPane;
+
+    @Override public void init(PluginContext value) { context = value; }
+    @Override public void enable() {
+        worker = new Thread(this::verify, "native-character-host-probe");
+        worker.setDaemon(true);
+        worker.start();
+    }
+    @Override public void disable() { if (worker != null) worker.interrupt(); }
+
+    private void verify() {
+        report.setProperty("schemaVersion", "1");
+        report.setProperty("runId", System.getProperty("turboism.validation.runId", "unknown"));
+        try {
+            Path state = context.paths().stateDir();
+            if (Boolean.getBoolean("turboism.character.reopen")) {
+                verifyReopen(state);
+                report.setProperty("status", "PASS");
+                return;
+            }
+            Path input = Path.of(System.getProperty("turboism.character.fixture"));
+            Files.createDirectories(state);
+            report.setProperty("source.sha256", hash(input));
+            report.setProperty("source.bytes", "" + Files.size(input));
+            await(() -> edt(() -> context.cubism().activeDocument().isPresent()), 90, "active document");
+            String seed = edt(() -> context.cubism().activeDocument().orElseThrow().documentId());
+            var commands = context.services().require(EditorCommandService.class);
+            check("setup.newModel", true, edt(() -> commands.execute(EditorCommand.NEW_MODEL).executed()));
+            await(() -> edt(() -> context.cubism().activeDocument().isPresent()
+                    && !context.cubism().activeDocument().orElseThrow().documentId().equals(seed)), 60, "new model document");
+            check("setup.canvas", true, edt(() -> commands.execute(new EditorCanvasSettingsRequest(1024, 1024)).executed()));
+            String document = edt(() -> context.cubism().activeDocument().orElseThrow().documentId());
+            report.setProperty("document.identity", document);
+            Set<ArtMeshId> before = edt(this::ids);
+            int oldPages = edt(() -> model().textures().textureAtlases().size());
+            int oldParameters = edt(() -> model().parameters().all().size());
+            var catalog = context.services().require(ActionCatalogService.class);
+            await(() -> catalog.actions().stream().anyMatch(a -> a.pluginId().equals("dev.turboism.plugin.model-import-3d")
+                    && a.actionId().equals("model-import-3d.import")), 60, "production import action");
+            stage("production-menu");
+            catalog.invoke("dev.turboism.plugin.model-import-3d", "model-import-3d.import");
+            var appearance = awaitPane(30);
+            if (edt(appearance::getMessageType) == JOptionPane.ERROR_MESSAGE)
+                throw new AssertionError("Import setup failed: " + edt(() -> String.valueOf(appearance.getMessage())));
+            edt(() -> { appearance.setValue(appearance.getOptions()[0]); return null; });
+            stage("choosing-source");
+            approveFile(input, 30);
+            stage("preparing-source");
+            var confirmation = awaitPane(180);
+            if (edt(confirmation::getMessageType) == JOptionPane.ERROR_MESSAGE)
+                throw new AssertionError("Import planning failed: " + edt(() -> String.valueOf(confirmation.getMessage())));
+            stage("native-authoring");
+            edt(() -> { confirmation.setValue(JOptionPane.OK_OPTION); return null; });
+            await(() -> edt(() -> ids().size() > before.size()), 360, "native model write");
+            var success = awaitPane(60);
+            if (edt(success::getMessageType) == JOptionPane.ERROR_MESSAGE)
+                throw new AssertionError("Native authoring failed: " + edt(() -> String.valueOf(success.getMessage())));
+            edt(() -> { success.setValue(JOptionPane.OK_OPTION); return null; });
+            stage("verifying-native");
+            Set<ArtMeshId> imported = edt(this::ids);
+            imported.removeAll(before);
+            report.setProperty("entrypoint", "production import action and real SDK chooser");
+            report.setProperty("native.artMeshes", "" + imported.size());
+            long triangles = edt(() -> imported.stream().map(model().drawables()::find)
+                    .mapToLong(mesh -> mesh.geometry().triangleIndices().size() / 3).sum());
+            check("native.triangles", Long.getLong("turboism.character.expectedTriangles", 121097L), triangles);
+            check("native.parameters.added", 3, edt(() -> model().parameters().all().size()) - oldParameters);
+            check("native.atlas.created", true, edt(() -> model().textures().textureAtlases().size()) > oldPages);
+            for (ArtMeshId id : imported) {
+                check("atlas.binding." + id.value(), ArtMeshTextureInput.Kind.TEXTURE_ATLAS_REGION,
+                        edt(() -> model().textures().textureInput(id).orElseThrow().kind()));
+            }
+            capture(state.resolve("native-before-undo.png"));
+            stage("native-history");
+            report.setProperty("history.beforeUndo", "" + edt(() -> context.cubism().history().snapshot()));
+            check("undo.command", true, edt(() -> commands.execute(EditorCommand.UNDO).executed()));
+            await(() -> edt(() -> ids().equals(before)), 30, "Undo model restoration");
+            report.setProperty("history.afterUndo", "" + edt(() -> context.cubism().history().snapshot()));
+            check("undo.meshes.restored", before, edt(this::ids));
+            check("undo.atlas.restored", oldPages, edt(() -> model().textures().textureAtlases().size()));
+            check("undo.parameters.restored", oldParameters, edt(() -> model().parameters().all().size()));
+            check("redo.command", true, edt(() -> commands.execute(EditorCommand.REDO).executed()));
+            report.setProperty("history.afterRedoDispatch", "" + edt(() -> context.cubism().history().snapshot()));
+            await(() -> edt(() -> ids().containsAll(imported)), 30, "Redo model restoration");
+            report.setProperty("history.afterRedo", "" + edt(() -> context.cubism().history().snapshot()));
+            var restored = edt(this::ids);
+            restored.removeAll(before);
+            check("redo.meshes.restored", imported, restored);
+            stage("native-rotation");
+            List<Parameter> axes = edt(() -> model().parameters().all().stream()
+                    .filter(p -> p.id().value().startsWith("Param3D")).toList());
+            capture(state.resolve("native-neutral.png"));
+            for (String axis : List.of("Yaw", "Pitch", "Roll")) {
+                Parameter parameter = axes.stream().filter(p -> p.id().value().startsWith("Param3D" + axis))
+                        .findFirst().orElseThrow();
+                var neutralPositions = edt(() -> imported.stream().map(id -> model().drawables().find(id).geometry().positions()).toList());
+                edt(() -> { parameter.setValue(90); return null; });
+                check("rotation." + axis + ".value", 90f, edt(parameter::getValue));
+                Thread.sleep(600);
+                if (!axis.equals("Roll")) {
+                    var rotatedPositions = edt(() -> imported.stream().map(id -> model().drawables().find(id).geometry().positions()).toList());
+                    check("rotation." + axis + ".geometryChanged", true, !neutralPositions.equals(rotatedPositions));
+                } else {
+                    RotationDeformer rotation = edt(() -> model().rotationDeformers().all().stream()
+                            .filter(d -> d.authoringSnapshot().axes().stream().anyMatch(a -> a.parameterId().equals(parameter.id()))).findFirst().orElseThrow());
+                    check("rotation.Roll.angle", -90f, edt(() -> rotation.form().angle()));
+                }
+                capture(state.resolve("native-" + axis + "-90.png"));
+                edt(() -> { parameter.setValue(0); return null; });
+            }
+            await(() -> edt(() -> imported.stream().filter(id -> model().drawables().find(id).visible()).map(id -> model().drawables().find(id).evaluationSnapshot())
+                    .allMatch(e -> e.calculatedForm().isPresent() && e.liveParameters().parameters().equals(e.consumedParameters().parameters()))),
+                    30, "neutral pose consumption before opacity");
+            stage("native-opacity");
+            var visibleMesh = edt(() -> imported.stream().map(id -> model().drawables().find(id))
+                    .filter(m -> m.visible()).findFirst().orElseThrow());
+            var outfitParent = edt(() -> model().deformers().find(visibleMesh.parentDeformerId().orElseThrow()));
+            var opacityParent = edt(() -> model().deformers().find(outfitParent.parentDeformerId().orElseThrow()));
+            report.setProperty("opacity.parent.name", edt(opacityParent::name));
+            var originalBank = edt(visibleMesh::authoringSnapshot);
+            var visiblePixels = edt(() -> model().renderPixels(1024, 1024));
+            edt(() -> { opacityParent.setOpacity(0); return null; });
+            check("opacity.hidden", 0f, edt(opacityParent::getOpacity));
+            Thread.sleep(700);
+            var hiddenPixels = edt(() -> model().renderPixels(1024, 1024));
+            check("opacity.pixelsChanged", true, !java.util.Arrays.equals(visiblePixels.argb(), hiddenPixels.argb()));
+            capture(state.resolve("native-group-hidden.png"));
+            edt(() -> { opacityParent.setOpacity(1); return null; });
+            check("opacity.restored", 1f, edt(opacityParent::getOpacity));
+            check("opacity.banksPreserved", originalBank, edt(visibleMesh::authoringSnapshot));
+            stage("native-save");
+            Files.createDirectories(state.resolve("persistence"));
+            Path output = state.resolve("persistence/native-character.cmo3");
+            if (Files.exists(output)) throw new AssertionError("Save target already exists");
+            var grant = context.userFiles().request(new UserFileRequest("native-character-save", "Save native character",
+                    List.of("cmo3"), UserFileMode.WRITE, UserFileLifetime.ONE_OPERATION)).toCompletableFuture();
+            var granted = grant.get(30, TimeUnit.SECONDS);
+            if (granted.status() != UserFileRequestStatus.GRANTED) throw new AssertionError("Save grant denied");
+            try (var handle = granted.handle().orElseThrow()) {
+                check("save.command", true, edt(() -> {
+                    if (!document.equals(context.cubism().activeDocument().orElseThrow().documentId()))
+                        throw new AssertionError("Document switched");
+                    return commands.execute(new EditorFileCommandRequest(EditorFileCommand.SAVE_AS, handle,
+                            EditorOverwritePolicy.REJECT_EXISTING)).executed();
+                }));
+            }
+            check("save.artifact.nonempty", true, Files.size(output) > 0);
+            report.setProperty("native.ids", imported.stream().map(ArtMeshId::value).sorted().reduce((a,b) -> a + "," + b).orElseThrow());
+            report.setProperty("native.banks.sha256", edt(() -> banksHash(imported)));
+            report.setProperty("native.hidden", "" + edt(() -> imported.stream().filter(id -> !model().drawables().find(id).visible()).count()));
+            report.setProperty("save.sha256", hash(output));
+            report.setProperty("save.bytes", "" + Files.size(output));
+            report.setProperty("persistence.reopen", "PENDING: requires separate fresh-process verification");
+            check("source.hash.unchanged", report.getProperty("source.sha256"), hash(input));
+            report.setProperty("status", "PASS");
+        } catch (Throwable failure) {
+            report.setProperty("status", "FAIL");
+            report.setProperty("failure", failure.toString());
+            context.logger().error("Native character probe failed", failure);
+        } finally {
+            try {
+                Path state = context.paths().stateDir();
+                Files.createDirectories(state);
+                try (var out = Files.newOutputStream(state.resolve("result.properties"))) {
+                    report.store(out, "Native character import stage; reopen acceptance is separate");
+                }
+                String runId = System.getProperty("turboism.validation.runId", "");
+                if (Boolean.getBoolean("turboism.character.exitAfterProbe") && runId.matches("queue-[a-f0-9]{32}")
+                        && state.toString().contains(runId)) {
+                    Thread.sleep(2000);
+                    System.exit(0);
+                }
+            } catch (Exception failure) { context.logger().error("Native probe result failed", failure); }
+        }
+    }
+
+    private void capture(Path path) throws Exception {
+        var pixels = edt(() -> model().renderPixels(1024, 1024));
+        var image = new java.awt.image.BufferedImage(1024, 1024, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        image.setRGB(0, 0, 1024, 1024, pixels.argb(), 0, 1024);
+        if (!ImageIO.write(image, "png", path.toFile())) throw new AssertionError("Native PNG encoding unavailable");
+    }
+
+    private void stage(String name) throws Exception {
+        context.logger().info("NATIVE_CHARACTER_STAGE " + name);
+        report.setProperty("stage", name);
+        try (var out = Files.newOutputStream(context.paths().stateDir().resolve("progress.properties"))) {
+            report.store(out, "Nonterminal native character progress");
+        }
+    }
+
+    private void verifyReopen(Path state) throws Exception {
+        Properties expected = new Properties();
+        try (var in = Files.newInputStream(Path.of(System.getProperty("turboism.character.expected")))) {
+            expected.load(in);
+        }
+        await(() -> edt(() -> context.cubism().activeDocument().isPresent()), 90, "reopened document");
+        Set<ArtMeshId> imported = new LinkedHashSet<>();
+        for (String id : expected.getProperty("native.ids").split(",")) imported.add(new ArtMeshId(id));
+        check("reopen.meshes.present", true, edt(() -> ids().containsAll(imported)));
+        check("reopen.banks.sha256", expected.getProperty("native.banks.sha256"), edt(() -> banksHash(imported)));
+        check("reopen.hidden", expected.getProperty("native.hidden"), "" + edt(() -> imported.stream().filter(id -> !model().drawables().find(id).visible()).count()));
+        for (ArtMeshId id : imported) {
+            check("reopen.atlas." + id.value(), ArtMeshTextureInput.Kind.TEXTURE_ATLAS_REGION,
+                    edt(() -> model().textures().textureInput(id).orElseThrow().kind()));
+        }
+        check("reopen.rotation.parameters", 3L, edt(() -> model().parameters().all().stream().filter(p -> p.id().value().startsWith("Param3D")).count()));
+        for (String part : List.of("Left leg", "Right leg")) {
+            var body = edt(() -> model().warpDeformers().all().stream().filter(d -> d.name().equals(part)).findFirst().orElseThrow());
+            check("reopen." + part + ".grid", 9, edt(() -> body.grid().controlPoints().size()));
+            check("reopen." + part + ".opacity", 1f, edt(body::getOpacity));
+            long outfits = edt(() -> model().warpDeformers().all().stream()
+                    .filter(d -> d.parentDeformerId().equals(Optional.of(body.id()))).count());
+            check("reopen." + part + ".sharedOutfits", true, outfits >= 2);
+        }
+        capture(state.resolve("native-reopened.png"));
+        report.setProperty("persistence.reopen", "PASS");
+    }
+
+    private String banksHash(Set<ArtMeshId> imported) throws Exception {
+        var digest = MessageDigest.getInstance("SHA-256");
+        for (ArtMeshId id : imported.stream().sorted(Comparator.comparing(ArtMeshId::value)).toList()) {
+            var snapshot = model().drawables().find(id).authoringSnapshot();
+            digest.update(snapshot.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        return HexFormat.of().formatHex(digest.digest());
+    }
+
+    private CubismModel model() { return context.cubism().model().active(); }
+    private Set<ArtMeshId> ids() {
+        Set<ArtMeshId> ids = new LinkedHashSet<>();
+        for (Drawable mesh : model().drawables().all()) ids.add(mesh.id());
+        return ids;
+    }
+    private void check(String key, Object expected, Object actual) {
+        report.setProperty(key + ".expected", "" + expected);
+        report.setProperty(key + ".actual", "" + actual);
+        report.setProperty(key + ".status", Objects.equals(expected, actual) ? "PASS" : "FAIL");
+        if (!Objects.equals(expected, actual)) throw new AssertionError(key + ": expected " + expected + ", actual " + actual);
+    }
+    private static <T> T edt(Callable<T> task) {
+        var future = new FutureTask<T>(task);
+        try { SwingUtilities.invokeAndWait(future); return future.get(); }
+        catch (Exception failure) { throw new CompletionException(failure); }
+    }
+    private static void await(Supplier<Boolean> condition, int seconds, String what) throws Exception {
+        long end = System.nanoTime() + TimeUnit.SECONDS.toNanos(seconds);
+        do { if (condition.get()) return; Thread.sleep(100); } while (System.nanoTime() < end);
+        throw new AssertionError("Timed out waiting for " + what);
+    }
+    private static <T extends Component> T find(Component root, Class<T> type) {
+        if (type.isInstance(root)) return type.cast(root);
+        if (root instanceof Container parent) for (Component child : parent.getComponents()) {
+            T result = find(child, type); if (result != null) return result;
+        }
+        return null;
+    }
+    private static <T extends Component> T visible(Class<T> type) {
+        for (Window window : Window.getWindows()) if (window.isShowing()) {
+            T found = find(window, type); if (found != null) return found;
+        }
+        return null;
+    }
+    private JOptionPane awaitPane(int seconds) throws Exception {
+        await(() -> edt(() -> {
+            var pane = visible(JOptionPane.class);
+            return pane != null && pane != lastPane;
+        }), seconds, "production dialog");
+        lastPane = edt(() -> visible(JOptionPane.class));
+        return lastPane;
+    }
+    private static void approveFile(Path path, int seconds) throws Exception {
+        await(() -> edt(() -> visible(JFileChooser.class) != null), seconds, "SDK file chooser");
+        edt(() -> { JFileChooser chooser = visible(JFileChooser.class);
+            chooser.setSelectedFile(path.toFile()); chooser.approveSelection(); return null; });
+    }
+    private static String hash(Path path) throws Exception {
+        var digest = MessageDigest.getInstance("SHA-256");
+        try (var stream = Files.newInputStream(path)) {
+            byte[] buffer = new byte[65536]; int count;
+            while ((count = stream.read(buffer)) != -1) digest.update(buffer, 0, count);
+        }
+        return HexFormat.of().formatHex(digest.digest());
+    }
+}

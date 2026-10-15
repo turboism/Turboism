@@ -1,0 +1,58 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.validation.native-character",
+  "name": "Native Character Host Probe",
+  "version": "0.1.0",
+  "description": "Test-only native character production import, rotation, Undo/Redo and persistence probe.",
+  "entrypoints": [
+    "dev.turboism.validation.nativecharacter.NativeCharacterHostProbe"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    {
+      "name": "Turboism Contributors"
+    }
+  ],
+  "license": "Project License",
+  "permissions": [
+    {
+      "id": "turboism.action.invoke",
+      "scope": "application",
+      "reason": "Invokes the production native import menu."
+    },
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Verifies native meshes, parameters and texture atlas bindings."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Exercises rotation, Undo, Redo and native model save."
+    },
+    {
+      "id": "turboism.ui.file-chooser.request",
+      "scope": "application",
+      "reason": "Requests a task-owned native CMO3 save destination."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Saves the imported character through the official Editor command."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  },
+  "category": "analysis",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": []
+}

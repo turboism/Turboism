@@ -200,6 +200,13 @@ public class GlbViewerLoaderTest {
 
         ViewerScene.Mesh mesh = scene.meshes().get(0);
         assertEquals("triangle", mesh.name());
+        var tagged = GlbViewerLoader.load(
+                buildGlb(
+                        json.replace("\"material\":0}", "\"material\":0,\"extras\":{\"bodyPart\":\"Left leg\"}}"),
+                        Arrays.copyOf(bin.array(), bin.position())),
+                () -> false);
+        assertEquals("Left leg", tagged.meshes().get(0).bodyPart());
+
         assertEquals(9, mesh.positions().length);
         assertEquals(9, mesh.normals().length);
         assertEquals(12, mesh.colors().length);
@@ -214,6 +221,44 @@ public class GlbViewerLoaderTest {
         assertEquals(1.0f, scene.bounds().maxX(), 1e-6f);
         assertEquals(0.0f, scene.bounds().minY(), 1e-6f);
         assertEquals(1.0f, scene.bounds().maxY(), 1e-6f);
+
+        // Explicit metadata hides auxiliary geometry without deleting it or changing statistics.
+        String withHelper = json.replace("\"nodes\":[0]", "\"nodes\":[0,1]")
+                .replace(
+                        "\"name\":\"root\",\"mesh\":0}",
+                        "\"name\":\"root\",\"mesh\":0},{\"mesh\":0,\"translation\":[-100,0,0],\"extras\":{\"hide_render\":true}} ");
+        ViewerScene hidden =
+                GlbViewerLoader.load(buildGlb(withHelper, Arrays.copyOf(bin.array(), bin.position())), () -> false);
+        assertEquals(2, hidden.meshes().size());
+        assertEquals(2, hidden.stats().triangleCount());
+        assertTrue(hidden.meshes().get(0).visible());
+        assertFalse(hidden.meshes().get(1).visible());
+        assertEquals(scene.bounds(), hidden.bounds());
+        ViewerScene viewportDefault = GlbViewerLoader.load(
+                buildGlb(
+                        withHelper.replace("\"hide_render\":true", "\"defaultVisible\":false"),
+                        Arrays.copyOf(bin.array(), bin.position())),
+                () -> false);
+        assertFalse(viewportDefault.meshes().get(1).visible());
+        assertEquals(2, viewportDefault.stats().triangleCount());
+        assertEquals(scene.bounds(), viewportDefault.bounds());
+        assertNotEquals(
+                viewportDefault.meshes().get(0).appearanceGroup(),
+                viewportDefault.meshes().get(1).appearanceGroup());
+
+        String hiddenMesh =
+                json.replace("\"name\":\"triangle\"", "\"name\":\"triangle\",\"extras\":{\"hide_render\":true}");
+        ViewerScene allHidden =
+                GlbViewerLoader.load(buildGlb(hiddenMesh, Arrays.copyOf(bin.array(), bin.position())), () -> false);
+        assertFalse(allHidden.meshes().get(0).visible());
+        assertEquals(1, allHidden.stats().triangleCount());
+        assertEquals(0f, allHidden.bounds().maxX());
+        ViewerScene helperOnly = GlbViewerLoader.load(
+                buildGlb(
+                        hiddenMesh.replace("\"hide_render\":true", "\"isHelper\":true,\"hide_render\":false"),
+                        Arrays.copyOf(bin.array(), bin.position())),
+                () -> false);
+        assertFalse(helperOnly.meshes().get(0).visible());
     }
 
     private static byte[] createGlbHeader(int magic, int version, int length) {

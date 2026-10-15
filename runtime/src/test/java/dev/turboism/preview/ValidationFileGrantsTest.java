@@ -38,6 +38,76 @@ import org.junit.jupiter.api.io.TempDir;
 class ValidationFileGrantsTest {
 
     @Test
+    void nativeCharacterSaveIsPinnedAndCannotUseOtherProfiles() throws Exception {
+        var paths = paths();
+        Files.createDirectories(paths.stateDir().resolve("persistence"));
+        var request = new UserFileRequest(
+                ValidationFileGrants.CHARACTER_REQUEST_ID,
+                "Save character",
+                List.of("cmo3"),
+                UserFileMode.WRITE,
+                UserFileLifetime.ONE_OPERATION);
+        System.setProperty(ValidationFileGrants.MODE_PROPERTY, "native-character-save");
+        try (Harness h = harness(ValidationFileGrants.CHARACTER_PLUGIN_ID, paths, WRITE_PERMISSIONS)) {
+            assertEquals(
+                    UserFileRequestStatus.UNAVAILABLE,
+                    h.service.request(request).toCompletableFuture().get().status());
+        }
+        System.setProperty(ValidationFileGrants.SAVE_PROPERTY, "true");
+        for (String plugin : List.of(ValidationFileGrants.PLUGIN_ID, ValidationFileGrants.APPLE_PLUGIN_ID)) {
+            try (Harness h = harness(plugin, paths, WRITE_PERMISSIONS)) {
+                assertEquals(
+                        UserFileRequestStatus.UNAVAILABLE,
+                        h.service.request(request).toCompletableFuture().get().status());
+            }
+        }
+        System.setProperty(ValidationFileGrants.MODE_PROPERTY, "persistence-save");
+        try (Harness h = harness(ValidationFileGrants.CHARACTER_PLUGIN_ID, paths, WRITE_PERMISSIONS)) {
+            assertEquals(
+                    UserFileRequestStatus.UNAVAILABLE,
+                    h.service.request(request).toCompletableFuture().get().status());
+            assertEquals(
+                    UserFileRequestStatus.UNAVAILABLE,
+                    h.service
+                            .request(new UserFileRequest(
+                                    ValidationFileGrants.REQUEST_ID,
+                                    "Other profile",
+                                    List.of("cmo3"),
+                                    UserFileMode.WRITE,
+                                    UserFileLifetime.ONE_OPERATION))
+                            .toCompletableFuture()
+                            .get()
+                            .status());
+        }
+        System.setProperty(ValidationFileGrants.MODE_PROPERTY, "native-character-save");
+        try (Harness h = harness(ValidationFileGrants.CHARACTER_PLUGIN_ID, paths, WRITE_PERMISSIONS)) {
+            assertEquals(
+                    UserFileRequestStatus.UNAVAILABLE,
+                    h.service.request(cubeRequest()).toCompletableFuture().get().status());
+            var granted = h.service.request(request).toCompletableFuture().get();
+            assertEquals(UserFileRequestStatus.GRANTED, granted.status());
+            assertEquals(
+                    paths.stateDir()
+                            .resolve("persistence")
+                            .toRealPath()
+                            .resolve(ValidationFileGrants.CHARACTER_FILE_NAME),
+                    h.service
+                            .resolve(new EditorFileCommandRequest(
+                                    EditorFileCommand.SAVE_AS,
+                                    granted.handle().orElseThrow(),
+                                    EditorOverwritePolicy.REJECT_EXISTING))
+                            .file());
+        }
+        Files.writeString(
+                paths.stateDir().resolve("persistence").resolve(ValidationFileGrants.CHARACTER_FILE_NAME), "protected");
+        try (Harness h = harness(ValidationFileGrants.CHARACTER_PLUGIN_ID, paths, WRITE_PERMISSIONS)) {
+            assertEquals(
+                    UserFileRequestStatus.UNAVAILABLE,
+                    h.service.request(request).toCompletableFuture().get().status());
+        }
+    }
+
+    @Test
     void catSaveRequiresExactOptInModePluginRequestAndUnusedTarget() throws Exception {
         catSavePolicy("cat-vertex-save");
     }

@@ -119,14 +119,17 @@ public record NativeMaterialPlan(ViewerScene scene, List<Integer> meshImageIndic
 
     /* ---------------- Factory entry points ---------------- */
 
+    /** Bakes scene materials using default budgets. */
     public static NativeMaterialPlan prepare(ViewerScene scene) {
         return prepare(scene, Options.DEFAULT, () -> false);
     }
 
+    /** Bakes scene materials with cooperative cancellation. */
     public static NativeMaterialPlan prepare(ViewerScene scene, BooleanSupplier cancelled) {
         return prepare(scene, Options.DEFAULT, cancelled);
     }
 
+    /** Bakes scene materials within explicit image budgets and cancellation checks. */
     public static NativeMaterialPlan prepare(ViewerScene scene, Options options, BooleanSupplier cancelled) {
         Objects.requireNonNull(scene, "scene cannot be null");
         Objects.requireNonNull(options, "options cannot be null");
@@ -162,7 +165,10 @@ public record NativeMaterialPlan(ViewerScene scene, List<Integer> meshImageIndic
                     mesh.emissiveUvs(),
                     mesh.colors(),
                     mesh.indices(),
-                    mesh.materialIndex()));
+                    mesh.materialIndex(),
+                    mesh.visible(),
+                    mesh.appearanceGroup(),
+                    mesh.bodyPart()));
         }
 
         ViewerScene normalizedScene =
@@ -759,6 +765,7 @@ public record NativeMaterialPlan(ViewerScene scene, List<Integer> meshImageIndic
         }
     }
 
+    /** Decodes an sRGB component to linear light. */
     public static float srgbToLinear(float c) {
         if (c <= 0.04045f) {
             return Math.max(0.0f, c / 12.92f);
@@ -767,6 +774,7 @@ public record NativeMaterialPlan(ViewerScene scene, List<Integer> meshImageIndic
         }
     }
 
+    /** Encodes a linear light component as sRGB. */
     public static float linearToSrgb(float c) {
         if (c <= 0.0031308f) {
             return Math.max(0.0f, c * 12.92f);

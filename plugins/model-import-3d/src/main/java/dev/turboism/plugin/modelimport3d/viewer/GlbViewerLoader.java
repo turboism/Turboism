@@ -285,6 +285,7 @@ public final class GlbViewerLoader {
                 checkCancelled(cancelled);
 
                 final Map<?, ?> meshJson = (Map<?, ?>) meshesJson.get(node.meshIndex);
+                final boolean visible = !hiddenForRender(meshJson) && !hiddenForRender(nodesJson.get(nIdx));
                 final String meshName =
                         getString(meshJson, "name", node.name != null ? node.name : "mesh_" + node.meshIndex);
                 final List<?> primsJson = asList(meshJson.get("primitives"));
@@ -424,6 +425,7 @@ public final class GlbViewerLoader {
                             throw new IllegalArgumentException(
                                     "NaN or Infinity position encountered during world transform");
                         }
+                        if (!visible) continue;
                         if (px < minX) minX = px;
                         if (px > maxX) maxX = px;
                         if (py < minY) minY = py;
@@ -496,7 +498,17 @@ public final class GlbViewerLoader {
 
                     final String primName = (primsJson.size() > 1) ? (meshName + "_" + pIdx) : meshName;
                     sceneMeshes.add(new ViewerScene.Mesh(
-                            primName, worldPositions, worldNormals, uvs, emissiveUvs, colors, indices, matIdx));
+                            primName,
+                            worldPositions,
+                            worldNormals,
+                            uvs,
+                            emissiveUvs,
+                            colors,
+                            indices,
+                            matIdx,
+                            visible,
+                            (node.name != null ? node.name : meshName) + " [" + nIdx + "]",
+                            primitiveBodyPart(primMap)));
                 }
             }
         }
@@ -517,6 +529,22 @@ public final class GlbViewerLoader {
                 maxMorphTargets);
 
         return new ViewerScene(sceneMeshes, materials, textures, bounds, stats);
+    }
+
+    private static String primitiveBodyPart(Map<?, ?> primitive) {
+        if (primitive.get("extras") instanceof Map<?, ?> extras
+                && extras.get("bodyPart") instanceof String part
+                && !part.isBlank()) return part;
+        return "";
+    }
+
+    // Explicit source metadata controls visibility; geometry remains in the scene.
+    private static boolean hiddenForRender(Object value) {
+        return value instanceof Map<?, ?> object
+                && object.get("extras") instanceof Map<?, ?> extras
+                && (Boolean.FALSE.equals(extras.get("defaultVisible"))
+                        || Boolean.TRUE.equals(extras.get("hide_render"))
+                        || Boolean.TRUE.equals(extras.get("isHelper")));
     }
 
     // --- Private Helper Methods ---
