@@ -2,7 +2,7 @@
 
 ## Overview
 
-Real-host execution has not yet completed. The checks below describe the probe, not verified host support.
+The native probe passed on Cubism 5.3.04 on 2026-10-15. See [verification.md](verification.md) for evidence and scope.
 This directory contains the standalone, procedural real-host probe for verifying the native append-only texture atlas capability (`ModelTextures.appendTextureAtlasPages`).
 
 It uses programmatically synthesized procedural PNG textures and quad geometries without relying on proprietary 3D fixtures or external assets.
@@ -31,7 +31,7 @@ It uses programmatically synthesized procedural PNG textures and quad geometries
      - Pre-existing pages 1 & 2 and meshes 1 & 2 remain untouched.
 
 ## Explicit Verification Scope Boundaries
-- **Probe coverage (host execution pending)**: Native protocol, object/GUID invariance, single-root Undo/Redo, transaction rollback, and in-memory exportMoc ARGB texel sampling.
+- **Verified on 5.3.04**: Native protocol, object/GUID invariance, single-root Undo/Redo, transaction rollback, and in-memory exportMoc ARGB texel sampling.
 - **Excluded by Minimal Contract**: Host `.cmo3` file save/reopen persistence cycles across separate JVM launches, and full GPU viewport shader readback (which belongs to full fixture suites).
 
 ## Build and Run Instructions for Primary Agent / Isolated Prefix
@@ -47,6 +47,8 @@ Ensure SDK is compiled:
 This produces `build/validation/auto-atlas/auto-atlas-host-probe-latest.jar` (and a timestamped build directory).
 
 ### 2. Run on Clean Isolated 5.3.04 Prefix
+Use `--jvm-option -Dturboism.autoatlas.exitAfterProbe=true` with the shared queue runner when a complete launcher lifecycle result is required. This exits only the matching queue-owned JVM after PASS; it does not exercise native close/save prompts.
+
 Install the plugin JAR into the test prefix's `plugins/` directory:
 ```bash
 cp build/validation/auto-atlas/auto-atlas-host-probe-latest.jar <prefix>/plugins/
