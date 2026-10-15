@@ -83,3 +83,34 @@ Verification after fixes:
 - `env -u WAYLAND_DISPLAY XDG_SESSION_TYPE=x11 xvfb-run -a ./gradlew devCheck --max-workers=2`: PASS, 143 tasks (`/tmp/native-generic-final-fixes-devcheck.log`).
 
 Limits: Warp fitting is calibrated only at the neutral view. Side views, combined controls, dedicated eye/head/clothing mappings and mask seams remain unverified. The optional 111-control character bake exceeds the added-control storage cap and is rejected explicitly. This fixture does not prove that arbitrary models fit within the budgets. The main user Editor has not been updated with this candidate.
+
+
+## Combined source controls and nested opacity — 2026-10-15
+
+`build-combination-fixture.py OUTPUT.glb` generates one triangle, two explicit position controls and two explicit opacity controls. It contains no private character assets. This fixture tests the explicit mapping path; the standard Morph Target evidence above remains separate. Input: 1416 bytes, SHA-256 `ed2e15742f63d8df7e4329645bca20ac50604efd3a689d536b76759269c658b4`.
+
+Fixed final bundle (`build/manual-test/native-combinations`):
+
+- Agent: `fc972d5787566a61ed10d3b1966c361f48625434b1777b1c773acce0f3575eae`.
+- Production plugin: `2d61034ab6466f9485ea57a68e471040b7573d781c6ad7ea367bafd952523776`.
+- Probe: `e0a122745141aa39c4128652e4ac5224661091431b8793e4335ff85a596c6dc4`.
+
+Import job `0dbc9852-01a5-488c-a26a-030e28faa4af`, run `queue-61d82958128f4195879afc14e3126ade`, finished with supervisor PASS, verified identity, unchanged source fixture, normal exit and safe cleanup. Evidence root: `<host-validation-root>/native-character/5304-combinations-r6/queue-61d82958128f4195879afc14e3126ade/`.
+
+The production menu created one ArtMesh, three XYZ parameters and four Blend Shape parameters. Both geometry controls were enabled together. At yaw -30°, 0° and +30°, rendered alpha sums divided by the same opaque geometry gave exactly 0.5, 0.25 and 0.125 for each opacity factor and their product. Reset restored the original pixels. Ordinary banks and morph data did not change during parameter evaluation. Single import Undo/Redo passed.
+
+The probe also creates a temporary Warp and opacity morph in a transaction, then deliberately throws. The result is ROLLED_BACK. Deformer IDs, complete history snapshot, ordinary banks and morph digests return to their before images. No temporary Warp remains.
+
+Saving produced 23278 bytes, SHA-256 `35045fc39aba7dd91d7279751932019d2317ad18a449271035223dc2a2838cf4`. Fresh-process reopen job `99d3e9c5-7f13-4948-af4d-78f66116ab82`, run `queue-fdac0daf04084b53b8a8c7f8b683bbff`, finished with supervisor PASS, verified identity, unchanged source, normal exit and safe cleanup. Evidence root: `<host-validation-root>/native-character/5304-combinations-r6-reopen/queue-fdac0daf04084b53b8a8c7f8b683bbff/`. Both combination and intentional rollback checks passed again. The complete ordinary-bank digest `3e96a97e6d8db4e05ae42bc11d672c29018a2d84f2208ed76199811b9e5baad9` and morph digest `cdc5da40c93fc056ebc34214c663018e9153aca7ef386d6b9a6e1a8b1d0247f3` match the saved originals.
+
+Two regressions explain the changes. Native reparenting of an identity opacity Warp changes stored float positions, so exact snapshot equality wrongly rejected the import. Layout remains strict; all coordinate differences must remain within 1e-5 in local coordinates. Warp references are reacquired by stable ID after parent conversion. During failed-root recovery, native Undo may already remove the newly created Warp. Morph compensation now accepts removal only when the coordinator proves the same root owns that source creation and its complete removal predicate passes. Unregistered missing sources still fail. Public stale references remain strict. Temporary debug instrumentation was removed.
+
+Verification:
+
+- Full plugin suite: 266 tests, 34 conditional skips, zero failures.
+- Warp morph transactions and source/lifetime regressions: 121 tests, zero failures. The new created-source recovery regression covers all 20 reviewed Cubism versions. This is offline compatibility evidence, not all-version host readiness.
+- Final `env -u WAYLAND_DISPLAY XDG_SESSION_TYPE=x11 xvfb-run -a ./gradlew devCheck --max-workers=2`: PASS, 143 tasks (`/tmp/native-combinations-final-devcheck.log`).
+- A nonidentity joint matrix regression checks morph rotation/scale without translation leakage.
+- A depth-only 0.2-unit shape diagnostic measures zero neutral residual but 28.284px projected displacement at yaw or pitch ±30° under the fixed 400px-radius camera. The neutral Warp remains identity, so it cannot reproduce that side displacement. This is an explicit failing accuracy example, not acceptance of side-view fidelity.
+
+Limits: native alpha composition and pixel restoration do not establish three-dimensional projection accuracy, occlusion correctness, arbitrary shape combinations or dedicated clothing/mask/foot/eye/head behavior. The main Editor has not been updated.

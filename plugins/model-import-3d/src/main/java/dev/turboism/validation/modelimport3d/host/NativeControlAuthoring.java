@@ -40,33 +40,50 @@ final class NativeControlAuthoring {
                 DeformerId parent = original;
                 for (int i = 0; i < source.opacityControls().size(); i++) {
                     var factor = source.opacityControls().get(i);
-                    WarpDeformer warp;
-                    if (i == 0) warp = model.warpDeformers().find(parent);
-                    else {
-                        warp = model.deformers()
+                    DeformerId warpId = parent;
+                    if (i != 0) {
+                        var warp = model.deformers()
                                 .createWarp(
                                         source.appearanceGroup() + " / " + factor.controlId(),
                                         model.parts().find(created.rootPartId()),
                                         -1,
                                         2,
                                         2);
+                        warpId = warp.id();
                         warp.setTargetDeformer(Optional.of(parent));
-                        warp.replaceGrid(NativeControlWarpPlan.identity(2));
+                        // Native parent conversion can rebuild the evaluated instance.
+                        // Keep the stable ID and reacquire through the public model collection.
+                        model.warpDeformers().find(warpId).replaceGrid(NativeControlWarpPlan.identity(2));
                     }
-                    warp.setOpacity(factor.base());
-                    warp.createOpacityMorphKeyform(
-                            Objects.requireNonNull(parameters.get(factor.controlId()), "opacity parameter"),
-                            1,
-                            factor.target());
-                    parent = warp.id();
+                    model.warpDeformers().find(warpId).setOpacity(factor.base());
+                    model.warpDeformers()
+                            .find(warpId)
+                            .createOpacityMorphKeyform(
+                                    Objects.requireNonNull(parameters.get(factor.controlId()), "opacity parameter"),
+                                    1,
+                                    factor.target());
+                    parent = warpId;
                 }
                 endpoints.put(original, parent);
             }
             if (!original.equals(endpoints.get(original))) {
                 var before = mesh.authoringSnapshot();
                 mesh.setTargetDeformer(Optional.of(endpoints.get(original)));
-                if (!before.equals(mesh.authoringSnapshot()))
-                    throw new IllegalStateException("opacity parent changed XYZ banks");
+                var after = mesh.authoringSnapshot();
+                requireSameLayout(before, after);
+                for (int i = 0; i < before.forms().size(); i++) {
+                    var expected = before.forms().get(i).positions();
+                    var actual = after.forms().get(i).positions();
+                    if (expected.size() != actual.size())
+                        throw new IllegalStateException("opacity parent changed XYZ slot count");
+                    for (int j = 0; j < expected.size(); j++)
+                        if (Math.hypot(
+                                        actual.get(j).x() - expected.get(j).x(),
+                                        actual.get(j).y() - expected.get(j).y())
+                                > 1e-5)
+                            throw new IllegalStateException(
+                                    "identity opacity parent coordinate conversion exceeds tolerance");
+                }
             }
         }
         for (var patch : plan.patches()) {
@@ -80,7 +97,9 @@ final class NativeControlAuthoring {
                             -1,
                             patch.cells(),
                             patch.cells());
+            var warpId = warp.id();
             warp.setTargetDeformer(Optional.of(parent));
+            warp = model.warpDeformers().find(warpId);
             var base = mapControls(NativeControlWarpPlan.identity(patch.cells()).controlPoints(), patch);
             warp.replaceGrid(new WarpGrid(patch.cells(), patch.cells(), true, base));
             mesh.setTargetDeformer(Optional.of(warp.id()));

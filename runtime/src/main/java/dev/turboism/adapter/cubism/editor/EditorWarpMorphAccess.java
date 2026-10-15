@@ -25,6 +25,7 @@ final class EditorWarpMorphAccess {
             Float opacity,
             List<Point2> controls,
             Runnable requireTransaction,
+            java.util.function.BooleanSupplier createdTargetRestored,
             Consumer<EditorUndoContribution> submit,
             Runnable refresh) {
         Objects.requireNonNull(parameterId, "parameterId");
@@ -110,11 +111,14 @@ final class EditorWarpMorphAccess {
                     },
                     () -> before.created(read.get(), parameterGuid, key, targetPoints, targetOpacity, created[0]),
                     () -> {
+                        // Native root Undo can already remove a Warp created by this same root.
+                        // The coordinator proves creation identity and recovery scope before bypassing reads.
+                        if (createdTargetRestored.getAsBoolean()) return;
                         if (!before.protectedSame(read.get()))
                             throw new IllegalStateException("Warp protection domain changed");
                         undo.restore();
                     },
-                    () -> before.sameValues(read.get()),
+                    () -> createdTargetRestored.getAsBoolean() || before.sameValues(read.get()),
                     Set.of(EditorRefreshRequirement.MARK_DIRTY)));
             return null;
         });

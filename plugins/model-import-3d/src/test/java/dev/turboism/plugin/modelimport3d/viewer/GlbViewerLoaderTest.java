@@ -365,6 +365,41 @@ public class GlbViewerLoaderTest {
                 new float[] {2, 0, 0, 3, 0, 0, 2, 1, 0}, scene.meshes().get(1).positions());
     }
 
+    @Test
+    void skinnedMorphDeltasUseJointRotationAndScaleWithoutTranslationLeak() {
+        var bin = ByteBuffer.allocate(132).order(ByteOrder.LITTLE_ENDIAN);
+        for (float v : new float[] {0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0}) bin.putFloat(v);
+        for (int i = 0; i < 12; i++) bin.put((byte) 0);
+        for (int i = 0; i < 3; i++) bin.putFloat(1).putFloat(0).putFloat(0).putFloat(0);
+        var glb = buildGlb("""
+            {"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0,1]}],
+             "nodes":[{"mesh":0,"skin":0,"weights":[0.25]},
+              {"name":"Arbitrary joint","matrix":[0,2,0,0,-3,0,0,0,0,0,4,0,7,8,9,1]}],
+             "skins":[{"joints":[1]}],"buffers":[{"byteLength":132}],
+             "bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":36},{"buffer":0,"byteOffset":36,"byteLength":36},
+              {"buffer":0,"byteOffset":72,"byteLength":12},{"buffer":0,"byteOffset":84,"byteLength":48}],
+             "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},
+              {"bufferView":1,"componentType":5126,"count":3,"type":"VEC3"},
+              {"bufferView":2,"componentType":5121,"count":3,"type":"VEC4"},
+              {"bufferView":3,"componentType":5126,"count":3,"type":"VEC4"}],
+             "meshes":[{"extras":{"targetNames":["Source shape"]},"primitives":[{
+              "attributes":{"POSITION":0,"JOINTS_0":2,"WEIGHTS_0":3},"targets":[{"POSITION":1}]}]}]}
+            """, bin.array());
+        var scene = GlbViewerLoader.loadWithSourceControls(glb, () -> false);
+        assertEquals(1, scene.controls().size());
+        var mesh = scene.meshes().get(0);
+        assertEquals("Arbitrary joint [node 1]", mesh.bodyPart());
+        assertArrayEquals(new float[] {7, 8.5f, 9, 7, 10.5f, 9, 4, 8.5f, 9}, mesh.positions(), 1e-6f);
+        assertArrayEquals(
+                new float[] {0, -.5f, 0, 0, -.5f, 0, 0, -.5f, 0},
+                mesh.controlSamples().get(0).deltas(),
+                1e-6f);
+        assertArrayEquals(
+                new float[] {0, 1.5f, 0, 0, 1.5f, 0, 0, 1.5f, 0},
+                mesh.controlSamples().get(1).deltas(),
+                1e-6f);
+    }
+
     private static byte[] buildGlb(String json, byte[] bin) {
         byte[] jsonBytes = json.getBytes(StandardCharsets.UTF_8);
         int jsonPad = (4 - (jsonBytes.length % 4)) % 4;

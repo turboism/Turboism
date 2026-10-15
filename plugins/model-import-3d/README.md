@@ -47,6 +47,8 @@ Eye, head and clothing controls are optional mappings. They are not required for
 
 Local Warp fitting currently measures a 2px residual at the neutral view. This does not establish the same accuracy at side views or for combined controls. Unsupported fits and storage limits fail explicitly. Source geometry remains intact. Cubism 5.3.04 passed the two-joint, two-shape fixture through the production menu, native pixel changes, Undo/Redo, save and fresh-process reopen. Both authoring-bank and morph digests match after reopening. This evidence does not establish arbitrary asset or all-version visual fidelity.
 
+A fixed 2D Warp is currently fitted at the neutral view. It does not rotate source depth displacements with whole-body yaw or pitch. A diagnostic triangle with a 0.2-unit depth displacement has zero neutral residual and a 28.284px projection difference at yaw or pitch ±30° under the fixed 400px-radius camera. This is a measured counterexample, not acceptance of side-view shape accuracy. Angle-conditioned corrections remain required.
+
 ## Requirements and compatibility
 
 The validated host is Cubism Editor 5.3.02 with Turboism API `[0.1.0,0.2.0)`. Open a model with a 1024×1024 canvas before importing. The menu chooses one source-derived camera and pivot to fit the model inside a 400px radius. The camera stays fixed throughout rotation. The face-color inspection mode uses ±30°; source-material mode uses XYZ full-circle ranges. Explicit probe requests retain their declared camera.
@@ -160,4 +162,3 @@ Cat 自动减面和自适应插值输出保留 512 个网格、35,397 个顶点�
 - **单一 Undo 事务原子性**：图集追加、网格 UV 绑定与参数/网格构建全部纳入现有的单一 Authoring Transaction 中。若用户取消或导入过程中任何一步失败，整笔操作原子回滚，不留下半成品参数、网格、图集或悬空页面。
 - **确认对话框展示图集规格**：导入确认窗口明确展示实际将创建的图集张数与具体尺寸（支持 6 种语言本地化同步）。
 - **源贴图与环境限制**：贴图格式支持不透明 PNG/JPEG 基础颜色（透明与凹凸暂不支持），单张贴图上限为解码后 1,048,576 像素（或宿主图集上限 4096），模型画布需为 1024×1024。若环境不支持图集追加，在产生任何模型变更前给予本地化明确拦截提示。
-
