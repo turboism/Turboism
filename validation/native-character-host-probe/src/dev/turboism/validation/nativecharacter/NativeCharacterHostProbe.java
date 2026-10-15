@@ -69,7 +69,7 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
             stage("choosing-source");
             approveFile(input, 30);
             stage("preparing-source");
-            var confirmation = awaitPane(180);
+            var confirmation = awaitPane(Integer.getInteger("turboism.character.planningTimeoutSeconds", 180));
             if (edt(confirmation::getMessageType) == JOptionPane.ERROR_MESSAGE)
                 throw new AssertionError("Import planning failed: " + edt(() -> String.valueOf(confirmation.getMessage())));
             stage("native-authoring");
@@ -79,7 +79,7 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
                 if (error != null && error.getMessageType() == JOptionPane.ERROR_MESSAGE)
                     throw new AssertionError("Native authoring failed: " + error.getMessage());
                 return ids().size() > before.size();
-            }), 360, "native model write");
+            }), Integer.getInteger("turboism.character.authoringTimeoutSeconds", 360), "native model write");
             var success = awaitPane(60);
             if (edt(success::getMessageType) == JOptionPane.ERROR_MESSAGE)
                 throw new AssertionError("Native authoring failed: " + edt(() -> String.valueOf(success.getMessage())));
@@ -97,6 +97,15 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
             for (ArtMeshId id : imported) {
                 check("atlas.binding." + id.value(), ArtMeshTextureInput.Kind.TEXTURE_ATLAS_REGION,
                         edt(() -> model().textures().textureInput(id).orElseThrow().kind()));
+            }
+            if (Boolean.getBoolean("turboism.character.manualInspection")) {
+                capture(state.resolve("manual-inspection-neutral.png"));
+                check("source.hash.unchanged", report.getProperty("source.sha256"), hash(input));
+                report.setProperty("manualInspection", "PENDING: operator checks the live imported model");
+                report.setProperty("validationScope", "import structure only; no history, pose, persistence or visual acceptance");
+                stage("manual-inspection-ready");
+                report.setProperty("status", "PASS");
+                return;
             }
             capture(state.resolve("native-before-undo.png"));
             stage("native-history");
