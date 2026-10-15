@@ -1,0 +1,13 @@
+{
+  "jobId": "f5ecbd7c-5849-4094-82ef-7aebc07eb173",
+  "preparedDigest": "e248b3b45e6cbfe03536e979416946343b1cc569c58cab98f6db8b7fcf423c33",
+  "terminalState": "succeeded",
+  "validationStatus": "PASS",
+  "cleanup": "safe",
+  "fixtureUnchanged": true,
+  "identityVerified": true,
+  "normalExit": true,
+  "runnerExitCode": 0,
+  "goldenUnchanged": true,
+  "exitMethod": "Explicit queue-owned probe JVM exit(0); native Editor close/save-prompt workflow not tested."
+}
