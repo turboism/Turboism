@@ -36,6 +36,36 @@ public interface UserFileAccessService {
     CompletionStage<UserFileReadResult<byte[]>> readBytes(UserFileHandle handle, int maxBytes);
 
     /**
+     * Reads at most {@code maxBytes} bytes from the handle's file, with a maximum
+     * request limit of 128 MiB (134,217,728 bytes).
+     *
+     * <p>A larger file returns a bounded value with {@code truncated=true}; a
+     * request above this 128 MiB limit returns {@link UserFileErrorCode#SIZE_LIMIT_EXCEEDED}.</p>
+     *
+     * <p>The default implementation provides backward compatibility: requests up to
+     * 16 MiB delegate to {@link #readBytes(UserFileHandle, int)}, while requests
+     * above 16 MiB complete with a structured unsupported error
+     * ({@link UserFileErrorCode#RUNTIME_UNAVAILABLE}). Runtimes supporting higher
+     * limits override this method.</p>
+     *
+     * @param handle the granted user-file handle
+     * @param maxBytes the maximum number of bytes to read, up to 134,217,728 (128 MiB)
+     * @return a completion stage with the read result or structured error
+     */
+    default CompletionStage<UserFileReadResult<byte[]>> readBytesBounded(
+            final UserFileHandle handle, final int maxBytes) {
+        if (maxBytes <= 16 * 1024 * 1024) {
+            return readBytes(handle, maxBytes);
+        }
+        return CompletableFuture.completedFuture(new UserFileReadResult<>(
+                Optional.empty(),
+                Optional.of(new UserFileError(
+                        UserFileErrorCode.RUNTIME_UNAVAILABLE,
+                        "user file bounded read above 16 MiB is not supported by this service")),
+                false));
+    }
+
+    /**
      * Atomically replaces the handle's file content with {@code content} as UTF-8,
      * asynchronously.
      */
@@ -87,6 +117,13 @@ public interface UserFileAccessService {
 
         @Override
         public CompletionStage<UserFileReadResult<byte[]>> readBytes(final UserFileHandle handle, final int maxBytes) {
+            return CompletableFuture.completedFuture(
+                    new UserFileReadResult<>(Optional.empty(), Optional.of(unavailable()), false));
+        }
+
+        @Override
+        public CompletionStage<UserFileReadResult<byte[]>> readBytesBounded(
+                final UserFileHandle handle, final int maxBytes) {
             return CompletableFuture.completedFuture(
                     new UserFileReadResult<>(Optional.empty(), Optional.of(unavailable()), false));
         }

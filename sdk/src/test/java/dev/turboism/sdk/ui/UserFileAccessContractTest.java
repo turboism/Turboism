@@ -1,5 +1,6 @@
 package dev.turboism.sdk.ui;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -14,6 +15,7 @@ import java.lang.reflect.Proxy;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +34,7 @@ class UserFileAccessContractTest {
                 names(UserFileErrorCode.values()));
 
         assertEquals(
-                7,
+                8,
                 Arrays.stream(UserFileAccessService.class.getDeclaredMethods())
                         .filter(method -> !method.isSynthetic())
                         .count());
@@ -40,6 +42,11 @@ class UserFileAccessContractTest {
                 CompletionStage.class,
                 UserFileAccessService.class
                         .getMethod("request", UserFileRequest.class)
+                        .getReturnType());
+        assertEquals(
+                CompletionStage.class,
+                UserFileAccessService.class
+                        .getMethod("readBytesBounded", UserFileHandle.class, int.class)
                         .getReturnType());
         assertEquals(
                 CompletionStage.class,
@@ -167,6 +174,95 @@ class UserFileAccessContractTest {
         assertEquals(
                 "user file access service is not available",
                 result.error().orElseThrow().message());
+    }
+
+    @Test
+    void defaultReadBytesBoundedDelegatesUpTo16MibAndFailsAbove() throws Exception {
+        final class MinimalService implements UserFileAccessService {
+            private int requestedBytes = -1;
+
+            @Override
+            public CompletionStage<UserFileRequestResult> request(final UserFileRequest request) {
+                return CompletableFuture.completedFuture(new UserFileRequestResult(
+                        UserFileRequestStatus.UNAVAILABLE, Optional.empty(), Optional.empty()));
+            }
+
+            @Override
+            public CompletionStage<UserFileReadResult<String>> readUtf8(
+                    final UserFileHandle handle, final int maxBytes) {
+                return CompletableFuture.completedFuture(
+                        new UserFileReadResult<>(Optional.empty(), Optional.empty(), false));
+            }
+
+            @Override
+            public CompletionStage<UserFileReadResult<byte[]>> readBytes(
+                    final UserFileHandle handle, final int maxBytes) {
+                this.requestedBytes = maxBytes;
+                return CompletableFuture.completedFuture(
+                        new UserFileReadResult<>(Optional.of(new byte[] {1, 2, 3}), Optional.empty(), false));
+            }
+
+            @Override
+            public CompletionStage<UserFileWriteResult> writeUtf8Atomic(
+                    final UserFileHandle handle, final String content) {
+                return CompletableFuture.completedFuture(new UserFileWriteResult(false, Optional.empty()));
+            }
+
+            @Override
+            public CompletionStage<UserFileWriteResult> writeBytesAtomic(
+                    final UserFileHandle handle, final byte[] content) {
+                return CompletableFuture.completedFuture(new UserFileWriteResult(false, Optional.empty()));
+            }
+        }
+
+        final MinimalService service = new MinimalService();
+        final UserFileHandle handle = new StubHandle();
+
+        final var delegated =
+                service.readBytesBounded(handle, 1024).toCompletableFuture().get();
+        assertEquals(1024, service.requestedBytes);
+        assertArrayEquals(new byte[] {1, 2, 3}, delegated.value().orElseThrow());
+
+        final var max16Mib = service.readBytesBounded(handle, 16 * 1024 * 1024)
+                .toCompletableFuture()
+                .get();
+        assertEquals(16 * 1024 * 1024, service.requestedBytes);
+        assertArrayEquals(new byte[] {1, 2, 3}, max16Mib.value().orElseThrow());
+
+        service.requestedBytes = -1;
+        final var unsupported = service.readBytesBounded(handle, 16 * 1024 * 1024 + 1)
+                .toCompletableFuture()
+                .get();
+        assertEquals(-1, service.requestedBytes);
+        assertTrue(unsupported.value().isEmpty());
+        final UserFileError error = unsupported.error().orElseThrow();
+        assertEquals(UserFileErrorCode.RUNTIME_UNAVAILABLE, error.code());
+    }
+
+    @Test
+    void unavailableSentinelReturnsStructuredErrorForReadBytesBounded() throws Exception {
+        final UserFileAccessService unavailable = UserFileAccessService.unavailable();
+        final UserFileHandle handle = new StubHandle();
+
+        final var small =
+                unavailable.readBytesBounded(handle, 1024).toCompletableFuture().get();
+        assertEquals(
+                UserFileErrorCode.RUNTIME_UNAVAILABLE,
+                small.error().orElseThrow().code());
+        assertEquals(
+                "user file access service is not available",
+                small.error().orElseThrow().message());
+
+        final var large = unavailable
+                .readBytesBounded(handle, 32 * 1024 * 1024)
+                .toCompletableFuture()
+                .get();
+        assertEquals(
+                UserFileErrorCode.RUNTIME_UNAVAILABLE,
+                large.error().orElseThrow().code());
+        assertEquals(
+                "user file access service is not available",
+                large.error().orElseThrow().message());
     }
 
     private static Object invokeDefault(final Object proxy, final Method method, final Object[] arguments)

@@ -389,6 +389,245 @@ class RuntimeUserFileAccessServiceTest {
     }
 
     @Test
+    void boundedBinaryImportSupportsUpTo128MibAndPreservesOld16MibLimit() throws Exception {
+        final int size18Mib = 18 * 1024 * 1024;
+        final byte[] largeContent = new byte[size18Mib];
+        largeContent[0] = 42;
+        largeContent[size18Mib - 1] = 99;
+        final Path selected = temporary.resolve("large.csv");
+        Files.write(selected, largeContent);
+
+        final RuntimeUserFileAccessService service =
+                service(permissions(UserFileMode.READ), UserFileGrantSource.fixedSelection(selected));
+        final UserFileHandle handle = service.request(request(UserFileMode.READ, UserFileLifetime.UNTIL_DISABLE))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .handle()
+                .orElseThrow();
+
+        // Old readBytes rejects 18 MiB request (> 16 MiB limit)
+        final var oldRejection =
+                service.readBytes(handle, size18Mib).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(
+                UserFileErrorCode.SIZE_LIMIT_EXCEEDED,
+                oldRejection.error().orElseThrow().code());
+
+        // New readBytesBounded successfully reads 18 MiB
+        final var boundedSuccess = service.readBytesBounded(handle, size18Mib)
+                .toCompletableFuture()
+                .get(5, TimeUnit.SECONDS);
+        assertTrue(boundedSuccess.error().isEmpty());
+        final byte[] readBack = boundedSuccess.value().orElseThrow();
+        assertEquals(size18Mib, readBack.length);
+        assertEquals((byte) 42, readBack[0]);
+        assertEquals((byte) 99, readBack[size18Mib - 1]);
+        assertFalse(boundedSuccess.truncated());
+
+        // readBytesBounded rejects requests > 128 MiB
+        final var overLimit = service.readBytesBounded(handle, 128 * 1024 * 1024 + 1)
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
+        assertEquals(
+                UserFileErrorCode.SIZE_LIMIT_EXCEEDED,
+                overLimit.error().orElseThrow().code());
+
+        // readBytesBounded rejects negative maxBytes with IllegalArgumentException
+        assertThrows(IllegalArgumentException.class, () -> service.readBytesBounded(handle, -1));
+    }
+
+    @Test
+    void readBytesBoundedTruncationAndBoundaryChecks() throws Exception {
+        final Path selected = temporary.resolve("sample.csv");
+        final byte[] content = new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+        Files.write(selected, content);
+
+        final RuntimeUserFileAccessService service =
+                service(permissions(UserFileMode.READ), UserFileGrantSource.fixedSelection(selected));
+        final UserFileHandle handle = service.request(request(UserFileMode.READ, UserFileLifetime.UNTIL_DISABLE))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .handle()
+                .orElseThrow();
+
+        // Truncated when maxBytes < file length
+        final var truncatedResult =
+                service.readBytesBounded(handle, 4).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertTrue(truncatedResult.truncated());
+        assertArrayEquals(new byte[] {1, 2, 3, 4}, truncatedResult.value().orElseThrow());
+
+        // Exact file length: not truncated
+        final var exactResult =
+                service.readBytesBounded(handle, 10).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertFalse(exactResult.truncated());
+        assertArrayEquals(content, exactResult.value().orElseThrow());
+
+        // Oversized maxBytes: returns full content without truncation
+        final var largerResult =
+                service.readBytesBounded(handle, 50).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertFalse(largerResult.truncated());
+        assertArrayEquals(content, largerResult.value().orElseThrow());
+
+        // 0 maxBytes: returns empty array with truncated=true
+        final var zeroResult =
+                service.readBytesBounded(handle, 0).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertTrue(zeroResult.truncated());
+        assertEquals(0, zeroResult.value().orElseThrow().length);
+    }
+
+    @Test
+    void readBytesBoundedOneOperationHandleLifecycleAndExpiration() throws Exception {
+        final Path selected = temporary.resolve("once.csv");
+        Files.write(selected, new byte[] {1, 2, 3});
+
+        final RuntimeUserFileAccessService service =
+                service(permissions(UserFileMode.READ), UserFileGrantSource.fixedSelection(selected));
+        final UserFileHandle handle = service.request(request(UserFileMode.READ, UserFileLifetime.ONE_OPERATION))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .handle()
+                .orElseThrow();
+
+        final var firstRead =
+                service.readBytesBounded(handle, 10).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertArrayEquals(new byte[] {1, 2, 3}, firstRead.value().orElseThrow());
+        assertEquals(UserFileHandleState.CLOSED, handle.state());
+
+        // Expired grant rejected by readBytesBounded
+        final var expiredBounded =
+                service.readBytesBounded(handle, 10).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(
+                UserFileErrorCode.GRANT_EXPIRED,
+                expiredBounded.error().orElseThrow().code());
+
+        // Expired grant rejected by readBytes and readUtf8
+        final var expiredLegacy =
+                service.readBytes(handle, 10).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(
+                UserFileErrorCode.GRANT_EXPIRED,
+                expiredLegacy.error().orElseThrow().code());
+
+        final var expiredUtf8 =
+                service.readUtf8(handle, 10).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(
+                UserFileErrorCode.GRANT_EXPIRED,
+                expiredUtf8.error().orElseThrow().code());
+
+        // Oversized read (> 128 MiB) on ONE_OPERATION handle consumes the grant
+        final UserFileHandle oversizedHandle = service.request(
+                        request(UserFileMode.READ, UserFileLifetime.ONE_OPERATION))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .handle()
+                .orElseThrow();
+        final var oversizedResult = service.readBytesBounded(oversizedHandle, 129 * 1024 * 1024)
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
+        assertEquals(
+                UserFileErrorCode.SIZE_LIMIT_EXCEEDED,
+                oversizedResult.error().orElseThrow().code());
+        assertEquals(UserFileHandleState.CLOSED, oversizedHandle.state());
+    }
+
+    @Test
+    void readBytesBoundedSecurityChecksAndNegativeGrants() throws Exception {
+        final Path selected = temporary.resolve("security.csv");
+        Files.write(selected, new byte[] {10, 20});
+
+        final RuntimeUserFileAccessService service =
+                service(allFilePermissions(), UserFileGrantSource.fixedSelection(selected));
+        final RuntimeUserFileAccessService secondService = new RuntimeUserFileAccessService(
+                "dev.turboism.plugin.other",
+                permissions(UserFileMode.READ),
+                UserFileGrantSource.fixedSelection(selected),
+                tasks,
+                scope);
+
+        // Forged handle rejected
+        final var forged = service.readBytesBounded(new ForgedHandle(), 16)
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
+        assertEquals(
+                UserFileErrorCode.INVALID_GRANT, forged.error().orElseThrow().code());
+
+        // Cross-plugin authorization (foreign grant) rejected
+        final UserFileHandle handle = service.request(request(UserFileMode.READ, UserFileLifetime.UNTIL_DISABLE))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .handle()
+                .orElseThrow();
+        final var foreign =
+                secondService.readBytesBounded(handle, 16).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(
+                UserFileErrorCode.FOREIGN_GRANT, foreign.error().orElseThrow().code());
+
+        // Mode mismatch: write handle rejected by readBytesBounded and remains active
+        final UserFileHandle writeHandle = service.request(request(UserFileMode.WRITE, UserFileLifetime.ONE_OPERATION))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .handle()
+                .orElseThrow();
+        final var mismatch =
+                service.readBytesBounded(writeHandle, 16).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(
+                UserFileErrorCode.MODE_MISMATCH, mismatch.error().orElseThrow().code());
+        assertEquals(
+                UserFileHandleState.ACTIVE, writeHandle.state(), "mode mismatch must not consume ONE_OPERATION grant");
+
+        // Revoked handle rejected
+        handle.revoke();
+        assertEquals(UserFileHandleState.REVOKED, handle.state());
+        final var revoked =
+                service.readBytesBounded(handle, 16).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(
+                UserFileErrorCode.GRANT_REVOKED, revoked.error().orElseThrow().code());
+
+        // Service close revokes grants
+        final UserFileHandle closeHandle = service.request(request(UserFileMode.READ, UserFileLifetime.UNTIL_DISABLE))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .handle()
+                .orElseThrow();
+        service.close();
+        assertEquals(UserFileHandleState.REVOKED, closeHandle.state());
+        final var closedResult =
+                service.readBytesBounded(closeHandle, 16).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(
+                UserFileErrorCode.GRANT_REVOKED,
+                closedResult.error().orElseThrow().code());
+    }
+
+    @Test
+    void readBytesBoundedRecordsFailureSinkWithoutExposingPaths() throws Exception {
+        final RuntimeFailureCollector failures = new RuntimeFailureCollector();
+        final Path subDir = temporary.resolve("SecretDir");
+        Files.createDirectories(subDir);
+        final Path selected = subDir.resolve("private.csv");
+        Files.write(selected, new byte[] {1, 2});
+        final RuntimeUserFileAccessService service =
+                service(permissions(UserFileMode.READ), UserFileGrantSource.fixedSelection(selected), failures);
+
+        final UserFileHandle handle = service.request(request(UserFileMode.READ, UserFileLifetime.ONE_OPERATION))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .handle()
+                .orElseThrow();
+
+        final var overLimit = service.readBytesBounded(handle, 130 * 1024 * 1024)
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
+        assertEquals(
+                UserFileErrorCode.SIZE_LIMIT_EXCEEDED,
+                overLimit.error().orElseThrow().code());
+
+        final var collected = failures.snapshot().storageFailures();
+        assertEquals(1, collected.size());
+        assertEquals("SIZE_LIMIT_EXCEEDED", collected.get(0).code());
+        assertEquals("user-file.readBytesBounded", collected.get(0).operationId());
+        assertEquals(null, collected.get(0).relativePath());
+        assertFalse(collected.get(0).message().contains("SecretDir"));
+    }
+
+    @Test
     void closeClosesOwnedGrantSourceAndFencesLateSelection() throws Exception {
         final Path selected = temporary.resolve("late.csv");
         Files.writeString(selected, "value");
