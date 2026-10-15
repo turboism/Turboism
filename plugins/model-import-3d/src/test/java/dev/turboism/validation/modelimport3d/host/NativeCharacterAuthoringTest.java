@@ -504,10 +504,18 @@ public class NativeCharacterAuthoringTest {
                 (id, index) -> {},
                 index -> new NativeCharacterAuthoring.ImageDimensions(16, 16),
                 index -> "Source",
-                index -> "Segment");
-        host.simulateLocalParentConversion = true;
-        host.simulateWarpParentInstanceReplacement = true;
-        NativeControlAuthoring.apply(model, created, scene, controls);
+                index -> "Segment",
+                geometryCreated -> {
+                    assertTrue(
+                            host.interpolations.isEmpty(),
+                            "Source control writes must precede every expensive interpolation cache");
+                    host.simulateLocalParentConversion = true;
+                    host.simulateWarpParentInstanceReplacement = true;
+                    NativeControlAuthoring.apply(model, geometryCreated, scene, controls);
+                });
+        assertEquals(2, host.interpolations.size());
+        for (var axis : List.of(geometry.request().yaw(), geometry.request().pitch()))
+            assertEquals(created.meshIds().size(), host.interpolations.get(axis).size());
         assertTrue(host.localParentConversions > 0, "Exercise native eager coordinate conversion");
         assertEquals(
                 3,

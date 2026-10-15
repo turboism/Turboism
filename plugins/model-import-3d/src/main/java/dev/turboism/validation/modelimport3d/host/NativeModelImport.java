@@ -72,10 +72,19 @@ final class NativeModelImport {
 
     static NativeCharacterAuthoring.Created assemble(
             CubismModel model, Prepared prepared, ModelTextureAtlasPlanner.PlannedAtlas atlas) {
+        return assemble(model, prepared, atlas, stage -> {});
+    }
+
+    static NativeCharacterAuthoring.Created assemble(
+            CubismModel model,
+            Prepared prepared,
+            ModelTextureAtlasPlanner.PlannedAtlas atlas,
+            java.util.function.Consumer<String> progress) {
+        progress.accept("source-geometry");
         Map<String, ModelImageBinding> sources = new LinkedHashMap<>();
         Map<ArtMeshId, ModelImageBinding> meshes = new LinkedHashMap<>();
         var materials = prepared.materials();
-        var created = NativeCharacterAuthoring.assemble(
+        return NativeCharacterAuthoring.assemble(
                 model,
                 prepared.geometry(),
                 (meshId, sourceIndex) -> {
@@ -97,9 +106,13 @@ final class NativeModelImport {
                     return new NativeCharacterAuthoring.ImageDimensions(image.width(), image.height());
                 },
                 sourceIndex -> materials.scene().meshes().get(sourceIndex).appearanceGroup(),
-                sourceIndex -> materials.scene().meshes().get(sourceIndex).bodyPart());
-        ModelTextureAtlasAuthoring.apply(model, created.meshIds(), sources, meshes, atlas);
-        NativeControlAuthoring.apply(model, created, materials.scene(), prepared.controls());
-        return created;
+                sourceIndex -> materials.scene().meshes().get(sourceIndex).bodyPart(),
+                created -> {
+                    progress.accept("texture-atlas");
+                    ModelTextureAtlasAuthoring.apply(model, created.meshIds(), sources, meshes, atlas);
+                    progress.accept("source-controls");
+                    NativeControlAuthoring.apply(model, created, materials.scene(), prepared.controls(), progress);
+                    progress.accept("rotation-interpolation-cache");
+                });
     }
 }
