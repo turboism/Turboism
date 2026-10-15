@@ -21,6 +21,12 @@ public final class AuthorizedImageContent {
     public static final int MAX_PNG_BYTES = 8 * 1024 * 1024;
     /** Maximum decoded RGBA expansion in bytes. */
     public static final int MAX_RGBA_BYTES = 4 * 1024 * 1024;
+    /** Maximum PNG container size for explicitly bounded large model images. */
+    public static final int MAX_BOUNDED_PNG_BYTES = 128 * 1024 * 1024;
+    /** Maximum decoded RGBA expansion for a bounded image, including 4096 by 4096. */
+    public static final int MAX_BOUNDED_RGBA_BYTES = 64 * 1024 * 1024;
+    /** Maximum single dimension for a bounded model image. */
+    public static final int MAX_BOUNDED_DIMENSION = 8192;
     /** Required decoded width in pixels for this slice. */
     public static final int REQUIRED_WIDTH = 256;
     /** Required decoded height in pixels for this slice. */
@@ -66,18 +72,45 @@ public final class AuthorizedImageContent {
      */
     public static AuthorizedImageContent ofDimensions(
             final byte[] pngBytes, final String sourceDescription, final int width, final int height) {
-        if (width <= 0 || height <= 0 || (long) width * height > MAX_RGBA_BYTES / 4L) {
+        return create(pngBytes, sourceDescription, width, height, MAX_PNG_BYTES, MAX_RGBA_BYTES);
+    }
+
+    /**
+     * Authorizes one large model image without changing the legacy image budget.
+     * The container is bounded to 128 MiB and decoded RGBA to 64 MiB. Each dimension
+     * is at most 8192 pixels. Dimensions are checked before copying or native decode.
+     * Registration retains the same single-use, permission and transaction rules.
+     *
+     * @throws IllegalArgumentException if dimensions or container exceed these budgets
+     */
+    public static AuthorizedImageContent ofDimensionsBounded(
+            final byte[] pngBytes, final String sourceDescription, final int width, final int height) {
+        if (width > MAX_BOUNDED_DIMENSION || height > MAX_BOUNDED_DIMENSION) {
+            throw new IllegalArgumentException("image dimensions exceed the bounded model-image limit");
+        }
+        return create(pngBytes, sourceDescription, width, height, MAX_BOUNDED_PNG_BYTES, MAX_BOUNDED_RGBA_BYTES);
+    }
+
+    private static AuthorizedImageContent create(
+            final byte[] pngBytes,
+            final String sourceDescription,
+            final int width,
+            final int height,
+            final int maximumPngBytes,
+            final int maximumRgbaBytes) {
+        if (width <= 0 || height <= 0 || (long) width * height > maximumRgbaBytes / 4L) {
             throw new IllegalArgumentException("image dimensions must be positive within the RGBA budget");
         }
-        final byte[] copy = Objects.requireNonNull(pngBytes, "pngBytes").clone();
-        if (copy.length == 0) {
+        Objects.requireNonNull(pngBytes, "pngBytes");
+        if (pngBytes.length == 0) {
             throw new IllegalArgumentException("image content must not be empty");
         }
-        if (copy.length > MAX_PNG_BYTES) {
+        if (pngBytes.length > maximumPngBytes) {
             throw new IllegalArgumentException(
-                    "image content exceeds the " + MAX_PNG_BYTES + "-byte PNG container budget");
+                    "image content exceeds the " + maximumPngBytes + "-byte PNG container budget");
         }
-        validatePngHeader(copy, width, height);
+        final byte[] copy = pngBytes.clone();
+        validatePngHeader(copy, width, height, maximumRgbaBytes);
         final String description = Objects.requireNonNull(sourceDescription, "sourceDescription");
         if (description.length() > 256) {
             throw new IllegalArgumentException("sourceDescription must not exceed 256 characters");
@@ -89,7 +122,8 @@ public final class AuthorizedImageContent {
     }
 
     /** Validates the PNG signature and IHDR dimensions without decoding. */
-    private static void validatePngHeader(final byte[] bytes, final int expectedWidth, final int expectedHeight) {
+    private static void validatePngHeader(
+            final byte[] bytes, final int expectedWidth, final int expectedHeight, final int maximumRgbaBytes) {
         if (bytes.length < IHDR_OFFSET + 8 + IHDR_LENGTH) {
             throw new IllegalArgumentException("image content is not a well-formed PNG");
         }
@@ -112,8 +146,8 @@ public final class AuthorizedImageContent {
             throw new IllegalArgumentException(
                     "image dimensions must match declared " + expectedWidth + "x" + expectedHeight);
         }
-        if ((long) width * height * 4L > MAX_RGBA_BYTES) {
-            throw new IllegalArgumentException("decoded image exceeds the " + MAX_RGBA_BYTES + "-byte RGBA budget");
+        if ((long) width * height * 4L > maximumRgbaBytes) {
+            throw new IllegalArgumentException("decoded image exceeds the " + maximumRgbaBytes + "-byte RGBA budget");
         }
     }
 
