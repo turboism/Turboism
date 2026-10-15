@@ -21,6 +21,7 @@ When Cubism runs under a FREE licence, saving is subject to the FREE parameter-c
 | `cubism-tab-filter` | all reviewed versions | — | — |
 | `demo` | all reviewed versions | — | — |
 | `external-psd-edit` | all reviewed versions | Export PSD raw image only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）<br>Replace PSD raw image only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely） | host-verified 5.3.02 |
+| `frame-animation-import` | all reviewed versions | Part opacity writes only on 5.3.00–5.3.04（[Cubism 5.3.00 added Part offscreen drawing (part opacity and clipping masks)](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)） | — |
 | `history-panel` | all reviewed versions | — | — |
 | `mcp` | all reviewed versions | full feature set requires 5.1.00+<br>Top menu integration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）<br>MCP editor command execution not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）<br>MCP editor-command listing not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely） | host-verified 5.2.00–5.3.01, 5.3.03–5.3.04<br>confirmed boundary 5.0.00, 5.0.02, 5.0.06–5.1.00, 5.1.03 |
 | `mesh-edit-mirror-axis-enhance` | all reviewed versions | full feature set requires 5.2.00+<br>Mesh geometry read only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely） | — |
