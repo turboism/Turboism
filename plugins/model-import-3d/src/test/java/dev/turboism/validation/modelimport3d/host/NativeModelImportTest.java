@@ -12,6 +12,29 @@ import org.junit.jupiter.api.Test;
 
 /** End-to-end pure production preparation; private assets must be explicitly configured. */
 class NativeModelImportTest {
+    @Test
+    void selectedFilenameScopesParameterIdsAndRepeatedImportsStayDistinct() {
+        var base = new SurfaceImport.Request(
+                "Original",
+                new ParameterId("Yaw"),
+                new ParameterId("Pitch"),
+                new SurfaceProjection.Camera(512, 512, 200, new SurfaceProjection.Vertex(0, 0, 0)),
+                180,
+                180,
+                SurfaceImportPlan.MAX_PROJECTED_VERTICES,
+                Optional.of(new ParameterId("Roll")));
+        var first = ModelImportPlugin.requestForFile(base, "Laevatein Surtr.v1.blend", "abc123");
+        var second = ModelImportPlugin.requestForFile(base, "Laevatein Surtr.v1.blend", "def456");
+        assertEquals("Laevatein Surtr.v1", first.name());
+        assertEquals("Param3D_Laevatein_Surtr_v1_abc123_Yaw", first.yaw().value());
+        assertTrue(first.pitch().value().matches("[A-Za-z][A-Za-z0-9_]*"));
+        assertNotEquals(first.yaw(), second.yaw());
+        assertNotEquals(first.pitch(), second.pitch());
+        assertNotEquals(first.roll(), second.roll());
+        assertEquals(
+                "人物", ModelImportPlugin.requestForFile(base, "人物.glb", "abc123").name());
+    }
+
     private record Face(int mesh, int a, int b, int c) {}
 
     @Test

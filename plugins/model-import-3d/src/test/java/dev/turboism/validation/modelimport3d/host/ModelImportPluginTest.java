@@ -89,6 +89,7 @@ class ModelImportPluginTest {
         }
 
         final UserFileHandle handle = proxy(UserFileHandle.class, (o, m, a) -> {
+            if (m.getName().equals("displayName")) return "Selected model.glb";
             if (m.getName().equals("close")) {
                 closed.incrementAndGet();
                 return null;

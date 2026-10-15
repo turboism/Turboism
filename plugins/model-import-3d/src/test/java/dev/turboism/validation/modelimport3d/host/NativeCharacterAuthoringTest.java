@@ -46,6 +46,7 @@ public class NativeCharacterAuthoringTest {
 
     static final class TestModelHost {
         final List<ParameterDefinition> parameters = new ArrayList<>();
+        final Map<ParameterId, Optional<ParameterGroupId>> parameterFolders = new LinkedHashMap<>();
         final Map<ArtMeshId, MeshRecord> meshes = new LinkedHashMap<>();
         final Map<PartId, PartRecord> parts = new LinkedHashMap<>();
         final Map<DeformerId, RotationRecord> rotations = new LinkedHashMap<>();
@@ -232,7 +233,12 @@ public class NativeCharacterAuthoringTest {
                             });
                         }
                         case "createMany" -> {
-                            parameters.addAll((List<ParameterDefinition>) pa[0]);
+                            var definitions = (List<ParameterDefinition>) pa[0];
+                            parameters.addAll(definitions);
+                            for (var definition : definitions)
+                                parameterFolders.put(
+                                        definition.id(),
+                                        pa.length == 2 ? (Optional<ParameterGroupId>) pa[1] : Optional.empty());
                             yield List.of();
                         }
                         default -> throw new AssertionError(pm.toString());
@@ -498,6 +504,7 @@ public class NativeCharacterAuthoringTest {
         var controls = NativeControlWarpPlan.prepare(scene, geometry);
         var host = new TestModelHost();
         var model = host.model();
+        var folder = Optional.of(new ParameterGroupId("ImportedFile"));
         var created = NativeCharacterAuthoring.assemble(
                 model,
                 geometry,
@@ -511,8 +518,21 @@ public class NativeCharacterAuthoringTest {
                             "Source control writes must precede every expensive interpolation cache");
                     host.simulateLocalParentConversion = true;
                     host.simulateWarpParentInstanceReplacement = true;
-                    NativeControlAuthoring.apply(model, geometryCreated, scene, controls);
-                });
+                    NativeControlAuthoring.apply(
+                            model,
+                            geometryCreated,
+                            scene,
+                            controls,
+                            stage -> {},
+                            folder,
+                            "Param3D_Generic_unique_Control_");
+                },
+                folder);
+        assertEquals(host.parameters.size(), host.parameterFolders.size());
+        assertTrue(host.parameterFolders.values().stream().allMatch(folder::equals));
+        assertTrue(host.parameters.stream()
+                .filter(p -> p.type() == ParameterType.BLEND_SHAPE)
+                .allMatch(p -> p.id().value().startsWith("Param3D_Generic_unique_Control_")));
         assertEquals(2, host.interpolations.size());
         for (var axis : List.of(geometry.request().yaw(), geometry.request().pitch()))
             assertEquals(created.meshIds().size(), host.interpolations.get(axis).size());
