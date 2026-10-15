@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.frame-animation-import
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: modeling
 tags: animation, frame-animation, sprite-sheet, parameter
 turboismApi: "[0.1.0,0.2.0)"
@@ -14,7 +14,7 @@ interface: swing
 
 # コマアニメーションインポート (Frame Animation Import)
 
-> **Turboism 公式プラグイン** · **ステータス: 開発中 (Development)**
+> **Turboism 公式プラグイン** · **ステータス: プレビュー (Preview)**
 
 スプライトシートまたは連番画像からコマアニメーションをインポートし、自動的にアートメッシュを生成し、専用パラメータのキーフォーム表示（不透明度）を設定します。
 
@@ -52,7 +52,7 @@ interface: swing
 
 ## インストールと有効化
 
-本プラグインは現在開発段階です。`./gradlew :plugins:frame-animation-import:jar` でビルドした JAR ファイルを `plugins/` フォルダに配置し、**プラグイン管理** から有効化してください。
+本公式プラグインは**ストア候補 (Store Candidate)** です。マーケットプレイスでの正式公開までは、Turboism の公式リリースパッケージからインストールし、**プラグイン管理** で有効化してください。ワークフローが不要になった場合は、同画面から無効化またはアンインストールできます。
 
 ## 使い方
 
@@ -97,7 +97,7 @@ interface: swing
 
 ## 状態と制限
 
-- **ステータス:** 開発中 (Development)。
+- **ステータス:** プレビュー (Preview)。
 - Cubism のモデルドキュメントが開かれている必要があります。
 - 単一フレームが 4MB RGBA 予算を超える場合は自動的に高品質リサイズされます。
 - ヘッドレス環境ではダイアログは表示されません。
