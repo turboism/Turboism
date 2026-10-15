@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -18,6 +19,8 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.function.BooleanSupplier;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 
 /**
  * High-performance GLB 2.0 loader for humanoid and 3D scenes.
@@ -40,6 +43,7 @@ public final class GlbViewerLoader {
     private static final int MAX_VERTICES = 1_000_000;
     private static final int MAX_TRIANGLES = 2_000_000;
     private static final int MAX_NODES = 10_000;
+    private static final int MAX_NODE_DEPTH = 64;
 
     private static final Set<String> SUPPORTED_EXTENSIONS = Set.of(
             "KHR_materials_unlit",
@@ -80,8 +84,8 @@ public final class GlbViewerLoader {
         }
 
         final long declaredLength = getIntLE(glb, 8) & 0xFFFFFFFFL;
-        if (declaredLength > glb.length || declaredLength < 20) {
-            throw new IllegalArgumentException("Invalid GLB declared length: " + declaredLength + " (actual: " + glb.length + ")");
+        if (declaredLength != glb.length) {
+            throw new IllegalArgumentException("GLB declared length mismatch: declared=" + declaredLength + " actual=" + glb.length);
         }
 
         // Chunk 0: JSON
@@ -90,8 +94,8 @@ public final class GlbViewerLoader {
         if (c0Type != CHUNK_TYPE_JSON) {
             throw new IllegalArgumentException("First GLB chunk must be JSON (0x4E4F534A), found: 0x" + Integer.toHexString(c0Type));
         }
-        if (c0Len < 0 || 20L + c0Len > glb.length) {
-            throw new IllegalArgumentException("JSON chunk exceeds GLB boundaries: length=" + c0Len);
+        if (c0Len < 0 || 20L + c0Len > declaredLength) {
+            throw new IllegalArgumentException("JSON chunk exceeds GLB boundaries: length=" + c0Len + " declaredLength=" + declaredLength);
         }
 
         checkCancelled(cancelled);
@@ -113,13 +117,13 @@ public final class GlbViewerLoader {
         if ((c1HeaderOffset % 4) != 0) {
             c1HeaderOffset += (4 - (c1HeaderOffset % 4));
         }
-        if (c1HeaderOffset + 8 <= glb.length) {
+        if (c1HeaderOffset + 8 <= declaredLength) {
             final int c1Len = getIntLE(glb, c1HeaderOffset);
             final int c1Type = getIntLE(glb, c1HeaderOffset + 4);
             if (c1Type == CHUNK_TYPE_BIN) {
                 final int binStart = c1HeaderOffset + 8;
-                if (c1Len < 0 || (long) binStart + c1Len > glb.length) {
-                    throw new IllegalArgumentException("BIN chunk exceeds GLB boundaries: length=" + c1Len);
+                if (c1Len < 0 || (long) binStart + c1Len > declaredLength) {
+                    throw new IllegalArgumentException("BIN chunk exceeds GLB boundaries: length=" + c1Len + " declaredLength=" + declaredLength);
                 }
                 binData = Arrays.copyOfRange(glb, binStart, binStart + c1Len);
             }
@@ -165,7 +169,7 @@ public final class GlbViewerLoader {
         final List<BufferView> bufferViews = parseBufferViews(asList(root.get("bufferViews")), binData.length);
 
         // Parse Accessors
-        final List<Accessor> accessors = parseAccessors(asList(root.get("accessors")), bufferViews);
+        final List<Accessor> accessors = parseAccessors(asList(root.get("accessors")), bufferViews, binData.length);
 
         checkCancelled(cancelled);
 
@@ -191,7 +195,6 @@ public final class GlbViewerLoader {
         final List<?> scenesJson = asList(root.get("scenes"));
         int defaultSceneIdx = getInt(root, "scene", 0);
         if (scenesJson == null || scenesJson.isEmpty()) {
-            // Empty scene
             return new ViewerScene(
                     List.of(), materials, textures,
                     new ViewerScene.Bounds(0, 0, 0, 0, 0, 0),
@@ -205,7 +208,7 @@ public final class GlbViewerLoader {
         final Map<?, ?> sceneMap = (Map<?, ?>) scenesJson.get(defaultSceneIdx);
         final List<?> rootNodeIndices = asList(sceneMap.get("nodes"));
 
-        // Compute world transforms for all nodes with cycle detection
+        // Compute world transforms for all nodes with cycle detection and depth budget
         final float[][] worldMatrices = new float[nodeCount][16];
         final boolean[] visited = new boolean[nodeCount];
         final boolean[] visiting = new boolean[nodeCount];
@@ -216,7 +219,7 @@ public final class GlbViewerLoader {
                 if (rObj instanceof Number rNum) {
                     final int rootIdx = rNum.intValue();
                     if (rootIdx >= 0 && rootIdx < nodeCount) {
-                        computeWorldTransforms(rootIdx, identity, nodes, worldMatrices, visited, visiting);
+                        computeWorldTransforms(rootIdx, identity, nodes, worldMatrices, visited, visiting, 0);
                     }
                 }
             }
@@ -289,7 +292,11 @@ public final class GlbViewerLoader {
                     if (meshWeights != null) {
                         defaultWeights = new float[meshWeights.size()];
                         for (int w = 0; w < meshWeights.size(); w++) {
-                            defaultWeights[w] = ((Number) meshWeights.get(w)).floatValue();
+                            float weightVal = ((Number) meshWeights.get(w)).floatValue();
+                            if (Float.isNaN(weightVal) || Float.isInfinite(weightVal)) {
+                                throw new IllegalArgumentException("Invalid morph weight in mesh " + node.meshIndex);
+                            }
+                            defaultWeights[w] = weightVal;
                         }
                     } else {
                         defaultWeights = null;
@@ -382,13 +389,15 @@ public final class GlbViewerLoader {
                         applyNodeTransform(positions, normals, nodeWorldMatrix, vertexCount, worldPositions, worldNormals);
                     }
 
-                    // Update AABB bounds
+                    // Update AABB bounds and validate against NaN/Infinity
                     for (int v = 0; v < vertexCount; v++) {
                         final float px = worldPositions[v * 3];
                         final float py = worldPositions[v * 3 + 1];
                         final float pz = worldPositions[v * 3 + 2];
-                        if (Float.isNaN(px) || Float.isNaN(py) || Float.isNaN(pz)) {
-                            throw new IllegalArgumentException("NaN position encountered during world transform");
+                        if (Float.isNaN(px) || Float.isInfinite(px) ||
+                            Float.isNaN(py) || Float.isInfinite(py) ||
+                            Float.isNaN(pz) || Float.isInfinite(pz)) {
+                            throw new IllegalArgumentException("NaN or Infinity position encountered during world transform");
                         }
                         if (px < minX) minX = px;
                         if (px > maxX) maxX = px;
@@ -522,30 +531,47 @@ public final class GlbViewerLoader {
             }
 
             final ByteArrayInputStream bais = new ByteArrayInputStream(binData, bv.byteOffset, bv.byteLength);
-            final BufferedImage img;
-            try {
-                img = ImageIO.read(bais);
+            try (ImageInputStream iis = ImageIO.createImageInputStream(bais)) {
+                if (iis == null) {
+                    throw new IllegalArgumentException("Failed to create ImageInputStream for image " + i);
+                }
+                final Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
+                if (!readers.hasNext()) {
+                    throw new IllegalArgumentException("Unsupported image format for image " + i);
+                }
+                final ImageReader reader = readers.next();
+                try {
+                    final String format = reader.getFormatName().toUpperCase();
+                    if (!format.equals("PNG") && !format.equals("JPEG")) {
+                        throw new IllegalArgumentException("Only PNG and JPEG images are supported, found: " + format);
+                    }
+                    reader.setInput(iis, true, true);
+                    final int w = reader.getWidth(0);
+                    final int h = reader.getHeight(0);
+                    if (w <= 0 || h <= 0 || w > MAX_IMAGE_DIM || h > MAX_IMAGE_DIM) {
+                        throw new IllegalArgumentException("Image " + i + " dimension exceeds limit: " + w + "x" + h);
+                    }
+
+                    final long imagePixels = (long) w * h;
+                    if (cumulativePixels + imagePixels > MAX_CUMULATIVE_PIXELS) {
+                        throw new IllegalArgumentException("Cumulative decoded pixels exceed budget of " + MAX_CUMULATIVE_PIXELS + ": " + (cumulativePixels + imagePixels));
+                    }
+
+                    final BufferedImage img = reader.read(0);
+                    if (img == null) {
+                        throw new IllegalArgumentException("Failed to decode image " + i);
+                    }
+
+                    cumulativePixels += imagePixels;
+                    final int[] argb = new int[w * h];
+                    img.getRGB(0, 0, w, h, argb, 0, w);
+                    textures.add(new ViewerScene.Texture(w, h, argb));
+                } finally {
+                    reader.dispose();
+                }
             } catch (IOException e) {
-                throw new IllegalArgumentException("Failed to decode image " + i, e);
+                throw new IllegalArgumentException("Failed to read image " + i, e);
             }
-            if (img == null) {
-                throw new IllegalArgumentException("Failed to decode image " + i + ": unsupported format");
-            }
-
-            final int w = img.getWidth();
-            final int h = img.getHeight();
-            if (w <= 0 || h <= 0 || w > MAX_IMAGE_DIM || h > MAX_IMAGE_DIM) {
-                throw new IllegalArgumentException("Image " + i + " dimension exceeds limit: " + w + "x" + h);
-            }
-
-            cumulativePixels += (long) w * h;
-            if (cumulativePixels > MAX_CUMULATIVE_PIXELS) {
-                throw new IllegalArgumentException("Cumulative decoded pixels exceed budget of " + MAX_CUMULATIVE_PIXELS + ": " + cumulativePixels);
-            }
-
-            final int[] argb = new int[w * h];
-            img.getRGB(0, 0, w, h, argb, 0, w);
-            textures.add(new ViewerScene.Texture(w, h, argb));
         }
 
         return textures;
@@ -655,12 +681,15 @@ public final class GlbViewerLoader {
             if (byteOffset < 0 || byteLength < 0 || (long) byteOffset + byteLength > binLength) {
                 throw new IllegalArgumentException("BufferView " + i + " out of bounds");
             }
+            if (byteStride != 0 && (byteStride < 4 || byteStride > 252 || byteStride % 4 != 0)) {
+                throw new IllegalArgumentException("BufferView " + i + " invalid byteStride: " + byteStride);
+            }
             bvs.add(new BufferView(buffer, byteOffset, byteLength, byteStride));
         }
         return bvs;
     }
 
-    private static List<Accessor> parseAccessors(final List<?> accessorsJson, final List<BufferView> bufferViews) {
+    private static List<Accessor> parseAccessors(final List<?> accessorsJson, final List<BufferView> bufferViews, final int binLength) {
         if (accessorsJson == null) {
             return List.of();
         }
@@ -672,8 +701,14 @@ public final class GlbViewerLoader {
                 throw new IllegalArgumentException("Accessor " + i + " references invalid bufferView: " + bvIdx);
             }
             final int byteOffset = getInt(accMap, "byteOffset", 0);
+            if (byteOffset < 0) {
+                throw new IllegalArgumentException("Accessor " + i + " byteOffset is negative: " + byteOffset);
+            }
             final int componentType = getInt(accMap, "componentType", 0);
             final int count = getInt(accMap, "count", 0);
+            if (count < 0) {
+                throw new IllegalArgumentException("Accessor " + i + " count is negative: " + count);
+            }
             final String type = getString(accMap, "type", "SCALAR");
             final boolean normalized = getBoolean(accMap, "normalized", false);
             final int numComponents = switch (type) {
@@ -684,6 +719,29 @@ public final class GlbViewerLoader {
                 case "MAT4" -> 16;
                 default -> throw new IllegalArgumentException("Unsupported accessor type: " + type);
             };
+
+            final int compSize = componentSize(componentType);
+            if (byteOffset % compSize != 0) {
+                throw new IllegalArgumentException("Accessor " + i + " byteOffset " + byteOffset + " is not aligned to componentSize " + compSize);
+            }
+
+            final BufferView bv = bufferViews.get(bvIdx);
+            final int elementSize = numComponents * compSize;
+            final int effectiveStride = bv.byteStride != 0 ? bv.byteStride : elementSize;
+            if (effectiveStride < elementSize) {
+                throw new IllegalArgumentException("Accessor " + i + " elementSize " + elementSize + " exceeds stride " + effectiveStride);
+            }
+
+            if (count > 0) {
+                final long requiredBytes = (long) byteOffset + (long) (count - 1) * effectiveStride + elementSize;
+                if (requiredBytes > bv.byteLength) {
+                    throw new IllegalArgumentException("Accessor " + i + " exceeds bufferView " + bvIdx + ": required=" + requiredBytes + " length=" + bv.byteLength);
+                }
+                if ((long) bv.byteOffset + requiredBytes > binLength) {
+                    throw new IllegalArgumentException("Accessor " + i + " exceeds binary chunk length");
+                }
+            }
+
             accs.add(new Accessor(bvIdx, byteOffset, componentType, count, type, numComponents, normalized));
         }
         return accs;
@@ -716,7 +774,11 @@ public final class GlbViewerLoader {
             if (weightsList != null) {
                 weights = new float[weightsList.size()];
                 for (int w = 0; w < weightsList.size(); w++) {
-                    weights[w] = ((Number) weightsList.get(w)).floatValue();
+                    float weightVal = ((Number) weightsList.get(w)).floatValue();
+                    if (Float.isNaN(weightVal) || Float.isInfinite(weightVal)) {
+                        throw new IllegalArgumentException("Invalid morph weight in node " + i);
+                    }
+                    weights[w] = weightVal;
                 }
             } else {
                 weights = null;
@@ -762,7 +824,11 @@ public final class GlbViewerLoader {
             final List<NodeDef> nodes,
             final float[][] worldMatrices,
             final boolean[] visited,
-            final boolean[] visiting) {
+            final boolean[] visiting,
+            final int depth) {
+        if (depth > MAX_NODE_DEPTH) {
+            throw new IllegalArgumentException("Node hierarchy depth exceeds limit of " + MAX_NODE_DEPTH + " at node " + nodeIdx);
+        }
         if (visiting[nodeIdx]) {
             throw new IllegalArgumentException("Illegal cycle detected in scene nodes at node " + nodeIdx);
         }
@@ -777,7 +843,7 @@ public final class GlbViewerLoader {
 
         for (int childIdx : node.children) {
             if (childIdx >= 0 && childIdx < nodes.size()) {
-                computeWorldTransforms(childIdx, world, nodes, worldMatrices, visited, visiting);
+                computeWorldTransforms(childIdx, world, nodes, worldMatrices, visited, visiting, depth + 1);
             }
         }
 
@@ -820,7 +886,11 @@ public final class GlbViewerLoader {
                 for (int j = 0; j < jointCount; j++) {
                     final int off = bv.byteOffset + ibmAcc.byteOffset + j * stride;
                     for (int m = 0; m < 16; m++) {
-                        ibms[j][m] = Float.intBitsToFloat(getIntLE(binData, off + m * 4));
+                        float val = Float.intBitsToFloat(getIntLE(binData, off + m * 4));
+                        if (Float.isNaN(val) || Float.isInfinite(val)) {
+                            throw new IllegalArgumentException("NaN or Infinity in inverseBindMatrices at skin " + sIdx + " joint " + j);
+                        }
+                        ibms[j][m] = val;
                     }
                 }
             } else {
@@ -867,6 +937,13 @@ public final class GlbViewerLoader {
             float w1 = weights[v4 + 1];
             float w2 = weights[v4 + 2];
             float w3 = weights[v4 + 3];
+
+            if (Float.isNaN(w0) || Float.isInfinite(w0) ||
+                Float.isNaN(w1) || Float.isInfinite(w1) ||
+                Float.isNaN(w2) || Float.isInfinite(w2) ||
+                Float.isNaN(w3) || Float.isInfinite(w3)) {
+                throw new IllegalArgumentException("NaN or Infinity in vertex skin weights at vertex " + v);
+            }
 
             final float sumW = w0 + w1 + w2 + w3;
             if (sumW > 0.0f && Math.abs(sumW - 1.0f) > 1e-4f) {
@@ -1108,7 +1185,7 @@ public final class GlbViewerLoader {
 
     private static float readNormalizedFloat(
             final byte[] b, final int off, final int componentType, final boolean normalized) {
-        return switch (componentType) {
+        final float val = switch (componentType) {
             case 5126 -> Float.intBitsToFloat(getIntLE(b, off)); // FLOAT
             case 5120 -> normalized ? Math.max(-1.0f, (float) b[off] / 127.0f) : (float) b[off]; // BYTE
             case 5121 -> normalized ? (float) (b[off] & 0xFF) / 255.0f : (float) (b[off] & 0xFF); // UBYTE
@@ -1117,6 +1194,10 @@ public final class GlbViewerLoader {
             case 5125 -> (float) ((long) getIntLE(b, off) & 0xFFFFFFFFL); // UINT
             default -> throw new IllegalArgumentException("Unknown componentType: " + componentType);
         };
+        if (Float.isNaN(val) || Float.isInfinite(val)) {
+            throw new IllegalArgumentException("NaN or Infinity encountered in normalized float");
+        }
+        return val;
     }
 
     private static int componentSize(final int componentType) {
@@ -1132,6 +1213,19 @@ public final class GlbViewerLoader {
             final float tx, final float ty, final float tz,
             float qx, float qy, float qz, float qw,
             final float sx, final float sy, final float sz) {
+        if (Float.isNaN(tx) || Float.isInfinite(tx) ||
+            Float.isNaN(ty) || Float.isInfinite(ty) ||
+            Float.isNaN(tz) || Float.isInfinite(tz) ||
+            Float.isNaN(qx) || Float.isInfinite(qx) ||
+            Float.isNaN(qy) || Float.isInfinite(qy) ||
+            Float.isNaN(qz) || Float.isInfinite(qz) ||
+            Float.isNaN(qw) || Float.isInfinite(qw) ||
+            Float.isNaN(sx) || Float.isInfinite(sx) ||
+            Float.isNaN(sy) || Float.isInfinite(sy) ||
+            Float.isNaN(sz) || Float.isInfinite(sz)) {
+            throw new IllegalArgumentException("NaN or Infinity in node TRS parameters");
+        }
+
         final float qLen = (float) Math.sqrt(qx * qx + qy * qy + qz * qz + qw * qw);
         if (qLen > 0.0f) {
             final float invQ = 1.0f / qLen;
