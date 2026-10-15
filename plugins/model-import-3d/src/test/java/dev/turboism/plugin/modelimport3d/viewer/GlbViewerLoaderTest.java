@@ -7,7 +7,6 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -25,19 +24,47 @@ public class GlbViewerLoaderTest {
 
     @Test
     void rejectsInvalidMagic() {
-        byte[] invalidMagic = createGlbHeader(0x12345678, 2, 100);
+        byte[] invalidMagic = createGlbHeader(0x12345678, 2, 20);
         assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(invalidMagic, () -> false));
     }
 
     @Test
     void rejectsUnsupportedVersion() {
-        byte[] invalidVersion = createGlbHeader(0x46546C67, 1, 100);
+        byte[] invalidVersion = createGlbHeader(0x46546C67, 1, 20);
         assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(invalidVersion, () -> false));
     }
 
     @Test
+    void rejectsOversizedDeclaredLengthHeader() {
+        // Actual byte length is 20, declared length is 1000
+        byte[] glb = createGlbHeader(0x46546C67, 2, 1000);
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
+        assertTrue(ex.getMessage().contains("declared length mismatch"));
+    }
+
+    @Test
+    void rejectsUndersizedDeclaredLengthHeaderWithTrailingBytes() {
+        // Actual byte length is 24, declared length is 20
+        ByteBuffer buf = ByteBuffer.allocate(24).order(ByteOrder.LITTLE_ENDIAN);
+        buf.putInt(0x46546C67);
+        buf.putInt(2);
+        buf.putInt(20); // Declared 20, actual 24
+        buf.putInt(0);
+        buf.putInt(0x4E4F534A);
+        buf.putInt(0x12345678); // Trailing junk
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(buf.array(), () -> false));
+        assertTrue(ex.getMessage().contains("declared length mismatch"));
+    }
+
+    @Test
+    void rejectsDeclaredLengthExceedingBudget() {
+        byte[] glb = createGlbHeader(0x46546C67, 2, (int) (257 * 1024 * 1024L));
+        assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
+    }
+
+    @Test
     void respectsCancellationImmediately() {
-        byte[] dummy = createGlbHeader(0x46546C67, 2, 100);
+        byte[] dummy = createGlbHeader(0x46546C67, 2, 20);
         assertThrows(CancellationException.class, () -> GlbViewerLoader.load(dummy, () -> true));
     }
 
@@ -74,6 +101,27 @@ public class GlbViewerLoaderTest {
     }
 
     @Test
+    void rejectsNodeDepthExceedingLimit() {
+        // Chain 70 nodes deep (limit is 64)
+        StringBuilder nodes = new StringBuilder("[");
+        for (int i = 0; i < 70; i++) {
+            if (i > 0) nodes.append(",");
+            nodes.append("{\"name\":\"n").append(i).append("\",\"children\":[")
+                    .append(i < 69 ? (i + 1) : "")
+                    .append("]}");
+        }
+        nodes.append("]");
+
+        String json = "{\"asset\":{\"version\":\"2.0\"}," +
+                "\"scene\":0,\"scenes\":[{\"nodes\":[0]}]," +
+                "\"nodes\":" + nodes + "," +
+                "\"meshes\":[]}";
+        byte[] glb = buildGlb(json, new byte[0]);
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
+        assertTrue(ex.getMessage().contains("depth exceeds limit"));
+    }
+
+    @Test
     void rejectsExternalUriInBuffer() {
         String json = "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"uri\":\"http://example.com/model.bin\",\"byteLength\":100}]}";
         byte[] glb = buildGlb(json, new byte[0]);
@@ -87,6 +135,18 @@ public class GlbViewerLoaderTest {
         byte[] glb = buildGlb(json, new byte[0]);
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
         assertTrue(ex.getMessage().contains("External URI"));
+    }
+
+    @Test
+    void rejectsAccessorOutOfBounds() {
+        // BufferView is 36 bytes, but accessor count requests 10 VEC3 floats = 120 bytes
+        String json = "{\"asset\":{\"version\":\"2.0\"}," +
+                "\"buffers\":[{\"byteLength\":36}]," +
+                "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36}]," +
+                "\"accessors\":[{\"bufferView\":0,\"byteOffset\":0,\"componentType\":5126,\"count\":10,\"type\":\"VEC3\"}]}";
+        byte[] glb = buildGlb(json, new byte[36]);
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
+        assertTrue(ex.getMessage().contains("exceeds bufferView"));
     }
 
     @Test
@@ -137,7 +197,6 @@ public class GlbViewerLoaderTest {
         assertEquals(9, mesh.positions().length);
         assertEquals(9, mesh.normals().length);
         assertEquals(12, mesh.colors().length);
-        // Verify default missing color is 1.0f
         for (float c : mesh.colors()) {
             assertEquals(1.0f, c, 1e-6f);
         }
