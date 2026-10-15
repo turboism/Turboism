@@ -179,14 +179,54 @@ public record NativeMaterialPlan(ViewerScene scene, List<Integer> meshImageIndic
         for (int i = 0; i < originalMeshes.size(); i++) {
             checkCancelled(cancelled);
             ViewerScene.Mesh mesh = originalMeshes.get(i);
-            float[] vertColor = getConstantVertexColor(mesh);
 
             int matIdx = mesh.materialIndex();
+            ViewerScene.Material mat =
+                    (matIdx >= 0 && matIdx < scene.materials().size())
+                            ? scene.materials().get(matIdx)
+                            : null;
+
+            // a) Validate multi-UV compatibility for THIS mesh unconditionally before checking cache
+            if (mat != null && mat.baseColorTexture() != -1 && mat.emissiveTexture() != -1) {
+                if (!uvsMatch(mesh.uvs(), mesh.emissiveUvs())) {
+                    throw new IllegalArgumentException(
+                            "Multi-UV compositing of baseColorTexture and emissiveTexture is unsupported: "
+                                    + "base and emissive use different UV channels for mesh '" + mesh.name() + "'");
+                }
+            }
+
+            float[] vertColor = getConstantVertexColor(mesh);
             String cacheKey =
                     matIdx + ":" + vertColor[0] + "," + vertColor[1] + "," + vertColor[2] + "," + vertColor[3];
             BakedTexture baked = bakeCache.get(cacheKey);
             if (baked == null) {
-                baked = bakeMeshTexture(mesh, scene, vertColor, options, cancelled);
+                // c) Pre-flight checks on dimensions and potential cumulative pixel budget before allocation
+                int targetW, targetH;
+                if (mat == null || (mat.baseColorTexture() == -1 && mat.emissiveTexture() == -1)) {
+                    targetW = options.constantImageDimension();
+                    targetH = options.constantImageDimension();
+                } else {
+                    ViewerScene.Texture baseTex = resolveTexture(scene, mat.baseColorTexture());
+                    ViewerScene.Texture emissTex = resolveTexture(scene, mat.emissiveTexture());
+                    int bw = baseTex != null ? baseTex.width() : 0;
+                    int bh = baseTex != null ? baseTex.height() : 0;
+                    int ew = emissTex != null ? emissTex.width() : 0;
+                    int eh = emissTex != null ? emissTex.height() : 0;
+                    targetW = Math.max(bw, ew);
+                    targetH = Math.max(bh, eh);
+                    if (targetW == 0 || targetH == 0) {
+                        targetW = options.constantImageDimension();
+                        targetH = options.constantImageDimension();
+                    }
+                }
+                validateDimensions(targetW, targetH, options);
+                long potentialPixels = cumulativePixels + (long) targetW * targetH;
+                if (potentialPixels > options.maxCumulativePixels()) {
+                    throw new IllegalArgumentException("Cumulative texture pixels (" + potentialPixels
+                            + ") would exceed budget of " + options.maxCumulativePixels());
+                }
+
+                baked = bakeMeshTexture(mesh, scene, mat, vertColor, targetW, targetH, options, cancelled);
                 bakeCache.put(cacheKey, baked);
             }
 
@@ -220,16 +260,18 @@ public record NativeMaterialPlan(ViewerScene scene, List<Integer> meshImageIndic
     private record BakedTexture(int width, int height, byte[] pngBytes, String contentHash) {}
 
     private static BakedTexture bakeMeshTexture(
-            ViewerScene.Mesh mesh, ViewerScene scene, float[] vertColor, Options options, BooleanSupplier cancelled) {
-
-        int matIdx = mesh.materialIndex();
-        ViewerScene.Material mat = (matIdx >= 0 && matIdx < scene.materials().size())
-                ? scene.materials().get(matIdx)
-                : null;
+            ViewerScene.Mesh mesh,
+            ViewerScene scene,
+            ViewerScene.Material mat,
+            float[] vertColor,
+            int targetW,
+            int targetH,
+            Options options,
+            BooleanSupplier cancelled) {
 
         if (mat == null) {
             // Mesh has no material assigned; bake constant neutral/white color
-            return bakeConstantImage(1.0f, 1.0f, 1.0f, 1.0f, vertColor, "OPAQUE", 0.5f, options);
+            return bakeConstantImage(1.0f, 1.0f, 1.0f, 1.0f, vertColor, "OPAQUE", 0.0f, options);
         }
 
         ViewerScene.Texture baseTex = resolveTexture(scene, mat.baseColorTexture());
@@ -247,7 +289,7 @@ public record NativeMaterialPlan(ViewerScene scene, List<Integer> meshImageIndic
         float efB = (ef != null && ef.length > 2) ? ef[2] : 0.0f;
 
         String alphaMode = mat.alphaMode() != null ? mat.alphaMode() : "OPAQUE";
-        float alphaCutoff = mat.alphaCutoff() > 0f ? mat.alphaCutoff() : 0.5f;
+        float alphaCutoff = Math.max(0.0f, mat.alphaCutoff());
 
         // Case A: Neither texture present -> constant image
         if (baseTex == null && emissTex == null) {
@@ -272,16 +314,11 @@ public record NativeMaterialPlan(ViewerScene scene, List<Integer> meshImageIndic
         }
 
         // Case D: Both baseColorTexture and emissiveTexture present
-        // First verify that UVs are identical
-        if (!uvsMatch(mesh.uvs(), mesh.emissiveUvs())) {
-            throw new IllegalArgumentException(
-                    "Multi-UV compositing of baseColorTexture and emissiveTexture is unsupported: "
-                            + "base and emissive use different UV channels for mesh '" + mesh.name() + "'");
-        }
-
         return bakeCombined(
                 baseTex,
                 emissTex,
+                targetW,
+                targetH,
                 bfR,
                 bfG,
                 bfB,
@@ -499,6 +536,8 @@ public record NativeMaterialPlan(ViewerScene scene, List<Integer> meshImageIndic
     private static BakedTexture bakeCombined(
             ViewerScene.Texture baseTex,
             ViewerScene.Texture emissTex,
+            int targetW,
+            int targetH,
             float bfR,
             float bfG,
             float bfB,
@@ -511,10 +550,6 @@ public record NativeMaterialPlan(ViewerScene scene, List<Integer> meshImageIndic
             float alphaCutoff,
             Options options,
             BooleanSupplier cancelled) {
-
-        int targetW = Math.max(baseTex.width(), emissTex.width());
-        int targetH = Math.max(baseTex.height(), emissTex.height());
-        validateDimensions(targetW, targetH, options);
 
         int[] outPixels = new int[targetW * targetH];
 
@@ -634,15 +669,7 @@ public record NativeMaterialPlan(ViewerScene scene, List<Integer> meshImageIndic
         if (uvs1 == null || uvs2 == null || uvs1.length == 0 || uvs2.length == 0) {
             return true;
         }
-        if (uvs1.length != uvs2.length) {
-            return false;
-        }
-        for (int i = 0; i < uvs1.length; i++) {
-            if (Math.abs(uvs1[i] - uvs2[i]) > 1e-4f) {
-                return false;
-            }
-        }
-        return true;
+        return Arrays.equals(uvs1, uvs2);
     }
 
     private static int sampleBilinear(ViewerScene.Texture tex, float u, float v) {
