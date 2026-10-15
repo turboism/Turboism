@@ -32,9 +32,9 @@ public class NativeCharacterAuthoringTest {
 
     private static NativeCharacterPlan.Plan planFor(ViewerScene.Mesh... meshes) {
         var mat0 = new ViewerScene.Material(
-                "DoubleSidedMat", new float[4], 0, -1, new float[3], "OPAQUE", 0.5f, true, true);
+                "DoubleSidedMat", new float[4], -1, -1, new float[3], "OPAQUE", 0.5f, true, true);
         var mat1 = new ViewerScene.Material(
-                "SingleSidedMat", new float[4], 0, -1, new float[3], "OPAQUE", 0.5f, false, true);
+                "SingleSidedMat", new float[4], -1, -1, new float[3], "OPAQUE", 0.5f, false, true);
         var scene = new ViewerScene(
                 List.of(meshes),
                 List.of(mat0, mat1),
@@ -49,6 +49,21 @@ public class NativeCharacterAuthoringTest {
         final Map<ArtMeshId, MeshRecord> meshes = new LinkedHashMap<>();
         final Map<PartId, PartRecord> parts = new LinkedHashMap<>();
         final Map<DeformerId, RotationRecord> rotations = new LinkedHashMap<>();
+        final Map<DeformerId, WarpRecord> warps = new LinkedHashMap<>();
+
+        static final class WarpRecord {
+            final DeformerId id;
+            final String name;
+            WarpGrid grid;
+            float opacity = 1;
+            Optional<DeformerId> targetDeformer = Optional.empty();
+
+            WarpRecord(DeformerId id, String name) {
+                this.id = id;
+                this.name = name;
+            }
+        }
+
         final Map<ParameterId, Map<ParameterBindingTarget, List<ParameterBindingPoint>>> bindings = new HashMap<>();
         final Map<ParameterId, Map<ParameterBindingTarget, ParameterInterpolation>> interpolations = new HashMap<>();
 
@@ -63,6 +78,8 @@ public class NativeCharacterAuthoringTest {
             final String name;
             final Part parent;
             ParameterId rollAxisId;
+            float opacity = 1;
+            Optional<DeformerId> targetDeformer = Optional.empty();
 
             RotationRecord(DeformerId id, String name, Part parent) {
                 this.id = id;
@@ -185,6 +202,30 @@ public class NativeCharacterAuthoringTest {
                     });
                 case "deformers" ->
                     proxy(Deformers.class, (dm, da) -> switch (dm.getName()) {
+                        case "createWarp" -> {
+                            var id = new DeformerId("warp_" + (++deformerCounter));
+                            var r = new WarpRecord(id, (String) da[0]);
+                            warps.put(id, r);
+                            yield proxy(WarpDeformer.class, (wm, wa) -> switch (wm.getName()) {
+                                case "id" -> id;
+                                case "replaceGrid" -> {
+                                    r.grid = (WarpGrid) wa[0];
+                                    yield null;
+                                }
+                                case "grid" -> r.grid;
+                                case "setOpacity" -> {
+                                    r.opacity = (Float) wa[0];
+                                    yield null;
+                                }
+                                case "getOpacity" -> r.opacity;
+                                case "setTargetDeformer" -> {
+                                    r.targetDeformer = (Optional<DeformerId>) wa[0];
+                                    yield null;
+                                }
+                                case "parentDeformerId" -> r.targetDeformer;
+                                default -> throw new AssertionError(wm.toString());
+                            });
+                        }
                         case "createRotation" -> {
                             var id = new DeformerId("rot_" + (++deformerCounter));
                             var r = new RotationRecord(id, (String) da[0], (Part) da[1]);
@@ -199,6 +240,11 @@ public class NativeCharacterAuthoringTest {
 
                             yield proxy(RotationDeformer.class, (rm, ra) -> switch (rm.getName()) {
                                 case "id" -> id;
+                                case "setOpacity" -> {
+                                    r.opacity = (Float) ra[0];
+                                    yield null;
+                                }
+                                case "getOpacity" -> r.opacity;
                                 case "replaceForm" -> {
                                     formRef[0] = (RotationDeformerForm) ra[0];
                                     yield null;
@@ -241,6 +287,7 @@ public class NativeCharacterAuthoringTest {
                                 case "parentDeformerId" -> parentDeformerRef[0];
                                 case "setTargetDeformer" -> {
                                     parentDeformerRef[0] = (Optional<DeformerId>) ra[0];
+                                    r.targetDeformer = (Optional<DeformerId>) ra[0];
                                     yield null;
                                 }
                                 default -> throw new AssertionError(rm.toString());
@@ -372,8 +419,10 @@ public class NativeCharacterAuthoringTest {
         for (var meshId : created.meshIds()) {
             var r = host.meshes.get(meshId);
             assertNotNull(r);
-            assertEquals(
-                    Optional.of(created.rollDeformerId()), r.targetDeformer, "Target deformer must be Roll Deformer");
+            var opacityParent = host.warps.get(r.targetDeformer.orElseThrow());
+            assertNotNull(opacityParent);
+            assertEquals(1f, opacityParent.opacity);
+            assertEquals(Optional.of(created.rollDeformerId()), opacityParent.targetDeformer);
             assertEquals(24, r.positionEdits.size(), "24 non-neutral keyform positions edited");
             assertEquals(24, r.orderEdits.size(), "24 non-neutral keyform orders edited");
 
@@ -388,6 +437,50 @@ public class NativeCharacterAuthoringTest {
         assertTrue(host.parameters.stream().anyMatch(p -> p.id().equals(new ParameterId("Character_Yaw"))));
         assertTrue(host.parameters.stream().anyMatch(p -> p.id().equals(new ParameterId("Character_Pitch"))));
         assertTrue(host.parameters.stream().anyMatch(p -> p.id().equals(new ParameterId("Character_Roll"))));
+    }
+
+    @Test
+    void partitionsFromOneOutfitShareAnOpacityParent() {
+        var host = new TestModelHost();
+        var plan = planFor(simpleMesh("SleeveA", 0), simpleMesh("SleeveB", 1), simpleMesh("Body", 0));
+        var created = NativeCharacterAuthoring.assemble(
+                host.model(),
+                plan,
+                (m, s) -> {},
+                idx -> new NativeCharacterAuthoring.ImageDimensions(16, 16),
+                idx -> idx < 2 ? "Sleeves" : "Body");
+        var first = host.meshes.get(created.meshIds().get(0)).targetDeformer;
+        assertEquals(first, host.meshes.get(created.meshIds().get(1)).targetDeformer);
+        assertNotEquals(first, host.meshes.get(created.meshIds().get(2)).targetDeformer);
+        assertEquals("Sleeves", host.warps.get(first.orElseThrow()).name);
+        assertEquals(Optional.of(created.rollDeformerId()), host.warps.get(first.orElseThrow()).targetDeformer);
+        assertEquals(3, host.parameters.size(), "Visibility grouping must not multiply the XYZ grid");
+    }
+
+    @Test
+    void bodyPartWarpContainsAllRelatedOutfitMeshes() {
+        var host = new TestModelHost();
+        var plan = planFor(simpleMesh("Skin", 0), simpleMesh("Shoe", 1), simpleMesh("OtherLeg", 0));
+        var created = NativeCharacterAuthoring.assemble(
+                host.model(),
+                plan,
+                (m, s) -> {},
+                idx -> new NativeCharacterAuthoring.ImageDimensions(16, 16),
+                idx -> idx == 1 ? "Shoes" : "Skin",
+                idx -> idx < 2 ? "Left leg" : "Right leg");
+        var parents = created.meshIds().stream()
+                .map(id -> host.warps.get(host.meshes.get(id).targetDeformer.orElseThrow()))
+                .toList();
+        assertNotEquals(parents.get(0).id, parents.get(1).id, "Skin and shoe retain separate opacity parents");
+        assertEquals(parents.get(0).targetDeformer, parents.get(1).targetDeformer, "Both belong to the left-leg Warp");
+        assertNotEquals(parents.get(0).targetDeformer, parents.get(2).targetDeformer);
+        var leg = host.warps.get(parents.get(0).targetDeformer.orElseThrow());
+        assertEquals("Left leg", leg.name);
+        assertEquals(9, leg.grid.controlPoints().size());
+        assertEquals(Optional.of(created.rollDeformerId()), leg.targetDeformer);
+        assertEquals(3, host.parameters.size());
+        for (var mesh : host.meshes.values())
+            assertEquals(25, mesh.snapshot().forms().size());
     }
 
     @Test
@@ -469,7 +562,7 @@ public class NativeCharacterAuthoringTest {
         var helperMesh =
                 new ViewerScene.Mesh("HelperCollider", posHelper, new float[9], uvs, null, null, ind, -1, false);
 
-        var mat0 = new ViewerScene.Material("BodyMat", new float[4], 0, -1, new float[3], "OPAQUE", 0.5f, true, true);
+        var mat0 = new ViewerScene.Material("BodyMat", new float[4], -1, -1, new float[3], "OPAQUE", 0.5f, true, true);
         var scene = new ViewerScene(
                 List.of(mainMesh, helperMesh),
                 List.of(mat0),

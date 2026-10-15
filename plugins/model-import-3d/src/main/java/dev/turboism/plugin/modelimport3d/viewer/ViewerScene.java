@@ -21,7 +21,60 @@ public record ViewerScene(
             float[] emissiveUvs,
             float[] colors,
             int[] indices,
-            int materialIndex) {}
+            int materialIndex,
+            boolean visible,
+            String appearanceGroup,
+            String bodyPart) {
+        public Mesh(
+                String name,
+                float[] positions,
+                float[] normals,
+                float[] uvs,
+                float[] emissiveUvs,
+                float[] colors,
+                int[] indices,
+                int materialIndex,
+                boolean visible,
+                String appearanceGroup) {
+            this(
+                    name,
+                    positions,
+                    normals,
+                    uvs,
+                    emissiveUvs,
+                    colors,
+                    indices,
+                    materialIndex,
+                    visible,
+                    appearanceGroup,
+                    "");
+        }
+
+        public Mesh(
+                String name,
+                float[] positions,
+                float[] normals,
+                float[] uvs,
+                float[] emissiveUvs,
+                float[] colors,
+                int[] indices,
+                int materialIndex,
+                boolean visible) {
+            this(name, positions, normals, uvs, emissiveUvs, colors, indices, materialIndex, visible, name);
+        }
+
+        public Mesh(
+                String name,
+                float[] positions,
+                float[] normals,
+                float[] uvs,
+                float[] emissiveUvs,
+                float[] colors,
+                int[] indices,
+                int materialIndex) {
+            this(name, positions, normals, uvs, emissiveUvs, colors, indices, materialIndex, true);
+        }
+    }
 
     /** Stores source material color, transparency and texture assignments. */
     public record Material(

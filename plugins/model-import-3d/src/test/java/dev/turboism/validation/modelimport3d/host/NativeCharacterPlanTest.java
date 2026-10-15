@@ -38,6 +38,43 @@ public class NativeCharacterPlanTest {
     }
 
     @Test
+    void screenOverlapOverridesMisleadingWholeMeshCenterDepth() {
+        // The remote rear triangle biases this mesh's center behind the other mesh.
+        // Only its local front triangle overlaps the other mesh in the neutral view.
+        var front = new ViewerScene.Mesh(
+                "Front with remote rear surface",
+                new float[] {-1, -1, 1, 1, -1, 1, 0, 1, 1, 9, -1, -10, 11, -1, -10, 10, 1, -10},
+                null,
+                new float[12],
+                null,
+                null,
+                new int[] {0, 1, 2, 3, 4, 5},
+                0);
+        var rear = new ViewerScene.Mesh(
+                "Rear",
+                new float[] {-1, -1, 0, 1, -1, 0, 0, 1, 0},
+                null,
+                new float[6],
+                null,
+                null,
+                new int[] {0, 1, 2},
+                0);
+        var material = new ViewerScene.Material(
+                "Opaque", new float[] {1, 1, 1, 1}, -1, -1, new float[3], "OPAQUE", 0.5f, true, true);
+        var scene = new ViewerScene(
+                List.of(front, rear),
+                List.of(material),
+                List.of(),
+                new ViewerScene.Bounds(-1, -1, -10, 11, 1, 1),
+                new ViewerScene.Stats(0, 2, 3, 1, 0, 0, 0));
+        var plan = NativeCharacterPlan.prepare(scene, defaultRequest());
+        assertTrue(plan.partitions().get(0).center().z()
+                < plan.partitions().get(1).center().z());
+        assertTrue(plan.orders().get(12).get(0) > plan.orders().get(12).get(1));
+        assertEquals(3, plan.totalTriangles());
+    }
+
+    @Test
     void chordErrorCalculatesSagittaForNinetyDegreeStep() {
         // Sagitta formula: R * (1 - cos(45 / (inserts + 1)))
         assertEquals(0.0, NativeCharacterPlan.chordError(0.0, 0));
@@ -208,9 +245,9 @@ public class NativeCharacterPlanTest {
 
     @Test
     void drawOrderInvertsAcrossOpposingRotationAngles() {
-        // Create two meshes: one in front (Z = -2) and one behind (Z = 2)
-        float[] posA = {-1f, -1f, -2f, 1f, -1f, -2f, 0f, 1f, -2f};
-        float[] posB = {-1f, -1f, 2f, 1f, -1f, 2f, 0f, 1f, 2f};
+        // Create two meshes: one in front (Z = 2) and one behind (Z = -2), as in SoftwareModelRenderer
+        float[] posA = {-1f, -1f, 2f, 1f, -1f, 2f, 0f, 1f, 2f};
+        float[] posB = {-1f, -1f, -2f, 1f, -1f, -2f, 0f, 1f, -2f};
         float[] uvs = {0f, 0f, 1f, 0f, 0.5f, 1f};
         int[] ind = {0, 1, 2};
 
@@ -218,7 +255,17 @@ public class NativeCharacterPlanTest {
         var meshB = new ViewerScene.Mesh("BackMesh", posB, new float[9], uvs, null, null, ind, 1);
         var bounds = new ViewerScene.Bounds(-1f, -1f, -2f, 1f, 1f, 2f);
         var stats = new ViewerScene.Stats(100, 2, 2, 2, 0, 0, 0);
-        var scene = new ViewerScene(List.of(meshA, meshB), List.of(), List.of(), bounds, stats);
+        var red = new ViewerScene.Material(
+                "Red front", new float[] {1, 0, 0, 1}, -1, -1, new float[3], "OPAQUE", .5f, true, true);
+        var blue = new ViewerScene.Material(
+                "Blue back", new float[] {0, 0, 1, 1}, -1, -1, new float[3], "OPAQUE", .5f, true, true);
+        var scene = new ViewerScene(List.of(meshA, meshB), List.of(red, blue), List.of(), bounds, stats);
+        var reference = new dev.turboism.plugin.modelimport3d.viewer.SoftwareModelRenderer()
+                .renderWithStats(scene, 128, 128, 0, 0, 1);
+        assertEquals(
+                0xff0000,
+                reference.image().getRGB(64, 64) & 0xffffff,
+                "The independent Z-buffer renderer sees the +Z red plane in front");
 
         var plan = NativeCharacterPlan.prepare(scene, defaultRequest());
         assertEquals(2, plan.partitions().size());
@@ -228,7 +275,7 @@ public class NativeCharacterPlanTest {
         int orderA_neutral = plan.orders().get(neutralKeyIdx).get(0);
         int orderB_neutral = plan.orders().get(neutralKeyIdx).get(1);
 
-        // At neutral, meshA (Z=-2) is nearer to camera than meshB (Z=2)
+        // At neutral, meshA (Z=2) is nearer to camera than meshB (Z=-2)
         // In painter's algorithm, nearer objects get higher drawOrder
         assertTrue(orderA_neutral > orderB_neutral, "At Yaw=0, front mesh must have higher drawOrder than back mesh");
 

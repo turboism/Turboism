@@ -50,6 +50,10 @@ public final class ModelImportPlugin implements TurboismPlugin {
             return confirmVertices(prepared, optimization);
         }
 
+        default boolean confirmCharacter(NativeModelImport.Prepared prepared, AtlasSummary atlas) {
+            return false;
+        }
+
         void message(String text, boolean error);
     }
 
@@ -119,7 +123,16 @@ public final class ModelImportPlugin implements TurboismPlugin {
             SurfaceImport.Prepared simple,
             SurfaceWarpLayerAuthoring.Prepared layered,
             SurfaceVertexAuthoring.Prepared vertices,
-            OptimizationSummary optimization) {
+            OptimizationSummary optimization,
+            NativeModelImport.Prepared character) {
+        PreparedImport(
+                SurfaceImport.Prepared simple,
+                SurfaceWarpLayerAuthoring.Prepared layered,
+                SurfaceVertexAuthoring.Prepared vertices,
+                OptimizationSummary optimization) {
+            this(simple, layered, vertices, optimization, null);
+        }
+
         PreparedImport(
                 SurfaceImport.Prepared simple,
                 SurfaceWarpLayerAuthoring.Prepared layered,
@@ -132,14 +145,24 @@ public final class ModelImportPlugin implements TurboismPlugin {
         }
 
         PreparedImport {
-            if ((simple == null ? 0 : 1) + (layered == null ? 0 : 1) + (vertices == null ? 0 : 1) != 1)
-                throw new IllegalArgumentException("one import plan required");
+            if ((simple == null ? 0 : 1)
+                            + (layered == null ? 0 : 1)
+                            + (vertices == null ? 0 : 1)
+                            + (character == null ? 0 : 1)
+                    != 1) throw new IllegalArgumentException("one import plan required");
         }
     }
 
     static PreparedImport prepare(
             byte[] bytes, SurfaceImport.Request request, SurfaceBaseColorPlan.Appearance appearance)
             throws java.io.IOException {
+        if (bytes != null
+                && bytes.length > GlbSurfaceReader.MAX_BYTES
+                && NativeModelImport.isGlb(bytes)
+                && request.roll().isPresent()
+                && appearance == SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL) {
+            return new PreparedImport(null, null, null, null, NativeModelImport.prepare(bytes, request, () -> false));
+        }
         bytes = ModelInputNormalizer.normalize(bytes);
         if (request.roll().isPresent()) {
             if (appearance != SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL)
@@ -406,16 +429,45 @@ public final class ModelImportPlugin implements TurboismPlugin {
                             selected.handle().orElseThrow().close();
                             return CompletableFuture.completedFuture(Optional.<PreparedImport>empty());
                         }
-                        return files.readBytes(selected.handle().orElseThrow(), GlbSurfaceReader.MAX_BYTES)
+                        var handle = selected.handle().orElseThrow();
+                        CompletionStage<UserFileReadResult<byte[]>> pending;
+                        try {
+                            pending = choice == 0
+                                    ? files.readBytesBounded(handle, NativeModelImport.MAX_BYTES)
+                                    : files.readBytes(handle, GlbSurfaceReader.MAX_BYTES);
+                        } catch (RuntimeException failure) {
+                            handle.close();
+                            throw failure;
+                        }
+                        return pending.whenComplete((value, error) -> handle.close())
                                 .thenCompose(read -> {
                                     if (!active(token))
                                         return CompletableFuture.completedFuture(Optional.<PreparedImport>empty());
                                     if (read.truncated())
                                         throw new CompletionException(new LocalizedIllegalArgumentException(
-                                                "error.file-too-large", "模型文件超过 16 MiB 限制。"));
+                                                choice == 0 ? "error.character-file-too-large" : "error.file-too-large",
+                                                choice == 0 ? "GLB 模型文件超过 128 MiB 限制。" : "模型文件超过 16 MiB 限制。"));
                                     byte[] bytes = read.value()
                                             .orElseThrow(() ->
                                                     new LocalizedIllegalStateException("error.file-read", "无法读取所选模型。"));
+                                    if (choice == 0
+                                            && bytes.length > GlbSurfaceReader.MAX_BYTES
+                                            && NativeModelImport.isGlb(bytes)) {
+                                        return CompletableFuture.supplyAsync(() -> {
+                                            if (!active(token)) return Optional.<PreparedImport>empty();
+                                            try {
+                                                return Optional.of(new PreparedImport(
+                                                        null,
+                                                        null,
+                                                        null,
+                                                        null,
+                                                        NativeModelImport.prepare(
+                                                                bytes, request, () -> !active(token))));
+                                            } catch (Exception error) {
+                                                throw new CompletionException(error);
+                                            }
+                                        });
+                                    }
                                     return ModelInputFiles.normalize(
                                                     bytes,
                                                     files,
@@ -458,6 +510,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
 
     static ModelTextureAtlasPlanner.PlannedAtlas planAtlas(
             CubismModel target, PreparedImport prepared, java.util.function.IntFunction<String> pageNameProvider) {
+        if (prepared.character() != null) return NativeModelImport.planAtlas(prepared.character(), pageNameProvider);
         var items = new ArrayList<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem>();
         if (prepared.simple() != null) {
             var materials = prepared.simple().appearance.materials();
@@ -492,11 +545,13 @@ public final class ModelImportPlugin implements TurboismPlugin {
                 return result;
             });
         }
-        String requestName = prepared.simple() != null
-                ? prepared.simple().request.name()
-                : prepared.vertices() != null
-                        ? prepared.vertices().request().name()
-                        : prepared.layered().surface().request.name();
+        String requestName = prepared.character() != null
+                ? prepared.character().geometry().request().name()
+                : prepared.simple() != null
+                        ? prepared.simple().request.name()
+                        : prepared.vertices() != null
+                                ? prepared.vertices().request().name()
+                                : prepared.layered().surface().request.name();
 
         int existingCount = target.textures().textureAtlases().size();
         java.util.function.IntFunction<String> pageNames =
@@ -505,11 +560,13 @@ public final class ModelImportPlugin implements TurboismPlugin {
         var atlasPlan = planAtlas(target, prepared, pageNames);
         var atlasSummary = new AtlasSummary(atlasPlan.pageCount(), atlasPlan.pageWidth(), atlasPlan.pageHeight());
 
-        boolean confirmed = prepared.simple() != null
-                ? ui.confirm(prepared.simple(), atlasSummary)
-                : prepared.vertices() != null
-                        ? ui.confirmVertices(prepared.vertices(), prepared.optimization(), atlasSummary)
-                        : ui.confirmLayers(prepared.layered(), atlasSummary);
+        boolean confirmed = prepared.character() != null
+                ? ui.confirmCharacter(prepared.character(), atlasSummary)
+                : prepared.simple() != null
+                        ? ui.confirm(prepared.simple(), atlasSummary)
+                        : prepared.vertices() != null
+                                ? ui.confirmVertices(prepared.vertices(), prepared.optimization(), atlasSummary)
+                                : ui.confirmLayers(prepared.layered(), atlasSummary);
         if (!confirmed) return;
         requireTarget(token, documentId, target);
         java.util.function.Supplier<CubismModel> current = () -> {
@@ -523,6 +580,11 @@ public final class ModelImportPlugin implements TurboismPlugin {
         var result = transactions.execute(
                 dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("Import 3D " + requestName), () -> {
                     requireTarget(token, documentId, target);
+                    if (finalPrepared.character() != null) {
+                        NativeModelImport.assemble(target, finalPrepared.character(), atlasPlan);
+                        requireTarget(token, documentId, target);
+                        return null;
+                    }
                     var meshIds = new ArrayList<dev.turboism.sdk.cubism.id.ArtMeshId>();
                     var bindingsBySourceId =
                             new LinkedHashMap<String, dev.turboism.sdk.cubism.model.ModelImageBinding>();
@@ -578,7 +640,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     "error.transaction-uncommitted", "导入未完成：{0}{1}", result.outcome(), diag);
         }
         ui.message(
-                prepared.vertices() != null
+                prepared.character() != null
+                                || prepared.vertices() != null
                                 || prepared.layered() != null
                                         && prepared.layered()
                                                 .surface()
@@ -688,6 +751,29 @@ public final class ModelImportPlugin implements TurboismPlugin {
             } catch (Exception ignored) {
                 return java.text.MessageFormat.format(fallback, args);
             }
+        }
+
+        @Override
+        public boolean confirmCharacter(NativeModelImport.Prepared p, AtlasSummary atlas) {
+            var geometry = p.geometry();
+            String atlasInfo = format(
+                    "dialog.confirm.atlas-info",
+                    "纹理图集：将创建 {0} 张 {1}×{2} 图集。",
+                    atlas.pageCount(),
+                    atlas.width(),
+                    atlas.height());
+            return JOptionPane.showConfirmDialog(
+                            null,
+                            format(
+                                    "dialog.confirm.character",
+                                    "将创建 {0} 个原生网格，保留 {1} 个三角形。\nX / Y 参数各 {2} 个绑定点，Z 参数支持整圈旋转。\n遮挡采用分组排序，复杂交叠可能有偏差。\n{3}\n可用一次撤销撤回本次导入。继续？",
+                                    geometry.partitions().size(),
+                                    geometry.totalTriangles(),
+                                    geometry.keys().size(),
+                                    atlasInfo),
+                            text("dialog.confirm.title", "确认导入"),
+                            JOptionPane.OK_CANCEL_OPTION)
+                    == JOptionPane.OK_OPTION;
         }
 
         @Override

@@ -6,6 +6,7 @@ dialog.appearance.option.face-colors
 dialog.appearance.option.source-material
 dialog.appearance.title
 dialog.confirm.atlas-info
+dialog.confirm.character
 dialog.confirm.layers
 dialog.confirm.layers.roll-note
 dialog.confirm.simple
@@ -17,6 +18,7 @@ dialog.message.info.title
 error.atlas-budget-exceeded
 error.atlas-layout-failed
 error.atlas-oversized
+error.character-file-too-large
 error.file-read
 error.file-select
 error.file-too-large

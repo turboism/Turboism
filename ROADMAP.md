@@ -193,11 +193,17 @@ complete character in a plugin-owned window, with drag rotation, zoom and reset.
 See `validation/model-viewer-host-probe/verification.md` for acceptance evidence. The viewer does not change the
 Cubism document or make its geometry editable as ArtMeshes.
 
-Later work will convert supported geometry and materials to editable native
-Cubism objects. A separate step will map skeleton controls and morph targets
-(including the reference character's 144 shape keys) to Cubism parameters.
-These conversions require authoring limits, error bounds, Undo/Redo and
-save/reopen verification. Viewer support does not establish conversion support.
+An editable native candidate now passes import, XYZ writes, Undo/Redo, save and
+fresh-process reopen on Cubism Editor 5.3.04. Anatomical Warp parents collect
+skin and clothing meshes. See
+`validation/native-character-host-probe/verification.md` for fixed inputs and evidence.
+The reference fixture restores Blender-evaluated default masks and fitted footwear.
+Native painter ordering remains an approximation; arbitrary-angle visual equivalence
+is not established.
+
+Independent Blend Shape controls for clothing, source shape keys, eye movement,
+eye closure and local head rotation remain work in progress. These controls need
+source-control provenance, composition/error budgets and native save/reopen verification.
 
 ## Track F — Hook and render ingress
 
