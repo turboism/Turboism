@@ -74,7 +74,12 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
                 throw new AssertionError("Import planning failed: " + edt(() -> String.valueOf(confirmation.getMessage())));
             stage("native-authoring");
             edt(() -> { confirmation.setValue(JOptionPane.OK_OPTION); return null; });
-            await(() -> edt(() -> ids().size() > before.size()), 360, "native model write");
+            await(() -> edt(() -> {
+                var error = visible(JOptionPane.class);
+                if (error != null && error.getMessageType() == JOptionPane.ERROR_MESSAGE)
+                    throw new AssertionError("Native authoring failed: " + error.getMessage());
+                return ids().size() > before.size();
+            }), 360, "native model write");
             var success = awaitPane(60);
             if (edt(success::getMessageType) == JOptionPane.ERROR_MESSAGE)
                 throw new AssertionError("Native authoring failed: " + edt(() -> String.valueOf(success.getMessage())));
@@ -268,8 +273,92 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
             Thread.sleep(500);
             check("controls.restored."+parameter.id().value(),true,Arrays.equals(baseline,edt(()->model().renderPixels(1024,1024).argb())));
         }
+        if (Boolean.getBoolean("turboism.character.combinations")) verifyCombinations(controls);
         report.setProperty("controls.nativeMorphKeys",""+edt(()->model().warpDeformers().all().stream().mapToInt(w->w.morphSnapshot().keys().size()).sum()));
         check("controls.nativeMorphKeys.present",true,Integer.parseInt(report.getProperty("controls.nativeMorphKeys"))>0);
+    }
+
+    private void verifyCombinations(List<Parameter> controls) throws Exception {
+        var byName = new HashMap<String, Parameter>();
+        for (var control : controls) byName.put(edt(() -> control.name().orElseThrow()), control);
+        for (String name : List.of("Shift X", "Shift Y", "Factor A", "Factor B"))
+            check("combination.parameter." + name, true, byName.containsKey(name));
+        var yaw = edt(() -> model().parameters().all().stream()
+                .filter(p -> p.id().value().startsWith("Param3DYaw")).findFirst().orElseThrow());
+        var neutral = edt(() -> model().renderPixels(1024, 1024).argb());
+        var banks = edt(() -> banksHash(ids()));
+        var morphs = edt(this::morphsHash);
+        try {
+            for (float angle : new float[] {-30, 0, 30}) {
+                edt(() -> {
+                    yaw.setValue(angle);
+                    byName.get("Shift X").setValue(1);
+                    byName.get("Shift Y").setValue(1);
+                    byName.get("Factor A").setValue(0);
+                    byName.get("Factor B").setValue(0);
+                    return null;
+                });
+                Thread.sleep(600);
+                var opaque = edt(() -> model().renderPixels(1024, 1024).argb());
+                long denominator = alphaSum(opaque);
+                check("combination." + angle + ".nonempty", true, denominator > 0);
+                for (int mask = 1; mask <= 3; mask++) {
+                    final int factors = mask;
+                    edt(() -> {
+                        byName.get("Factor A").setValue((factors & 1) == 0 ? 0 : 1);
+                        byName.get("Factor B").setValue((factors & 2) == 0 ? 0 : 1);
+                        return null;
+                    });
+                    Thread.sleep(500);
+                    long numerator = alphaSum(edt(() -> model().renderPixels(1024, 1024).argb()));
+                    double expected = mask == 1 ? .5 : mask == 2 ? .25 : .125;
+                    double actual = (double) numerator / denominator;
+                    String key = "combination." + angle + ".factor" + mask;
+                    report.setProperty(key + ".alphaRatio", "" + actual);
+                    report.setProperty(key + ".expectedRatio", "" + expected);
+                    check(key + ".withinTolerance", true, Math.abs(actual - expected) < .02);
+                }
+            }
+        } finally {
+            edt(() -> {
+                for (var control : controls) control.setValue(0);
+                yaw.setValue(0);
+                return null;
+            });
+        }
+        Thread.sleep(600);
+        check("combination.zeroRestoresPixels", true,
+                Arrays.equals(neutral, edt(() -> model().renderPixels(1024, 1024).argb())));
+        check("combination.banksUnchanged", banks, edt(() -> banksHash(ids())));
+        check("combination.morphsUnchanged", morphs, edt(this::morphsHash));
+        verifyCreatedWarpRollback(controls.get(0));
+    }
+
+    private void verifyCreatedWarpRollback(Parameter parameter) throws Exception {
+        var before = edt(() -> model().deformers().all().stream().map(Deformer::id).toList());
+        var history = edt(() -> context.cubism().history().snapshot());
+        var banks = edt(() -> banksHash(ids()));
+        var morphs = edt(this::morphsHash);
+        var result = edt(() -> context.cubism().authoringTransactions().execute(
+                dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("Probe Warp rollback"), () -> {
+                    var warp = model().deformers().createWarp("Probe temporary Warp", null, -1, 2, 2);
+                    warp.createOpacityMorphKeyform(parameter.id(), 1, .5f);
+                    throw new IllegalStateException("Intentional probe failure after Warp morph creation");
+                }));
+        report.setProperty("rollback.diagnostic", "" + result.diagnosticId());
+        check("rollback.createdWarp.outcome",
+                dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+        check("rollback.deformersRestored", before,
+                edt(() -> model().deformers().all().stream().map(Deformer::id).toList()));
+        check("rollback.historyRestored", history, edt(() -> context.cubism().history().snapshot()));
+        check("rollback.banksRestored", banks, edt(() -> banksHash(ids())));
+        check("rollback.morphsRestored", morphs, edt(this::morphsHash));
+    }
+
+    private static long alphaSum(int[] pixels) {
+        long sum = 0;
+        for (int pixel : pixels) sum += pixel >>> 24;
+        return sum;
     }
 
     private String morphsHash() throws Exception {

@@ -1099,6 +1099,8 @@ final class EditorObjectReadAccess {
                     absoluteOpacity,
                     controls,
                     requireTransaction,
+                    () -> authoringCoordinator.isCreatedTargetRestored(
+                            Objects.requireNonNull(authoringBinding.get(), "authoring binding"), ref.source()),
                     contribution -> {
                         requireTransaction.run();
                         authoringCoordinator.mutate(

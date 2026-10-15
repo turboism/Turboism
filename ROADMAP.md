@@ -201,9 +201,17 @@ The reference fixture restores Blender-evaluated default masks and fitted footwe
 Native painter ordering remains an approximation; arbitrary-angle visual equivalence
 is not established.
 
-Independent Blend Shape controls for clothing, source shape keys, eye movement,
-eye closure and local head rotation remain work in progress. These controls need
-source-control provenance, composition/error budgets and native save/reopen verification.
+Generic standard glTF position Morph Targets now become independent Blend Shape
+parameters. Structural parts use source objects and actual skin weights without
+an LLM or anatomical name rules. The two-shape fixture passed import, Undo/Redo
+and fresh-process persistence on Cubism 5.3.04.
+
+Explicit opacity controls support nested Warp parents. Their combination with
+geometry controls passed native alpha-ratio checks at yaw 0° and ±30°. This does
+not prove side-view geometry accuracy. Fixed neutral-view Warp offsets do not
+rotate source depth deltas with body yaw/pitch; angle-conditioned corrections
+remain required. Dedicated clothing/mask/foot, eye and head mappings are optional
+and remain work in progress.
 
 ## Track F — Hook and render ingress
 

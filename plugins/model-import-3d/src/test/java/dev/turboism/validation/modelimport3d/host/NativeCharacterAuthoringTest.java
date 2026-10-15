@@ -56,6 +56,7 @@ public class NativeCharacterAuthoringTest {
             final String name;
             WarpGrid grid;
             float opacity = 1;
+            int instanceGeneration;
             final List<WarpMorphSnapshot.Key> morphKeys = new ArrayList<>();
             Optional<DeformerId> targetDeformer = Optional.empty();
 
@@ -69,6 +70,7 @@ public class NativeCharacterAuthoringTest {
         final Map<ParameterId, Map<ParameterBindingTarget, ParameterInterpolation>> interpolations = new HashMap<>();
 
         boolean simulateLocalParentConversion;
+        boolean simulateWarpParentInstanceReplacement;
         int localParentConversions;
 
         int partCounter = 0;
@@ -160,45 +162,52 @@ public class NativeCharacterAuthoringTest {
         }
 
         private WarpDeformer warp(WarpRecord r) {
-            return proxy(WarpDeformer.class, (wm, wa) -> switch (wm.getName()) {
-                case "id" -> r.id;
-                case "replaceGrid" -> {
-                    r.grid = (WarpGrid) wa[0];
-                    yield null;
-                }
-                case "grid" -> r.grid;
-                case "setOpacity" -> {
-                    r.opacity = (Float) wa[0];
-                    yield null;
-                }
-                case "getOpacity" -> r.opacity;
-                case "setTargetDeformer" -> {
-                    r.targetDeformer = (Optional<DeformerId>) wa[0];
-                    yield null;
-                }
-                case "parentDeformerId" -> r.targetDeformer;
-                case "morphSnapshot" ->
-                    new WarpMorphSnapshot(
-                            r.id,
-                            "source-" + r.id.value(),
-                            new WarpMorphSnapshot.Form("base", r.grid.controlPoints(), r.opacity),
-                            r.morphKeys);
-                case "createMorphKeyform" -> {
-                    r.morphKeys.add(new WarpMorphSnapshot.Key(
-                            ((ParameterId) wa[0]).value(),
-                            (Float) wa[1],
-                            new WarpMorphSnapshot.Form("key-" + r.morphKeys.size(), (List<Point2>) wa[2], r.opacity)));
-                    yield null;
-                }
-                case "createOpacityMorphKeyform" -> {
-                    r.morphKeys.add(new WarpMorphSnapshot.Key(
-                            ((ParameterId) wa[0]).value(),
-                            (Float) wa[1],
-                            new WarpMorphSnapshot.Form(
-                                    "key-" + r.morphKeys.size(), r.grid.controlPoints(), (Float) wa[2])));
-                    yield null;
-                }
-                default -> throw new AssertionError(wm.toString());
+            int generation = r.instanceGeneration;
+            return proxy(WarpDeformer.class, (wm, wa) -> {
+                if (generation != r.instanceGeneration)
+                    throw new IllegalStateException("Deformer reference is stale: " + r.id.value());
+                return switch (wm.getName()) {
+                    case "id" -> r.id;
+                    case "replaceGrid" -> {
+                        r.grid = (WarpGrid) wa[0];
+                        yield null;
+                    }
+                    case "grid" -> r.grid;
+                    case "setOpacity" -> {
+                        r.opacity = (Float) wa[0];
+                        yield null;
+                    }
+                    case "getOpacity" -> r.opacity;
+                    case "setTargetDeformer" -> {
+                        r.targetDeformer = (Optional<DeformerId>) wa[0];
+                        if (simulateWarpParentInstanceReplacement) r.instanceGeneration++;
+                        yield null;
+                    }
+                    case "parentDeformerId" -> r.targetDeformer;
+                    case "morphSnapshot" ->
+                        new WarpMorphSnapshot(
+                                r.id,
+                                "source-" + r.id.value(),
+                                new WarpMorphSnapshot.Form("base", r.grid.controlPoints(), r.opacity),
+                                r.morphKeys);
+                    case "createMorphKeyform" -> {
+                        r.morphKeys.add(new WarpMorphSnapshot.Key(
+                                ((ParameterId) wa[0]).value(),
+                                (Float) wa[1],
+                                new WarpMorphSnapshot.Form(
+                                        "key-" + r.morphKeys.size(), (List<Point2>) wa[2], r.opacity)));
+                        yield null;
+                    }
+                    case "createOpacityMorphKeyform" -> {
+                        r.morphKeys.add(new WarpMorphSnapshot.Key(
+                                ((ParameterId) wa[0]).value(),
+                                (Float) wa[1],
+                                new WarpMorphSnapshot.Form(
+                                        "key-" + r.morphKeys.size(), r.grid.controlPoints(), (Float) wa[2])));
+                        yield null;
+                    }
+                    default -> throw new AssertionError(wm.toString());
+                };
             });
         }
 
@@ -403,7 +412,7 @@ public class NativeCharacterAuthoringTest {
                 case "setTargetDeformer" -> {
                     var target = (Optional<DeformerId>) a[0];
                     var warp = target.map(warps::get).orElse(null);
-                    if (simulateLocalParentConversion && warp != null && warp.name.endsWith("局部动作")) {
+                    if (simulateLocalParentConversion && warp != null) {
                         var before = r.snapshot();
                         var origin = warp.grid.controlPoints().get(0);
                         var end = warp.grid
@@ -414,8 +423,8 @@ public class NativeCharacterAuthoringTest {
                                     form.formGuid(),
                                     form.positions().stream()
                                             .map(p -> new Point2(
-                                                    (p.x() - origin.x()) / (end.x() - origin.x()),
-                                                    (p.y() - origin.y()) / (end.y() - origin.y())))
+                                                    (p.x() - origin.x()) / (end.x() - origin.x()) + 1e-6f,
+                                                    (p.y() - origin.y()) / (end.y() - origin.y()) + 1e-6f))
                                             .toList());
                         }
                         localParentConversions++;
@@ -454,7 +463,7 @@ public class NativeCharacterAuthoringTest {
     }
 
     @Test
-    void sourceGeometryAndOpacityBecomeIndependentNativeBlendParameters() {
+    void sourceGeometryAndMultipleOpacityFactorsReacquireRebuiltWarpParents() {
         var base = simpleMesh("Arbitrary source", 0);
         var sample = new ViewerScene.ControlSample("shape", 1, new float[] {.01f, 0, 0, .01f, 0, 0, .01f, 0, 0});
         var mesh = new ViewerScene.Mesh(
@@ -470,7 +479,9 @@ public class NativeCharacterAuthoringTest {
                 "Source",
                 "Segment",
                 List.of(sample),
-                List.of(new ViewerScene.OpacityControl("opacity", 1, 0)));
+                List.of(
+                        new ViewerScene.OpacityControl("opacity", 1, .5f),
+                        new ViewerScene.OpacityControl("opacity2", 1, .25f)));
         var material = new ViewerScene.Material(
                 "Flat", new float[] {1, 1, 1, 1}, -1, -1, new float[3], "OPAQUE", .5f, true, true);
         var scene = new ViewerScene(
@@ -481,7 +492,8 @@ public class NativeCharacterAuthoringTest {
                 new ViewerScene.Stats(0, 1, 1, 1, 0, 0, 0),
                 List.of(
                         new ViewerScene.Control("shape", "Source shape", 0, 1),
-                        new ViewerScene.Control("opacity", "Source visibility", 0, 1)));
+                        new ViewerScene.Control("opacity", "Source visibility", 0, 1),
+                        new ViewerScene.Control("opacity2", "Second visibility factor", 0, 1)));
         var geometry = NativeCharacterPlan.prepare(scene, request("Generic"));
         var controls = NativeControlWarpPlan.prepare(scene, geometry);
         var host = new TestModelHost();
@@ -494,10 +506,11 @@ public class NativeCharacterAuthoringTest {
                 index -> "Source",
                 index -> "Segment");
         host.simulateLocalParentConversion = true;
+        host.simulateWarpParentInstanceReplacement = true;
         NativeControlAuthoring.apply(model, created, scene, controls);
         assertTrue(host.localParentConversions > 0, "Exercise native eager coordinate conversion");
         assertEquals(
-                2,
+                3,
                 host.parameters.stream()
                         .filter(p -> p.type() == ParameterType.BLEND_SHAPE)
                         .count());
@@ -505,10 +518,23 @@ public class NativeCharacterAuthoringTest {
                 .filter(p -> p.type() == ParameterType.BLEND_SHAPE)
                 .allMatch(p -> p.defaultValue() == 0));
         assertEquals(
-                2,
+                3,
                 host.warps.values().stream().mapToInt(w -> w.morphKeys.size()).sum());
         assertEquals(
                 25, host.meshes.values().iterator().next().snapshot().forms().size());
+        var opacityForms = host.warps.values().stream()
+                .flatMap(w -> w.morphKeys.stream())
+                .map(WarpMorphSnapshot.Key::form)
+                .map(WarpMorphSnapshot.Form::opacity)
+                .sorted()
+                .toList();
+        assertEquals(List.of(.25f, .5f, 1f), opacityForms);
+        var local = host.warps.get(
+                host.meshes.values().iterator().next().targetDeformer.orElseThrow());
+        var secondFactor = host.warps.get(local.targetDeformer.orElseThrow());
+        var firstFactor = host.warps.get(secondFactor.targetDeformer.orElseThrow());
+        assertEquals(.25f, secondFactor.morphKeys.get(0).form().opacity());
+        assertEquals(.5f, firstFactor.morphKeys.get(0).form().opacity());
     }
 
     @Test

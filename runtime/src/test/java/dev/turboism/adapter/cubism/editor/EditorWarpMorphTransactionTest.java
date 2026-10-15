@@ -147,6 +147,7 @@ class EditorWarpMorphTransactionTest {
                                             null,
                                             controls,
                                             () -> {},
+                                            () -> f.coordinator.isCreatedTargetRestored(f.binding, f.source),
                                             contribution -> f.coordinator.mutate(f.binding, contribution),
                                             f::refreshNative);
                             })
@@ -160,6 +161,64 @@ class EditorWarpMorphTransactionTest {
             f.redo();
             assertTrue(after.sameValues(f.warpState()));
         });
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.MethodSource("reviewedVersions")
+    void rollbackAcceptsRemovedWarpOnlyWhenThisRootOwnsItsCreation(String version) throws Exception {
+        for (boolean created : new boolean[] {true, false})
+            edt(f -> {
+                f.resolver = f.resolver(version, null, null);
+                f.nativeAbort = true;
+                var removed = new java.util.concurrent.atomic.AtomicBoolean();
+                var before = f.history();
+                var result = f.transaction(() -> {
+                    var creation = new dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution(
+                            "create",
+                            "warp",
+                            "Create Warp",
+                            (edit, label) -> ((EditorArtMeshMorphFixture.Group) edit)
+                                    .add(
+                                            new EditorArtMeshMorphFixture.Undo() {
+                                                public void undo() {
+                                                    removed.set(true);
+                                                }
+
+                                                public void redo() {
+                                                    removed.set(false);
+                                                }
+                                            },
+                                            true),
+                            () -> {},
+                            () -> true,
+                            () -> removed.set(true),
+                            removed::get,
+                            java.util.Set.of());
+                    if (created) f.coordinator.mutateCreated(f.binding, f.source, creation);
+                    else f.coordinator.mutate(f.binding, creation);
+                    EditorWarpMorphAccess.create(
+                            f.resolver,
+                            new dev.turboism.sdk.cubism.id.DeformerId("warp"),
+                            () -> {
+                                if (removed.get()) throw new IllegalStateException("Deformer reference is stale: warp");
+                                return f.source;
+                            },
+                            f.model,
+                            f.model,
+                            new dev.turboism.sdk.cubism.id.ParameterId("Paramm"),
+                            1,
+                            .5f,
+                            null,
+                            () -> {},
+                            () -> f.coordinator.isCreatedTargetRestored(f.binding, f.source),
+                            contribution -> f.coordinator.mutate(f.binding, contribution),
+                            f::refreshNative);
+                    throw new IllegalStateException("Abort after native Warp morph creation");
+                });
+                assertEquals(created ? ROLLED_BACK : RECOVERY_FAILED, result.outcome());
+                assertTrue(removed.get());
+                assertEquals(before, f.history());
+            });
     }
 
     private static java.util.stream.Stream<String> reviewedVersions() {

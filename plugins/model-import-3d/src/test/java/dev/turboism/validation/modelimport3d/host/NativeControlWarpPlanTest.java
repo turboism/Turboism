@@ -91,6 +91,43 @@ class NativeControlWarpPlanTest {
     }
 
     @Test
+    void depthOnlyShapeQuantifiesNeutralFitSideViewLimit() {
+        var mesh = mesh(
+                new float[] {-1, -1, 0, 1, -1, 0, 0, 1, 0},
+                List.of(new ViewerScene.ControlSample("Depth", 1, new float[] {0, 0, .2f, 0, 0, .2f, 0, 0, .2f})),
+                List.of());
+        var scene = scene(List.of(mesh), List.of(new ViewerScene.Control("Depth", "Depth", 0, 1)));
+        var geometry = geometry(scene);
+        var fit = NativeControlWarpPlan.prepare(scene, geometry);
+        assertEquals(0, fit.maximumResidualPixels());
+        var patch = fit.patches().get(0);
+        assertEquals(
+                NativeControlWarpPlan.identity(patch.cells()).controlPoints(),
+                patch.keys().get(0).controls());
+        var partition = geometry.partitions().get(0);
+        var displaced = partition.positions().stream()
+                .map(v -> new SurfaceProjection.Vertex(v.x(), v.y(), v.z() + .2f))
+                .toList();
+        for (var pose : List.of(
+                new SurfaceProjection.Pose(-30, 0),
+                new SurfaceProjection.Pose(30, 0),
+                new SurfaceProjection.Pose(0, -30),
+                new SurfaceProjection.Pose(0, 30))) {
+            var baseline = SurfaceProjection.project(partition.positions(), geometry.camera(), pose)
+                    .positions();
+            var target = SurfaceProjection.project(displaced, geometry.camera(), pose)
+                    .positions();
+            // This is an explicit limitation measurement, not side-view acceptance.
+            // A neutral identity Warp cannot reproduce this projected depth displacement.
+            double error = Math.hypot(
+                    target.get(0).x() - baseline.get(0).x(),
+                    target.get(0).y() - baseline.get(0).y());
+            assertEquals(28.28427, error, .001);
+            assertTrue(error > NativeControlWarpPlan.MAX_RESIDUAL_PIXELS);
+        }
+    }
+
+    @Test
     void coincidentProjectedInputsWithDifferentDisplacementsFailExplicitly() {
         var mesh = mesh(
                 new float[] {0, 0, -1, 0, 0, 1, 1, 1, 0},
