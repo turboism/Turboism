@@ -55,6 +55,7 @@ public final class RuntimeUserFileAccessService
 
     private static final int MAX_OPERATION_BYTES = 8 * 1024 * 1024;
     private static final int MAX_BINARY_READ_BYTES = 16 * 1024 * 1024;
+    private static final int MAX_BOUNDED_BINARY_READ_BYTES = 128 * 1024 * 1024;
 
     private final String pluginId;
     private final Object ownerToken = new Object();
@@ -191,6 +192,34 @@ public final class RuntimeUserFileAccessService
                 () -> observe(readFailure(UserFileErrorCode.CANCELED), "user-file.readBytes", null),
                 () -> observe(readFailure(UserFileErrorCode.RUNTIME_UNAVAILABLE), "user-file.readBytes", null),
                 () -> observe(readFailure(UserFileErrorCode.IO_FAILURE), "user-file.readBytes", null));
+    }
+
+    /**
+     * Reads at most {@code maxBytes} bytes asynchronously, supporting up to 128 MiB (134,217,728 bytes).
+     *
+     * <p>A larger file returns a bounded value with {@code truncated=true}; a request exceeding
+     * 128 MiB returns {@link UserFileErrorCode#SIZE_LIMIT_EXCEEDED}.</p>
+     */
+    @Override
+    public CompletionStage<UserFileReadResult<byte[]>> readBytesBounded(
+            final UserFileHandle handle, final int maxBytes) {
+        requireNonNegative(maxBytes, "maxBytes");
+        final Authorization authorization = authorize(handle, UserFileMode.READ, PermissionIds.TURBOISM_FILE_READ);
+        if (authorization.error != null) {
+            return immediate(observe(
+                    readFailure(authorization.error),
+                    "user-file.readBytesBounded",
+                    permissionFor(authorization.error, PermissionIds.TURBOISM_FILE_READ)));
+        }
+        if (maxBytes > MAX_BOUNDED_BINARY_READ_BYTES) {
+            return immediate(
+                    observe(readFailure(UserFileErrorCode.SIZE_LIMIT_EXCEEDED), "user-file.readBytesBounded", null));
+        }
+        return io.submit(
+                () -> observe(readBytesNow(authorization.target, maxBytes), "user-file.readBytesBounded", null),
+                () -> observe(readFailure(UserFileErrorCode.CANCELED), "user-file.readBytesBounded", null),
+                () -> observe(readFailure(UserFileErrorCode.RUNTIME_UNAVAILABLE), "user-file.readBytesBounded", null),
+                () -> observe(readFailure(UserFileErrorCode.IO_FAILURE), "user-file.readBytesBounded", null));
     }
 
     @Override
