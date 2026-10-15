@@ -67,7 +67,7 @@ public final class AutoAtlasHostProbePlugin implements TurboismPlugin {
         });
 
         final long startMillis = System.currentTimeMillis();
-        final long timeoutMillis = 120_000L;
+        final long timeoutMillis = 600_000L;
 
         poller.scheduleAtFixedRate(() -> {
             try {
