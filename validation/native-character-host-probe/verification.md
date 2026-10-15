@@ -215,3 +215,22 @@ The existing normal-axis split cannot run: normal Z range is at most two, so its
 | Yaw 180 | 14892 | 8272 |
 
 The default appearance fixture retained 203,851 triangles. The candidate increased partitions from 248 to 351. Forced backface culling reduced some conflicts but retained thousands of wrong depth samples and can remove intended double-sided surfaces. Neither experiment is shipped as a visual fix. Reports and the reverted patch are retained under `/tmp/native-occlusion-*` and `/tmp/native-directional-partition-experiment.patch`. The user's reported occlusion, broken surfaces and clipping remain unresolved.
+
+
+### Full 111-control retry — 2026-10-16
+
+User authorized Enter to dismiss the previously observed startup network-error dialog. In this retry that dialog did not recur; no Enter was sent. The official editor opened the task document and invoked the production import menu.
+
+- Job: `5782bccc-c6f5-4d5e-91df-39f3e1505f42`.
+- Run: `queue-707273a9640641f5a8ce60b2f0f621eb`.
+- Candidate: `e25b89434`, existing `native-refresh-groups` bundle.
+- Input: `native-controls.glb`, 127,651,212 bytes, SHA-256 `ad25dbb8cd3f12901c17f104ef26ee5a16ba688a8b6422aeccaddef19896623a`.
+- Source planning: 219.360 seconds (17:04:38.890 to 17:08:18.250 UTC).
+- Native source geometry: 551.842 seconds (17:08:18.286 to 17:17:30.128 UTC).
+- Texture atlas: 10.551 seconds (to 17:17:40.679 UTC).
+- Source controls: reached 448/796 patches after 632.519 seconds; last logged progress 576/796 at 17:33:40.635 UTC. These are local patches, not the 111 parameter count.
+- Final queue result: `timed_out`, validation FAIL, cleanup `safe`, normal exit false. The 1,800-second queue limit ended the run at approximately 17:33:48 UTC. No complete authored model, cache initialization, official save or reopen was verified.
+
+Compared with the previous roughly 35-minute 448-patch observation, the control-stage refresh change materially improves this partial benchmark. Geometry is still slow and later control batches slow down. This is neither full-character functional acceptance nor acceptable import performance. Further investigation must measure reparent conversion, keyform position writes, object creation and source readback costs; do not infer their individual shares from these stage timings.
+
+Evidence root: `<host-root>/native-character/5304-controls-refresh-groups-r6/queue-707273a9640641f5a8ce60b2f0f621eb/`. Runtime log: `turboism-home/logs/runtime/2026-10-15/turboism-17-04-14.324-p344-10061965474221261865.log`. Queue terminal observation retained at `/tmp/native-r6-terminal.json`. Independent post-run SHA-256 checks match the original CMO3 fixture, original BLEND/GLB and generated control GLB hashes; this does not replace the missing complete supervisor acceptance checks.
