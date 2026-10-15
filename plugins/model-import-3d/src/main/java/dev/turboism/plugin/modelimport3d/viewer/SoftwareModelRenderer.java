@@ -43,6 +43,7 @@ public final class SoftwareModelRenderer {
             true,
             false);
 
+    /** Counts submitted, rendered, culled and transparent triangles for one frame. */
     public record RenderStats(
             int totalTriangles,
             int renderedTriangles,
@@ -51,11 +52,13 @@ public final class SoftwareModelRenderer {
             long renderTimeNanos,
             int width,
             int height) {
+        /** Returns frame computation time in milliseconds. */
         public double renderTimeMs() {
             return renderTimeNanos / 1_000_000.0;
         }
     }
 
+    /** Couples the owned frame image with its render statistics. */
     public record RenderResult(BufferedImage image, RenderStats stats) {}
 
     private final int backgroundColor;
@@ -93,6 +96,7 @@ public final class SoftwareModelRenderer {
                 .image();
     }
 
+    /** Returns statistics for the most recently completed render. */
     public RenderStats lastRenderStats() {
         return lastStats;
     }

@@ -1,14 +1,13 @@
 package dev.turboism.plugin.modelimport3d.viewer;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.concurrent.CancellationException;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 public class GlbViewerLoaderTest {
 
@@ -38,7 +37,8 @@ public class GlbViewerLoaderTest {
     void rejectsOversizedDeclaredLengthHeader() {
         // Actual byte length is 20, declared length is 1000
         byte[] glb = createGlbHeader(0x46546C67, 2, 1000);
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
+        IllegalArgumentException ex =
+                assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
         assertTrue(ex.getMessage().contains("declared length mismatch"));
     }
 
@@ -52,7 +52,8 @@ public class GlbViewerLoaderTest {
         buf.putInt(0);
         buf.putInt(0x4E4F534A);
         buf.putInt(0x12345678); // Trailing junk
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(buf.array(), () -> false));
+        IllegalArgumentException ex =
+                assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(buf.array(), () -> false));
         assertTrue(ex.getMessage().contains("declared length mismatch"));
     }
 
@@ -72,11 +73,11 @@ public class GlbViewerLoaderTest {
     void rejectsChunkNotJson() {
         ByteBuffer buf = ByteBuffer.allocate(28).order(ByteOrder.LITTLE_ENDIAN);
         buf.putInt(0x46546C67); // "glTF"
-        buf.putInt(2);          // version 2
-        buf.putInt(28);         // length
-        buf.putInt(8);          // chunk0 len
+        buf.putInt(2); // version 2
+        buf.putInt(28); // length
+        buf.putInt(8); // chunk0 len
         buf.putInt(0x004E4942); // "BIN\0" (illegal chunk 0 type)
-        buf.putLong(0);         // data
+        buf.putLong(0); // data
         assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(buf.array(), () -> false));
     }
 
@@ -84,19 +85,20 @@ public class GlbViewerLoaderTest {
     void rejectsUnsupportedRequiredExtensions() {
         String json = "{\"asset\":{\"version\":\"2.0\"},\"extensionsRequired\":[\"KHR_draco_mesh_compression\"]}";
         byte[] glb = buildGlb(json, new byte[0]);
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
+        IllegalArgumentException ex =
+                assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
         assertTrue(ex.getMessage().contains("Unsupported required extension"));
     }
 
     @Test
     void rejectsCycleInNodeHierarchy() {
         // Node 0 -> Node 1 -> Node 0
-        String json = "{\"asset\":{\"version\":\"2.0\"}," +
-                "\"scene\":0,\"scenes\":[{\"nodes\":[0]}]," +
-                "\"nodes\":[{\"name\":\"n0\",\"children\":[1]},{\"name\":\"n1\",\"children\":[0]}]," +
-                "\"meshes\":[]}";
+        String json = "{\"asset\":{\"version\":\"2.0\"}," + "\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
+                + "\"nodes\":[{\"name\":\"n0\",\"children\":[1]},{\"name\":\"n1\",\"children\":[0]}],"
+                + "\"meshes\":[]}";
         byte[] glb = buildGlb(json, new byte[0]);
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
+        IllegalArgumentException ex =
+                assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
         assertTrue(ex.getMessage().contains("cycle"));
     }
 
@@ -106,26 +108,30 @@ public class GlbViewerLoaderTest {
         StringBuilder nodes = new StringBuilder("[");
         for (int i = 0; i < 70; i++) {
             if (i > 0) nodes.append(",");
-            nodes.append("{\"name\":\"n").append(i).append("\",\"children\":[")
+            nodes.append("{\"name\":\"n")
+                    .append(i)
+                    .append("\",\"children\":[")
                     .append(i < 69 ? (i + 1) : "")
                     .append("]}");
         }
         nodes.append("]");
 
-        String json = "{\"asset\":{\"version\":\"2.0\"}," +
-                "\"scene\":0,\"scenes\":[{\"nodes\":[0]}]," +
-                "\"nodes\":" + nodes + "," +
-                "\"meshes\":[]}";
+        String json = "{\"asset\":{\"version\":\"2.0\"}," + "\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
+                + "\"nodes\":"
+                + nodes + "," + "\"meshes\":[]}";
         byte[] glb = buildGlb(json, new byte[0]);
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
+        IllegalArgumentException ex =
+                assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
         assertTrue(ex.getMessage().contains("depth exceeds limit"));
     }
 
     @Test
     void rejectsExternalUriInBuffer() {
-        String json = "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"uri\":\"http://example.com/model.bin\",\"byteLength\":100}]}";
+        String json =
+                "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"uri\":\"http://example.com/model.bin\",\"byteLength\":100}]}";
         byte[] glb = buildGlb(json, new byte[0]);
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
+        IllegalArgumentException ex =
+                assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
         assertTrue(ex.getMessage().contains("External URI"));
     }
 
@@ -133,19 +139,20 @@ public class GlbViewerLoaderTest {
     void rejectsExternalUriInImage() {
         String json = "{\"asset\":{\"version\":\"2.0\"},\"images\":[{\"uri\":\"file:///secret.png\"}]}";
         byte[] glb = buildGlb(json, new byte[0]);
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
+        IllegalArgumentException ex =
+                assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
         assertTrue(ex.getMessage().contains("External URI"));
     }
 
     @Test
     void rejectsAccessorOutOfBounds() {
         // BufferView is 36 bytes, but accessor count requests 10 VEC3 floats = 120 bytes
-        String json = "{\"asset\":{\"version\":\"2.0\"}," +
-                "\"buffers\":[{\"byteLength\":36}]," +
-                "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36}]," +
-                "\"accessors\":[{\"bufferView\":0,\"byteOffset\":0,\"componentType\":5126,\"count\":10,\"type\":\"VEC3\"}]}";
+        String json = "{\"asset\":{\"version\":\"2.0\"}," + "\"buffers\":[{\"byteLength\":36}],"
+                + "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36}],"
+                + "\"accessors\":[{\"bufferView\":0,\"byteOffset\":0,\"componentType\":5126,\"count\":10,\"type\":\"VEC3\"}]}";
         byte[] glb = buildGlb(json, new byte[36]);
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
+        IllegalArgumentException ex =
+                assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(glb, () -> false));
         assertTrue(ex.getMessage().contains("exceeds bufferView"));
     }
 
@@ -164,23 +171,22 @@ public class GlbViewerLoaderTest {
         // Indices (3 * UNSIGNED_SHORT = 6 bytes + 2 pad = 8 bytes)
         bin.putShort((short) 0).putShort((short) 1).putShort((short) 2).putShort((short) 0);
 
-        String json = "{\"asset\":{\"version\":\"2.0\"}," +
-                "\"scene\":0,\"scenes\":[{\"nodes\":[0]}]," +
-                "\"nodes\":[{\"name\":\"root\",\"mesh\":0}]," +
-                "\"buffers\":[{\"byteLength\":" + bin.position() + "}]," +
-                "\"bufferViews\":[" +
-                "{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36}," +
-                "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36}," +
-                "{\"buffer\":0,\"byteOffset\":72,\"byteLength\":6}" +
-                "]," +
-                "\"accessors\":[" +
-                "{\"bufferView\":0,\"byteOffset\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"}," +
-                "{\"bufferView\":1,\"byteOffset\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"}," +
-                "{\"bufferView\":2,\"byteOffset\":0,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"}" +
-                "]," +
-                "\"materials\":[{\"name\":\"mat0\",\"pbrMetallicRoughness\":{\"baseColorFactor\":[1,0,0,1]}}]," +
-                "\"meshes\":[{\"name\":\"triangle\",\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},\"indices\":2,\"material\":0}]}]" +
-                "}";
+        String json = "{\"asset\":{\"version\":\"2.0\"}," + "\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
+                + "\"nodes\":[{\"name\":\"root\",\"mesh\":0}],"
+                + "\"buffers\":[{\"byteLength\":"
+                + bin.position() + "}]," + "\"bufferViews\":["
+                + "{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},"
+                + "{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36},"
+                + "{\"buffer\":0,\"byteOffset\":72,\"byteLength\":6}"
+                + "],"
+                + "\"accessors\":["
+                + "{\"bufferView\":0,\"byteOffset\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},"
+                + "{\"bufferView\":1,\"byteOffset\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},"
+                + "{\"bufferView\":2,\"byteOffset\":0,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"}"
+                + "],"
+                + "\"materials\":[{\"name\":\"mat0\",\"pbrMetallicRoughness\":{\"baseColorFactor\":[1,0,0,1]}}],"
+                + "\"meshes\":[{\"name\":\"triangle\",\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},\"indices\":2,\"material\":0}]}]"
+                + "}";
 
         byte[] glb = buildGlb(json, Arrays.copyOf(bin.array(), bin.position()));
         ViewerScene scene = GlbViewerLoader.load(glb, () -> false);
@@ -230,8 +236,8 @@ public class GlbViewerLoaderTest {
 
         // Header
         buf.putInt(0x46546C67); // "glTF"
-        buf.putInt(2);          // version
-        buf.putInt(totalLen);   // length
+        buf.putInt(2); // version
+        buf.putInt(totalLen); // length
 
         // Chunk 0: JSON
         buf.putInt(jsonBytes.length + jsonPad);

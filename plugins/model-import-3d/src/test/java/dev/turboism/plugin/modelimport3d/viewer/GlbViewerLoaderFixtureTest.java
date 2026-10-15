@@ -1,15 +1,14 @@
 package dev.turboism.plugin.modelimport3d.viewer;
 
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CancellationException;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 public class GlbViewerLoaderFixtureTest {
 
@@ -28,7 +27,9 @@ public class GlbViewerLoaderFixtureTest {
     @Test
     void decodesRealHumanoidFixture() throws Exception {
         final Path fixturePath = resolveFixturePath();
-        Assumptions.assumeTrue(fixturePath != null, "TURBOISM_VIEWER_FIXTURE not configured or file not found, skipping real fixture test");
+        Assumptions.assumeTrue(
+                fixturePath != null,
+                "TURBOISM_VIEWER_FIXTURE not configured or file not found, skipping real fixture test");
 
         final byte[] bytes = Files.readAllBytes(fixturePath);
         final long start = System.currentTimeMillis();
@@ -106,7 +107,8 @@ public class GlbViewerLoaderFixtureTest {
             writer.write("File: " + fixturePath + "\n");
             writer.write("Source Bytes: " + stats.sourceBytes() + "\n");
             writer.write("Load Duration: " + elapsed + " ms\n");
-            writer.write("Meshes: " + stats.meshCount() + " (primitives=" + scene.meshes().size() + ")\n");
+            writer.write("Meshes: " + stats.meshCount() + " (primitives="
+                    + scene.meshes().size() + ")\n");
             writer.write("Triangles: " + stats.triangleCount() + "\n");
             writer.write("Materials: " + stats.materialCount() + "\n");
             writer.write("Textures (Decoded Images): " + stats.textureCount() + "\n");
@@ -121,7 +123,9 @@ public class GlbViewerLoaderFixtureTest {
     @Test
     void respectsCancellationDuringFixtureLoad() throws Exception {
         final Path fixturePath = resolveFixturePath();
-        Assumptions.assumeTrue(fixturePath != null, "TURBOISM_VIEWER_FIXTURE not configured or file not found, skipping real fixture test");
+        Assumptions.assumeTrue(
+                fixturePath != null,
+                "TURBOISM_VIEWER_FIXTURE not configured or file not found, skipping real fixture test");
         final byte[] bytes = Files.readAllBytes(fixturePath);
         assertThrows(CancellationException.class, () -> GlbViewerLoader.load(bytes, () -> true));
     }
