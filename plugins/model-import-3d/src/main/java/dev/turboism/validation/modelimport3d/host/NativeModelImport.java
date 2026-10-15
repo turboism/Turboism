@@ -80,6 +80,9 @@ final class NativeModelImport {
             Prepared prepared,
             ModelTextureAtlasPlanner.PlannedAtlas atlas,
             java.util.function.Consumer<String> progress) {
+        var parameterGroup = java.util.Optional.of(model.parameterGroups()
+                .addGroup(prepared.geometry().request().name())
+                .id());
         progress.accept("source-geometry");
         Map<String, ModelImageBinding> sources = new LinkedHashMap<>();
         Map<ArtMeshId, ModelImageBinding> meshes = new LinkedHashMap<>();
@@ -111,8 +114,16 @@ final class NativeModelImport {
                     progress.accept("texture-atlas");
                     ModelTextureAtlasAuthoring.apply(model, created.meshIds(), sources, meshes, atlas);
                     progress.accept("source-controls");
-                    NativeControlAuthoring.apply(model, created, materials.scene(), prepared.controls(), progress);
+                    NativeControlAuthoring.apply(
+                            model,
+                            created,
+                            materials.scene(),
+                            prepared.controls(),
+                            progress,
+                            parameterGroup,
+                            prepared.geometry().request().yaw().value() + "_Control_");
                     progress.accept("rotation-interpolation-cache");
-                });
+                },
+                parameterGroup);
     }
 }

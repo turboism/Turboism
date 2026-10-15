@@ -107,7 +107,9 @@ final class EditorWarpMorphAccess {
                             resolver.invoke("cubism.editor-model.warp-form.set-positions", form, values);
                         }
                         resolver.invoke("cubism.editor-model.deformer-form.set-opacity", form, targetOpacity);
-                        refresh.run();
+                        // Verification reads stored forms and targets, not evaluated instances.
+                        // Coalesce the expensive whole-model setup at the root commit.
+                        // The Undo listener retains its immediate refresh for history replay.
                     },
                     () -> before.created(read.get(), parameterGuid, key, targetPoints, targetOpacity, created[0]),
                     () -> {
@@ -119,7 +121,11 @@ final class EditorWarpMorphAccess {
                         undo.restore();
                     },
                     () -> createdTargetRestored.getAsBoolean() || before.sameValues(read.get()),
-                    Set.of(EditorRefreshRequirement.MARK_DIRTY)));
+                    Set.of(
+                            EditorRefreshRequirement.MODEL_INSTANCES,
+                            EditorRefreshRequirement.DEFORMER_PALETTE,
+                            EditorRefreshRequirement.CANVAS,
+                            EditorRefreshRequirement.MARK_DIRTY)));
             return null;
         });
     }

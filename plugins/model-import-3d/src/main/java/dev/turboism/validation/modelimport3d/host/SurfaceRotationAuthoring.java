@@ -11,6 +11,14 @@ final class SurfaceRotationAuthoring {
     static final List<Float> KEYS = List.of(-180f, -90f, 0f, 90f, 180f);
 
     static RotationDeformer create(CubismModel model, Part parent, SurfaceImport.Request request) {
+        return create(model, parent, request, Optional.empty());
+    }
+
+    static RotationDeformer create(
+            CubismModel model,
+            Part parent,
+            SurfaceImport.Request request,
+            Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> parameterGroup) {
         var axis = request.roll().orElseThrow();
         if (model.parameters().all().stream().anyMatch(p -> p.id().equals(axis)))
             throw new IllegalArgumentException("Roll parameter ID already exists");
@@ -21,8 +29,10 @@ final class SurfaceRotationAuthoring {
         var neutral = new RotationDeformerForm(0, x, y, 1, false, false);
         rotation.replaceForm(neutral);
         model.parameters()
-                .createMany(List.of(new ParameterDefinition(
-                        axis, request.name() + " Z 旋转", -180, 0, 180, ParameterType.NORMAL, false)));
+                .createMany(
+                        List.of(new ParameterDefinition(
+                                axis, request.name() + " Z 旋转", -180, 0, 180, ParameterType.NORMAL, false)),
+                        parameterGroup);
         var points = new ArrayList<ParameterBindingPoint>();
         for (int k = 0; k < KEYS.size(); k++)
             points.add(new ParameterBindingPoint(

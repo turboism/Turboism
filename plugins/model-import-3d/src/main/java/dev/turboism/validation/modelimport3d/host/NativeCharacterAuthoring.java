@@ -96,6 +96,19 @@ public final class NativeCharacterAuthoring {
             java.util.function.IntFunction<String> appearanceGroups,
             java.util.function.IntFunction<String> bodyParts,
             java.util.function.Consumer<Created> sourceWrites) {
+        return assemble(
+                model, plan, binder, imageDimensions, appearanceGroups, bodyParts, sourceWrites, Optional.empty());
+    }
+
+    static Created assemble(
+            CubismModel model,
+            NativeCharacterPlan.Plan plan,
+            MeshMaterialBinder binder,
+            ImageDimensionProvider imageDimensions,
+            java.util.function.IntFunction<String> appearanceGroups,
+            java.util.function.IntFunction<String> bodyParts,
+            java.util.function.Consumer<Created> sourceWrites,
+            Optional<ParameterGroupId> parameterGroup) {
         Objects.requireNonNull(sourceWrites, "sourceWrites");
         Objects.requireNonNull(bodyParts, "bodyParts");
         Objects.requireNonNull(appearanceGroups, "appearanceGroups");
@@ -131,7 +144,7 @@ public final class NativeCharacterAuthoring {
         // 4. Create Roll (Z-rotation) Deformer if requested
         RotationDeformer rollDeformer = null;
         if (request.roll().isPresent()) {
-            rollDeformer = SurfaceRotationAuthoring.create(model, rootPart, request);
+            rollDeformer = SurfaceRotationAuthoring.create(model, rootPart, request, parameterGroup);
         }
 
         float ox = (float) (camera.centerX() + camera.scale() * camera.pivot().x());
@@ -207,11 +220,25 @@ public final class NativeCharacterAuthoring {
 
         // 6. Create Yaw and Pitch parameters
         model.parameters()
-                .createMany(List.of(
-                        new ParameterDefinition(
-                                request.yaw(), request.name() + " Y 旋转", -180, 0, 180, ParameterType.NORMAL, false),
-                        new ParameterDefinition(
-                                request.pitch(), request.name() + " X 旋转", -180, 0, 180, ParameterType.NORMAL, false)));
+                .createMany(
+                        List.of(
+                                new ParameterDefinition(
+                                        request.yaw(),
+                                        request.name() + " Y 旋转",
+                                        -180,
+                                        0,
+                                        180,
+                                        ParameterType.NORMAL,
+                                        false),
+                                new ParameterDefinition(
+                                        request.pitch(),
+                                        request.name() + " X 旋转",
+                                        -180,
+                                        0,
+                                        180,
+                                        ParameterType.NORMAL,
+                                        false)),
+                        parameterGroup);
 
         // 7. Bind deformer, parameters and write 5x5 keyform positions and orders
         var banks = new ArrayList<ArtMeshAuthoringSnapshot>();

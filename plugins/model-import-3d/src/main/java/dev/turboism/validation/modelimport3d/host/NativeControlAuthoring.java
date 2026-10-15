@@ -21,9 +21,26 @@ final class NativeControlAuthoring {
             ViewerScene scene,
             NativeControlWarpPlan.Plan plan,
             java.util.function.Consumer<String> progress) {
+        apply(
+                model,
+                created,
+                scene,
+                plan,
+                progress,
+                Optional.empty(),
+                created.rootPartId().value() + "_Control_");
+    }
+
+    static void apply(
+            CubismModel model,
+            NativeCharacterAuthoring.Created created,
+            ViewerScene scene,
+            NativeControlWarpPlan.Plan plan,
+            java.util.function.Consumer<String> progress,
+            Optional<ParameterGroupId> parameterGroup,
+            String prefix) {
         if (plan.controls().isEmpty()) return;
         var parameters = new LinkedHashMap<String, ParameterId>();
-        String prefix = created.rootPartId().value() + "_Control_";
         var definitions = new ArrayList<ParameterDefinition>();
         for (int i = 0; i < plan.controls().size(); i++) {
             var source = plan.controls().get(i);
@@ -34,7 +51,7 @@ final class NativeControlAuthoring {
             definitions.add(new ParameterDefinition(
                     id, source.name(), source.minimum(), 0, source.maximum(), ParameterType.BLEND_SHAPE, false));
         }
-        model.parameters().createMany(definitions);
+        model.parameters().createMany(definitions, parameterGroup);
         var opacityParents = new HashMap<DeformerId, List<ViewerScene.OpacityControl>>();
         var endpoints = new HashMap<DeformerId, DeformerId>();
         for (var meshId : created.meshIds()) {
