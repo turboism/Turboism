@@ -36,7 +36,24 @@ class NativeMaterialPlanTest {
         return null;
     }
 
-    private static final Path REPAIRED_GLB_PATH = Path.of("/tmp/task-n002-blend/native-material-repaired.glb");
+    private static Path resolveRepairedGlbPath() {
+        String fixture = System.getenv("TURBOISM_REPAIRED_FIXTURE");
+        if (fixture == null || fixture.isBlank()) {
+            fixture = System.getProperty("turboism.repaired.fixture");
+        }
+        if (fixture != null && !fixture.isBlank()) {
+            Path p = Path.of(fixture);
+            if (Files.isRegularFile(p)) {
+                return p;
+            }
+        }
+        String tmpDir = System.getProperty("java.io.tmpdir", "/tmp");
+        Path defaultTmp = Path.of(tmpDir, "task-n002-blend", "native-material-repaired.glb");
+        if (Files.isRegularFile(defaultTmp)) {
+            return defaultTmp;
+        }
+        return null;
+    }
 
     @Test
     void actualGlbFixtureFocusedVerification() throws IOException {
@@ -116,9 +133,11 @@ class NativeMaterialPlanTest {
 
     @Test
     void repairedGlbFixtureFocusedVerificationIfPresent() throws IOException {
-        Assumptions.assumeTrue(Files.exists(REPAIRED_GLB_PATH), "Repaired fixture file must exist");
+        Path repairedPath = resolveRepairedGlbPath();
+        Assumptions.assumeTrue(
+                repairedPath != null && Files.isRegularFile(repairedPath), "Repaired fixture file must exist");
 
-        byte[] glbBytes = Files.readAllBytes(REPAIRED_GLB_PATH);
+        byte[] glbBytes = Files.readAllBytes(repairedPath);
         ViewerScene rawScene = GlbViewerLoader.load(glbBytes, () -> false);
         assertNotNull(rawScene);
 
@@ -371,6 +390,83 @@ class NativeMaterialPlanTest {
         byte[] getterBytes = img.png();
         getterBytes[0] = 0;
         assertNotEquals(0, img.png()[0]);
+    }
+
+    @Test
+    void cacheBypassMultiUvThrowsOnSubsequentMesh() {
+        ViewerScene.Texture base = new ViewerScene.Texture(4, 4, new int[16]);
+        ViewerScene.Texture emiss = new ViewerScene.Texture(4, 4, new int[16]);
+
+        float[] uvs = new float[] {0, 0, 1, 0, 0, 1};
+        float[] diffUvs = new float[] {0.5f, 0.5f, 1, 0, 0, 1};
+
+        // mesh1 has matching UVs and would be cached
+        ViewerScene.Mesh mesh1 =
+                new ViewerScene.Mesh("mesh1", new float[9], null, uvs, uvs.clone(), null, new int[] {0, 1, 2}, 0);
+        // mesh2 shares the same material 0, but has conflicting emissive UVs
+        ViewerScene.Mesh mesh2 =
+                new ViewerScene.Mesh("mesh2", new float[9], null, uvs, diffUvs, null, new int[] {0, 1, 2}, 0);
+        ViewerScene.Material mat = new ViewerScene.Material(
+                "mat", new float[] {1, 1, 1, 1}, 0, 1, new float[] {1, 1, 1}, "OPAQUE", 0.5f, false, false);
+
+        ViewerScene scene = new ViewerScene(
+                List.of(mesh1, mesh2),
+                List.of(mat),
+                List.of(base, emiss),
+                new ViewerScene.Bounds(0, 0, 0, 1, 1, 0),
+                new ViewerScene.Stats(100, 2, 2, 1, 2, 0, 0));
+
+        assertThrows(IllegalArgumentException.class, () -> NativeMaterialPlan.prepare(scene));
+    }
+
+    @Test
+    void alphaCutoffZeroPreservesValidMaskAlpha() {
+        // Base texture 2x2 with a pixel having a small alpha (e.g. 0.1 / 25)
+        int[] argb = new int[] {
+            0x19FFFFFF, // a = 25 (~0.1)
+            0x00FFFFFF, // a = 0
+            0x80FFFFFF, // a = 128
+            0xFFFFFFFF // a = 255
+        };
+        ViewerScene.Texture tex = new ViewerScene.Texture(2, 2, argb);
+
+        ViewerScene.Mesh mesh =
+                new ViewerScene.Mesh("m", new float[9], null, new float[6], null, null, new int[] {0, 1, 2}, 0);
+        // alphaCutoff = 0.0f
+        ViewerScene.Material mat = new ViewerScene.Material(
+                "maskZero", new float[] {1, 1, 1, 1}, 0, -1, new float[3], "MASK", 0.0f, false, false);
+
+        ViewerScene scene = new ViewerScene(
+                List.of(mesh),
+                List.of(mat),
+                List.of(tex),
+                new ViewerScene.Bounds(0, 0, 0, 1, 1, 0),
+                new ViewerScene.Stats(100, 1, 1, 1, 1, 0, 0));
+
+        NativeMaterialPlan plan = NativeMaterialPlan.prepare(scene);
+        assertEquals(1, plan.images().size());
+        NativeMaterialPlan.Image img = plan.imageForMesh(0);
+        assertNotNull(img);
+        assertEquals(2, img.width());
+        assertEquals(2, img.height());
+    }
+
+    @Test
+    void preflightDimensionCheckRejectsOversizedTexturesBeforeBake() {
+        ViewerScene.Texture oversized = new ViewerScene.Texture(16384, 16384, new int[1]);
+        ViewerScene.Mesh mesh =
+                new ViewerScene.Mesh("m", new float[9], null, new float[6], null, null, new int[] {0, 1, 2}, 0);
+        ViewerScene.Material mat = new ViewerScene.Material(
+                "mat", new float[] {1, 1, 1, 1}, 0, -1, new float[3], "OPAQUE", 0.5f, false, false);
+
+        ViewerScene scene = new ViewerScene(
+                List.of(mesh),
+                List.of(mat),
+                List.of(oversized),
+                new ViewerScene.Bounds(0, 0, 0, 1, 1, 0),
+                new ViewerScene.Stats(100, 1, 1, 1, 1, 0, 0));
+
+        assertThrows(IllegalArgumentException.class, () -> NativeMaterialPlan.prepare(scene));
     }
 
     @Test
