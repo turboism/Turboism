@@ -13,15 +13,24 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class GlbViewerLoaderFixtureTest {
 
-    private static final Path FIXTURE_PATH = Path.of(System.getProperty("user.home"), "Documents", "Laevatein_Surtr_Futa_v1.1.glb");
+    private static Path resolveFixturePath() {
+        String fixture = System.getenv("TURBOISM_VIEWER_FIXTURE");
+        if (fixture == null || fixture.isBlank()) {
+            fixture = System.getProperty("turboism.viewer.fixture");
+        }
+        if (fixture == null || fixture.isBlank()) {
+            return null;
+        }
+        final Path path = Path.of(fixture);
+        return Files.exists(path) ? path : null;
+    }
 
     @Test
     void decodesRealHumanoidFixture() throws Exception {
-        Assumptions.assumeTrue(Files.exists(FIXTURE_PATH), "Real fixture not present: " + FIXTURE_PATH);
+        final Path fixturePath = resolveFixturePath();
+        Assumptions.assumeTrue(fixturePath != null, "TURBOISM_VIEWER_FIXTURE not configured or file not found, skipping real fixture test");
 
-        final byte[] bytes = Files.readAllBytes(FIXTURE_PATH);
-        assertEquals(82512460, bytes.length);
-
+        final byte[] bytes = Files.readAllBytes(fixturePath);
         final long start = System.currentTimeMillis();
         final ViewerScene scene = GlbViewerLoader.load(bytes, () -> false);
         final long elapsed = System.currentTimeMillis() - start;
@@ -30,7 +39,7 @@ public class GlbViewerLoaderFixtureTest {
 
         // 1. Verify statistics
         final ViewerScene.Stats stats = scene.stats();
-        assertEquals(82512460L, stats.sourceBytes());
+        assertEquals(bytes.length, stats.sourceBytes());
         assertEquals(16, stats.meshCount());
         assertEquals(121097, stats.triangleCount());
         assertEquals(15, stats.materialCount());
@@ -44,7 +53,6 @@ public class GlbViewerLoaderFixtureTest {
         // 3. Verify materials
         assertEquals(15, scene.materials().size());
 
-        // Check specific materials
         ViewerScene.Material mat0 = scene.materials().get(0);
         assertEquals("Body", mat0.name());
         assertEquals(0, mat0.baseColorTexture());
@@ -95,7 +103,7 @@ public class GlbViewerLoaderFixtureTest {
         final File summaryFile = new File(summaryDir, "fixture-decode-summary.txt");
         try (FileWriter writer = new FileWriter(summaryFile)) {
             writer.write("GLB Humanoid Fixture Decode Summary\n");
-            writer.write("File: " + FIXTURE_PATH + "\n");
+            writer.write("File: " + fixturePath + "\n");
             writer.write("Source Bytes: " + stats.sourceBytes() + "\n");
             writer.write("Load Duration: " + elapsed + " ms\n");
             writer.write("Meshes: " + stats.meshCount() + " (primitives=" + scene.meshes().size() + ")\n");
@@ -112,8 +120,9 @@ public class GlbViewerLoaderFixtureTest {
 
     @Test
     void respectsCancellationDuringFixtureLoad() throws Exception {
-        Assumptions.assumeTrue(Files.exists(FIXTURE_PATH), "Real fixture not present: " + FIXTURE_PATH);
-        final byte[] bytes = Files.readAllBytes(FIXTURE_PATH);
+        final Path fixturePath = resolveFixturePath();
+        Assumptions.assumeTrue(fixturePath != null, "TURBOISM_VIEWER_FIXTURE not configured or file not found, skipping real fixture test");
+        final byte[] bytes = Files.readAllBytes(fixturePath);
         assertThrows(CancellationException.class, () -> GlbViewerLoader.load(bytes, () -> true));
     }
 }
