@@ -168,11 +168,13 @@ public record NativeMaterialPlan(ViewerScene scene, List<Integer> meshImageIndic
                     mesh.materialIndex(),
                     mesh.visible(),
                     mesh.appearanceGroup(),
-                    mesh.bodyPart()));
+                    mesh.bodyPart(),
+                    mesh.controlSamples(),
+                    mesh.opacityControls()));
         }
 
-        ViewerScene normalizedScene =
-                new ViewerScene(normalizedMeshes, scene.materials(), scene.textures(), scene.bounds(), scene.stats());
+        ViewerScene normalizedScene = new ViewerScene(
+                normalizedMeshes, scene.materials(), scene.textures(), scene.bounds(), scene.stats(), scene.controls());
 
         // 2. Bake and deduplicate textures for each mesh
         long cumulativePixels = 0;

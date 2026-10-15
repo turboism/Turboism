@@ -271,6 +271,100 @@ public class GlbViewerLoaderTest {
         return buf.array();
     }
 
+    @Test
+    void explicitSparseControlsRetainWorldDeltasAndOpacityFactors() {
+        var scene = GlbViewerLoader.load(controlGlb(2), () -> false);
+        assertEquals(1, scene.controls().size());
+        var mesh = scene.meshes().get(0);
+        assertEquals(.5f, mesh.defaultOpacity());
+        assertArrayEquals(
+                new float[] {0, 0, 0, 0, 0, 0, .25f, .5f, .75f},
+                mesh.controlSamples().get(0).deltas());
+        assertEquals(1, mesh.controlSamples().get(0).key());
+    }
+
+    @Test
+    void rejectsSparseControlSlotOutsideSourceGeometry() {
+        assertThrows(IllegalArgumentException.class, () -> GlbViewerLoader.load(controlGlb(3), () -> false));
+    }
+
+    private static byte[] controlGlb(int slot) {
+        var bin = ByteBuffer.allocate(52).order(ByteOrder.LITTLE_ENDIAN);
+        for (float v : new float[] {0, 0, 0, 1, 0, 0, 0, 1, 0, .25f, .5f, .75f}) bin.putFloat(v);
+        bin.putInt(slot);
+        String json = """
+            {"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0]}],
+             "extras":{"turboismControls":[{"id":"Control","name":"Control","minimum":0,"maximum":1}]},
+             "nodes":[{"mesh":0,"scale":[2,2,2],"extras":{"turboismOpacityControls":[{"parameter":"Control","base":0.5,"target":0}]}}],
+             "buffers":[{"byteLength":52}],
+             "bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":36},{"buffer":0,"byteOffset":36,"byteLength":12},{"buffer":0,"byteOffset":48,"byteLength":4}],
+             "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},{"bufferView":1,"componentType":5126,"count":1,"type":"VEC3"},{"bufferView":2,"componentType":5125,"count":1,"type":"SCALAR"}],
+             "meshes":[{"primitives":[{"attributes":{"POSITION":0},"extras":{"turboismControlSamples":[{"parameter":"Control","key":1,"slots":2,"deltas":1}]}}]}]}
+            """;
+        return buildGlb(json, bin.array());
+    }
+
+    @Test
+    void standardMorphTargetsBecomeControlsWithoutCustomMetadata() {
+        byte[] glb = standardMorphGlb();
+        assertTrue(GlbViewerLoader.requiresNativeRigImport(glb));
+        assertTrue(GlbViewerLoader.load(glb, () -> false).controls().isEmpty());
+        var scene = GlbViewerLoader.loadWithSourceControls(glb, () -> false);
+        var control = scene.controls().get(0);
+        assertEquals("Source shape", control.name());
+        assertEquals(-.25f, control.minimum());
+        assertEquals(.75f, control.maximum());
+        var mesh = scene.meshes().get(0);
+        assertEquals(5.5f, mesh.positions()[0]);
+        assertEquals(2, mesh.controlSamples().size());
+        assertArrayEquals(
+                new float[] {-.5f, 0, 0, -.5f, 0, 0, -.5f, 0, 0},
+                mesh.controlSamples().get(0).deltas());
+        assertArrayEquals(
+                new float[] {1.5f, 0, 0, 1.5f, 0, 0, 1.5f, 0, 0},
+                mesh.controlSamples().get(1).deltas());
+    }
+
+    private static byte[] standardMorphGlb() {
+        var bin = ByteBuffer.allocate(72).order(ByteOrder.LITTLE_ENDIAN);
+        for (float v : new float[] {0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0}) bin.putFloat(v);
+        return buildGlb("""
+            {"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0]}],
+             "nodes":[{"mesh":0,"translation":[5,0,0],"scale":[2,2,2],"weights":[0.25]}],
+             "buffers":[{"byteLength":72}],
+             "bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":36},{"buffer":0,"byteOffset":36,"byteLength":36}],
+             "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},{"bufferView":1,"componentType":5126,"count":3,"type":"VEC3"}],
+             "meshes":[{"extras":{"targetNames":["Source shape"]},"primitives":[{"attributes":{"POSITION":0},"targets":[{"POSITION":1}]}]}]}
+            """, bin.array());
+    }
+
+    @Test
+    void skinInfluencesGroupPartsWithoutAnatomicalNameRules() {
+        var bin = ByteBuffer.allocate(192).order(ByteOrder.LITTLE_ENDIAN);
+        for (float v : new float[] {0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0, 0, 3, 0, 0, 2, 1, 0}) bin.putFloat(v);
+        for (int i = 0; i < 6; i++)
+            bin.put((byte) (i < 3 ? 0 : 1)).put((byte) 0).put((byte) 0).put((byte) 0);
+        for (int i = 0; i < 6; i++) bin.putFloat(1).putFloat(0).putFloat(0).putFloat(0);
+        var glb = buildGlb("""
+            {"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0,1]}],
+             "nodes":[{"mesh":0,"skin":0},{"name":"Skeleton","children":[2,3]},{"name":"Segment A"},{"name":"Segment B"}],
+             "skins":[{"joints":[2,3],"skeleton":1}],"buffers":[{"byteLength":192}],
+             "bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":72},{"buffer":0,"byteOffset":72,"byteLength":24},{"buffer":0,"byteOffset":96,"byteLength":96}],
+             "accessors":[{"bufferView":0,"componentType":5126,"count":6,"type":"VEC3"},{"bufferView":1,"componentType":5121,"count":6,"type":"VEC4"},{"bufferView":2,"componentType":5126,"count":6,"type":"VEC4"}],
+             "meshes":[{"primitives":[{"attributes":{"POSITION":0,"JOINTS_0":1,"WEIGHTS_0":2}}]}]}
+            """, bin.array());
+        var source = GlbViewerLoader.load(glb, () -> false);
+        assertEquals(1, source.meshes().size());
+        var scene = GlbViewerLoader.loadWithSourceControls(glb, () -> false);
+        assertEquals(2, scene.meshes().size());
+        assertEquals(2, scene.stats().triangleCount());
+        assertEquals("Segment A [node 2]", scene.meshes().get(0).bodyPart());
+        assertEquals("Segment B [node 3]", scene.meshes().get(1).bodyPart());
+        assertArrayEquals(new int[] {0, 1, 2}, scene.meshes().get(1).indices());
+        assertArrayEquals(
+                new float[] {2, 0, 0, 3, 0, 0, 2, 1, 0}, scene.meshes().get(1).positions());
+    }
+
     private static byte[] buildGlb(String json, byte[] bin) {
         byte[] jsonBytes = json.getBytes(StandardCharsets.UTF_8);
         int jsonPad = (4 - (jsonBytes.length % 4)) % 4;

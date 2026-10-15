@@ -54,6 +54,7 @@ final class EditorArtMeshMorphFixture implements EditorAuthoringTransactionCoord
     boolean nativeAbort, denyTransaction, rejectRoot, throwRoot, rejectListener, throwListener, failSnapshot;
     boolean partialAdd, wrongSeed, doubleAdd;
     boolean forceNativeNull;
+    boolean warpMode;
     int instanceUpdates, repaints;
     Runnable afterMutation = () -> {};
     Runnable afterRefresh = () -> {};
@@ -63,6 +64,39 @@ final class EditorArtMeshMorphFixture implements EditorAuthoringTransactionCoord
         CURRENT.set(this);
         source.model = model;
         resolver = resolver("5.3.02", null, null);
+    }
+
+    void neutralWarp() {
+        warpMode = true;
+        source.grid.bindings.clear();
+        source.grid.rows.clear();
+        source.forms.clear();
+        source.forms.add(new NativeForm(source, "base", source.positions));
+        source.grid.rows.put("base", List.of(new Row(new AccessKey(List.of()))));
+        source.deformer = new Object();
+        resolver = resolver("5.3.02", null, null);
+    }
+
+    EditorWarpMorphState warpState() {
+        return new EditorWarpMorphState(resolver, source, model, model);
+    }
+
+    void createWarpOpacity(String parameter, float key, float opacity) {
+        EditorWarpMorphAccess.create(
+                resolver,
+                new dev.turboism.sdk.cubism.id.DeformerId("warp"),
+                () -> currentSource,
+                model,
+                model,
+                new dev.turboism.sdk.cubism.id.ParameterId("Param" + parameter),
+                key,
+                opacity,
+                null,
+                () -> {
+                    if (denyTransaction) throw new UnsupportedOperationException("no coordinator");
+                },
+                contribution -> coordinator.mutate(binding, contribution),
+                this::refreshNative);
     }
 
     ArtMeshMorphKeyform key(final float value) {
@@ -279,6 +313,26 @@ final class EditorArtMeshMorphFixture implements EditorAuthoringTransactionCoord
                 boolean.class));
         add.accept(
                 method(M + "complete-pack.repaint-canvas", EditorArtMeshMorphFixture.class, "repaint", boolean.class));
+        if (warpMode) {
+            add.accept(method(M + "deformer-source.guid", Source.class, "guid"));
+            add.accept(method(M + "warp-source.row", Source.class, "row"));
+            add.accept(method(M + "warp-source.col", Source.class, "col"));
+            add.accept(method(M + "warp-source.quad-transform", Source.class, "quad"));
+            add.accept(method(M + "warp-source.keyforms", Source.class, "forms"));
+            add.accept(method(M + "warp-form.positions", NativeForm.class, "positions"));
+            add.accept(method(M + "warp-form.set-positions", NativeForm.class, "setPositions", float[].class));
+            add.accept(method(M + "deformer-form.opacity", NativeForm.class, "opacity"));
+            add.accept(method(M + "deformer-form.set-opacity", NativeForm.class, "setOpacity", float.class));
+            add.accept(method(M + "deformer-form.multiply-color", NativeForm.class, "multiply"));
+            add.accept(method(M + "deformer-form.screen-color", NativeForm.class, "screen"));
+            add.accept(method(H + "deformer-form.source", NativeForm.class, "source"));
+            for (String alias :
+                    dev.turboism.mapping.verification.selector.EditorWarpAuthoringSelectorContract.READ_ALIASES)
+                s.putIfAbsent(alias, method(alias, Unused.class, "fail"));
+            for (String alias :
+                    dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract.WARP_REQUIRED_ALIASES)
+                s.putIfAbsent(alias, method(alias, Unused.class, "fail"));
+        }
         final var legacy = new HashSet<>(EditorObjectReadSelectorContract.REQUIRED_ALIASES);
         legacy.addAll(EditorHistoryReadSelectorContract.REQUIRED_ALIASES);
         for (String alias : legacy) s.putIfAbsent(alias, method(alias, Unused.class, "fail"));
@@ -289,6 +343,11 @@ final class EditorArtMeshMorphFixture implements EditorAuthoringTransactionCoord
         caps.add(EditorArtMeshMorphSelectorContract.CAPABILITY_ID);
         caps.add(EditorObjectReadSelectorContract.CAPABILITY_ID);
         caps.add("cubism.editor-history.read");
+        if (warpMode) {
+            caps.addAll(dev.turboism.mapping.verification.selector.EditorWarpAuthoringSelectorContract.CAPABILITY_IDS);
+            caps.add(
+                    dev.turboism.mapping.verification.selector.EditorWarpAuthoringSelectorContract.WRITE_CAPABILITY_ID);
+        }
         caps.remove(missingCapability);
         return TestVerifiedResolvers.create(
                 version,
@@ -403,7 +462,8 @@ final class EditorArtMeshMorphFixture implements EditorAuthoringTransactionCoord
     public record Row(AccessKey key) {}
 
     public static final class Grid {
-        final List<Definition> bindings = List.of(new Definition("x", false), new Definition("y", false));
+        final List<Definition> bindings =
+                new ArrayList<>(List.of(new Definition("x", false), new Definition("y", false)));
         final Map<String, List<Row>> rows = new LinkedHashMap<>();
 
         public List<Definition> bindings() {
@@ -502,6 +562,14 @@ final class EditorArtMeshMorphFixture implements EditorAuthoringTransactionCoord
             f.afterMutation.run();
         }
 
+        public void setOpacity(final float value) {
+            edt();
+            opacity = value;
+            final var f = CURRENT.get();
+            f.mutations++;
+            f.afterMutation.run();
+        }
+
         public void setOrder(final int value) {
             edt();
             this.order = value;
@@ -548,7 +616,7 @@ final class EditorArtMeshMorphFixture implements EditorAuthoringTransactionCoord
         }
 
         public boolean canAdd(final Definition p, final float value) {
-            return value > p.epsilon
+            return (CURRENT.get().warpMode ? Math.abs(value) > p.epsilon : value > p.epsilon)
                     && targets.stream()
                             .noneMatch(t ->
                                     t.parameterGuid().equals(p.guid()) && Math.abs(t.value() - value) <= p.epsilon);
@@ -579,6 +647,18 @@ final class EditorArtMeshMorphFixture implements EditorAuthoringTransactionCoord
                                 new Coordinate(grid.bindings.get(0), i / 3 - 1),
                                 new Coordinate(grid.bindings.get(1), i % 3 - 1))))));
             }
+        }
+
+        public int row() {
+            return 1;
+        }
+
+        public int col() {
+            return 1;
+        }
+
+        public boolean quad() {
+            return false;
         }
 
         public Guid guid() {
@@ -802,7 +882,7 @@ final class EditorArtMeshMorphFixture implements EditorAuthoringTransactionCoord
                     .filter(t -> t.parameterGuid().equals(guid))
                     .sorted(java.util.Comparator.comparingDouble(t -> t.value()))
                     .toList();
-            final NativeForm base = source.forms.get(4);
+            final NativeForm base = source.forms.get(source.grid.bindings.isEmpty() ? 0 : 4);
             NativeForm left = base, right = base;
             float lo = 0, ratio = 0;
             for (Target target : targets) {

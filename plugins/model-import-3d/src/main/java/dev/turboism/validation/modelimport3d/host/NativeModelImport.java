@@ -19,7 +19,8 @@ final class NativeModelImport {
 
     private NativeModelImport() {}
 
-    record Prepared(NativeCharacterPlan.Plan geometry, NativeMaterialPlan materials) {}
+    record Prepared(
+            NativeCharacterPlan.Plan geometry, NativeMaterialPlan materials, NativeControlWarpPlan.Plan controls) {}
 
     static boolean isGlb(byte[] bytes) {
         return bytes != null
@@ -33,12 +34,24 @@ final class NativeModelImport {
     static Prepared prepare(byte[] bytes, SurfaceImport.Request request, BooleanSupplier cancelled) throws IOException {
         if (!isGlb(bytes) || bytes.length > MAX_BYTES)
             throw new IllegalArgumentException("Native character import requires a GLB within 128 MiB");
-        var scene = GlbViewerLoader.load(bytes, cancelled);
+        var scene = GlbViewerLoader.loadWithSourceControls(bytes, cancelled);
         var materials = NativeMaterialPlan.prepare(scene, cancelled);
         if (cancelled.getAsBoolean()) throw new CancellationException();
-        var geometry = NativeCharacterPlan.prepare(materials.scene(), request);
-        if (cancelled.getAsBoolean()) throw new CancellationException();
-        return new Prepared(geometry, materials);
+        var limits = new java.util.HashMap<Integer, java.util.Set<java.util.List<Integer>>>();
+        var fits = new NativeControlWarpPlan.FitCache();
+        for (int retry = 0; retry < 512; retry++) {
+            var geometry = NativeCharacterPlan.prepare(materials.scene(), request, limits);
+            if (cancelled.getAsBoolean()) throw new CancellationException();
+            try {
+                return new Prepared(
+                        geometry, materials, NativeControlWarpPlan.prepare(materials.scene(), geometry, fits));
+            } catch (NativeControlWarpPlan.FitFailure failure) {
+                if (failure.triangles.size() <= 1) throw failure;
+                limits.computeIfAbsent(failure.sourceMesh, ignored -> new java.util.HashSet<>())
+                        .add(failure.triangles);
+            }
+        }
+        throw new IllegalArgumentException("Native control refinement did not converge");
     }
 
     static ModelTextureAtlasPlanner.PlannedAtlas planAtlas(Prepared prepared, IntFunction<String> pageNames) {
@@ -80,6 +93,7 @@ final class NativeModelImport {
                 sourceIndex -> materials.scene().meshes().get(sourceIndex).appearanceGroup(),
                 sourceIndex -> materials.scene().meshes().get(sourceIndex).bodyPart());
         ModelTextureAtlasAuthoring.apply(model, created.meshIds(), sources, meshes, atlas);
+        NativeControlAuthoring.apply(model, created, materials.scene(), prepared.controls());
         return created;
     }
 }
