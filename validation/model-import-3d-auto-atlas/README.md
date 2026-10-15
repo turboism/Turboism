@@ -9,9 +9,9 @@ It uses programmatically synthesized procedural PNG textures and quad geometries
 
 ## Checks Performed by the Probe (Target: Cubism 5.3.04)
 1. **Capability Pre-Check**: `model.textures().supportsAppendTextureAtlasPages()` returns `true` before transaction.
-2. **Zero-Atlas Standalone Bootstrap**: Appending from an unatlased model creates page 1 (`1024x1024`) and binds `mesh1` to `TEXTURE_ATLAS_REGION`.
+2. **Zero-Atlas Standalone Bootstrap**: Appending from an unatlased model creates page 1 (`512x512`) and binds `mesh1` to `TEXTURE_ATLAS_REGION`.
 3. **Single-Root Authoring Transaction Append**:
-   - `mesh2`, model image registration, and atlas page 2 append occur in a single `AuthoringTransaction`.
+   - `mesh2`, model image registration, and atlas page 2 (`1024x1024`) append occur in a single `AuthoringTransaction`.
    - Produces exactly 1 native history entry (`hAfter.position() == hBefore.position() + 1`).
 4. **Preservation of Page 1 GUID & Mesh 1 UVs**:
    - Page 1 GUID is strictly preserved after appending page 2.
@@ -21,7 +21,7 @@ It uses programmatically synthesized procedural PNG textures and quad geometries
    - `history.redo(1)` cleanly restores page 2 and `mesh2`.
 6. **Native In-Memory Bake Sampling (`exportMoc`)**:
    - Calls `model.exportMoc(settings)` without saving MOC3 to disk.
-   - Samples center texels of both 1024x1024 pages and verifies primary procedural colors (proving native Cubism actually bakes textures rather than allocating empty pages).
+   - Samples primary-color texels away from accent grid lines on the differently sized pages and verifies primary procedural colors (proving native Cubism actually bakes textures rather than allocating empty pages).
 7. **Authoring Transaction Rollback**:
    - If an error occurs inside a transaction containing an append:
      - Transaction outcome is `ROLLED_BACK`.
@@ -40,7 +40,9 @@ It uses programmatically synthesized procedural PNG textures and quad geometries
 Ensure SDK is compiled:
 ```bash
 ./gradlew :sdk:jar --max-workers=2
-./validation/model-import-3d-auto-atlas/build.sh
+./validation/model-import-3d-auto-atlas/build.sh \
+  --sdk build/worktree/auto-atlas-integration/sdk/libs/sdk-0.67.0-SNAPSHOT.jar \
+  --runtime build/worktree/auto-atlas-integration/bootstrap/libs/turboism-agent.jar
 ```
 This produces `build/validation/auto-atlas/auto-atlas-host-probe-latest.jar` (and a timestamped build directory).
 
@@ -49,13 +51,13 @@ Install the plugin JAR into the test prefix's `plugins/` directory:
 ```bash
 cp build/validation/auto-atlas/auto-atlas-host-probe-latest.jar <prefix>/plugins/
 ```
-Launch Cubism Editor 5.3.04 with an active blank document (1024x1024).
+Launch Cubism Editor 5.3.04 in a queue-owned isolated prefix with a disposable seed document. After the trigger, the probe creates a fresh model through `EditorCommand.NEW_MODEL` and leaves the seed unchanged.
 When ready, create the trigger file:
 ```bash
 touch <state-dir>/probe.trigger
 ```
 (Or set `-Dturboism.autoatlas.immediate=true` in JVM options).
-The probe detects the trigger file and active model, logs:
+The probe detects the trigger file, creates its model, then logs:
 `[AUTO_ATLAS_PROBE] Ready marker observed ... dispatching to EDT...`,
 executes all phases on the EDT, and writes:
 - `<state-dir>/result.properties` (`status=PASS` / `status=FAIL`)
