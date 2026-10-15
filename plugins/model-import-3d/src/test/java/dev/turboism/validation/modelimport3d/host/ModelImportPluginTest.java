@@ -125,9 +125,9 @@ class ModelImportPluginTest {
                 case "userFiles" ->
                     proxy(UserFileAccessService.class, (x, n, v) -> {
                         if (n.getName().equals("request")) return choose;
-                        if (n.getName().equals("readBytes")) {
+                        if (n.getName().equals("readBytes") || n.getName().equals("readBytesBounded")) {
                             reads.incrementAndGet();
-                            assertEquals(16 * 1024 * 1024, v[1]);
+                            assertEquals(choice == 0 ? 128 * 1024 * 1024 : 16 * 1024 * 1024, v[1]);
                             return read;
                         }
                         throw new AssertionError(n);
@@ -245,8 +245,22 @@ class ModelImportPluginTest {
         w.grant();
         w.read.complete(new UserFileReadResult<>(Optional.of(new byte[0]), Optional.empty(), true));
         w.done();
-        assertTrue(w.error.contains("16 MiB"));
+        assertTrue(w.error.contains("128 MiB"));
+        assertEquals(1, w.closed.get());
         assertNull(w.prepared);
+    }
+
+    @Test
+    void faceColorInspectionKeepsLegacyReadLimit() throws Exception {
+        var w = new World();
+        w.choice = 1;
+        w.start();
+        w.grant();
+        w.read.complete(new UserFileReadResult<>(Optional.of(new byte[0]), Optional.empty(), true));
+        w.done();
+        assertTrue(w.error.contains("16 MiB"));
+        assertEquals(1, w.closed.get());
+        assertEquals(0, w.writes.get());
     }
 
     @Test

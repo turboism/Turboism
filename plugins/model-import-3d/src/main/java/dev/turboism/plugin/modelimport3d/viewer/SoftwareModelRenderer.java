@@ -194,7 +194,7 @@ public final class SoftwareModelRenderer {
         for (int m = 0; m < meshCount; m++) {
             checkInterrupted();
             ViewerScene.Mesh mesh = meshes.get(m);
-            if (mesh == null || mesh.positions() == null) continue;
+            if (mesh == null || !mesh.visible() || mesh.positions() == null) continue;
 
             float[] pos = mesh.positions();
             int vCount = pos.length / 3;
@@ -265,7 +265,7 @@ public final class SoftwareModelRenderer {
         // 5. Pass 1: OPAQUE and MASK materials
         for (int m = 0; m < meshCount; m++) {
             ViewerScene.Mesh mesh = meshes.get(m);
-            if (mesh == null || mesh.positions() == null) continue;
+            if (mesh == null || !mesh.visible() || mesh.positions() == null) continue;
 
             ViewerScene.Material mat = resolveMaterial(scene, mesh.materialIndex());
             boolean isBlend = "BLEND".equalsIgnoreCase(mat.alphaMode());
@@ -821,7 +821,7 @@ public final class SoftwareModelRenderer {
 
         if (scene.meshes() != null) {
             for (ViewerScene.Mesh m : scene.meshes()) {
-                if (m == null || m.positions() == null) continue;
+                if (m == null || !m.visible() || m.positions() == null) continue;
                 float[] p = m.positions();
                 int count = p.length / 3;
                 for (int i = 0; i < count; i++) {
