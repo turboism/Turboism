@@ -144,8 +144,8 @@ public final class AutoAtlasHostProbePlugin implements TurboismPlugin {
             final ModelImageBinding bind1 = model.textures().registerImageAndBind(img1, mesh1.id());
 
             final AtlasPageAppendPlan plan1 = new AtlasPageAppendPlan(
-                    1024,
-                    1024,
+                    512,
+                    512,
                     1,
                     List.of("ProbePage1"),
                     List.of(new ModelImagePlacement(bind1.modelImageId(), 0, 10, 10, 256, 256)));
@@ -286,12 +286,12 @@ public final class AutoAtlasHostProbePlugin implements TurboismPlugin {
                 throw new IllegalStateException("Expected 2 exported textures, got: " + exportTextures.size());
             }
 
-            // Page 1 center sample: placed at (10, 10) 256x256 -> center at (138, 138)
+            // Sample inside a grid cell: source (117,117), away from accent lines every 32px.
             final CubismExportTexture tex1 = exportTextures.get(0);
-            if (tex1.width() != 1024 || tex1.height() != 1024) {
+            if (tex1.width() != 512 || tex1.height() != 512) {
                 throw new IllegalStateException("Page 1 export texture size differs: " + tex1.width() + "x" + tex1.height());
             }
-            final int pixel1 = tex1.argb()[138 * 1024 + 138];
+            final int pixel1 = tex1.argb()[127 * tex1.width() + 127];
             final int a1 = (pixel1 >>> 24) & 0xff;
             final int r1 = (pixel1 >>> 16) & 0xff;
             final int g1 = (pixel1 >>> 8) & 0xff;
@@ -302,12 +302,12 @@ public final class AutoAtlasHostProbePlugin implements TurboismPlugin {
                         "Page 1 native bake color mismatch: argb=0x%08x (expected ~40, 80, 160)", pixel1));
             }
 
-            // Page 2 center sample: placed at (20, 20) 256x256 -> center at (148, 148)
+            // Page 2 uses a different native page size and samples the same source grid cell.
             final CubismExportTexture tex2 = exportTextures.get(1);
             if (tex2.width() != 1024 || tex2.height() != 1024) {
                 throw new IllegalStateException("Page 2 export texture size differs: " + tex2.width() + "x" + tex2.height());
             }
-            final int pixel2 = tex2.argb()[148 * 1024 + 148];
+            final int pixel2 = tex2.argb()[137 * tex2.width() + 137];
             final int a2 = (pixel2 >>> 24) & 0xff;
             final int r2 = (pixel2 >>> 16) & 0xff;
             final int g2 = (pixel2 >>> 8) & 0xff;
