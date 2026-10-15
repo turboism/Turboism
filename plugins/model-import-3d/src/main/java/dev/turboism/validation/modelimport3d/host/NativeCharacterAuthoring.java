@@ -9,7 +9,8 @@ import java.util.Optional;
  * Native Cubism ArtMesh author for humanoid character models.
  *
  * <p>Constructs native ArtMeshes with exact source geometry (source indices and UVs),
- * applies double-sided rendering, binds XYZ rotations (X and Y to 5x5 keyforms, Z to native
+ * maps source UVs to texture dimensions on the source image plane, respects source material
+ * double-sided culling, binds XYZ rotations (X and Y to 5x5 keyforms, Z to native
  * rotation deformer), writes keyform positions and depth drawOrders, and enforces budget
  * protection and exact readback verification.
  */
@@ -19,6 +20,19 @@ public final class NativeCharacterAuthoring {
     @FunctionalInterface
     public interface MeshMaterialBinder {
         void bind(ArtMeshId meshId, int sourceMeshIndex);
+    }
+
+    public record ImageDimensions(int width, int height) {
+        public ImageDimensions {
+            if (width <= 0 || height <= 0) {
+                throw new IllegalArgumentException("Image dimensions must be positive: " + width + "x" + height);
+            }
+        }
+    }
+
+    @FunctionalInterface
+    public interface ImageDimensionProvider {
+        ImageDimensions dimensions(int sourceMeshIndex);
     }
 
     public record Created(
@@ -33,6 +47,14 @@ public final class NativeCharacterAuthoring {
     }
 
     public static Created assemble(CubismModel model, NativeCharacterPlan.Plan plan, MeshMaterialBinder binder) {
+        return assemble(model, plan, binder, idx -> new ImageDimensions(1024, 1024));
+    }
+
+    public static Created assemble(
+            CubismModel model,
+            NativeCharacterPlan.Plan plan,
+            MeshMaterialBinder binder,
+            ImageDimensionProvider imageDimensions) {
         Objects.requireNonNull(model, "model");
         Objects.requireNonNull(plan, "plan");
         Objects.requireNonNull(binder, "binder");
@@ -54,6 +76,9 @@ public final class NativeCharacterAuthoring {
         // 2. Budget preflight
         if (plan.totalKeyformSlots() > NativeCharacterPlan.MAX_TOTAL_KEYFORM_SLOTS) {
             throw new IllegalArgumentException("Plan exceeds 6M save budget: " + plan.totalKeyformSlots());
+        }
+        if (plan.totalCacheSlots() > NativeCharacterPlan.MAX_CACHE_SLOTS) {
+            throw new IllegalArgumentException("Plan exceeds 64M cache budget: " + plan.totalCacheSlots());
         }
 
         // 3. Create root Part
@@ -85,7 +110,17 @@ public final class NativeCharacterAuthoring {
                     SurfaceProjection.project(partition.positions(), camera, new SurfaceProjection.Pose(0, 0));
             var defaultCanvasPositions = neutralSample.positions();
 
-            var geometry = new ArtMeshGeometry(defaultCanvasPositions, partition.uvs(), partition.indices());
+            var dim = imageDimensions != null
+                    ? imageDimensions.dimensions(partition.sourceMeshIndex())
+                    : new ImageDimensions(1024, 1024);
+            if (dim == null) dim = new ImageDimensions(1024, 1024);
+
+            var imagePositions = new ArrayList<Point2>(partition.uvs().size());
+            for (var uv : partition.uvs()) {
+                imagePositions.add(new Point2(uv.x() * dim.width(), uv.y() * dim.height()));
+            }
+
+            var geometry = new ArtMeshGeometry(imagePositions, partition.uvs(), partition.indices());
 
             var mesh = model.drawables()
                     .createWithSourceGeometry(
@@ -95,7 +130,7 @@ public final class NativeCharacterAuthoring {
                             geometry,
                             defaultCanvasPositions);
 
-            mesh.setCulling(false); // GLB primitives require double-sided rendering
+            mesh.setCulling(!partition.doubleSided());
             int initialOrder = plan.orders().get(neutralKeyIndex).get(pIdx);
             mesh.setDrawOrder(initialOrder);
 
@@ -224,7 +259,15 @@ public final class NativeCharacterAuthoring {
             SurfacePlacementAuthoring.wrap(model, rootPart, request.name(), rollDeformer);
         }
 
-        // 9. Set interpolation on parameter bindings
+        // Verify placement did not mutate stored authoring snapshots
+        for (int pIdx = 0; pIdx < meshIds.size(); pIdx++) {
+            if (!banks.get(pIdx)
+                    .equals(model.drawables().find(meshIds.get(pIdx)).authoringSnapshot())) {
+                throw new IllegalStateException("Placement changed direct source banks for partition " + pIdx);
+            }
+        }
+
+        // 9. Set interpolation on parameter bindings and verify patch refresh scope
         for (int pIdx = 0; pIdx < meshIds.size(); pIdx++) {
             var mesh = model.drawables().find(meshIds.get(pIdx));
             var sampling = plan.sampling().get(pIdx);
@@ -232,6 +275,14 @@ public final class NativeCharacterAuthoring {
                     .setInterpolation(ParameterBindingTarget.artMesh(mesh.id()), sampling.yaw());
             model.parameterBindings(request.pitch())
                     .setInterpolation(ParameterBindingTarget.artMesh(mesh.id()), sampling.pitch());
+
+            if (!banks.get(pIdx).equals(mesh.authoringSnapshot())) {
+                throw new IllegalStateException("Interpolation changed source banks for partition " + pIdx);
+            }
+            if (!mesh.parentPartId().equals(Optional.of(patchParts.get(pIdx)))) {
+                throw new IllegalStateException(
+                        "Interpolation changed local patch refresh scope for partition " + pIdx);
+            }
         }
 
         DeformerId rollId = rollDeformer != null ? rollDeformer.id() : null;

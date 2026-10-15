@@ -31,12 +31,16 @@ public class NativeCharacterAuthoringTest {
     }
 
     private static NativeCharacterPlan.Plan planFor(ViewerScene.Mesh... meshes) {
+        var mat0 = new ViewerScene.Material(
+                "DoubleSidedMat", new float[4], 0, -1, new float[3], "OPAQUE", 0.5f, true, true);
+        var mat1 = new ViewerScene.Material(
+                "SingleSidedMat", new float[4], 0, -1, new float[3], "OPAQUE", 0.5f, false, true);
         var scene = new ViewerScene(
                 List.of(meshes),
-                List.of(),
+                List.of(mat0, mat1),
                 List.of(),
                 new ViewerScene.Bounds(-10f, -10f, 0f, 10f, 10f, 0f),
-                new ViewerScene.Stats(100, meshes.length, meshes.length, 1, 0, 0, 0));
+                new ViewerScene.Stats(100, meshes.length, meshes.length, 2, 0, 0, 0));
         return NativeCharacterPlan.prepare(scene, request("Character"));
     }
 
@@ -305,7 +309,11 @@ public class NativeCharacterAuthoringTest {
             boundSourceIndices.add(srcIdx);
         };
 
-        var created = NativeCharacterAuthoring.assemble(host.model(), plan, binder);
+        NativeCharacterAuthoring.ImageDimensionProvider dimProvider = (srcIdx) -> srcIdx == 0
+                ? new NativeCharacterAuthoring.ImageDimensions(2048, 1024)
+                : new NativeCharacterAuthoring.ImageDimensions(512, 512);
+
+        var created = NativeCharacterAuthoring.assemble(host.model(), plan, binder, dimProvider);
 
         assertNotNull(created);
         assertNotNull(created.rootPartId());
@@ -317,11 +325,24 @@ public class NativeCharacterAuthoringTest {
         assertEquals(List.of(0, 1), boundSourceIndices);
         assertEquals(created.meshIds(), boundMeshes);
 
+        // Verify ArtMesh 0 (double-sided, 2048x1024 texture dimensions mapped)
+        var r0 = host.meshes.get(created.meshIds().get(0));
+        assertNotNull(r0);
+        assertFalse(r0.culling, "Double-sided material must have culling false");
+        assertEquals(new Point2(0f, 0f), r0.geometry.positions().get(0));
+        assertEquals(new Point2(2048f, 0f), r0.geometry.positions().get(1));
+        assertEquals(new Point2(1024f, 1024f), r0.geometry.positions().get(2));
+
+        // Verify ArtMesh 1 (single-sided, 512x512 texture dimensions mapped)
+        var r1 = host.meshes.get(created.meshIds().get(1));
+        assertNotNull(r1);
+        assertTrue(r1.culling, "Single-sided material must have culling true");
+        assertEquals(new Point2(512f, 0f), r1.geometry.positions().get(1));
+
         // Verify ArtMeshes properties
         for (var meshId : created.meshIds()) {
             var r = host.meshes.get(meshId);
             assertNotNull(r);
-            assertFalse(r.culling, "GLB primitive must be double-sided (culling false)");
             assertEquals(
                     Optional.of(created.rollDeformerId()), r.targetDeformer, "Target deformer must be Roll Deformer");
             assertEquals(24, r.positionEdits.size(), "24 non-neutral keyform positions edited");
@@ -370,11 +391,39 @@ public class NativeCharacterAuthoringTest {
                 validPlan.totalPartitionSlots(),
                 validPlan.totalTriangles(),
                 7_000_000L, // Exceeds 6M budget
+                validPlan.totalCacheSlots(),
                 validPlan.maxInterpolationErrorPixels());
 
         var ex = assertThrows(
                 IllegalArgumentException.class,
                 () -> NativeCharacterAuthoring.assemble(host.model(), illegalPlan, (m, s) -> {}));
         assertTrue(ex.getMessage().contains("6M save budget"));
+    }
+
+    @Test
+    void assembleRejectsPlanExceedingCacheSlotBudget() {
+        var host = new TestModelHost();
+        var validPlan = planFor(simpleMesh("Body", 0));
+
+        // Create an illegal plan with totalCacheSlots > 64,000,000
+        var illegalPlan = new NativeCharacterPlan.Plan(
+                validPlan.request(),
+                validPlan.camera(),
+                validPlan.keys(),
+                validPlan.partitions(),
+                validPlan.orders(),
+                validPlan.sampling(),
+                validPlan.visibilityLimit(),
+                validPlan.totalSourceSlots(),
+                validPlan.totalPartitionSlots(),
+                validPlan.totalTriangles(),
+                validPlan.totalKeyformSlots(),
+                70_000_000L, // Exceeds 64M cache budget
+                validPlan.maxInterpolationErrorPixels());
+
+        var ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> NativeCharacterAuthoring.assemble(host.model(), illegalPlan, (m, s) -> {}));
+        assertTrue(ex.getMessage().contains("64M cache budget"));
     }
 }
