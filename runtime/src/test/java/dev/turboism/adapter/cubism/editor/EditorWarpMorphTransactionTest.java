@@ -12,6 +12,35 @@ import org.junit.jupiter.params.provider.ValueSource;
 class EditorWarpMorphTransactionTest {
     @ParameterizedTest
     @org.junit.jupiter.params.provider.MethodSource("reviewedVersions")
+    void multipleKeysDeferWholeModelRefreshUntilRootCommit(String version) throws Exception {
+        edt(f -> {
+            f.resolver = f.resolver(version, null, null);
+            assertEquals(
+                    COMMITTED,
+                    f.transaction(() -> {
+                                f.createWarpOpacity("m", 1, 0);
+                                assertEquals(0, f.refreshes, "Source verification must not rebuild the whole model");
+                                f.createWarpOpacity("n", 1, .25f);
+                                assertEquals(0, f.refreshes, "Multiple keys share the root refresh");
+                                assertEquals(
+                                        2,
+                                        f.warpState().keys.size(),
+                                        "Source keys are readable before instance refresh");
+                            })
+                            .outcome());
+            assertEquals(1, f.instanceUpdates);
+            assertEquals(1, f.refreshes);
+            assertEquals(1, f.position);
+            var after = f.warpState();
+            f.undo();
+            assertTrue(f.warpState().keys.isEmpty());
+            f.redo();
+            assertTrue(after.sameValues(f.warpState()));
+        });
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.MethodSource("reviewedVersions")
     void twoIndependentParametersPreserveParentControlsAndOneUndoGroup(String version) throws Exception {
         edt(f -> {
             f.resolver = f.resolver(version, null, null);

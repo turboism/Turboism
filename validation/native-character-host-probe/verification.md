@@ -170,3 +170,48 @@ The deferred-cache candidate did not achieve acceptable full-character import la
 The operator explicitly selected opening the previously verified CMO3 to inspect appearance and rotation first. Its source remains 90442352 bytes, SHA-256 `3a69859a0e5a9966a6ccdf16010d9816f01628f0fd6f2e9e04b8e88339518314`. It contains the saved default appearance, anatomical Warp hierarchy and XYZ controls, without the added 111 blend controls. This selection does not satisfy the separate full-control import requirement.
 
 Manual reopen job `aac2b67c-9de7-461c-bb27-2164dde0c387`, run `queue-85fb58fe11fc4a98827c97ff1e9d415d`, opened that CMO3 through the reviewed official BAT in a task-owned CoW prefix. Evidence root: `<host-validation-root>/native-character/5304-native-default-manual-r8/queue-85fb58fe11fc4a98827c97ff1e9d415d/`. Probe `status=PASS`, `persistence.reopen=PASS`; the bank digest remains `977187b025e718f380e11aeaa76b4aed1ce64af71ece5b27ac98fa866129aef2`, all imported mesh atlas bindings pass, and all three XYZ parameters remain present. The captured `native-reopened.png` visibly contains the character. The live window remains open with `exitAfterProbe=false` and `--keep-prefix`. The queue is intentionally still running until the operator closes it. No current-run supervisor terminal PASS or manual visual acceptance is claimed.
+
+
+### Transaction refresh and file-scoped parameters — 2026-10-16
+
+Warp morph creation previously updated all model instances after each key. The reviewed 5.3.04 bytecode shows that `CModelSource.updateModelInstances()` first invokes `setup()`. The writer now verifies stored source forms immediately and requests one root-commit instance update, deformer-palette refresh, canvas repaint and dirty mark. Undo/Redo listeners and compensation retain their immediate refresh. No SDK or mapping selector changed.
+
+The multi-key regression failed before the change for all 20 reviewed versions. The affected Runtime run passed 250 tests with no skips or failures. It verifies no forward refresh between source-key writes and one update at commit. Existing rollback and history tests pass. The plugin run passed 269 tests, with 34 explicit external-fixture skips and no failures. `devCheck` and candidate packaging passed 156 tasks in 2m28s under an isolated Xvfb display. The first desktop-display attempt was stopped after a thread sample showed the unrelated screenshot test blocked in `ScreencastHelper.getRGBPixelsImpl`; that attempt is not counted as PASS. A later filename-boundary test and plugin rebuild passed after limiting the ID stem to 20 characters.
+
+Selected filenames now determine the import display name and parameter ID stem. A fresh import suffix separates repeated imports. Unicode-only names retain their display text and use a filename-derived legal ID stem. Each native import creates one parameter group. Roll, Yaw/Pitch and source blend controls are created directly in that folder through existing batch creation APIs. The source-control ID prefix also derives from the file-scoped rotation ID. Other small-model paths group only parameters created in the current transaction. Existing parameters are excluded.
+
+Small combined-control import:
+
+- Job: `a7da4456-3b6f-46f2-b657-8aef23f211c8`.
+- Run: `queue-3ad6a6e1686949b981562bd699e0180e`.
+- Evidence root: `<host-validation-root>/native-character/5304-refresh-groups-r2/queue-3ad6a6e1686949b981562bd699e0180e/`.
+- Supervisor result: PASS, normal exit, fixed identities, unchanged source fixture and safe cleanup.
+- The file-named group contains all seven new parameters: three rotations and four blend controls.
+- Source-control rendering, ordinary banks, Undo/Redo, forced rollback and official save pass.
+- The probe observed 1055 ms from native-authoring confirmation to native verification. This tiny fixture is a correctness check, not evidence of full-character latency.
+- The preceding r1 failed because the probe compared `Optional<String>` directly with a string. The group and all seven members had passed. r2 unwraps the optional and retains the assertion.
+
+Independent reopen:
+
+- Job: `e8adef95-c3a1-4af7-bc5c-cf9328408ccb`.
+- Run: `queue-e5008c369f554719bf30be59df77c6a4`.
+- Supervisor result: PASS, normal exit, fixed identities, unchanged source fixture and safe cleanup.
+- Group name, member IDs, ordinary banks, atlas inputs and blend-key hash persist.
+- Saved CMO3: 23,397 bytes; SHA-256 `10cb7e199d5ee00b9867fc93e19694a8cde3c4c6a162ab4feb497fa7d34af4fa`.
+
+The 111-control character benchmark did not reach import. Job `4e4d7715-fa4c-44f9-9fe4-38f1443ed027`, run `queue-0834e72052e34ab0a54be28ec6dcc502`, stopped at the official license-activation network-error dialog. The probe reports `Timed out waiting for active document`; no source planning or native-authoring timing exists. Supervisor cleanup is safe. This run is not a performance acceptance or a successful character import. Full-character load latency remains unaccepted.
+
+### Rotation occlusion experiment — 2026-10-16
+
+The offline depth-coverage diagnostic separated fixed internal triangle order from inter-partition ordering. It uses exact projected geometry and covered depth samples at 384 squared resolution. It does not reproduce final native RGBA pixels or interpolation geometry.
+
+The existing normal-axis split cannot run: normal Z range is at most two, so its weighted score cannot exceed 0.8 times the largest spatial span. A minimal opposing-face regression reproduced the issue below the triangle threshold. A six-direction geometric-normal seed was tested, then reverted because the original character's frontal ordering worsened.
+
+| Pose | Baseline wrong depth samples | Directional candidate wrong depth samples |
+| --- | ---: | ---: |
+| Yaw 0 | 978 | 3127 |
+| Yaw -90 | 5709 | 4712 |
+| Yaw 90 | 5849 | 4404 |
+| Yaw 180 | 14892 | 8272 |
+
+The default appearance fixture retained 203,851 triangles. The candidate increased partitions from 248 to 351. Forced backface culling reduced some conflicts but retained thousands of wrong depth samples and can remove intended double-sided surfaces. Neither experiment is shipped as a visual fix. Reports and the reverted patch are retained under `/tmp/native-occlusion-*` and `/tmp/native-directional-partition-experiment.patch`. The user's reported occlusion, broken surfaces and clipping remain unresolved.

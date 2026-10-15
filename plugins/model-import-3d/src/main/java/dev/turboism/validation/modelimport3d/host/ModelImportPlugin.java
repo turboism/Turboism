@@ -153,6 +153,29 @@ public final class ModelImportPlugin implements TurboismPlugin {
         }
     }
 
+    static SurfaceImport.Request requestForFile(SurfaceImport.Request base, String displayName, String suffix) {
+        String name = displayName == null ? "Model" : displayName.strip();
+        int slash = Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\'));
+        name = name.substring(slash + 1);
+        int dot = name.lastIndexOf('.');
+        if (dot > 0) name = name.substring(0, dot);
+        if (name.isBlank()) name = "Model";
+        String stem = name.replaceAll("[^A-Za-z0-9_]", "_").replaceAll("_+", "_");
+        if (stem.isBlank() || stem.equals("_")) stem = "Model_" + Integer.toUnsignedString(name.hashCode(), 16);
+        // Leave room for the import suffix, rotation axis and source-control index.
+        if (stem.length() > 20) stem = stem.substring(0, 20);
+        String prefix = "Param3D_" + stem + "_" + suffix;
+        return new SurfaceImport.Request(
+                name,
+                new ParameterId(prefix + "_Yaw"),
+                new ParameterId(prefix + "_Pitch"),
+                base.camera(),
+                base.yawLimit(),
+                base.pitchLimit(),
+                base.maxProjectedVertices(),
+                base.roll().map(ignored -> new ParameterId(prefix + "_Roll")));
+    }
+
     static PreparedImport prepare(
             byte[] bytes, SurfaceImport.Request request, SurfaceBaseColorPlan.Appearance appearance)
             throws java.io.IOException {
@@ -435,6 +458,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                             return CompletableFuture.completedFuture(Optional.<PreparedImport>empty());
                         }
                         var handle = selected.handle().orElseThrow();
+                        var fileRequest = requestForFile(request, handle.displayName(), suffix);
                         CompletionStage<UserFileReadResult<byte[]>> pending;
                         try {
                             pending = choice == 0
@@ -469,7 +493,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                                         null,
                                                         null,
                                                         NativeModelImport.prepare(
-                                                                bytes, request, () -> !active(token))));
+                                                                bytes, fileRequest, () -> !active(token))));
                                             } catch (Exception error) {
                                                 throw new CompletionException(error);
                                             }
@@ -486,7 +510,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                                     return Optional.<PreparedImport>empty();
                                                 try {
                                                     return Optional.of(
-                                                            prepare(normalized.orElseThrow(), request, appearance));
+                                                            prepare(normalized.orElseThrow(), fileRequest, appearance));
                                                 } catch (Exception failure) {
                                                     throw new CompletionException(failure);
                                                 }
@@ -596,6 +620,9 @@ public final class ModelImportPlugin implements TurboismPlugin {
                         requireTarget(token, documentId, target);
                         return null;
                     }
+                    var existingParameters = target.parameters().all().stream()
+                            .map(p -> p.id())
+                            .collect(java.util.stream.Collectors.toSet());
                     var meshIds = new ArrayList<dev.turboism.sdk.cubism.id.ArtMeshId>();
                     var bindingsBySourceId =
                             new LinkedHashMap<String, dev.turboism.sdk.cubism.model.ModelImageBinding>();
@@ -643,6 +670,10 @@ public final class ModelImportPlugin implements TurboismPlugin {
 
                     requireTarget(token, documentId, target);
                     ModelTextureAtlasAuthoring.apply(target, meshIds, bindingsBySourceId, meshImageBindings, atlasPlan);
+                    var group = target.parameterGroups().addGroup(requestName);
+                    for (var parameter : target.parameters().all())
+                        if (!existingParameters.contains(parameter.id()))
+                            target.parameterGroups().moveParameter(parameter.id(), group.id());
                     return null;
                 });
         if (result.outcome() != AuthoringTransactionOutcome.COMMITTED) {

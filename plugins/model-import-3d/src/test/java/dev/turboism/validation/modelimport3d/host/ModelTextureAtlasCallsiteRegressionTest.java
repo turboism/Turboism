@@ -494,9 +494,25 @@ class ModelTextureAtlasCallsiteRegressionTest {
             if (m.getName().equals("id")) return modelId;
             if (m.getName().equals("canvas")) return proxy(Canvas.class, (x, n, v) -> 1024f);
             if (m.getName().equals("textures")) return modelTextures;
+            if (m.getName().equals("parameterGroups"))
+                return proxy(ParameterGroups.class, (x, n, v) -> {
+                    if (n.getName().equals("addGroup")) {
+                        assertFalse(((String) v[0]).isBlank());
+                        return proxy(
+                                ParameterGroup.class,
+                                (g, gm, ga) ->
+                                        gm.getName().equals("id") ? new ParameterGroupId("imported-group") : v[0]);
+                    }
+                    if (n.getName().equals("moveParameter")) return null;
+                    throw new AssertionError(n);
+                });
             if (m.getName().equals("parameters"))
                 return proxy(Parameters.class, (x, n, v) -> {
-                    if (n.getName().equals("all")) return List.copyOf(parameters);
+                    if (n.getName().equals("all"))
+                        return parameters.stream()
+                                .map(def ->
+                                        proxy(dev.turboism.sdk.cubism.model.Parameter.class, (p, pm, pa) -> def.id()))
+                                .toList();
                     if (n.getName().equals("find")) {
                         var id = (ParameterId) v[0];
                         var def = parameters.stream()

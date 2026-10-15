@@ -1011,6 +1011,10 @@ final class EditorArtMeshMorphFixture implements EditorAuthoringTransactionCoord
             final EditorAuthoringTransactionCoordinator.Binding binding,
             final Set<EditorRefreshRequirement> requirements) {
         dirty++;
+        if (requirements.contains(EditorRefreshRequirement.MODEL_INSTANCES)) {
+            model.updateInstances();
+            refreshNative();
+        }
     }
 
     @Override

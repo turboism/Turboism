@@ -56,7 +56,9 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
             report.setProperty("document.identity", document);
             Set<ArtMeshId> before = edt(this::ids);
             int oldPages = edt(() -> model().textures().textureAtlases().size());
-            int oldParameters = edt(() -> model().parameters().all().size());
+            var oldParameterIds = edt(() -> model().parameters().all().stream().map(Parameter::id).collect(java.util.stream.Collectors.toSet()));
+            var oldGroupIds = edt(() -> model().parameterGroups().all().stream().map(ParameterGroup::id).collect(java.util.stream.Collectors.toSet()));
+            int oldParameters = oldParameterIds.size();
             var catalog = context.services().require(ActionCatalogService.class);
             await(() -> catalog.actions().stream().anyMatch(a -> a.pluginId().equals("dev.turboism.plugin.model-import-3d")
                     && a.actionId().equals("model-import-3d.import")), 60, "production import action");
@@ -93,6 +95,18 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
                     .mapToLong(mesh -> mesh.geometry().triangleIndices().size() / 3).sum());
             check("native.triangles", Long.getLong("turboism.character.expectedTriangles", 121097L), triangles);
             check("native.parameters.added", 3+Integer.getInteger("turboism.character.expectedControls",0), edt(() -> model().parameters().all().size()) - oldParameters);
+            var addedGroups = edt(() -> model().parameterGroups().all().stream().filter(g -> !oldGroupIds.contains(g.id())).toList());
+            check("native.parameterGroups.added", 1, addedGroups.size());
+            var importedParameters = edt(() -> model().parameters().all().stream().map(Parameter::id).filter(id -> !oldParameterIds.contains(id)).collect(java.util.stream.Collectors.toSet()));
+            check("native.parameterGroup.members", importedParameters, new java.util.HashSet<>(addedGroups.get(0).parameterIds()));
+            String sourceName = input.getFileName().toString();
+            int extension = sourceName.lastIndexOf('.');
+            if(extension > 0) sourceName = sourceName.substring(0, extension);
+            check("native.parameterGroup.name", sourceName, addedGroups.get(0).name().orElseThrow());
+            report.setProperty("native.parameterGroup.id", addedGroups.get(0).id().value());
+            report.setProperty("native.parameterGroup.name", addedGroups.get(0).name().orElseThrow());
+            report.setProperty("native.parameterGroup.parameters", importedParameters.stream().map(id -> id.value()).sorted().collect(java.util.stream.Collectors.joining(",")));
+            check("native.parameterIds.scoped", true, importedParameters.stream().allMatch(id -> id.value().startsWith("Param3D_")));
             check("native.atlas.created", true, edt(() -> model().textures().textureAtlases().size()) > oldPages);
             for (ArtMeshId id : imported) {
                 check("atlas.binding." + id.value(), ArtMeshTextureInput.Kind.TEXTURE_ATLAS_REGION,
@@ -128,10 +142,10 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
             check("redo.meshes.restored", imported, restored);
             stage("native-rotation");
             List<Parameter> axes = edt(() -> model().parameters().all().stream()
-                    .filter(p -> p.id().value().startsWith("Param3D")).toList());
+                    .filter(p -> p.type() == ParameterType.NORMAL && p.id().value().startsWith("Param3D")).toList());
             capture(state.resolve("native-neutral.png"));
             for (String axis : List.of("Yaw", "Pitch", "Roll")) {
-                Parameter parameter = axes.stream().filter(p -> p.id().value().startsWith("Param3D" + axis))
+                Parameter parameter = axes.stream().filter(p -> rotationParameter(p, axis))
                         .findFirst().orElseThrow();
                 var neutralPositions = edt(() -> imported.stream().map(id -> model().drawables().find(id).geometry().positions()).toList());
                 edt(() -> { parameter.setValue(90); return null; });
@@ -223,7 +237,13 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
         if (!ImageIO.write(image, "png", path.toFile())) throw new AssertionError("Native PNG encoding unavailable");
     }
 
+    private static boolean rotationParameter(Parameter parameter, String axis) {
+        String id = parameter.id().value();
+        return id.startsWith("Param3D" + axis) || id.startsWith("Param3D_") && id.endsWith("_" + axis);
+    }
+
     private void stage(String name) throws Exception {
+        report.setProperty("stage." + name + ".epochMillis", "" + System.currentTimeMillis());
         context.logger().info("NATIVE_CHARACTER_STAGE " + name);
         report.setProperty("stage", name);
         try (var out = Files.newOutputStream(context.paths().stateDir().resolve("progress.properties"))) {
@@ -246,7 +266,12 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
             check("reopen.atlas." + id.value(), ArtMeshTextureInput.Kind.TEXTURE_ATLAS_REGION,
                     edt(() -> model().textures().textureInput(id).orElseThrow().kind()));
         }
-        check("reopen.rotation.parameters", 3L, edt(() -> model().parameters().all().stream().filter(p -> p.id().value().startsWith("Param3D")).count()));
+        check("reopen.rotation.parameters", 3L, edt(() -> model().parameters().all().stream().filter(p -> p.type() == ParameterType.NORMAL && p.id().value().startsWith("Param3D")).count()));
+        if(expected.getProperty("native.parameterGroup.id")!=null) {
+            var group = edt(() -> model().parameterGroups().find(new dev.turboism.sdk.cubism.id.ParameterGroupId(expected.getProperty("native.parameterGroup.id"))));
+            check("reopen.parameterGroup.name", expected.getProperty("native.parameterGroup.name"), group.name().orElseThrow());
+            check("reopen.parameterGroup.parameters", expected.getProperty("native.parameterGroup.parameters"), group.parameterIds().stream().map(id -> id.value()).sorted().collect(java.util.stream.Collectors.joining(",")));
+        }
         if(expected.getProperty("native.morphs.sha256")!=null) {
             check("reopen.morphs.sha256",expected.getProperty("native.morphs.sha256"),edt(this::morphsHash));
             verifySourceControls();
@@ -293,7 +318,7 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
         for (String name : List.of("Shift X", "Shift Y", "Factor A", "Factor B"))
             check("combination.parameter." + name, true, byName.containsKey(name));
         var yaw = edt(() -> model().parameters().all().stream()
-                .filter(p -> p.id().value().startsWith("Param3DYaw")).findFirst().orElseThrow());
+                .filter(p -> rotationParameter(p, "Yaw")).findFirst().orElseThrow());
         var neutral = edt(() -> model().renderPixels(1024, 1024).argb());
         var banks = edt(() -> banksHash(ids()));
         var morphs = edt(this::morphsHash);
