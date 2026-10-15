@@ -243,21 +243,29 @@ public class NativeCharacterPlanTest {
 
     @Test
     void prepareRejectsSceneExceedingKeyformSlotBudget() {
-        int vCount = 250_000;
-        float[] pos = new float[vCount * 3];
-        float[] uvs = new float[vCount * 2];
-        int tCount = (vCount - 2);
-        int[] ind = new int[tCount * 3];
-        for (int i = 0; i < tCount; i++) {
-            ind[i * 3] = 0;
-            ind[i * 3 + 1] = i + 1;
-            ind[i * 3 + 2] = i + 2;
+        int meshesCount = 250;
+        int vPerMesh = 1000;
+        var meshes = new ArrayList<ViewerScene.Mesh>();
+        for (int m = 0; m < meshesCount; m++) {
+            float[] pos = new float[vPerMesh * 3];
+            pos[0] = -1f;
+            pos[1] = -1f;
+            pos[3] = 1f;
+            pos[4] = 1f;
+            float[] uvs = new float[vPerMesh * 2];
+            int tCount = vPerMesh - 2;
+            int[] ind = new int[tCount * 3];
+            for (int i = 0; i < tCount; i++) {
+                ind[i * 3] = 0;
+                ind[i * 3 + 1] = i + 1;
+                ind[i * 3 + 2] = i + 2;
+            }
+            meshes.add(new ViewerScene.Mesh("Mesh" + m, pos, new float[vPerMesh * 3], uvs, null, null, ind, 0));
         }
 
-        var hugeMesh = new ViewerScene.Mesh("HugeMesh", pos, new float[vCount * 3], uvs, null, null, ind, 0);
-        var bounds = new ViewerScene.Bounds(0, 0, 0, 1, 1, 1);
-        var stats = new ViewerScene.Stats(100, 1, tCount, 1, 0, 0, 0);
-        var scene = new ViewerScene(List.of(hugeMesh), List.of(), List.of(), bounds, stats);
+        var bounds = new ViewerScene.Bounds(-1, -1, 0, 1, 1, 1);
+        var stats = new ViewerScene.Stats(100, meshesCount, (vPerMesh - 2) * meshesCount, 1, 0, 0, 0);
+        var scene = new ViewerScene(meshes, List.of(), List.of(), bounds, stats);
 
         var ex = assertThrows(
                 IllegalArgumentException.class, () -> NativeCharacterPlan.prepare(scene, defaultRequest()));

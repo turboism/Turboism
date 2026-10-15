@@ -34,6 +34,7 @@ public final class NativeCharacterPlan {
             int sourceMeshIndex,
             int materialIndex,
             boolean doubleSided,
+            boolean visible,
             String name,
             List<SurfaceProjection.Vertex> positions,
             List<Point2> uvs,
@@ -87,19 +88,58 @@ public final class NativeCharacterPlan {
     }
 
     /**
-     * Fits an orthographic camera to the Scene's world bounds.
-     * Bounding sphere is centered at (min + max)/2 and scaled to fit framingRadiusPixels.
+     * Fits an orthographic camera to the Scene's visible world bounds.
+     * Bounding box center and radius are computed exclusively from visible meshes (mesh.visible() == true)
+     * so that invisible helpers/colliders outside the character boundary do not distort framing.
      */
     public static SurfaceProjection.Camera fitCamera(
             ViewerScene scene, double centerX, double centerY, double framingRadiusPixels) {
-        var bounds = scene.bounds();
-        var pivot = new SurfaceProjection.Vertex(
-                (bounds.minX() + bounds.maxX()) / 2.0,
-                (bounds.minY() + bounds.maxY()) / 2.0,
-                (bounds.minZ() + bounds.maxZ()) / 2.0);
+        double minX = Double.POSITIVE_INFINITY, minY = Double.POSITIVE_INFINITY, minZ = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY, maxY = Double.NEGATIVE_INFINITY, maxZ = Double.NEGATIVE_INFINITY;
+        long visibleVertices = 0;
+
+        for (var mesh : scene.meshes()) {
+            if (!mesh.visible()) continue;
+            float[] pos = mesh.positions();
+            int vCount = pos.length / 3;
+            for (int i = 0; i < vCount; i++) {
+                double x = pos[i * 3];
+                double y = pos[i * 3 + 1];
+                double z = pos[i * 3 + 2];
+                minX = Math.min(minX, x);
+                maxX = Math.max(maxX, x);
+                minY = Math.min(minY, y);
+                maxY = Math.max(maxY, y);
+                minZ = Math.min(minZ, z);
+                maxZ = Math.max(maxZ, z);
+                visibleVertices++;
+            }
+        }
+
+        // Fallback to all meshes if no visible meshes are present
+        if (visibleVertices == 0) {
+            for (var mesh : scene.meshes()) {
+                float[] pos = mesh.positions();
+                int vCount = pos.length / 3;
+                for (int i = 0; i < vCount; i++) {
+                    double x = pos[i * 3];
+                    double y = pos[i * 3 + 1];
+                    double z = pos[i * 3 + 2];
+                    minX = Math.min(minX, x);
+                    maxX = Math.max(maxX, x);
+                    minY = Math.min(minY, y);
+                    maxY = Math.max(maxY, y);
+                    minZ = Math.min(minZ, z);
+                    maxZ = Math.max(maxZ, z);
+                }
+            }
+        }
+
+        var pivot = new SurfaceProjection.Vertex((minX + maxX) / 2.0, (minY + maxY) / 2.0, (minZ + maxZ) / 2.0);
 
         double radius = 0.0;
         for (var mesh : scene.meshes()) {
+            if (visibleVertices > 0 && !mesh.visible()) continue;
             float[] pos = mesh.positions();
             int vCount = pos.length / 3;
             for (int i = 0; i < vCount; i++) {
@@ -251,6 +291,7 @@ public final class NativeCharacterPlan {
                         mIdx,
                         mesh.materialIndex(),
                         doubleSided,
+                        mesh.visible(),
                         mesh.name(),
                         partPositions,
                         partUvs,
@@ -318,15 +359,21 @@ public final class NativeCharacterPlan {
         long totalCacheSlots = 0;
 
         for (var p : partitions) {
-            double maxProjR = 0;
-            for (var v : p.positions()) {
-                double r = camera.scale()
-                        * Math.sqrt(Math.pow(v.x() - pivot.x(), 2)
-                                + Math.pow(v.y() - pivot.y(), 2)
-                                + Math.pow(v.z() - pivot.z(), 2));
-                if (r > maxProjR) maxProjR = r;
+            Sampling s;
+            if (p.visible()) {
+                double maxProjR = 0;
+                for (var v : p.positions()) {
+                    double r = camera.scale()
+                            * Math.sqrt(Math.pow(v.x() - pivot.x(), 2)
+                                    + Math.pow(v.y() - pivot.y(), 2)
+                                    + Math.pow(v.z() - pivot.z(), 2));
+                    if (r > maxProjR) maxProjR = r;
+                }
+                s = sampling(maxProjR, frameRadiusBound);
+            } else {
+                s = new Sampling(DEFAULT_INTERPOLATION, DEFAULT_INTERPOLATION, 289L, 0.0);
             }
-            var s = sampling(maxProjR, frameRadiusBound);
+
             long partSlots = p.positions().size();
             long meshCacheSlots = (long) partSlots * s.grid();
             if (meshCacheSlots > MAX_MESH_CACHE_SLOTS || 24L * partSlots > MAX_MESH_BATCH_SLOTS) {

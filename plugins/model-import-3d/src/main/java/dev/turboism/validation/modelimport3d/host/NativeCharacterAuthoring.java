@@ -131,6 +131,7 @@ public final class NativeCharacterAuthoring {
                             defaultCanvasPositions);
 
             mesh.setCulling(!partition.doubleSided());
+            mesh.setVisible(partition.visible());
             int initialOrder = plan.orders().get(neutralKeyIndex).get(pIdx);
             mesh.setDrawOrder(initialOrder);
 
