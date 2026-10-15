@@ -200,6 +200,7 @@ public final class AutoAtlasHostProbePlugin implements TurboismPlugin {
 
             final TextureAtlasId page2Id = page2IdHolder[0];
             final Drawable mesh2 = mesh2Holder[0];
+            final ArtMeshId mesh2Id = mesh2.id();
             report.put("page2Id", page2Id.value());
 
             final HistorySnapshot hAfterTx = history.snapshot();
@@ -252,7 +253,7 @@ public final class AutoAtlasHostProbePlugin implements TurboismPlugin {
 
             boolean mesh2RemovedOnUndo = false;
             try {
-                model.drawables().find(mesh2.id());
+                model.drawables().find(mesh2Id);
             } catch (NoSuchElementException expected) {
                 mesh2RemovedOnUndo = true;
             }
