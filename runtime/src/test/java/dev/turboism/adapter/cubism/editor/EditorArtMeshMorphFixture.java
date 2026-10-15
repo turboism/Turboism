@@ -95,6 +95,7 @@ final class EditorArtMeshMorphFixture implements EditorAuthoringTransactionCoord
                 () -> {
                     if (denyTransaction) throw new UnsupportedOperationException("no coordinator");
                 },
+                () -> coordinator.isCreatedTargetRestored(binding, source),
                 contribution -> coordinator.mutate(binding, contribution),
                 this::refreshNative);
     }
