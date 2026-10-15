@@ -174,6 +174,49 @@ class ModelTextureAtlasPlannerTest {
     }
 
     @Test
+    void fullResolutionImageGetsExclusivePageWhileOtherImagesKeepMargins() {
+        var items = List.of(
+                new TextureAtlasLayoutItem("full", 4096, 4096), new TextureAtlasLayoutItem("small", 1024, 1024));
+        var plan = ModelTextureAtlasPlanner.plan(items, ModelTextureAtlasPlanner.Options.DEFAULT);
+        assertEquals(4096, plan.pageWidth());
+        assertEquals(2, plan.pageCount());
+        var full = plan.placements().stream()
+                .filter(p -> p.textureId().equals("full"))
+                .findFirst()
+                .orElseThrow();
+        var small = plan.placements().stream()
+                .filter(p -> p.textureId().equals("small"))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(0, full.x());
+        assertEquals(0, full.y());
+        assertEquals(4096, full.width());
+        assertNotEquals(full.pageIndex(), small.pageIndex());
+        assertTrue(small.x() >= 2 && small.y() >= 2);
+        assertEquals(1.0, plan.scale());
+        assertEquals(
+                plan,
+                ModelTextureAtlasPlanner.plan(
+                        List.of(items.get(1), items.get(0)), ModelTextureAtlasPlanner.Options.DEFAULT));
+    }
+
+    @Test
+    void exclusivePagesStillRespectPageAndMemoryBudgets() {
+        var items =
+                List.of(new TextureAtlasLayoutItem("full", 4096, 4096), new TextureAtlasLayoutItem("small", 32, 32));
+        assertThrows(
+                IllegalStateException.class,
+                () -> ModelTextureAtlasPlanner.plan(
+                        items, new ModelTextureAtlasPlanner.Options(4096, 1, 134_217_728L, 2, 2)));
+        assertThrows(
+                IllegalStateException.class,
+                () -> ModelTextureAtlasPlanner.plan(
+                        items, new ModelTextureAtlasPlanner.Options(4096, 32, 16_777_216L, 2, 2)));
+        var single = ModelTextureAtlasPlanner.plan(List.of(items.get(0)), ModelTextureAtlasPlanner.Options.DEFAULT);
+        assertEquals(1, single.pageCount());
+    }
+
+    @Test
     void emptyItemsThrowsIllegalArgumentException() {
         assertThrows(
                 IllegalArgumentException.class,

@@ -77,10 +77,10 @@ final class ModelTextureAtlasPlanner {
         int margin = options.edgeMargin();
         int padding = options.itemPadding();
 
-        // Validate that each image can fit within maxAtlasEdge with margin
+        // Oversized images are rejected. Images that need the edge margin area
+        // receive an exclusive page, with no neighboring image to bleed into.
         for (var item : uniqueItems) {
-            if ((long) item.width() + margin * 2L > options.maxAtlasEdge()
-                    || (long) item.height() + margin * 2L > options.maxAtlasEdge()) {
+            if (item.width() > options.maxAtlasEdge() || item.height() > options.maxAtlasEdge()) {
                 throw new ModelImportPlugin.LocalizedIllegalArgumentException(
                         "error.atlas-oversized", "模型贴图尺寸超过宿主图集支持的上限。");
             }
@@ -98,7 +98,10 @@ final class ModelTextureAtlasPlanner {
         // Smallest power-of-two that fits the largest single image
         int minSize = 256;
         for (var item : sortedItems) {
-            while (minSize < item.width() + margin * 2 || minSize < item.height() + margin * 2) {
+            int required = needsExclusivePage(item, options.maxAtlasEdge(), margin)
+                    ? options.maxAtlasEdge()
+                    : Math.toIntExact(Math.max((long) item.width(), item.height()) + margin * 2L);
+            while (minSize < required) {
                 minSize *= 2;
             }
         }
@@ -148,6 +151,10 @@ final class ModelTextureAtlasPlanner {
                 chosen.pageSize(), chosen.pageSize(), chosen.pageCount(), pageNames, chosen.placements(), 1.0);
     }
 
+    private static boolean needsExclusivePage(TextureAtlasLayoutItem item, int edge, int margin) {
+        return (long) item.width() + 2L * margin > edge || (long) item.height() + 2L * margin > edge;
+    }
+
     private static List<TextureAtlasPlacement> packShelf(
             List<TextureAtlasLayoutItem> items, int width, int height, int maxPages, int margin, int padding) {
         long right = (long) width - margin;
@@ -155,8 +162,17 @@ final class ModelTextureAtlasPlanner {
         long x = margin, y = margin, rowHeight = 0;
         int page = 0;
         var placements = new ArrayList<TextureAtlasPlacement>(items.size());
-
+        var shared = new ArrayList<TextureAtlasLayoutItem>();
         for (var item : items) {
+            if (needsExclusivePage(item, width, margin)) {
+                if (item.width() > width || item.height() > height || page >= maxPages) return null;
+                placements.add(
+                        new TextureAtlasPlacement(item.textureId(), page++, 0, 0, item.width(), item.height(), false));
+            } else shared.add(item);
+        }
+        if (!shared.isEmpty() && page >= maxPages) return null;
+
+        for (var item : shared) {
             if (item.width() > right - margin || item.height() > bottom - margin) {
                 return null;
             }
