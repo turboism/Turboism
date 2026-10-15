@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.frame-animation-import
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: modeling
 tags: animation, frame-animation, sprite-sheet, parameter
 turboismApi: "[0.1.0,0.2.0)"
@@ -14,7 +14,7 @@ interface: swing
 
 # Frame Animation Import
 
-> **Official Turboism plugin** · **Status: Development**
+> **Official Turboism plugin** · **Status: Preview**
 
 Imports sequence frame animations from sprite sheets or image lists and automatically binds each frame mesh to a parameter with keyframe visibility/opacity.
 
@@ -52,7 +52,7 @@ Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 
 ## Install and enable
 
-This official plugin is currently in development. Build it through `./gradlew :plugins:frame-animation-import:jar` and place it in your Turboism `plugins/` folder, then enable it in **Plugin Management**.
+This official plugin is a **store candidate**, not yet a published store listing. Until marketplace publication, install it through Turboism's official release packaging, then enable it in **Plugin Management**. Disable or uninstall it from the same window when the workflow is not needed.
 
 ## How to use
 

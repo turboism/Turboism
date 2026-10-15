@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.frame-animation-import
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: modeling
 tags: animation, frame-animation, sprite-sheet, parameter
 turboismApi: "[0.1.0,0.2.0)"
@@ -14,7 +14,7 @@ interface: swing
 
 # 帧动画导入 (Frame Animation Import)
 
-> **官方 Turboism 插件** · **状态: 开发中 (Development)**
+> **官方 Turboism 插件** · **状态: 预览版 (Preview)**
 
 从精灵表（Sprite Sheet）切片或多张序列帧图片导入帧动画，自动生成图形网格（ArtMesh），创建并绑定专用参数，使每个网格在不同关键点上精确显示与隐藏。
 
@@ -52,7 +52,7 @@ interface: swing
 
 ## 安装与启用
 
-本插件目前处于开发测试阶段。通过 `./gradlew :plugins:frame-animation-import:jar` 构建后，将生成的 JAR 包置于 Turboism 的 `plugins/` 目录中，在 **插件管理** 窗口启用即可。
+本官方插件是**应用市场候选插件 (Store Candidate)**。在正式上架应用商店前，您可通过 Turboism 的官方发布包进行安装，并在**插件管理**窗口中启用。在无需使用时亦可随时在该窗口禁用或卸载。
 
 ## 使用方法
 
@@ -97,7 +97,7 @@ interface: swing
 
 ## 状态与限制
 
-- **状态:** 开发中 (Development)。
+- **状态:** 预览版 (Preview)。
 - 导入操作需要打开活动的 Cubism 模型文档。
 - 单帧分辨率超过 4MB RGBA 预算时将自动进行平滑下采样。
 - 在无头 JVM 环境中不显示 Swing 交互向导窗口。
