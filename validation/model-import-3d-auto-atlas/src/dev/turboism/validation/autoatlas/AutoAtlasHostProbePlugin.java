@@ -425,6 +425,24 @@ public final class AutoAtlasHostProbePlugin implements TurboismPlugin {
 
     private void writeSuccess() {
         writeReportArtifacts("PASS", null);
+        // Only a queue-owned disposable JVM may opt into termination after this probe.
+        // This does not test the Editor's native close/save-prompt workflow.
+        final String runId = System.getProperty("turboism.validation.runId", "");
+        if (Boolean.getBoolean("turboism.autoatlas.exitAfterProbe")
+                && runId.matches("queue-[a-f0-9]{32}")
+                && context.paths().stateDir().toString().contains(runId)) {
+            final Thread closer = new Thread(() -> {
+                try {
+                    Thread.sleep(2_000L);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+                System.exit(0);
+            }, "auto-atlas-probe-exit");
+            closer.setDaemon(false);
+            closer.start();
+        }
     }
 
     private void writeFailure(final String message) {
