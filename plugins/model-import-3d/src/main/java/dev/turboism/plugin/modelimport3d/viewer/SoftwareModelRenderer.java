@@ -19,6 +19,19 @@ public final class SoftwareModelRenderer {
 
     public static final int DEFAULT_BACKGROUND_COLOR = 0xFF2B2D30;
 
+    /**
+     * Shading inspection mode for the viewer.
+     */
+    public enum Shading {
+        /** Standard rendering using GLB source textures, factors, vertex colors, and emissive. */
+        SOURCE_MATERIAL,
+        /**
+         * Neutral light-gray geometry inspection mode with forced normal lighting and disabled emissive/vertex RGB,
+         * preserving original alpha modes, texture alpha cutoffs, double-sidedness, and complete geometry.
+         */
+        GEOMETRY
+    }
+
     private static final ViewerScene.Material DEFAULT_MATERIAL = new ViewerScene.Material(
             "default",
             new float[] {1.0f, 1.0f, 1.0f, 1.0f},
@@ -58,11 +71,25 @@ public final class SoftwareModelRenderer {
     }
 
     /**
-     * Primary contract method: renders the given scene into a BufferedImage.
+     * Primary contract method: renders the given scene into a BufferedImage using source materials.
      */
     public BufferedImage render(
             ViewerScene scene, int width, int height, double yawRadians, double pitchRadians, double zoom) {
-        return renderWithStats(scene, width, height, yawRadians, pitchRadians, zoom)
+        return render(scene, width, height, yawRadians, pitchRadians, zoom, Shading.SOURCE_MATERIAL);
+    }
+
+    /**
+     * Overload supporting selectable shading inspection modes.
+     */
+    public BufferedImage render(
+            ViewerScene scene,
+            int width,
+            int height,
+            double yawRadians,
+            double pitchRadians,
+            double zoom,
+            Shading shading) {
+        return renderWithStats(scene, width, height, yawRadians, pitchRadians, zoom, shading)
                 .image();
     }
 
@@ -71,12 +98,29 @@ public final class SoftwareModelRenderer {
     }
 
     /**
-     * Renders scene and returns both the image and observable render statistics.
+     * Renders scene and returns both the image and observable render statistics using source materials.
      */
     public RenderResult renderWithStats(
             ViewerScene scene, int width, int height, double yawRadians, double pitchRadians, double zoom) {
+        return renderWithStats(scene, width, height, yawRadians, pitchRadians, zoom, Shading.SOURCE_MATERIAL);
+    }
+
+    /**
+     * Renders scene with specified shading mode and returns both the image and observable render statistics.
+     */
+    public RenderResult renderWithStats(
+            ViewerScene scene,
+            int width,
+            int height,
+            double yawRadians,
+            double pitchRadians,
+            double zoom,
+            Shading shading) {
         checkInterrupted();
         long startTime = System.nanoTime();
+
+        Shading effectiveShading = shading != null ? shading : Shading.SOURCE_MATERIAL;
+        boolean isGeomMode = (effectiveShading == Shading.GEOMETRY);
 
         int targetWidth = Math.max(1, width);
         int targetHeight = Math.max(1, height);
@@ -156,7 +200,7 @@ public final class SoftwareModelRenderer {
             boolean hasNormals = normals != null && normals.length >= pos.length;
 
             ViewerScene.Material mat = resolveMaterial(scene, mesh.materialIndex());
-            boolean unlit = mat.unlit();
+            boolean unlit = isGeomMode ? false : mat.unlit();
             boolean doubleSided = mat.doubleSided();
 
             for (int i = 0; i < vCount; i++) {
@@ -322,7 +366,8 @@ public final class SoftwareModelRenderer {
                         targetHeight,
                         buffers,
                         pixels,
-                        false);
+                        false,
+                        isGeomMode);
                 renderedTriangles++;
             }
         }
@@ -371,7 +416,8 @@ public final class SoftwareModelRenderer {
                         targetHeight,
                         buffers,
                         pixels,
-                        true);
+                        true,
+                        isGeomMode);
                 renderedTriangles++;
             }
         }
@@ -414,7 +460,8 @@ public final class SoftwareModelRenderer {
             int height,
             WorkerBuffers buffers,
             int[] pixels,
-            boolean isBlendPass) {
+            boolean isBlendPass,
+            boolean isGeomMode) {
         float x0 = buffers.projX[g0], y0 = buffers.projY[g0];
         float x1 = buffers.projX[g1], y1 = buffers.projY[g1];
         float x2 = buffers.projX[g2], y2 = buffers.projY[g2];
@@ -520,7 +567,7 @@ public final class SoftwareModelRenderer {
         float efR = (ef != null && ef.length > 0) ? ef[0] : 0.0f;
         float efG = (ef != null && ef.length > 1) ? ef[1] : 0.0f;
         float efB = (ef != null && ef.length > 2) ? ef[2] : 0.0f;
-        boolean hasEmissive = emissiveTex != null || efR > 0f || efG > 0f || efB > 0f;
+        boolean hasEmissive = !isGeomMode && (emissiveTex != null || efR > 0f || efG > 0f || efB > 0f);
 
         ViewerScene.Texture baseTex = resolveTexture(scene, material.baseColorTexture());
 
@@ -624,9 +671,16 @@ public final class SoftwareModelRenderer {
                             }
                         }
 
-                        float baseR = texR * bfR * vertR;
-                        float baseG = texG * bfG * vertG;
-                        float baseB = texB * bfB * vertB;
+                        float baseR, baseG, baseB;
+                        if (isGeomMode) {
+                            baseR = 0.70f;
+                            baseG = 0.70f;
+                            baseB = 0.70f;
+                        } else {
+                            baseR = texR * bfR * vertR;
+                            baseG = texG * bfG * vertG;
+                            baseB = texB * bfB * vertB;
+                        }
 
                         float emR = 0f, emG = 0f, emB = 0f;
                         if (hasEmissive) {
