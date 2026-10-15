@@ -8,7 +8,10 @@ import java.util.*;
 /** Fits explicit source displacements to native bilinear Warp controls. Residuals are measured, not assumed. */
 final class NativeControlWarpPlan {
     static final double MAX_RESIDUAL_PIXELS = 2.0;
-    static final long MAX_CONTROL_SAMPLES = 1_000_000;
+    // Two float coordinates per stored point. This bounds coordinate payload, not JVM heap or CMO3 size.
+    static final long MAX_AUTHORED_COORDINATE_BYTES = 256L * 1024 * 1024;
+    static final long BYTES_PER_POINT = 2L * Float.BYTES;
+    static final long MAX_CONTROL_SAMPLES = MAX_AUTHORED_COORDINATE_BYTES / BYTES_PER_POINT;
 
     record Key(String parameter, float value, List<Point2> controls, double residualPixels) {
         Key {
@@ -79,6 +82,7 @@ final class NativeControlWarpPlan {
         }
         frames.values().forEach(NativeCharacterAuthoring.Frame::pad);
         var patches = new ArrayList<Patch>();
+        var failures = new ArrayList<FitFailure>();
         long count = 0;
         double maximum = 0;
         for (int pi = 0; pi < geometry.partitions().size(); pi++) {
@@ -94,7 +98,7 @@ final class NativeControlWarpPlan {
                 count += (long) (cached.cells() + 1)
                         * (cached.cells() + 1)
                         * (cached.keys().size() + 1);
-                checkBudget(count, geometry);
+                checkBudget(count, geometry.totalKeyformSlots());
                 patches.add(new Patch(pi, cached.cells(), cached.origin(), cached.span(), cached.keys()));
                 continue;
             }
@@ -161,8 +165,8 @@ final class NativeControlWarpPlan {
                 keys = List.copyOf(fits);
                 if (worst <= MAX_RESIDUAL_PIXELS) break;
             }
-            if (cells > 32)
-                throw new FitFailure(
+            if (cells > 32) {
+                failures.add(new FitFailure(
                         p.sourceMeshIndex(),
                         p.sourceTriangles(),
                         "Source controls cannot fit native Warp within 2px for partition " + pi + " source="
@@ -175,13 +179,20 @@ final class NativeControlWarpPlan {
                                 + keys.stream()
                                         .mapToDouble(Key::residualPixels)
                                         .max()
-                                        .orElse(0));
+                                        .orElse(0)));
+                continue;
+            }
             for (var key : keys) maximum = Math.max(maximum, key.residualPixels());
             count += (long) (cells + 1) * (cells + 1) * (keys.size() + 1);
-            checkBudget(count, geometry);
+            checkBudget(count, geometry.totalKeyformSlots());
             var patch = new Patch(pi, cells, origin, span, keys);
             patches.add(patch);
             if (!p.sourceTriangles().isEmpty()) cache.patches.put(cacheKey, patch);
+        }
+        if (!failures.isEmpty()) {
+            var first = failures.get(0);
+            for (int i = 1; i < failures.size(); i++) first.addSuppressed(failures.get(i));
+            throw first;
         }
         var used = new HashSet<String>();
         for (var patch : patches) for (var key : patch.keys()) used.add(key.parameter());
@@ -191,10 +202,15 @@ final class NativeControlWarpPlan {
                 scene.controls().stream().filter(c -> used.contains(c.id())).toList(), patches, count, maximum);
     }
 
-    private static void checkBudget(long count, NativeCharacterPlan.Plan geometry) {
-        if (count > MAX_CONTROL_SAMPLES
-                || count + geometry.totalKeyformSlots() > NativeCharacterPlan.MAX_TOTAL_KEYFORM_SLOTS)
-            throw new IllegalArgumentException("Native control form budget exceeded");
+    static void checkBudget(long controlSlots, long geometrySlots) {
+        long available = MAX_CONTROL_SAMPLES;
+        if (controlSlots < 0
+                || geometrySlots < 0
+                || geometrySlots > available
+                || controlSlots > available - geometrySlots)
+            throw new IllegalArgumentException("Native authored coordinate budget exceeded: geometrySlots="
+                    + geometrySlots + ", controlSlots=" + controlSlots + ", bytesPerPoint=" + BYTES_PER_POINT
+                    + ", maximumBytes=" + MAX_AUTHORED_COORDINATE_BYTES);
     }
 
     private record Fit(List<Point2> points, double residual) {}

@@ -114,3 +114,21 @@ Verification:
 - A depth-only 0.2-unit shape diagnostic measures zero neutral residual but 28.284px projected displacement at yaw or pitch ±30° under the fixed 400px-radius camera. The neutral Warp remains identity, so it cannot reproduce that side displacement. This is an explicit failing accuracy example, not acceptance of side-view fidelity.
 
 Limits: native alpha composition and pixel restoration do not establish three-dimensional projection accuracy, occlusion correctness, arbitrary shape combinations or dedicated clothing/mask/foot/eye/head behavior. The main Editor has not been updated.
+
+
+## Expanded source-control coordinate budget — 2026-10-15
+
+The plugin now budgets geometry-keyform and local Warp-control coordinates together at 256 MiB (33,554,432 points, two floats per point). This replaces the prior one-million-control-point and six-million-combined-point limits. The separate geometry-only six-million-slot limit, 64-million interpolation-cache-slot limit, 16-million decoded-source-control-slot limit and 2px neutral fitting threshold remain unchanged. This budget does not bound JVM heap, CMO3 size or MOC export size. No SDK or Runtime limit changed.
+
+The optional private character bake `/tmp/task-n002-blend/native-controls.glb` has SHA-256 `ad25dbb8cd3f12901c17f104ef26ee5a16ba688a8b6422aeccaddef19896623a`. A standalone same-package diagnostic called production `NativeModelImport.prepare` with the standard 1024px canvas / 400px-radius framing and `-Xmx2g`. It ran the complete loader, material conversion, control fitting and adaptive partition pipeline, without writing the source file. Raw output is retained in `/tmp/native-budget-character-batch.log`; the diagnostic source is `/tmp/NativeBudgetDiagnostic.java`.
+
+```text
+PASS controls=111 patches=796 controlSlots=3399999 geometrySlots=4844506 coordinateBytes=65956040 cacheSlots=37960810 partitions=940 triangles=236437 residualPx=1.990992392 seconds=216.534
+exit=0 elapsedSeconds=216.76 peakRssKiB=1560468
+```
+
+All 111 effective controls survived. Authored coordinate payload is approximately 62.9 MiB. The measured interpolation-cache count fits the existing limit, so it was not raised. Peak process RSS was approximately 1.49 GiB. The production geometry planner checks source triangle counts and partition provenance. This preparation evidence does not establish native import, save/reopen, side-view projection or arbitrary-asset readiness.
+
+The first attempt with larger storage and the old single-failure refinement loop was deliberately stopped after 880.197 seconds, at peak RSS 1,788,208 KiB. It is not a passing run. Each failed fit previously caused a complete scene-order rebuild. The planner now collects all failed patches in one pass and refines them together. Fits retain their original error threshold, cache semantics and single-triangle rejection. A regression checks two independent failures are both reported for refinement.
+
+Validation: 268 plugin tests, 34 conditional skips, zero failures (`/tmp/native-budget-batch-tests.log`). Final `devCheck` passed with 143 tasks (`/tmp/native-budget-final-devcheck.log`). Exact coordinate-budget boundaries and long-overflow rejection passed. The main Editor was not deployed or launched for this change.
