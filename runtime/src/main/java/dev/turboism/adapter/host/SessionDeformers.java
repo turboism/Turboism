@@ -447,6 +447,25 @@ final class SessionWarpDeformer implements WarpDeformer {
     }
 
     @Override
+    public dev.turboism.sdk.cubism.model.WarpMorphSnapshot morphSnapshot() {
+        return host.guarded(generation, delegate::morphSnapshot);
+    }
+
+    @Override
+    public void createOpacityMorphKeyform(dev.turboism.sdk.cubism.id.ParameterId parameter, float key, float opacity) {
+        host.guardedVoid(generation, () -> delegate.createOpacityMorphKeyform(parameter, key, opacity));
+    }
+
+    @Override
+    public void createMorphKeyform(
+            dev.turboism.sdk.cubism.id.ParameterId parameter,
+            float key,
+            List<dev.turboism.sdk.cubism.model.Point2> controls) {
+        final var input = List.copyOf(controls);
+        host.guardedVoid(generation, () -> delegate.createMorphKeyform(parameter, key, input));
+    }
+
+    @Override
     public dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot authoringSnapshot() {
         return host.guarded(generation, delegate::authoringSnapshot);
     }

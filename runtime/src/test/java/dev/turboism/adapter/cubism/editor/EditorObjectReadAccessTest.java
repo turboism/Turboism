@@ -27,6 +27,39 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class EditorObjectReadAccessTest {
 
+    @Test
+    void replaySourceSurvivesRebuiltInstanceButRejectsReplacedSourceAndDocument() {
+        final Fixture fixture = new Fixture();
+        boolean[] active = {true};
+        var core = new EditorObjectReadCore(
+                resolver("5.3.02"),
+                (identity, model) -> {
+                    if (!active[0]) throw new IllegalStateException("stale document");
+                },
+                null);
+        var ref = core.deformerRefs("session", fixture.source, fixture.source.model)
+                .get(0);
+        fixture.source.model.deformers.set(0, new Warp((WarpSource) ref.source()));
+        assertThrows(
+                IllegalStateException.class,
+                () -> core.currentDeformer("session", fixture.source, fixture.source.model, ref));
+        org.junit.jupiter.api.Assertions.assertSame(
+                ref.source(), core.replayDeformerSource("session", fixture.source, fixture.source.model, ref));
+        active[0] = false;
+        assertThrows(
+                IllegalStateException.class,
+                () -> core.replayDeformerSource("session", fixture.source, fixture.source.model, ref));
+        active[0] = true;
+        fixture.source.deformerSources.set(0, new WarpSource(fixture.failures));
+        assertThrows(
+                IllegalStateException.class,
+                () -> core.replayDeformerSource("session", fixture.source, fixture.source.model, ref));
+        fixture.source.deformerSources.clear();
+        assertThrows(
+                IllegalStateException.class,
+                () -> core.replayDeformerSource("session", fixture.source, fixture.source.model, ref));
+    }
+
     @org.junit.jupiter.api.Test
     void warpGridChangesJoinOneRootAndCompensatePartialSetterFailure() {
         final Fixture fixture = new Fixture();

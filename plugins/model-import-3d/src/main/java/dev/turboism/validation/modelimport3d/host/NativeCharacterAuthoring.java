@@ -207,6 +207,11 @@ public final class NativeCharacterAuthoring {
             var mesh = model.drawables().find(meshId);
             var partition = plan.partitions().get(pIdx);
 
+            if (!partition.visible()) {
+                banks.add(mesh.authoringSnapshot());
+                continue;
+            }
+
             String group = Objects.requireNonNull(appearanceGroups.apply(partition.sourceMeshIndex()));
             String bodyPart = Objects.requireNonNull(bodyParts.apply(partition.sourceMeshIndex()));
             String bodyKey = bodyPart.isBlank() ? group : bodyPart;
@@ -338,6 +343,7 @@ public final class NativeCharacterAuthoring {
         // 9. Set interpolation on parameter bindings and verify patch refresh scope
         for (int pIdx = 0; pIdx < meshIds.size(); pIdx++) {
             var mesh = model.drawables().find(meshIds.get(pIdx));
+            if (!plan.partitions().get(pIdx).visible()) continue;
             var sampling = plan.sampling().get(pIdx);
             model.parameterBindings(request.yaw())
                     .setInterpolation(ParameterBindingTarget.artMesh(mesh.id()), sampling.yaw());
@@ -357,7 +363,7 @@ public final class NativeCharacterAuthoring {
         return new Created(rootPart.id(), rollId, meshIds, meshToSourceIndex);
     }
 
-    private static final class Frame {
+    static final class Frame {
         float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY;
         float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY;
 

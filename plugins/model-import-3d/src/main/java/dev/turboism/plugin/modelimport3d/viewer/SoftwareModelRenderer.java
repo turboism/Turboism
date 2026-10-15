@@ -194,7 +194,7 @@ public final class SoftwareModelRenderer {
         for (int m = 0; m < meshCount; m++) {
             checkInterrupted();
             ViewerScene.Mesh mesh = meshes.get(m);
-            if (mesh == null || !mesh.visible() || mesh.positions() == null) continue;
+            if (mesh == null || mesh.defaultOpacity() <= 0f || mesh.positions() == null) continue;
 
             float[] pos = mesh.positions();
             int vCount = pos.length / 3;
@@ -265,10 +265,10 @@ public final class SoftwareModelRenderer {
         // 5. Pass 1: OPAQUE and MASK materials
         for (int m = 0; m < meshCount; m++) {
             ViewerScene.Mesh mesh = meshes.get(m);
-            if (mesh == null || !mesh.visible() || mesh.positions() == null) continue;
+            if (mesh == null || mesh.defaultOpacity() <= 0f || mesh.positions() == null) continue;
 
             ViewerScene.Material mat = resolveMaterial(scene, mesh.materialIndex());
-            boolean isBlend = "BLEND".equalsIgnoreCase(mat.alphaMode());
+            boolean isBlend = "BLEND".equalsIgnoreCase(mat.alphaMode()) || mesh.defaultOpacity() < 1f;
 
             int vOffset = vertexOffsets[m];
             int vCount = mesh.positions().length / 3;
@@ -576,7 +576,7 @@ public final class SoftwareModelRenderer {
         ViewerScene.Texture baseTex = resolveTexture(scene, material.baseColorTexture());
 
         boolean isMask = "MASK".equalsIgnoreCase(material.alphaMode());
-        float alphaCutoff = material.alphaCutoff() > 0f ? material.alphaCutoff() : 0.5f;
+        float alphaCutoff = Math.max(0f, material.alphaCutoff());
 
         int startY = Math.max(0, (int) Math.ceil(minTriY - 0.5f));
         int endY = Math.min(height - 1, (int) Math.floor(maxTriY - 0.5f));
@@ -659,7 +659,7 @@ public final class SoftwareModelRenderer {
 
                         float baseA = texA * bfA * vertA;
 
-                        if (isMask && !isBlendPass) {
+                        if (isMask) {
                             if (baseA < alphaCutoff) {
                                 curInvZ += dInvZ_dx;
                                 curUInvZ += dUInvZ_dx;
@@ -717,6 +717,8 @@ public final class SoftwareModelRenderer {
                         else if (ib < 0) ib = 0;
 
                         if (isBlendPass) {
+                            if (!"BLEND".equalsIgnoreCase(material.alphaMode())) baseA = 1f;
+                            baseA *= mesh.defaultOpacity();
                             if (baseA > 0.001f) {
                                 float alpha = Math.min(1.0f, baseA);
                                 int dst = pixels[pixelIdx];
@@ -821,7 +823,7 @@ public final class SoftwareModelRenderer {
 
         if (scene.meshes() != null) {
             for (ViewerScene.Mesh m : scene.meshes()) {
-                if (m == null || !m.visible() || m.positions() == null) continue;
+                if (m == null || m.defaultOpacity() <= 0f || m.positions() == null) continue;
                 float[] p = m.positions();
                 int count = p.length / 3;
                 for (int i = 0; i < count; i++) {

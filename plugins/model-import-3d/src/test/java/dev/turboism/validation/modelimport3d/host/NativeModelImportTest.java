@@ -29,6 +29,53 @@ class NativeModelImportTest {
         verify("TURBOISM_DEFAULT_APPEARANCE_FIXTURE");
     }
 
+    @Test
+    void smallStandardMorphModelUsesNativeProductionPathForGlbAndGltf() throws Exception {
+        byte[] bin = new byte[72];
+        var values = java.nio.ByteBuffer.wrap(bin).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        for (float value : new float[] {0, 0, 0, 1, 0, 0, 0, 1, 0, .1f, 0, 0, .1f, 0, 0, .1f, 0, 0})
+            values.putFloat(value);
+        String dataUri =
+                "data:application/octet-stream;base64," + Base64.getEncoder().encodeToString(bin);
+        String json = """
+            {"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0]}],"nodes":[{"mesh":0}],
+             "buffers":[{"byteLength":72%s}],"bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":36},{"buffer":0,"byteOffset":36,"byteLength":36}],
+             "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},{"bufferView":1,"componentType":5126,"count":3,"type":"VEC3"}],
+             "meshes":[{"extras":{"targetNames":["Source shape"]},"primitives":[{"attributes":{"POSITION":0},"targets":[{"POSITION":1}]}]}]}
+            """;
+        byte[] raw = json.formatted("").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        int padded = (raw.length + 3) & ~3;
+        var glb = java.nio.ByteBuffer.allocate(28 + padded + bin.length).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        glb.putInt(0x46546c67)
+                .putInt(2)
+                .putInt(glb.capacity())
+                .putInt(padded)
+                .putInt(0x4e4f534a)
+                .put(raw);
+        while (glb.position() < 20 + padded) glb.put((byte) ' ');
+        glb.putInt(bin.length).putInt(0x004e4942).put(bin);
+        var request = new SurfaceImport.Request(
+                "Generic",
+                new ParameterId("Yaw"),
+                new ParameterId("Pitch"),
+                new SurfaceProjection.Camera(512, 512, 200, new SurfaceProjection.Vertex(0, 0, 0)),
+                180,
+                180,
+                SurfaceImportPlan.MAX_PROJECTED_VERTICES,
+                Optional.of(new ParameterId("Roll")));
+        for (byte[] input : List.of(
+                glb.array(),
+                json.formatted(",\"uri\":\"" + dataUri + "\"").getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
+            var prepared = ModelImportPlugin.prepare(input, request, SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL);
+            assertNotNull(prepared.character());
+            assertEquals(1, prepared.character().geometry().totalTriangles());
+            assertEquals(1, prepared.character().controls().controls().size());
+            assertEquals(
+                    "Source shape",
+                    prepared.character().controls().controls().get(0).name());
+        }
+    }
+
     private static void verify(String variable) throws Exception {
         String fixture = System.getenv(variable);
         Assumptions.assumeTrue(fixture != null && !fixture.isBlank(), variable + " not configured");

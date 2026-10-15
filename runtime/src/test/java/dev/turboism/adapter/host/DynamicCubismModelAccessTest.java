@@ -2184,6 +2184,7 @@ class DynamicCubismModelAccessTest {
             }
         };
         final int[] warpOrdinaryWrites = {0};
+        final var warpMorphKeys = new java.util.ArrayList<dev.turboism.sdk.cubism.model.WarpMorphSnapshot.Key>();
         final WarpDeformer warp = new WarpDeformer() {
             @Override
             public DeformerId id() {
@@ -2229,6 +2230,34 @@ class DynamicCubismModelAccessTest {
                     dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot expected,
                     List<dev.turboism.sdk.cubism.model.WarpKeyformPositions> edits) {
                 warpOrdinaryWrites[0]++;
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.WarpMorphSnapshot morphSnapshot() {
+                return new dev.turboism.sdk.cubism.model.WarpMorphSnapshot(
+                        id(),
+                        "warp-source",
+                        new dev.turboism.sdk.cubism.model.WarpMorphSnapshot.Form(
+                                "base", grid[0].controlPoints(), warpOpacity[0]),
+                        warpMorphKeys);
+            }
+
+            @Override
+            public void createOpacityMorphKeyform(ParameterId parameter, float key, float opacity) {
+                warpMorphKeys.add(new dev.turboism.sdk.cubism.model.WarpMorphSnapshot.Key(
+                        parameter.value(),
+                        key,
+                        new dev.turboism.sdk.cubism.model.WarpMorphSnapshot.Form(
+                                "key-" + warpMorphKeys.size(), grid[0].controlPoints(), opacity)));
+            }
+
+            @Override
+            public void createMorphKeyform(ParameterId parameter, float key, List<Point2> controls) {
+                warpMorphKeys.add(new dev.turboism.sdk.cubism.model.WarpMorphSnapshot.Key(
+                        parameter.value(),
+                        key,
+                        new dev.turboism.sdk.cubism.model.WarpMorphSnapshot.Form(
+                                "key-" + warpMorphKeys.size(), controls, warpOpacity[0])));
             }
 
             @Override
@@ -2362,6 +2391,10 @@ class DynamicCubismModelAccessTest {
         assertEquals("warp-source", warpAuthoring.sourceGuid());
         wrappedWarp.setOrdinaryKeyformPositions(warpAuthoring, List.of());
         assertEquals(1, warpOrdinaryWrites[0]);
+        wrappedWarp.createOpacityMorphKeyform(new ParameterId("Opacity"), 1, 0);
+        wrappedWarp.createMorphKeyform(new ParameterId("Shape"), -1, grid[0].controlPoints());
+        var warpMorphSnapshot = wrappedWarp.morphSnapshot();
+        assertEquals(2, warpMorphSnapshot.keys().size());
         wrappedRotation.replaceForm(new RotationDeformerForm(10.0F, 2.0F, 3.0F, 1.5F, true, false));
         assertEquals(0.75F, wrappedDrawable.getOpacity());
         final var authoring = wrappedDrawable.authoringSnapshot();
@@ -2427,6 +2460,15 @@ class DynamicCubismModelAccessTest {
         assertEquals(500, priorMorph.drawOrder(), "detached order survives the lease");
         assertThrows(IllegalStateException.class, createdMorph::snapshot);
         assertEquals("base-form", priorBase.formGuid());
+        assertThrows(IllegalStateException.class, wrappedWarp::morphSnapshot);
+        assertThrows(
+                IllegalStateException.class,
+                () -> wrappedWarp.createOpacityMorphKeyform(new ParameterId("Opacity"), 1, 0));
+        assertThrows(
+                IllegalStateException.class,
+                () -> wrappedWarp.createMorphKeyform(new ParameterId("Shape"), -1, grid[0].controlPoints()));
+        assertEquals(2, warpMorphSnapshot.keys().size(), "detached Warp morphs survive the lease");
+        assertEquals(2, warpMorphKeys.size(), "stale writes never reach the delegate");
         assertThrows(IllegalStateException.class, wrappedWarp::grid);
         assertThrows(IllegalStateException.class, wrappedWarp::authoringSnapshot);
         assertThrows(

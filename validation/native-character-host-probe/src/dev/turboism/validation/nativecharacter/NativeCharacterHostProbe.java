@@ -87,7 +87,7 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
             long triangles = edt(() -> imported.stream().map(model().drawables()::find)
                     .mapToLong(mesh -> mesh.geometry().triangleIndices().size() / 3).sum());
             check("native.triangles", Long.getLong("turboism.character.expectedTriangles", 121097L), triangles);
-            check("native.parameters.added", 3, edt(() -> model().parameters().all().size()) - oldParameters);
+            check("native.parameters.added", 3+Integer.getInteger("turboism.character.expectedControls",0), edt(() -> model().parameters().all().size()) - oldParameters);
             check("native.atlas.created", true, edt(() -> model().textures().textureAtlases().size()) > oldPages);
             for (ArtMeshId id : imported) {
                 check("atlas.binding." + id.value(), ArtMeshTextureInput.Kind.TEXTURE_ATLAS_REGION,
@@ -102,7 +102,10 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
             check("undo.meshes.restored", before, edt(this::ids));
             check("undo.atlas.restored", oldPages, edt(() -> model().textures().textureAtlases().size()));
             check("undo.parameters.restored", oldParameters, edt(() -> model().parameters().all().size()));
-            check("redo.command", true, edt(() -> commands.execute(EditorCommand.REDO).executed()));
+            await(() -> edt(() -> commands.available().contains(EditorCommand.REDO)), 30, "Redo menu readiness");
+            var redoResult = edt(() -> commands.execute(EditorCommand.REDO));
+            report.setProperty("redo.command.result", redoResult.toString());
+            check("redo.command", true, redoResult.executed());
             report.setProperty("history.afterRedoDispatch", "" + edt(() -> context.cubism().history().snapshot()));
             await(() -> edt(() -> ids().containsAll(imported)), 30, "Redo model restoration");
             report.setProperty("history.afterRedo", "" + edt(() -> context.cubism().history().snapshot()));
@@ -134,6 +137,7 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
             await(() -> edt(() -> imported.stream().filter(id -> model().drawables().find(id).visible()).map(id -> model().drawables().find(id).evaluationSnapshot())
                     .allMatch(e -> e.calculatedForm().isPresent() && e.liveParameters().parameters().equals(e.consumedParameters().parameters()))),
                     30, "neutral pose consumption before opacity");
+            if(Boolean.getBoolean("turboism.character.sourceControls")) verifySourceControls();
             stage("native-opacity");
             var visibleMesh = edt(() -> imported.stream().map(id -> model().drawables().find(id))
                     .filter(m -> m.visible()).findFirst().orElseThrow());
@@ -170,6 +174,7 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
             check("save.artifact.nonempty", true, Files.size(output) > 0);
             report.setProperty("native.ids", imported.stream().map(ArtMeshId::value).sorted().reduce((a,b) -> a + "," + b).orElseThrow());
             report.setProperty("native.banks.sha256", edt(() -> banksHash(imported)));
+            if(Boolean.getBoolean("turboism.character.sourceControls"))report.setProperty("native.morphs.sha256",edt(this::morphsHash));
             report.setProperty("native.hidden", "" + edt(() -> imported.stream().filter(id -> !model().drawables().find(id).visible()).count()));
             report.setProperty("save.sha256", hash(output));
             report.setProperty("save.bytes", "" + Files.size(output));
@@ -228,7 +233,11 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
                     edt(() -> model().textures().textureInput(id).orElseThrow().kind()));
         }
         check("reopen.rotation.parameters", 3L, edt(() -> model().parameters().all().stream().filter(p -> p.id().value().startsWith("Param3D")).count()));
-        for (String part : List.of("Left leg", "Right leg")) {
+        if(expected.getProperty("native.morphs.sha256")!=null) {
+            check("reopen.morphs.sha256",expected.getProperty("native.morphs.sha256"),edt(this::morphsHash));
+            verifySourceControls();
+        }
+        for (String part : expected.getProperty("native.morphs.sha256")!=null?List.<String>of():List.of("Left leg", "Right leg")) {
             var body = edt(() -> model().warpDeformers().all().stream().filter(d -> d.name().equals(part)).findFirst().orElseThrow());
             check("reopen." + part + ".grid", 9, edt(() -> body.grid().controlPoints().size()));
             check("reopen." + part + ".opacity", 1f, edt(body::getOpacity));
@@ -238,6 +247,38 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
         }
         capture(state.resolve("native-reopened.png"));
         report.setProperty("persistence.reopen", "PASS");
+    }
+
+    private void verifySourceControls() throws Exception {
+        var controls=edt(()->model().parameters().all().stream().filter(p->p.id().value().contains("_Control_")).toList());
+        check("controls.count",Integer.getInteger("turboism.character.expectedControls",2),controls.size());
+        for(var parameter:controls) {
+            check("controls.type."+parameter.id().value(),ParameterType.BLEND_SHAPE,edt(parameter::type));
+            check("controls.default."+parameter.id().value(),0f,edt(parameter::getValue));
+            var baseline=edt(()->model().renderPixels(1024,1024).argb());
+            float endpoint=edt(parameter::getMaximumValue);
+            if(endpoint==0)endpoint=edt(parameter::getMinimumValue);
+            final float requested=endpoint;
+            edt(()->{parameter.setValue(requested);return null;});
+            check("controls.value."+parameter.id().value(),requested,edt(parameter::getValue));
+            Thread.sleep(600);
+            var moved=edt(()->model().renderPixels(1024,1024).argb());
+            check("controls.pixels."+parameter.id().value(),true,!Arrays.equals(baseline,moved));
+            edt(()->{parameter.setValue(0);return null;});
+            Thread.sleep(500);
+            check("controls.restored."+parameter.id().value(),true,Arrays.equals(baseline,edt(()->model().renderPixels(1024,1024).argb())));
+        }
+        report.setProperty("controls.nativeMorphKeys",""+edt(()->model().warpDeformers().all().stream().mapToInt(w->w.morphSnapshot().keys().size()).sum()));
+        check("controls.nativeMorphKeys.present",true,Integer.parseInt(report.getProperty("controls.nativeMorphKeys"))>0);
+    }
+
+    private String morphsHash() throws Exception {
+        var digest=MessageDigest.getInstance("SHA-256");
+        for(var warp:model().warpDeformers().all().stream().sorted(Comparator.comparing(w->w.id().value())).toList()) {
+            digest.update(warp.id().value().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            digest.update(warp.morphSnapshot().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        return HexFormat.of().formatHex(digest.digest());
     }
 
     private String banksHash(Set<ArtMeshId> imported) throws Exception {

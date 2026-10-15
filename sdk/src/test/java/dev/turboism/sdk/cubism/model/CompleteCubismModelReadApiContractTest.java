@@ -209,7 +209,14 @@ class CompleteCubismModelReadApiContractTest {
                 "updateDefinition");
         assertMethods(ParameterGroup.class, "childGroupIds", "id", "name", "parameterIds", "parentId", "rename", "ui");
         assertDeclaredMethods(
-                WarpDeformer.class, "grid", "replaceGrid", "authoringSnapshot", "setOrdinaryKeyformPositions");
+                WarpDeformer.class,
+                "grid",
+                "replaceGrid",
+                "authoringSnapshot",
+                "setOrdinaryKeyformPositions",
+                "morphSnapshot",
+                "createOpacityMorphKeyform",
+                "createMorphKeyform");
         assertDeclaredMethods(
                 RotationDeformer.class,
                 "baseAngle",

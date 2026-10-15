@@ -751,7 +751,7 @@ class ModelTextureAtlasCallsiteRegressionTest {
                 case "userFiles" ->
                     proxy(UserFileAccessService.class, (x, n, v) -> {
                         if (n.getName().equals("request")) return choose;
-                        if (n.getName().equals("readBytes")) return read;
+                        if (n.getName().equals("readBytes") || n.getName().equals("readBytesBounded")) return read;
                         return null;
                     });
                 default -> null;

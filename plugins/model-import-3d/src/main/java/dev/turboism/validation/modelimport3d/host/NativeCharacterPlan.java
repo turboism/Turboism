@@ -44,8 +44,43 @@ public final class NativeCharacterPlan {
             SurfaceProjection.Vertex center,
             SurfaceProjection.Vertex normal,
             double radius,
-            int triangleCount) {
+            int triangleCount,
+            List<Integer> sourceTriangles) {
+        public Partition(
+                int partitionIndex,
+                int sourceMeshIndex,
+                int materialIndex,
+                boolean doubleSided,
+                boolean visible,
+                String name,
+                List<SurfaceProjection.Vertex> positions,
+                List<Point2> uvs,
+                List<Integer> indices,
+                List<Integer> sourceSlotMapping,
+                SurfaceProjection.Vertex center,
+                SurfaceProjection.Vertex normal,
+                double radius,
+                int triangleCount) {
+            this(
+                    partitionIndex,
+                    sourceMeshIndex,
+                    materialIndex,
+                    doubleSided,
+                    visible,
+                    name,
+                    positions,
+                    uvs,
+                    indices,
+                    sourceSlotMapping,
+                    center,
+                    normal,
+                    radius,
+                    triangleCount,
+                    List.of());
+        }
+
         public Partition {
+            sourceTriangles = sourceTriangles.stream().sorted().toList();
             positions = List.copyOf(positions);
             uvs = List.copyOf(uvs);
             indices = List.copyOf(indices);
@@ -102,7 +137,7 @@ public final class NativeCharacterPlan {
         long visibleVertices = 0;
 
         for (var mesh : scene.meshes()) {
-            if (!mesh.visible()) continue;
+            if (mesh.defaultOpacity() <= 0f) continue;
             float[] pos = mesh.positions();
             int vCount = pos.length / 3;
             for (int i = 0; i < vCount; i++) {
@@ -142,7 +177,7 @@ public final class NativeCharacterPlan {
 
         double radius = 0.0;
         for (var mesh : scene.meshes()) {
-            if (visibleVertices > 0 && !mesh.visible()) continue;
+            if (visibleVertices > 0 && mesh.defaultOpacity() <= 0f) continue;
             float[] pos = mesh.positions();
             int vCount = pos.length / 3;
             for (int i = 0; i < vCount; i++) {
@@ -197,6 +232,13 @@ public final class NativeCharacterPlan {
      * Compiles a complete bounded geometry plan from the decoded scene.
      */
     public static Plan prepare(ViewerScene scene, SurfaceImport.Request request) {
+        return prepare(scene, request, java.util.Map.of());
+    }
+
+    static Plan prepare(
+            ViewerScene scene,
+            SurfaceImport.Request request,
+            java.util.Map<Integer, java.util.Set<List<Integer>>> refinements) {
         Objects.requireNonNull(scene, "scene");
         Objects.requireNonNull(request, "request");
 
@@ -226,7 +268,10 @@ public final class NativeCharacterPlan {
 
         for (int mIdx = 0; mIdx < rawMeshes.size(); mIdx++) {
             var mesh = rawMeshes.get(mIdx);
-            var subClusters = clusterMesh(mesh, TARGET_MAX_TRIANGLES_PER_PARTITION);
+            var subClusters = clusterMesh(
+                    mesh,
+                    mesh.controlSamples().isEmpty() ? TARGET_MAX_TRIANGLES_PER_PARTITION : 300,
+                    refinements.getOrDefault(mIdx, java.util.Set.of()));
 
             boolean doubleSided = false;
             if (mesh.materialIndex() >= 0
@@ -310,7 +355,8 @@ public final class NativeCharacterPlan {
                         center,
                         normal,
                         maxR,
-                        cluster.size()));
+                        cluster.size(),
+                        neutralFaces.stream().map(Face::triangleIndex).toList()));
             }
         }
 
@@ -324,7 +370,9 @@ public final class NativeCharacterPlan {
 
         long totalPartitionSlots =
                 partitions.stream().mapToLong(p -> p.positions().size()).sum();
-        long totalKeyformSlots = totalPartitionSlots * KEYS.size() * KEYS.size();
+        long totalKeyformSlots = partitions.stream()
+                .mapToLong(p -> (long) p.positions().size() * (p.visible() ? KEYS.size() * KEYS.size() : 1))
+                .sum();
 
         if (totalKeyformSlots > MAX_TOTAL_KEYFORM_SLOTS) {
             throw new IllegalArgumentException("Native character geometry exceeds 6M save budget: " + totalKeyformSlots
@@ -356,7 +404,7 @@ public final class NativeCharacterPlan {
                 }
                 s = sampling(maxProjR, frameRadiusBound);
             } else {
-                s = new Sampling(DEFAULT_INTERPOLATION, DEFAULT_INTERPOLATION, 289L, 0.0);
+                s = new Sampling(DEFAULT_INTERPOLATION, DEFAULT_INTERPOLATION, 1L, 0.0);
             }
 
             long partSlots = p.positions().size();
@@ -398,7 +446,8 @@ public final class NativeCharacterPlan {
                 maxError);
     }
 
-    private static List<List<Face>> clusterMesh(ViewerScene.Mesh mesh, int maxTriangles) {
+    private static List<List<Face>> clusterMesh(
+            ViewerScene.Mesh mesh, int maxTriangles, java.util.Set<List<Integer>> refinements) {
         int tCount = mesh.indices().length / 3;
         float[] pos = mesh.positions();
         int[] ind = mesh.indices();
@@ -439,7 +488,9 @@ public final class NativeCharacterPlan {
 
         while (!queue.isEmpty()) {
             List<Face> current = queue.poll();
-            if (current.size() <= maxTriangles) {
+            if (current.size() <= maxTriangles
+                    && !refinements.contains(
+                            current.stream().map(Face::triangleIndex).sorted().toList())) {
                 result.add(current);
                 continue;
             }

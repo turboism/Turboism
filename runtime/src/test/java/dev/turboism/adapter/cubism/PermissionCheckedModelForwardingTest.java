@@ -625,6 +625,38 @@ class PermissionCheckedModelForwardingTest {
     }
 
     @Test
+    void warpMorphForwardingRequiresPermissionsAndActiveScope() {
+        var calls = new ArrayList<String>();
+        boolean[] read = {true}, write = {true}, active = {true};
+        var warp = facade(
+                        new RecordingModel(calls),
+                        List.of(readPermission(read), writePermission(write)),
+                        () -> active[0])
+                .model()
+                .active()
+                .warpDeformers()
+                .find(new dev.turboism.sdk.cubism.id.DeformerId("WarpA"));
+        assertTrue(warp.morphSnapshot().keys().isEmpty());
+        calls.clear();
+        write[0] = false;
+        assertThrows(CubismPermissionException.class, () -> warp.createOpacityMorphKeyform(new ParameterId("P"), 1, 0));
+        assertThrows(
+                CubismPermissionException.class, () -> warp.createMorphKeyform(new ParameterId("P"), -1, List.of()));
+        assertTrue(calls.isEmpty());
+        write[0] = true;
+        read[0] = false;
+        assertThrows(CubismPermissionException.class, warp::morphSnapshot);
+        warp.createOpacityMorphKeyform(new ParameterId("P"), 1, 0);
+        assertTrue(calls.contains("warp.createOpacityMorphKeyform"));
+        calls.clear();
+        read[0] = true;
+        active[0] = false;
+        assertThrows(IllegalStateException.class, warp::morphSnapshot);
+        assertThrows(IllegalStateException.class, () -> warp.createMorphKeyform(new ParameterId("P"), -1, List.of()));
+        assertTrue(calls.isEmpty());
+    }
+
+    @Test
     void rotationStoredFormsRetainReadWriteAndActiveScopeChecks() {
         final List<String> calls = new ArrayList<>();
         final boolean[] read = {true}, write = {true}, active = {true};
@@ -928,6 +960,31 @@ class PermissionCheckedModelForwardingTest {
             assertEquals(List.of("before:CREATE_DRAWABLE_MORPH_KEYFORM:ArtMeshA:m:1.0"), events);
             events.clear();
             assertThrows(IllegalArgumentException.class, () -> drawable.createMorphKeyform("m", 0f));
+            semantic.awaitIdle();
+            assertTrue(events.isEmpty());
+            delegate.failKeyformWrite = false;
+            var warp = facade(delegate, List.of(readPermission(true), writePermission(true)), () -> true, lifecycle)
+                    .model()
+                    .active()
+                    .warpDeformers()
+                    .find(new dev.turboism.sdk.cubism.id.DeformerId("WarpA"));
+            var parameter = new ParameterId("Shape");
+            String opacitySuffix = ":CREATE_WARP_OPACITY_MORPH_KEYFORM:WarpA:Shape:1.0";
+            warp.createOpacityMorphKeyform(parameter, 1, 0);
+            semantic.awaitIdle();
+            assertEquals(List.of("before" + opacitySuffix, "on" + opacitySuffix, "after" + opacitySuffix), events);
+            events.clear();
+            String geometrySuffix = ":CREATE_WARP_MORPH_KEYFORM:WarpA:Shape:-1.0";
+            warp.createMorphKeyform(parameter, -1, warp.morphSnapshot().base().controlPoints());
+            semantic.awaitIdle();
+            assertEquals(List.of("before" + geometrySuffix, "on" + geometrySuffix, "after" + geometrySuffix), events);
+            events.clear();
+            delegate.failKeyformWrite = true;
+            assertThrows(IllegalStateException.class, () -> warp.createOpacityMorphKeyform(parameter, .5f, .5f));
+            semantic.awaitIdle();
+            assertEquals(List.of("before:CREATE_WARP_OPACITY_MORPH_KEYFORM:WarpA:Shape:0.5"), events);
+            events.clear();
+            assertThrows(IllegalArgumentException.class, () -> warp.createMorphKeyform(parameter, 0, List.of()));
             semantic.awaitIdle();
             assertTrue(events.isEmpty());
             assertTrue(errors.isEmpty(), errors.toString());
@@ -1805,6 +1862,7 @@ class PermissionCheckedModelForwardingTest {
                                     new dev.turboism.sdk.cubism.model.Point2(1, 0),
                                     new dev.turboism.sdk.cubism.model.Point2(0, 1),
                                     new dev.turboism.sdk.cubism.model.Point2(1, 1)))));
+            final var morphKeys = new ArrayList<dev.turboism.sdk.cubism.model.WarpMorphSnapshot.Key>();
             final var warp = new dev.turboism.sdk.cubism.model.WarpDeformer() {
                 @Override
                 public dev.turboism.sdk.cubism.id.DeformerId id() {
@@ -1829,6 +1887,42 @@ class PermissionCheckedModelForwardingTest {
                 @Override
                 public void replaceGrid(dev.turboism.sdk.cubism.model.WarpGrid grid) {
                     throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public dev.turboism.sdk.cubism.model.WarpMorphSnapshot morphSnapshot() {
+                    calls.add("warp.morphSnapshot");
+                    return new dev.turboism.sdk.cubism.model.WarpMorphSnapshot(
+                            id,
+                            "warp-source",
+                            new dev.turboism.sdk.cubism.model.WarpMorphSnapshot.Form(
+                                    "base", snapshot.forms().get(0).controlPoints(), 1),
+                            morphKeys);
+                }
+
+                @Override
+                public void createOpacityMorphKeyform(ParameterId parameter, float key, float opacity) {
+                    calls.add("warp.createOpacityMorphKeyform");
+                    if (failKeyformWrite) throw new IllegalStateException("Warp write failed");
+                    morphKeys.add(new dev.turboism.sdk.cubism.model.WarpMorphSnapshot.Key(
+                            parameter.value(),
+                            key,
+                            new dev.turboism.sdk.cubism.model.WarpMorphSnapshot.Form(
+                                    "key-" + morphKeys.size(),
+                                    snapshot.forms().get(0).controlPoints(),
+                                    opacity)));
+                }
+
+                @Override
+                public void createMorphKeyform(
+                        ParameterId parameter, float key, List<dev.turboism.sdk.cubism.model.Point2> controls) {
+                    calls.add("warp.createMorphKeyform");
+                    if (failKeyformWrite) throw new IllegalStateException("Warp write failed");
+                    morphKeys.add(new dev.turboism.sdk.cubism.model.WarpMorphSnapshot.Key(
+                            parameter.value(),
+                            key,
+                            new dev.turboism.sdk.cubism.model.WarpMorphSnapshot.Form(
+                                    "key-" + morphKeys.size(), controls, 1)));
                 }
 
                 @Override

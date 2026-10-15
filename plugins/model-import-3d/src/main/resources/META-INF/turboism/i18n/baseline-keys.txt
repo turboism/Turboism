@@ -54,3 +54,4 @@ viewer.reset
 viewer.stats
 viewer.title
 viewer.too-large
+dialog.confirm.character-controls
