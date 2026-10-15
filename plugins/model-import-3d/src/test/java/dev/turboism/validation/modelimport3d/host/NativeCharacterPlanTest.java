@@ -19,11 +19,6 @@ public class NativeCharacterPlanTest {
             fixture = System.getProperty("turboism.viewer.fixture");
         }
         if (fixture == null || fixture.isBlank()) {
-            String home = System.getProperty("user.home");
-            if (home != null) {
-                Path candidate = Path.of(home, "Documents", "Laevatein_Surtr_Futa_v1.1.glb");
-                if (Files.exists(candidate)) return candidate;
-            }
             return null;
         }
         final Path path = Path.of(fixture);
@@ -66,10 +61,19 @@ public class NativeCharacterPlanTest {
     @Test
     void samplingSelectsOptimalInsertsWithinBudget() {
         double maxBudget = 5.0;
-        var s = NativeCharacterPlan.sampling(200.0, maxBudget);
+        var s = NativeCharacterPlan.sampling(80.0, maxBudget);
         assertNotNull(s);
         assertTrue(s.errorBoundPixels() <= maxBudget);
-        assertTrue(s.grid() <= 25L * 64L * 64L);
+        assertTrue(s.grid() <= 289L);
+
+        // When error budget is tighter than achievable with maxInserts=3, sampling throws explicitly
+        var ex = assertThrows(IllegalArgumentException.class, () -> NativeCharacterPlan.sampling(400.0, 5.0));
+        assertTrue(ex.getMessage().contains("Interpolation error bound cannot satisfy"));
+
+        // Achievable bound for R=400 with 3 inserts is ~15.38px
+        var s400 = NativeCharacterPlan.sampling(400.0, 16.0);
+        assertNotNull(s400);
+        assertTrue(s400.errorBoundPixels() <= 16.0);
     }
 
     @Test
@@ -157,6 +161,26 @@ public class NativeCharacterPlanTest {
         assertTrue(
                 plan.totalKeyformSlots() < 3_000_000L,
                 "25 forms easily fit in <3M slots (actual " + plan.totalKeyformSlots() + ")");
+
+        // Cache slots budget verification
+        assertEquals(24610268L, plan.totalCacheSlots(), "Quantified cache slots after adaptive sampling");
+        assertTrue(
+                plan.totalCacheSlots() <= NativeCharacterPlan.MAX_CACHE_SLOTS,
+                "Cache slots must strictly fit within 64M budget");
+
+        // Camera framing verification
+        assertTrue(plan.camera().scale() > 0, "Camera scale must be positive");
+        assertTrue(plan.maxInterpolationErrorPixels() <= 15.40, "Max chord error bound on 400px framing is <= 15.40px");
+        assertEquals(15.3818, plan.maxInterpolationErrorPixels(), 1e-3, "Exact theoretical chord error bound");
+
+        // Material double-sided preservation
+        long doubleSidedCount = plan.partitions().stream()
+                .filter(NativeCharacterPlan.Partition::doubleSided)
+                .count();
+        long singleSidedCount =
+                plan.partitions().stream().filter(p -> !p.doubleSided()).count();
+        assertEquals(152, doubleSidedCount, "23 meshes with materials are double-sided");
+        assertEquals(3, singleSidedCount, "3 meshes without materials remain single-sided");
 
         // 4. Verify 5x5 keys
         assertEquals(List.of(-180f, -90f, 0f, 90f, 180f), plan.keys());
