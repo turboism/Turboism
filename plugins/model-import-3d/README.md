@@ -14,6 +14,25 @@ interface: embedded
 
 # 3D Model Import
 
+## Interactive GLB viewer
+
+Use **Turboism → Plugins → 3D Models → View 3D model…** to open a textured
+GLB character in a plugin-owned window. Drag to rotate, scroll to zoom, or
+choose **Reset view**. An active Cubism document is not required.
+Use **Geometry inspection** for neutral lighting with the source texture alpha.
+This mode helps inspect files whose exported materials are black or use packed
+shader textures as base color. Source-material mode preserves the GLB assignments;
+it cannot restore a custom engine shader or missing diffuse textures.
+
+This viewer uses embedded PNG/JPEG base-color and emissive textures, vertex
+colors, default skin pose and default morph weights. The authorized file budget
+is 128 MiB. It runs locally and does not upload the model. Decoding and rendering
+run in the background. Closing the window or disabling the plugin cancels work.
+
+The viewer does not create editable ArtMeshes, Cubism parameters or a CMO3 file.
+Native conversion and skeleton/morph-to-parameter mapping are future work.
+The native import entry below retains its separate format and size restrictions.
+
 ## What it does
 
 Imports supported GLB, glTF, OBJ and model ZIP packages as native Cubism meshes. Input parsing, texture normalization, geometry simplification and parameter authoring run locally without an LLM. Source-material mode binds X/Y rotations to dense joint Warp forms and Z rotation to native scalar forms, each spanning −180° to 180°. An unbound outer “整体定位” deformer moves and scales the entire model. Source textures stay attached to their faces. One native Undo operation removes the import. The Warp path uses dense parameter sampling. The direct source-vertex fallback uses elliptical interpolation; it preserves the 9×9 ordinary pose bank and chooses insertion density per patch from its projected rotation radius. The preparation stage minimizes derived lattice size within the existing global interpolation bound, keeping simplification plus interpolation inside the 5px geometry budget. This is geometry evidence; intermediate occlusion and Editor drag latency require native acceptance.
@@ -35,7 +54,7 @@ Bundled with the official Turboism distribution; select **3D Model Import** in t
 
 ## How to use
 
-菜单：**插件 → 3D 模型 → 导入 3D 模型…**。选择“保留原材质”，再选择 GLB、glTF、OBJ 或模型 ZIP；单独模型缺少外部资源时，按引用提示选择材质、buffer 或 PNG/JPEG 贴图，再确认网格和参数绑定点数量后导入。拖动新增的 **X / Y / Z 旋转**参数即可旋转，三轴可以同时调整。整体移动或缩放请选择 **整体定位**变形器；单独移动子网格会改变其在投影 Warp 内的采样位置。旧工程不会自动增加定位层。切换目标文档或停用插件后，旧请求不会继续写入。
+菜单：**Turboism → 插件 → 3D 模型 → 导入 3D 模型…**。选择“保留原材质”，再选择 GLB、glTF、OBJ 或模型 ZIP；单独模型缺少外部资源时，按引用提示选择材质、buffer 或 PNG/JPEG 贴图，再确认网格和参数绑定点数量后导入。拖动新增的 **X / Y / Z 旋转**参数即可旋转，三轴可以同时调整。整体移动或缩放请选择 **整体定位**变形器；单独移动子网格会改变其在投影 Warp 内的采样位置。旧工程不会自动增加定位层。切换目标文档或停用插件后，旧请求不会继续写入。
 
 The optional face-color mode is separate from retaining source materials. For the textured cube, use source materials so colors, axis labels and arrows come from the GLB itself. The default zero-angle pose looks square because it faces the red front surface.
 

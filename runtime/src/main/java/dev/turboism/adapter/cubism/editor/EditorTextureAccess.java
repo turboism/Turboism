@@ -8,6 +8,7 @@ import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasSelectorCont
 import dev.turboism.core.runtime.psd.PsdExportHost;
 import dev.turboism.core.runtime.psd.PsdReplaceHost;
 import dev.turboism.core.runtime.psd.PsdSessionBoundHost;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorEditSessionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
@@ -2159,6 +2160,7 @@ final class EditorTextureAccess {
                 }
                 completed = true;
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 try {
                     final List<?> current = list(TEXTURE_ATLASES, manager, "texture atlas");
                     final boolean atlasesAlreadyReverted = samePageCountAndInstances(current, oldAtlases);
@@ -2171,6 +2173,7 @@ final class EditorTextureAccess {
                         throw new IllegalStateException("Texture atlas append rollback postcondition failed.");
                     }
                 } catch (Throwable rollbackError) {
+                    FatalErrors.rethrowIfFatal(rollbackError);
                     failure.addSuppressed(rollbackError);
                 }
                 throw failure;
