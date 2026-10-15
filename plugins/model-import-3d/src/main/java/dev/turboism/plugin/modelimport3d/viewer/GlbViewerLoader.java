@@ -56,6 +56,42 @@ public final class GlbViewerLoader {
      * @throws IllegalArgumentException if the GLB is invalid, exceeds budgets, or contains unsupported required features
      */
     public static ViewerScene load(final byte[] glb, final BooleanSupplier cancelled) {
+        return load(glb, cancelled, false);
+    }
+
+    /** Loads standard glTF position Morph Targets as independent source controls, without external preprocessing. */
+    public static ViewerScene loadWithSourceControls(final byte[] glb, final BooleanSupplier cancelled) {
+        return load(glb, cancelled, true);
+    }
+
+    /** Routes rigs of any file size to the source-aware native importer. */
+    public static boolean requiresNativeRigImport(byte[] glb) {
+        if (glb == null || glb.length < 20 || glb.length > MAX_FILE_SIZE || getIntLE(glb, 0) != GLB_MAGIC) return false;
+        int size = getIntLE(glb, 12);
+        if (size < 0 || 20L + size > glb.length || getIntLE(glb, 16) != CHUNK_TYPE_JSON) return false;
+        int end = 20 + size;
+        while (end > 20
+                && (glb[end - 1] == 0
+                        || glb[end - 1] == ' '
+                        || glb[end - 1] == '\n'
+                        || glb[end - 1] == '\r'
+                        || glb[end - 1] == '\t')) end--;
+        var root = Json.parseObject(Arrays.copyOfRange(glb, 20, end));
+        if (root.get("skins") instanceof List<?> skins && !skins.isEmpty()) return true;
+        if (root.get("extras") instanceof Map<?, ?> extra
+                && extra.get("turboismControls") instanceof List<?> controls
+                && !controls.isEmpty()) return true;
+        if (root.get("meshes") instanceof List<?> meshes)
+            for (var mesh : meshes)
+                if (mesh instanceof Map<?, ?> m && m.get("primitives") instanceof List<?> primitives)
+                    for (var primitive : primitives)
+                        if (primitive instanceof Map<?, ?> p
+                                && p.get("targets") instanceof List<?> targets
+                                && !targets.isEmpty()) return true;
+        return false;
+    }
+
+    private static ViewerScene load(final byte[] glb, final BooleanSupplier cancelled, boolean importSourceControls) {
         Objects.requireNonNull(glb, "glb bytes cannot be null");
         checkCancelled(cancelled);
 
@@ -197,6 +233,10 @@ public final class GlbViewerLoader {
         }
 
         final List<NodeDef> nodes = parseNodes(nodesJson);
+        final var controls = new ArrayList<>(parseControls(root));
+        // Explicit sampled controls replace automatic endpoints; never duplicate the same rig twice.
+        final boolean automaticMorphs = importSourceControls && controls.isEmpty();
+        long controlSlots = 0;
 
         // Determine default scene
         final List<?> scenesJson = asList(root.get("scenes"));
@@ -496,8 +536,149 @@ public final class GlbViewerLoader {
                         throw new IllegalArgumentException("Triangle count exceeds budget of " + MAX_TRIANGLES);
                     }
 
+                    final var controlSamples = new ArrayList<ViewerScene.ControlSample>();
+                    if (primMap.get("extras") instanceof Map<?, ?> extra
+                            && extra.get("turboismControlSamples") instanceof List<?> samples) {
+                        for (Object item : samples) {
+                            checkCancelled(cancelled);
+                            if (!(item instanceof Map<?, ?> sample))
+                                throw new IllegalArgumentException("invalid control sample");
+                            String parameter = getString(sample, "parameter", "");
+                            float key = requiredControlFloat(sample, "key");
+                            var definition = controls.stream()
+                                    .filter(c -> c.id().equals(parameter))
+                                    .findFirst()
+                                    .orElseThrow(() -> new IllegalArgumentException("unknown source control"));
+                            if (key < definition.minimum() || key > definition.maximum() || key == 0)
+                                throw new IllegalArgumentException("source control key outside range");
+                            controlSlots += vertexCount;
+                            if (controlSlots > 16_000_000L)
+                                throw new IllegalArgumentException("source control sample budget exceeded");
+                            int ai = getInt(sample, "deltas", -1);
+                            if (ai < 0 || ai >= accessors.size())
+                                throw new IllegalArgumentException("invalid control delta accessor");
+                            var acc = accessors.get(ai);
+                            if (!"VEC3".equals(acc.type) || acc.componentType != 5126)
+                                throw new IllegalArgumentException("control deltas require float VEC3");
+                            var compact = readFloatArray(acc, bufferViews, binData);
+                            float[] deltas;
+                            if (sample.containsKey("slots")) {
+                                int si = getInt(sample, "slots", -1);
+                                if (si < 0 || si >= accessors.size())
+                                    throw new IllegalArgumentException("invalid sparse control slots");
+                                var slotsAcc = accessors.get(si);
+                                if (!"SCALAR".equals(slotsAcc.type)
+                                        || slotsAcc.componentType != 5125
+                                        || slotsAcc.count != acc.count)
+                                    throw new IllegalArgumentException("invalid sparse control shape");
+                                var slots = readIntArray(slotsAcc, bufferViews, binData);
+                                deltas = new float[vertexCount * 3];
+                                int prior = -1;
+                                for (int q = 0; q < slots.length; q++) {
+                                    int slot = slots[q];
+                                    if (slot <= prior || slot >= vertexCount)
+                                        throw new IllegalArgumentException("invalid sparse control index");
+                                    System.arraycopy(compact, q * 3, deltas, slot * 3, 3);
+                                    prior = slot;
+                                }
+                            } else {
+                                if (acc.count != vertexCount)
+                                    throw new IllegalArgumentException("control vertex count differs");
+                                deltas = compact;
+                            }
+                            for (float value : deltas)
+                                if (!Float.isFinite(value))
+                                    throw new IllegalArgumentException("nonfinite source control");
+                            if (controlSamples.stream()
+                                    .anyMatch(v -> v.controlId().equals(parameter) && v.key() == key))
+                                throw new IllegalArgumentException("duplicate source control sample");
+                            controlSamples.add(new ViewerScene.ControlSample(parameter, key, deltas));
+                        }
+                    }
+                    if (automaticMorphs && visible && targets != null) {
+                        var names = meshJson.get("extras") instanceof Map<?, ?> extra
+                                ? asList(extra.get("targetNames"))
+                                : null;
+                        for (int t = 0; t < targets.size(); t++) {
+                            checkCancelled(cancelled);
+                            if (!(targets.get(t) instanceof Map<?, ?> target)
+                                    || !(target.get("POSITION") instanceof Number index)) continue;
+                            int ai = index.intValue();
+                            if (ai < 0 || ai >= accessors.size())
+                                throw new IllegalArgumentException("invalid morph position accessor");
+                            var acc = accessors.get(ai);
+                            if (!"VEC3".equals(acc.type) || acc.componentType != 5126 || acc.count != vertexCount)
+                                throw new IllegalArgumentException("morph positions require matching float VEC3");
+                            float saved = defaultWeights != null && t < defaultWeights.length ? defaultWeights[t] : 0f;
+                            float minimum = Math.min(0f, saved) - saved, maximum = Math.max(1f, saved) - saved;
+                            int endpoints = (minimum != 0 ? 1 : 0) + (maximum != 0 ? 1 : 0);
+                            if (controlSlots + (long) vertexCount * endpoints > 16_000_000L)
+                                throw new IllegalArgumentException("source control sample budget exceeded");
+                            var delta = readFloatArray(acc, bufferViews, binData);
+                            boolean effective = false;
+                            for (float v : delta) {
+                                if (!Float.isFinite(v)) throw new IllegalArgumentException("nonfinite morph position");
+                                if (v != 0f) effective = true;
+                            }
+                            if (!effective) continue;
+                            String id = "gltf.node." + nIdx + ".morph." + t;
+                            String label = names != null
+                                            && t < names.size()
+                                            && names.get(t) instanceof String name
+                                            && !name.isBlank()
+                                    ? name
+                                    : meshName + " / Morph " + (t + 1);
+                            var definition = new ViewerScene.Control(id, label, minimum, maximum);
+                            var prior = controls.stream()
+                                    .filter(c -> c.id().equals(id))
+                                    .findFirst();
+                            if (prior.isEmpty()) {
+                                if (controls.size() >= 256)
+                                    throw new IllegalArgumentException("source control count exceeds 256");
+                                controls.add(definition);
+                            } else if (!prior.get().equals(definition))
+                                throw new IllegalArgumentException("inconsistent morph definition across primitives");
+                            for (float key : new float[] {minimum, maximum}) {
+                                if (key == 0f) continue;
+                                var posed = positions.clone();
+                                for (int i = 0; i < posed.length; i++) posed[i] += delta[i] * key;
+                                var world = new float[posed.length];
+                                var ignoredNormals = new float[normals.length];
+                                if (hasSkin) {
+                                    var joints = readIntArray(
+                                            accessors.get(((Number) attrs.get("JOINTS_0")).intValue()),
+                                            bufferViews,
+                                            binData);
+                                    var weights = readFloatArray(
+                                            accessors.get(((Number) attrs.get("WEIGHTS_0")).intValue()),
+                                            bufferViews,
+                                            binData);
+                                    applySkinning(
+                                            posed,
+                                            normals,
+                                            joints,
+                                            weights,
+                                            skin.jointMatrices,
+                                            vertexCount,
+                                            world,
+                                            ignoredNormals);
+                                } else
+                                    applyNodeTransform(
+                                            posed, normals, nodeWorldMatrix, vertexCount, world, ignoredNormals);
+                                for (int i = 0; i < world.length; i++) {
+                                    world[i] -= worldPositions[i];
+                                    if (!Float.isFinite(world[i]))
+                                        throw new IllegalArgumentException("nonfinite transformed morph");
+                                }
+                                controlSamples.add(new ViewerScene.ControlSample(id, key, world));
+                                controlSlots += vertexCount;
+                            }
+                        }
+                    }
+                    final var opacityControls =
+                            parseOpacityControls((Map<?, ?>) nodesJson.get(nIdx), primMap, controls);
                     final String primName = (primsJson.size() > 1) ? (meshName + "_" + pIdx) : meshName;
-                    sceneMeshes.add(new ViewerScene.Mesh(
+                    var sourceMesh = new ViewerScene.Mesh(
                             primName,
                             worldPositions,
                             worldNormals,
@@ -508,7 +689,38 @@ public final class GlbViewerLoader {
                             matIdx,
                             visible,
                             (node.name != null ? node.name : meshName) + " [" + nIdx + "]",
-                            primitiveBodyPart(primMap)));
+                            primitiveBodyPart(primMap),
+                            controlSamples,
+                            opacityControls);
+                    if (importSourceControls
+                            && visible
+                            && hasSkin
+                            && sourceMesh.bodyPart().isBlank()) {
+                        var joints = readIntArray(
+                                accessors.get(((Number) attrs.get("JOINTS_0")).intValue()), bufferViews, binData);
+                        var weights = readFloatArray(
+                                accessors.get(((Number) attrs.get("WEIGHTS_0")).intValue()), bufferViews, binData);
+                        long originalSamples =
+                                (long) vertexCount * sourceMesh.controlSamples().size();
+                        var grouped = groupBySourceJoint(
+                                sourceMesh,
+                                joints,
+                                weights,
+                                skin,
+                                nodes,
+                                16_000_000L - controlSlots + originalSamples,
+                                MAX_VERTICES - totalVertices + vertexCount);
+                        long groupedSamples = grouped.stream()
+                                .mapToLong(m -> (long) (m.positions().length / 3)
+                                        * m.controlSamples().size())
+                                .sum();
+                        totalVertices += grouped.stream()
+                                        .mapToInt(m -> m.positions().length / 3)
+                                        .sum()
+                                - vertexCount;
+                        controlSlots += groupedSamples - originalSamples;
+                        sceneMeshes.addAll(grouped);
+                    } else sceneMeshes.add(sourceMesh);
                 }
             }
         }
@@ -528,7 +740,85 @@ public final class GlbViewerLoader {
                 skins.size(),
                 maxMorphTargets);
 
-        return new ViewerScene(sceneMeshes, materials, textures, bounds, stats);
+        return new ViewerScene(sceneMeshes, materials, textures, bounds, stats, controls);
+    }
+
+    /** Uses actual vertex influences. Bone labels are source labels, not anatomical guesses. */
+    private static List<ViewerScene.Mesh> groupBySourceJoint(
+            ViewerScene.Mesh source,
+            int[] joints,
+            float[] weights,
+            SkinDef skin,
+            List<NodeDef> nodes,
+            long sampleBudget,
+            long vertexBudget) {
+        var groups = new java.util.LinkedHashMap<Integer, List<Integer>>();
+        int[] indices = source.indices();
+        for (int t = 0; t + 2 < indices.length; t += 3) {
+            var votes = new java.util.TreeMap<Integer, Double>();
+            for (int k = 0; k < 3; k++)
+                for (int influence = 0; influence < 4; influence++) {
+                    int slot = indices[t + k] * 4 + influence;
+                    int joint = joints[slot];
+                    float weight = weights[slot];
+                    if (weight > 0 && joint >= 0 && joint < skin.joints.length)
+                        votes.merge(joint, (double) weight, Double::sum);
+                }
+            int joint = -1;
+            double maximum = 0;
+            for (var vote : votes.entrySet())
+                if (vote.getValue() > maximum) {
+                    joint = vote.getKey();
+                    maximum = vote.getValue();
+                }
+            var triangles = groups.computeIfAbsent(joint, ignored -> new ArrayList<>());
+            for (int k = 0; k < 3; k++) triangles.add(indices[t + k]);
+        }
+        long requiredVertices = groups.values().stream()
+                .mapToLong(v -> v.stream().distinct().count())
+                .sum();
+        if (requiredVertices > vertexBudget
+                || requiredVertices * source.controlSamples().size() > sampleBudget)
+            throw new IllegalArgumentException("source joint grouping exceeds vertex/control budget");
+        var result = new ArrayList<ViewerScene.Mesh>();
+        for (var group : groups.entrySet()) {
+            var mapping = new java.util.LinkedHashMap<Integer, Integer>();
+            var compactIndices = new int[group.getValue().size()];
+            for (int i = 0; i < compactIndices.length; i++)
+                compactIndices[i] = mapping.computeIfAbsent(group.getValue().get(i), ignored -> mapping.size());
+            int[] slots = mapping.keySet().stream().mapToInt(Integer::intValue).toArray();
+            int joint = group.getKey(), node = joint < 0 ? -1 : skin.joints[joint];
+            String label = node >= 0 && node < nodes.size() ? nodes.get(node).name : null;
+            String part = node < 0
+                    ? source.appearanceGroup()
+                    : (label == null || label.isBlank() ? "Joint" : label) + " [node " + node + "]";
+            var samples = source.controlSamples().stream()
+                    .map(sample -> new ViewerScene.ControlSample(
+                            sample.controlId(), sample.key(), compactSlots(sample.deltas(), 3, slots)))
+                    .toList();
+            result.add(new ViewerScene.Mesh(
+                    source.name(),
+                    compactSlots(source.positions(), 3, slots),
+                    compactSlots(source.normals(), 3, slots),
+                    compactSlots(source.uvs(), 2, slots),
+                    compactSlots(source.emissiveUvs(), 2, slots),
+                    compactSlots(source.colors(), 4, slots),
+                    compactIndices,
+                    source.materialIndex(),
+                    source.visible(),
+                    source.appearanceGroup(),
+                    part,
+                    samples,
+                    source.opacityControls()));
+        }
+        return result;
+    }
+
+    private static float[] compactSlots(float[] source, int width, int[] slots) {
+        if (source == null) return null;
+        var result = new float[slots.length * width];
+        for (int i = 0; i < slots.length; i++) System.arraycopy(source, slots[i] * width, result, i * width, width);
+        return result;
     }
 
     private static String primitiveBodyPart(Map<?, ?> primitive) {
@@ -812,6 +1102,52 @@ public final class GlbViewerLoader {
             accs.add(new Accessor(bvIdx, byteOffset, componentType, count, type, numComponents, normalized));
         }
         return accs;
+    }
+
+    private static List<ViewerScene.Control> parseControls(Map<?, ?> root) {
+        if (!(root.get("extras") instanceof Map<?, ?> extras)
+                || !(extras.get("turboismControls") instanceof List<?> raw)) return List.of();
+        if (raw.size() > 256) throw new IllegalArgumentException("too many source controls");
+        var result = new ArrayList<ViewerScene.Control>();
+        var ids = new java.util.HashSet<String>();
+        for (Object item : raw) {
+            if (!(item instanceof Map<?, ?> map))
+                throw new IllegalArgumentException("invalid source control definition");
+            String id = getString(map, "id", "");
+            if (!ids.add(id)) throw new IllegalArgumentException("duplicate source control definition");
+            result.add(new ViewerScene.Control(
+                    id,
+                    getString(map, "name", ""),
+                    requiredControlFloat(map, "minimum"),
+                    requiredControlFloat(map, "maximum")));
+        }
+        return List.copyOf(result);
+    }
+
+    private static float requiredControlFloat(Map<?, ?> map, String key) {
+        if (map.get(key) instanceof Number n && Float.isFinite(n.floatValue())) return n.floatValue();
+        throw new IllegalArgumentException("missing finite control value: " + key);
+    }
+
+    private static List<ViewerScene.OpacityControl> parseOpacityControls(
+            Map<?, ?> node, Map<?, ?> primitive, List<ViewerScene.Control> controls) {
+        var result = new ArrayList<ViewerScene.OpacityControl>();
+        var seen = new java.util.HashSet<String>();
+        for (Map<?, ?> owner : List.of(node, primitive)) {
+            if (!(owner.get("extras") instanceof Map<?, ?> extra)
+                    || !(extra.get("turboismOpacityControls") instanceof List<?> raw)) continue;
+            for (Object item : raw) {
+                if (!(item instanceof Map<?, ?> factor)) throw new IllegalArgumentException("invalid opacity factor");
+                String id = getString(factor, "parameter", "");
+                if (!seen.add(id)
+                        || controls.stream()
+                                .noneMatch(c -> c.id().equals(id) && c.minimum() == 0f && c.maximum() == 1f))
+                    throw new IllegalArgumentException("invalid opacity control definition");
+                result.add(new ViewerScene.OpacityControl(
+                        id, requiredControlFloat(factor, "base"), requiredControlFloat(factor, "target")));
+            }
+        }
+        return List.copyOf(result);
     }
 
     private static List<NodeDef> parseNodes(final List<?> nodesJson) {

@@ -7,7 +7,8 @@ import java.util.Objects;
 /** Pure admission snapshots. The eager native creation undo must never be registered too. */
 final class EditorArtMeshMorphUndo implements EditorUndoContribution.UndoAdmission {
     private final VerifiedMemberResolver resolver;
-    private final EditorArtMeshMorphState before;
+    private final Object formList;
+    private final Object targetSet;
     private final Runnable requireCurrent;
     private final Runnable refresh;
     private Object captured;
@@ -17,8 +18,18 @@ final class EditorArtMeshMorphUndo implements EditorUndoContribution.UndoAdmissi
             final EditorArtMeshMorphState before,
             final Runnable requireCurrent,
             final Runnable refresh) {
+        this(resolver, before.formList, before.targetSet, requireCurrent, refresh);
+    }
+
+    EditorArtMeshMorphUndo(
+            final VerifiedMemberResolver resolver,
+            final Object formList,
+            final Object targetSet,
+            final Runnable requireCurrent,
+            final Runnable refresh) {
         this.resolver = Objects.requireNonNull(resolver);
-        this.before = Objects.requireNonNull(before);
+        this.formList = Objects.requireNonNull(formList);
+        this.targetSet = Objects.requireNonNull(targetSet);
         this.requireCurrent = Objects.requireNonNull(requireCurrent);
         this.refresh = Objects.requireNonNull(refresh);
     }
@@ -27,9 +38,8 @@ final class EditorArtMeshMorphUndo implements EditorUndoContribution.UndoAdmissi
     public void admit(final Object edit, final String label) {
         requireCurrent.run();
         if (captured != null) throw new IllegalStateException("morph Undo already admitted");
-        final Object forms = resolver.construct("cubism.editor-model.list-undo.create", label, before.formList);
-        final Object targets =
-                resolver.invoke("cubism.editor-model.morph-target-set.create-undo", before.targetSet, label);
+        final Object forms = resolver.construct("cubism.editor-model.list-undo.create", label, formList);
+        final Object targets = resolver.invoke("cubism.editor-model.morph-target-set.create-undo", targetSet, label);
         final Object group = resolver.construct("cubism.editor-model.group-undo.create", label);
         add(group, forms);
         add(group, targets);

@@ -56,6 +56,7 @@ public class NativeCharacterAuthoringTest {
             final String name;
             WarpGrid grid;
             float opacity = 1;
+            final List<WarpMorphSnapshot.Key> morphKeys = new ArrayList<>();
             Optional<DeformerId> targetDeformer = Optional.empty();
 
             WarpRecord(DeformerId id, String name) {
@@ -66,6 +67,9 @@ public class NativeCharacterAuthoringTest {
 
         final Map<ParameterId, Map<ParameterBindingTarget, List<ParameterBindingPoint>>> bindings = new HashMap<>();
         final Map<ParameterId, Map<ParameterBindingTarget, ParameterInterpolation>> interpolations = new HashMap<>();
+
+        boolean simulateLocalParentConversion;
+        int localParentConversions;
 
         int partCounter = 0;
         int meshCounter = 0;
@@ -155,6 +159,49 @@ public class NativeCharacterAuthoringTest {
             }
         }
 
+        private WarpDeformer warp(WarpRecord r) {
+            return proxy(WarpDeformer.class, (wm, wa) -> switch (wm.getName()) {
+                case "id" -> r.id;
+                case "replaceGrid" -> {
+                    r.grid = (WarpGrid) wa[0];
+                    yield null;
+                }
+                case "grid" -> r.grid;
+                case "setOpacity" -> {
+                    r.opacity = (Float) wa[0];
+                    yield null;
+                }
+                case "getOpacity" -> r.opacity;
+                case "setTargetDeformer" -> {
+                    r.targetDeformer = (Optional<DeformerId>) wa[0];
+                    yield null;
+                }
+                case "parentDeformerId" -> r.targetDeformer;
+                case "morphSnapshot" ->
+                    new WarpMorphSnapshot(
+                            r.id,
+                            "source-" + r.id.value(),
+                            new WarpMorphSnapshot.Form("base", r.grid.controlPoints(), r.opacity),
+                            r.morphKeys);
+                case "createMorphKeyform" -> {
+                    r.morphKeys.add(new WarpMorphSnapshot.Key(
+                            ((ParameterId) wa[0]).value(),
+                            (Float) wa[1],
+                            new WarpMorphSnapshot.Form("key-" + r.morphKeys.size(), (List<Point2>) wa[2], r.opacity)));
+                    yield null;
+                }
+                case "createOpacityMorphKeyform" -> {
+                    r.morphKeys.add(new WarpMorphSnapshot.Key(
+                            ((ParameterId) wa[0]).value(),
+                            (Float) wa[1],
+                            new WarpMorphSnapshot.Form(
+                                    "key-" + r.morphKeys.size(), r.grid.controlPoints(), (Float) wa[2])));
+                    yield null;
+                }
+                default -> throw new AssertionError(wm.toString());
+            });
+        }
+
         CubismModel model() {
             return proxy(CubismModel.class, (m, a) -> switch (m.getName()) {
                 case "parameters" ->
@@ -163,6 +210,18 @@ public class NativeCharacterAuthoringTest {
                             parameters.stream()
                                     .map(p -> proxy(Parameter.class, (m1, a1) -> p.id()))
                                     .toList();
+                        case "find" -> {
+                            var definition = parameters.stream()
+                                    .filter(p -> p.id().equals(pa[0]))
+                                    .findFirst()
+                                    .orElseThrow();
+                            yield proxy(Parameter.class, (method, args) -> switch (method.getName()) {
+                                case "id" -> definition.id();
+                                case "type" -> definition.type();
+                                case "getValue" -> definition.defaultValue();
+                                default -> throw new AssertionError(method.toString());
+                            });
+                        }
                         case "createMany" -> {
                             parameters.addAll((List<ParameterDefinition>) pa[0]);
                             yield List.of();
@@ -171,6 +230,11 @@ public class NativeCharacterAuthoringTest {
                     });
                 case "parts" ->
                     proxy(Parts.class, (pm, pa) -> switch (pm.getName()) {
+                        case "find" ->
+                            proxy(Part.class, (method, args) -> {
+                                if (method.getName().equals("id")) return pa[0];
+                                throw new AssertionError(method.toString());
+                            });
                         case "create" -> {
                             var id = new PartId("part_" + (++partCounter));
                             var r = new PartRecord(id, (String) pa[0], (Part) pa[1]);
@@ -200,31 +264,18 @@ public class NativeCharacterAuthoringTest {
                         }
                         default -> throw new AssertionError(dm.toString());
                     });
+                case "warpDeformers" ->
+                    proxy(WarpDeformers.class, (method, args) -> {
+                        if (method.getName().equals("find")) return warp(warps.get(args[0]));
+                        throw new AssertionError(method.toString());
+                    });
                 case "deformers" ->
                     proxy(Deformers.class, (dm, da) -> switch (dm.getName()) {
                         case "createWarp" -> {
                             var id = new DeformerId("warp_" + (++deformerCounter));
                             var r = new WarpRecord(id, (String) da[0]);
                             warps.put(id, r);
-                            yield proxy(WarpDeformer.class, (wm, wa) -> switch (wm.getName()) {
-                                case "id" -> id;
-                                case "replaceGrid" -> {
-                                    r.grid = (WarpGrid) wa[0];
-                                    yield null;
-                                }
-                                case "grid" -> r.grid;
-                                case "setOpacity" -> {
-                                    r.opacity = (Float) wa[0];
-                                    yield null;
-                                }
-                                case "getOpacity" -> r.opacity;
-                                case "setTargetDeformer" -> {
-                                    r.targetDeformer = (Optional<DeformerId>) wa[0];
-                                    yield null;
-                                }
-                                case "parentDeformerId" -> r.targetDeformer;
-                                default -> throw new AssertionError(wm.toString());
-                            });
+                            yield warp(r);
                         }
                         case "createRotation" -> {
                             var id = new DeformerId("rot_" + (++deformerCounter));
@@ -350,13 +401,43 @@ public class NativeCharacterAuthoringTest {
                     yield null;
                 }
                 case "setTargetDeformer" -> {
-                    r.targetDeformer = (Optional<DeformerId>) a[0];
+                    var target = (Optional<DeformerId>) a[0];
+                    var warp = target.map(warps::get).orElse(null);
+                    if (simulateLocalParentConversion && warp != null && warp.name.endsWith("局部动作")) {
+                        var before = r.snapshot();
+                        var origin = warp.grid.controlPoints().get(0);
+                        var end = warp.grid
+                                .controlPoints()
+                                .get(warp.grid.controlPoints().size() - 1);
+                        for (var form : before.forms()) {
+                            r.keyformPositions.put(
+                                    form.formGuid(),
+                                    form.positions().stream()
+                                            .map(p -> new Point2(
+                                                    (p.x() - origin.x()) / (end.x() - origin.x()),
+                                                    (p.y() - origin.y()) / (end.y() - origin.y())))
+                                            .toList());
+                        }
+                        localParentConversions++;
+                    }
+                    r.targetDeformer = target;
                     yield null;
                 }
+                case "parentDeformerId" -> r.targetDeformer;
                 case "parentPartId" -> Optional.of(r.parentPart.id());
                 case "authoringSnapshot" -> r.snapshot();
                 case "setOrdinaryKeyformPositions" -> {
                     var edits = (List<ArtMeshKeyformPositions>) a[1];
+                    var expected = (ArtMeshAuthoringSnapshot) a[0];
+                    assertEquals(r.snapshot(), expected, "Require fresh post-reparent snapshot");
+                    for (var edit : edits) {
+                        if (edit.coordinates().stream()
+                                .allMatch(c -> expected.axes().stream()
+                                        .filter(axis -> axis.parameterGuid().equals(c.parameterGuid()))
+                                        .allMatch(axis -> axis.defaultValue() == c.value())))
+                            throw new UnsupportedOperationException(
+                                    "default keyform position editing is not available");
+                    }
                     r.positionEdits.addAll(edits);
                     for (var e : edits) r.keyformPositions.put(e.formGuid(), e.positions());
                     yield null;
@@ -370,6 +451,64 @@ public class NativeCharacterAuthoringTest {
                 default -> throw new AssertionError(m.toString());
             });
         }
+    }
+
+    @Test
+    void sourceGeometryAndOpacityBecomeIndependentNativeBlendParameters() {
+        var base = simpleMesh("Arbitrary source", 0);
+        var sample = new ViewerScene.ControlSample("shape", 1, new float[] {.01f, 0, 0, .01f, 0, 0, .01f, 0, 0});
+        var mesh = new ViewerScene.Mesh(
+                base.name(),
+                base.positions(),
+                base.normals(),
+                base.uvs(),
+                null,
+                null,
+                base.indices(),
+                0,
+                true,
+                "Source",
+                "Segment",
+                List.of(sample),
+                List.of(new ViewerScene.OpacityControl("opacity", 1, 0)));
+        var material = new ViewerScene.Material(
+                "Flat", new float[] {1, 1, 1, 1}, -1, -1, new float[3], "OPAQUE", .5f, true, true);
+        var scene = new ViewerScene(
+                List.of(mesh),
+                List.of(material),
+                List.of(),
+                new ViewerScene.Bounds(-10, -10, 0, 10, 10, 0),
+                new ViewerScene.Stats(0, 1, 1, 1, 0, 0, 0),
+                List.of(
+                        new ViewerScene.Control("shape", "Source shape", 0, 1),
+                        new ViewerScene.Control("opacity", "Source visibility", 0, 1)));
+        var geometry = NativeCharacterPlan.prepare(scene, request("Generic"));
+        var controls = NativeControlWarpPlan.prepare(scene, geometry);
+        var host = new TestModelHost();
+        var model = host.model();
+        var created = NativeCharacterAuthoring.assemble(
+                model,
+                geometry,
+                (id, index) -> {},
+                index -> new NativeCharacterAuthoring.ImageDimensions(16, 16),
+                index -> "Source",
+                index -> "Segment");
+        host.simulateLocalParentConversion = true;
+        NativeControlAuthoring.apply(model, created, scene, controls);
+        assertTrue(host.localParentConversions > 0, "Exercise native eager coordinate conversion");
+        assertEquals(
+                2,
+                host.parameters.stream()
+                        .filter(p -> p.type() == ParameterType.BLEND_SHAPE)
+                        .count());
+        assertTrue(host.parameters.stream()
+                .filter(p -> p.type() == ParameterType.BLEND_SHAPE)
+                .allMatch(p -> p.defaultValue() == 0));
+        assertEquals(
+                2,
+                host.warps.values().stream().mapToInt(w -> w.morphKeys.size()).sum());
+        assertEquals(
+                25, host.meshes.values().iterator().next().snapshot().forms().size());
     }
 
     @Test

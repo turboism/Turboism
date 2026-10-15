@@ -157,13 +157,18 @@ public final class ModelImportPlugin implements TurboismPlugin {
             byte[] bytes, SurfaceImport.Request request, SurfaceBaseColorPlan.Appearance appearance)
             throws java.io.IOException {
         if (bytes != null
-                && bytes.length > GlbSurfaceReader.MAX_BYTES
                 && NativeModelImport.isGlb(bytes)
+                && (bytes.length > GlbSurfaceReader.MAX_BYTES
+                        || dev.turboism.plugin.modelimport3d.viewer.GlbViewerLoader.requiresNativeRigImport(bytes))
                 && request.roll().isPresent()
                 && appearance == SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL) {
             return new PreparedImport(null, null, null, null, NativeModelImport.prepare(bytes, request, () -> false));
         }
         bytes = ModelInputNormalizer.normalize(bytes);
+        if (request.roll().isPresent()
+                && appearance == SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL
+                && dev.turboism.plugin.modelimport3d.viewer.GlbViewerLoader.requiresNativeRigImport(bytes))
+            return new PreparedImport(null, null, null, null, NativeModelImport.prepare(bytes, request, () -> false));
         if (request.roll().isPresent()) {
             if (appearance != SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL)
                 throw new LocalizedIllegalArgumentException("error.source-material-required", "XYZ 360° 导入使用源模型材质与贴图。");
@@ -451,8 +456,10 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                             .orElseThrow(() ->
                                                     new LocalizedIllegalStateException("error.file-read", "无法读取所选模型。"));
                                     if (choice == 0
-                                            && bytes.length > GlbSurfaceReader.MAX_BYTES
-                                            && NativeModelImport.isGlb(bytes)) {
+                                            && NativeModelImport.isGlb(bytes)
+                                            && (bytes.length > GlbSurfaceReader.MAX_BYTES
+                                                    || dev.turboism.plugin.modelimport3d.viewer.GlbViewerLoader
+                                                            .requiresNativeRigImport(bytes))) {
                                         return CompletableFuture.supplyAsync(() -> {
                                             if (!active(token)) return Optional.<PreparedImport>empty();
                                             try {
@@ -762,6 +769,16 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     atlas.pageCount(),
                     atlas.width(),
                     atlas.height());
+            long partCount = p.materials().scene().meshes().stream()
+                    .filter(m -> m.visible())
+                    .map(m -> m.bodyPart().isBlank() ? m.appearanceGroup() : m.bodyPart())
+                    .distinct()
+                    .count();
+            String sourceControls = format(
+                    "dialog.confirm.character-controls",
+                    "源形态与显隐：{0} 个融合参数；{1} 个源部位。",
+                    p.controls().controls().size(),
+                    partCount);
             return JOptionPane.showConfirmDialog(
                             null,
                             format(
@@ -770,7 +787,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                     geometry.partitions().size(),
                                     geometry.totalTriangles(),
                                     geometry.keys().size(),
-                                    atlasInfo),
+                                    atlasInfo + "\n" + sourceControls),
                             text("dialog.confirm.title", "确认导入"),
                             JOptionPane.OK_CANCEL_OPTION)
                     == JOptionPane.OK_OPTION;

@@ -177,6 +177,15 @@ final class EditorObjectReadCore {
                 .orElseThrow(() -> stale("Deformer", expected.id()));
     }
 
+    Object replayDeformerSource(
+            final String identity, final Object modelSource, final Object model, final DeformerRef expected) {
+        // Native Undo/Redo may rebuild evaluated instances before listeners run.
+        // Authoring membership belongs to the persistent source, not that instance.
+        final Object source = deformerSourceById(identity, modelSource, model, new DeformerId(expected.id()));
+        if (source != expected.source()) throw stale("Deformer", expected.id());
+        return source;
+    }
+
     GlueRef currentGlue(final String identity, final Object modelSource, final Object model, final GlueRef expected) {
         return glueRefs(identity, modelSource, model).stream()
                 .filter(value -> value.id().equals(expected.id()) && value.source() == expected.source())

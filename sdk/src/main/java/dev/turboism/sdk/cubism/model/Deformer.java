@@ -178,8 +178,7 @@ public interface Deformer {
      * Returns this Deformer's generation-bound Editor authoring bindings: keyform
      * grid bindings ({@link ParameterBindingFamily#KEYFORM_GRID}) followed by
      * morph-target bindings ({@link ParameterBindingFamily#BLEND_SHAPE}), in
-     * stable host order (Deformers carry no morph container in the Editor, so the
-     * morph portion is normally empty). Use {@link #getNormalParameterBindings()},
+     * stable host order. Use {@link #getNormalParameterBindings()},
      * {@link #getMorphParameterBindings()} and {@link #getCombinedParameterBindings()}
      * to select one family.
      */

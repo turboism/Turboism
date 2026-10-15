@@ -53,3 +53,33 @@ The second process opens a copy of the saved CMO3. It verifies every imported ID
 - Runtime admission preflight: PASS.
 - `env -u WAYLAND_DISPLAY XDG_SESSION_TYPE=x11 xvfb-run -a ./gradlew devCheck --max-workers=2`: PASS, 143 tasks, 2m45s (`/tmp/native-devcheck-final.log`).
 - Earlier Wayland runs hit an existing screenshot capture timeout. No test assertion was relaxed.
+
+
+## Generic source controls — 2026-10-15
+
+This later candidate uses standard glTF Morph Targets and actual skin weights. It has no eye, head or clothing name requirement. The generated GLB contains two triangles, two joints, two shape targets and saved weights 0.25 and 0.5. It has no custom control or part metadata. Input SHA-256: `50d5ed07f6769e6a4ea16cbabb5c71cf3a47b463ed4cdc694a457fe8fe517165`.
+
+Fixed bundle:
+
+- Agent SHA-256: `dc405006e7c9da0647944a951ef86565d603e3372f9fada878c0a2be74dd8431`.
+- Production plugin SHA-256: `6b68e982ac7cb821639557721e649cfd1eb62f19164848c280ed1a1cf06ce736`.
+- Probe SHA-256: `7e8930a038f37979fd92f9675b00c67b73aec0c6865a453d31c1c4b93a125074`.
+
+Import job `2df232a0-9aa9-43c4-a1d3-1c06fc00686c`, run `queue-7f382d820ebf4e10acb45e06997b5e90`, finished with supervisor PASS, verified identity, unchanged source fixture, normal exit and safe cleanup. Evidence root: `<host-validation-root>/native-character/5304-generic-controls-r6/queue-7f382d820ebf4e10acb45e06997b5e90/`.
+
+The production menu created two ArtMeshes, three rotation parameters, two independent Blend Shape parameters and four native Warp morph keys. Atlas binding, single import Undo/Redo, endpoint pixel changes and exact pixel restoration at zero passed. Saving produced 28786 bytes, SHA-256 `0e2f71b5bd3e5a5536a5a12cad5c3e668a1567f7a7464e3b41823bc17ddc9676`.
+
+Fresh-process reopen job `ea645b30-9a12-4a73-b2d1-c3e58e36cbd8`, run `queue-a0778517a798449395c95eacbe8750c9`, also finished with supervisor PASS and safe cleanup. Evidence root: `<host-validation-root>/native-character/5304-generic-controls-r6-reopen/queue-a0778517a798449395c95eacbe8750c9/`.
+
+Reopen preserved the complete ordinary-bank digest `b247a72d7ce901ec42800917b95d455cda9fb0f09f1f49e333932b3cebc006e3` and morph digest `8f787cd44283294acb3a7d7c04238c1140872811892a296975c18e237c55c7f6`. Both controls still changed native pixels and restored the zero-state image.
+
+Earlier failed runs exposed three defects. Native reparenting converts stored positions, so position equality is not a valid structural check. Ordinary batch writes must exclude the protected default form. Native Redo rebuilds evaluated instances, so captured history callbacks must guard source and document identity without retaining evaluated-instance identity. Regression tests reproduce each failure. Public stale-handle checks remain strict. Temporary diagnostic traces were removed.
+
+Verification after fixes:
+
+- Full plugin suite: 264 tests, 34 conditional skips, zero failures.
+- Object-source replacement, deletion, document lifetime and rebuilt-instance regressions: PASS.
+- Reviewed-version Warp morph transactions and ArtMesh morph regressions: PASS.
+- `env -u WAYLAND_DISPLAY XDG_SESSION_TYPE=x11 xvfb-run -a ./gradlew devCheck --max-workers=2`: PASS, 143 tasks (`/tmp/native-generic-final-fixes-devcheck.log`).
+
+Limits: Warp fitting is calibrated only at the neutral view. Side views, combined controls, dedicated eye/head/clothing mappings and mask seams remain unverified. The optional 111-control character bake exceeds the added-control storage cap and is rejected explicitly. This fixture does not prove that arbitrary models fit within the budgets. The main user Editor has not been updated with this candidate.

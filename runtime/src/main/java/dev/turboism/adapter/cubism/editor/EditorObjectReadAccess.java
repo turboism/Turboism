@@ -32,6 +32,7 @@ import dev.turboism.sdk.cubism.model.ParameterBindingFamily;
 import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
+import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
 import dev.turboism.sdk.cubism.model.RotationDeformers;
@@ -1047,6 +1048,68 @@ final class EditorObjectReadAccess {
                     "Warp stored authoring snapshot",
                     () -> new EditorWarpAuthoringReadAccess(resolver)
                             .read(new DeformerId(ref.id()), current().source()));
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.model.WarpMorphSnapshot morphSnapshot() {
+            return EditorHostThread.dispatch(
+                    "Warp opacity morph snapshot",
+                    () -> new EditorWarpMorphState(resolver, current().source(), modelSource, model)
+                            .snapshot(new DeformerId(ref.id())));
+        }
+
+        @Override
+        public void createOpacityMorphKeyform(
+                final ParameterId parameterId, final float keyValue, final float absoluteOpacity) {
+            createWarpMorph(parameterId, keyValue, absoluteOpacity, null);
+        }
+
+        @Override
+        public void createMorphKeyform(
+                final ParameterId parameterId, final float keyValue, final List<Point2> controls) {
+            createWarpMorph(parameterId, keyValue, null, List.copyOf(controls));
+        }
+
+        private void createWarpMorph(
+                final ParameterId parameterId,
+                final float keyValue,
+                final Float absoluteOpacity,
+                final List<Point2> controls) {
+            final Runnable requireTransaction = () -> {
+                if (authoringCoordinator == null
+                        || !resolver.authorizesFeature(
+                                "adapter.editor-model.readwrite",
+                                "cubism.editor-history.read",
+                                EditorHistoryReadSelectorContract.REQUIRED_ALIASES))
+                    throw new UnsupportedOperationException("Warp opacity morph requires authoring coordinator");
+            };
+            // Reject stale public handles now; captured history callbacks use source identity.
+            EditorHostThread.dispatch(
+                    "Warp morph source identity", () -> current().source());
+            final java.util.function.Supplier<Object> replaySource =
+                    () -> core.replayDeformerSource(identity, modelSource, model, ref);
+            EditorWarpMorphAccess.create(
+                    resolver,
+                    new DeformerId(ref.id()),
+                    replaySource,
+                    modelSource,
+                    model,
+                    parameterId,
+                    keyValue,
+                    absoluteOpacity,
+                    controls,
+                    requireTransaction,
+                    contribution -> {
+                        requireTransaction.run();
+                        authoringCoordinator.mutate(
+                                Objects.requireNonNull(authoringBinding.get(), "authoring binding"), contribution);
+                    },
+                    () -> {
+                        replaySource.get();
+                        resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+                        writes.refresh(
+                                resolver.invokeStatic("cubism.editor-model.app-controller.instance"), Kind.WARP, true);
+                    });
         }
 
         @Override

@@ -43,7 +43,7 @@ final class NativeCharacterVisibility {
         for (var a : z) Arrays.fill(a, Float.NEGATIVE_INFINITY);
         for (int i = 0; i < n; i++) {
             var p = partitions.get(i);
-            if (!p.visible()) continue;
+            if (!p.visible() || scene.meshes().get(p.sourceMeshIndex()).defaultOpacity() <= 0f) continue;
             var projected = SurfaceProjection.project(p.positions(), camera, pose);
             var xy = projected.positions();
             if (Thread.currentThread().isInterrupted())

@@ -255,6 +255,48 @@ final class PermissionCheckedWarpDeformer extends PermissionCheckedDeformer
     }
 
     @Override
+    public dev.turboism.sdk.cubism.model.WarpMorphSnapshot morphSnapshot() {
+        facade.requireModelRead("warpDeformer.morphSnapshot");
+        return warp.morphSnapshot();
+    }
+
+    @Override
+    public void createOpacityMorphKeyform(
+            final dev.turboism.sdk.cubism.id.ParameterId parameterId,
+            final float keyValue,
+            final float absoluteOpacity) {
+        facade.requireModelWrite("warpDeformer.createOpacityMorphKeyform");
+        if (java.util.Objects.requireNonNull(parameterId, "parameterId").value().isBlank()
+                || !Float.isFinite(keyValue)
+                || keyValue == 0f
+                || !Float.isFinite(absoluteOpacity)
+                || absoluteOpacity < 0f
+                || absoluteOpacity > 1f) throw new IllegalArgumentException("invalid Warp opacity morph key");
+        facade.runSemantic(
+                CubismOperation.CREATE_WARP_OPACITY_MORPH_KEYFORM,
+                warp.id().value() + ":" + parameterId.value() + ":" + Float.toString(keyValue),
+                warp::morphSnapshot,
+                () -> warp.createOpacityMorphKeyform(parameterId, keyValue, absoluteOpacity));
+    }
+
+    @Override
+    public void createMorphKeyform(
+            final dev.turboism.sdk.cubism.id.ParameterId parameterId,
+            final float keyValue,
+            final List<dev.turboism.sdk.cubism.model.Point2> controls) {
+        facade.requireModelWrite("warpDeformer.createMorphKeyform");
+        Objects.requireNonNull(parameterId, "parameterId");
+        final var input = List.copyOf(controls);
+        if (!Float.isFinite(keyValue) || keyValue == 0f)
+            throw new IllegalArgumentException("nonzero morph key required");
+        facade.runSemantic(
+                CubismOperation.CREATE_WARP_MORPH_KEYFORM,
+                warp.id().value() + ":" + parameterId.value() + ":" + Float.toString(keyValue),
+                warp::morphSnapshot,
+                () -> warp.createMorphKeyform(parameterId, keyValue, input));
+    }
+
+    @Override
     public void replaceGrid(final dev.turboism.sdk.cubism.model.WarpGrid grid) {
         facade.requireModelWrite("warpDeformer.replaceGrid");
         facade.runSemantic(

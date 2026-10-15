@@ -30,18 +30,28 @@ is 128 MiB. It runs locally and does not upload the model. Decoding and renderin
 run in the background. Closing the window or disabling the plugin cancels work.
 
 The viewer does not create editable ArtMeshes, Cubism parameters or a CMO3 file.
-Native conversion and skeleton/morph-to-parameter mapping are future work.
+The separate native importer can recognize standard Morph Targets and group source geometry by skin weights. Its source Blend Shape path has import, Undo/Redo and fresh-process persistence evidence for the two-shape fixture on Cubism 5.3.04.
 The native import entry below retains its separate format and size restrictions.
 
 ## What it does
 
 Imports supported GLB, glTF, OBJ and model ZIP packages as native Cubism meshes. Input parsing, texture normalization, geometry simplification and parameter authoring run locally without an LLM. Source-material mode binds X/Y rotations to dense joint Warp forms and Z rotation to native scalar forms, each spanning −180° to 180°. An unbound outer “整体定位” deformer moves and scales the entire model. Source textures stay attached to their faces. One native Undo operation removes the import. The Warp path uses dense parameter sampling. The direct source-vertex fallback uses elliptical interpolation; it preserves the 9×9 ordinary pose bank and chooses insertion density per patch from its projected rotation radius. The preparation stage minimizes derived lattice size within the existing global interpolation bound, keeping simplification plus interpolation inside the 5px geometry budget. This is geometry evidence; intermediate occlusion and Editor drag latency require native acceptance.
 
+## Source controls and parts
+
+The source-aware native path runs locally without an LLM or a character-specific preprocessing script. It reads standard glTF position Morph Targets and preserves the saved node or mesh weights as the zero state. Each effective shape becomes an independent Cubism Blend Shape parameter. Source target names are preserved when available. The generic endpoint interval is 0..1 extended to include the saved value; glTF does not carry Blender slider limits.
+
+For skinned geometry, each triangle is grouped by its strongest summed source joint influence. The group label uses the actual source bone name and node index. This creates shared Warp parents across materials without guessing anatomical meaning. Explicit part metadata takes precedence. Unskinned models use source-object groups. This grouping does not import arbitrary skeletal posing or inverse kinematics.
+
+Eye, head and clothing controls are optional mappings. They are not required for automatic shape or part recognition. Source shader networks and Blender modifiers that were lost during export cannot be reconstructed from an ordinary GLB. A generated character-specific repair fixture is validation input, not a production importer dependency.
+
+Local Warp fitting currently measures a 2px residual at the neutral view. This does not establish the same accuracy at side views or for combined controls. Unsupported fits and storage limits fail explicitly. Source geometry remains intact. Cubism 5.3.04 passed the two-joint, two-shape fixture through the production menu, native pixel changes, Undo/Redo, save and fresh-process reopen. Both authoring-bank and morph digests match after reopening. This evidence does not establish arbitrary asset or all-version visual fidelity.
+
 ## Requirements and compatibility
 
 The validated host is Cubism Editor 5.3.02 with Turboism API `[0.1.0,0.2.0)`. Open a model with a 1024×1024 canvas before importing. The menu chooses one source-derived camera and pivot to fit the model inside a 400px radius. The camera stays fixed throughout rotation. The face-color inspection mode uses ±30°; source-material mode uses XYZ full-circle ranges. Explicit probe requests retain their declared camera.
 
-GLB files are limited to 16 MiB. The bounded importer supports opaque closed convex surfaces or a single convex quadrilateral plane. A restricted branch for two disjoint, double-sided parallel X-plane rectangles is implemented but has not completed native validation. A separate regular quadrilateral surface branch preserves the original triangle geometry and UVs in chart meshes under one native Warp deformer. The XYZ apple has real menu/save/reopen and source-geometry evidence; strict occlusion and official export of this full-circle apple remain unverified. Sparse chart depth ordering can produce occlusion errors. Arbitrary concave topology and intersecting sheets are not generally supported. OBJ is now a direct menu input for self-contained geometry. Select referenced buffers, MTL and PNG/JPEG resources when prompted, or package them together with exactly one GLB, glTF or OBJ in a ZIP. FBX, DAE and RAR are not direct menu inputs. Earlier apple evidence used an OBJ converted to GLB; it does not verify the newer OBJ menu path.
+The bounded surface path limits GLB files to 16 MiB. The source-aware native path accepts GLB files up to 128 MiB. The bounded importer supports opaque closed convex surfaces or a single convex quadrilateral plane. A restricted branch for two disjoint, double-sided parallel X-plane rectangles is implemented but has not completed native validation. A separate regular quadrilateral surface branch preserves the original triangle geometry and UVs in chart meshes under one native Warp deformer. The XYZ apple has real menu/save/reopen and source-geometry evidence; strict occlusion and official export of this full-circle apple remain unverified. Sparse chart depth ordering can produce occlusion errors. Arbitrary concave topology and intersecting sheets are not generally supported. OBJ is now a direct menu input for self-contained geometry. Select referenced buffers, MTL and PNG/JPEG resources when prompted, or package them together with exactly one GLB, glTF or OBJ in a ZIP. FBX, DAE and RAR are not direct menu inputs. Earlier apple evidence used an OBJ converted to GLB; it does not verify the newer OBJ menu path.
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions.
