@@ -9,16 +9,22 @@ import java.util.*;
  * Bounded geometry planner for native 3D humanoid character authoring in Cubism.
  *
  * <p>Preserves exact triangle topology (no silent face drops) while partitioning
- * large meshes along spatial and normal dimensions to handle dynamic internal occlusion
- * across full-sphere XYZ rotation. Keyforms use a unified 5x5 grid (25 forms) bounded
- * strictly within the 6,000,000 slot serialization budget.
+ * large meshes along spatial and normal dimensions to provide a bounded painter's
+ * algorithm approximation for dynamic internal occlusion across full-sphere XYZ rotation.
+ * This is a visibility approximation, not an exact occlusion proof. Keyforms use a unified
+ * 5x5 grid (25 forms) bounded strictly within the 6,000,000 slot serialization budget
+ * and 64,000,000 slot cache budget.
  */
 public final class NativeCharacterPlan {
     private NativeCharacterPlan() {}
 
     public static final List<Float> KEYS = List.of(-180f, -90f, 0f, 90f, 180f);
     public static final long MAX_TOTAL_KEYFORM_SLOTS = 6_000_000L;
+    public static final long MAX_CACHE_SLOTS = 64_000_000L;
+    public static final long MAX_MESH_CACHE_SLOTS = 32_000_000L;
+    public static final long MAX_MESH_BATCH_SLOTS = 2_000_000L;
     public static final int TARGET_MAX_TRIANGLES_PER_PARTITION = 1200;
+    public static final double DEFAULT_FRAMING_RADIUS_PIXELS = 400.0;
 
     public static final ParameterInterpolation DEFAULT_INTERPOLATION =
             new ParameterInterpolation(ParameterInterpolation.Method.ELLIPSE, 3, 1f);
@@ -27,6 +33,7 @@ public final class NativeCharacterPlan {
             int partitionIndex,
             int sourceMeshIndex,
             int materialIndex,
+            boolean doubleSided,
             String name,
             List<SurfaceProjection.Vertex> positions,
             List<Point2> uvs,
@@ -59,6 +66,7 @@ public final class NativeCharacterPlan {
             long totalPartitionSlots,
             long totalTriangles,
             long totalKeyformSlots,
+            long totalCacheSlots,
             double maxInterpolationErrorPixels) {
         public Plan {
             keys = List.copyOf(keys);
@@ -79,14 +87,45 @@ public final class NativeCharacterPlan {
     }
 
     /**
+     * Fits an orthographic camera to the Scene's world bounds.
+     * Bounding sphere is centered at (min + max)/2 and scaled to fit framingRadiusPixels.
+     */
+    public static SurfaceProjection.Camera fitCamera(
+            ViewerScene scene, double centerX, double centerY, double framingRadiusPixels) {
+        var bounds = scene.bounds();
+        var pivot = new SurfaceProjection.Vertex(
+                (bounds.minX() + bounds.maxX()) / 2.0,
+                (bounds.minY() + bounds.maxY()) / 2.0,
+                (bounds.minZ() + bounds.maxZ()) / 2.0);
+
+        double radius = 0.0;
+        for (var mesh : scene.meshes()) {
+            float[] pos = mesh.positions();
+            int vCount = pos.length / 3;
+            for (int i = 0; i < vCount; i++) {
+                double dx = pos[i * 3] - pivot.x();
+                double dy = pos[i * 3 + 1] - pivot.y();
+                double dz = pos[i * 3 + 2] - pivot.z();
+                radius = Math.max(radius, Math.hypot(Math.hypot(dx, dy), dz));
+            }
+        }
+        if (!Double.isFinite(radius) || radius <= 0) {
+            throw new IllegalArgumentException("Scene framing radius is degenerate");
+        }
+        double scale = framingRadiusPixels / radius;
+        return new SurfaceProjection.Camera(centerX - scale * pivot.x(), centerY + scale * pivot.y(), scale, pivot);
+    }
+
+    /**
      * Determines optimal ellipse interpolation density under a maximum error bound.
+     * Throws if the requested maximumError cannot be satisfied under the maximum allowed inserts.
      */
     public static Sampling sampling(double radius, double maximumError) {
         if (!Double.isFinite(radius) || radius < 0 || !Double.isFinite(maximumError) || maximumError < 0.01) {
             throw new IllegalArgumentException("invalid interpolation sampling budget");
         }
         Sampling best = null;
-        int maxInserts = 15;
+        int maxInserts = DEFAULT_INTERPOLATION.insertPointCount(); // 3 inserts -> 17x17 = 289 cells per partition
         for (int yaw = 0; yaw <= maxInserts; yaw++) {
             for (int pitch = 0; pitch <= maxInserts; pitch++) {
                 double error = chordError(radius, yaw) + chordError(radius, pitch) + 0.01;
@@ -102,14 +141,9 @@ public final class NativeCharacterPlan {
             }
         }
         if (best == null) {
-            double error = chordError(radius, maxInserts) + chordError(radius, maxInserts) + 0.01;
-            long grid =
-                    (KEYS.size() + (KEYS.size() - 1L) * maxInserts) * (KEYS.size() + (KEYS.size() - 1L) * maxInserts);
-            best = new Sampling(
-                    new ParameterInterpolation(ParameterInterpolation.Method.ELLIPSE, maxInserts, 1f),
-                    new ParameterInterpolation(ParameterInterpolation.Method.ELLIPSE, maxInserts, 1f),
-                    grid,
-                    error);
+            double minAchievable = chordError(radius, maxInserts) + chordError(radius, maxInserts) + 0.01;
+            throw new IllegalArgumentException("Interpolation error bound cannot satisfy " + maximumError
+                    + " px under budget (min achievable: " + minAchievable + " px for radius " + radius + ")");
         }
         return best;
     }
@@ -123,9 +157,20 @@ public final class NativeCharacterPlan {
         Objects.requireNonNull(scene, "scene");
         Objects.requireNonNull(request, "request");
 
-        var camera = request.camera();
-        var rawMeshes = scene.meshes();
+        // Fit camera to the scene's bounding sphere and align with framedRequest
+        var camera =
+                fitCamera(scene, request.camera().centerX(), request.camera().centerY(), DEFAULT_FRAMING_RADIUS_PIXELS);
+        var framedRequest = new SurfaceImport.Request(
+                request.name(),
+                request.yaw(),
+                request.pitch(),
+                camera,
+                request.yawLimit(),
+                request.pitchLimit(),
+                request.maxProjectedVertices(),
+                request.roll());
 
+        var rawMeshes = scene.meshes();
         long sourceSlots = 0;
         long sourceTriangles = 0;
         for (var m : rawMeshes) {
@@ -139,6 +184,12 @@ public final class NativeCharacterPlan {
         for (int mIdx = 0; mIdx < rawMeshes.size(); mIdx++) {
             var mesh = rawMeshes.get(mIdx);
             var subClusters = clusterMesh(mesh, TARGET_MAX_TRIANGLES_PER_PARTITION);
+
+            boolean doubleSided = false;
+            if (mesh.materialIndex() >= 0
+                    && mesh.materialIndex() < scene.materials().size()) {
+                doubleSided = scene.materials().get(mesh.materialIndex()).doubleSided();
+            }
 
             float[] rawPos = mesh.positions();
             float[] rawUv = mesh.uvs();
@@ -199,6 +250,7 @@ public final class NativeCharacterPlan {
                         partitionCounter++,
                         mIdx,
                         mesh.materialIndex(),
+                        doubleSided,
                         mesh.name(),
                         partPositions,
                         partUvs,
@@ -255,10 +307,15 @@ public final class NativeCharacterPlan {
             }
         }
 
-        // Per-partition sampling and error measurement
+        // Achievable chord error bound for 5x5 keys under framing radius (e.g. 400px)
+        double frameRadiusBound =
+                2 * chordError(DEFAULT_FRAMING_RADIUS_PIXELS, DEFAULT_INTERPOLATION.insertPointCount()) + 0.01;
+
+        // Per-partition sampling and error measurement with strict budget guards
         var samplingList = new ArrayList<Sampling>(partitions.size());
         double maxError = 0.0;
         var pivot = camera.pivot();
+        long totalCacheSlots = 0;
 
         for (var p : partitions) {
             double maxProjR = 0;
@@ -269,11 +326,24 @@ public final class NativeCharacterPlan {
                                 + Math.pow(v.z() - pivot.z(), 2));
                 if (r > maxProjR) maxProjR = r;
             }
-            var s = sampling(maxProjR, 5.0);
+            var s = sampling(maxProjR, frameRadiusBound);
+            long partSlots = p.positions().size();
+            long meshCacheSlots = (long) partSlots * s.grid();
+            if (meshCacheSlots > MAX_MESH_CACHE_SLOTS || 24L * partSlots > MAX_MESH_BATCH_SLOTS) {
+                throw new IllegalArgumentException(
+                        "Direct mesh interpolation/batch budget exceeded for partition " + p.partitionIndex());
+            }
+
             samplingList.add(s);
+            totalCacheSlots += meshCacheSlots;
             if (s.errorBoundPixels() > maxError) {
                 maxError = s.errorBoundPixels();
             }
+        }
+
+        if (totalCacheSlots > MAX_CACHE_SLOTS) {
+            throw new IllegalArgumentException(
+                    "Native character cache slots exceed 64M budget: " + totalCacheSlots + " > " + MAX_CACHE_SLOTS);
         }
 
         var bounds = scene.bounds();
@@ -281,7 +351,7 @@ public final class NativeCharacterPlan {
                 bounds.maxX() - bounds.minX(), Math.max(bounds.maxY() - bounds.minY(), bounds.maxZ() - bounds.minZ()));
 
         return new Plan(
-                request,
+                framedRequest,
                 camera,
                 KEYS,
                 partitions,
@@ -292,6 +362,7 @@ public final class NativeCharacterPlan {
                 totalPartitionSlots,
                 sourceTriangles,
                 totalKeyformSlots,
+                totalCacheSlots,
                 maxError);
     }
 
