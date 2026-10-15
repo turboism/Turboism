@@ -463,6 +463,89 @@ class SoftwareModelRendererTest {
     }
 
     @Test
+    void testShadingModesSourceVsGeometry() {
+        SoftwareModelRenderer renderer = new SoftwareModelRenderer(BG_COLOR);
+
+        // Quad facing camera (+Z) with normals [0, 0, 1]
+        float[] positions = {-1f, -1f, 0f, 1f, -1f, 0f, 1f, 1f, 0f, -1f, 1f, 0f};
+        float[] normals = {
+            0f, 0f, 1f,
+            0f, 0f, 1f,
+            0f, 0f, 1f,
+            0f, 0f, 1f
+        };
+        int[] indices = {0, 1, 2, 0, 2, 3};
+
+        // Material with saturated red base color, unlit=true, emissive blue
+        ViewerScene.Mesh mesh = new ViewerScene.Mesh("quad", positions, normals, null, null, null, indices, 0);
+        ViewerScene.Material mat = new ViewerScene.Material(
+                "coloredMat",
+                new float[] {1.0f, 0.0f, 0.0f, 1.0f}, // red
+                -1,
+                -1,
+                new float[] {0.0f, 0.0f, 1.0f}, // emissive blue
+                "OPAQUE",
+                0.5f,
+                true,
+                true // unlit in source material
+                );
+
+        ViewerScene.Bounds bounds = new ViewerScene.Bounds(-1f, -1f, 0f, 1f, 1f, 0f);
+        ViewerScene.Stats stats = new ViewerScene.Stats(100, 1, 2, 1, 0, 0, 0);
+        ViewerScene scene = new ViewerScene(List.of(mesh), List.of(mat), List.of(), bounds, stats);
+
+        // 1. Default render (SOURCE_MATERIAL): red + emissive blue
+        BufferedImage imgSource = renderer.render(scene, 64, 64, 0.0, 0.0, 1.0);
+        int pxSource = imgSource.getRGB(32, 32);
+        int rSource = (pxSource >>> 16) & 0xFF;
+        int gSource = (pxSource >>> 8) & 0xFF;
+        int bSource = pxSource & 0xFF;
+        assertEquals(255, rSource, "Source material mode must retain base red");
+        assertEquals(0, gSource);
+        assertEquals(255, bSource, "Source material mode must retain emissive blue");
+
+        // 2. Explicit SOURCE_MATERIAL overload: must produce exact same result
+        BufferedImage imgExplicitSource =
+                renderer.render(scene, 64, 64, 0.0, 0.0, 1.0, SoftwareModelRenderer.Shading.SOURCE_MATERIAL);
+        assertEquals(pxSource, imgExplicitSource.getRGB(32, 32));
+
+        // 3. GEOMETRY mode: neutral light gray (baseRGB ~0.7), emissive disabled, normal lighting active (unlit forced
+        // to false)
+        BufferedImage imgGeom = renderer.render(scene, 64, 64, 0.0, 0.0, 1.0, SoftwareModelRenderer.Shading.GEOMETRY);
+        int pxGeom = imgGeom.getRGB(32, 32);
+        int rGeom = (pxGeom >>> 16) & 0xFF;
+        int gGeom = (pxGeom >>> 8) & 0xFF;
+        int bGeom = pxGeom & 0xFF;
+
+        // Neutral gray: R, G, and B must be equal
+        assertEquals(rGeom, gGeom, "Geometry mode must produce neutral gray (R == G)");
+        assertEquals(gGeom, bGeom, "Geometry mode must produce neutral gray (G == B)");
+        assertTrue(
+                rGeom > 130 && rGeom < 220, "Geometry mode should be lit neutral light gray (~140-200), got: " + rGeom);
+
+        // 4. GEOMETRY mode preserves alpha masking
+        int[] texData = {0x00FFFFFF, 0xFFFFFFFF}; // Left alpha=0, Right alpha=1
+        ViewerScene.Texture tex = new ViewerScene.Texture(2, 1, texData);
+        float[] uvs = {0f, 1f, 1f, 1f, 1f, 0f, 0f, 0f};
+        ViewerScene.Mesh maskMesh = new ViewerScene.Mesh("maskQuad", positions, normals, uvs, null, null, indices, 0);
+        ViewerScene.Material maskMat = new ViewerScene.Material(
+                "maskMat", new float[] {1f, 1f, 1f, 1f}, 0, -1, new float[] {0f, 0f, 0f}, "MASK", 0.5f, true, false);
+        ViewerScene maskScene = new ViewerScene(List.of(maskMesh), List.of(maskMat), List.of(tex), bounds, stats);
+        BufferedImage imgGeomMask =
+                renderer.render(maskScene, 128, 128, 0.0, 0.0, 1.0, SoftwareModelRenderer.Shading.GEOMETRY);
+
+        int leftMaskPx = imgGeomMask.getRGB(45, 64);
+        int rightMaskPx = imgGeomMask.getRGB(85, 64);
+        assertEquals(BG_COLOR, leftMaskPx, "Geometry mode must preserve MASK cutoff discarding left side");
+        assertNotEquals(BG_COLOR, rightMaskPx, "Geometry mode must preserve MASK rendering right side");
+        int rRight = (rightMaskPx >>> 16) & 0xFF;
+        int gRight = (rightMaskPx >>> 8) & 0xFF;
+        int bRight = rightMaskPx & 0xFF;
+        assertEquals(rRight, gRight, "Rendered side in Geometry mode must still be neutral gray");
+        assertEquals(gRight, bRight);
+    }
+
+    @Test
     void testHighPoly121kTrianglesPerformanceAndStats() throws IOException {
         SoftwareModelRenderer renderer = new SoftwareModelRenderer(BG_COLOR);
 
