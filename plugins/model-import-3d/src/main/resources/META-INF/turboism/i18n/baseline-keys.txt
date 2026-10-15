@@ -40,3 +40,15 @@ plugin.name
 resource.chooser.title
 success.xyz-rotation
 success.yaw-pitch
+viewer.action
+viewer.choose
+viewer.failed
+viewer.geometry
+viewer.geometry-hint
+viewer.hint
+viewer.loading
+viewer.open
+viewer.reset
+viewer.stats
+viewer.title
+viewer.too-large

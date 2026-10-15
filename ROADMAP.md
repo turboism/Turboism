@@ -186,6 +186,19 @@ stable plugin-owned packages rather than remain as permanent structure. Track E
 is complete only when no `b1/` package remains under `plugins/*/src` or
 `runtime/src`.
 
+### 3D character workflow
+
+The first viewer milestone passed on Cubism Editor 5.3.04. It displays the
+complete character in a plugin-owned window, with drag rotation, zoom and reset.
+See `validation/model-viewer-host-probe/verification.md` for acceptance evidence. The viewer does not change the
+Cubism document or make its geometry editable as ArtMeshes.
+
+Later work will convert supported geometry and materials to editable native
+Cubism objects. A separate step will map skeleton controls and morph targets
+(including the reference character's 144 shape keys) to Cubism parameters.
+These conversions require authoring limits, error bounds, Undo/Redo and
+save/reopen verification. Viewer support does not establish conversion support.
+
 ## Track F — Hook and render ingress
 
 Hooks are implemented only for behavior that cannot be supported by explicit reads, refresh, bounded polling, Editor providers or existing callbacks.

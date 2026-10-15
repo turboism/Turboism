@@ -1,5 +1,6 @@
 package dev.turboism.validation.modelimport3d.host;
 
+import dev.turboism.plugin.modelimport3d.viewer.ModelViewerWindow;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.CubismModel;
@@ -14,6 +15,7 @@ import javax.swing.*;
 
 /** User-mediated static model import using the same bounded engine as the native validation. */
 public final class ModelImportPlugin implements TurboismPlugin {
+    /** Summarizes the native atlas pages shown before import confirmation. */
     public record AtlasSummary(int pageCount, int width, int height) {}
 
     interface Ui {
@@ -216,6 +218,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
     private volatile boolean enabled;
     private long busyEpoch; // EDT only; an old enable cycle cannot unlock a new request.
     private static final String ACTION = "model-import-3d.import";
+    private static final String VIEW_ACTION = "model-import-3d.view";
+    private volatile ModelViewerWindow viewer;
 
     @Override
     public void init(PluginContext value) {
@@ -256,6 +260,53 @@ public final class ModelImportPlugin implements TurboismPlugin {
     public void enable() {
         enabled = true;
         long token = ++epoch;
+        context.disposableScope().register(context.actions().register(VIEW_ACTION, new ActionRegistry.Action() {
+            @Override
+            public String id() {
+                return VIEW_ACTION;
+            }
+
+            @Override
+            public String label() {
+                return text("viewer.action", "View 3D model…");
+            }
+
+            @Override
+            public Consumer<ActionRegistry.ActionContext> handler() {
+                return ignored -> SwingUtilities.invokeLater(() -> {
+                    if (!active(token)) return;
+                    ModelViewerWindow current = viewer;
+                    if (current == null || current.isClosed()) {
+                        current = new ModelViewerWindow(
+                                context.userFiles(),
+                                key -> text(key, key),
+                                failure -> context.logger().error("3D viewer failed", failure));
+                        viewer = current;
+                    }
+                    if (!active(token)) {
+                        current.close();
+                        return;
+                    }
+                    current.show();
+                });
+            }
+        }));
+        context.disposableScope().register(context.menus().contribute(new MenuRegistry.MenuContribution() {
+            @Override
+            public String menuPath() {
+                return "Turboism/" + text("menu.group", "3D Models") + "/" + text("viewer.action", "View 3D model…");
+            }
+
+            @Override
+            public String actionId() {
+                return VIEW_ACTION;
+            }
+
+            @Override
+            public int order() {
+                return 90;
+            }
+        }));
         context.disposableScope().register(context.actions().register(ACTION, new ActionRegistry.Action() {
             @Override
             public String id() {
@@ -294,6 +345,9 @@ public final class ModelImportPlugin implements TurboismPlugin {
     public void disable() {
         enabled = false;
         ++epoch;
+        ModelViewerWindow current = viewer;
+        viewer = null;
+        if (current != null) current.close();
     }
 
     @Override
