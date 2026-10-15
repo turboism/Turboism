@@ -46,9 +46,15 @@ final class NativeModelImport {
                 return new Prepared(
                         geometry, materials, NativeControlWarpPlan.prepare(materials.scene(), geometry, fits));
             } catch (NativeControlWarpPlan.FitFailure failure) {
-                if (failure.triangles.size() <= 1) throw failure;
-                limits.computeIfAbsent(failure.sourceMesh, ignored -> new java.util.HashSet<>())
-                        .add(failure.triangles);
+                var failures = new ArrayList<NativeControlWarpPlan.FitFailure>();
+                failures.add(failure);
+                for (var suppressed : failure.getSuppressed())
+                    if (suppressed instanceof NativeControlWarpPlan.FitFailure fit) failures.add(fit);
+                for (var fit : failures) {
+                    if (fit.triangles.size() <= 1) throw fit;
+                    limits.computeIfAbsent(fit.sourceMesh, ignored -> new java.util.HashSet<>())
+                            .add(fit.triangles);
+                }
             }
         }
         throw new IllegalArgumentException("Native control refinement did not converge");

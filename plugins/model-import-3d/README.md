@@ -47,6 +47,8 @@ Eye, head and clothing controls are optional mappings. They are not required for
 
 Local Warp fitting currently measures a 2px residual at the neutral view. This does not establish the same accuracy at side views or for combined controls. Unsupported fits and storage limits fail explicitly. Source geometry remains intact. Cubism 5.3.04 passed the two-joint, two-shape fixture through the production menu, native pixel changes, Undo/Redo, save and fresh-process reopen. Both authoring-bank and morph digests match after reopening. This evidence does not establish arbitrary asset or all-version visual fidelity.
 
+The native source-control planner allows up to 256 MiB of combined geometry-keyform and Warp-control coordinate payload (two floats, eight bytes per point). This is not a bound on JVM heap or saved CMO3 size. Geometry alone remains bounded to six million keyform slots; interpolation cache remains bounded to 64 million slots. Decoded source controls retain their separate 16-million-slot limit. Budget errors include the measured geometry and control counts. Failed patches are refined together per pass to avoid rebuilding the scene order once per failed patch. The 2px neutral fitting threshold is unchanged.
+
 A fixed 2D Warp is currently fitted at the neutral view. It does not rotate source depth displacements with whole-body yaw or pitch. A diagnostic triangle with a 0.2-unit depth displacement has zero neutral residual and a 28.284px projection difference at yaw or pitch ±30° under the fixed 400px-radius camera. This is a measured counterexample, not acceptance of side-view shape accuracy. Angle-conditioned corrections remain required.
 
 ## Requirements and compatibility

@@ -52,6 +52,22 @@ class NativeControlWarpPlanTest {
     }
 
     @Test
+    void expandedCoordinateBudgetAcceptsLargeControlsAndRejectsOverflow() {
+        // Previously rejected at 1M controls or 6M combined slots.
+        assertDoesNotThrow(() -> NativeControlWarpPlan.checkBudget(2_000_000, 4_826_981));
+        long limit = NativeControlWarpPlan.MAX_AUTHORED_COORDINATE_BYTES / (2L * Float.BYTES);
+        assertDoesNotThrow(() -> NativeControlWarpPlan.checkBudget(limit - 6_000_000, 6_000_000));
+        var failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> NativeControlWarpPlan.checkBudget(limit - 6_000_000 + 1, 6_000_000));
+        assertTrue(failure.getMessage().contains("maximumBytes=268435456"));
+        assertTrue(failure.getMessage().contains("geometrySlots=6000000"));
+        assertThrows(IllegalArgumentException.class, () -> NativeControlWarpPlan.checkBudget(Long.MAX_VALUE, 1));
+        assertThrows(IllegalArgumentException.class, () -> NativeControlWarpPlan.checkBudget(1, Long.MAX_VALUE));
+        assertThrows(IllegalArgumentException.class, () -> NativeControlWarpPlan.checkBudget(-1, 1));
+    }
+
+    @Test
     void localGridFitsTranslationAndCachePreservesExactResult() {
         var moving = mesh(
                 new float[] {0, 0, 0, 1, 0, 0, 0, 1, 0},
@@ -125,6 +141,23 @@ class NativeControlWarpPlanTest {
             assertEquals(28.28427, error, .001);
             assertTrue(error > NativeControlWarpPlan.MAX_RESIDUAL_PIXELS);
         }
+    }
+
+    @Test
+    void onePassReportsEveryUnfittablePartitionForBatchRefinement() {
+        var first = mesh(
+                new float[] {0, 0, -1, 0, 0, 1, 1, 1, 0},
+                List.of(new ViewerScene.ControlSample("Shape", 1, new float[] {1, 0, 0, -1, 0, 0, 0, 0, 0})),
+                List.of());
+        var second = mesh(new float[] {2, 0, -1, 2, 0, 1, 3, 1, 0}, first.controlSamples(), List.of());
+        var scene = scene(List.of(first, second), List.of(new ViewerScene.Control("Shape", "Shape", 0, 1)));
+        var failure = assertThrows(
+                NativeControlWarpPlan.FitFailure.class, () -> NativeControlWarpPlan.prepare(scene, geometry(scene)));
+        assertEquals(0, failure.sourceMesh);
+        assertEquals(1, failure.getSuppressed().length);
+        var other = assertInstanceOf(NativeControlWarpPlan.FitFailure.class, failure.getSuppressed()[0]);
+        assertEquals(1, other.sourceMesh);
+        assertEquals(List.of(0), other.triangles);
     }
 
     @Test
