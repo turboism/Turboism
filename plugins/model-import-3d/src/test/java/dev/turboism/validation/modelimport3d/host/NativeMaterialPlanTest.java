@@ -22,14 +22,7 @@ class NativeMaterialPlanTest {
         }
         if (fixture != null && !fixture.isBlank()) {
             Path p = Path.of(fixture);
-            if (Files.exists(p)) {
-                return p;
-            }
-        }
-        String userHome = System.getProperty("user.home");
-        if (userHome != null) {
-            Path p = Path.of(userHome, "Documents", "Laevatein_Surtr_Futa_v1.1.glb");
-            if (Files.exists(p)) {
+            if (Files.isRegularFile(p)) {
                 return p;
             }
         }
@@ -47,18 +40,15 @@ class NativeMaterialPlanTest {
                 return p;
             }
         }
-        String tmpDir = System.getProperty("java.io.tmpdir", "/tmp");
-        Path defaultTmp = Path.of(tmpDir, "task-n002-blend", "native-material-repaired.glb");
-        if (Files.isRegularFile(defaultTmp)) {
-            return defaultTmp;
-        }
         return null;
     }
 
     @Test
     void actualGlbFixtureFocusedVerification() throws IOException {
         Path actualPath = resolveActualGlbPath();
-        Assumptions.assumeTrue(actualPath != null, "Actual fixture file must exist");
+        Assumptions.assumeTrue(
+                actualPath != null && Files.isRegularFile(actualPath),
+                "TURBOISM_VIEWER_FIXTURE not configured or file not found, skipping real fixture test");
 
         byte[] glbBytes = Files.readAllBytes(actualPath);
         ViewerScene rawScene = GlbViewerLoader.load(glbBytes, () -> false);
@@ -135,7 +125,8 @@ class NativeMaterialPlanTest {
     void repairedGlbFixtureFocusedVerificationIfPresent() throws IOException {
         Path repairedPath = resolveRepairedGlbPath();
         Assumptions.assumeTrue(
-                repairedPath != null && Files.isRegularFile(repairedPath), "Repaired fixture file must exist");
+                repairedPath != null && Files.isRegularFile(repairedPath),
+                "TURBOISM_REPAIRED_FIXTURE not configured or file not found, skipping repaired fixture test");
 
         byte[] glbBytes = Files.readAllBytes(repairedPath);
         ViewerScene rawScene = GlbViewerLoader.load(glbBytes, () -> false);
