@@ -12240,6 +12240,116 @@
    }
   },
   {
+   "id": "dev.turboism.plugin.frame-animation-import",
+   "name": "Frame Animation Import",
+   "directory": "frame-animation-import",
+   "requiresCubism": true,
+   "supportedVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "supportedGaps": {},
+   "fullFeatureVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "partialFeatures": [
+    {
+     "key": "dev.turboism.sdk.cubism.model.Part#setOpacity()",
+     "declaredCapability": null,
+     "versions": [
+      "5.3.00",
+      "5.3.01",
+      "5.3.02",
+      "5.3.03",
+      "5.3.04"
+     ],
+     "missingOn": [
+      "5.0.00",
+      "5.0.01",
+      "5.0.02",
+      "5.0.03",
+      "5.0.04",
+      "5.0.05",
+      "5.0.06",
+      "5.1.00",
+      "5.1.01",
+      "5.1.02",
+      "5.1.03",
+      "5.2.00",
+      "5.2.01",
+      "5.2.02",
+      "5.2.03"
+     ],
+     "source": "sdk-api",
+     "sourceFiles": [
+      "sdk/src/main/java/dev/turboism/sdk/cubism/model/Part.java"
+     ],
+     "missingNature": {
+      "5.0.00": "boundary",
+      "5.0.01": "boundary",
+      "5.0.02": "boundary",
+      "5.0.03": "boundary",
+      "5.0.04": "boundary",
+      "5.0.05": "boundary",
+      "5.0.06": "boundary",
+      "5.1.00": "boundary",
+      "5.1.01": "boundary",
+      "5.1.02": "boundary",
+      "5.1.03": "boundary",
+      "5.2.00": "boundary",
+      "5.2.01": "boundary",
+      "5.2.02": "boundary",
+      "5.2.03": "boundary"
+     },
+     "officialSource": {
+      "version": "5.3.00",
+      "url": "https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/",
+      "nameZh": "部件离屏绘制（可设部件不透明度与剪贴蒙版）",
+      "nameEn": "Part offscreen drawing (part opacity and clipping masks)"
+     }
+    }
+   ],
+   "unmappedCapabilities": [],
+   "hostValidation": {}
+  },
+  {
    "id": "dev.turboism.plugin.historypanel",
    "name": "History Panel Plugin",
    "directory": "history-panel",
