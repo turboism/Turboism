@@ -58,20 +58,16 @@ public class NativeCharacterAuthoringTest {
 
         record PartRecord(PartId id, String name, Part parent) {}
 
-        record RotationRecord(DeformerId id, String name, Part parent) {
-            static RotationAuthoringSnapshot currentSnapshot(
-                    RotationRecord r, List<Float> keys, RotationDeformerForm form) {
-                var axis = new RotationAuthoringSnapshot.Axis(
-                        "guid-roll", new ParameterId("Character_Roll"), -180, 0, 180, keys);
-                var cells = new ArrayList<RotationAuthoringSnapshot.Cell>();
-                var forms = new ArrayList<RotationAuthoringSnapshot.Form>();
-                for (int i = 0; i < keys.size(); i++) {
-                    String guid = "roll-f" + i;
-                    cells.add(new RotationAuthoringSnapshot.Cell(
-                            guid, List.of(new RotationAuthoringSnapshot.Coordinate("guid-roll", keys.get(i)))));
-                    forms.add(new RotationAuthoringSnapshot.Form(guid, form));
-                }
-                return new RotationAuthoringSnapshot(r.id, "source-" + r.id.value(), 0, List.of(axis), cells, forms);
+        static final class RotationRecord {
+            final DeformerId id;
+            final String name;
+            final Part parent;
+            ParameterId rollAxisId;
+
+            RotationRecord(DeformerId id, String name, Part parent) {
+                this.id = id;
+                this.name = name;
+                this.parent = parent;
             }
         }
 
@@ -83,8 +79,10 @@ public class NativeCharacterAuthoringTest {
             final List<Point2> defaultLocal;
             int drawOrder = 500;
             boolean culling = true;
+            boolean visible = true;
             Optional<DeformerId> targetDeformer = Optional.empty();
 
+            final LinkedHashMap<ParameterId, List<Float>> boundAxes = new LinkedHashMap<>();
             final List<ArtMeshKeyformPositions> positionEdits = new ArrayList<>();
             final List<ArtMeshKeyformDrawOrder> orderEdits = new ArrayList<>();
             final Map<String, List<Point2>> keyformPositions = new HashMap<>();
@@ -100,10 +98,25 @@ public class NativeCharacterAuthoringTest {
             }
 
             ArtMeshAuthoringSnapshot snapshot() {
-                var yawAxis = new ArtMeshAuthoringSnapshot.Axis(
-                        "guid-yaw", new ParameterId("Character_Yaw"), -180, 0, 180, NativeCharacterPlan.KEYS);
-                var pitchAxis = new ArtMeshAuthoringSnapshot.Axis(
-                        "guid-pitch", new ParameterId("Character_Pitch"), -180, 0, 180, NativeCharacterPlan.KEYS);
+                var axisList = new ArrayList<ArtMeshAuthoringSnapshot.Axis>();
+                for (var entry : boundAxes.entrySet()) {
+                    axisList.add(new ArtMeshAuthoringSnapshot.Axis(
+                            "guid-" + entry.getKey().value(), entry.getKey(), -180, 0, 180, entry.getValue()));
+                }
+                if (axisList.isEmpty()) {
+                    return new ArtMeshAuthoringSnapshot(
+                            id,
+                            "source-" + id.value(),
+                            geometry,
+                            List.of(),
+                            List.of(new ArtMeshAuthoringSnapshot.Cell("default", List.of())),
+                            List.of(new ArtMeshAuthoringSnapshot.Form("default", defaultLocal, drawOrder)),
+                            List.of());
+                }
+
+                ParameterId yawAxisId = axisList.get(0).parameterId();
+                ParameterId pitchAxisId = axisList.size() > 1 ? axisList.get(1).parameterId() : yawAxisId;
+
                 var cells = new ArrayList<ArtMeshAuthoringSnapshot.Cell>();
                 var forms = new ArrayList<ArtMeshAuthoringSnapshot.Form>();
 
@@ -111,8 +124,8 @@ public class NativeCharacterAuthoringTest {
                     for (float p : NativeCharacterPlan.KEYS) {
                         String guid = id.value() + "-f-" + y + "-" + p;
                         var coords = List.of(
-                                new ArtMeshAuthoringSnapshot.Coordinate("guid-yaw", y),
-                                new ArtMeshAuthoringSnapshot.Coordinate("guid-pitch", p));
+                                new ArtMeshAuthoringSnapshot.Coordinate("guid-" + yawAxisId.value(), y),
+                                new ArtMeshAuthoringSnapshot.Coordinate("guid-" + pitchAxisId.value(), p));
                         cells.add(new ArtMeshAuthoringSnapshot.Cell(guid, coords));
                         var pos = keyformPositions.getOrDefault(guid, defaultLocal);
                         int order = keyformOrders.getOrDefault(guid, drawOrder);
@@ -121,7 +134,7 @@ public class NativeCharacterAuthoringTest {
                 }
 
                 return new ArtMeshAuthoringSnapshot(
-                        id, "source-" + id.value(), geometry, List.of(yawAxis, pitchAxis), cells, forms, List.of());
+                        id, "source-" + id.value(), geometry, axisList, cells, forms, List.of());
             }
         }
 
@@ -192,13 +205,11 @@ public class NativeCharacterAuthoringTest {
                                 }
                                 case "authoringSnapshot" -> {
                                     if (keysRef[0] != null && !keysRef[0].isEmpty() && r.name.contains("Z 旋转")) {
+                                        ParameterId rollParamId = r.rollAxisId != null
+                                                ? r.rollAxisId
+                                                : new ParameterId(r.name.replace(" Z 旋转", "_Roll"));
                                         var axis = new RotationAuthoringSnapshot.Axis(
-                                                "guid-roll",
-                                                new ParameterId("Character_Roll"),
-                                                -180,
-                                                0,
-                                                180,
-                                                keysRef[0]);
+                                                "guid-roll", rollParamId, -180, 0, 180, keysRef[0]);
                                         var cells = new ArrayList<RotationAuthoringSnapshot.Cell>();
                                         var forms = new ArrayList<RotationAuthoringSnapshot.Form>();
                                         for (int i = 0; i < keysRef[0].size(); i++) {
@@ -244,6 +255,20 @@ public class NativeCharacterAuthoringTest {
                             var target = (ParameterBindingTarget) ba[0];
                             var points = (List<ParameterBindingPoint>) ba[1];
                             bindings.computeIfAbsent(axis, k -> new HashMap<>()).put(target, points);
+                            for (var r : rotations.values()) {
+                                if (target.equals(ParameterBindingTarget.rotationDeformer(r.id))) {
+                                    r.rollAxisId = axis;
+                                }
+                            }
+                            for (var mr : meshes.values()) {
+                                if (target.equals(ParameterBindingTarget.artMesh(mr.id))) {
+                                    mr.boundAxes.put(
+                                            axis,
+                                            points.stream()
+                                                    .map(ParameterBindingPoint::value)
+                                                    .toList());
+                                }
+                            }
                             yield null;
                         }
                         case "setInterpolation" -> {
@@ -267,6 +292,10 @@ public class NativeCharacterAuthoringTest {
                 case "name" -> r.name;
                 case "setCulling" -> {
                     r.culling = (Boolean) a[0];
+                    yield null;
+                }
+                case "setVisible" -> {
+                    r.visible = (Boolean) a[0];
                     yield null;
                 }
                 case "setDrawOrder" -> {
@@ -425,5 +454,57 @@ public class NativeCharacterAuthoringTest {
                 IllegalArgumentException.class,
                 () -> NativeCharacterAuthoring.assemble(host.model(), illegalPlan, (m, s) -> {}));
         assertTrue(ex.getMessage().contains("64M cache budget"));
+    }
+
+    @Test
+    void hiddenExtremeHelperDoesNotDistortFramingAndRetainsTriangles() {
+        // Main visible character mesh centered at (0, 0, 0) with radius ~10
+        float[] posMain = {-10f, -10f, 0f, 10f, -10f, 0f, 0f, 10f, 0f};
+        float[] uvs = {0f, 0f, 1f, 0f, 0.5f, 1f};
+        int[] ind = {0, 1, 2};
+        var mainMesh = new ViewerScene.Mesh("BodyMesh", posMain, new float[9], uvs, null, null, ind, 0, true);
+
+        // Extreme invisible helper/collider mesh far away at (5000, 5000, 5000)
+        float[] posHelper = {4990f, 4990f, 5000f, 5010f, 4990f, 5000f, 5000f, 5010f, 5000f};
+        var helperMesh =
+                new ViewerScene.Mesh("HelperCollider", posHelper, new float[9], uvs, null, null, ind, -1, false);
+
+        var mat0 = new ViewerScene.Material("BodyMat", new float[4], 0, -1, new float[3], "OPAQUE", 0.5f, true, true);
+        var scene = new ViewerScene(
+                List.of(mainMesh, helperMesh),
+                List.of(mat0),
+                List.of(),
+                new ViewerScene.Bounds(-10f, -10f, 0f, 5010f, 5010f, 5000f),
+                new ViewerScene.Stats(100, 2, 2, 1, 0, 0, 0));
+
+        var plan = NativeCharacterPlan.prepare(scene, request("FramingCheck"));
+
+        // 1. Camera framing must be centered around (0, 0, 0), NOT distorted by (5000, 5000, 5000)
+        assertEquals(0.0, plan.camera().pivot().x(), 1e-4);
+        assertEquals(0.0, plan.camera().pivot().y(), 1e-4);
+        assertEquals(0.0, plan.camera().pivot().z(), 1e-4);
+
+        // Scale is 400.0 / ~10.0 = ~40.0, NOT 400.0 / ~8600.0 = ~0.046
+        assertTrue(plan.camera().scale() > 20.0, "Scale must frame the visible body mesh, not extreme helper");
+
+        // 2. Both partitions must be preserved in the plan (zero dropped triangles)
+        assertEquals(2, plan.partitions().size());
+        assertEquals(2, plan.totalTriangles());
+        assertEquals(6, plan.totalSourceSlots());
+
+        var mainPart = plan.partitions().get(0);
+        var helperPart = plan.partitions().get(1);
+        assertTrue(mainPart.visible(), "Main partition must be visible");
+        assertFalse(helperPart.visible(), "Helper partition must be hidden");
+
+        // 3. Assemble and verify ArtMesh visibility setting
+        var host = new TestModelHost();
+        var created = NativeCharacterAuthoring.assemble(host.model(), plan, (m, s) -> {});
+
+        var mainDrawable = host.meshes.get(created.meshIds().get(0));
+        var helperDrawable = host.meshes.get(created.meshIds().get(1));
+
+        assertTrue(mainDrawable.visible, "Main ArtMesh must be set visible true");
+        assertFalse(helperDrawable.visible, "Helper ArtMesh must be set visible false");
     }
 }
