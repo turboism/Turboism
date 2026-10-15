@@ -11,7 +11,7 @@ public final class ProbePreflight {
             var descriptor = new PluginDescriptorParser().parse(
                     jar.getInputStream(jar.getJarEntry("META-INF/turboism/plugin.json")));
             PluginJarContract.validate(descriptor,
-                    jar.stream().map(entry -> entry.getName()).toList(), args[0]);
+                    jar.stream().filter(entry -> !entry.isDirectory()).map(entry -> entry.getName()).toList(), args[0]);
         }
         System.out.println("PASS: runtime descriptor and JAR content contract");
     }
