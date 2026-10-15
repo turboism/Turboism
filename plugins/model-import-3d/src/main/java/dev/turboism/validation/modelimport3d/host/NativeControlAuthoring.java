@@ -12,6 +12,15 @@ final class NativeControlAuthoring {
             NativeCharacterAuthoring.Created created,
             ViewerScene scene,
             NativeControlWarpPlan.Plan plan) {
+        apply(model, created, scene, plan, stage -> {});
+    }
+
+    static void apply(
+            CubismModel model,
+            NativeCharacterAuthoring.Created created,
+            ViewerScene scene,
+            NativeControlWarpPlan.Plan plan,
+            java.util.function.Consumer<String> progress) {
         if (plan.controls().isEmpty()) return;
         var parameters = new LinkedHashMap<String, ParameterId>();
         String prefix = created.rootPartId().value() + "_Control_";
@@ -86,6 +95,7 @@ final class NativeControlAuthoring {
                 }
             }
         }
+        int completedPatches = 0;
         for (var patch : plan.patches()) {
             var mesh = model.drawables().find(created.meshIds().get(patch.partition()));
             var before = mesh.authoringSnapshot();
@@ -164,7 +174,12 @@ final class NativeControlAuthoring {
                         || !actual.form().controlPoints().equals(mapControls(expected.controls(), patch)))
                     throw new IllegalStateException("source shape control readback differs");
             }
+            if (++completedPatches % 32 == 0)
+                progress.accept("source-controls " + completedPatches + "/"
+                        + plan.patches().size());
         }
+        progress.accept(
+                "source-controls " + completedPatches + "/" + plan.patches().size());
         for (var definition : definitions) {
             var parameter = model.parameters().find(definition.id());
             if (parameter.type() != ParameterType.BLEND_SHAPE || parameter.getValue() != 0)
