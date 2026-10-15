@@ -12,11 +12,11 @@ requiresCubism: true
 interface: none
 ---
 
-# 场景调色板增强器
+# 场景面板增强器
 
 > **Turboism 官方插件** · **状态：预览**
 
-为 Cubism 的 Scene 调色板添加自然排序和持久化的手动行排序。
+为 Cubism 的 Scene 面板添加自然排序和持久化的手动行排序。
 
 | 详情 | 值 |
 |---|---|
@@ -31,14 +31,14 @@ interface: none
 
 ## 功能概述
 
-- 使 Scene 调色板的排序在升序、降序和手动顺序间循环切换。
+- 使 Scene 面板的排序在升序、降序和手动顺序间循环切换。
 - 支持手动拖动行，并显示标题排序标记。
 - 按不透明的场景范围持久化手动顺序，并将其与新发现的实时行合并。
 
 ## 要求与兼容性
 
 - **Turboism API：** `[0.1.0,0.2.0)`。
-- **Cubism：**需要 Cubism。Scene 调色板桥接允许全部精确审核过的 Editor 构件 `5.0.00` 至 `5.3.04`；其余构件一律失败关闭。全部 23 个 Scene 私有 UI selector 已在每个精确审核构件上完成结构化验证（成员名、descriptor 与访问标志逐 jar 一致），绑定时还会对已加载宿主再次复核。
+- **Cubism：**需要 Cubism。Scene 面板桥接允许全部精确审核过的 Editor 构件 `5.0.00` 至 `5.3.04`；其余构件一律失败关闭。全部 23 个 Scene 私有 UI selector 已在每个精确审核构件上完成结构化验证（成员名、descriptor 与访问标志逐 jar 一致），绑定时还会对已加载宿主再次复核。
 
 - **界面模式：**`none`。
 - **插件依赖：**未声明。
@@ -54,7 +54,7 @@ interface: none
 
 ## 使用方法
 
-1. 打开 Cubism 的 Scene 调色板，并使用列标题循环切换排序模式。
+1. 打开 Cubism 的 Scene 面板，并使用列标题循环切换排序模式。
 2. 切换到手动顺序，并将行拖动到所需的序列。
 3. 返回相同的场景范围，以恢复持久化的手动顺序。
 
@@ -66,10 +66,10 @@ interface: none
 
 | 权限 | 范围 | 请求原因 |
 |---|---|---|
-| `turboism.file.read` | `application` | 恢复按项目保存的 Scene 调色板手动顺序。 |
-| `turboism.file.write` | `application` | 持久化按项目保存的 Scene 调色板手动顺序。 |
+| `turboism.file.read` | `application` | 恢复按项目保存的 Scene 面板手动顺序。 |
+| `turboism.file.write` | `application` | 持久化按项目保存的 Scene 面板手动顺序。 |
 | `turboism.event.subscribe` | `application` | 注册生成的注解订阅者。 |
-| `turboism.ui.scene-table.observe` | `application` | 观察由 Runtime 拥有的 Scene 调色板快照、标题点击和重新排序变化。 |
+| `turboism.ui.scene-table.observe` | `application` | 观察由 Runtime 拥有的 Scene 面板快照、标题点击和重新排序变化。 |
 
 ## 隐私与数据
 
