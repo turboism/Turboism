@@ -182,21 +182,35 @@ public final class ModelImportPlugin implements TurboismPlugin {
                 base.roll().map(ignored -> new ParameterId(prefix + "_Roll")));
     }
 
+    /** Retain the frozen small-convex path only when its exact proof succeeds.
+     * Concave, open, rigged and larger sources use the generic visibility compiler.
+     */
+    private static boolean needsNativeSourceImport(byte[] bytes) {
+        if (!NativeModelImport.isGlb(bytes)) return false;
+        if (bytes.length > GlbSurfaceReader.MAX_BYTES
+                || dev.turboism.plugin.modelimport3d.viewer.GlbViewerLoader.requiresNativeRigImport(bytes)) return true;
+        try {
+            ClosedConvexSurfaceProof.verify(GlbSurfaceReader.read(bytes));
+            return false;
+        } catch (IllegalArgumentException unsupportedLegacySolid) {
+            return true;
+        }
+    }
+
     static PreparedImport prepare(
             byte[] bytes, SurfaceImport.Request request, SurfaceBaseColorPlan.Appearance appearance)
             throws java.io.IOException {
-        if (bytes != null
-                && NativeModelImport.isGlb(bytes)
-                && (bytes.length > GlbSurfaceReader.MAX_BYTES
-                        || dev.turboism.plugin.modelimport3d.viewer.GlbViewerLoader.requiresNativeRigImport(bytes))
-                && request.roll().isPresent()
-                && appearance == SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL) {
+        boolean originalGlb = NativeModelImport.isGlb(bytes);
+        if (request.roll().isPresent()
+                && appearance == SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL
+                && needsNativeSourceImport(bytes)) {
             return new PreparedImport(null, null, null, null, NativeModelImport.prepare(bytes, request, () -> false));
         }
         bytes = ModelInputNormalizer.normalize(bytes);
-        if (request.roll().isPresent()
+        if (!originalGlb
+                && request.roll().isPresent()
                 && appearance == SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL
-                && dev.turboism.plugin.modelimport3d.viewer.GlbViewerLoader.requiresNativeRigImport(bytes))
+                && needsNativeSourceImport(bytes))
             return new PreparedImport(null, null, null, null, NativeModelImport.prepare(bytes, request, () -> false));
         if (request.roll().isPresent()) {
             if (appearance != SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL)
@@ -485,11 +499,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                     byte[] bytes = read.value()
                                             .orElseThrow(() ->
                                                     new LocalizedIllegalStateException("error.file-read", "无法读取所选模型。"));
-                                    if (choice == 0
-                                            && NativeModelImport.isGlb(bytes)
-                                            && (bytes.length > GlbSurfaceReader.MAX_BYTES
-                                                    || dev.turboism.plugin.modelimport3d.viewer.GlbViewerLoader
-                                                            .requiresNativeRigImport(bytes))) {
+                                    if (choice == 0 && needsNativeSourceImport(bytes)) {
                                         return CompletableFuture.supplyAsync(() -> {
                                             if (!active(token)) return Optional.<PreparedImport>empty();
                                             try {

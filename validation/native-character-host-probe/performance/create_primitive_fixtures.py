@@ -91,7 +91,7 @@ def cylinder():
     return faces
 
 
-def write_glb(path, objects, png):
+def write_glb(path, objects, png, with_morphs=True):
     binary, views, accessors, meshes = bytearray(), [], [], []
     def blob(data):
         binary.extend(b'\0' * (-len(binary) % 4))
@@ -133,8 +133,12 @@ def write_glb(path, objects, png):
         if any(count != 2 for count in edges.values()): raise ValueError('Fixture is not a closed two-manifold')
         primitive = {'attributes': {'POSITION':accessor(positions,'VEC3',3), 'NORMAL':accessor(normals,'VEC3',3),
                                      'TEXCOORD_0':accessor(uvs,'VEC2',2)}, 'indices':accessor(indices,'SCALAR',1,True),
-                     'material':0, 'targets':[{'POSITION':accessor([tuple(.1*x for x in p) for p in positions],'VEC3',3)}]}
-        meshes.append({'name':name, 'primitives':[primitive], 'weights':[0], 'extras':{'targetNames':['Expand']}})
+                     'material':0}
+        mesh={'name':name,'primitives':[primitive]}
+        if with_morphs:
+            primitive['targets']=[{'POSITION':accessor([tuple(.1*x for x in p) for p in positions],'VEC3',3)}]
+            mesh.update(weights=[0],extras={'targetNames':['Expand']})
+        meshes.append(mesh)
         total_triangles += len(indices)//3
     image_view = blob(png)
     binary.extend(b'\0' * (-len(binary)%4))
@@ -152,22 +156,22 @@ def write_glb(path, objects, png):
     data = struct.pack('<III',0x46546c67,2,28+len(encoded)+len(binary))+struct.pack('<II',len(encoded),0x4e4f534a)+encoded+struct.pack('<II',len(binary),0x004e4942)+binary
     path.write_bytes(data)
     return {'file':path.name,'sha256':hashlib.sha256(data).hexdigest(),'triangles':total_triangles,
-            'objects':len(objects),'standardMorphTargets':len(objects),'texturePixels':512*512,
+            'objects':len(objects),'standardMorphTargets':len(objects) if with_morphs else 0,'texturePixels':512*512,
             'closedManifold':True,'sourceDoubleSided':False}
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__); parser.add_argument('output',type=Path); args=parser.parse_args()
+    parser = argparse.ArgumentParser(description=__doc__); parser.add_argument('output',type=Path); parser.add_argument('--without-morphs',action='store_true'); args=parser.parse_args()
     args.output.mkdir(parents=True,exist_ok=True)
     png=atlas_png(); (args.output/'directional-atlas.png').write_bytes(png)
     shapes={'cube':boxes({(0,0,0)},2), 'octahedron':octahedron(),
             'cross-star':boxes({(x,y,z) for x in (-1,0,1) for y in (-1,0,1) for z in (-1,0,1) if (x!=0)+(y!=0)+(z!=0)<=1},.8),
             'torus':torus(), 'cylinder':cylinder()}
-    records=[write_glb(args.output/(name+'.glb'),[(name,faces)],png) for name,faces in shapes.items()]
+    records=[write_glb(args.output/(name+'.glb'),[(name,faces)],png,not args.without_morphs) for name,faces in shapes.items()]
     # Disjoint solids with projected overlap; no physical intersection or duplicated faces.
     ring=[[(x,y-.9,z) for x,y,z in face] for face in shapes['torus']]
     post=[[(x,y+1.2,z) for x,y,z in face] for face in shapes['cylinder']]
-    records.append(write_glb(args.output/'ring-and-column.glb',[('ring',ring),('column',post)],png))
+    records.append(write_glb(args.output/'ring-and-column.glb',[('ring',ring),('column',post)],png,not args.without_morphs))
     (args.output/'manifest.json').write_text(json.dumps({'schemaVersion':1,'fixtures':records},indent=2)+'\n')
     print(json.dumps(records,indent=2))
 
