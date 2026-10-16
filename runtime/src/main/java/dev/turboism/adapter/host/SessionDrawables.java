@@ -88,6 +88,15 @@ final class SessionDrawables implements Drawables {
     }
 
     @Override
+    public List<Drawable> createManyWithSourceGeometry(final List<SourceGeometryRequest> requests) {
+        return host.guarded(
+                generation,
+                () -> delegate.createManyWithSourceGeometry(List.copyOf(requests)).stream()
+                        .map(value -> (Drawable) new SessionDrawable(host, generation, modelGeneration, modelId, value))
+                        .toList());
+    }
+
+    @Override
     public ArtMeshSourceTriangulation previewSourceTriangulation(final ArtMeshGeometry geometry) {
         return host.guarded(
                 generation, () -> delegate.previewSourceTriangulation(Objects.requireNonNull(geometry, "geometry")));
