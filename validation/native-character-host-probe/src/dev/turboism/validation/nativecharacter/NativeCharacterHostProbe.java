@@ -507,11 +507,16 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
         return null;
     }
     private JOptionPane awaitPane(int seconds) throws Exception {
+        // Capture in the same EDT task that proves visibility. Startup assistance may
+        // dismiss the dialog before a second EDT lookup, even though the import succeeded.
+        final JOptionPane[] captured = new JOptionPane[1];
         await(() -> edt(() -> {
             var pane = visible(JOptionPane.class);
-            return pane != null && pane != lastPane;
+            if (pane == null || pane == lastPane) return false;
+            captured[0] = pane;
+            return true;
         }), seconds, "production dialog");
-        lastPane = edt(() -> visible(JOptionPane.class));
+        lastPane = captured[0];
         return lastPane;
     }
     private static void approveFile(Path path, int seconds) throws Exception {
