@@ -73,6 +73,7 @@ public class NativeCharacterAuthoringTest {
         boolean simulateLocalParentConversion;
         boolean simulateWarpParentInstanceReplacement;
         int localParentConversions;
+        int hierarchyChangesAfterMeshKeyforms;
 
         int partCounter = 0;
         int meshCounter = 0;
@@ -416,6 +417,8 @@ public class NativeCharacterAuthoringTest {
                     yield null;
                 }
                 case "setTargetDeformer" -> {
+                    if (meshes.values().stream().anyMatch(mesh -> !mesh.boundAxes.isEmpty()))
+                        hierarchyChangesAfterMeshKeyforms++;
                     var target = (Optional<DeformerId>) a[0];
                     var warp = target.map(warps::get).orElse(null);
                     if (simulateLocalParentConversion && warp != null) {
@@ -563,6 +566,19 @@ public class NativeCharacterAuthoringTest {
         var firstFactor = host.warps.get(secondFactor.targetDeformer.orElseThrow());
         assertEquals(.25f, secondFactor.morphKeys.get(0).form().opacity());
         assertEquals(.5f, firstFactor.morphKeys.get(0).form().opacity());
+    }
+
+    @Test
+    void anatomicalHierarchyIsCompleteBeforeExpandingAnyArtMeshTo25Forms() {
+        var host = new TestModelHost();
+        var plan = planFor(simpleMesh("Left", 0), simpleMesh("Right", 1));
+        NativeCharacterAuthoring.assemble(host.model(), plan, (id, source) -> {});
+        assertEquals(
+                0,
+                host.hierarchyChangesAfterMeshKeyforms,
+                "Native parent changes must not repeatedly rebuild earlier meshes' 25-form banks");
+        assertTrue(host.meshes.values().stream()
+                .allMatch(mesh -> mesh.snapshot().forms().size() == 25));
     }
 
     @Test
