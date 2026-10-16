@@ -69,6 +69,7 @@ interface: swing
 | `cubism.model.write` | パーツ、メッシュ、テクスチャ、パラメータバインドの作成。 |
 | `cubism.parameter.write` | アニメーション用パラメータの作成と不透明度の書き込み。 |
 | `ui.context-menu.contribute` | パーツおよびデフォーマパレットへの右クリックメニュー登録。 |
+| `file.read` | ユーザーが選択したスプライトシートおよび連番画像の読み取り。 |
 | `ui.status.notify` | インポート結果および通知の表示。 |
 
 ## 権限
@@ -77,6 +78,7 @@ interface: swing
 |---|---|---|
 | `turboism.cubism.model.read` | `application` | モデルのパーツ、描画オブジェクト、パラメータ定義の読み取り。 |
 | `turboism.cubism.model.write` | `application` | パーツやメッシュの作成、パラメータのバインドと不透明度設定。 |
+| `turboism.file.read` | `application` | 選択されたコマ画像およびスプライトシートファイルの読み取り。 |
 | `turboism.action.register` | `application` | インポート用アクションの登録。 |
 | `turboism.ui.context-menu.contribute` | `application` | コンテキストメニュー項目の登録。 |
 | `turboism.ui.status.notify` | `application` | 処理結果と通知の表示。 |
