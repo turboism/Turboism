@@ -15,7 +15,13 @@ import javax.swing.*;
 
 /** User-mediated static model import using the same bounded engine as the native validation. */
 public final class ModelImportPlugin implements TurboismPlugin {
-    /** Summarizes the native atlas pages shown before import confirmation. */
+    /**
+     * Summary of planned texture atlas pages and dimensions for user confirmation.
+     *
+     * @param pageCount planned atlas page count
+     * @param width     planned atlas page width in pixels
+     * @param height    planned atlas page height in pixels
+     */
     public record AtlasSummary(int pageCount, int width, int height) {}
 
     interface Ui {

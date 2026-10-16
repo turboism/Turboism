@@ -21,6 +21,7 @@ Cubism을 FREE 라이선스로 실행하면 저장이 FREE 파라미터 수 등�
 | `cubism-tab-filter` | 모든 검토 버전 | — | — |
 | `demo` | 모든 검토 버전 | — | — |
 | `external-psd-edit` | 모든 검토 버전 | PSD 원본 이미지 내보내기 에서만 5.2.00–5.3.04（이전 Cubism 버전에는 기능 자체가 없음）<br>PSD 원본 이미지 교체 에서만 5.2.00–5.3.04（이전 Cubism 버전에는 기능 자체가 없음） | 실기 검증 통과 5.3.02 |
+| `frame-animation-import` | 모든 검토 버전 | 파트 불투명도 쓰기 에서만 5.3.00–5.3.04（[Cubism 5.3.00에 Part offscreen drawing (part opacity and clipping masks) 추가](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)） | — |
 | `history-panel` | 모든 검토 버전 | — | — |
 | `mcp` | 모든 검토 버전 | 전체 기능은 5.1.00 이상 필요<br>상단 메뉴 통합 제외 5.0.00–5.0.06（이전 Cubism 버전에는 기능 자체가 없음）<br>MCP Editor 명령 실행 제외 5.0.00–5.0.06（이전 Cubism 버전에는 기능 자체가 없음）<br>MCP Editor 명령 목록 제외 5.0.00–5.0.06（이전 Cubism 버전에는 기능 자체가 없음） | 실기 검증 통과 5.2.00–5.3.01, 5.3.03–5.3.04<br>확인된 경계 5.0.00, 5.0.02, 5.0.06–5.1.00, 5.1.03 |
 | `mesh-edit-mirror-axis-enhance` | 모든 검토 버전 | 전체 기능은 5.2.00 이상 필요<br>메시 지오메트리 읽기 에서만 5.2.00–5.3.04（이전 Cubism 버전에는 기능 자체가 없음） | — |
