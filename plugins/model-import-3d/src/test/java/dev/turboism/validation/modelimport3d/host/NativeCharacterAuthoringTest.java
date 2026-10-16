@@ -565,7 +565,7 @@ public class NativeCharacterAuthoringTest {
                     r.authoringReads++;
                     yield r.snapshot();
                 }
-                case "setOrdinaryKeyformPositions" -> {
+                case "setOrdinaryKeyforms" -> {
                     var edits = (List<ArtMeshKeyformPositions>) a[1];
                     var expected = (ArtMeshAuthoringSnapshot) a[0];
                     assertEquals(r.snapshot(), expected, "Require fresh post-reparent snapshot");
@@ -577,6 +577,10 @@ public class NativeCharacterAuthoringTest {
                             throw new UnsupportedOperationException(
                                     "default keyform position editing is not available");
                     }
+                    var orders = (List<ArtMeshKeyformDrawOrder>) a[2];
+                    assertEquals(edits.size(), orders.size());
+                    r.orderEdits.addAll(orders);
+                    for (var order : orders) r.keyformOrders.put(order.formGuid(), order.drawOrder());
                     r.positionEdits.addAll(edits);
                     for (var e : edits) r.keyformPositions.put(e.formGuid(), e.positions());
                     yield null;

@@ -361,6 +361,21 @@ final class PermissionCheckedDrawable implements dev.turboism.sdk.cubism.model.D
     }
 
     @Override
+    public void setOrdinaryKeyforms(
+            final dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
+            final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions> positions,
+            final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder> drawOrders) {
+        facade.requireModelWrite("artMesh.setOrdinaryKeyforms");
+        final var input = List.copyOf(positions);
+        final var orders = List.copyOf(drawOrders);
+        facade.runSemantic(
+                CubismOperation.SET_DRAWABLE_KEYFORMS_BATCH,
+                delegate.id().value(),
+                delegate::authoringSnapshot,
+                () -> delegate.setOrdinaryKeyforms(expected, input, orders));
+    }
+
+    @Override
     public dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform morphKeyform(
             final String parameterGuid, final float keyValue) {
         facade.requireModelRead("artMesh.morphKeyform");

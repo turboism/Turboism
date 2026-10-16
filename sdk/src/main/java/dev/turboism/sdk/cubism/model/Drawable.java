@@ -295,6 +295,25 @@ public interface Drawable {
     }
 
     /**
+     * Writes positions and draw orders together in one bounded authoring contribution.
+     * Both lists must identify the same distinct non-default ordinary forms by full tuple
+     * and form GUID. The complete current state must equal {@code expected}. All targets
+     * and the existing 4096-form / 2000000-vertex budget are checked before mutation.
+     * Native Undo/Redo and rollback cover both fields; unselected state stays unchanged.
+     *
+     * @param expected detached current authoring state
+     * @param positions positions for every selected form
+     * @param drawOrders draw orders for exactly the same forms, in any list order
+     */
+    @CubismEditor(from = "5.0.00")
+    default void setOrdinaryKeyforms(
+            ArtMeshAuthoringSnapshot expected,
+            List<ArtMeshKeyformPositions> positions,
+            List<ArtMeshKeyformDrawOrder> drawOrders) {
+        throw unavailable("ArtMesh combined ordinary keyform batch");
+    }
+
+    /**
      * Locates an existing, non-basic morph key by native parameter GUID and exact key value.
      * Requires the supported root/ordinary-grid domain described by {@link ArtMeshMorphKeyform}.
      * Does not create keys, move sliders, or interpret zero/null as a writable basic key.

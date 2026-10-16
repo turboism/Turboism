@@ -2460,6 +2460,9 @@ class DynamicCubismModelAccessTest {
         assertEquals(List.of(new Point2(12, 13)), morph.snapshot().positions());
 
         access.deactivate();
+        assertThrows(
+                IllegalStateException.class,
+                () -> wrappedDrawable.setOrdinaryKeyforms(authoring, List.of(), List.of()));
         assertThrows(IllegalStateException.class, wrappedDrawable::geometry);
         assertThrows(IllegalStateException.class, wrappedDrawable::authoringSnapshot);
         assertThrows(IllegalStateException.class, wrappedDrawable::evaluationSnapshot);

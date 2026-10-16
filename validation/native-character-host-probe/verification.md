@@ -593,3 +593,33 @@ No new complete-character import timing or visual occlusion acceptance is claime
 Independent fresh-process reopen initially failed: job **`759188d2-fd4b-4a0e-bf2a-51904720dd93`**, run **`queue-befa858575ea4853b7d5f5e23006fbf1`**, supervisor FAIL/safe cleanup. Probe reported `Timed out waiting for reopened document`; native startup observation still showed `Preparing model display`. This run does **not** establish persistence success or a network root cause. Its evidence remains archived. No production code, timeout, artifact or saved model was changed for the single bounded retry.
 
 Retry job **`efd123c3-1da2-422c-9516-5b1876fb6008`**, run **`queue-f498ab77bf78453bad34987931735ac2`**, label `5304-interpolation-batch-r31-reopen-retry`: supervisor **PASS**, identity verified, unchanged fixture, normal exit and safe cleanup. The identical saved CMO3 independently reopened; source banks, hidden state, atlas inputs, rotation parameters, filename group, morph/control state and source-control/rotation combinations passed. The first startup timeout remains an unresolved intermittent observation, not silently replaced by the successful retry. Logs `/tmp/interpolation-r31-{small,seam,reopen,reopen-retry}-host.log`.
+
+
+### r32: combined rotation-form values
+
+`setOrdinaryKeyforms` consolidates projected positions and draw orders into one bounded, compare-and-set native contribution. The original sequential pattern and new combined pattern are exercised through the real lookup/writer/coordinator. The initial regression **failed functionally** on the SDK fail-closed default (`/tmp/keyform-r32-red.log`), after the sequential case had exercised the existing path. The completed counter test measures **9 -> 4 source-geometry reads**, **2 -> 1 native all-keyform Undo snapshots** and one source-evaluation barrier. This does not claim a measured total-time speedup.
+
+Focused keyform transaction suite including new recovery/counter cases: **59 tests, no failures/errors/skips**, `/tmp/keyform-r32-counters.log`. Broader Runtime/wrapper tests, full SDK (**440, 0 failures/errors, 1 existing skip**) and full plugin (**278, 0 failures/errors, 34 explicit fixture skips**) pass in `/tmp/keyform-r32-checks.log`. Final build, real native gates and one cumulative full-character timing follow.
+
+
+Final X11/Xvfb `:runtime:test` (keyform and wrapper suites), `devCheck previewBundle :plugins:model-import-3d:jar` **PASS**, **4m26s / 155 tasks**, `/tmp/keyform-r32-devcheck.log`. Focused Runtime **130 tests, zero failures/errors/skips**. Independent plugin JAR explicitly rebuilt; packaged importer bytecode calls both `setOrdinaryKeyforms` and `setInterpolations`, with no remaining separate draw-order-batch call in this importer.
+
+Bundle `build/manual-test/native-keyform-values-r32`: agent SHA-256 `751b4ed0bd5e531fe3b61ff4750b00e7ec3d77477a951a320ad5fd950b03dc37`, plugin `1273c649349f23f3aca36b329ac2e2d8e983ef281dc7a0b19ae49672850636c6`, reused corrected probe `d51718e45e0129606cddce095887561c1828c178b9cea342b5918e21626a302b`.
+
+Small two-part/four-control job **`88a8f486-9ab6-416f-8afe-a2d6349bfa5a`**, run **`queue-6430f9771bb948689e55a0cf0be6d3e2`**, label `5304-keyform-values-r32-small`: supervisor **PASS**, identity verified, unchanged fixture, normal exit and safe cleanup. Native Undo/Redo, intentional transaction failure/rollback, rotation/source-control combinations, filename group and official save pass. CMO3 **29,737 bytes**, SHA-256 **`6bd0f53d8a404d47009e7d4242016b5531db7be3e622b0f14cb04073b5c4a8ae`**.
+
+Shared-seam job **`5135eb23-a0cb-48b1-9230-3a7ab4cf9d62`**, run **`queue-39cc1c4165a34f139d6365108136fbd6`**, label `5304-shared-seam-r32`: supervisor **PASS**, identity verified, unchanged fixture, normal exit and safe cleanup. Fresh-process reopen and the cumulative structure-only timing follow after finalization.
+
+
+Shared seam: **1 pair, maximum gap 0.0 Canvas px** over tested yaw/pitch keys and intermediate values. Independent fresh-process reopen job **`a0952736-2835-4af0-995d-15df8379f1ac`**, run **`queue-0d51ca6b164c49428dd4e0ceb41c42cc`**, label `5304-keyform-values-r32-reopen`: supervisor **PASS**, identity verified, unchanged fixture, normal exit and safe cleanup. Persisted source banks/morph hashes, controls, filename group and combinations pass on the first attempt. Logs `/tmp/keyform-r32-{small,seam,reopen}-host.log`.
+
+
+#### r32 single complete-character timing (includes r31)
+
+Job **`cfce2a55-4f72-4410-b203-8fcee21c35db`**, run **`queue-5f34d024932e45c3af04fb3d69973d93`**, label `5304-keyform-values-r32-character`: supervisor **PASS**, verified identity, unchanged fixture, normal exit and safe cleanup. All local builds and small host jobs finished first; no concurrent build or diagnostic load. Same explicit full GLB SHA-256 `ad25dbb8cd3f12901c17f104ef26ee5a16ba688a8b6422aeccaddef19896623a`, 8 GiB, stack sampler and structure-only ready endpoint as r30.
+
+Source preparation **2026-10-16T10:06:46.838825200Z**; manual-inspection-ready **10:13:09.306739800Z**. **382.4679146 s**, versus r30 **419.711243 s**: **37.2433284 s / 8.87356%** lower. One run per candidate, combining r31+r32; no isolated attribution or repeatability claim. Nonoverlapping stage table is in `performance/ImportCostAnalysis.md`. In particular rotation-bank stage **89.748 -> 72.706 s** and interpolation/commit/final verification **55.265 -> 42.441 s**; both contain other nested work and are not pure setter/cache timings.
+
+**940 meshes, 236437 triangles, 114 parameters (111 source + XYZ), one filename-scoped group**, all count/group/atlas gates PASS. Neutral parent error remains **6.068566462325795E-4 Canvas px**. Probe PASS and supervisor finalization both checked. Log `/tmp/keyform-r32-character-host.log`; deterministic timestamp reproduction `/tmp/keyform-r32-timing.py` reads exact runtime stage markers without the large geometry payload.
+
+This run ends after **structure-only** verification. It produces no new full-character CMO3 or complete-character save/reopen/history/visual-occlusion acceptance. The successful small native history/save/reopen/seam gates do not establish complete-character visual correctness. **T035 occlusion remains open; T036 latency remains open** (6m22s is still excessive).

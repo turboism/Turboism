@@ -472,6 +472,14 @@ final class SessionDrawable implements Drawable {
     }
 
     @Override
+    public void setOrdinaryKeyforms(
+            final dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
+            final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions> positions,
+            final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder> drawOrders) {
+        host.guardedVoid(generation, () -> delegate.setOrdinaryKeyforms(expected, positions, drawOrders));
+    }
+
+    @Override
     public dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform morphKeyform(
             final String parameterGuid, final float keyValue) {
         return guardedMorphKeyform(host.guarded(generation, () -> delegate.morphKeyform(parameterGuid, keyValue)));

@@ -152,7 +152,8 @@ class CompleteCubismModelReadApiContractTest {
                 "visible",
                 "visibleInHierarchy",
                 "setOrdinaryKeyformPositions",
-                "setOrdinaryKeyformDrawOrders");
+                "setOrdinaryKeyformDrawOrders",
+                "setOrdinaryKeyforms");
         assertMethods(
                 Deformer.class,
                 "getCombinedParameterBindings",
