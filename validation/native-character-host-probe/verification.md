@@ -234,3 +234,57 @@ User authorized Enter to dismiss the previously observed startup network-error d
 Compared with the previous roughly 35-minute 448-patch observation, the control-stage refresh change materially improves this partial benchmark. Geometry is still slow and later control batches slow down. This is neither full-character functional acceptance nor acceptable import performance. Further investigation must measure reparent conversion, keyform position writes, object creation and source readback costs; do not infer their individual shares from these stage timings.
 
 Evidence root: `<host-root>/native-character/5304-controls-refresh-groups-r6/queue-707273a9640641f5a8ce60b2f0f621eb/`. Runtime log: `turboism-home/logs/runtime/2026-10-15/turboism-17-04-14.324-p344-10061965474221261865.log`. Queue terminal observation retained at `/tmp/native-r6-terminal.json`. Independent post-run SHA-256 checks match the original CMO3 fixture, original BLEND/GLB and generated control GLB hashes; this does not replace the missing complete supervisor acceptance checks.
+
+
+### Measured import hotspots and safe reductions — 2026-10-16
+
+Sampling run `queue-2c99ed1c06914e7199fa23fdd76b6762` (job `7253f275-498d-4bbc-ba79-9a117a777d6b`) used the unchanged full 111-control input and the previous candidate. Source planning took 220.672 seconds. An opt-in test-only 100 ms sampler identified the strided depth-column scan in `NativeCharacterVisibility.order` as the largest planning hotspot (1,413 leaf samples at the nearest-partition scan). Native authoring stacks also showed repeated object-creation instance updates, batch property palette refresh, and source/instance collection scans. These are wall-clock stack observations, not CPU percentages. After sufficient samples, the job was explicitly cancelled through the queue; supervisor cleanup is safe. No import acceptance is claimed for this diagnostic run.
+
+Changes:
+
+- Coverage votes scan each partition depth row contiguously in two passes. Nearest-depth selection, first-partition ties, finite checks, threshold and votes remain identical; no geometry or ordering rule changes.
+- Bulk ordinary keyform position/order writes still update native model instances immediately. Part/deformer palettes and canvas refresh once at the root transaction boundary; Undo/Redo and compensation retain immediate refresh.
+- ArtMesh collection reads build a temporary identity membership index per snapshot rather than scanning all sources for each instance. Fresh source/instance bijection checks, duplicate-ID rejection and stale-instance rejection remain in place; no persistent cache is introduced.
+- Anatomical parent conversion completes for every mesh before expanding any ArtMesh to its 25 ordinary rotation forms. The final banks, source geometry and hierarchy readback checks remain enabled.
+
+Deterministic regressions reproduced eager batch repaint and interleaved parent/25-form expansion before their respective fixes. Differential voting tests cover missing coverage, ties, near-threshold depths, nonfinite values and randomized sparse depth tables. Source/instance regressions reject duplicate instances, same-ID foreign sources and missing instances, and accept fresh instance replacement.
+
+Planning proof, same input and harness, quiet separate JVM runs with a 4 GiB heap:
+
+| Measurement | Archived baseline | Contiguous voting |
+| --- | ---: | ---: |
+| Full source planning | 211.073 s | 73.130 s |
+| Triangles | 236,437 | 236,437 |
+| Geometry partitions | 940 | 940 |
+| Controls / control patches | 111 / 796 | 111 / 796 |
+| Geometry slots | 4,844,506 | 4,844,506 |
+| Control slots | 3,399,999 | 3,399,999 |
+| Max fit residual | 1.990992392100 px | 1.990992392100 px |
+
+All 25 final draw-order lists have the same SHA-256: `4aeb14b1517d0b3a36845ff5ba845917ddedda165b2e62cbc0bcf87b3c0ff90d`. The synthetic 940-partition / 42,500-pixel scan proof also verifies every vote: median 1,465.620 ms versus 139.266 ms over five measured iterations after two warm-ups (10.52x for this scan only). This is not full native import latency or an occlusion fix.
+
+Reproduction harnesses are in `validation/native-character-host-probe/performance/`. Local raw outputs: `/tmp/native-visibility-scan-proof.log`, `/tmp/native-preparation-baseline.log`, `/tmp/native-preparation-improved.log`. Full-character native authoring, cache initialization, save and reopen remain necessary before performance acceptance.
+
+Candidate verification:
+
+- `devCheck`, `previewBundle` and plugin JAR build PASS: 158 tasks, 3m 3s. Log `/tmp/native-performance-finalcheck.log`.
+- Related Runtime regressions: 357 tests, zero failures/errors/skips. Log `/tmp/native-performance-regressions.log`.
+- Final plugin suite after hierarchy sequencing: 272 tests, zero failures/errors, 34 explicit private-fixture skips. Log `/tmp/native-plugin-final-tests.log`.
+- Runtime agent SHA-256 `cbbfb915352cce266ed41693854b453d6e450e76cb732fda85b2151fd62e6ef5`; plugin SHA-256 `8c3ec4caf2476b8114b2a0b2f01c737226a4c5a98d13cf1df74c1aa3e5e1b408`; probe SHA-256 `90b1df2604fb84f72f93455345f9c3635fff0ca54e4d249d055ff46b13e191b7`.
+
+Exact-host dual-part import:
+
+- Job `a06e3c43-aa80-4d68-b6e2-dfd6bc227d29`, run `queue-bf9fe147f6da4a439c96d266519f16b9`, run label `performance-r8-small`.
+- Two source primitives with distinct anatomical metadata, two shape controls and two shared opacity controls. All seven imported parameters belong to the file-named group.
+- Native authoring confirmation to structure verification: 1.449 seconds. This tiny fixture is functional evidence, not full-character performance evidence.
+- Undo/Redo, forced rollback, rotation checks, shape restoration, combined shape/opacity controls at yaw -30/0/30, official save PASS. Combined alpha ratios 0.5, 0.25 and 0.125; source banks and morph forms remain unchanged by parameter evaluation.
+- Supervisor PASS, normal exit, verified identity, unchanged source fixture and safe cleanup.
+- Saved CMO3: 29,700 bytes, SHA-256 `00c394747c7a83e8f2b9c48a9f8adfd5abb34e4c713f583c3a3f3641e5adf07e`.
+
+Independent reopen:
+
+- Job `64f2fa3b-002a-45a6-a5ba-412597133b08`, run `queue-d5f8a9695f8f41bd8cb21b92e3a6c325`, run label `performance-r8-reopen`.
+- Parameter group membership/name, ordinary source banks, atlas inputs, morph hashes and combined controls PASS after a fresh process opens the official saved file.
+- Supervisor PASS, normal exit, verified identity, unchanged fixture and safe cleanup.
+
+These changes do not claim to fix the reported large-angle occlusion or to have completed a full 111-control native authoring/save run. T035 and the full-character performance gate remain open.

@@ -22,6 +22,7 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
     private volatile Thread worker;
     private final Properties report = new Properties();
     private JOptionPane lastPane;
+    private volatile ImportStackSampler sampler;
 
     @Override public void init(PluginContext value) { context = value; }
     @Override public void enable() {
@@ -29,7 +30,10 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
         worker.setDaemon(true);
         worker.start();
     }
-    @Override public void disable() { if (worker != null) worker.interrupt(); }
+    @Override public void disable() {
+        if (worker != null) worker.interrupt();
+        if (sampler != null) sampler.close();
+    }
 
     private void verify() {
         report.setProperty("schemaVersion", "1");
@@ -70,6 +74,10 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
             edt(() -> { appearance.setValue(appearance.getOptions()[0]); return null; });
             stage("choosing-source");
             approveFile(input, 30);
+            if (Boolean.getBoolean("turboism.character.sampleStacks")) {
+                sampler = new ImportStackSampler(state);
+                sampler.start();
+            }
             stage("preparing-source");
             var confirmation = awaitPane(Integer.getInteger("turboism.character.planningTimeoutSeconds", 180));
             if (edt(confirmation::getMessageType) == JOptionPane.ERROR_MESSAGE)
@@ -214,6 +222,7 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
             report.setProperty("failure", failure.toString());
             context.logger().error("Native character probe failed", failure);
         } finally {
+            if (sampler != null) sampler.close();
             try {
                 Path state = context.paths().stateDir();
                 Files.createDirectories(state);

@@ -96,19 +96,7 @@ final class NativeCharacterVisibility {
                     }
             }
         }
-        long[][] votes = new long[n][n];
-        for (int k = 0; k < s * s; k++) {
-            int best = -1;
-            float dep = Float.NEGATIVE_INFINITY;
-            for (int i = 0; i < n; i++)
-                if (z[i][k] > dep) {
-                    dep = z[i][k];
-                    best = i;
-                }
-            if (best < 0) continue;
-            for (int i = 0; i < n; i++)
-                if (i != best && Float.isFinite(z[i][k]) && z[i][k] < dep - 1e-6) votes[i][best]++;
-        }
+        long[][] votes = coverageVotes(z, s * s);
         var centers = SurfaceProjection.project(
                         partitions.stream()
                                 .map(NativeCharacterPlan.Partition::center)
@@ -174,6 +162,34 @@ final class NativeCharacterVisibility {
             if (!changed) break;
         }
         return sorted;
+    }
+
+    /** Row-contiguous passes preserve pixel voting and first-partition tie precedence. */
+    static long[][] coverageVotes(float[][] depth, int pixels) {
+        int n = depth.length;
+        int[] front = new int[pixels];
+        float[] nearest = new float[pixels];
+        Arrays.fill(front, -1);
+        Arrays.fill(nearest, Float.NEGATIVE_INFINITY);
+        for (int i = 0; i < n; i++) {
+            float[] row = depth[i];
+            for (int k = 0; k < pixels; k++) {
+                if (row[k] > nearest[k]) {
+                    nearest[k] = row[k];
+                    front[k] = i;
+                }
+            }
+        }
+        long[][] votes = new long[n][n];
+        for (int i = 0; i < n; i++) {
+            float[] row = depth[i];
+            long[] outgoing = votes[i];
+            for (int k = 0; k < pixels; k++) {
+                int best = front[k];
+                if (best >= 0 && i != best && Float.isFinite(row[k]) && row[k] < nearest[k] - 1e-6) outgoing[best]++;
+            }
+        }
+        return votes;
     }
 
     private static boolean covered(

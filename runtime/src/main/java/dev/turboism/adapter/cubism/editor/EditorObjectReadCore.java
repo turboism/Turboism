@@ -75,13 +75,17 @@ final class EditorObjectReadCore {
         final List<?> instances = list(
                 resolver.invoke("cubism.editor-model.model.all-art-meshes", model),
                 "Editor ArtMesh instance collection");
+        // Snapshot-local identity membership avoids a source scan per instance. Do not
+        // retain this index across native updates: source/instance bindings can change.
+        final java.util.IdentityHashMap<Object, Boolean> sourceIdentities = new java.util.IdentityHashMap<>();
+        for (Object objectSource : sources) sourceIdentities.put(objectSource, Boolean.TRUE);
         final java.util.IdentityHashMap<Object, Object> instancesBySource = new java.util.IdentityHashMap<>();
         for (Object instance : instances) {
             if (!resolver.isInstance("cubism.editor-model.art-mesh.class", instance)) {
                 throw unavailable("Editor ArtMesh instance type is invalid.");
             }
             final Object objectSource = resolver.invoke("cubism.editor-model.art-mesh.source", instance);
-            if (!containsIdentity(sources, objectSource)
+            if (!sourceIdentities.containsKey(objectSource)
                     || !resolver.isInstance("cubism.editor-model.art-mesh-source.class", objectSource)
                     || instancesBySource.put(objectSource, instance) != null) {
                 throw unavailable("Editor ArtMesh source/instance binding is invalid.");

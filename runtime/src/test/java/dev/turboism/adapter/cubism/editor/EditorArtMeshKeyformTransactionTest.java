@@ -54,6 +54,27 @@ class EditorArtMeshKeyformTransactionTest {
     }
 
     @Test
+    void bulkSourceWritesKeepInstancesCurrentButCoalescePaletteAndCanvasRefresh() {
+        onEdt(f -> {
+            var result = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("bulk source import"), () -> {
+                var before = f.mesh.authoringSnapshot();
+                f.mesh.setOrdinaryKeyformPositions(before, List.of(edit(f, -1, -1, A)));
+                assertEquals(A, f.target(-1, -1).snapshot().positions());
+                assertEquals(1, f.host.updates, "Native instances stay current for subsequent parent conversion");
+                assertEquals(0, f.host.repaints, "Do not rebuild UI for every source write");
+                f.mesh.setOrdinaryKeyformPositions(f.mesh.authoringSnapshot(), List.of(edit(f, -1, -1, B)));
+                assertEquals(B, f.target(-1, -1).snapshot().positions());
+                assertEquals(2, f.host.updates);
+                assertEquals(0, f.host.repaints);
+                return null;
+            });
+            assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
+            assertEquals(1, f.host.repaints);
+            assertEquals(1, f.host.dirtyMarks);
+        });
+    }
+
+    @Test
     void missingParentRecoveryCapabilityRejectsBeforeNativeMutation() {
         onEdt(f -> {
             final var mesh = f.access(resolver(false, true), f.coordinator)
@@ -1290,7 +1311,10 @@ class EditorArtMeshKeyformTransactionTest {
                 final EditorAuthoringTransactionCoordinator.Binding binding,
                 final Set<EditorRefreshRequirement> requirements) {
             edt();
-            assertEquals(Set.of(EditorRefreshRequirement.MARK_DIRTY), requirements);
+            assertTrue(requirements.contains(EditorRefreshRequirement.MARK_DIRTY));
+            if (requirements.contains(EditorRefreshRequirement.PART_PALETTE)) parts(true);
+            if (requirements.contains(EditorRefreshRequirement.DEFORMER_PALETTE)) deformers(true);
+            if (requirements.contains(EditorRefreshRequirement.CANVAS)) repaint(true);
             dirtyMarks++;
         }
 
