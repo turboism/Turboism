@@ -288,3 +288,119 @@ Independent reopen:
 - Supervisor PASS, normal exit, verified identity, unchanged fixture and safe cleanup.
 
 These changes do not claim to fix the reported large-angle occlusion or to have completed a full 111-control native authoring/save run. T035 and the full-character performance gate remain open.
+
+
+## Early source-control hierarchy and coalesced parent palettes (2026-10-16)
+
+The r9 diagnostic repeated the full 111-control input with the r8 production bundle. Job `bb75eed3-4647-49c4-b626-7c908ab79a1c`, run `queue-0f872455b6894846bfb52159c1907a61`, label `5304-controls-performance-r9`. Source preparation lasted 78.487 s (01:52:39.285Z to 01:53:57.772Z), versus 219.360 s in r6. This is preparation only, not total import latency. Sampling then captured 573 runnable observations through cooperative ArtMesh reparenting, including 463 through UI refresh and 400 with the native deformer palette at the leaf. Counts are wall-clock observations, not CPU percentages. The diagnostic was explicitly cancelled after collecting this signal; supervisor cleanup is safe. It did not complete import/save and is not acceptance.
+
+The candidate now creates source-control opacity/local Warp parents while every mesh still has one ordinary form, then writes all 25 rotation forms in the resulting local coordinates. The original post-rotation source callback remains available; the production importer uses a separate early hierarchy callback and explicit affine rotation localizer. Neutral native conversion, source topology, source-control memberships, and all 24 non-neutral rotation projections remain checked. Empty ordinary-form edits are avoided for one-form meshes. Regression `sourceGeometryAndMultipleOpacityFactorsReacquireRebuiltWarpParents` failed before the change because controls were authored after 25-form expansion, then passed with early conversion and full coordinate checks.
+
+A second measured hotspot was cooperative ArtMesh parent writes refreshing all palettes after every conversion. Forward writes still update native instances immediately; Part/Deformer palettes and canvas refresh now coalesce at root commit. Undo listeners and compensation retain immediate complete refresh. Regression `parentConversionsKeepInstancesCurrentAndRefreshPanelsOnlyAtCommit` failed before the change (unexpected intermediate repaint), then passed with fresh instances during two parent changes and one final repaint. Related Runtime tests: 485, no failures/errors/skips. Plugin suite: 272 tests, zero failures/errors, 34 explicit external-fixture skips. `devCheck previewBundle :plugins:model-import-3d:jar` passed (154 tasks, 2m47s). Logs: `/tmp/native-parent-panels-red.log`, `/tmp/native-parent-panels-green.log`, `/tmp/native-early-parent-suite.log`, `/tmp/native-early-parent-finalcheck.log`.
+
+Early-hierarchy-only bundle `build/manual-test/native-early-parents-r10`: first small run `6487cc42-dec7-4d5c-9316-b5c53db9ed5e` failed waiting for an active document, while Cubism displayed License Activation; no import was attempted. Cleanup is safe. Explicit retry `4fec681f-c4d3-46f5-9850-a091bfb00862`, run `queue-f72c14e2e2e34deeb40abf569ea8a776`, label `5304-early-parents-r11-small`, passed history, rollback, rotation, combined two-shape/two-opacity controls, atlas, filename parameter grouping and official save. Saved model: 29,662 bytes, SHA-256 `f98d2e215ddb8f4d71164356197fd0f5ba709f9ec54474c54a1eef0bb8afb867`. Independent reopen `3b45e4a0-86aa-48f9-8563-baba77a29c28`, run `queue-1f4a3af73a3748bea92817348e75ff33`, passed. Both successful jobs have verified identity, unchanged fixture, normal exit and safe supervisor cleanup. These small-model timings do not prove full-character performance.
+
+### Occlusion candidates rejected during this iteration
+
+The retained `performance/NativeOcclusionDiagnostic.java` reproduces the prior baseline exactly at all six yaw poses. It measures projected source-geometry depth, not native final blended pixels. Raw baseline: `/tmp/native-occlusion-current-report.txt`.
+
+| Geometry/order experiment | 0° wrong samples | -30° | +30° | -90° | +90° | 180° |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Existing production | 978 | 2340 | 2026 | 5709 | 5849 | 14892 |
+| Normal-axis split for thin clusters | 799 | 2168 | 2322 | 5865 | 5919 | 11967 |
+| Split each spatial cluster by normal Z sign | 1238 | 3393 | 3388 | 5032 | 5011 | 6959 |
+| Existing partitions with last-painted depth votes | 978 | 2099 | 1872 | 5730 | 5861 | 14924 |
+| Spatial/normal split with last-painted votes | 1237 | 3190 | 3502 | 5059 | 5101 | 7070 |
+| Spatial/normal split with depth-gap weighted votes | 2180 | 3335 | 3322 | 5103 | 5247 | 6803 |
+
+None passed the no-regression comparison across front/side/back. They remain isolated under `/tmp/native-*-experiment` and were not applied to production. The source triangles are unchanged in production; no forced culling or hidden surface deletion was shipped. T035 remains open. At ±30°, fresh exact-pose partition ordering reduces the baseline to 1172/1162 samples, exposing an additional stored-rank interpolation limitation. The remaining internal-triangle errors require independently orderable geometry; increasing rank interpolation alone cannot fix them.
+
+
+The r12 combined intermediate candidate passed the two-part small fixture again: job `c6dfda43-f618-44a3-a619-7bc7b16ca0e3`, run `queue-b9e7ab956dca4ff09a3fab67a7d6eb11`. Full character job `ff9cd81e-c325-47a0-a272-7b32fa5947af`, run `queue-eee49bedcf7a43cd8cba8819eab9cb94`, label `5304-early-parents-panels-r12-character`, failed the 1200-second result deadline; supervisor cleanup is safe. Preparation: 79.636 s. Initial geometry/anatomical hierarchy: 88.266 s. Source controls: 480.036 s for all 796 patches (448 patches at 187.054 s versus r6 632.519 s). It then stayed in rotation keyforms until timeout: no full import/save acceptance. Moving all source morph materialization before rotation banks transferred repeated setup cost into the rotation-binding phase; the stage speedup is not an end-to-end speedup.
+
+The follow-up separates source-control hierarchy preparation from morph materialization: all native parents first, then ordinary rotation banks, then atlas and source morph forms, then caches. Source opacity defaults are set during hierarchy preparation; opacity morph keys are deferred with positional keys. All morph targets are reacquired by stable Warp ID after hierarchy/atlas operations. Compatibility `apply` still prepares and finishes in one call. Regression `rotationBindingsAfterSourceMorphs` was nonzero before this scheduling change (2 in the small source-control case); it must be zero while preserving final morph memberships, all control values and all rotation positions. Logs: `/tmp/native-staged-morphs-red.log`, `/tmp/native-staged-morphs-green.log`. Final full-character timing remains unaccepted until a new exact-host run completes.
+
+
+### Staged-morph final candidate r13
+
+Final production plugin SHA-256: `48ea798e5b21bb48f58794720cb2250471ac44903935981e376e312a7313b24d`, bundle `build/manual-test/native-staged-morphs-r13`. Final `devCheck previewBundle :plugins:model-import-3d:jar`: PASS, 154 tasks, 1m11s. Plugin tests remain 272 with 34 explicit fixture skips; no failures/errors. Runtime code is unchanged from the 485 passing related tests above.
+
+Small combination fixture job `e45e0450-d9f6-4c31-a9ee-092650f78a99`, run `queue-4e739cf0dfd5411a87c3b9bacc2fd65b`: supervisor PASS, verified identity, unchanged fixture, normal exit, safe cleanup. History, rollback, ±30° combinations, opacity ratios, exact zero restore, parameter folder and official save passed. Saved small CMO3: 29,693 bytes, SHA-256 `507584aca1faddbe4a696678c8884ee6fa5cf06f326d2f8725464952f0b1889d`. Independent fresh-process reopen is tracked separately below.
+
+Full 111-control character job `09e60cb7-2fac-4c05-84eb-4ee3fa3353d6`, run `queue-5e331667e01b4acc912cf91168f1acc3`, label `5304-staged-morphs-r13-character`: supervisor PASS, verified identity, unchanged fixture, normal exit, safe cleanup. **This job's scope is import structure only.** It ran with `manualInspection=true`, so the probe bypassed history, pose, save and reopen checks; it did not produce a full-character CMO3 or establish visual acceptance. The task-owned host closed after the probe. Actual: 940 ArtMeshes, 236,437 triangles, 114 added parameters (111 source controls + XYZ), one filename-derived group containing the imported parameters, all texture-atlas bindings present. Source preparation to structural-ready: **1096.836 s (18m16.836s)**. This is still unacceptable load latency; T036 remains open.
+
+| Full-character stage | Measured seconds |
+| --- | ---: |
+| Source preparation | 76.663 |
+| Initial geometry/anatomical hierarchy | 89.714 |
+| Local source-control hierarchy | 320.165 |
+| Ordinary rotation bindings and keyforms | 438.629 |
+| Atlas | 9.756 |
+| Morph materialization and readback | 110.648 |
+| Interpolation/cache setup and root commit until structure verification | 46.938 |
+
+Raw logs: `/tmp/native-r13-character-host.log`, task-local `turboism.log`, `progress.properties`, `result.properties`, `import-stacks.txt`, `/tmp/native-r13-character-terminal.json`. The sampler still identifies synchronous whole-model instance refreshes and native object lookup during parent/binding/bank writes. Further deferral requires an explicit evaluation barrier or batch contract: preserve current instances before native parent conversion, evaluated reads and atlas work, and preserve recovery/Undo semantics. It is not safe to simply delete instance updates.
+
+Original GLB, original Blend and the full-controls generated fixture were independently SHA-256 checked again after the run and exactly match their recorded source hashes. No original asset was modified. No forced culling, triangle deletion or failed normal-partition experiment was shipped. T035 remains open. A further untested seam hypothesis is that different interpolation densities on adjacent partitions can disagree at intermediate poses; it requires an exact-host shared-vertex evaluation regression before any sampling policy change, and must retain cache preflight.
+
+
+The r13 small-model independent reopen completed: job `478c6447-a5fc-4b57-bf11-1448dd12c801`, run `queue-ea240ae3edaf41efbc1f260218034b7c`, supervisor PASS with verified identity, unchanged fixture, normal exit and safe cleanup. The shared host is idle. This is small-fixture persistence evidence only.
+
+
+### Explicit source-evaluation barrier and shared-lattice follow-up
+
+`AuthoringTransactionService.batchStoredSourceWrites` is opt-in and synchronous. Only verified parameter-binding writes and ordinary ArtMesh keyform batches defer instance evaluation inside it; each write still admits native Undo and verifies stored-source readback. The rotation-bank phase uses one batch, and its barrier precedes placement, atlas operations and evaluated reads. Ordinary calls, native reparenting, compensation and Undo listeners retain immediate evaluation. Exceptions cross the barrier before propagation; a failed evaluation is retained as a suppressed failure rather than replacing the callback failure. The unavailable backend never runs the callback. The Facade and dynamic-host wrappers explicitly forward this method with the existing permission, lifecycle, plugin-identity and active-lease checks. A new facade regression failed before that forwarding fix (`/tmp/native-batch-forwarding-red.log`).
+
+Deformer snapshot membership now uses a snapshot-local identity map, matching the earlier ArtMesh optimization, instead of rescanning every source for every instance. Fresh reads still reject duplicate instances, replaced sources and removed objects, and accept rebuilt instances. No identity index survives a native update.
+
+The r15 two-part/four-control fixture passed: job `5743449f-856e-4580-bba7-2f633fa1d918`, run `queue-d1f64e643d894b66aab50b742081bd16`, supervisor PASS, verified identity, unchanged fixture, normal exit and safe cleanup. **This predates the wrapper-forwarding fix, so it establishes compatibility, not actual native batch activation or full-character speed.** Intermediate character job `a09db8af-3948-4e84-9c13-3cd877ffba90` was cancelled through the shared queue when the seam fix became available; supervisor cleanup is safe. It is not import acceptance or a usable timing result.
+
+The public shared-seam fixture reproduced a real native-calculated-geometry defect: baseline job `0f2f428c-6c07-48f2-a8f9-3b8ea084f0e2`, run `queue-58e0b99e1fb6461790e3aa945c570315`, produced a maximum shared-vertex gap of **2.96954345703125 Canvas pixels** across the specified yaw/pitch poses. The test correctly failed; supervisor cleanup was safe. Earlier fixture attempts lacked required attributes or selected the small-object path and did not reach this measurement; they are not evidence for the seam.
+
+The uniform visible interpolation policy uses the existing ELLIPSE/3 configuration on every visible partition, retaining per-mesh/global cache budgets and the actual error bound. Hidden source topology remains intact. Planning regression failed with inserts 1 versus 3 before the fix and passes afterward, including the explicit original GLB fixture. Final keyform/triangle counts are unchanged.
+
+The r17 native seam measurement returned **maximum gap 0.0 Canvas pixels** at every tested yaw/pitch pose, with the expected single shared pair. Its overall probe failed the later import Undo check because the first probe version sampled parameters before testing the import Undo entry. Parameter changes create their own history entries; the probe now performs seam sampling after the existing import Undo/Redo and rotation checks. This r17 run is seam evidence only, not a passing full validation job. The final r18 bundle includes this probe correction and the actual batch forwarding; final results are tracked below.
+
+
+The r18 native batch was actually reached and correctly rolled back on a new guard failure: the public root belongs to the plugin, whereas native writer contributions use `runtime.editor-model`. Source-evaluation participation now uses the same `Binding.sameScope` document/model/generation/thread comparison as the coordinator's existing `apply`; public batch admission still checks the owning plugin binding. Regression includes an internal writer in the same root and rejects a foreign document. r18 failed jobs (`caece8a5-c795-4689-87c7-e4ceb552a2cd`, `30ee4eee-ea98-448f-8b6c-27a83af20174`) are not acceptance. The r19 candidate includes this fix; affected Runtime tests and packaging passed (`/tmp/native-seam-batch-r19-check.log`).
+
+Latest full plugin suite: 273 tests, 0 failures/errors, 34 explicit external-fixture skips. SDK suite: 440 tests, 0 failures/errors, 1 skip. The r18 full `devCheck previewBundle :plugins:model-import-3d:jar` passed (154 tasks, 2m55s), followed by format/package verification. Source-only-batch tests exercise rollback and failure barriers; facade/dynamic tests exercise forwarding and fail-closed permissions/lifecycle. r19 changes only the scope comparison noted above and its regression plus explanatory comments.
+
+
+### r19 final native acceptance and measured remaining work
+
+Bundle: `build/manual-test/native-seam-batch-r19`. The actual batch path (including both forwarding wrappers and internal writer scope admission) passed:
+
+- Shared seam: job `ca3f4feb-d6d7-4316-a03c-cc4d5fcab71f`, run `queue-c8379552e6894ff3936b8f8a1de47254`: **maximum gap 0.0 Canvas pixels** over all 18 yaw/pitch samples. Import Undo/Redo, rotations, opacity, exact source-bank retention and official save also passed.
+- Two parts / four controls: job `cc18944a-92e9-4baf-97e4-52fcd32565c2`, run `queue-0ca93de889634eea92431bd789d2f6a7`: combined ±30-degree shape/opacity checks, rollback, zero restore, filename folder and save passed. Saved CMO3: 29,661 bytes, SHA-256 `441ea02cb5a29f4a9139096df5ed44397e6358a06b6ed05e8e1bdf0faf04e69f`.
+- Independent fresh-process reopen of that CMO3: job `dad6c5e0-7aec-4b56-aa33-c39fceb55c31`, run `queue-17c31b5be5dc4df090eef3379bfb8dd0`: PASS, including persisted banks/morphs and combinations.
+
+Each of those jobs has supervisor PASS, verified identity, unchanged fixture, normal exit and safe cleanup. The shared host was confirmed idle after all jobs.
+
+Full 111-control character: job `565b9a2a-775b-4f34-933b-fe07ac7cddfc`, run `queue-3505322736b64bba8bef8b563580aa32`, label `5304-seam-batch-r19-character`, supervisor PASS with verified identity, unchanged fixture, normal exit and safe cleanup. **Scope remains import structure only**, using the same `manualInspection=true` path, fixture, 8 GiB heap and stack sampler as r13; no builds or other host workloads ran alongside this timed import. This does not establish full-character appearance, history, save/reopen or rotation acceptance, and no new complete-character CMO3 was saved. Its host has closed. Counts remain **940 ArtMeshes, 236,437 triangles, 114 parameters (111 source controls plus XYZ)**, one filename-derived folder and all atlas bindings present.
+
+Preparation-to-structure-ready: **814.013 seconds (13m34.013s)**, versus r13 **1096.836 seconds (18m16.836s)**: 282.823 seconds / 25.785% less time. This is one same-protocol comparison, not a multi-run statistical benchmark. **Load latency is still unacceptable; T036 stays open.**
+
+| Full-character stage | r13 seconds | r19 seconds |
+| --- | ---: | ---: |
+| Source preparation | 76.663 | 79.284 |
+| Initial geometry/anatomical hierarchy | 89.714 | 89.973 |
+| Local source-control hierarchy | 320.165 | 309.413 |
+| Ordinary rotation bindings/keyforms and evaluation barrier | 438.629 | 94.609 |
+| Atlas | 9.756 | 9.369 |
+| Morph materialization/readback | 110.648 | 89.522 |
+| Interpolation/cache, root commit and structure verification | 46.938 | 141.843 |
+
+The rotation phase is about 4.64 times faster. The uniform visible lattice fixes the proven seam but increases cache work; its extra cost is included in the measured end-to-end result. No controls, source triangles or interpolation precision were removed to obtain the speedup. All existing authored-coordinate and cache-budget preflights remain enabled.
+
+The next structural performance target is parent creation: construct anatomical/opacity/local Warp parents before materializing the character's ArtMeshes, then perform one native conversion to each final parent, rather than evaluating the entire populated model while creating every local Warp. This is **not implemented** and requires the same source-UV, all-forms, Undo/rollback and native coordinate-conversion checks. Cache construction/readback is the other measured remaining cost.
+
+T035 remains open: the shared-lattice fix resolves a measured interpolation seam, but fixed triangle traversal within an ArtMesh and interpolated partition ranks still cause front/back depth-order errors. The six-pose depth diagnostic has not become final native RGBA acceptance; no rejected partition experiment or forced culling was shipped. Original GLB, Blend and full-control input hashes were independently checked again and match the earlier provenance exactly. Raw final logs: `/tmp/native-shared-seam-r19-green-host.log`, `/tmp/native-seam-batch-r19-small-host.log`, `/tmp/native-seam-batch-r19-character-host.log`, `/tmp/native-seam-batch-r19-reopen-host.log`, plus each task's retained evidence.
+
+Final r19 artifact SHA-256 values:
+
+- `model-import-3d.jar`: `a41b53cfbfba58d1a334e09db1787a186377a8486a027c8398bcd7b4ac91ddbc`
+- `native-character-host-probe.jar`: `24fc931dd7a94d13ee9c15d038e3f92b42bebf32ae248aabc21bd859724d984e`
+- `turboism-agent.jar`: `e35a8d89fa1ce559f6d68458bdcfdd451363de3cff56e43ee24bfa2b52f5fad8`
+
+Final r19 full `devCheck` passed under Xvfb: **BUILD SUCCESSFUL in 2m59s**, 143 actionable tasks (19 executed, 124 up-to-date). Log: `/tmp/native-seam-batch-r19-finalcheck.log`. `git diff --check` also passed. These checks supplement the native evidence above; T035 and T036 remain open.

@@ -173,6 +173,7 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
             await(() -> edt(() -> imported.stream().filter(id -> model().drawables().find(id).visible()).map(id -> model().drawables().find(id).evaluationSnapshot())
                     .allMatch(e -> e.calculatedForm().isPresent() && e.liveParameters().parameters().equals(e.consumedParameters().parameters()))),
                     30, "neutral pose consumption before opacity");
+            if (Boolean.getBoolean("turboism.character.sharedSeam")) verifySharedSeam(imported);
             if(Boolean.getBoolean("turboism.character.sourceControls")) verifySourceControls();
             stage("native-opacity");
             var visibleMesh = edt(() -> imported.stream().map(id -> model().drawables().find(id))
@@ -237,6 +238,54 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
                 }
             } catch (Exception failure) { context.logger().error("Native probe result failed", failure); }
         }
+    }
+
+    private void verifySharedSeam(Set<ArtMeshId> imported) throws Exception {
+        record Vertex(ArtMeshId mesh, int slot, float x, float y) {}
+        record Pair(Vertex a, Vertex b) {}
+        await(() -> edt(() -> imported.stream().map(id -> model().drawables().find(id).evaluationSnapshot())
+                .allMatch(e -> e.calculatedForm().isPresent() && e.liveParameters().parameters().equals(e.consumedParameters().parameters()))),30,"neutral shared seam consumption");
+        report.setProperty("seam.units", "native calculated-form coordinates; see coordinateType for each mesh");
+        var vertices = edt(() -> {
+            var result = new ArrayList<Vertex>();
+            for (var id : imported) {
+                var evaluated = model().drawables().find(id).evaluationSnapshot().calculatedForm().orElseThrow();
+                report.setProperty("seam.coordinateType."+id.value(), evaluated.coordinateType());
+                var xy = evaluated.positions();
+                for (int slot = 0; slot < xy.size(); slot++) result.add(new Vertex(id, slot, xy.get(slot).x(), xy.get(slot).y()));
+            }
+            return result;
+        });
+        var pairs = new ArrayList<Pair>();
+        for(int i=0;i<vertices.size();i++) for(int j=i+1;j<vertices.size();j++) {
+            var a=vertices.get(i); var b=vertices.get(j);
+            if (!a.mesh().equals(b.mesh()) && Math.hypot(a.x()-b.x(),a.y()-b.y()) < 0.001) pairs.add(new Pair(a,b));
+        }
+        check("seam.sharedPairs", 1, pairs.size());
+        var axes = edt(() -> model().parameters().all().stream().filter(p -> rotationParameter(p,"Yaw") || rotationParameter(p,"Pitch")).toList());
+        double maximum=0;
+        for (var axis : axes) {
+            for(float angle : new float[]{-67.5f,-45,-30,-15,5,15,30,45,67.5f}) {
+                edt(()->{axis.setValue(angle);return null;});
+                await(() -> edt(() -> imported.stream().map(id -> model().drawables().find(id).evaluationSnapshot())
+                    .allMatch(e -> e.calculatedForm().isPresent() && e.liveParameters().parameters().equals(e.consumedParameters().parameters()))),30,"shared seam parameter consumption");
+                double gap=edt(()->{
+                    double max=0;
+                    for(var pair:pairs) {
+                        var a=model().drawables().find(pair.a().mesh()).evaluationSnapshot().calculatedForm().orElseThrow().positions().get(pair.a().slot());
+                        var b=model().drawables().find(pair.b().mesh()).evaluationSnapshot().calculatedForm().orElseThrow().positions().get(pair.b().slot());
+                        max=Math.max(max,Math.hypot(a.x()-b.x(),a.y()-b.y()));
+                    }
+                    return max;
+                });
+                maximum=Math.max(maximum,gap);
+                report.setProperty("seam."+axis.id().value()+"."+angle, ""+gap);
+            }
+            edt(()->{axis.setValue(0);return null;});
+        }
+        report.setProperty("seam.maximumGap", ""+maximum);
+        report.setProperty("seam.tolerance", "0.001");
+        check("seam.withinTolerance", true, maximum <= 0.001);
     }
 
     private void capture(Path path) throws Exception {

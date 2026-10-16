@@ -109,6 +109,58 @@ public final class NativeCharacterAuthoring {
             java.util.function.IntFunction<String> bodyParts,
             java.util.function.Consumer<Created> sourceWrites,
             Optional<ParameterGroupId> parameterGroup) {
+        return assemble(
+                model,
+                plan,
+                binder,
+                imageDimensions,
+                appearanceGroups,
+                bodyParts,
+                sourceWrites,
+                parameterGroup,
+                created -> {},
+                (partition, points) -> points);
+    }
+
+    static Created assemble(
+            CubismModel model,
+            NativeCharacterPlan.Plan plan,
+            MeshMaterialBinder binder,
+            ImageDimensionProvider imageDimensions,
+            java.util.function.IntFunction<String> appearanceGroups,
+            java.util.function.IntFunction<String> bodyParts,
+            java.util.function.Consumer<Created> sourceWrites,
+            Optional<ParameterGroupId> parameterGroup,
+            java.util.function.Consumer<Created> beforeRotation,
+            java.util.function.BiFunction<Integer, List<Point2>, List<Point2>> rotationLocalizer) {
+        return assemble(
+                model,
+                plan,
+                binder,
+                imageDimensions,
+                appearanceGroups,
+                bodyParts,
+                sourceWrites,
+                parameterGroup,
+                beforeRotation,
+                rotationLocalizer,
+                Runnable::run);
+    }
+
+    static Created assemble(
+            CubismModel model,
+            NativeCharacterPlan.Plan plan,
+            MeshMaterialBinder binder,
+            ImageDimensionProvider imageDimensions,
+            java.util.function.IntFunction<String> appearanceGroups,
+            java.util.function.IntFunction<String> bodyParts,
+            java.util.function.Consumer<Created> sourceWrites,
+            Optional<ParameterGroupId> parameterGroup,
+            java.util.function.Consumer<Created> beforeRotation,
+            java.util.function.BiFunction<Integer, List<Point2>, List<Point2>> rotationLocalizer,
+            java.util.function.Consumer<Runnable> sourceBatch) {
+        Objects.requireNonNull(beforeRotation, "beforeRotation");
+        Objects.requireNonNull(rotationLocalizer, "rotationLocalizer");
         Objects.requireNonNull(sourceWrites, "sourceWrites");
         Objects.requireNonNull(bodyParts, "bodyParts");
         Objects.requireNonNull(appearanceGroups, "appearanceGroups");
@@ -276,107 +328,120 @@ public final class NativeCharacterAuthoring {
             mesh.setTargetDeformer(Optional.of(opacityParent.id()));
         }
 
+        DeformerId rollId = rollDeformer != null ? rollDeformer.id() : null;
+        var created = new Created(rootPart.id(), rollId, meshIds, meshToSourceIndex);
+        // Complete local source-control parents with one form per mesh, before native
+        // reparenting would otherwise convert all 25 rotation forms repeatedly.
+        beforeRotation.accept(created);
+
         // 7. Expand the completed hierarchy into the 5x5 rotation banks.
+        final boolean hasRoll = rollDeformer != null;
         var banks = new ArrayList<ArtMeshAuthoringSnapshot>();
-        for (int pIdx = 0; pIdx < meshIds.size(); pIdx++) {
-            var mesh = model.drawables().find(meshIds.get(pIdx));
-            var partition = plan.partitions().get(pIdx);
-            if (!partition.visible()) {
-                banks.add(mesh.authoringSnapshot());
-                continue;
-            }
-            String group = Objects.requireNonNull(appearanceGroups.apply(partition.sourceMeshIndex()));
-            String bodyPart = Objects.requireNonNull(bodyParts.apply(partition.sourceMeshIndex()));
-            Frame frame = bodyFrames.get(bodyPart.isBlank() ? group : bodyPart);
-
-            for (var axis : List.of(request.yaw(), request.pitch())) {
-                var points = new ArrayList<ParameterBindingPoint>();
-                for (int k = 0; k < NativeCharacterPlan.KEYS.size(); k++) {
-                    points.add(new ParameterBindingPoint(
-                            new ParameterBindingPointId("CHAR_" + pIdx + "_" + axis.value() + "_" + k),
-                            NativeCharacterPlan.KEYS.get(k)));
+        // This whole phase touches stored banks only. One barrier precedes placement,
+        // atlas work and every later evaluated-instance read.
+        sourceBatch.accept(() -> {
+            for (int pIdx = 0; pIdx < meshIds.size(); pIdx++) {
+                var mesh = model.drawables().find(meshIds.get(pIdx));
+                var partition = plan.partitions().get(pIdx);
+                if (!partition.visible()) {
+                    banks.add(mesh.authoringSnapshot());
+                    continue;
                 }
-                model.parameterBindings(axis).bind(ParameterBindingTarget.artMesh(mesh.id()), points);
-            }
+                String group = Objects.requireNonNull(appearanceGroups.apply(partition.sourceMeshIndex()));
+                String bodyPart = Objects.requireNonNull(bodyParts.apply(partition.sourceMeshIndex()));
+                Frame frame = bodyFrames.get(bodyPart.isBlank() ? group : bodyPart);
 
-            var bound = mesh.authoringSnapshot();
-            if (bound.forms().size() != 25
-                    || bound.cells().size() != 25
-                    || bound.axes().size() != 2) {
-                throw new IllegalStateException("ArtMesh 25-form grid required, found forms="
-                        + bound.forms().size());
-            }
+                final int partitionIndex = pIdx;
+                for (var axis : List.of(request.yaw(), request.pitch())) {
+                    var points = new ArrayList<ParameterBindingPoint>();
+                    for (int k = 0; k < NativeCharacterPlan.KEYS.size(); k++) {
+                        points.add(new ParameterBindingPoint(
+                                new ParameterBindingPointId("CHAR_" + partitionIndex + "_" + axis.value() + "_" + k),
+                                NativeCharacterPlan.KEYS.get(k)));
+                    }
+                    model.parameterBindings(axis).bind(ParameterBindingTarget.artMesh(mesh.id()), points);
+                }
 
-            var yawAxis = bound.axes().stream()
-                    .filter(a -> a.parameterId().equals(request.yaw()))
-                    .findFirst()
-                    .orElseThrow();
-            var pitchAxis = bound.axes().stream()
-                    .filter(a -> a.parameterId().equals(request.pitch()))
-                    .findFirst()
-                    .orElseThrow();
+                var bound = mesh.authoringSnapshot();
+                if (bound.forms().size() != 25
+                        || bound.cells().size() != 25
+                        || bound.axes().size() != 2) {
+                    throw new IllegalStateException("ArtMesh 25-form grid required, found forms="
+                            + bound.forms().size());
+                }
 
-            var posEdits = new ArrayList<ArtMeshKeyformPositions>();
-            var orderEdits = new ArrayList<ArtMeshKeyformDrawOrder>();
-            var desiredPos = new HashMap<String, List<Point2>>();
-            var desiredOrders = new HashMap<String, Integer>();
-
-            for (var cell : bound.cells()) {
-                float y = cell.coordinates().stream()
-                        .filter(c -> c.parameterGuid().equals(yawAxis.parameterGuid()))
+                var yawAxis = bound.axes().stream()
+                        .filter(a -> a.parameterId().equals(request.yaw()))
                         .findFirst()
-                        .orElseThrow()
-                        .value();
-                float x = cell.coordinates().stream()
-                        .filter(c -> c.parameterGuid().equals(pitchAxis.parameterGuid()))
+                        .orElseThrow();
+                var pitchAxis = bound.axes().stream()
+                        .filter(a -> a.parameterId().equals(request.pitch()))
                         .findFirst()
-                        .orElseThrow()
-                        .value();
+                        .orElseThrow();
 
-                int keyIdx = NativeCharacterPlan.KEYS.indexOf(y) * NativeCharacterPlan.KEYS.size()
-                        + NativeCharacterPlan.KEYS.indexOf(x);
-                int order = plan.orders().get(keyIdx).get(pIdx);
+                var posEdits = new ArrayList<ArtMeshKeyformPositions>();
+                var orderEdits = new ArrayList<ArtMeshKeyformDrawOrder>();
+                var desiredPos = new HashMap<String, List<Point2>>();
+                var desiredOrders = new HashMap<String, Integer>();
 
-                List<Point2> positions;
-                if (y != 0 || x != 0) {
-                    var sample =
-                            SurfaceProjection.project(partition.positions(), camera, new SurfaceProjection.Pose(y, x));
-                    positions = frame.normalize(
-                            rollDeformer != null ? local(sample.positions(), ox, oy) : sample.positions());
-                    posEdits.add(new ArtMeshKeyformPositions(cell.coordinates(), cell.formGuid(), positions));
-                    orderEdits.add(new ArtMeshKeyformDrawOrder(cell.coordinates(), cell.formGuid(), order));
-                } else {
-                    positions = bound.forms().stream()
-                            .filter(f -> f.formGuid().equals(cell.formGuid()))
+                for (var cell : bound.cells()) {
+                    float y = cell.coordinates().stream()
+                            .filter(c -> c.parameterGuid().equals(yawAxis.parameterGuid()))
                             .findFirst()
                             .orElseThrow()
-                            .positions();
+                            .value();
+                    float x = cell.coordinates().stream()
+                            .filter(c -> c.parameterGuid().equals(pitchAxis.parameterGuid()))
+                            .findFirst()
+                            .orElseThrow()
+                            .value();
+
+                    int keyIdx = NativeCharacterPlan.KEYS.indexOf(y) * NativeCharacterPlan.KEYS.size()
+                            + NativeCharacterPlan.KEYS.indexOf(x);
+                    int order = plan.orders().get(keyIdx).get(partitionIndex);
+
+                    List<Point2> positions;
+                    if (y != 0 || x != 0) {
+                        var sample = SurfaceProjection.project(
+                                partition.positions(), camera, new SurfaceProjection.Pose(y, x));
+                        positions = frame.normalize(hasRoll ? local(sample.positions(), ox, oy) : sample.positions());
+                        positions = rotationLocalizer.apply(partitionIndex, positions);
+                        posEdits.add(new ArtMeshKeyformPositions(cell.coordinates(), cell.formGuid(), positions));
+                        orderEdits.add(new ArtMeshKeyformDrawOrder(cell.coordinates(), cell.formGuid(), order));
+                    } else {
+                        positions = bound.forms().stream()
+                                .filter(f -> f.formGuid().equals(cell.formGuid()))
+                                .findFirst()
+                                .orElseThrow()
+                                .positions();
+                    }
+                    desiredPos.put(cell.formGuid(), positions);
+                    desiredOrders.put(cell.formGuid(), order);
                 }
-                desiredPos.put(cell.formGuid(), positions);
-                desiredOrders.put(cell.formGuid(), order);
+
+                mesh.setOrdinaryKeyformPositions(bound, posEdits);
+                var positioned = mesh.authoringSnapshot();
+                mesh.setOrdinaryKeyformDrawOrders(positioned, orderEdits);
+
+                var expected = new ArtMeshAuthoringSnapshot(
+                        bound.artMeshId(),
+                        bound.sourceGuid(),
+                        bound.sourceGeometry(),
+                        bound.axes(),
+                        bound.cells(),
+                        bound.forms().stream()
+                                .map(f -> new ArtMeshAuthoringSnapshot.Form(
+                                        f.formGuid(), desiredPos.get(f.formGuid()), desiredOrders.get(f.formGuid())))
+                                .toList(),
+                        bound.morphKeys());
+
+                if (!expected.equals(mesh.authoringSnapshot())) {
+                    throw new IllegalStateException(
+                            "ArtMesh keyform readback mismatch for partition " + partitionIndex);
+                }
+                banks.add(expected);
             }
-
-            mesh.setOrdinaryKeyformPositions(bound, posEdits);
-            var positioned = mesh.authoringSnapshot();
-            mesh.setOrdinaryKeyformDrawOrders(positioned, orderEdits);
-
-            var expected = new ArtMeshAuthoringSnapshot(
-                    bound.artMeshId(),
-                    bound.sourceGuid(),
-                    bound.sourceGeometry(),
-                    bound.axes(),
-                    bound.cells(),
-                    bound.forms().stream()
-                            .map(f -> new ArtMeshAuthoringSnapshot.Form(
-                                    f.formGuid(), desiredPos.get(f.formGuid()), desiredOrders.get(f.formGuid())))
-                            .toList(),
-                    bound.morphKeys());
-
-            if (!expected.equals(mesh.authoringSnapshot())) {
-                throw new IllegalStateException("ArtMesh keyform readback mismatch for partition " + pIdx);
-            }
-            banks.add(expected);
-        }
+        });
 
         // 8. Outer placement wrapper
         if (rollDeformer != null) {
@@ -391,8 +456,6 @@ public final class NativeCharacterAuthoring {
             }
         }
 
-        DeformerId rollId = rollDeformer != null ? rollDeformer.id() : null;
-        var created = new Created(rootPart.id(), rollId, meshIds, meshToSourceIndex);
         // Atlas and local Warp writes can rebuild the entire model. Initialize caches
         // only after those writes, so they do not repeatedly rebuild earlier caches.
         sourceWrites.accept(created);

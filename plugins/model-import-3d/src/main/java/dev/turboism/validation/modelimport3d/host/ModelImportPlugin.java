@@ -616,7 +616,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                 target,
                                 finalPrepared.character(),
                                 atlasPlan,
-                                stage -> context.logger().info("Native import stage: " + stage));
+                                stage -> context.logger().info("Native import stage: " + stage),
+                                transactions::batchStoredSourceWrites);
                         requireTarget(token, documentId, target);
                         return null;
                     }

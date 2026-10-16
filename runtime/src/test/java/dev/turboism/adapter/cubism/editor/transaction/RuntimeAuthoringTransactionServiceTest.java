@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.editor.transaction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.cubism.history.HistoryEntry;
@@ -109,6 +110,42 @@ final class RuntimeAuthoringTransactionServiceTest {
         assertEquals(1, host.abortCount);
         assertEquals(0, host.commitCount);
         assertTrue(host.history().entries().isEmpty(), "rollback commits no Undo entry");
+    }
+
+    @Test
+    void sourceBatchFlushesOnCallbackFailureAndRejectsNestedAndUnscopedUse() {
+        final var coordinator = new EditorAuthoringTransactionCoordinator(new ReadOnlyHost());
+        final var service =
+                new RuntimeAuthoringTransactionService(coordinator, () -> Optional.of(bindingOnCurrentThread()));
+        final var evaluations = new AtomicInteger();
+        final var source = new Object();
+        final var result = service.execute(AuthoringTransactionOptions.of("Source barrier"), () -> {
+            service.batchStoredSourceWrites(() -> {
+                assertThrows(IllegalStateException.class, () -> service.batchStoredSourceWrites(() -> {}));
+                var writerBinding = new EditorAuthoringTransactionCoordinator.Binding(
+                        "runtime.editor-model", "document-1", 1, "model-1", 1, Thread.currentThread());
+                coordinator.evaluateStoredSource(writerBinding, source, evaluations::incrementAndGet);
+                coordinator.evaluateStoredSource(bindingOnCurrentThread(), source, evaluations::incrementAndGet);
+                var foreignBinding = new EditorAuthoringTransactionCoordinator.Binding(
+                        "runtime.editor-model", "document-2", 1, "model-1", 1, Thread.currentThread());
+                assertThrows(
+                        IllegalStateException.class,
+                        () -> coordinator.evaluateStoredSource(foreignBinding, source, evaluations::incrementAndGet));
+                assertEquals(0, evaluations.get());
+            });
+            assertEquals(1, evaluations.get());
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> service.batchStoredSourceWrites(() -> {
+                        coordinator.evaluateStoredSource(
+                                bindingOnCurrentThread(), source, evaluations::incrementAndGet);
+                        throw new IllegalArgumentException("callback failure");
+                    }));
+            assertEquals(2, evaluations.get(), "Failure also crosses the evaluation barrier");
+            return null;
+        });
+        assertTrue(result.successful());
+        assertThrows(IllegalStateException.class, () -> service.batchStoredSourceWrites(() -> {}));
     }
 
     @Test

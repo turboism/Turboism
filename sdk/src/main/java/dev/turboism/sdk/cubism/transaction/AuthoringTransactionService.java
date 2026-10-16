@@ -39,6 +39,22 @@ public interface AuthoringTransactionService {
     <T> AuthoringTransactionResult<T> execute(AuthoringTransactionOptions options, AuthoringTransactionWork<T> work);
 
     /**
+     * Groups stored-source writes behind one synchronous instance-evaluation barrier.
+     *
+     * <p>Call only within an active authoring transaction, for parameter bindings and
+     * ordinary ArtMesh keyform batches. The callback may read stored authoring snapshots;
+     * it must not reparent objects, access evaluated geometry, change parameter values,
+     * or perform texture operations. Instances are current again before this method returns,
+     * including when the callback throws. Native Undo and readback remain per write.
+     * Implementations without this optimization execute the callback normally.</p>
+     *
+     * @param work synchronous stored-source writes; must not start a nested batch
+     */
+    default void batchStoredSourceWrites(final Runnable work) {
+        Objects.requireNonNull(work, "work").run();
+    }
+
+    /**
      * Returns the fail-closed implementation used when Runtime has no verified transaction backend.
      *
      * @return shared unavailable service
@@ -50,6 +66,12 @@ public interface AuthoringTransactionService {
     /** Fail-closed implementation that never invokes authoring work. */
     enum Unavailable implements AuthoringTransactionService {
         INSTANCE;
+
+        @Override
+        public void batchStoredSourceWrites(final Runnable work) {
+            Objects.requireNonNull(work, "work");
+            throw new UnsupportedOperationException("Authoring transactions unavailable");
+        }
 
         @Override
         public <T> AuthoringTransactionResult<T> execute(

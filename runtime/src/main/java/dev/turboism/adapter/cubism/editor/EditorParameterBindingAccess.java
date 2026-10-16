@@ -349,7 +349,11 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
                                 throw new IllegalStateException("Binding source changed before mutation.");
                             }
                             mutation.run();
-                            resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+                            coordinator.evaluateStoredSource(
+                                    binding,
+                                    modelSource,
+                                    () -> resolver.invoke(
+                                            "cubism.editor-model.model-source.update-instances", modelSource));
                         },
                         () -> {
                             final var after = reader.get();

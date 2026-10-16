@@ -25,6 +25,22 @@ import org.junit.jupiter.api.Test;
 final class CubismFacadeAuthoringTransactionTest {
 
     @Test
+    void sourceBatchRechecksPermissionAndLifecycleAndForwardsToTheBackend() {
+        var calls = new AtomicInteger();
+        var invoked = new AtomicBoolean();
+        var active = new AtomicBoolean(true);
+        var denied = facade(List.of(), active::get, delegate(calls)).authoringTransactions();
+        assertThrows(CubismPermissionException.class, () -> denied.batchStoredSourceWrites(() -> invoked.set(true)));
+        assertFalse(invoked.get());
+        var allowed = facade(List.of(permission(CubismFacadeImpl.MODEL_WRITE_PERMISSION)), active::get, delegate(calls))
+                .authoringTransactions();
+        allowed.batchStoredSourceWrites(() -> invoked.set(true));
+        assertEquals(1, calls.get(), "The optimization must reach the backend through the facade");
+        active.set(false);
+        assertThrows(IllegalStateException.class, () -> allowed.batchStoredSourceWrites(() -> {}));
+    }
+
+    @Test
     void executeRequiresWritePermissionBeforeTheDelegateOrCallbackRuns() {
         final AtomicInteger delegateCalls = new AtomicInteger();
         final AtomicBoolean callbackInvoked = new AtomicBoolean();
@@ -87,6 +103,12 @@ final class CubismFacadeAuthoringTransactionTest {
 
     private static AuthoringTransactionService delegate(final AtomicInteger calls) {
         return new AuthoringTransactionService() {
+            @Override
+            public void batchStoredSourceWrites(final Runnable work) {
+                calls.incrementAndGet();
+                work.run();
+            }
+
             @Override
             public <T> AuthoringTransactionResult<T> execute(
                     final AuthoringTransactionOptions options, final AuthoringTransactionWork<T> work) {

@@ -74,6 +74,7 @@ public class NativeCharacterAuthoringTest {
         boolean simulateWarpParentInstanceReplacement;
         int localParentConversions;
         int hierarchyChangesAfterMeshKeyforms;
+        int rotationBindingsAfterSourceMorphs;
 
         int partCounter = 0;
         int meshCounter = 0;
@@ -135,7 +136,8 @@ public class NativeCharacterAuthoringTest {
                             geometry,
                             List.of(),
                             List.of(new ArtMeshAuthoringSnapshot.Cell("default", List.of())),
-                            List.of(new ArtMeshAuthoringSnapshot.Form("default", defaultLocal, drawOrder)),
+                            List.of(new ArtMeshAuthoringSnapshot.Form(
+                                    "default", keyformPositions.getOrDefault("default", defaultLocal), drawOrder)),
                             List.of());
                 }
 
@@ -152,7 +154,8 @@ public class NativeCharacterAuthoringTest {
                                 new ArtMeshAuthoringSnapshot.Coordinate("guid-" + yawAxisId.value(), y),
                                 new ArtMeshAuthoringSnapshot.Coordinate("guid-" + pitchAxisId.value(), p));
                         cells.add(new ArtMeshAuthoringSnapshot.Cell(guid, coords));
-                        var pos = keyformPositions.getOrDefault(guid, defaultLocal);
+                        var pos = keyformPositions.getOrDefault(
+                                guid, keyformPositions.getOrDefault("default", defaultLocal));
                         int order = keyformOrders.getOrDefault(guid, drawOrder);
                         forms.add(new ArtMeshAuthoringSnapshot.Form(guid, pos, order));
                     }
@@ -365,6 +368,8 @@ public class NativeCharacterAuthoringTest {
                 case "parameterBindings" ->
                     proxy(ParameterBindingOperations.class, (bm, ba) -> switch (bm.getName()) {
                         case "bind" -> {
+                            if (warps.values().stream().anyMatch(w -> !w.morphKeys.isEmpty()))
+                                rotationBindingsAfterSourceMorphs++;
                             var axis = (ParameterId) a[0];
                             var target = (ParameterBindingTarget) ba[0];
                             var points = (List<ParameterBindingPoint>) ba[1];
@@ -508,6 +513,7 @@ public class NativeCharacterAuthoringTest {
         var host = new TestModelHost();
         var model = host.model();
         var folder = Optional.of(new ParameterGroupId("ImportedFile"));
+        var finishControls = new java.util.concurrent.atomic.AtomicReference<Runnable>();
         var created = NativeCharacterAuthoring.assemble(
                 model,
                 geometry,
@@ -515,22 +521,36 @@ public class NativeCharacterAuthoringTest {
                 index -> new NativeCharacterAuthoring.ImageDimensions(16, 16),
                 index -> "Source",
                 index -> "Segment",
+                geometryCreated -> finishControls.get().run(),
+                folder,
                 geometryCreated -> {
                     assertTrue(
                             host.interpolations.isEmpty(),
                             "Source control writes must precede every expensive interpolation cache");
+                    assertTrue(
+                            host.meshes.values().stream()
+                                    .allMatch(m -> m.snapshot().forms().size() == 1),
+                            "Source hierarchy must be created before expanding rotation banks");
                     host.simulateLocalParentConversion = true;
                     host.simulateWarpParentInstanceReplacement = true;
-                    NativeControlAuthoring.apply(
+                    finishControls.set(NativeControlAuthoring.prepare(
                             model,
                             geometryCreated,
                             scene,
                             controls,
                             stage -> {},
                             folder,
-                            "Param3D_Generic_unique_Control_");
+                            "Param3D_Generic_unique_Control_"));
                 },
-                folder);
+                NativeControlAuthoring.rotationLocalizer(controls));
+        assertEquals(
+                0,
+                host.hierarchyChangesAfterMeshKeyforms,
+                "Local controls must not trigger hierarchy conversion of expanded rotation banks");
+        assertEquals(
+                0,
+                host.rotationBindingsAfterSourceMorphs,
+                "Dense source morph forms must follow all ordinary rotation bindings");
         assertEquals(host.parameters.size(), host.parameterFolders.size());
         assertTrue(host.parameterFolders.values().stream().allMatch(folder::equals));
         assertTrue(host.parameters.stream()
@@ -566,6 +586,33 @@ public class NativeCharacterAuthoringTest {
         var firstFactor = host.warps.get(secondFactor.targetDeformer.orElseThrow());
         assertEquals(.25f, secondFactor.morphKeys.get(0).form().opacity());
         assertEquals(.5f, firstFactor.morphKeys.get(0).form().opacity());
+        // Every non-neutral rotation must be authored in the new local Warp's space.
+        var camera = geometry.camera();
+        float ox = (float) (camera.centerX() + camera.scale() * camera.pivot().x());
+        float oy = (float) (camera.centerY() - camera.scale() * camera.pivot().y());
+        var partition = geometry.partitions().get(0);
+        var frame = new NativeCharacterAuthoring.Frame();
+        var neutral = SurfaceProjection.project(partition.positions(), camera, new SurfaceProjection.Pose(0, 0));
+        for (var point : neutral.positions()) frame.include(point.x() - ox, point.y() - oy);
+        frame.pad();
+        var stored = host.meshes.values().iterator().next().snapshot();
+        for (var cell : stored.cells()) {
+            float yaw = cell.coordinates().get(0).value();
+            float pitch = cell.coordinates().get(1).value();
+            if (yaw == 0 && pitch == 0) continue;
+            var projected =
+                    SurfaceProjection.project(partition.positions(), camera, new SurfaceProjection.Pose(yaw, pitch));
+            var bodyLocal = frame.normalize(projected.positions().stream()
+                    .map(point -> new Point2(point.x() - ox, point.y() - oy))
+                    .toList());
+            var expected = NativeControlAuthoring.rotationLocalizer(controls).apply(0, bodyLocal);
+            var actual = stored.forms().stream()
+                    .filter(form -> form.formGuid().equals(cell.formGuid()))
+                    .findFirst()
+                    .orElseThrow()
+                    .positions();
+            assertEquals(expected, actual, "Rotated geometry must use the pre-created local parent coordinates");
+        }
     }
 
     @Test

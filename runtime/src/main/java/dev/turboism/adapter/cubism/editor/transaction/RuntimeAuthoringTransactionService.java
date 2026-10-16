@@ -30,6 +30,15 @@ public final class RuntimeAuthoringTransactionService implements AuthoringTransa
         this.binding = Objects.requireNonNull(binding, "binding");
     }
 
+    /** Runs a source-only batch on the current transaction's host thread. */
+    @Override
+    public void batchStoredSourceWrites(final Runnable work) {
+        Objects.requireNonNull(work, "work");
+        EditorHostThread.requireHostThread("Cubism stored-source batch");
+        coordinator.batchStoredSourceWrites(
+                binding.get().orElseThrow(() -> new IllegalStateException("Authoring binding unavailable")), work);
+    }
+
     /**
      * Executes one root authoring transaction entirely on the Cubism Editor host thread.
      *

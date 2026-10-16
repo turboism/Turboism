@@ -2,6 +2,7 @@ package dev.turboism.adapter.host;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
@@ -23,6 +24,23 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 final class DynamicCubismAuthoringTransactionTest {
+
+    @Test
+    void sourceBatchForwardsThePluginIdentityAndRejectsAfterDisconnect() {
+        var dynamic = new DynamicCubismModelAccess();
+        var provider = new RecordingProvider();
+        dynamic.connect(provider);
+        var service = dynamic.authoringTransactions("plugin.batch");
+        var invoked = new AtomicBoolean();
+        service.batchStoredSourceWrites(() -> invoked.set(true));
+        assertTrue(invoked.get());
+        assertEquals("plugin.batch", provider.pluginId.get());
+        assertTrue(provider.batchInvoked.get());
+        invoked.set(false);
+        dynamic.deactivate();
+        assertThrows(IllegalStateException.class, () -> service.batchStoredSourceWrites(() -> invoked.set(true)));
+        assertFalse(invoked.get());
+    }
 
     @Test
     void forwardsThePluginIdentityAndSynchronousCallback() {
@@ -108,6 +126,7 @@ final class DynamicCubismAuthoringTransactionTest {
     }
 
     private static final class RecordingProvider implements CubismModelAccess, RuntimeAuthoringTransactionProvider {
+        private final AtomicBoolean batchInvoked = new AtomicBoolean();
 
         private final AtomicReference<String> pluginId = new AtomicReference<>();
 
@@ -120,6 +139,12 @@ final class DynamicCubismAuthoringTransactionTest {
         public AuthoringTransactionService authoringTransactions(final String requestedPluginId) {
             pluginId.set(requestedPluginId);
             return new AuthoringTransactionService() {
+                @Override
+                public void batchStoredSourceWrites(final Runnable work) {
+                    batchInvoked.set(true);
+                    work.run();
+                }
+
                 @Override
                 public <T> AuthoringTransactionResult<T> execute(
                         final AuthoringTransactionOptions options, final AuthoringTransactionWork<T> work) {
