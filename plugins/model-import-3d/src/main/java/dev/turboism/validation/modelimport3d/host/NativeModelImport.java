@@ -40,11 +40,13 @@ final class NativeModelImport {
         var limits = new java.util.HashMap<Integer, java.util.Set<java.util.List<Integer>>>();
         var fits = new NativeControlWarpPlan.FitCache();
         for (int retry = 0; retry < 512; retry++) {
-            var geometry = NativeCharacterPlan.prepare(materials.scene(), request, limits);
+            var candidate = NativeCharacterPlan.prepareCandidate(materials.scene(), request, limits);
+            var geometry = candidate.geometry();
             if (cancelled.getAsBoolean()) throw new CancellationException();
             try {
-                return new Prepared(
-                        geometry, materials, NativeControlWarpPlan.prepare(materials.scene(), geometry, fits));
+                var controls = NativeControlWarpPlan.prepare(materials.scene(), geometry, fits);
+                if (cancelled.getAsBoolean()) throw new CancellationException();
+                return new Prepared(candidate.finish(), materials, controls);
             } catch (NativeControlWarpPlan.FitFailure failure) {
                 var failures = new ArrayList<NativeControlWarpPlan.FitFailure>();
                 failures.add(failure);
@@ -130,18 +132,26 @@ final class NativeModelImport {
                 },
                 parameterGroup,
                 created -> {
+                    created.maxNeutralConversionErrorPixels()
+                            .ifPresent(error -> progress.accept("neutral-parent-error-pixels " + error));
+                    progress.accept("rotation-keyforms");
+                },
+                NativeControlAuthoring.rotationLocalizer(prepared.controls()),
+                sourceBatch,
+                hierarchy -> {
                     progress.accept("source-control-hierarchy");
-                    finishSourceControls.set(NativeControlAuthoring.prepare(
+                    var controls = NativeControlAuthoring.prepareHierarchy(
                             model,
-                            created,
+                            hierarchy,
                             materials.scene(),
                             prepared.controls(),
                             progress,
                             parameterGroup,
-                            prepared.geometry().request().yaw().value() + "_Control_"));
-                    progress.accept("rotation-keyforms");
+                            prepared.geometry().request().yaw().value() + "_Control_");
+                    finishSourceControls.set(controls.finish());
+                    progress.accept("source-geometry");
+                    return controls.parents();
                 },
-                NativeControlAuthoring.rotationLocalizer(prepared.controls()),
-                sourceBatch);
+                NativeControlAuthoring.rotationRestorer(prepared.controls()));
     }
 }
