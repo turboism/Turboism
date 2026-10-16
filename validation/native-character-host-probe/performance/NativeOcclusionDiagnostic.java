@@ -5,6 +5,7 @@ import dev.turboism.sdk.cubism.id.ParameterId;
 import java.awt.image.BufferedImage;
 import java.nio.file.*;
 import java.util.*;
+import java.util.function.IntPredicate;
 import javax.imageio.ImageIO;
 
 /** Test-only reference-depth diagnostic, not a native rendered-RGBA acceptance test. */
@@ -20,7 +21,10 @@ public final class NativeOcclusionDiagnostic {
     }
     if (args.length != 2)
       throw new IllegalArgumentException("Expected explicit input GLB and output directory");
-    var scene = GlbViewerLoader.load(Files.readAllBytes(Path.of(args[0])), () -> false);
+    byte[] input = Files.readAllBytes(Path.of(args[0]));
+    System.out.println("inputSha256=" + HexFormat.of().formatHex(
+        java.security.MessageDigest.getInstance("SHA-256").digest(input)));
+    var scene = GlbViewerLoader.load(input, () -> false);
     var request = new SurfaceImport.Request(
         "Occlusion",
         new ParameterId("Yaw"),
@@ -33,6 +37,8 @@ public final class NativeOcclusionDiagnostic {
     // Culling is a candidate paint policy only. The nearest-depth reference
     // must retain the source's double-sided semantics, including any exposed holes.
     System.out.println("candidateForceCulling=" + Boolean.getBoolean("diagnostic.culling"));
+    System.out.println("candidateCullMeshes=" + System.getProperty("diagnostic.cullMeshes", ""));
+    System.out.println("preparation=default-scene geometry only; not source-control fitted import");
     long started = System.nanoTime();
     var plan = NativeCharacterPlan.prepare(scene, request);
     System.out.printf(
@@ -73,7 +79,18 @@ public final class NativeOcclusionDiagnostic {
       List<Integer> order,
       Path output)
       throws Exception {
-    return measure(scene, plan, pose, order, output, Boolean.getBoolean("diagnostic.culling"));
+    String selected = System.getProperty("diagnostic.cullMeshes", "");
+    Set<Integer> meshes = new HashSet<>();
+    if (!selected.isBlank())
+      for (String id : selected.split(",")) {
+        int index = Integer.parseInt(id.trim());
+        if (index < 0 || index >= scene.meshes().size())
+          throw new IllegalArgumentException("Candidate source mesh out of range: " + index);
+        meshes.add(index);
+      }
+    return measure(scene, plan, pose, order, output,
+        i -> Boolean.getBoolean("diagnostic.culling")
+            || meshes.contains(plan.partitions().get(i).sourceMeshIndex()));
   }
 
   static Measurement measure(
@@ -83,14 +100,26 @@ public final class NativeOcclusionDiagnostic {
       List<Integer> order,
       Path output,
       boolean forceCulling) throws Exception {
+    return measure(scene, plan, pose, order, output, i -> forceCulling);
+  }
+
+  static Measurement measure(
+      ViewerScene scene,
+      NativeCharacterPlan.Plan plan,
+      SurfaceProjection.Pose pose,
+      List<Integer> order,
+      Path output,
+      IntPredicate cullPartition) throws Exception {
     float[] front = new float[S * S], paint = new float[S * S];
     Arrays.fill(front, Float.NEGATIVE_INFINITY);
     Arrays.fill(paint, Float.NEGATIVE_INFINITY);
     int[] reference = new int[S * S], owner = new int[S * S];
     Arrays.fill(reference, -1);
     Arrays.fill(owner, -1);
+    boolean[] referenceBackface = new boolean[S * S];
     for (int index : order) {
       var p = plan.partitions().get(index);
+      boolean cull = cullPartition.test(index);
       var mesh = scene.meshes().get(p.sourceMeshIndex());
       if (!p.visible() || mesh.defaultOpacity() <= 0) continue;
       var mat = p.materialIndex() < 0 ? null : scene.materials().get(p.materialIndex());
@@ -151,8 +180,9 @@ public final class NativeOcclusionDiagnostic {
             if (z > front[k]) {
               front[k] = z;
               reference[k] = index;
+              referenceBackface[k] = d >= 0;
             }
-            if (!forceCulling || d < 0) {
+            if (!cull || d < 0) {
               paint[k] = z;
               owner[k] = index;
             }
@@ -162,11 +192,15 @@ public final class NativeOcclusionDiagnostic {
     int visible = 0, wrong = 0, internal = 0, external = 0, missing = 0;
     int[][] errors = new int[plan.partitions().size()][3];
     double[] partitionGaps = new double[plan.partitions().size()];
+    int[] backfacePixels = new int[plan.partitions().size()];
+    int[] visiblePixels = new int[plan.partitions().size()];
     double maxGap = 0;
     var image = new BufferedImage(S, S, BufferedImage.TYPE_INT_RGB);
     for (int k = 0; k < S * S; k++) {
       if (reference[k] < 0) continue;
       visible++;
+      visiblePixels[reference[k]]++;
+      if (referenceBackface[k]) backfacePixels[reference[k]]++;
       if (owner[k] < 0) missing++;
       double gap = front[k] - paint[k];
       boolean bad = gap > 1e-5;
@@ -184,14 +218,15 @@ public final class NativeOcclusionDiagnostic {
     ImageIO.write(image, "PNG", output.toFile());
     // Attribute source-depth errors before changing partition policy. A missing pixel
     // is also external, so internal + external (not all three columns) equals wrong.
-    var report = new StringBuilder("partition,sourceMesh,triangles,internal,external,missing,maxDepthGap\n");
+    var report = new StringBuilder("partition,sourceMesh,triangles,internal,external,missing,maxDepthGap,referenceVisible,referenceBackface\n");
     for (int i = 0; i < errors.length; i++) {
-      if (errors[i][0] + errors[i][1] == 0) continue;
+      if (visiblePixels[i] == 0) continue;
       var p = plan.partitions().get(i);
       report.append(i).append(',').append(p.sourceMeshIndex()).append(',')
           .append(p.triangleCount()).append(',').append(errors[i][0]).append(',')
           .append(errors[i][1]).append(',').append(errors[i][2]).append(',')
-          .append(Double.toString(partitionGaps[i])).append('\n');
+          .append(Double.toString(partitionGaps[i])).append(',')
+          .append(visiblePixels[i]).append(',').append(backfacePixels[i]).append('\n');
     }
     Files.writeString(output.resolveSibling(output.getFileName() + ".errors.csv"), report);
     return new Measurement(visible, wrong, internal, external, missing, maxGap);
@@ -216,6 +251,15 @@ public final class NativeOcclusionDiagnostic {
         || culled.visible() != source.visible() || culled.missing() != source.visible()
         || culled.wrong() != source.visible())
       throw new AssertionError("Culling changed or hid reference coverage: source=" + source + ", candidate=" + culled);
+    var selective = measure(scene, plan, new SurfaceProjection.Pose(0,0), List.of(0),
+        output.resolve("selective.png"), i -> true);
+    var preserved = measure(scene, plan, new SurfaceProjection.Pose(0,0), List.of(0),
+        output.resolve("preserved.png"), i -> false);
+    if (!selective.equals(culled) || !preserved.equals(source))
+      throw new AssertionError("Selective culling must affect paint only");
+    String report = Files.readString(output.resolve("source.png.errors.csv"));
+    if (!report.contains("," + source.visible() + "," + source.visible() + "\n"))
+      throw new AssertionError("Source-visible back faces missing from attribution: " + report);
     System.out.println("Culling reference regression PASS: source=" + source + ", candidate=" + culled);
     System.out.println("Synthetic evidence: " + output);
   }
