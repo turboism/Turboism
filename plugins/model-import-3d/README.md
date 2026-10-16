@@ -51,11 +51,33 @@ The native source-control planner allows up to 256 MiB of combined geometry-keyf
 
 A fixed 2D Warp is currently fitted at the neutral view. It does not rotate source depth displacements with whole-body yaw or pitch. A diagnostic triangle with a 0.2-unit depth displacement has zero neutral residual and a 28.284px projection difference at yaw or pitch ±30° under the fixed 400px-radius camera. This is a measured counterexample, not acceptance of side-view shape accuracy. Angle-conditioned corrections remain required.
 
+## Full-circle source geometry
+
+The source-aware native path retains XYZ ranges −180°…180°. It splits connected
+surfaces into bounded supporting-plane patches, preserves source single/double-sided
+semantics, and compiles sampled screen-overlap constraints into integer draw-order
+keys. The compiler samples the entire angular domain every 15°, with denser 3.75°
+front-view calibration inside ±30°. This is a deterministic local process and does
+not require an LLM, Blender or a named character. Every source triangle is retained;
+unrepresentable visibility or exceeded budgets fail explicitly.
+
+The public numbered-texture corpus includes a cube, octahedron, cross-star, torus,
+cylinder and ring/column assembly. Its 498 source-projection depth screens pass.
+Native Editor validation and pixel/filtering limits are recorded separately in the
+[primitive acceptance report](../../validation/native-character-host-probe/performance/PrimitiveAcceptance.md).
+Finite keyforms approximate continuous rotation; this does not promise exact 3D
+occlusion for arbitrary intersecting surfaces or all shape-control combinations.
+
 ## Requirements and compatibility
 
-The validated host is Cubism Editor 5.3.02 with Turboism API `[0.1.0,0.2.0)`. Open a model with a 1024×1024 canvas before importing. The menu chooses one source-derived camera and pivot to fit the model inside a 400px radius. The camera stays fixed throughout rotation. The face-color inspection mode uses ±30°; source-material mode uses XYZ full-circle ranges. Explicit probe requests retain their declared camera.
+The public primitive corpus is exercised on Cubism Editor 5.3.04 with Turboism API `[0.1.0,0.2.0)`. Open a model with a 1024×1024 canvas before importing. The menu chooses one source-derived camera and pivot to fit the model inside a 400px radius. The camera stays fixed throughout rotation. The face-color inspection mode uses ±30°; source-material mode uses XYZ full-circle ranges. Explicit probe requests retain their declared camera.
 
 The bounded surface path limits GLB files to 16 MiB. The source-aware native path accepts GLB files up to 128 MiB. The bounded importer supports opaque closed convex surfaces or a single convex quadrilateral plane. A restricted branch for two disjoint, double-sided parallel X-plane rectangles is implemented but has not completed native validation. A separate regular quadrilateral surface branch preserves the original triangle geometry and UVs in chart meshes under one native Warp deformer. The XYZ apple has real menu/save/reopen and source-geometry evidence; strict occlusion and official export of this full-circle apple remain unverified. Sparse chart depth ordering can produce occlusion errors. Arbitrary concave topology and intersecting sheets are not generally supported. OBJ is now a direct menu input for self-contained geometry. Select referenced buffers, MTL and PNG/JPEG resources when prompted, or package them together with exactly one GLB, glTF or OBJ in a ZIP. FBX, DAE and RAR are not direct menu inputs. Earlier apple evidence used an OBJ converted to GLB; it does not verify the newer OBJ menu path.
+
+The generated exact-version declaration below covers reviewed SDK availability on
+20 Editor versions, 5.0.00–5.3.04. This change adds no host reflection or new SDK
+entrypoint. The current primitive real-host results are for 5.3.04; the same visual
+corpus has not been rerun on every admitted version.
 
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions.

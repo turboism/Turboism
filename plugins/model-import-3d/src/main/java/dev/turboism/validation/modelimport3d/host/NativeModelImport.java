@@ -39,6 +39,7 @@ final class NativeModelImport {
         if (cancelled.getAsBoolean()) throw new CancellationException();
         var limits = new java.util.HashMap<Integer, java.util.Set<java.util.List<Integer>>>();
         var fits = new NativeControlWarpPlan.FitCache();
+        int visibilityRetries = 0;
         for (int retry = 0; retry < 512; retry++) {
             var candidate = NativeCharacterPlan.prepareCandidate(materials.scene(), request, limits);
             var geometry = candidate.geometry();
@@ -47,6 +48,11 @@ final class NativeModelImport {
                 var controls = NativeControlWarpPlan.prepare(materials.scene(), geometry, fits);
                 if (cancelled.getAsBoolean()) throw new CancellationException();
                 return new Prepared(candidate.finish(), materials, controls);
+            } catch (NativeCharacterVisibility.RefinementRequired failure) {
+                if (++visibilityRetries > 32)
+                    throw new IllegalArgumentException("Native visibility refinement budget exceeded", failure);
+                if (!limits.computeIfAbsent(failure.sourceMesh, ignored -> new java.util.HashSet<>())
+                        .add(failure.triangles)) throw failure;
             } catch (NativeControlWarpPlan.FitFailure failure) {
                 var failures = new ArrayList<NativeControlWarpPlan.FitFailure>();
                 failures.add(failure);

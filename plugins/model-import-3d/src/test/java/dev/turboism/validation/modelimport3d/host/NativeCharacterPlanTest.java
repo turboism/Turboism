@@ -74,9 +74,20 @@ public class NativeCharacterPlanTest {
                 NativeCharacterPlan.prepare(scene, defaultRequest()),
                 plan,
                 "Final ordering, geometry, camera and every budget must be identical");
-        assertTrue(plan.partitions().get(0).center().z()
-                < plan.partitions().get(1).center().z());
-        assertTrue(plan.orders().get(12).get(0) > plan.orders().get(12).get(1));
+        // Disconnected surfaces now become separate patches; the local front surface
+        // must still cover mesh 1, independently of its remote rear surface.
+        assertEquals(3, plan.partitions().size());
+        int frontPatch = plan.partitions().stream()
+                .filter(p -> p.sourceMeshIndex() == 0 && p.center().z() > 0)
+                .map(p -> plan.partitions().indexOf(p))
+                .findFirst()
+                .orElseThrow();
+        int rearPatch = plan.partitions().stream()
+                .filter(p -> p.sourceMeshIndex() == 1)
+                .map(p -> plan.partitions().indexOf(p))
+                .findFirst()
+                .orElseThrow();
+        assertTrue(plan.orders().get(12).get(frontPatch) > plan.orders().get(12).get(rearPatch));
         assertEquals(3, plan.totalTriangles());
     }
 
@@ -145,7 +156,10 @@ public class NativeCharacterPlanTest {
                 List.of(),
                 new ViewerScene.Bounds(-1, -1, -1, 1, 1, 1),
                 new ViewerScene.Stats(0, 2, 2, 0, 0, 0, 0));
-        var plan = NativeCharacterPlan.prepare(scene, defaultRequest());
+        // This fixture tests shared geometry interpolation, independently of visibility.
+        // Its intersecting faces cannot always be represented by one global painter order.
+        var plan = NativeCharacterPlan.prepareCandidate(scene, defaultRequest(), Map.of())
+                .geometry();
         assertEquals(2, plan.partitions().size());
         assertEquals(
                 plan.partitions().get(0).positions().get(0),
