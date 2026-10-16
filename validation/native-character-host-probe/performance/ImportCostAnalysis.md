@@ -169,3 +169,38 @@ One comparable full-character structure-only job **`cfce2a55-4f72-4410-b203-8fce
 | **Total** | **419.711** | **382.468** |
 
 Nested refresh/read/Undo/cache work is already included and must not be added to this table. Counts unchanged: **940 ArtMeshes, 236437 triangles, 111 source controls plus XYZ = 114 parameters, one filename-scoped parameter group**. Maximum neutral parent conversion error unchanged at **0.0006068566462325795 Canvas px**. No new complete-character CMO3/save/reopen or visual occlusion acceptance is provided by this structure-only endpoint; small native persistence/seam gates remain separate evidence. **T035 and T036 remain open**. Remaining dominant costs are mesh/image/parent conversion, source controls and rotation bank construction; a future change must again prove repeated work before another expensive full run.
+
+
+## r33 existing-capture hotspot attribution (no new host import)
+
+`summarize_import_stacks.py` consumes the explicit r32 `import-stacks.txt` under
+`5304-keyform-values-r32-character/queue-5f34d024932e45c3af04fb3d69973d93`.
+It finds **3737 EDT observations: 3225 RUNNABLE, 512 WAITING**. Each RUNNABLE
+observation contributes once to each table. The importer, editor-boundary and
+leaf tables overlap each other and must not be added together. Schema 1 aggregates
+stacks without individual timestamps: precise stage attribution is unavailable.
+These are wall observations, not CPU percentages or exact seconds.
+
+| First importer caller in r32 | RUNNABLE observations | Nested finding |
+| --- | ---: | --- |
+| NativeCharacterAuthoring:390, final-parent conversion | 755 | 633 include native reinitModelInstance |
+| NativeControlAuthoring:195, individual Warp morph-key creation | 706 | 352 include object-domain reads; 310 include EditorWarpMorphState (overlapping categories) |
+| NativeCharacterAuthoring:498, yaw/pitch axis binding | 580 | 154 include object-domain reads |
+| NativeControlAuthoring:174, initialized local Warp creation | 304 | 281 include native reinitModelInstance |
+| NativeCharacterAuthoring:604, combined interpolation | 166 | Already combined in r31; not two independent rebuilds |
+
+Parent conversion remains the strongest native-rebuild observation. Texture
+binding requires the new ArtMesh to be unparented, so replacing conversion with
+an initialized-parent creation would violate the current binding contract. A
+candidate must first prove texture binding with the final parent, or combine
+binding and conversion behind one protected native operation; simply removing
+the conversion/evaluation barrier is not justified.
+
+The next source-control candidate is several morph keys in **one Warp-domain
+contribution**: the importer already groups refreshes, but still invokes
+`createMorphKeyform` per key and repeatedly captures/validates the same domain.
+Before another full timing, prove capture count reduction with a multi-key Warp
+fixture, including partial-failure recovery, shared/default-form protection,
+Undo/Redo and persistence. Axis binding is another measured repeated-domain
+candidate; it must preserve the complete 25-form grid and all identity gates.
+No new performance saving or host acceptance is claimed by this analysis.

@@ -43,3 +43,37 @@ java -Xmx1g -cp "/tmp/native-import-performance-proof:$plugin_jar:$sdk_jar" dev.
 ```
 
 A source-visible double-sided back face covers 22,472 reference pixels. The culled candidate must retain that reference coverage and report 22,472 missing/wrong pixels. A faulty reference that applies the candidate culling policy reports zero reference pixels and is rejected by the test. This protects the diagnostic; it does not establish correct final native character rendering.
+
+
+## Existing stack capture analysis
+
+```bash
+python3 validation/native-character-host-probe/performance/summarize_import_stacks.py "$explicit_stack_capture"
+```
+
+The parser partitions RUNNABLE observations by first importer caller, first Editor
+boundary and leaf. Each table checks that its count equals the total RUNNABLE
+count. Tables overlap each other. Schema-1 captures have no individual sample
+timestamps, so stage correlation cannot be reconstructed.
+
+## Selective culling experiments and comparison
+
+The diagnostic now prints the explicit input SHA-256 and the preparation path.
+`-Ddiagnostic.cullMeshes=0,2` changes **candidate paint only** for the listed source
+mesh indices. It never changes source materials or reference coverage. This is
+an experiment selector, not an importer setting or asset-name heuristic. The
+CSV also includes `referenceVisible` and `referenceBackface` counts, including
+partitions with visible coverage but no errors. Exposed source-visible back faces
+must not disappear from the diagnostic just because culling is enabled.
+
+```bash
+python3 validation/native-character-host-probe/performance/compare_occlusion_reports.py "$baseline_log" "$candidate_log"
+```
+
+Comparison refuses differing input hashes/geometry or incomplete six-pose logs.
+It rejects changed reference coverage and increases in wrong count, missing count
+or maximum depth gap at any tested pose, for both stored and exact-pose order.
+Exit 1 means a geometry regression, not an execution failure. A passing sampled
+comparison still cannot establish native RGBA acceptance, arbitrary pitch,
+intermediate angles, morphs or clothing-opacity combinations. A fixed default-pose
+culling/hiding decision is not justified for all source-control states.
