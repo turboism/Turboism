@@ -62,7 +62,7 @@ not require an LLM, Blender or a named character. Every source triangle is retai
 unrepresentable visibility or exceeded budgets fail explicitly.
 
 The public numbered-texture corpus includes a cube, octahedron, cross-star, torus,
-cylinder and ring/column assembly. Its 498 source-projection depth screens pass.
+cylinder and ring/column assembly. With and without source morphs, its 996 source-projection depth screens pass.
 Native Editor validation and pixel/filtering limits are recorded separately in the
 [primitive acceptance report](../../validation/native-character-host-probe/performance/PrimitiveAcceptance.md).
 Finite keyforms approximate continuous rotation; this does not promise exact 3D

@@ -782,3 +782,36 @@ unchanged fixture and safe cleanup. Stored bank/morph hashes, atlas binding,
 filename parameter group, source morph endpoint/reset and reopen capture pass.
 This completes the cube persistence baseline, not native visual acceptance of the
 19-pose matrix or the other five shapes.
+
+
+## Final public primitive campaign (2026-10-17)
+
+The final report is [PrimitiveAcceptance.md](performance/PrimitiveAcceptance.md).
+It supersedes the initial six-failure source-depth baseline, while retaining that
+failure evidence. Both morph-bearing and completely unrigged variants of cube,
+octahedron, cross-star, torus, cylinder and ring/column are generated without
+Blender, downloads or private assets. **996 source-depth pose screens pass**.
+Production routing is exercised; small static concave inputs no longer require
+artificial morphs to reach the generic full-circle compiler. A strict exact proof
+retains compatibility with the frozen small-convex importer.
+
+On Cubism 5.3.04, six final morph-bearing imports pass Undo/Redo, XYZ, atlas,
+filename-scoped parameter groups, opacity, source-control endpoints/reset, native
+save and separate fresh-process reopen (including exact banks/morph digests).
+Two unrigged concave imports also pass native authoring, XYZ, history and save.
+**160/160 stable 3x3 same-partition native occlusion interiors pass** on exported
+calculated Canvas geometry and integer draw order. Boundary depth/tie and strict
+RGB metrics remain recorded: this is not zero-error native RGBA or a continuous
+arbitrary-model visibility proof. Default strict pixel mode still fails when its
+original color threshold fails; the narrower order-interior gate is explicit.
+
+The full integrated plugin suite passes (283 tests, 34 external-fixture skips),
+Spotless and three oracle semantic tests pass. Compatibility generation and the
+20-exact-version consistency check pass. Native campaign evidence is 5.3.04 only.
+Do not infer that all 20 hosts ran this visual campaign. No source file or shared
+launcher was altered, no authorization guard was relaxed, and no remote push occurs.
+
+Assembly preparation had a 116805 ms multi-document-host outlier; an isolated
+stack-sampled host run measured 5298 ms preparation and 8709 ms authoring. The
+sampler locates raster voting; it does not establish the cause of the batch outlier.
+All final queue IDs, tool identities and separate RGB/seam counts are in the report.

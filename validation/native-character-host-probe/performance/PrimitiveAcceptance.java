@@ -10,8 +10,9 @@ import javax.imageio.ImageIO;
 /** Public primitive corpus baseline. Geometry diagnostic only; native RGBA gates remain separate. */
 public final class PrimitiveAcceptance {
     public static void main(String[] args) throws Exception {
-        if (args.length != 2) throw new IllegalArgumentException("Expected fixture directory and output directory");
+        if (args.length < 2 || args.length > 3) throw new IllegalArgumentException("Expected fixture directory and output directory");
         Path inputs = Path.of(args[0]), outputs = Path.of(args[1]);
+        boolean staticOnly=args.length==3 && args[2].equals("static");
         Files.createDirectories(outputs);
         var report = new StringBuilder("fixture,yaw,pitch,partitions,triangles,keyformSlots,wrong,missing,maxDepthGap,geometryGate\n");
         int failed = 0, samples = 0;
@@ -22,13 +23,14 @@ public final class PrimitiveAcceptance {
                     180, 180, SurfaceImportPlan.MAX_PROJECTED_VERTICES, Optional.of(new ParameterId("Roll")));
             long started = System.nanoTime();
             // Exercise the production material/control fitting chain, not geometry-only preparation.
-            var prepared = NativeModelImport.prepare(bytes, request, () -> false);
+            var prepared = ModelImportPlugin.prepare(bytes, request, SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL).character();
+            if(prepared==null) throw new AssertionError("Production route bypassed native full-circle planning");
             var scene = prepared.materials().scene();
             int expectedTriangles = Map.of("cube",12L,"octahedron",8L,"cross-star",60L,
                     "torus",768L,"cylinder",124L,"ring-and-column",892L).get(name).intValue();
-            if (!GlbViewerLoader.requiresNativeRigImport(bytes)
+            if (GlbViewerLoader.requiresNativeRigImport(bytes) == staticOnly
                     || prepared.geometry().totalTriangles() != expectedTriangles
-                    || scene.controls().size() != (name.equals("ring-and-column") ? 2 : 1)
+                    || scene.controls().size() != (staticOnly ? 0 : name.equals("ring-and-column") ? 2 : 1)
                     || scene.textures().size() != 1)
                 throw new AssertionError("Lost topology, standard morphs, texture or native routing: " + name);
             var plan = prepared.geometry();
