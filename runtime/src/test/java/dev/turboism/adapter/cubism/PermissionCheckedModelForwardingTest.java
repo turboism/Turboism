@@ -425,6 +425,41 @@ class PermissionCheckedModelForwardingTest {
     }
 
     @Test
+    void meshBatchForwardsGeometryAndRequiresWriteAndActiveScope() {
+        var calls = new ArrayList<String>();
+        boolean[] write = {true}, active = {true};
+        var delegate = new RecordingModel(calls);
+        var values = facade(delegate, List.of(readPermission(true), writePermission(write)), () -> active[0])
+                .model()
+                .active()
+                .drawables();
+        var geometry = new dev.turboism.sdk.cubism.model.ArtMeshGeometry(
+                List.of(
+                        new dev.turboism.sdk.cubism.model.Point2(0, 0),
+                        new dev.turboism.sdk.cubism.model.Point2(1, 0),
+                        new dev.turboism.sdk.cubism.model.Point2(0, 1)),
+                List.of(
+                        new dev.turboism.sdk.cubism.model.Point2(0, 0),
+                        new dev.turboism.sdk.cubism.model.Point2(1, 0),
+                        new dev.turboism.sdk.cubism.model.Point2(0, 1)),
+                List.of(0, 1, 2));
+        var requests = List.of(
+                new Drawables.SourceGeometryRequest("Mesh", Optional.of(PART_ID), geometry, geometry.positions()));
+        var meshes = values.createManyWithSourceGeometry(requests);
+        assertEquals(requests, delegate.batchMeshRequests);
+        assertEquals(1, meshes.size());
+        assertNotSame(delegate.drawable, meshes.get(0));
+        assertEquals(List.of("drawables.createManyWithSourceGeometry"), calls);
+        calls.clear();
+        write[0] = false;
+        assertThrows(CubismPermissionException.class, () -> values.createManyWithSourceGeometry(requests));
+        write[0] = true;
+        active[0] = false;
+        assertThrows(IllegalStateException.class, () -> values.createManyWithSourceGeometry(requests));
+        assertTrue(calls.isEmpty());
+    }
+
+    @Test
     void batchPartsForwardNamesUnwrapParentAndGuardWriteAndScope() {
         var calls = new ArrayList<String>();
         boolean[] write = {true}, active = {true};
@@ -1243,6 +1278,7 @@ class PermissionCheckedModelForwardingTest {
 
     /** Delegate model recording every Wave 1 method invocation into {@code calls}. */
     private static final class RecordingModel implements CubismModel {
+        List<Drawables.SourceGeometryRequest> batchMeshRequests;
         List<Object> initializedWarpArgs;
 
         @Override
@@ -1793,6 +1829,13 @@ class PermissionCheckedModelForwardingTest {
         @Override
         public Drawables drawables() {
             return new Drawables() {
+                @Override
+                public List<Drawable> createManyWithSourceGeometry(final List<SourceGeometryRequest> requests) {
+                    calls.add("drawables.createManyWithSourceGeometry");
+                    batchMeshRequests = requests;
+                    return requests.stream().map(ignored -> drawable).toList();
+                }
+
                 @Override
                 public List<Drawable> all() {
                     return List.of(drawable);

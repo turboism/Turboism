@@ -45,6 +45,13 @@ public class NativeCharacterAuthoringTest {
     }
 
     static final class TestModelHost {
+        private Drawable createMesh(String name, Part parent, ArtMeshGeometry geometry, List<Point2> defaults) {
+            var id = new ArtMeshId("mesh_" + (++meshCounter));
+            var record = new MeshRecord(id, name, parent, geometry, defaults);
+            meshes.put(id, record);
+            return createDrawableProxy(record);
+        }
+
         private Part createPart(String name, Part parent) {
             if (!meshes.isEmpty()) partCreationsWithMeshes++;
             var id = new PartId("part_" + (++partCounter));
@@ -88,6 +95,8 @@ public class NativeCharacterAuthoringTest {
         int warpCreationsWithMeshes;
         int partCreationsWithMeshes;
         int batchPartCalls;
+        final List<Integer> meshBatchSizes = new ArrayList<>();
+        int singleMeshCreations;
         boolean simulateCompleteParentConversion;
         float nativeCanvasDrift;
         boolean requireDrawOrderBatch;
@@ -295,11 +304,25 @@ public class NativeCharacterAuthoringTest {
                 case "drawables" ->
                     proxy(Drawables.class, (dm, da) -> switch (dm.getName()) {
                         case "createWithSourceGeometry" -> {
-                            var id = new ArtMeshId("mesh_" + (++meshCounter));
-                            var r = new MeshRecord(
-                                    id, (String) da[0], (Part) da[1], (ArtMeshGeometry) da[3], (List<Point2>) da[4]);
-                            meshes.put(id, r);
-                            yield createDrawableProxy(r);
+                            singleMeshCreations++;
+                            yield createMesh(
+                                    (String) da[0], (Part) da[1], (ArtMeshGeometry) da[3], (List<Point2>) da[4]);
+                        }
+                        case "createManyWithSourceGeometry" -> {
+                            var requests = (List<Drawables.SourceGeometryRequest>) da[0];
+                            meshBatchSizes.add(requests.size());
+                            yield requests.stream()
+                                    .map(request -> createMesh(
+                                            request.name(),
+                                            request.parentPartId()
+                                                    .map(id -> proxy(Part.class, (method, args) -> {
+                                                        if (method.getName().equals("id")) return id;
+                                                        throw new AssertionError(method.toString());
+                                                    }))
+                                                    .orElse(null),
+                                            request.sourceGeometry(),
+                                            request.defaultPositions()))
+                                    .toList();
                         }
                         case "find" -> {
                             var id = (ArtMeshId) da[0];
@@ -831,6 +854,28 @@ public class NativeCharacterAuthoringTest {
                 "Native parent changes must not repeatedly rebuild earlier meshes' 25-form banks");
         assertTrue(host.meshes.values().stream()
                 .allMatch(mesh -> mesh.snapshot().forms().size() == 25));
+    }
+
+    @Test
+    void meshCreationUsesBoundedBatchesBeforeBindingAndConvertingEachMesh() {
+        var host = new TestModelHost();
+        var meshes = java.util.stream.IntStream.range(0, 70)
+                .mapToObj(index -> simpleMesh("Piece" + index, 0))
+                .toArray(ViewerScene.Mesh[]::new);
+        var plan = planFor(meshes);
+        final int[] bound = {0};
+        NativeCharacterAuthoring.assemble(host.model(), plan, (id, source) -> {
+            var record = host.meshes.get(id);
+            assertTrue(record.targetDeformer.isEmpty(), "Bind the image before native parent conversion");
+            assertTrue(
+                    host.meshes.size() - bound[0] <= NativeCharacterAuthoring.MESH_CREATION_BATCH_SIZE,
+                    "Do not publish every future mesh before conversions start");
+            bound[0]++;
+        });
+        assertEquals(List.of(32, 32, 6), host.meshBatchSizes);
+        assertEquals(0, host.singleMeshCreations);
+        assertEquals(70, bound[0]);
+        assertEquals(70, host.meshes.size());
     }
 
     @Test

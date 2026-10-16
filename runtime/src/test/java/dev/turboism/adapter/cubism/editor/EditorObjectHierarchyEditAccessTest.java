@@ -264,6 +264,150 @@ class EditorObjectHierarchyEditAccessTest {
         assertTrue(fixture.document.selector.selected().isEmpty());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"5.3.02", "5.3.04"})
+    void sourceGeometryBatchPublishesOnceAndPreservesBothCoordinateDomains(final String version) {
+        final Fixture fixture = new Fixture();
+        fixture.source.treeMaterialization = true;
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver(version), "session-a").active();
+        final var geometry = nativeGeometry();
+        final var neutral =
+                geometry.positions().stream().map(p -> new Point2(0, p.y())).toList();
+        final var before = List.copyOf(fixture.drawableSet.sources);
+        final var created = model.drawables()
+                .createManyWithSourceGeometry(List.of("First", "First", "Third").stream()
+                        .map(name -> new dev.turboism.sdk.cubism.model.Drawables.SourceGeometryRequest(
+                                name, java.util.Optional.empty(), geometry, neutral))
+                        .toList());
+        assertEquals(1, fixture.source.updateCount, "publish each complete mesh batch once");
+        final var ids =
+                created.stream().map(dev.turboism.sdk.cubism.model.Drawable::id).toList();
+        assertEquals(3, new java.util.HashSet<>(ids).size());
+        for (var mesh : created) {
+            assertStoredSourceGeometry(fixture, mesh.id(), geometry);
+            assertEquals(neutral, mesh.geometry().positions());
+        }
+        assertEquals(1, fixture.editMode.edits.size());
+        assertEquals(3, fixture.editMode.edits.get(0).children.size());
+        fixture.editMode.edits.get(0).undo();
+        assertEquals(before, fixture.drawableSet.sources);
+        fixture.editMode.edits.get(0).redo();
+        for (var id : ids) {
+            var mesh = model.drawables().find(id);
+            assertStoredSourceGeometry(fixture, mesh.id(), geometry);
+            assertEquals(neutral, mesh.geometry().positions());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.3.02", "5.3.04"})
+    void meshBatchOwnsRejectedEagerInsertionsAndRestoresEveryTree(final String version) {
+        for (boolean nativeAbort : List.of(false, true)) {
+            final var scoped = ScopedFixture.onEdt(version);
+            scoped.host.nativeAbort = nativeAbort;
+            final var before = List.copyOf(scoped.fixture.drawableSet.sources);
+            final var children = List.copyOf(scoped.fixture.rootPart.children);
+            scoped.fixture.editMode.rejectAdmissionAt = 2;
+            final var input = new dev.turboism.sdk.cubism.model.Drawables.SourceGeometryRequest(
+                    "Mesh",
+                    java.util.Optional.empty(),
+                    nativeGeometry(),
+                    nativeGeometry().positions());
+            final var result = scoped.execute(
+                    AuthoringTransactionOptions.of("mesh batch rejection"),
+                    () -> scoped.access.createArtMeshSources(
+                            "model", scoped.fixture.source, scoped.fixture.source.model, List.of(input, input, input)));
+            assertEquals(
+                    AuthoringTransactionOutcome.ROLLED_BACK,
+                    result.outcome(),
+                    () -> String.valueOf(result.diagnosticId()));
+            assertEquals(before, scoped.fixture.drawableSet.sources);
+            assertEquals(children, scoped.fixture.rootPart.children);
+            assertEquals(0, scoped.fixture.editMode.edits.size());
+        }
+    }
+
+    @Test
+    void meshBatchPreflightsAllParentIdsBeforeAnyInsertion() {
+        final Fixture fixture = new Fixture();
+        fixture.source.treeMaterialization = true;
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.04"), "session-a").active();
+        final var before = List.copyOf(fixture.drawableSet.sources);
+        final var good = new dev.turboism.sdk.cubism.model.Drawables.SourceGeometryRequest(
+                "First",
+                java.util.Optional.empty(),
+                nativeGeometry(),
+                nativeGeometry().positions());
+        final var bad = new dev.turboism.sdk.cubism.model.Drawables.SourceGeometryRequest(
+                "Second",
+                java.util.Optional.of(new PartId("Absent")),
+                nativeGeometry(),
+                nativeGeometry().positions());
+        assertThrows(
+                NoSuchElementException.class, () -> model.drawables().createManyWithSourceGeometry(List.of(good, bad)));
+        assertEquals(List.of(), model.drawables().createManyWithSourceGeometry(List.of()));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new dev.turboism.sdk.cubism.model.Drawables.SourceGeometryRequest(
+                        "Mismatch", java.util.Optional.empty(), nativeGeometry(), List.of(new Point2(0, 0))));
+        assertEquals(before, fixture.drawableSet.sources);
+        assertEquals(0, fixture.source.updateCount);
+        assertEquals(0, fixture.editMode.beginCalls);
+    }
+
+    @Test
+    void meshBatchRetainsDistinctPartOwnershipAcrossUndoRedo() {
+        final Fixture fixture = new Fixture();
+        fixture.source.treeMaterialization = true;
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.04"), "session-a").active();
+        final var parts = model.parts().createMany(List.of("Left", "Right"), null);
+        final var ids =
+                parts.stream().map(dev.turboism.sdk.cubism.model.Part::id).toList();
+        fixture.source.updateCount = 0;
+        final var inputs = ids.stream()
+                .map(id -> new dev.turboism.sdk.cubism.model.Drawables.SourceGeometryRequest(
+                        "Mesh",
+                        java.util.Optional.of(id),
+                        nativeGeometry(),
+                        nativeGeometry().positions()))
+                .toList();
+        final var meshes = model.drawables().createManyWithSourceGeometry(inputs);
+        final var meshIds =
+                meshes.stream().map(dev.turboism.sdk.cubism.model.Drawable::id).toList();
+        assertEquals(1, fixture.source.updateCount);
+        for (int index = 0; index < 2; index++)
+            assertEquals(
+                    java.util.Optional.of(ids.get(index)), meshes.get(index).parentPartId());
+        final var undo = fixture.editMode.edits.get(1);
+        undo.undo();
+        for (var id : ids) assertTrue(model.parts().find(id).childIds().isEmpty());
+        for (var id : meshIds)
+            assertThrows(NoSuchElementException.class, () -> model.drawables().find(id));
+        undo.redo();
+        for (int index = 0; index < 2; index++)
+            assertEquals(
+                    java.util.Optional.of(ids.get(index)),
+                    model.drawables().find(meshIds.get(index)).parentPartId());
+    }
+
+    private static void assertStoredSourceGeometry(Fixture fixture, ArtMeshId id, ArtMeshGeometry expected) {
+        var source = fixture.drawableSet.sources.stream()
+                .filter(value -> value.id.value().equals(id.value()))
+                .findFirst()
+                .orElseThrow();
+        for (int i = 0; i < expected.positions().size(); i++) {
+            assertEquals(expected.positions().get(i).x(), source.positions()[i * 2]);
+            assertEquals(expected.positions().get(i).y(), source.positions()[i * 2 + 1]);
+            assertEquals(expected.uvs().get(i).x(), source.uvs()[i * 2]);
+            assertEquals(expected.uvs().get(i).y(), source.uvs()[i * 2 + 1]);
+        }
+        org.junit.jupiter.api.Assertions.assertArrayEquals(
+                expected.triangleIndices().stream().mapToInt(Integer::intValue).toArray(), source.indices());
+    }
+
     @Test
     void keepsUnfoldedSourceSeparateFromCollapsedDefaultAcrossUndoRedo() {
         final Fixture fixture = new Fixture();

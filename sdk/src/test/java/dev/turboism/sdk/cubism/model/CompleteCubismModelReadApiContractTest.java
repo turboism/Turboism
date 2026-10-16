@@ -249,6 +249,7 @@ class CompleteCubismModelReadApiContractTest {
                 "all",
                 "create",
                 "createWithSourceGeometry",
+                "createManyWithSourceGeometry",
                 "find",
                 "previewSourceTriangulation",
                 "remove",

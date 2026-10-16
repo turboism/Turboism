@@ -96,3 +96,28 @@ Hierarchy initialization shows the largest stage reduction; mesh creation remain
 The old three-Part regression reports **3 updates** where one is required. The new path requires **1 update**, one root entry, three insertion Undo children, distinct IDs, source/tree membership and Undo/Redo restoration. A rejected second admission exercises eager native insertion compensation, with and without native abort. Blank names reject before insertion, an empty batch is a no-op, and an 80-Part batch tests the 64-item semantic-history boundary: display detail is explicitly partial beyond that bound, while **all 80 native Undo records and source identities remain protected**.
 
 The r28 log bounds the likely end-to-end impact: initial source-geometry/patch-Part preparation from 07:37:08.4058722Z to control hierarchy at 07:37:14.6478302Z took **6.241958 s**. The whole 38.264813-second hierarchy stage also contains local-control Warp creation. Do not attribute all 38 seconds to patch Parts. A separate full-character run for this bounded change would spend about eight minutes to measure a change confined to this six-second substage; use operation-count and small native history/persistence gates instead. The latest accepted full timing remains r28 **483.5022784 s**. No r29 full-host saving is claimed. Larger next candidates remain mesh creation/conversion and combined per-mesh interpolation/cache writes, with the same protected readback and recovery requirements.
+
+## r30 bounded ArtMesh publication candidate
+
+The r28 mesh/image/parent/neutral/default-order stage took **156.505 s**. It includes several nested costs; it is not all mesh construction. Creation publishes model instances once per ArtMesh, while later native parent conversion also evaluates instances. Texture binding itself already contributes a coalesced root refresh; its presence does not justify claiming an additional immediate model refresh for every binding.
+
+Candidate: `Drawables.createManyWithSourceGeometry` publishes a batch of initialized, texture-unbound ArtMeshes in existing Parts, with separate source/default coordinates. It reuses the r29 atomic insertion/recovery mechanism, registers every created identity, admits every native insertion Undo, reserves IDs once per batch, validates all parent IDs before insertion, and returns current handles after one instance barrier. Existing single-mesh creation remains available. The importer uses **at most 32 meshes** per batch, then preserves each mesh's image-bind-before-final-parent-conversion order and the <=0.001-pixel neutral gate. Preparing all 940 at once would make early conversions evaluate all future meshes, so the importer deliberately bounds publication. Source geometry, indices, materials, controls, sampling/error budgets and placement checks are unchanged.
+
+Red Runtime regression: three sequential creations publish **3** times where **1** is required (`/tmp/native-mesh-batch-r30-red.log`). Green checks one publication, unique IDs, exact source positions/UV/indices and default-form positions across Undo/Redo, separate Part ownership, missing-parent preflight, empty no-op, and rejected second eager insertion with both native-abort modes. Importer regression with 70 meshes requires batch sizes **32/32/6**, zero single-mesh calls, bounded future mesh publication, and image binding while each target deformer is still absent. For 940 partitions the creation barrier count is **30**, versus 940 previously; this is not an elapsed-time saving claim. Results follow in `../verification.md` after real-host gates.
+
+### r30 accepted complete-character result
+
+The single full run passed supervisor and structure verification: job `b698eda0-5774-46f2-94c5-1bab0d65a607`, run `queue-3b57148241fa44d3a0936e75e811af5b`. Same input, 8 GiB heap, sampler and accepted ready endpoint as r28, with no concurrent local builds/diagnostics: **419.711243 s (6m59.711s)** versus **483.5022784 s**, saving **63.7910354 s / 13.1935%**. This includes r29 Part batching and is one run per candidate, not an isolated causal attribution. Counts, source hash and neutral error are unchanged.
+
+| Disjoint stage | r28 seconds | r30 seconds |
+| --- | ---: | ---: |
+| Preparation/handoff | 51.233 | 51.359 |
+| Parts/control hierarchy | 38.265 | 36.656 |
+| Mesh/image/parent/neutral/default order | 156.505 | 98.018 |
+| Rotation banks | 84.611 | 89.748 |
+| Explicit atlas | 8.789 | 8.723 |
+| Source controls | 81.664 | 79.942 |
+| Interpolation/commit/final structure | 62.437 | 55.265 |
+| **Total** | **483.502** | **419.711** |
+
+Nested native refresh/texture/palette work is included in these stages, not additional elapsed time. Mesh creation remains the largest stage, but rotation and source controls are now similarly material; per-mesh combined interpolation is the next bounded repeated-cache candidate. Require an actual cache rebuild counter plus banks/ownership/history/recovery/persistence gates before another full run. T035/T036 remain open: seven minutes is still excessive, and this full result is structure only. See `../verification.md` for all small/native gates, artifacts and exact endpoint timestamps.

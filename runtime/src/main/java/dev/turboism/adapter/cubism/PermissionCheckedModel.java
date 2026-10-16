@@ -804,6 +804,16 @@ final class PermissionCheckedModel implements CubismModel {
             }
 
             @Override
+            public List<dev.turboism.sdk.cubism.model.Drawable> createManyWithSourceGeometry(
+                    final List<dev.turboism.sdk.cubism.model.Drawables.SourceGeometryRequest> requests) {
+                facade.requireModelWrite("model.drawables.createManyWithSourceGeometry");
+                return values.createManyWithSourceGeometry(List.copyOf(requests)).stream()
+                        .map(value -> (dev.turboism.sdk.cubism.model.Drawable)
+                                new PermissionCheckedDrawable(facade, wrapperOwner, value))
+                        .toList();
+            }
+
+            @Override
             public void remove(final dev.turboism.sdk.cubism.model.Drawable drawable) {
                 facade.requireModelWrite("model.drawables.remove");
                 values.remove(facade.unwrapDrawable(drawable));

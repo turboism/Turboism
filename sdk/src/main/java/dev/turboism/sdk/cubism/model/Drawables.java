@@ -51,6 +51,35 @@ public interface Drawables {
         throw unavailable("ArtMesh creation with separate source geometry");
     }
 
+    /** Immutable input for appending an unparented ArtMesh to an existing Part (empty means root). */
+    @CubismEditor
+    record SourceGeometryRequest(
+            String name,
+            java.util.Optional<PartId> parentPartId,
+            ArtMeshGeometry sourceGeometry,
+            List<Point2> defaultPositions) {
+        public SourceGeometryRequest {
+            name = ModelObjectDescriptor.normalizeName(name);
+            parentPartId = java.util.Objects.requireNonNull(parentPartId, "parentPartId");
+            sourceGeometry = java.util.Objects.requireNonNull(sourceGeometry, "sourceGeometry");
+            defaultPositions = List.copyOf(defaultPositions);
+            if (defaultPositions.size() != sourceGeometry.positions().size())
+                throw new IllegalArgumentException("Default and source positions must have the same vertex count.");
+        }
+    }
+
+    /**
+     * Appends ArtMeshes in input order, preserving separate source/default coordinates.
+     * Creates one authoring edit and publishes model instances once for the complete batch.
+     * Parent Parts must already exist. No target deformer or image is assigned, so callers
+     * can bind images before performing native parent-coordinate conversion.
+     * Returns handles in request order; unsupported backends fail without falling back to
+     * repeated single-object publication. An empty batch creates no edit.
+     */
+    default List<Drawable> createManyWithSourceGeometry(List<SourceGeometryRequest> requests) {
+        throw unavailable("Batch ArtMesh creation with separate source geometry");
+    }
+
     /** Deletes {@code drawable} through the native selection + native DELETE command path. */
     default void remove(Drawable drawable) {
         throw unavailable("Drawable deletion");
