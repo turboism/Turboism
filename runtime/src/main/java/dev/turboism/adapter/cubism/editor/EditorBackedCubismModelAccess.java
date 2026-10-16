@@ -1053,7 +1053,8 @@ public final class EditorBackedCubismModelAccess
                     EditorBackedCubismModelAccess.this::requireCurrent,
                     objectReadAccess::bindingTargetSource,
                     EditorBackedCubismModelAccess.this::source,
-                    authoringCoordinator);
+                    authoringCoordinator,
+                    EditorBackedCubismModelAccess.this::authoringParticipationBinding);
         }
 
         @Override

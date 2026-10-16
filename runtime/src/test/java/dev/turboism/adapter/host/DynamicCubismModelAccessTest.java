@@ -80,19 +80,27 @@ class DynamicCubismModelAccessTest {
         var recording = new RecordingModel();
         var access = new DynamicCubismModelAccess();
         access.connect(() -> recording);
+        var batch = access.active().parameterBindingBatch();
         var operations = access.active().parameterBindings(new ParameterId("ParamA"));
         var target = ParameterBindingTarget.artMesh(new ArtMeshId("ArtMeshA"));
         var settings = new ParameterInterpolation(ParameterInterpolation.Method.ELLIPSE, 6, 1);
         assertEquals(settings, operations.interpolation(target));
         operations.setInterpolation(target, settings);
+        batch.setInterpolations(target, java.util.Map.of(new ParameterId("ParamA"), settings));
         access.connect(() -> recording);
+        assertThrows(IllegalStateException.class, () -> batch.setInterpolations(target, java.util.Map.of()));
         assertThrows(IllegalStateException.class, () -> operations.interpolation(target));
         assertThrows(IllegalStateException.class, () -> operations.setInterpolation(target, settings));
         var current = access.active().parameterBindings(new ParameterId("ParamA"));
         access.deactivate();
         assertThrows(IllegalStateException.class, () -> current.interpolation(target));
         assertThrows(IllegalStateException.class, () -> current.setInterpolation(target, settings));
-        assertEquals(List.of("interpolation.read:ArtMeshA", "interpolation.write:ArtMeshA:6"), recording.calls);
+        assertEquals(
+                List.of(
+                        "interpolation.read:ArtMeshA",
+                        "interpolation.write:ArtMeshA:6",
+                        "interpolation.batch:ArtMeshA:1"),
+                recording.calls);
     }
 
     @Test
@@ -1255,6 +1263,24 @@ class DynamicCubismModelAccessTest {
     }
 
     private static final class RecordingModel implements CubismModel {
+        @Override
+        public dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations parameterBindingBatch() {
+            return new dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations() {
+                public void invert(List<ParameterBindingTarget> targets) {
+                    throw new UnsupportedOperationException();
+                }
+
+                public void transfer(dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan plan) {
+                    throw new UnsupportedOperationException();
+                }
+
+                public void setInterpolations(
+                        ParameterBindingTarget target, java.util.Map<ParameterId, ParameterInterpolation> settings) {
+                    calls.add("interpolation.batch:" + target.id() + ":" + settings.size());
+                }
+            };
+        }
+
         @Override
         public ParameterBindingOperations parameterBindings(final ParameterId parameterId) {
             return new ParameterBindingOperations() {

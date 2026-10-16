@@ -121,3 +121,16 @@ The single full run passed supervisor and structure verification: job `b698eda0-
 | **Total** | **483.502** | **419.711** |
 
 Nested native refresh/texture/palette work is included in these stages, not additional elapsed time. Mesh creation remains the largest stage, but rotation and source controls are now similarly material; per-mesh combined interpolation is the next bounded repeated-cache candidate. Require an actual cache rebuild counter plus banks/ownership/history/recovery/persistence gates before another full run. T035/T036 remain open: seven minutes is still excessive, and this full result is structure only. See `../verification.md` for all small/native gates, artifacts and exact endpoint timestamps.
+
+
+## r31: combine interpolation axes before one local cache rebuild
+
+The r30 ready endpoint remains the latest accepted complete-character timing: **419.711243 s**, including **55.265 s** for interpolation, commit and final verification. That stage is not exclusively cache generation. No new complete-character timing is needed to demonstrate the duplicate local work, and no new total-time reduction is claimed here.
+
+Ranked falsifiable hypotheses: (1) separate yaw/pitch writes rebuild the same local cache twice; combined settings should reduce setup/update pairs from two to one; (2) separate contributions hash/read the intermediate cache unnecessarily; one combined contribution should eliminate the intermediate snapshot domain; (3) final model refresh/verification can remain expensive despite fewer local builds. Root model refresh was already coalesced and is not counted as a per-axis saving.
+
+Added `parameterBindingBatch().setInterpolations(target, settings)` with fail-closed defaults and explicit Session/permission forwarding. The importer submits yaw and pitch together for each visible mesh. The native adapter validates every axis and the **combined** generated-grid budget before Undo admission, captures one source/cache recovery domain, admits native all-edit/extension Undo, applies all selected settings, then rebuilds once. One contribution listener rebuilds the restored final state during Undo/Redo; the existing root listener still refreshes instances/palettes/canvas once. Sampling, source banks, morph controls, opacity, geometry, cache budgets and neutral conversion limits are unchanged.
+
+Deterministic tests exercise the original sequential pattern (two builds) and combined pattern (one build, same final 25-row grid), source-bank preservation, native Undo/Redo, post-write transaction abort restoring both axes/extension, final combined-budget rejection before mutation, no-op reuse, permission revocation and retained-session model replacement. Full plugin tests also require one combined two-axis call per visible mesh. External-fixture skips remain explicit.
+
+Validation and small native persistence evidence are recorded in `verification.md`. T035 occlusion and T036 overall latency remain open.

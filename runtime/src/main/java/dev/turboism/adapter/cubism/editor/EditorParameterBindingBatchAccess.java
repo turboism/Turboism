@@ -66,6 +66,28 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
             final TargetLookup targetLookup,
             final ParameterSourceLookup parameterSourceLookup,
             final EditorAuthoringTransactionCoordinator authoringCoordinator) {
+        this(
+                resolver,
+                identity,
+                modelSource,
+                model,
+                currentGuard,
+                targetLookup,
+                parameterSourceLookup,
+                authoringCoordinator,
+                null);
+    }
+
+    EditorParameterBindingBatchAccess(
+            final VerifiedMemberResolver resolver,
+            final String identity,
+            final Object modelSource,
+            final Object model,
+            final CurrentGuard currentGuard,
+            final TargetLookup targetLookup,
+            final ParameterSourceLookup parameterSourceLookup,
+            final EditorAuthoringTransactionCoordinator authoringCoordinator,
+            final java.util.function.Supplier<EditorAuthoringTransactionCoordinator.Binding> interpolationBinding) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.identity = Objects.requireNonNull(identity, "identity");
         this.modelSource = Objects.requireNonNull(modelSource, "modelSource");
@@ -74,6 +96,45 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
         this.targetLookup = Objects.requireNonNull(targetLookup, "targetLookup");
         this.parameterSourceLookup = Objects.requireNonNull(parameterSourceLookup, "parameterSourceLookup");
         this.authoringCoordinator = authoringCoordinator;
+        this.interpolationBinding = interpolationBinding;
+    }
+
+    private final java.util.function.Supplier<EditorAuthoringTransactionCoordinator.Binding> interpolationBinding;
+
+    @Override
+    public void setInterpolations(
+            ParameterBindingTarget target,
+            Map<ParameterId, dev.turboism.sdk.cubism.model.ParameterInterpolation> settings) {
+        var requested = Map.copyOf(settings);
+        Objects.requireNonNull(target, "target");
+        EditorHostThread.dispatch("Cubism combined interpolation", () -> {
+            currentGuard.requireCurrent(identity, model);
+            if (target.type() != ParameterBindingTargetType.ART_MESH)
+                throw new UnsupportedOperationException("Combined interpolation requires an ArtMesh.");
+            if (authoringCoordinator == null || interpolationBinding == null)
+                throw new UnsupportedOperationException("Combined interpolation requires authoring participation.");
+            Object source = targetLookup.find(identity, modelSource, model, target);
+            Map<Object, dev.turboism.sdk.cubism.model.ParameterInterpolation> axes = new LinkedHashMap<>();
+            for (var entry : requested.entrySet()) {
+                Object guid = resolver.invoke(
+                        "cubism.editor-model.parameter-source.guid", parameterSourceLookup.find(model, entry.getKey()));
+                axes.put(guid, entry.getValue());
+            }
+            new EditorParameterInterpolationAccess(resolver)
+                    .writeMany(
+                            source,
+                            modelSource,
+                            new dev.turboism.sdk.cubism.id.ArtMeshId(target.id()),
+                            axes,
+                            () -> {
+                                currentGuard.requireCurrent(identity, model);
+                                if (targetLookup.find(identity, modelSource, model, target) != source)
+                                    throw new IllegalStateException("Interpolation source identity changed.");
+                            },
+                            authoringCoordinator,
+                            Objects.requireNonNull(interpolationBinding.get()));
+            return null;
+        });
     }
 
     @Override

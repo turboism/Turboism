@@ -224,6 +224,16 @@ final class SessionModel implements CubismModel {
                 host.current(generation, CubismModel::parameterBindingBatch, delegate);
         return new dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations() {
             @Override
+            public void setInterpolations(
+                    dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
+                    java.util.Map<
+                                    dev.turboism.sdk.cubism.id.ParameterId,
+                                    dev.turboism.sdk.cubism.model.ParameterInterpolation>
+                            settings) {
+                host.guardedVoid(generation, () -> operations.setInterpolations(target, settings));
+            }
+
+            @Override
             public void invert(final List<dev.turboism.sdk.cubism.model.ParameterBindingTarget> targets) {
                 host.guardedVoid(generation, () -> operations.invert(targets));
             }
