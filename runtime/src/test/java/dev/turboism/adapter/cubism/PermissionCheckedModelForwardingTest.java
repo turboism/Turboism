@@ -806,6 +806,7 @@ class PermissionCheckedModelForwardingTest {
         calls.clear();
         assertThrows(CubismPermissionException.class, () -> target.setPositions(List.of()));
         assertThrows(CubismPermissionException.class, () -> target.setDrawOrder(600));
+        assertThrows(CubismPermissionException.class, () -> drawable.setOrdinaryKeyforms(null, List.of(), List.of()));
         assertThrows(CubismPermissionException.class, () -> drawable.setOrdinaryKeyformPositions(null, List.of()));
         assertTrue(calls.isEmpty());
         read[0] = false;
@@ -815,6 +816,9 @@ class PermissionCheckedModelForwardingTest {
         assertThrows(CubismPermissionException.class, () -> drawable.ordinaryKeyform(coordinates));
         assertTrue(calls.isEmpty());
         write[0] = true;
+        drawable.setOrdinaryKeyforms(null, List.of(), List.of());
+        assertEquals(
+                1, calls.stream().filter("drawable.keyformValuesBatch"::equals).count());
         drawable.setOrdinaryKeyformPositions(null, List.of());
         assertEquals(1, calls.stream().filter("drawable.keyformBatch"::equals).count());
         target.setPositions(List.of(new dev.turboism.sdk.cubism.model.Point2(4, 5)));
@@ -823,6 +827,7 @@ class PermissionCheckedModelForwardingTest {
         assertEquals(1, calls.stream().filter("keyform.setDrawOrder"::equals).count());
         calls.clear();
         write[0] = false;
+        assertThrows(CubismPermissionException.class, () -> drawable.setOrdinaryKeyforms(null, List.of(), List.of()));
         assertThrows(CubismPermissionException.class, () -> drawable.setOrdinaryKeyformPositions(null, List.of()));
         assertThrows(CubismPermissionException.class, () -> target.setDrawOrder(700));
         assertTrue(calls.isEmpty());
@@ -831,6 +836,7 @@ class PermissionCheckedModelForwardingTest {
         read[0] = true;
         active[0] = false;
         assertThrows(IllegalStateException.class, target::snapshot);
+        assertThrows(IllegalStateException.class, () -> drawable.setOrdinaryKeyforms(null, List.of(), List.of()));
         assertThrows(IllegalStateException.class, () -> drawable.setOrdinaryKeyformPositions(null, List.of()));
         assertThrows(IllegalStateException.class, target::coordinates);
         assertThrows(IllegalStateException.class, target::defaultKeyform);
@@ -1550,6 +1556,14 @@ class PermissionCheckedModelForwardingTest {
             public dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot evaluationSnapshot() {
                 calls.add("drawable.evaluationSnapshot");
                 return EVALUATION;
+            }
+
+            @Override
+            public void setOrdinaryKeyforms(
+                    dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
+                    List<dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions> positions,
+                    List<dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder> orders) {
+                calls.add("drawable.keyformValuesBatch");
             }
 
             @Override

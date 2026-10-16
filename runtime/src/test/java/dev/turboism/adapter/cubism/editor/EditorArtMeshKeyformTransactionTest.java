@@ -54,6 +54,145 @@ class EditorArtMeshKeyformTransactionTest {
     }
 
     @Test
+    void combinedRotationValuesReduceSourceReadsAndRecoverFromRefreshFailure() {
+        int[] reads = new int[2];
+        for (boolean combined : List.of(false, true))
+            onEdt(f -> {
+                var before = f.mesh.authoringSnapshot();
+                var pos = edit(f, -1, -1, A);
+                var order =
+                        new dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder(tuple(-1, -1), pos.formGuid(), 120);
+                var result = f.coordinator.execute(
+                        f.binding, AuthoringTransactionOptions.of("count rotation writes"), () -> {
+                            f.coordinator.batchStoredSourceWrites(f.binding, () -> {
+                                int start = f.source.positionReads;
+                                if (combined) f.mesh.setOrdinaryKeyforms(before, List.of(pos), List.of(order));
+                                else {
+                                    f.mesh.setOrdinaryKeyformPositions(before, List.of(pos));
+                                    f.mesh.setOrdinaryKeyformDrawOrders(f.mesh.authoringSnapshot(), List.of(order));
+                                }
+                                reads[combined ? 1 : 0] = f.source.positionReads - start;
+                            });
+                            return null;
+                        });
+                assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
+            });
+        assertTrue(reads[1] < reads[0], java.util.Arrays.toString(reads));
+        System.out.println("KEYFORM_R32 source geometry reads: sequential=" + reads[0] + ", combined=" + reads[1]);
+        for (boolean nativeAbort : List.of(false, true))
+            onEdt(f -> {
+                f.host.nativeAbort = nativeAbort;
+                var before = f.mesh.authoringSnapshot();
+                var pos = edit(f, -1, -1, A);
+                var order =
+                        new dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder(tuple(-1, -1), pos.formGuid(), 120);
+                f.host.afterNextUpdate = () -> {
+                    throw new IllegalStateException("combined refresh failed");
+                };
+                var result = f.coordinator.execute(
+                        f.binding, AuthoringTransactionOptions.of("combined refresh failure"), () -> {
+                            f.mesh.setOrdinaryKeyforms(before, List.of(pos), List.of(order));
+                            return null;
+                        });
+                assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+                assertEquals(before, f.mesh.authoringSnapshot());
+            });
+    }
+
+    @Test
+    void combinedValuesRejectMismatchedTargetsDefaultAndStaleStateBeforeMutation() {
+        onEdt(f -> {
+            var before = f.mesh.authoringSnapshot();
+            var pos = edit(f, -1, -1, A);
+            var order = new dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder(tuple(-1, -1), pos.formGuid(), 120);
+            for (var invalid : List.of(
+                    List.<dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder>of(),
+                    List.of(order, order),
+                    List.of(new dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder(
+                            tuple(1, 1), pos.formGuid(), 120)),
+                    List.of(new dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder(tuple(-1, -1), "foreign", 120))))
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> f.mesh.setOrdinaryKeyforms(before, List.of(pos), invalid));
+            var base = edit(f, 0, 0, A);
+            assertThrows(
+                    UnsupportedOperationException.class,
+                    () -> f.mesh.setOrdinaryKeyforms(
+                            before,
+                            List.of(base),
+                            List.of(new dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder(
+                                    tuple(0, 0), base.formGuid(), 120))));
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> f.mesh.setOrdinaryKeyforms(
+                            before,
+                            java.util.Collections.nCopies(4097, pos),
+                            java.util.Collections.nCopies(4097, order)));
+            assertEquals(before, f.mesh.authoringSnapshot());
+            assertEquals(0, f.host.snapshots);
+            assertEquals(0, f.host.begins);
+            f.mesh.setOrdinaryKeyforms(before, List.of(), List.of());
+            assertEquals(0, f.host.snapshots);
+            f.target(1, 1).setPositions(B);
+            assertThrows(
+                    IllegalStateException.class,
+                    () -> f.mesh.setOrdinaryKeyforms(before, List.of(pos), List.of(order)));
+        });
+    }
+
+    @Test
+    void combinedRotationValuesUseOneUndoSnapshotAndRestoreBothFields() {
+        for (boolean combined : List.of(false, true))
+            for (boolean abort : List.of(false, true))
+                onEdt(f -> {
+                    var before = f.mesh.authoringSnapshot();
+                    var positions = List.of(edit(f, -1, -1, A), edit(f, 1, 1, B));
+                    var orders = List.of(
+                            new dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder(
+                                    tuple(1, 1), positions.get(1).formGuid(), 880),
+                            new dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder(
+                                    tuple(-1, -1), positions.get(0).formGuid(), 120));
+                    var result =
+                            f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("rotation values"), () -> {
+                                f.coordinator.batchStoredSourceWrites(f.binding, () -> {
+                                    if (combined) f.mesh.setOrdinaryKeyforms(before, positions, orders);
+                                    else {
+                                        f.mesh.setOrdinaryKeyformPositions(before, positions);
+                                        f.mesh.setOrdinaryKeyformDrawOrders(f.mesh.authoringSnapshot(), orders);
+                                    }
+                                    assertEquals(A, f.target(-1, -1).snapshot().positions());
+                                    assertEquals(
+                                            120, f.target(-1, -1).snapshot().drawOrder());
+                                    assertEquals(B, f.target(1, 1).snapshot().positions());
+                                    assertEquals(880, f.target(1, 1).snapshot().drawOrder());
+                                    assertEquals(0, f.host.updates);
+                                });
+                                assertEquals(1, f.host.updates);
+                                if (abort) throw new IllegalStateException("abort rotation values");
+                                return null;
+                            });
+                    assertEquals(
+                            abort ? AuthoringTransactionOutcome.ROLLED_BACK : AuthoringTransactionOutcome.COMMITTED,
+                            result.outcome());
+                    assertEquals(combined ? 1 : 2, f.host.snapshots);
+                    if (abort) assertEquals(before, f.mesh.authoringSnapshot());
+                    else {
+                        var after = f.mesh.authoringSnapshot();
+                        assertEquals(before.sourceGeometry(), after.sourceGeometry());
+                        assertEquals(before.axes(), after.axes());
+                        assertEquals(before.cells(), after.cells());
+                        assertEquals(before.morphKeys(), after.morphKeys());
+                        for (var form : before.forms())
+                            if (positions.stream()
+                                    .noneMatch(edit -> edit.formGuid().equals(form.formGuid())))
+                                assertTrue(after.forms().contains(form));
+                        f.mesh.setOrdinaryKeyforms(after, positions, orders);
+                        assertEquals(combined ? 1 : 2, f.host.snapshots, "equal final values are a no-op");
+                    }
+                });
+    }
+
+    @Test
     void bulkSourceWritesKeepInstancesCurrentButCoalescePaletteAndCanvasRefresh() {
         onEdt(f -> {
             var result = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("bulk source import"), () -> {

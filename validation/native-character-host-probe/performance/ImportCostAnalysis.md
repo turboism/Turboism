@@ -134,3 +134,38 @@ Added `parameterBindingBatch().setInterpolations(target, settings)` with fail-cl
 Deterministic tests exercise the original sequential pattern (two builds) and combined pattern (one build, same final 25-row grid), source-bank preservation, native Undo/Redo, post-write transaction abort restoring both axes/extension, final combined-budget rejection before mutation, no-op reuse, permission revocation and retained-session model replacement. Full plugin tests also require one combined two-axis call per visible mesh. External-fixture skips remain explicit.
 
 Validation and small native persistence evidence are recorded in `verification.md`. T035 occlusion and T036 overall latency remain open.
+
+
+## r32: combine rotation-form positions and draw orders
+
+The next repeated domain is the r30 **89.748 s** rotation-bank stage. Each visible ArtMesh binds two axes, writes 24 non-default projected positions, reads the complete bank back, then separately writes the same forms' draw orders. Those two value edits each capture an all-keyform native Undo snapshot and validate the complete authoring state. The explicit source barrier already coalesces model evaluation; it is not a per-edit saving.
+
+Ranked hypotheses were: (1) combine positions/orders to reduce Undo contributions from two to one; (2) remove the intermediate source snapshot and the second complete compare-and-set cycle; (3) binding/grid expansion may still dominate the stage after value-write consolidation. Only the first two are changed in r32.
+
+`Drawable.setOrdinaryKeyforms(expected, positions, drawOrders)` requires identical distinct non-default form GUIDs and complete coordinate tuples in both lists (list order may differ). It reuses the verified native setters and one existing KEYFORM_EDIT contribution, preserving default/shared/morph protection, source identity, full expected-state comparison, native form identities, 4096-form / 2M-position limits, full applied/restored predicates and native Undo/Redo. Session and permission wrappers explicitly forward the API; a combined semantic operation records the whole authoring state. Stored-source batching still evaluates once at the existing barrier. Other single-field APIs retain their behavior.
+
+The importer now writes both fields together and retains its exact final expected snapshot, placement verification and later interpolation verification. It no longer reads the intermediate position-only bank or admits a second Undo snapshot for the same rotation forms.
+
+A real adapter/writer/coordinator deterministic test reproduces both importer patterns in the same source-only transaction domain: **9 source-geometry reads and 2 native Undo snapshots -> 4 reads and 1 snapshot**. These are call counts, not wall/CPU percentages. Final selected fields match; source geometry, axes, cells, morph keys and unselected forms are preserved. Additional tests cover caller abort, both native-abort recovery modes after refresh failure, mismatched/foreign/default/duplicate/stale targets, pre-mutation budget checks and equal-value no-ops. No geometry, control, precision or sampling reduction.
+
+Build, native persistence and the single cumulative r31+r32 full-character timing are recorded in `verification.md`; the previous accepted baseline remains r30 **419.711243 s** until a new endpoint is accepted. T035/T036 remain open.
+
+
+### Accepted cumulative r31+r32 timing
+
+One comparable full-character structure-only job **`cfce2a55-4f72-4410-b203-8fcee21c35db`**, run **`queue-5f34d024932e45c3af04fb3d69973d93`**, label `5304-keyform-values-r32-character`: supervisor PASS, verified identity, unchanged input, normal exit, safe cleanup. All builds and small native gates finished before the run. Same explicit GLB SHA-256 `ad25dbb8cd3f12901c17f104ef26ee5a16ba688a8b6422aeccaddef19896623a`, 8 GiB heap, stack sampling and endpoint as r30.
+
+**2026-10-16T10:06:46.838825200Z -> 10:13:09.306739800Z = 382.4679146 s (6m22.468s)**. Compared with r30 419.711243 s, **37.2433284 s / 8.87356%** less. This is a single run per candidate and combines r31 interpolation with r32 keyform-value consolidation; it does not isolate causal savings or establish repeat-run variance.
+
+| Disjoint stage | r30 seconds | r32 seconds |
+| --- | ---: | ---: |
+| Source preparation/handoff | 51.359 | 51.962 |
+| Parts/control hierarchy | 36.656 | 35.588 |
+| Mesh/image/parent/neutral/default-order | 98.018 | 96.054 |
+| Rotation banks/evaluation barrier | 89.748 | 72.706 |
+| Explicit atlas | 8.723 | 8.471 |
+| Source controls | 79.942 | 75.246 |
+| Interpolation/commit/final verification | 55.265 | 42.441 |
+| **Total** | **419.711** | **382.468** |
+
+Nested refresh/read/Undo/cache work is already included and must not be added to this table. Counts unchanged: **940 ArtMeshes, 236437 triangles, 111 source controls plus XYZ = 114 parameters, one filename-scoped parameter group**. Maximum neutral parent conversion error unchanged at **0.0006068566462325795 Canvas px**. No new complete-character CMO3/save/reopen or visual occlusion acceptance is provided by this structure-only endpoint; small native persistence/seam gates remain separate evidence. **T035 and T036 remain open**. Remaining dominant costs are mesh/image/parent conversion, source controls and rotation bank construction; a future change must again prove repeated work before another expensive full run.
