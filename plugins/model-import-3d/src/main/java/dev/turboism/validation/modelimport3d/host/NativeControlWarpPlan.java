@@ -115,8 +115,10 @@ final class NativeControlWarpPlan {
             double maxY = anatomicalInputs.stream().mapToDouble(Point2::y).max().orElseThrow();
             // Cover this patch, rather than spending most grid controls on its entire anatomical part.
             double padX = 1.0 / (frame.maxX - frame.minX), padY = 1.0 / (frame.maxY - frame.minY);
-            var origin = new Point2((float) (minX - padX), (float) (minY - padY));
-            var span = new Point2((float) (maxX - minX + 2 * padX), (float) (maxY - minY + 2 * padY));
+            var fx = dyadicFrame(minX, maxX, padX);
+            var fy = dyadicFrame(minY, maxY, padY);
+            var origin = new Point2(fx[0], fy[0]);
+            var span = new Point2(fx[1], fy[1]);
             var inputs = anatomicalInputs.stream()
                     .map(v -> new Point2((v.x() - origin.x()) / span.x(), (v.y() - origin.y()) / span.y()))
                     .toList();
@@ -200,6 +202,24 @@ final class NativeControlWarpPlan {
             if (mesh.visible()) for (var factor : mesh.opacityControls()) used.add(factor.controlId());
         return new Plan(
                 scene.controls().stream().filter(c -> used.contains(c.id())).toList(), patches, count, maximum);
+    }
+
+    /** Binary-rational regular grids avoid introducing rounded, non-affine cells
+     * into the native inverse-coordinate solver. The padded source interval is contained.
+     */
+    static float[] dyadicFrame(double min, double max, double pad) {
+        double extent = max - min + 2 * pad;
+        if (!Double.isFinite(extent) || extent <= 0) throw new IllegalArgumentException("Invalid local warp extent");
+        double size = Math.scalb(1.0, Math.getExponent(extent) + 2);
+        double step = size / 4;
+        float origin = (float) (Math.floor((min - pad) / step) * step), span = (float) size;
+        if (!Float.isFinite(origin)
+                || !Float.isFinite(span)
+                || span <= 0
+                || origin > min - pad
+                || origin + (double) span < max + pad)
+            throw new IllegalArgumentException("Local warp frame cannot contain source bounds");
+        return new float[] {origin, span};
     }
 
     static void checkBudget(long controlSlots, long geometrySlots) {

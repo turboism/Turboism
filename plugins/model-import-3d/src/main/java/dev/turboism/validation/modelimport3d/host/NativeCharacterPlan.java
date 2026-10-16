@@ -291,21 +291,28 @@ public final class NativeCharacterPlan {
             sourceTriangles += m.indices().length / 3;
         }
 
+        long minimumKeyformSlots = 0;
+        for (var mesh : rawMeshes) {
+            var referenced = new java.util.BitSet(mesh.positions().length / 3);
+            for (int index : mesh.indices()) referenced.set(index);
+            minimumKeyformSlots += (long) referenced.cardinality() * (mesh.visible() ? 25 : 1);
+            if (minimumKeyformSlots > MAX_TOTAL_KEYFORM_SLOTS)
+                throw new IllegalArgumentException(
+                        "Native character geometry exceeds 6M save budget before partitioning: " + minimumKeyformSlots);
+        }
         var partitions = new ArrayList<Partition>();
         int partitionCounter = 0;
 
         for (int mIdx = 0; mIdx < rawMeshes.size(); mIdx++) {
             var mesh = rawMeshes.get(mIdx);
+            boolean doubleSided = mesh.materialIndex() >= 0
+                    && mesh.materialIndex() < scene.materials().size()
+                    && scene.materials().get(mesh.materialIndex()).doubleSided();
             var subClusters = clusterMesh(
                     mesh,
                     mesh.controlSamples().isEmpty() ? TARGET_MAX_TRIANGLES_PER_PARTITION : 300,
-                    refinements.getOrDefault(mIdx, java.util.Set.of()));
-
-            boolean doubleSided = false;
-            if (mesh.materialIndex() >= 0
-                    && mesh.materialIndex() < scene.materials().size()) {
-                doubleSided = scene.materials().get(mesh.materialIndex()).doubleSided();
-            }
+                    refinements.getOrDefault(mIdx, java.util.Set.of()),
+                    doubleSided);
 
             float[] rawPos = mesh.positions();
             float[] rawUv = mesh.uvs();
@@ -484,7 +491,7 @@ public final class NativeCharacterPlan {
     }
 
     private static List<List<Face>> clusterMesh(
-            ViewerScene.Mesh mesh, int maxTriangles, java.util.Set<List<Integer>> refinements) {
+            ViewerScene.Mesh mesh, int maxTriangles, java.util.Set<List<Integer>> refinements, boolean doubleSided) {
         int tCount = mesh.indices().length / 3;
         float[] pos = mesh.positions();
         int[] ind = mesh.indices();
@@ -528,7 +535,29 @@ public final class NativeCharacterPlan {
             if (current.size() <= maxTriangles
                     && !refinements.contains(
                             current.stream().map(Face::triangleIndex).sorted().toList())) {
-                result.add(current);
+                for (var patch : convexPatches(mesh, current, doubleSided)) {
+                    if (patch.size() > 1 && !doubleSided && broadOpenPatch(mesh, patch)) {
+                        var split = new ArrayList<>(patch);
+                        double[] span = new double[3];
+                        for (int axis = 0; axis < 3; axis++) {
+                            final int a = axis;
+                            var values = split.stream()
+                                    .mapToDouble(f -> a == 0 ? f.cx : a == 1 ? f.cy : f.cz)
+                                    .summaryStatistics();
+                            span[axis] = values.getMax() - values.getMin();
+                        }
+                        int axis = span[0] >= span[1] && span[0] >= span[2] ? 0 : span[1] >= span[2] ? 1 : 2;
+                        split.sort(Comparator.comparingDouble(f -> axis == 0 ? f.cx : axis == 1 ? f.cy : f.cz));
+                        int mid = split.size() / 2;
+                        queue.add(new ArrayList<>(split.subList(0, mid)));
+                        queue.add(new ArrayList<>(split.subList(mid, split.size())));
+                    } else if (patch.size() > 1
+                            && refinements.contains(patch.stream()
+                                    .map(Face::triangleIndex)
+                                    .sorted()
+                                    .toList())) queue.add(patch);
+                    else result.add(patch);
+                }
                 continue;
             }
 
@@ -566,11 +595,145 @@ public final class NativeCharacterPlan {
                 return Double.compare(va, vb);
             });
 
+            if (current.size() < 2) throw new IllegalArgumentException("Cannot refine a single source triangle");
             int mid = current.size() / 2;
             queue.add(new ArrayList<>(current.subList(0, mid)));
             queue.add(new ArrayList<>(current.subList(mid, current.size())));
         }
 
+        return result;
+    }
+
+    /** An open convex patch can wrap around another component. Restrict its normal
+     * cone to a hemisphere; closed convex shells can safely retain their whole surface.
+     */
+    private static boolean broadOpenPatch(ViewerScene.Mesh mesh, List<Face> patch) {
+        double nx = 0, ny = 0, nz = 0;
+        for (var face : patch) {
+            nx += face.nx;
+            ny += face.ny;
+            nz += face.nz;
+        }
+        double length = Math.sqrt(nx * nx + ny * ny + nz * nz);
+        boolean broad = length < patch.size() * 1e-8;
+        if (!broad)
+            for (var face : patch)
+                if ((face.nx * nx + face.ny * ny + face.nz * nz) / length < -1e-6) {
+                    broad = true;
+                    break;
+                }
+        if (!broad) return false;
+        var pos = mesh.positions();
+        var ind = mesh.indices();
+        double[] lo = {Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY};
+        double[] hi = {Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY};
+        for (var face : patch)
+            for (int c = 0; c < 3; c++)
+                for (int axis = 0; axis < 3; axis++) {
+                    double v = pos[ind[face.triangleIndex * 3 + c] * 3 + axis];
+                    lo[axis] = Math.min(lo[axis], v);
+                    hi[axis] = Math.max(hi[axis], v);
+                }
+        double epsilon = Math.max(hi[0] - lo[0], Math.max(hi[1] - lo[1], hi[2] - lo[2])) * 1e-7;
+        if (!(epsilon > 0)) return false;
+        var counts = new HashMap<String, Integer>();
+        for (var face : patch) {
+            String[] vertices = new String[3];
+            for (int c = 0; c < 3; c++) {
+                int i = ind[face.triangleIndex * 3 + c] * 3;
+                vertices[c] = Math.round((pos[i] - lo[0]) / epsilon) + ":" + Math.round((pos[i + 1] - lo[1]) / epsilon)
+                        + ":" + Math.round((pos[i + 2] - lo[2]) / epsilon);
+            }
+            for (int c = 0; c < 3; c++) {
+                String a = vertices[c], b = vertices[(c + 1) % 3];
+                counts.merge(a.compareTo(b) < 0 ? a + "/" + b : b + "/" + a, 1, Integer::sum);
+            }
+        }
+        return counts.values().stream().anyMatch(count -> count != 2);
+    }
+
+    /** Connected supporting-plane patches. Single-sided convex patches have no mutually
+     * covering front faces; double-sided input is restricted to coplanar patches instead.
+     * Only groups change: source triangles, UVs and winding are retained verbatim.
+     */
+    private static List<List<Face>> convexPatches(ViewerScene.Mesh mesh, List<Face> input, boolean doubleSided) {
+        float[] pos = mesh.positions();
+        int[] ind = mesh.indices();
+        var faces = new ArrayList<>(input);
+        faces.sort(Comparator.comparingInt(Face::triangleIndex));
+        double[] lo = {Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY};
+        double[] hi = {Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY};
+        for (var face : faces)
+            for (int c = 0; c < 3; c++)
+                for (int axis = 0; axis < 3; axis++) {
+                    double v = pos[ind[face.triangleIndex * 3 + c] * 3 + axis];
+                    lo[axis] = Math.min(lo[axis], v);
+                    hi[axis] = Math.max(hi[axis], v);
+                }
+        double span = Math.max(hi[0] - lo[0], Math.max(hi[1] - lo[1], hi[2] - lo[2]));
+        double epsilon = Math.max(Math.ulp(span) * 16, span * 1e-7);
+        if (!(epsilon > 0)) return List.of(faces);
+        var edges = new LinkedHashMap<String, List<Integer>>();
+        var adjacent = new ArrayList<Set<Integer>>();
+        for (int t = 0; t < faces.size(); t++) adjacent.add(new TreeSet<>());
+        for (int t = 0; t < faces.size(); t++) {
+            var face = faces.get(t);
+            String[] vertices = new String[3];
+            for (int c = 0; c < 3; c++) {
+                int i = ind[face.triangleIndex * 3 + c] * 3;
+                vertices[c] = Math.round((pos[i] - lo[0]) / epsilon) + ":" + Math.round((pos[i + 1] - lo[1]) / epsilon)
+                        + ":" + Math.round((pos[i + 2] - lo[2]) / epsilon);
+            }
+            for (int c = 0; c < 3; c++) {
+                String a = vertices[c], b = vertices[(c + 1) % 3];
+                String key = a.compareTo(b) < 0 ? a + "/" + b : b + "/" + a;
+                var prior = edges.computeIfAbsent(key, unused -> new ArrayList<>());
+                for (int other : prior) {
+                    adjacent.get(t).add(other);
+                    adjacent.get(other).add(t);
+                }
+                prior.add(t);
+            }
+        }
+        boolean[] assigned = new boolean[faces.size()];
+        var result = new ArrayList<List<Face>>();
+        for (int seed = 0; seed < faces.size(); seed++) {
+            if (assigned[seed]) continue;
+            if (Thread.currentThread().isInterrupted())
+                throw new java.util.concurrent.CancellationException("Native partitioning cancelled");
+            var patch = new ArrayList<Face>();
+            var frontier = new ArrayDeque<Integer>();
+            frontier.add(seed);
+            boolean[] considered = new boolean[faces.size()];
+            while (!frontier.isEmpty()) {
+                int id = frontier.remove();
+                if (assigned[id] || considered[id]) continue;
+                considered[id] = true;
+                var face = faces.get(id);
+                boolean compatible = true;
+                for (var other : patch) {
+                    for (int c = 0; c < 3; c++) {
+                        int i = ind[other.triangleIndex * 3 + c] * 3, j = ind[face.triangleIndex * 3 + c] * 3;
+                        double first = face.nx * (pos[i] - face.cx)
+                                + face.ny * (pos[i + 1] - face.cy)
+                                + face.nz * (pos[i + 2] - face.cz);
+                        double second = other.nx * (pos[j] - other.cx)
+                                + other.ny * (pos[j + 1] - other.cy)
+                                + other.nz * (pos[j + 2] - other.cz);
+                        if ((doubleSided
+                                ? Math.abs(first) > epsilon || Math.abs(second) > epsilon
+                                : first > epsilon || second > epsilon)) compatible = false;
+                    }
+                    if (!compatible) break;
+                }
+                if (compatible) {
+                    patch.add(face);
+                    assigned[id] = true;
+                    frontier.addAll(adjacent.get(id));
+                }
+            }
+            result.add(patch);
+        }
         return result;
     }
 }
