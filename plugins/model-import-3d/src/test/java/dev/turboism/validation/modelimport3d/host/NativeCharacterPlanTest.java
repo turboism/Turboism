@@ -114,6 +114,45 @@ public class NativeCharacterPlanTest {
     }
 
     @Test
+    void sharedVerticesAcrossDifferentRadiusMeshesUseIdenticalRotationInterpolation() {
+        var near = new ViewerScene.Mesh(
+                "Near pivot",
+                new float[] {.2f, 0, .1f, .1f, .05f, .1f, .2f, .05f, .1f},
+                null,
+                new float[6],
+                null,
+                null,
+                new int[] {0, 1, 2},
+                -1);
+        var outer = new ViewerScene.Mesh(
+                "Outer shell",
+                new float[] {.2f, 0, .1f, -1, -1, -1, 1, 1, 1},
+                null,
+                new float[6],
+                null,
+                null,
+                new int[] {0, 1, 2},
+                -1);
+        var scene = new ViewerScene(
+                List.of(near, outer),
+                List.of(),
+                List.of(),
+                new ViewerScene.Bounds(-1, -1, -1, 1, 1, 1),
+                new ViewerScene.Stats(0, 2, 2, 0, 0, 0, 0));
+        var plan = NativeCharacterPlan.prepare(scene, defaultRequest());
+        assertEquals(2, plan.partitions().size());
+        assertEquals(
+                plan.partitions().get(0).positions().get(0),
+                plan.partitions().get(1).positions().get(0));
+        assertEquals(
+                plan.sampling().get(0).yaw(),
+                plan.sampling().get(1).yaw(),
+                "Different interpolation densities separate the same source vertex between samples");
+        assertEquals(plan.sampling().get(0).pitch(), plan.sampling().get(1).pitch());
+        assertEquals(6L * 289, plan.totalCacheSlots());
+    }
+
+    @Test
     void syntheticMeshPlanPreservesExactTrianglesAndSourceSlots() {
         // Create a synthetic tetrahedron
         float[] pos = {0f, 1f, 0f, -1f, -1f, 1f, 1f, -1f, 1f, 0f, -1f, -1f};
@@ -200,7 +239,12 @@ public class NativeCharacterPlanTest {
                 "25 forms easily fit in <3M slots (actual " + plan.totalKeyformSlots() + ")");
 
         // Cache slots budget verification
-        assertEquals(24610268L, plan.totalCacheSlots(), "Quantified cache slots after adaptive sampling");
+        assertEquals(
+                plan.partitions().stream()
+                        .mapToLong(p -> p.positions().size() * (p.visible() ? 289L : 1L))
+                        .sum(),
+                plan.totalCacheSlots(),
+                "Shared visible lattice retains complete cache preflight");
         assertTrue(
                 plan.totalCacheSlots() <= NativeCharacterPlan.MAX_CACHE_SLOTS,
                 "Cache slots must strictly fit within 64M budget");

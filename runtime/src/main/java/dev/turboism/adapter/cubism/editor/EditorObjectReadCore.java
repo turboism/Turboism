@@ -115,10 +115,15 @@ final class EditorObjectReadCore {
         final List<?> instances = list(
                 resolver.invoke("cubism.editor-model.model.all-deformers", model),
                 "Editor Deformer instance collection");
+        // Match the ArtMesh projection: build a snapshot-local identity index rather
+        // than scanning every source again for every deformer instance. No index survives
+        // a native update, so source replacement and stale references still fail closed.
+        final java.util.IdentityHashMap<Object, Boolean> sourceIdentities = new java.util.IdentityHashMap<>();
+        for (Object objectSource : sources) sourceIdentities.put(objectSource, Boolean.TRUE);
         final java.util.IdentityHashMap<Object, Object> instancesBySource = new java.util.IdentityHashMap<>();
         for (Object instance : instances) {
             final Object objectSource = resolver.invoke("cubism.editor-model.deformer.source", instance);
-            if (!containsIdentity(sources, objectSource) || instancesBySource.put(objectSource, instance) != null) {
+            if (!sourceIdentities.containsKey(objectSource) || instancesBySource.put(objectSource, instance) != null) {
                 throw unavailable("Editor Deformer source/instance binding is invalid.");
             }
         }

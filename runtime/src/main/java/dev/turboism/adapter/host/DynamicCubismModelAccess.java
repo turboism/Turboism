@@ -117,6 +117,22 @@ final class DynamicCubismModelAccess
         }
         return new AuthoringTransactionService() {
             @Override
+            public void batchStoredSourceWrites(final Runnable work) {
+                Objects.requireNonNull(work, "work");
+                withActiveLeaseOrFallback(
+                        () -> {
+                            throw new IllegalStateException("Authoring transaction host unavailable");
+                        },
+                        lease -> {
+                            if (!(lease.modelAccess() instanceof RuntimeAuthoringTransactionProvider provider)) {
+                                throw new UnsupportedOperationException("Authoring transaction provider unavailable");
+                            }
+                            provider.authoringTransactions(owner).batchStoredSourceWrites(work);
+                            return null;
+                        });
+            }
+
+            @Override
             public <T> AuthoringTransactionResult<T> execute(
                     final AuthoringTransactionOptions options, final AuthoringTransactionWork<T> work) {
                 final AuthoringTransactionOptions checkedOptions = Objects.requireNonNull(options, "options");
