@@ -32,6 +32,11 @@
       "reason": "Create frame animation parts, art meshes, parameters, and bind keyframe opacities."
     },
     {
+      "id": "turboism.file.read",
+      "scope": "application",
+      "reason": "Read selected frame images and sprite sheet files."
+    },
+    {
       "id": "turboism.action.register",
       "scope": "application",
       "reason": "Register frame animation import action."
@@ -51,6 +56,7 @@
     "cubism.model.read",
     "cubism.model.write",
     "cubism.parameter.write",
+    "file.read",
     "ui.context-menu.contribute",
     "ui.status.notify"
   ],
