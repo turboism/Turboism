@@ -602,10 +602,10 @@ public final class NativeCharacterAuthoring {
             if (!plan.partitions().get(pIdx).visible()) continue;
             var beforeInterpolation = mesh.authoringSnapshot();
             var sampling = plan.sampling().get(pIdx);
-            model.parameterBindings(request.yaw())
-                    .setInterpolation(ParameterBindingTarget.artMesh(mesh.id()), sampling.yaw());
-            model.parameterBindings(request.pitch())
-                    .setInterpolation(ParameterBindingTarget.artMesh(mesh.id()), sampling.pitch());
+            model.parameterBindingBatch()
+                    .setInterpolations(
+                            ParameterBindingTarget.artMesh(mesh.id()),
+                            Map.of(request.yaw(), sampling.yaw(), request.pitch(), sampling.pitch()));
 
             if (!beforeInterpolation.equals(mesh.authoringSnapshot())) {
                 throw new IllegalStateException("Interpolation changed source banks for partition " + pIdx);

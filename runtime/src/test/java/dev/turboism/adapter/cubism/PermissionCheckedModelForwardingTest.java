@@ -219,13 +219,21 @@ class PermissionCheckedModelForwardingTest {
                         () -> active[0])
                 .model()
                 .active();
+        var batch = model.parameterBindingBatch();
         var operations = model.parameterBindings(PARAMETER_ID);
         var target = ParameterBindingTarget.artMesh(new ArtMeshId("ArtMeshA"));
         var settings = new ParameterInterpolation(ParameterInterpolation.Method.ELLIPSE, 6, 1);
         assertEquals(settings, operations.interpolation(target));
         operations.setInterpolation(target, settings);
-        assertEquals(List.of("interpolation.read:ArtMeshA", "interpolation.write:ArtMeshA:6"), calls);
+        batch.setInterpolations(target, java.util.Map.of(new ParameterId("ParamA"), settings));
+        assertEquals(
+                List.of(
+                        "interpolation.read:ArtMeshA",
+                        "interpolation.write:ArtMeshA:6",
+                        "interpolation.batch:ArtMeshA:1"),
+                calls);
         write[0] = false;
+        assertThrows(CubismPermissionException.class, () -> batch.setInterpolations(target, java.util.Map.of()));
         assertThrows(CubismPermissionException.class, () -> operations.setInterpolation(target, settings));
         read[0] = false;
         assertThrows(CubismPermissionException.class, () -> operations.interpolation(target));
@@ -234,7 +242,8 @@ class PermissionCheckedModelForwardingTest {
         active[0] = false;
         assertThrows(IllegalStateException.class, () -> operations.interpolation(target));
         assertThrows(IllegalStateException.class, () -> operations.setInterpolation(target, settings));
-        assertEquals(2, calls.size());
+        assertThrows(IllegalStateException.class, () -> batch.setInterpolations(target, java.util.Map.of()));
+        assertEquals(3, calls.size());
     }
 
     @Test
@@ -1280,6 +1289,24 @@ class PermissionCheckedModelForwardingTest {
     private static final class RecordingModel implements CubismModel {
         List<Drawables.SourceGeometryRequest> batchMeshRequests;
         List<Object> initializedWarpArgs;
+
+        @Override
+        public dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations parameterBindingBatch() {
+            return new dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations() {
+                public void invert(List<ParameterBindingTarget> targets) {
+                    throw new UnsupportedOperationException();
+                }
+
+                public void transfer(dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan plan) {
+                    throw new UnsupportedOperationException();
+                }
+
+                public void setInterpolations(
+                        ParameterBindingTarget target, java.util.Map<ParameterId, ParameterInterpolation> settings) {
+                    calls.add("interpolation.batch:" + target.id() + ":" + settings.size());
+                }
+            };
+        }
 
         @Override
         public ParameterBindingOperations parameterBindings(final ParameterId parameterId) {

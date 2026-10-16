@@ -87,6 +87,7 @@ public class NativeCharacterAuthoringTest {
         }
 
         final Map<ParameterId, Map<ParameterBindingTarget, List<ParameterBindingPoint>>> bindings = new HashMap<>();
+        int combinedInterpolationCalls;
         final Map<ParameterId, Map<ParameterBindingTarget, ParameterInterpolation>> interpolations = new HashMap<>();
 
         boolean simulateLocalParentConversion;
@@ -420,6 +421,18 @@ public class NativeCharacterAuthoringTest {
                         }
                         default -> throw new AssertionError(dm.toString());
                     });
+                case "parameterBindingBatch" ->
+                    proxy(ParameterBindingBatchOperations.class, (bm, ba) -> {
+                        if (!bm.getName().equals("setInterpolations")) throw new AssertionError(bm.toString());
+                        combinedInterpolationCalls++;
+                        assertEquals(2, ((Map<?, ?>) ba[1]).size());
+                        var target = (ParameterBindingTarget) ba[0];
+                        ((Map<ParameterId, ParameterInterpolation>) ba[1])
+                                .forEach((axis, interp) -> interpolations
+                                        .computeIfAbsent(axis, k -> new HashMap<>())
+                                        .put(target, interp));
+                        return null;
+                    });
                 case "parameterBindings" ->
                     proxy(ParameterBindingOperations.class, (bm, ba) -> switch (bm.getName()) {
                         case "bind" -> {
@@ -721,6 +734,7 @@ public class NativeCharacterAuthoringTest {
         assertTrue(host.parameters.stream()
                 .filter(p -> p.type() == ParameterType.BLEND_SHAPE)
                 .allMatch(p -> p.id().value().startsWith("Param3D_Generic_unique_Control_")));
+        assertEquals(created.meshIds().size(), host.combinedInterpolationCalls);
         assertEquals(2, host.interpolations.size());
         for (var axis : List.of(geometry.request().yaw(), geometry.request().pitch()))
             assertEquals(created.meshIds().size(), host.interpolations.get(axis).size());

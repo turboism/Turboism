@@ -242,6 +242,13 @@ class CompleteCubismModelReadApiContractTest {
                 "setId",
                 "setIntensity",
                 "setName");
+        assertMethods(
+                ParameterBindingBatchOperations.class,
+                "invert",
+                "transfer",
+                "transferClamped",
+                "transferMorphClamped",
+                "setInterpolations");
         assertMethods(Parts.class, "add", "all", "copy", "create", "createMany", "find", "remove");
         assertMethods(Deformers.class, "all", "applyToChildren", "createRotation", "createWarp", "find", "remove");
         assertMethods(

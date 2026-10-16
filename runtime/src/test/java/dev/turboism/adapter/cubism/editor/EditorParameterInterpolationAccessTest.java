@@ -20,6 +20,70 @@ class EditorParameterInterpolationAccessTest {
             new ParameterInterpolation(ParameterInterpolation.Method.ELLIPSE, 1, 1);
 
     @Test
+    void combinedAxesRejectFinalBudgetBeforeMutationAndRollbackBothAxes() {
+        EditorHostThread.dispatch("combined interpolation safeguards", () -> {
+            var f = new Fixture("5.3.02", "");
+            var huge = new ParameterInterpolation(ParameterInterpolation.Method.ELLIPSE, 64, 1);
+            assertThrows(IllegalArgumentException.class, () -> f.writeBoth(huge));
+            assertEquals(0, f.begins);
+            assertEquals(0, f.cacheBuilds);
+            var before = f.stored();
+            var result = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("abort combined"), () -> {
+                f.writeBoth(ELLIPSE);
+                throw new IllegalStateException("abort after combined write");
+            });
+            assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+            assertEquals(before, f.stored());
+            assertTrue(f.source.extensions.isEmpty());
+            assertEquals(ParameterInterpolation.Method.LINEAR, f.read(0).method());
+            assertEquals(ParameterInterpolation.Method.LINEAR, f.read(1).method());
+            return null;
+        });
+    }
+
+    @Test
+    void combinedAxesSkipIdenticalSettingsWithoutRebuild() {
+        EditorHostThread.dispatch("combined interpolation no-op", () -> {
+            var f = new Fixture("5.3.02", "");
+            f.writeBoth(ELLIPSE);
+            int begins = f.begins;
+            f.writeBoth(ELLIPSE);
+            assertEquals(1, f.cacheBuilds);
+            assertEquals(begins, f.begins);
+            return null;
+        });
+    }
+
+    @Test
+    void combinedAxesBuildOneCacheAndPreserveHistory() {
+        EditorHostThread.dispatch("combined interpolation", () -> {
+            var f = new Fixture("5.3.02", "");
+            var before = f.stored();
+            f.access.writeMany(
+                    f.source,
+                    f,
+                    new ArtMeshId("Mesh"),
+                    Map.of(f.source.axes.get(0).guid, ELLIPSE, f.source.axes.get(1).guid, ELLIPSE),
+                    () -> {
+                        if (!f.current) throw new IllegalStateException("stale");
+                    },
+                    f.coordinator,
+                    f.binding);
+            assertEquals(1, f.cacheBuilds);
+            assertEquals(25, f.source.extension().grid.rows().size());
+            assertEquals(before, f.stored());
+            f.edit.undo();
+            assertTrue(f.source.extensions.isEmpty());
+            f.edit.redo();
+            assertEquals(25, f.source.extension().grid.rows().size());
+            assertEquals(before, f.stored());
+            assertEquals(ELLIPSE, f.read(0));
+            assertEquals(ELLIPSE, f.read(1));
+            return null;
+        });
+    }
+
+    @Test
     void composedNativeUndoRedoRefreshesWholeModelOnceAfterAllChildren() {
         EditorHostThread.dispatch("interpolation root history refresh", () -> {
             var f = new Fixture("5.3.02", "");
@@ -52,6 +116,7 @@ class EditorParameterInterpolationAccessTest {
                 assertEquals(15, f.source.extension().grid.rows().size());
                 assertEquals(0, f.modelUpdates, "source-local cache verification must not refresh the whole model");
                 f.write(1, ELLIPSE);
+                assertEquals(2, f.cacheBuilds, "sequential axes rebuild twice");
                 assertEquals(25, f.source.extension().grid.rows().size());
                 assertEquals(0, f.modelUpdates);
                 return null;
@@ -348,6 +413,7 @@ class EditorParameterInterpolationAccessTest {
         }
 
         public void setup(boolean reset, boolean ignored) {
+            CURRENT.cacheBuilds++;
             grid = new NativeGrid();
             grid.bindings.clear();
             for (var b : owner.axes) {
@@ -567,7 +633,7 @@ class EditorParameterInterpolationAccessTest {
         final VerifiedMemberResolver resolver;
         final EditorParameterInterpolationAccess access;
         Edit edit;
-        int begins, modelUpdates;
+        int begins, modelUpdates, cacheBuilds;
         boolean current = true, nativeAbort = true;
         String failure = "";
 
@@ -575,6 +641,20 @@ class EditorParameterInterpolationAccessTest {
             CURRENT = this;
             resolver = resolver(version, missing);
             access = new EditorParameterInterpolationAccess(resolver);
+        }
+
+        void writeBoth(ParameterInterpolation settings) {
+            CURRENT = this;
+            access.writeMany(
+                    source,
+                    this,
+                    new ArtMeshId("Mesh"),
+                    Map.of(source.axes.get(0).guid, settings, source.axes.get(1).guid, settings),
+                    () -> {
+                        if (!current) throw new IllegalStateException("stale");
+                    },
+                    coordinator,
+                    binding);
         }
 
         void write(int axis, ParameterInterpolation s) {

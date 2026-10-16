@@ -38,35 +38,57 @@ final class EditorParameterInterpolationAccess {
             Runnable requireCurrent,
             EditorAuthoringTransactionCoordinator coordinator,
             EditorAuthoringTransactionCoordinator.Binding authoringBinding) {
+        writeMany(
+                source,
+                modelSource,
+                id,
+                Map.of(parameterGuid, requested),
+                requireCurrent,
+                coordinator,
+                authoringBinding);
+    }
+
+    void writeMany(
+            Object source,
+            Object modelSource,
+            ArtMeshId id,
+            Map<Object, ParameterInterpolation> requests,
+            Runnable requireCurrent,
+            EditorAuthoringTransactionCoordinator coordinator,
+            EditorAuthoringTransactionCoordinator.Binding authoringBinding) {
         requireAuthorized();
-        Objects.requireNonNull(requested, "settings");
         requireCurrent.run();
-        Object binding = requireBinding(source, parameterGuid);
-        if (requested.method() == ParameterInterpolation.Method.SNS_CURVE) {
-            throw new UnsupportedOperationException("SNS curve authoring is not verified by this adapter.");
+        requests = Map.copyOf(requests);
+        if (requests.isEmpty()) return;
+        Map<String, ParameterInterpolation> selected = new LinkedHashMap<>();
+        for (var entry : requests.entrySet()) {
+            Object binding = requireBinding(source, entry.getKey());
+            var requested = entry.getValue();
+            if (requested.method() == ParameterInterpolation.Method.SNS_CURVE)
+                throw new UnsupportedOperationException("SNS curve authoring is not verified by this adapter.");
+            if (requested.method() != ParameterInterpolation.Method.LINEAR
+                    && list(call("keyform-binding.keys", binding)).size() < 3)
+                throw new IllegalArgumentException("Ellipse interpolation requires at least three source keys.");
+            if (selected.put(guid(call("keyform-binding.parameter-guid", binding)), requested) != null)
+                throw new IllegalArgumentException("Duplicate parameter identity.");
         }
         var before = snapshot(id, source);
         if (!before.source().morphKeys().isEmpty()) {
             throw new UnsupportedOperationException(
                     "Interpolation authoring for existing morph targets is not yet verified.");
         }
-        Object parameterId = call("keyform-binding.parameter-guid", binding);
-        String selectedGuid = guid(parameterId);
-        long expectedGrid = expectedGrid(before.axes(), selectedGuid, requested);
+        long expectedGrid = expectedGrid(before.axes(), selected);
         boolean expectedEnabled = before.axes().stream().anyMatch(axis -> {
-            var setting = axis.guid().equals(selectedGuid) ? requested : axis.settings();
+            var setting = selected.getOrDefault(axis.guid(), axis.settings());
             return setting.method() != ParameterInterpolation.Method.LINEAR && setting.insertPointCount() > 0;
         });
-        if (settings(binding).equals(requested)
+        if (before.axes().stream()
+                        .allMatch(axis -> axis.settings().equals(selected.getOrDefault(axis.guid(), axis.settings())))
                 && (!expectedEnabled && before.cache().isEmpty()
                         || before.cache()
                                 .filter(cache -> cache.enabled() == expectedEnabled
                                         && (!expectedEnabled || cache.gridForms() == expectedGrid))
                                 .isPresent())) return;
-        if (requested.method() != ParameterInterpolation.Method.LINEAR
-                && list(call("keyform-binding.keys", binding)).size() < 3) {
-            throw new IllegalArgumentException("Ellipse interpolation requires at least three source keys.");
-        }
         int vertices = before.source().sourceGeometry().positions().size();
         if (expectedGrid > MAX_GRID_FORMS || Math.multiplyExact(expectedGrid, vertices) > MAX_POSITION_SAMPLES) {
             throw new IllegalArgumentException("Native interpolation cache exceeds the form/position budget.");
@@ -146,19 +168,29 @@ final class EditorParameterInterpolationAccess {
                             // activates the native Undo flags, unlike calling addExtension directly.
                             if (structuralUndo[0] != null)
                                 resolver.invoke("cubism.texture-atlas.undo.force-redo", structuralUndo[0]);
-                            Object currentBinding = requireBinding(source, parameterGuid);
-                            call(
-                                    "cubism.editor-model.keyform-binding.set-extended-type",
-                                    currentBinding,
-                                    nativeType(requested.method()));
-                            call(
-                                    "cubism.editor-model.keyform-binding.set-insert-count",
-                                    currentBinding,
-                                    requested.insertPointCount());
-                            call(
-                                    "cubism.editor-model.keyform-binding.set-extended-scale",
-                                    currentBinding,
-                                    requested.angleScale());
+                            for (var entry : selected.entrySet()) {
+                                Object currentBinding = list(call(
+                                                "keyform-grid.bindings",
+                                                call("parameter-controllable.keyform-grid", source)))
+                                        .stream()
+                                        .filter(candidate -> guid(call("keyform-binding.parameter-guid", candidate))
+                                                .equals(entry.getKey()))
+                                        .findFirst()
+                                        .orElseThrow();
+                                var requested = entry.getValue();
+                                call(
+                                        "cubism.editor-model.keyform-binding.set-extended-type",
+                                        currentBinding,
+                                        nativeType(requested.method()));
+                                call(
+                                        "cubism.editor-model.keyform-binding.set-insert-count",
+                                        currentBinding,
+                                        requested.insertPointCount());
+                                call(
+                                        "cubism.editor-model.keyform-binding.set-extended-scale",
+                                        currentBinding,
+                                        requested.angleScale());
+                            }
                             rebuild(source);
                             // The applied predicate reads source-local banks and cache. The
                             // coordinator coalesces MODEL_INSTANCES at commit, including for
@@ -171,8 +203,13 @@ final class EditorParameterInterpolationAccess {
                                     || !before.sourceOpacities().equals(after.sourceOpacities())
                                     || !before.otherExtensions().equals(after.otherExtensions())) return false;
                             List<Axis> expectedAxes = before.axes().stream()
-                                    .map(axis -> axis.guid().equals(selectedGuid)
-                                            ? new Axis(axis.guid(), axis.keys(), requested, axis.legacyType(), false)
+                                    .map(axis -> selected.containsKey(axis.guid())
+                                            ? new Axis(
+                                                    axis.guid(),
+                                                    axis.keys(),
+                                                    selected.get(axis.guid()),
+                                                    axis.legacyType(),
+                                                    false)
                                             : axis)
                                     .toList();
                             if (!expectedAxes.equals(after.axes())
@@ -330,10 +367,10 @@ final class EditorParameterInterpolationAccess {
         return List.copyOf(axes);
     }
 
-    private static long expectedGrid(List<Axis> axes, String selectedGuid, ParameterInterpolation requested) {
+    private static long expectedGrid(List<Axis> axes, Map<String, ParameterInterpolation> selected) {
         long forms = 1;
         for (Axis axis : axes) {
-            ParameterInterpolation setting = axis.guid().equals(selectedGuid) ? requested : axis.settings();
+            ParameterInterpolation setting = selected.getOrDefault(axis.guid(), axis.settings());
             long count = axis.keys().size();
             if (setting.method() != ParameterInterpolation.Method.LINEAR)
                 count = Math.addExact(count, Math.multiplyExact(count - 1, setting.insertPointCount()));
