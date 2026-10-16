@@ -619,6 +619,7 @@ final class EditorObjectWriteAccess {
         // is also a stored scalar, including the default form, and may share this barrier.
         final boolean deferPanels = "keyformPositionsBatch".equals(property)
                 || "keyformDrawOrdersBatch".equals(property)
+                || "keyformValuesBatch".equals(property)
                 || "drawOrder".equals(property);
         final EnumSet<EditorRefreshRequirement> refreshRequirements = EnumSet.of(EditorRefreshRequirement.MARK_DIRTY);
         if (deferPanels) {

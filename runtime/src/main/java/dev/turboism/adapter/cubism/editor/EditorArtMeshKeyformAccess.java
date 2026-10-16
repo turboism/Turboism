@@ -69,6 +69,44 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
             final List<ArtMeshKeyformPositions> edits,
             final Runnable requireTransaction,
             final Writer writer) {
+        writeBatch(resolver, id, currentSource, expected, edits, Map.of(), requireTransaction, writer);
+    }
+
+    static void writeCombined(
+            final VerifiedMemberResolver resolver,
+            final ArtMeshId id,
+            final Supplier<Object> currentSource,
+            final ArtMeshAuthoringSnapshot expected,
+            final List<ArtMeshKeyformPositions> positions,
+            final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder> drawOrders,
+            final Runnable requireTransaction,
+            final Writer writer) {
+        final var input = List.copyOf(positions);
+        final var orderInput = List.copyOf(drawOrders);
+        if (input.size() > 4096 || input.size() != orderInput.size())
+            throw new IllegalArgumentException("combined keyform targets must match within batch budget");
+        final var targets = new HashMap<String, Map<String, Float>>();
+        for (var edit : input)
+            if (targets.putIfAbsent(edit.formGuid(), tuple(edit.coordinates())) != null)
+                throw new IllegalArgumentException("duplicate combined keyform target");
+        final var orders = new HashMap<String, Integer>();
+        for (var edit : orderInput) {
+            if (!tuple(edit.coordinates()).equals(targets.get(edit.formGuid()))
+                    || orders.putIfAbsent(edit.formGuid(), edit.drawOrder()) != null)
+                throw new IllegalArgumentException("combined keyform tuples and form GUIDs must match");
+        }
+        writeBatch(resolver, id, currentSource, expected, input, orders, requireTransaction, writer);
+    }
+
+    private static void writeBatch(
+            final VerifiedMemberResolver resolver,
+            final ArtMeshId id,
+            final Supplier<Object> currentSource,
+            final ArtMeshAuthoringSnapshot expected,
+            final List<ArtMeshKeyformPositions> edits,
+            final Map<String, Integer> orders,
+            final Runnable requireTransaction,
+            final Writer writer) {
         Objects.requireNonNull(expected, "expected");
         final var input = List.copyOf(edits);
         if (input.size() > 4096
@@ -86,7 +124,7 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
             final var access =
                     new EditorArtMeshKeyformAccess(resolver, id, currentSource, defaults, requireTransaction, writer);
             if (access.source != source || !access.layout.equals(expected)) throw stale();
-            access.writeBatch(input);
+            access.writeBatch(input, orders, !orders.isEmpty());
             return null;
         });
     }
@@ -135,6 +173,11 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
     }
 
     private void writeBatch(final List<ArtMeshKeyformPositions> edits, final Map<String, Integer> orders) {
+        writeBatch(edits, orders, false);
+    }
+
+    private void writeBatch(
+            final List<ArtMeshKeyformPositions> edits, final Map<String, Integer> orders, final boolean combined) {
         // Build the tuple/reference index once: no per-target host snapshot or grid scan.
         final var cells = new HashMap<Map<String, Float>, Cell>();
         final var references = new HashMap<String, Integer>();
@@ -189,10 +232,12 @@ final class EditorArtMeshKeyformAccess implements ArtMeshKeyform {
         }
         writer.write(
                 form,
-                orders.isEmpty() ? "keyformPositionsBatch" : "keyformDrawOrdersBatch",
-                orders.isEmpty()
-                        ? "Set ArtMesh ordinary keyform positions"
-                        : "Set ArtMesh ordinary keyform draw orders",
+                combined ? "keyformValuesBatch" : orders.isEmpty() ? "keyformPositionsBatch" : "keyformDrawOrdersBatch",
+                combined
+                        ? "Set ArtMesh ordinary keyform values"
+                        : orders.isEmpty()
+                                ? "Set ArtMesh ordinary keyform positions"
+                                : "Set ArtMesh ordinary keyform draw orders",
                 () -> {
                     if (!read().equals(layout)) throw stale();
                     requireFormIdentities(nativeForms);

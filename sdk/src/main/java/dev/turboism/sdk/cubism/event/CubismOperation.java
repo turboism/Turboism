@@ -64,6 +64,8 @@ public enum CubismOperation {
     /** Changes only an explicitly selected stored ArtMesh keyform's draw order. */
     SET_DRAWABLE_KEYFORM_DRAW_ORDER("cubism.model.art-mesh.keyform.set-draw-order"),
     SET_DRAWABLE_KEYFORM_DRAW_ORDERS_BATCH("cubism.model.art-mesh.keyform.set-draw-orders-batch"),
+    /** Writes ordinary ArtMesh positions and draw orders together. */
+    SET_DRAWABLE_KEYFORMS_BATCH("cubism.model.art-mesh.keyforms.set-values"),
     /** Creates an absolute control-point blend key on a neutral Warp parent. */
     CREATE_WARP_MORPH_KEYFORM("cubism.model.warp-deformer.morph-keyform.create"),
     /** Creates an absolute opacity blend key on a neutral Warp parent. */

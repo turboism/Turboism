@@ -555,9 +555,7 @@ public final class NativeCharacterAuthoring {
                     desiredOrders.put(cell.formGuid(), order);
                 }
 
-                mesh.setOrdinaryKeyformPositions(bound, posEdits);
-                var positioned = mesh.authoringSnapshot();
-                mesh.setOrdinaryKeyformDrawOrders(positioned, orderEdits);
+                mesh.setOrdinaryKeyforms(bound, posEdits, orderEdits);
 
                 var expected = new ArtMeshAuthoringSnapshot(
                         bound.artMeshId(),

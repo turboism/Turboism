@@ -693,6 +693,31 @@ final class EditorObjectReadAccess {
                     keyformWriter());
         }
 
+        @Override
+        public void setOrdinaryKeyforms(
+                final dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
+                final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions> positions,
+                final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder> drawOrders) {
+            EditorArtMeshKeyformAccess.writeCombined(
+                    resolver,
+                    new ArtMeshId(ref.id()),
+                    () -> current().source(),
+                    expected,
+                    positions,
+                    drawOrders,
+                    () -> {
+                        if (authoringCoordinator == null
+                                || !resolver.authorizesFeature(
+                                        "adapter.editor-model.readwrite",
+                                        "cubism.editor-history.read",
+                                        EditorHistoryReadSelectorContract.REQUIRED_ALIASES)) {
+                            throw new UnsupportedOperationException(
+                                    "Stored keyform batches require the authoring transaction coordinator.");
+                        }
+                    },
+                    keyformWriter());
+        }
+
         private EditorArtMeshKeyformAccess.Writer keyformWriter() {
             return new EditorArtMeshKeyformAccess.Writer() {
                 @Override
