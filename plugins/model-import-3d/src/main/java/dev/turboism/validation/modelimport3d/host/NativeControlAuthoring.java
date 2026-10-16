@@ -149,13 +149,9 @@ final class NativeControlAuthoring {
                                         source.appearanceGroup() + " / " + factor.controlId(),
                                         model.parts().find(hierarchy.rootPartId()),
                                         -1,
-                                        2,
-                                        2);
+                                        Optional.of(parent),
+                                        NativeControlWarpPlan.identity(2));
                         warpId = warp.id();
-                        warp.setTargetDeformer(Optional.of(parent));
-                        // Native parent conversion can rebuild the evaluated instance.
-                        // Keep the stable ID and reacquire through the public model collection.
-                        model.warpDeformers().find(warpId).replaceGrid(NativeControlWarpPlan.identity(2));
                     }
                     model.warpDeformers().find(warpId).setOpacity(factor.base());
                     DeformerId opacityId = warpId;
@@ -173,18 +169,15 @@ final class NativeControlAuthoring {
         int completedParents = 0;
         for (var patch : plan.patches()) {
             var parent = parents.get(patch.partition()).orElseThrow();
+            var base = mapControls(NativeControlWarpPlan.identity(patch.cells()).controlPoints(), patch);
             var warp = model.deformers()
                     .createWarp(
                             "分区 " + patch.partition() + " 局部动作",
                             model.parts().find(hierarchy.rootPartId()),
                             -1,
-                            patch.cells(),
-                            patch.cells());
+                            Optional.of(parent),
+                            new WarpGrid(patch.cells(), patch.cells(), true, base));
             var warpId = warp.id();
-            warp.setTargetDeformer(Optional.of(parent));
-            warp = model.warpDeformers().find(warpId);
-            var base = mapControls(NativeControlWarpPlan.identity(patch.cells()).controlPoints(), patch);
-            warp.replaceGrid(new WarpGrid(patch.cells(), patch.cells(), true, base));
             parents.set(patch.partition(), Optional.of(warpId));
             patchWarps.put(patch.partition(), warpId);
             if (++completedParents % 32 == 0)

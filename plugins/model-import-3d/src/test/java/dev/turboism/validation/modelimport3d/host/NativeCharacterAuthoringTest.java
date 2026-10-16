@@ -82,6 +82,8 @@ public class NativeCharacterAuthoringTest {
         int hierarchyChangesAfterMeshKeyforms;
         int rotationBindingsAfterSourceMorphs;
         int parameterListReads;
+        int warpGridReplacements;
+        int warpParentConversions;
 
         int partCounter = 0;
         int meshCounter = 0;
@@ -183,6 +185,7 @@ public class NativeCharacterAuthoringTest {
                 return switch (wm.getName()) {
                     case "id" -> r.id;
                     case "replaceGrid" -> {
+                        warpGridReplacements++;
                         r.grid = (WarpGrid) wa[0];
                         yield null;
                     }
@@ -193,6 +196,7 @@ public class NativeCharacterAuthoringTest {
                     }
                     case "getOpacity" -> r.opacity;
                     case "setTargetDeformer" -> {
+                        warpParentConversions++;
                         r.targetDeformer = (Optional<DeformerId>) wa[0];
                         if (simulateWarpParentInstanceReplacement) r.instanceGeneration++;
                         yield null;
@@ -306,6 +310,10 @@ public class NativeCharacterAuthoringTest {
                             if (!meshes.isEmpty()) warpCreationsWithMeshes++;
                             var id = new DeformerId("warp_" + (++deformerCounter));
                             var r = new WarpRecord(id, (String) da[0]);
+                            if (da[3] instanceof Optional<?>) {
+                                r.targetDeformer = (Optional<DeformerId>) da[3];
+                                r.grid = (WarpGrid) da[4];
+                            }
                             warps.put(id, r);
                             yield warp(r);
                         }
@@ -652,6 +660,12 @@ public class NativeCharacterAuthoringTest {
                 },
                 prebuild ? NativeControlAuthoring.rotationRestorer(controls) : null);
         if (prebuild) {
+            assertEquals(
+                    0,
+                    host.warpParentConversions,
+                    "Create Warps with final target instead of converting discarded defaults");
+            assertEquals(
+                    0, host.warpGridReplacements, "Publish final Warp grids once instead of overwriting default grids");
             assertEquals(
                     0,
                     host.warpCreationsWithMeshes,

@@ -64,6 +64,21 @@ final class SessionDeformers implements Deformers {
     }
 
     @Override
+    public WarpDeformer createWarp(
+            final String name,
+            final Part parent,
+            final int index,
+            final java.util.Optional<DeformerId> target,
+            final WarpGrid grid) {
+        return host.guarded(
+                generation,
+                () -> new SessionWarpDeformer(
+                        host,
+                        generation,
+                        delegate.createWarp(name, host.unwrapPart(generation, parent), index, target, grid)));
+    }
+
+    @Override
     public RotationDeformer createRotation(final String name, final Part parent, final int index) {
         return host.guarded(
                 generation,
