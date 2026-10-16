@@ -623,3 +623,58 @@ Source preparation **2026-10-16T10:06:46.838825200Z**; manual-inspection-ready *
 **940 meshes, 236437 triangles, 114 parameters (111 source + XYZ), one filename-scoped group**, all count/group/atlas gates PASS. Neutral parent error remains **6.068566462325795E-4 Canvas px**. Probe PASS and supervisor finalization both checked. Log `/tmp/keyform-r32-character-host.log`; deterministic timestamp reproduction `/tmp/keyform-r32-timing.py` reads exact runtime stage markers without the large geometry payload.
 
 This run ends after **structure-only** verification. It produces no new full-character CMO3 or complete-character save/reopen/history/visual-occlusion acceptance. The successful small native history/save/reopen/seam gates do not establish complete-character visual correctness. **T035 occlusion remains open; T036 latency remains open** (6m22s is still excessive).
+
+
+#### r33 hotspot analysis and selective culling investigation (2026-10-16)
+
+No new full host import, build, native edit, saved CMO3 or visual acceptance.
+Reused r32's 3737 EDT wall observations; mutually exclusive caller attribution is
+in `performance/ImportCostAnalysis.md`. Latest accepted complete import time
+remains **382.4679146 s**, structure only. No additional speedup is claimed.
+
+Extended the geometry-only occlusion diagnostic with input hashing, explicit
+candidate-only source-mesh culling, and source-visible/back-face attribution.
+Public reversed double-sided triangle self-test passes: reference **22472** pixels,
+culled candidate **22472 missing/wrong**, unchanged reference coverage; selective
+predicate and preserved-source paths agree with their full/no-culling equivalents.
+
+Fresh matched runs use the r32 plugin JAR, explicit `native-controls.glb` SHA-256
+**ad25dbb8cd3f12901c17f104ef26ee5a16ba688a8b6422aeccaddef19896623a**,
+`GlbViewerLoader.load` + `NativeCharacterPlan.prepare`, pitch 0, 384x384.
+**873 partitions, 236437 triangles, 220882 partition slots, 4818706 keyform slots,
+55394770 cache slots**. This is default-scene geometry preparation, **not** the
+full source-control-fitted 940-partition authoring path. Do not compare its counts
+with older 248-partition / 203851-triangle diagnostic reports.
+
+| Yaw | Source-policy wrong | Global-culling wrong / missing | Selective-culling wrong / missing |
+| --- | ---: | ---: | ---: |
+| 0 | 831 | 1516 / 65 | 717 / 0 |
+| -30 | 1696 | 1770 / 70 | 1512 / 0 |
+| 30 | 3747 | 3420 / 120 | 3442 / 0 |
+| -90 | 5192 | 2269 / 9 | 3886 / 0 |
+| 90 | 5282 | 2312 / 130 | 3936 / 0 |
+| 180 | 12548 | 6440 / 4 | 10500 / 0 |
+
+These are wrong **depth** pixels with stored/interpolated partition ranks, not
+native rendered color errors. Global culling is rejected for holes and frontal
+regression. The exploratory selective set contains source mesh indices
+`5,7,8,9,12,13,15,19,22,30,31,32,33,34,35,38,39`, selected from meshes without
+source-visible backface pixels in these six default poses. It reduces wrong
+counts without holes but **also fails** the severity gate: at -90, max depth gap
+**0.337748230 -> 0.394221902** (exact-pose order
+**0.288065404 -> 0.394221902**), attributed to reference mesh 19 / partition 244.
+This selection is experimental evidence, never hardcoded into production.
+Six-pose absence of exposed back faces does not prove safety after undressing,
+other controls or arbitrary rotations. Opacity-based hiding has the same source
+state dependency; no new production hiding policy is introduced.
+
+At +30, source-policy wrong count **3747 -> 1043** when using exact-pose ranks;
+selection **3442 -> 877**. This supports investigating intermediate-angle order
+separately from culling; it does not justify dropping internal geometry.
+
+Evidence: `/tmp/native-r33-stack-summary.txt`,
+`/tmp/native-occlusion-r33-controls-{source,force,selective}.log`, corresponding
+image/CSV directories, and `/tmp/native-occlusion-r33-comparison.txt`.
+The comparison tool rejects the selective candidate for both -90 gap regressions.
+Production source culling/visibility/opacity, geometry and budgets are unchanged.
+**T035 and T036 remain open.**
