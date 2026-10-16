@@ -483,3 +483,27 @@ Final artifact SHA-256:
 - agent `7ab9d463b7b863fdee198725e48a7366a6d2155d6b3e1fbac5297b3ce48644ac`
 
 Original GLB `1e16cdf61b75b4bb4d336d1a37f66fce03f33c694b42d9c710b2f4200a18bd45`, original Blend `f21860cbe03528a2fab031d3d7a565e03347c73d02563399e2df838b7c96c5fc`, and explicit controls input `ad25dbb8cd3f12901c17f104ef26ee5a16ba688a8b6422aeccaddef19896623a` were independently checked again and remain unchanged. No external committee agent was created; automatic review rejected that optional delegation, and the source/stack analysis was completed locally instead.
+
+
+### r26 repeated-read reduction and deferred control parameters
+
+The r24 stack sample was re-aggregated by first Runtime/plugin frame (wall-clock observations, not CPU percentages). Native hierarchy creation/update remains a major cost (1002 observations), with source morph writes (862), source-control parent setup (790 at the grid call site) and mesh creation/conversion also prominent. No native identity, source/instance, transaction, Undo or protection checks were removed.
+
+The source-control preparation now reads the existing parameter collection once, checks all generated IDs in a local set, and delays `createMany` until the deferred source-control finish. Parent grids, mesh creation, texture binding and ordinary rotation banks need only reserved immutable IDs, not the 111 BLEND parameter objects. The atomic native batch still checks current conflicts when parameters are actually created; all definitions retain their filename-derived folder and zero default. Each mesh now reads its ID once and shares one post-conversion snapshot between neutral-coordinate and source-geometry verification. This reuse is confined to a phase without intervening native writes and does not cache across native updates.
+
+The regression first failed on both legacy/prebuilt control paths because BLEND parameters existed before the finish callback. It passes after deferral. Additional assertions require one parameter collection read for all source conflicts and one post-conversion snapshot for both geometry checks. The complete plugin suite and packaging passed. Native validation and timing evidence follow after supervisor finalization; no end-to-end speedup is claimed from call-count assertions alone. T035 and T036 remain open.
+
+
+r26 disposition: the complete plugin suite passed (277 tests, 0 failures/errors, 34 explicit external-fixture skips). Full `devCheck` passed in a fresh X11/Xvfb environment in 2m12s, 143 tasks (`/tmp/native-deferred-parameters-r26-devcheck-x11.log`). The first devCheck attempt blocked in the existing Robot/Wayland screenshot test; only that identified test worker was stopped. This is not an importer failure.
+
+Small native checks all have supervisor PASS, verified identity, unchanged fixture, normal exit and safe cleanup:
+
+- two-part/four-control: job `961fc265-f8c8-48e3-b238-31eadc1feb72`, run `queue-7196115fb47e4985b59be7862b146d3a`; Undo/Redo, rollback, rotation/source-control combinations, filename parameter folder and save pass. Small CMO3 29,687 bytes, SHA-256 `5cb95b360aed7eebb75b77286abbd4b820e09f130906af68d588dad1a95a03a0`.
+- independent reopen: job `3dc0ea91-3098-40ad-8d72-017fba439d71`, run `queue-08ffc42f839542748f11b1f9f4dfa23a`; persisted controls/combinations pass.
+- shared seam: job `9f8bd2d4-8575-475c-a0a6-da0f6ead92a9`, run `queue-940506e47cb442e588b7a148bd726a0d`; one shared pair, maximum gap 0.0 Canvas px; history/rotation/opacity/save pass.
+
+Full r26 job `b8149089-e61c-4362-9e2d-6d29897f44b8`, run `queue-2e4debcfa8154edaa69dc07f531dafac`, failed in probe line 94: `awaitPane` checked visibility in one EDT task and fetched the pane again in another, allowing startup assistance to dismiss the success message in between. The console recorded the normal import-success dialog, but the probe never reached structural verification. Supervisor reports FAIL, unproven identity/fixture/normal-exit flags, safe cleanup and idle host. There is **no accepted full timing or structure result**, no full-character CMO3 and no visual acceptance. The final parameter-delay candidate was withdrawn because a speed benefit was not established; the final importer retains early parameter creation and only reduces duplicate collection/ID/snapshot reads. The final plugin suite/packaging passes after that withdrawal (`/tmp/native-repeated-reads-r27-plugin.log`).
+
+The probe now captures the pane in the same EDT task as the successful visibility check. `test/NativeDialogCaptureRegression.java` deterministically schedules dismissal after that check: old probe fails (`/tmp/native-dialog-race-r27-red.log`), corrected probe passes (`/tmp/native-dialog-race-r27-green.log`). Both compile against the SDK and run under Xvfb, with no full character import. No second ten-minute import was run for this fix.
+
+The requested stage/overlap analysis is in `performance/ImportCostAnalysis.md`. It uses disjoint timestamps and first-Runtime-frame sampling to avoid double-counting nested model/palette/texture work. The next gate is a small fixture proving fewer native updates when creating a Warp directly in its final parent/grid, before any further full-host timing. The r24 626.527-second result remains the latest successful full-host baseline; no new total speedup is claimed. T035/T036 stay open.

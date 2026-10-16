@@ -115,11 +115,12 @@ final class NativeControlAuthoring {
         if (plan.controls().isEmpty()) return new PreparedHierarchy(hierarchy.parents(), () -> {});
         var parameters = new LinkedHashMap<String, ParameterId>();
         var definitions = new ArrayList<ParameterDefinition>();
+        var existingIds = new HashSet<ParameterId>();
+        for (var parameter : model.parameters().all()) existingIds.add(parameter.id());
         for (int i = 0; i < plan.controls().size(); i++) {
             var source = plan.controls().get(i);
             var id = new ParameterId(prefix + i);
-            if (model.parameters().all().stream().anyMatch(p -> p.id().equals(id)))
-                throw new IllegalArgumentException("source control parameter conflict");
+            if (!existingIds.add(id)) throw new IllegalArgumentException("source control parameter conflict");
             parameters.put(source.id(), id);
             definitions.add(new ParameterDefinition(
                     id, source.name(), source.minimum(), 0, source.maximum(), ParameterType.BLEND_SHAPE, false));
