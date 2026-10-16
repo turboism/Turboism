@@ -613,8 +613,9 @@ final class EditorObjectWriteAccess {
             resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
             refresh(app, Kind.ART_MESH, undoKind != UndoKind.ALL_EDIT);
         };
-        // Source batches are read back immediately, and native reparenting needs current
-        // evaluated instances. Only coalesce the palette/canvas work at the root boundary.
+        // Stored batches support immediate source readback. Instance evaluation stays
+        // immediate unless an explicit source-only barrier is active; parent conversions
+        // and every other property retain their ordinary update path.
         final boolean deferPanels =
                 "keyformPositionsBatch".equals(property) || "keyformDrawOrdersBatch".equals(property);
         final EnumSet<EditorRefreshRequirement> refreshRequirements = EnumSet.of(EditorRefreshRequirement.MARK_DIRTY);
@@ -647,8 +648,12 @@ final class EditorObjectWriteAccess {
                                 () -> {
                                     mutation.run();
                                     if (deferPanels)
-                                        resolver.invoke(
-                                                "cubism.editor-model.model-source.update-instances", modelSource);
+                                        authoringCoordinator.evaluateStoredSource(
+                                                binding,
+                                                modelSource,
+                                                () -> resolver.invoke(
+                                                        "cubism.editor-model.model-source.update-instances",
+                                                        modelSource));
                                     else update.run();
                                 },
                                 applied,
@@ -1333,7 +1338,9 @@ final class EditorObjectWriteAccess {
                                     });
                             resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
                         },
-                        update,
+                        // Parent conversion needs current native instances for the next
+                        // write/readback. Palettes and repaint can wait for the root commit.
+                        () -> resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource),
                         () -> before.applied(targetSource),
                         () -> {
                             if (!authoringCoordinator.isCreatedTargetRestored(binding, source)) {
@@ -1342,7 +1349,11 @@ final class EditorObjectWriteAccess {
                             }
                         },
                         () -> authoringCoordinator.isCreatedTargetRestored(binding, source) || before.restored(),
-                        EnumSet.of(EditorRefreshRequirement.MARK_DIRTY),
+                        EnumSet.of(
+                                EditorRefreshRequirement.PART_PALETTE,
+                                EditorRefreshRequirement.DEFORMER_PALETTE,
+                                EditorRefreshRequirement.CANVAS,
+                                EditorRefreshRequirement.MARK_DIRTY),
                         detail));
     }
 

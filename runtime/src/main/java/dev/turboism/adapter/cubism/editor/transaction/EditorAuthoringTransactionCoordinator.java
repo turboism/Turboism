@@ -72,6 +72,48 @@ public final class EditorAuthoringTransactionCoordinator {
     }
 
     /**
+     * Executes a deliberately source-only batch inside the current root. The final barrier
+     * runs before returning or propagating a callback failure, so subsequent conversions and
+     * compensation see current native instances. Ordinary callers retain immediate evaluation.
+     */
+    public void batchStoredSourceWrites(final Binding binding, final Runnable work) {
+        Objects.requireNonNull(work, "work");
+        final var scope = ambient.get();
+        if (scope == null || !scope.binding().equals(binding) || !binding.isCurrentThread() || !current(binding)) {
+            throw new IllegalStateException("Source batch requires the current authoring transaction");
+        }
+        scope.beginSourceBatch();
+        try {
+            work.run();
+        } catch (RuntimeException | Error failure) {
+            try {
+                scope.endSourceBatch();
+            } catch (RuntimeException | Error evaluationFailure) {
+                failure.addSuppressed(evaluationFailure);
+            }
+            throw failure;
+        }
+        scope.endSourceBatch();
+    }
+
+    /** Requests evaluation for source-only mutations; all other native operations stay immediate. */
+    public void evaluateStoredSource(final Binding binding, final Object source, final Runnable evaluation) {
+        Objects.requireNonNull(source, "source");
+        Objects.requireNonNull(evaluation, "evaluation");
+        final var scope = ambient.get();
+        if (scope != null && scope.sourceBatch()) {
+            // Writers participate as runtime.editor-model, while the public batch belongs
+            // to the invoking plugin. Use the same document/model/thread rule as apply().
+            if (!scope.binding().sameScope(binding) || !binding.isCurrentThread() || !current(binding)) {
+                throw new IllegalStateException("Source evaluation binding changed");
+            }
+            scope.deferSourceEvaluation(source, evaluation);
+        } else {
+            evaluation.run();
+        }
+    }
+
+    /**
      * Executes one root authoring callback synchronously.
      *
      * @param binding plugin, document, model, generation, and thread binding

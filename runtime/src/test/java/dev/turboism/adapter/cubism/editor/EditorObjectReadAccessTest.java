@@ -53,6 +53,31 @@ class EditorObjectReadAccessTest {
     }
 
     @Test
+    void deformerMembershipRetainsSourceInstanceBijectionAcrossFreshReads() {
+        final Fixture fixture = new Fixture();
+        var core = new EditorObjectReadCore(resolver("5.3.02"), (identity, model) -> {}, null);
+        var source = fixture.source;
+        var model = source.model;
+        assertEquals(2, core.deformerRefs("session", source, model).size());
+        var original = model.deformers.get(0);
+        model.deformers.add(new Warp((WarpSource) source.deformerSources.get(0)));
+        assertThrows(IllegalStateException.class, () -> core.deformerRefs("session", source, model));
+        model.deformers.remove(model.deformers.size() - 1);
+        model.deformers.set(0, new Warp(new WarpSource(fixture.failures)));
+        assertThrows(IllegalStateException.class, () -> core.deformerRefs("session", source, model));
+        model.deformers.set(0, original);
+        var replaced = new Warp((WarpSource) source.deformerSources.get(0));
+        model.deformers.set(0, replaced);
+        org.junit.jupiter.api.Assertions.assertSame(
+                replaced, core.deformerRefs("session", source, model).get(0).instance());
+        source.deformerSources.add(source.deformerSources.get(0));
+        assertThrows(IllegalStateException.class, () -> core.deformerRefs("session", source, model));
+        source.deformerSources.remove(source.deformerSources.size() - 1);
+        model.deformers.clear();
+        assertThrows(IllegalStateException.class, () -> core.deformerRefs("session", source, model));
+    }
+
+    @Test
     void replaySourceSurvivesRebuiltInstanceButRejectsReplacedSourceAndDocument() {
         final Fixture fixture = new Fixture();
         boolean[] active = {true};

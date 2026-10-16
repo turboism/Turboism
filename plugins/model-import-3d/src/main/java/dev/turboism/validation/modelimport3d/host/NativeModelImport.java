@@ -80,6 +80,15 @@ final class NativeModelImport {
             Prepared prepared,
             ModelTextureAtlasPlanner.PlannedAtlas atlas,
             java.util.function.Consumer<String> progress) {
+        return assemble(model, prepared, atlas, progress, Runnable::run);
+    }
+
+    static NativeCharacterAuthoring.Created assemble(
+            CubismModel model,
+            Prepared prepared,
+            ModelTextureAtlasPlanner.PlannedAtlas atlas,
+            java.util.function.Consumer<String> progress,
+            java.util.function.Consumer<Runnable> sourceBatch) {
         var parameterGroup = java.util.Optional.of(model.parameterGroups()
                 .addGroup(prepared.geometry().request().name())
                 .id());
@@ -87,6 +96,7 @@ final class NativeModelImport {
         Map<String, ModelImageBinding> sources = new LinkedHashMap<>();
         Map<ArtMeshId, ModelImageBinding> meshes = new LinkedHashMap<>();
         var materials = prepared.materials();
+        var finishSourceControls = new java.util.concurrent.atomic.AtomicReference<Runnable>();
         return NativeCharacterAuthoring.assemble(
                 model,
                 prepared.geometry(),
@@ -114,16 +124,24 @@ final class NativeModelImport {
                     progress.accept("texture-atlas");
                     ModelTextureAtlasAuthoring.apply(model, created.meshIds(), sources, meshes, atlas);
                     progress.accept("source-controls");
-                    NativeControlAuthoring.apply(
+                    java.util.Objects.requireNonNull(finishSourceControls.get(), "source hierarchy not prepared")
+                            .run();
+                    progress.accept("rotation-interpolation-cache");
+                },
+                parameterGroup,
+                created -> {
+                    progress.accept("source-control-hierarchy");
+                    finishSourceControls.set(NativeControlAuthoring.prepare(
                             model,
                             created,
                             materials.scene(),
                             prepared.controls(),
                             progress,
                             parameterGroup,
-                            prepared.geometry().request().yaw().value() + "_Control_");
-                    progress.accept("rotation-interpolation-cache");
+                            prepared.geometry().request().yaw().value() + "_Control_"));
+                    progress.accept("rotation-keyforms");
                 },
-                parameterGroup);
+                NativeControlAuthoring.rotationLocalizer(prepared.controls()),
+                sourceBatch);
     }
 }

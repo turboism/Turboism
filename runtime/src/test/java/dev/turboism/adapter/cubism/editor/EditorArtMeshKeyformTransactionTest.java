@@ -75,6 +75,59 @@ class EditorArtMeshKeyformTransactionTest {
     }
 
     @Test
+    void explicitStoredSourceBatchEvaluatesOnceBeforeReturningAndRestoresOnFailure() {
+        for (boolean abort : List.of(false, true))
+            onEdt(f -> {
+                final var original = f.mesh.authoringSnapshot();
+                var result = f.coordinator.execute(
+                        f.binding, AuthoringTransactionOptions.of("source evaluation batch"), () -> {
+                            f.coordinator.batchStoredSourceWrites(f.binding, () -> {
+                                f.mesh.setOrdinaryKeyformPositions(
+                                        f.mesh.authoringSnapshot(), List.of(edit(f, -1, -1, A)));
+                                assertEquals(A, f.target(-1, -1).snapshot().positions());
+                                f.mesh.setOrdinaryKeyformPositions(
+                                        f.mesh.authoringSnapshot(), List.of(edit(f, -1, -1, B)));
+                                assertEquals(B, f.target(-1, -1).snapshot().positions());
+                                assertEquals(0, f.host.updates, "Stored snapshots do not require instance evaluation");
+                            });
+                            assertEquals(
+                                    1,
+                                    f.host.updates,
+                                    "Evaluation barrier precedes subsequent instance-dependent operations");
+                            if (abort) throw new IllegalStateException("after source batch");
+                            return null;
+                        });
+                assertEquals(
+                        abort ? AuthoringTransactionOutcome.ROLLED_BACK : AuthoringTransactionOutcome.COMMITTED,
+                        result.outcome());
+                if (abort) assertEquals(original, f.mesh.authoringSnapshot());
+                else assertEquals(B, f.target(-1, -1).snapshot().positions());
+            });
+    }
+
+    @Test
+    void parentConversionsKeepInstancesCurrentAndRefreshPanelsOnlyAtCommit() {
+        onEdt(f -> {
+            final var original = f.mesh.authoringSnapshot();
+            var result = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("bulk parent import"), () -> {
+                f.mesh.setTargetDeformer(Optional.empty());
+                assertNull(f.source.parent);
+                assertNotEquals(original.forms(), f.mesh.authoringSnapshot().forms());
+                assertEquals(1, f.host.updates, "Native conversion must be evaluated immediately");
+                assertEquals(0, f.host.repaints, "Parent changes must not rebuild palettes inside the root");
+                f.mesh.setTargetDeformer(Optional.of(new dev.turboism.sdk.cubism.id.DeformerId(ID.value())));
+                assertNotNull(f.source.parent);
+                assertEquals(2, f.host.updates);
+                assertEquals(0, f.host.repaints);
+                return null;
+            });
+            assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
+            assertEquals(1, f.host.repaints);
+            assertEquals(1, f.host.dirtyMarks);
+        });
+    }
+
+    @Test
     void missingParentRecoveryCapabilityRejectsBeforeNativeMutation() {
         onEdt(f -> {
             final var mesh = f.access(resolver(false, true), f.coordinator)

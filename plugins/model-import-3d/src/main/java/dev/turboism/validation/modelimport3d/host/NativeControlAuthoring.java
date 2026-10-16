@@ -39,7 +39,19 @@ final class NativeControlAuthoring {
             java.util.function.Consumer<String> progress,
             Optional<ParameterGroupId> parameterGroup,
             String prefix) {
-        if (plan.controls().isEmpty()) return;
+        prepare(model, created, scene, plan, progress, parameterGroup, prefix).run();
+    }
+
+    /** Build every parent before materializing dense morph forms; finish inside the same root. */
+    static Runnable prepare(
+            CubismModel model,
+            NativeCharacterAuthoring.Created created,
+            ViewerScene scene,
+            NativeControlWarpPlan.Plan plan,
+            java.util.function.Consumer<String> progress,
+            Optional<ParameterGroupId> parameterGroup,
+            String prefix) {
+        if (plan.controls().isEmpty()) return () -> {};
         var parameters = new LinkedHashMap<String, ParameterId>();
         var definitions = new ArrayList<ParameterDefinition>();
         for (int i = 0; i < plan.controls().size(); i++) {
@@ -52,6 +64,8 @@ final class NativeControlAuthoring {
                     id, source.name(), source.minimum(), 0, source.maximum(), ParameterType.BLEND_SHAPE, false));
         }
         model.parameters().createMany(definitions, parameterGroup);
+        var opacityWrites = new ArrayList<Runnable>();
+        var patchWarps = new LinkedHashMap<Integer, DeformerId>();
         var opacityParents = new HashMap<DeformerId, List<ViewerScene.OpacityControl>>();
         var endpoints = new HashMap<DeformerId, DeformerId>();
         for (var meshId : created.meshIds()) {
@@ -82,12 +96,12 @@ final class NativeControlAuthoring {
                         model.warpDeformers().find(warpId).replaceGrid(NativeControlWarpPlan.identity(2));
                     }
                     model.warpDeformers().find(warpId).setOpacity(factor.base());
-                    model.warpDeformers()
-                            .find(warpId)
-                            .createOpacityMorphKeyform(
-                                    Objects.requireNonNull(parameters.get(factor.controlId()), "opacity parameter"),
-                                    1,
-                                    factor.target());
+                    DeformerId opacityId = warpId;
+                    var opacityParameter =
+                            Objects.requireNonNull(parameters.get(factor.controlId()), "opacity parameter");
+                    opacityWrites.add(() -> model.warpDeformers()
+                            .find(opacityId)
+                            .createOpacityMorphKeyform(opacityParameter, 1, factor.target()));
                     parent = warpId;
                 }
                 endpoints.put(original, parent);
@@ -112,7 +126,7 @@ final class NativeControlAuthoring {
                 }
             }
         }
-        int completedPatches = 0;
+        int completedParents = 0;
         for (var patch : plan.patches()) {
             var mesh = model.drawables().find(created.meshIds().get(patch.partition()));
             var before = mesh.authoringSnapshot();
@@ -154,7 +168,7 @@ final class NativeControlAuthoring {
                         .toList();
                 edits.add(new ArtMeshKeyformPositions(cell.coordinates(), cell.formGuid(), local));
             }
-            mesh.setOrdinaryKeyformPositions(reparented, edits);
+            if (!edits.isEmpty()) mesh.setOrdinaryKeyformPositions(reparented, edits);
             var after = mesh.authoringSnapshot();
             if (!after.sourceGeometry().equals(before.sourceGeometry())
                     || !after.axes().equals(before.axes())
@@ -176,32 +190,64 @@ final class NativeControlAuthoring {
                             > 1e-5)
                         throw new IllegalStateException("local control coordinate rebase exceeds tolerance");
             }
-            for (var key : patch.keys())
-                warp.createMorphKeyform(
-                        Objects.requireNonNull(parameters.get(key.parameter()), "shape parameter"),
-                        key.value(),
-                        mapControls(key.controls(), patch));
-            var readback = warp.morphSnapshot();
-            if (readback.keys().size() != patch.keys().size())
-                throw new IllegalStateException("source shape key membership differs");
-            for (int i = 0; i < patch.keys().size(); i++) {
-                var expected = patch.keys().get(i);
-                var actual = readback.keys().get(i);
-                if (actual.keyValue() != expected.value()
-                        || !actual.form().controlPoints().equals(mapControls(expected.controls(), patch)))
-                    throw new IllegalStateException("source shape control readback differs");
-            }
-            if (++completedPatches % 32 == 0)
-                progress.accept("source-controls " + completedPatches + "/"
+            patchWarps.put(patch.partition(), warpId);
+            if (++completedParents % 32 == 0)
+                progress.accept("source-control-parents " + completedParents + "/"
                         + plan.patches().size());
         }
-        progress.accept(
-                "source-controls " + completedPatches + "/" + plan.patches().size());
-        for (var definition : definitions) {
-            var parameter = model.parameters().find(definition.id());
-            if (parameter.type() != ParameterType.BLEND_SHAPE || parameter.getValue() != 0)
-                throw new IllegalStateException("source blend parameter default differs");
+        progress.accept("source-control-parents " + completedParents + "/"
+                + plan.patches().size());
+        return () -> {
+            for (var write : opacityWrites) write.run();
+            int completedPatches = 0;
+            for (var patch : plan.patches()) {
+                var warp = model.warpDeformers().find(patchWarps.get(patch.partition()));
+                for (var key : patch.keys())
+                    warp.createMorphKeyform(
+                            Objects.requireNonNull(parameters.get(key.parameter()), "shape parameter"),
+                            key.value(),
+                            mapControls(key.controls(), patch));
+                var readback = warp.morphSnapshot();
+                if (readback.keys().size() != patch.keys().size())
+                    throw new IllegalStateException("source shape key membership differs");
+                for (int i = 0; i < patch.keys().size(); i++) {
+                    var expected = patch.keys().get(i);
+                    var actual = readback.keys().get(i);
+                    if (actual.keyValue() != expected.value()
+                            || !actual.form().controlPoints().equals(mapControls(expected.controls(), patch)))
+                        throw new IllegalStateException("source shape control readback differs");
+                }
+                if (++completedPatches % 32 == 0)
+                    progress.accept("source-controls " + completedPatches + "/"
+                            + plan.patches().size());
+            }
+            progress.accept(
+                    "source-controls " + completedPatches + "/" + plan.patches().size());
+            for (var definition : definitions) {
+                var parameter = model.parameters().find(definition.id());
+                if (parameter.type() != ParameterType.BLEND_SHAPE || parameter.getValue() != 0)
+                    throw new IllegalStateException("source blend parameter default differs");
+            }
+        };
+    }
+
+    /** Convert body-parent coordinates into the already-created affine local Warp. */
+    static java.util.function.BiFunction<Integer, List<Point2>, List<Point2>> rotationLocalizer(
+            NativeControlWarpPlan.Plan plan) {
+        var patches = new HashMap<Integer, NativeControlWarpPlan.Patch>();
+        for (var patch : plan.patches()) {
+            if (patches.putIfAbsent(patch.partition(), patch) != null)
+                throw new IllegalArgumentException("duplicate local control partition");
         }
+        return (partition, points) -> {
+            var patch = patches.get(partition);
+            if (patch == null) return points;
+            return points.stream()
+                    .map(v -> new Point2(
+                            (v.x() - patch.origin().x()) / patch.span().x(),
+                            (v.y() - patch.origin().y()) / patch.span().y()))
+                    .toList();
+        };
     }
 
     private static void requireSameLayout(ArtMeshAuthoringSnapshot before, ArtMeshAuthoringSnapshot after) {

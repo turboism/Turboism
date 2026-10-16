@@ -44,6 +44,15 @@ final class AuthoringTransactionServiceContractTest {
     }
 
     @Test
+    void unavailableSourceBatchNeverRunsTheCallback() {
+        final var invoked = new AtomicBoolean();
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> AuthoringTransactionService.unavailable().batchStoredSourceWrites(() -> invoked.set(true)));
+        assertFalse(invoked.get());
+    }
+
+    @Test
     void optionsNormalizeAndBoundTheHistoryLabel() {
         assertEquals(
                 "Adjust eye glues",

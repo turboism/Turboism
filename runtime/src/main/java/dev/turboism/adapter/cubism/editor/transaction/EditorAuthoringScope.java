@@ -22,6 +22,8 @@ final class EditorAuthoringScope {
             EnumSet.noneOf(EditorRefreshRequirement.class);
     private final IdentityHashMap<Object, EditorUndoContribution> createdTargets = new IdentityHashMap<>();
     private final Set<String> rootUndoListenerKeys = new HashSet<>();
+    private boolean sourceBatch;
+    private final IdentityHashMap<Object, Runnable> sourceEvaluations = new IdentityHashMap<>();
     private boolean recovering;
     private Object edit;
     private boolean editEndAttempted;
@@ -77,6 +79,26 @@ final class EditorAuthoringScope {
     void createdTarget(final Object target, final EditorUndoContribution contribution) {
         if (createdTargets.containsKey(target)) throw new IllegalStateException("target already created in this root");
         createdTargets.put(Objects.requireNonNull(target), contribution);
+    }
+
+    boolean sourceBatch() {
+        return sourceBatch && !recovering;
+    }
+
+    void beginSourceBatch() {
+        if (sourceBatch || recovering) throw new IllegalStateException("Source batch cannot be nested or recovering");
+        sourceBatch = true;
+    }
+
+    void deferSourceEvaluation(final Object source, final Runnable evaluation) {
+        sourceEvaluations.putIfAbsent(source, evaluation);
+    }
+
+    void endSourceBatch() {
+        sourceBatch = false;
+        final var evaluations = List.copyOf(sourceEvaluations.values());
+        sourceEvaluations.clear();
+        for (var evaluation : evaluations) evaluation.run();
     }
 
     void beginRecovery() {

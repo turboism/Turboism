@@ -129,6 +129,14 @@ final class CubismFacadeAdapters {
             final CubismFacadeImpl facade, final AuthoringTransactionService delegate) {
         return new AuthoringTransactionService() {
             @Override
+            public void batchStoredSourceWrites(final Runnable work) {
+                facade.requireActiveScope();
+                facade.permissionGate.require(
+                        CubismFacadeImpl.MODEL_WRITE_PERMISSION, "authoringTransactions.batchStoredSourceWrites");
+                delegate.batchStoredSourceWrites(work);
+            }
+
+            @Override
             public <T> dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult<T> execute(
                     final dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions options,
                     final dev.turboism.sdk.cubism.transaction.AuthoringTransactionWork<T> work) {

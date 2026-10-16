@@ -385,7 +385,9 @@ public final class NativeCharacterPlan {
         double frameRadiusBound =
                 2 * chordError(DEFAULT_FRAMING_RADIUS_PIXELS, DEFAULT_INTERPOLATION.insertPointCount()) + 0.01;
 
-        // Per-partition sampling and error measurement with strict budget guards
+        // A shared interpolation lattice preserves seams and close-fitting surfaces.
+        // Radius-dependent densities separated identical source vertices between cache samples.
+        // Keep the same bounded precision on every visible mesh; preflight the full cache cost.
         var samplingList = new ArrayList<Sampling>(partitions.size());
         double maxError = 0.0;
         var pivot = camera.pivot();
@@ -402,7 +404,11 @@ public final class NativeCharacterPlan {
                                     + Math.pow(v.z() - pivot.z(), 2));
                     if (r > maxProjR) maxProjR = r;
                 }
-                s = sampling(maxProjR, frameRadiusBound);
+                long samples = KEYS.size() + (KEYS.size() - 1L) * DEFAULT_INTERPOLATION.insertPointCount();
+                double error = 2 * chordError(maxProjR, DEFAULT_INTERPOLATION.insertPointCount()) + 0.01;
+                if (error > frameRadiusBound + 1e-8)
+                    throw new IllegalArgumentException("Visible geometry exceeds the framed interpolation bound");
+                s = new Sampling(DEFAULT_INTERPOLATION, DEFAULT_INTERPOLATION, samples * samples, error);
             } else {
                 s = new Sampling(DEFAULT_INTERPOLATION, DEFAULT_INTERPOLATION, 1L, 0.0);
             }
