@@ -298,11 +298,14 @@ public final class NativeCharacterAuthoring {
             Frame frame = bodyFrames.get(bodyKey);
             var bodyId = bodyParents.get(bodyKey);
             if (bodyId == null) {
-                var bodyParent = model.deformers().createWarp(bodyKey, rootPart, -1, 2, 2);
+                var bodyParent = model.deformers()
+                        .createWarp(
+                                bodyKey,
+                                rootPart,
+                                -1,
+                                rollDeformer == null ? Optional.empty() : Optional.of(rollDeformer.id()),
+                                frame.grid());
                 bodyId = bodyParent.id();
-                if (rollDeformer != null) bodyParent.setTargetDeformer(Optional.of(rollDeformer.id()));
-                bodyParent = model.warpDeformers().find(bodyId);
-                bodyParent.replaceGrid(frame.grid());
                 bodyParent.setOpacity(1);
                 bodyParents.put(bodyKey, bodyId);
             }
@@ -311,11 +314,9 @@ public final class NativeCharacterAuthoring {
                 var key = List.of(bodyKey, group);
                 opacityId = opacityParents.get(key);
                 if (opacityId == null) {
-                    var opacityParent = model.deformers().createWarp(group, rootPart, -1, 2, 2);
+                    var opacityParent =
+                            model.deformers().createWarp(group, rootPart, -1, Optional.of(bodyId), Frame.unitGrid());
                     opacityId = opacityParent.id();
-                    opacityParent.setTargetDeformer(Optional.of(bodyId));
-                    opacityParent = model.warpDeformers().find(opacityId);
-                    opacityParent.replaceGrid(Frame.unitGrid());
                     opacityParent.setOpacity(1);
                     opacityParents.put(key, opacityId);
                 }

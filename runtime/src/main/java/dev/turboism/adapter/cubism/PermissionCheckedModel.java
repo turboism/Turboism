@@ -835,6 +835,20 @@ final class PermissionCheckedModel implements CubismModel {
             }
 
             @Override
+            public dev.turboism.sdk.cubism.model.WarpDeformer createWarp(
+                    final String name,
+                    final dev.turboism.sdk.cubism.model.Part parent,
+                    final int index,
+                    final Optional<dev.turboism.sdk.cubism.id.DeformerId> target,
+                    final dev.turboism.sdk.cubism.model.WarpGrid grid) {
+                facade.requireModelWrite("model.deformers.createWarp");
+                return new PermissionCheckedWarpDeformer(
+                        facade,
+                        wrapperOwner,
+                        values.createWarp(name, facade.unwrapPart(wrapperOwner, parent), index, target, grid));
+            }
+
+            @Override
             public dev.turboism.sdk.cubism.model.RotationDeformer createRotation(
                     final String name, final dev.turboism.sdk.cubism.model.Part parent, final int index) {
                 facade.requireModelWrite("model.deformers.createRotation");

@@ -30,6 +30,19 @@ public interface Deformers {
     }
 
     /**
+     * Creates a Warp directly with its final grid and target deformer, in one creation edit.
+     * The Part tree parent and target deformer are independent. Grid points are already in
+     * the target deformer coordinate space (canvas space when the target is empty); this
+     * method performs no coordinate conversion. No default grid is published first.
+     *
+     * @throws NoSuchElementException when the target deformer is absent from this model
+     */
+    default WarpDeformer createWarp(
+            String name, Part parent, int index, java.util.Optional<DeformerId> target, WarpGrid grid) {
+        throw unavailable("Initialized Warp Deformer creation");
+    }
+
+    /**
      * Creates a Rotation Deformer with {@code name} under {@code parent} at {@code index}
      * (negative = append; {@code null} parent = model root).
      *

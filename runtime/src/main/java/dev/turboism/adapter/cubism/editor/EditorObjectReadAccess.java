@@ -1481,6 +1481,34 @@ final class EditorObjectReadAccess {
         }
 
         @Override
+        public WarpDeformer createWarp(
+                final String name,
+                final Part parent,
+                final int index,
+                final Optional<DeformerId> target,
+                final WarpGrid grid) {
+            Objects.requireNonNull(target, "target");
+            Objects.requireNonNull(grid, "grid");
+            return EditorHostThread.dispatch("Create initialized Warp", () -> {
+                final Object parentSource = nativeSourceOf(parent, "Part parent");
+                core.requireCurrentPartSource(source, parentSource);
+                final Object targetSource = target.map(id -> core.deformerRefs(identity, source, model).stream()
+                                .filter(ref -> ref.id().equals(id.value()))
+                                .findFirst()
+                                .orElseThrow(() -> new NoSuchElementException("Warp target is absent: " + id.value()))
+                                .source())
+                        .orElse(null);
+                final var created = hierarchyEditAccess.createWarpSource(
+                        identity, source, model, name, parentSource, false, index, grid, targetSource);
+                return core.deformerRefs(identity, source, model).stream()
+                        .filter(ref -> ref.source() == created.source())
+                        .findFirst()
+                        .map(ref -> (WarpDeformer) new EditorWarp(identity, source, model, ref))
+                        .orElseThrow(() -> unavailable("Created Warp is absent after instance update."));
+            });
+        }
+
+        @Override
         public RotationDeformer createRotation(final String name, final Part parent, final int index) {
             final Object parentSource = nativeSourceOf(parent, "Part parent");
             core.requireCurrentPartSource(source, parentSource);
