@@ -11,9 +11,13 @@ import javax.imageio.ImageIO;
 public final class NativeOcclusionDiagnostic {
   static final int S = 384;
 
-  record Measurement(int visible, int wrong, int internal, int external, double maxGap) {}
+  record Measurement(int visible, int wrong, int internal, int external, int missing, double maxGap) {}
 
   public static void main(String[] args) throws Exception {
+    if (args.length == 1 && args[0].equals("--self-test")) {
+      selfTest();
+      return;
+    }
     if (args.length != 2)
       throw new IllegalArgumentException("Expected explicit input GLB and output directory");
     var scene = GlbViewerLoader.load(Files.readAllBytes(Path.of(args[0])), () -> false);
@@ -26,24 +30,9 @@ public final class NativeOcclusionDiagnostic {
         180,
         SurfaceImportPlan.MAX_PROJECTED_VERTICES,
         Optional.of(new ParameterId("Roll")));
-    if (Boolean.getBoolean("diagnostic.culling"))
-      scene = new ViewerScene(
-          scene.meshes(),
-          scene.materials().stream()
-              .map(m -> new ViewerScene.Material(
-                  m.name(),
-                  m.baseColorFactor(),
-                  m.baseColorTexture(),
-                  m.emissiveTexture(),
-                  m.emissiveFactor(),
-                  m.alphaMode(),
-                  m.alphaCutoff(),
-                  false,
-                  m.unlit()))
-              .toList(),
-          scene.textures(),
-          scene.bounds(),
-          scene.stats());
+    // Culling is a candidate paint policy only. The nearest-depth reference
+    // must retain the source's double-sided semantics, including any exposed holes.
+    System.out.println("candidateForceCulling=" + Boolean.getBoolean("diagnostic.culling"));
     long started = System.nanoTime();
     var plan = NativeCharacterPlan.prepare(scene, request);
     System.out.printf(
@@ -84,6 +73,16 @@ public final class NativeOcclusionDiagnostic {
       List<Integer> order,
       Path output)
       throws Exception {
+    return measure(scene, plan, pose, order, output, Boolean.getBoolean("diagnostic.culling"));
+  }
+
+  static Measurement measure(
+      ViewerScene scene,
+      NativeCharacterPlan.Plan plan,
+      SurfaceProjection.Pose pose,
+      List<Integer> order,
+      Path output,
+      boolean forceCulling) throws Exception {
     float[] front = new float[S * S], paint = new float[S * S];
     Arrays.fill(front, Float.NEGATIVE_INFINITY);
     Arrays.fill(paint, Float.NEGATIVE_INFINITY);
@@ -153,17 +152,22 @@ public final class NativeOcclusionDiagnostic {
               front[k] = z;
               reference[k] = index;
             }
-            paint[k] = z;
-            owner[k] = index;
+            if (!forceCulling || d < 0) {
+              paint[k] = z;
+              owner[k] = index;
+            }
           }
       }
     }
-    int visible = 0, wrong = 0, internal = 0, external = 0;
+    int visible = 0, wrong = 0, internal = 0, external = 0, missing = 0;
+    int[][] errors = new int[plan.partitions().size()][3];
+    double[] partitionGaps = new double[plan.partitions().size()];
     double maxGap = 0;
     var image = new BufferedImage(S, S, BufferedImage.TYPE_INT_RGB);
     for (int k = 0; k < S * S; k++) {
       if (reference[k] < 0) continue;
       visible++;
+      if (owner[k] < 0) missing++;
       double gap = front[k] - paint[k];
       boolean bad = gap > 1e-5;
       if (bad) {
@@ -171,10 +175,49 @@ public final class NativeOcclusionDiagnostic {
         if (reference[k] == owner[k]) internal++;
         else external++;
         maxGap = Math.max(maxGap, gap);
+        errors[reference[k]][reference[k] == owner[k] ? 0 : 1]++;
+        if (owner[k] < 0) errors[reference[k]][2]++;
+        partitionGaps[reference[k]] = Math.max(partitionGaps[reference[k]], gap);
       }
       image.setRGB(k % S, k / S, bad ? (reference[k] == owner[k] ? 0xff3030 : 0xffb020) : 0x657585);
     }
     ImageIO.write(image, "PNG", output.toFile());
-    return new Measurement(visible, wrong, internal, external, maxGap);
+    // Attribute source-depth errors before changing partition policy. A missing pixel
+    // is also external, so internal + external (not all three columns) equals wrong.
+    var report = new StringBuilder("partition,sourceMesh,triangles,internal,external,missing,maxDepthGap\n");
+    for (int i = 0; i < errors.length; i++) {
+      if (errors[i][0] + errors[i][1] == 0) continue;
+      var p = plan.partitions().get(i);
+      report.append(i).append(',').append(p.sourceMeshIndex()).append(',')
+          .append(p.triangleCount()).append(',').append(errors[i][0]).append(',')
+          .append(errors[i][1]).append(',').append(errors[i][2]).append(',')
+          .append(Double.toString(partitionGaps[i])).append('\n');
+    }
+    Files.writeString(output.resolveSibling(output.getFileName() + ".errors.csv"), report);
+    return new Measurement(visible, wrong, internal, external, missing, maxGap);
   }
+
+  /** Public synthetic regression: culling a source-visible back face must count as a hole. */
+  static void selfTest() throws Exception {
+    var mesh = new ViewerScene.Mesh("Double-sided source", new float[] {-1,-1,0, 1,-1,0, 0,1,0},
+        new float[9], new float[] {0,0, 1,0, .5f,1}, null, null, new int[] {0,2,1}, 0);
+    var material = new ViewerScene.Material("Source", new float[] {1,1,1,1}, -1, -1,
+        new float[3], "OPAQUE", .5f, true, true);
+    var scene = new ViewerScene(List.of(mesh), List.of(material), List.of(),
+        new ViewerScene.Bounds(-1,-1,0,1,1,0), new ViewerScene.Stats(0,1,1,1,0,0,0));
+    var request = new SurfaceImport.Request("Reference", new ParameterId("Yaw"), new ParameterId("Pitch"),
+        new SurfaceProjection.Camera(512,512,200,new SurfaceProjection.Vertex(0,0,0)),
+        180,180,SurfaceImportPlan.MAX_PROJECTED_VERTICES,Optional.empty());
+    var plan = NativeCharacterPlan.prepare(scene, request);
+    var output = Files.createTempDirectory("native-culling-reference-");
+    var source = measure(scene, plan, new SurfaceProjection.Pose(0,0), List.of(0), output.resolve("source.png"), false);
+    var culled = measure(scene, plan, new SurfaceProjection.Pose(0,0), List.of(0), output.resolve("culled.png"), true);
+    if (source.visible() <= 0 || source.wrong() != 0 || source.missing() != 0
+        || culled.visible() != source.visible() || culled.missing() != source.visible()
+        || culled.wrong() != source.visible())
+      throw new AssertionError("Culling changed or hid reference coverage: source=" + source + ", candidate=" + culled);
+    System.out.println("Culling reference regression PASS: source=" + source + ", candidate=" + culled);
+    System.out.println("Synthetic evidence: " + output);
+  }
+
 }

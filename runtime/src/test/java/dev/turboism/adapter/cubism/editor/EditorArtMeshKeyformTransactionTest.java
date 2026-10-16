@@ -106,6 +106,47 @@ class EditorArtMeshKeyformTransactionTest {
     }
 
     @Test
+    void explicitStoredDrawOrderBatchEvaluatesOnceAndRestoresOnFailure() {
+        for (boolean abort : List.of(false, true))
+            onEdt(f -> {
+                var before = f.mesh.authoringSnapshot();
+                var result = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("render orders"), () -> {
+                    f.coordinator.batchStoredSourceWrites(f.binding, () -> {
+                        f.mesh.setDrawOrder(600);
+                        f.mesh.setDrawOrder(700);
+                        assertEquals(
+                                700,
+                                f.mesh.authoringSnapshot().forms().stream()
+                                        .filter(form -> form.formGuid().equals("f4"))
+                                        .findFirst()
+                                        .orElseThrow()
+                                        .drawOrder());
+                        assertEquals(0, f.host.updates, "Stored render orders do not require per-mesh evaluation");
+                        assertEquals(0, f.host.repaints);
+                    });
+                    assertEquals(1, f.host.updates);
+                    if (abort) throw new IllegalStateException("after render order batch");
+                    return null;
+                });
+                assertEquals(
+                        abort ? AuthoringTransactionOutcome.ROLLED_BACK : AuthoringTransactionOutcome.COMMITTED,
+                        result.outcome());
+                if (abort) assertEquals(before, f.mesh.authoringSnapshot());
+                else assertEquals(1, f.host.repaints);
+            });
+        onEdt(f -> {
+            var result =
+                    f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("ordinary render order"), () -> {
+                        f.mesh.setDrawOrder(650);
+                        assertEquals(
+                                1, f.host.updates, "Outside the explicit batch, instances stay immediately current");
+                        return null;
+                    });
+            assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
+        });
+    }
+
+    @Test
     void parentConversionsKeepInstancesCurrentAndRefreshPanelsOnlyAtCommit() {
         onEdt(f -> {
             final var original = f.mesh.authoringSnapshot();
@@ -1016,6 +1057,7 @@ class EditorArtMeshKeyformTransactionTest {
                 method(M + "model-source.all-art-meshes", NativeModel.class, "sources"),
                 method(M + "model.all-art-meshes", NativeModel.class, "meshes"),
                 method(M + "art-mesh.source", NativeMesh.class, "source"),
+                method(M + "art-mesh.current-keyform", NativeMesh.class, "currentForm"),
                 method(M + "parameter-controllable-source.id", NativeSource.class, "id"),
                 method(M + "parameter-controllable-source.handler", NativeSource.class, "handler"),
                 method(M + "art-mesh-form.set-positions", StoredForm.class, "setPositions", float[].class),
@@ -1169,6 +1211,11 @@ class EditorArtMeshKeyformTransactionTest {
     }
 
     public record NativeMesh(NativeSource source) {
+        public StoredForm currentForm() {
+            edt();
+            return source.data.forms.get(4);
+        }
+
         @Override
         public NativeSource source() {
             edt();

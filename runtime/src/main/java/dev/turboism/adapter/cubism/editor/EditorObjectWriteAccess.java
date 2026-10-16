@@ -615,9 +615,11 @@ final class EditorObjectWriteAccess {
         };
         // Stored batches support immediate source readback. Instance evaluation stays
         // immediate unless an explicit source-only barrier is active; parent conversions
-        // and every other property retain their ordinary update path.
-        final boolean deferPanels =
-                "keyformPositionsBatch".equals(property) || "keyformDrawOrdersBatch".equals(property);
+        // and geometry-changing properties retain their ordinary update path. Draw order
+        // is also a stored scalar, including the default form, and may share this barrier.
+        final boolean deferPanels = "keyformPositionsBatch".equals(property)
+                || "keyformDrawOrdersBatch".equals(property)
+                || "drawOrder".equals(property);
         final EnumSet<EditorRefreshRequirement> refreshRequirements = EnumSet.of(EditorRefreshRequirement.MARK_DIRTY);
         if (deferPanels) {
             refreshRequirements.add(EditorRefreshRequirement.PART_PALETTE);

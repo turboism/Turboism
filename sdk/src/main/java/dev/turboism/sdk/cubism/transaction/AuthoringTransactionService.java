@@ -42,7 +42,8 @@ public interface AuthoringTransactionService {
      * Groups stored-source writes behind one synchronous instance-evaluation barrier.
      *
      * <p>Call only within an active authoring transaction, for parameter bindings and
-     * ordinary ArtMesh keyform batches. The callback may read stored authoring snapshots;
+     * ordinary ArtMesh keyform batches and stored ArtMesh draw-order scalars (including
+     * the default form). The callback may read stored authoring snapshots;
      * it must not reparent objects, access evaluated geometry, change parameter values,
      * or perform texture operations. Instances are current again before this method returns,
      * including when the callback throws. Native Undo and readback remain per write.
