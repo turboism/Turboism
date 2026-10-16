@@ -1842,6 +1842,28 @@
       "reason": "Compound authorized-image registration plus binding is an exact-host authoring flow; not exposed over MCP."
     },
     {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.ModelTextures#supportsAppendTextureAtlasPages()Z",
+      "classification": "EXCLUDED_WITH_REASON",
+      "endpoint": "",
+      "operation": "",
+      "effect": "READ",
+      "transactionEligible": false,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": [],
+      "reason": "Host capability probe for native texture atlas page appending; not an MCP capability."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.ModelTextures#appendTextureAtlasPages(Ldev/turboism/sdk/cubism/model/AtlasPageAppendPlan;)Ljava/util/List;",
+      "classification": "EXCLUDED_WITH_REASON",
+      "endpoint": "",
+      "operation": "",
+      "effect": "UNDOABLE_WRITE",
+      "transactionEligible": false,
+      "undoVerification": "EXACT_HOST_VERIFIED",
+      "supportedVersions": [],
+      "reason": "Native append-only texture atlas layout runs inside model import or specialized plugin flows; not exposed over MCP."
+    },
+    {
       "sdkMethod": "dev.turboism.sdk.cubism.model.ParameterBindingOperations#interpolation(Ldev/turboism/sdk/cubism/model/ParameterBindingTarget;)Ldev/turboism/sdk/cubism/model/ParameterInterpolation;",
       "classification": "EXCLUDED_WITH_REASON",
       "endpoint": "",
