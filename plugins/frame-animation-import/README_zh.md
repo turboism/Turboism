@@ -69,6 +69,7 @@ interface: swing
 | `cubism.model.write` | 创建部件容器、网格、纹理和参数绑定。 |
 | `cubism.parameter.write` | 创建动画参数并写入关键帧不透明度。 |
 | `ui.context-menu.contribute` | 向部件和变形器面板添加上下文菜单入口。 |
+| `file.read` | 读取用户选取的精灵表与多图文件。 |
 | `ui.status.notify` | 报告导入结果与状态提示。 |
 
 ## 权限
@@ -77,6 +78,7 @@ interface: swing
 |---|---|---|
 | `turboism.cubism.model.read` | `application` | 读取模型部件、网格和参数定义。 |
 | `turboism.cubism.model.write` | `application` | 创建部件、网格、参数并绑定关键点不透明度。 |
+| `turboism.file.read` | `application` | 读取选中的帧图片与精灵表文件。 |
 | `turboism.action.register` | `application` | 注册帧动画导入主动作。 |
 | `turboism.ui.context-menu.contribute` | `application` | 在部件和变形器右键菜单中展示导入入口。 |
 | `turboism.ui.status.notify` | `application` | 通知导入结果与校验错误。 |
