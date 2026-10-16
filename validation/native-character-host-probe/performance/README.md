@@ -77,3 +77,47 @@ Exit 1 means a geometry regression, not an execution failure. A passing sampled
 comparison still cannot establish native RGBA acceptance, arbitrary pitch,
 intermediate angles, morphs or clothing-opacity combinations. A fixed default-pose
 culling/hiding decision is not justified for all source-control states.
+
+
+## r35 framing-coordinate regression and order observations
+
+Visibility projection already returns framed 1024-canvas coordinates. Subtracting
+`camera.center` a second time moves/clips the vote window when source geometry is
+translated and the camera is refitted. `NativeCharacterVisibilityTest` now compares
+coverage, depth, overlap votes and final ordering for an original and translated
+public two-surface scene across 12 yaw/pitch combinations. The original code fails
+this test; canvas-coordinate rasterization passes. This is a coordinate invariant,
+not a claim that the approximate ordering is now visually correct.
+
+The same full-control fixture's six-pose geometry diagnostic is recorded in
+`/tmp/native-occlusion-r35-canvas.log`. Exact-pose reordering improves in all six
+poses, but stored ranks regress at 0, -30 and -90 degrees. The sampled
+nonregression gate therefore **fails**. No candidate was deployed to the host,
+and no new complete-character import or speed measurement was run.
+
+For small native fixtures only (at most 16 ArtMeshes), enable
+`-Dturboism.character.orderSemantics=true` on the official queued host runner.
+After Undo/Redo, this records stored authoring snapshots and 36 single/dual-axis
+samples near extended-interpolation nodes, including 22.49/22.5/22.51 and
+44.99/45/45.01 degrees. `order-native-observations.tsv` contains calculated integer
+drawOrder, Core renderOrder and pass-entry time, after parameter consumption and a
+render request. `order-stored-snapshots.txt` supplies the actual source grid.
+These observations do not by themselves assert an interpolation formula or tie
+policy. A matching consumption stamp alone is not proof of successful evaluation;
+inspect native errors and stored/observed values together.
+
+The existing offline diagnostic still sorts continuous doubles with partition
+index ties. It does **not** simulate the Editor's staged integer postBlend or prove
+native tie order. Its exact-pose reorder also uses 384-square sampling while stored
+ranks use the bounded compile resolution (214 square for 873 partitions). Do not
+attribute their entire difference to interpolation, or approve native rendering
+from these measurements.
+
+
+## Primary geometry acceptance
+
+Use [PrimitiveAcceptance.md](PrimitiveAcceptance.md) and its generated public
+textured cube/octahedron/cross-star/torus/cylinder/assembly corpus as the primary
+correctness gate. Complete characters are optional stress inputs, not the standard
+for accepting visibility or import correctness. The first 114-pose screen has six
+known failures, retained explicitly; the corpus is not a claim of fixed occlusion.

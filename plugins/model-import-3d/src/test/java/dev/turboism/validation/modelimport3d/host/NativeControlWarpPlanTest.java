@@ -8,6 +8,19 @@ import java.util.*;
 import org.junit.jupiter.api.Test;
 
 class NativeControlWarpPlanTest {
+    @Test
+    void dyadicParentFrameContainsPaddedBoundsAndPreservesUniformGridExactly() {
+        for (double[] values :
+                new double[][] {{.267851, .267853, .001}, {-.3, .9, .0001}, {-.000001, .000001, .00000001}}) {
+            var frame = NativeControlWarpPlan.dyadicFrame(values[0], values[1], values[2]);
+            assertTrue(frame[0] <= values[0] - values[2]);
+            assertTrue(frame[0] + (double) frame[1] >= values[1] + values[2]);
+            float step = frame[1] / 32;
+            for (int i = 0; i <= 32; i++)
+                assertEquals((double) frame[0] + i * (double) step, (double) (frame[0] + i * step));
+        }
+    }
+
     private static ViewerScene.Mesh mesh(
             float[] positions, List<ViewerScene.ControlSample> samples, List<ViewerScene.OpacityControl> factors) {
         return new ViewerScene.Mesh(

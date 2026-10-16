@@ -23,6 +23,8 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
     private final Properties report = new Properties();
     private JOptionPane lastPane;
     private volatile ImportStackSampler sampler;
+    private Path stateOverride;
+    private Path stateDir() { return stateOverride==null?context.paths().stateDir():stateOverride; }
 
     @Override public void init(PluginContext value) { context = value; }
     @Override public void enable() {
@@ -35,11 +37,51 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
         if (sampler != null) sampler.close();
     }
 
+    /** Reuse one official host process for the public corpus; each input gets a fresh document. */
     private void verify() {
+        if(!Boolean.getBoolean("turboism.character.primitiveBatch")) { verifyOne(); return; }
+        Path root=context.paths().stateDir();
+        boolean exit=Boolean.getBoolean("turboism.character.exitAfterProbe");
+        System.setProperty("turboism.character.exitAfterProbe","false");
+        var summary=new Properties();summary.setProperty("status","PASS");
+        var names=List.of("cube","octahedron","cross-star","torus","cylinder","ring-and-column");
+        int[] counts={12,8,60,768,124,892};
+        try {
+            Path directory=Path.of(System.getProperty("turboism.character.fixtureDirectory"));
+            for(int i=0;i<names.size();i++) {
+                String name=names.get(i);
+                report.clear();stateOverride=root.resolve(name);
+                System.setProperty("turboism.character.fixture",directory.resolve(name+".glb").toString());
+                System.setProperty("turboism.character.expectedTriangles",""+counts[i]);
+                System.setProperty("turboism.character.expectedControls",name.equals("ring-and-column")?"2":"1");
+                verifyOne();
+                String status=report.getProperty("status","FAIL");
+                summary.setProperty(name+".status",status);
+                if(!"PASS".equals(status)) {
+                    summary.setProperty("status","FAIL");
+                    summary.setProperty(name+".failure",report.getProperty("failure","No terminal result"));
+                }
+            }
+        } catch(Throwable failure) {
+            summary.setProperty("status","FAIL");summary.setProperty("failure",failure.toString());
+            context.logger().error("Primitive batch failed",failure);
+        } finally {
+            stateOverride=null;
+            try {
+                Files.createDirectories(root);
+                summary.setProperty("schemaVersion","1");summary.setProperty("fixtures","6");
+                try(var out=Files.newOutputStream(root.resolve("result.properties"))) { summary.store(out,"Public primitive corpus"); }
+                String runId=System.getProperty("turboism.validation.runId","");
+                if(exit && runId.matches("queue-[a-f0-9]{32}") && root.toString().contains(runId)) { Thread.sleep(2000);System.exit(0); }
+            } catch(Exception failure) { context.logger().error("Primitive batch result failed",failure); }
+        }
+    }
+
+    private void verifyOne() {
         report.setProperty("schemaVersion", "1");
         report.setProperty("runId", System.getProperty("turboism.validation.runId", "unknown"));
         try {
-            Path state = context.paths().stateDir();
+            Path state = stateDir();
             if (Boolean.getBoolean("turboism.character.reopen")) {
                 verifyReopen(state);
                 report.setProperty("status", "PASS");
@@ -173,7 +215,9 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
             await(() -> edt(() -> imported.stream().filter(id -> model().drawables().find(id).visible()).map(id -> model().drawables().find(id).evaluationSnapshot())
                     .allMatch(e -> e.calculatedForm().isPresent() && e.liveParameters().parameters().equals(e.consumedParameters().parameters()))),
                     30, "neutral pose consumption before opacity");
+            if (Boolean.getBoolean("turboism.character.primitivePoses")) capturePrimitivePoses(imported, state);
             if (Boolean.getBoolean("turboism.character.sharedSeam")) verifySharedSeam(imported);
+            if (Boolean.getBoolean("turboism.character.orderSemantics")) observeOrderSemantics(imported, state);
             if(Boolean.getBoolean("turboism.character.sourceControls")) verifySourceControls();
             stage("native-opacity");
             var visibleMesh = edt(() -> imported.stream().map(id -> model().drawables().find(id))
@@ -182,19 +226,21 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
             var opacityParent = edt(() -> model().deformers().find(outfitParent.parentDeformerId().orElseThrow()));
             report.setProperty("opacity.parent.name", edt(opacityParent::name));
             var originalBank = edt(visibleMesh::authoringSnapshot);
-            var visiblePixels = edt(() -> model().renderPixels(1024, 1024));
+            var visiblePixels = renderPixels();
             edt(() -> { opacityParent.setOpacity(0); return null; });
             check("opacity.hidden", 0f, edt(opacityParent::getOpacity));
             Thread.sleep(700);
-            var hiddenPixels = edt(() -> model().renderPixels(1024, 1024));
+            var hiddenPixels = renderPixels();
             check("opacity.pixelsChanged", true, !java.util.Arrays.equals(visiblePixels.argb(), hiddenPixels.argb()));
             capture(state.resolve("native-group-hidden.png"));
             edt(() -> { opacityParent.setOpacity(1); return null; });
             check("opacity.restored", 1f, edt(opacityParent::getOpacity));
             check("opacity.banksPreserved", originalBank, edt(visibleMesh::authoringSnapshot));
             stage("native-save");
-            Files.createDirectories(state.resolve("persistence"));
-            Path output = state.resolve("persistence/native-character.cmo3");
+            // The validation grant is fixed to the real plugin state directory.
+            Path saveRoot = context.paths().stateDir();
+            Files.createDirectories(saveRoot.resolve("persistence"));
+            Path output = saveRoot.resolve("persistence/native-character.cmo3");
             if (Files.exists(output)) throw new AssertionError("Save target already exists");
             var grant = context.userFiles().request(new UserFileRequest("native-character-save", "Save native character",
                     List.of("cmo3"), UserFileMode.WRITE, UserFileLifetime.ONE_OPERATION)).toCompletableFuture();
@@ -209,6 +255,14 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
                 }));
             }
             check("save.artifact.nonempty", true, Files.size(output) > 0);
+            if (stateOverride != null) {
+                if (!Files.isRegularFile(output, java.nio.file.LinkOption.NOFOLLOW_LINKS))
+                    throw new AssertionError("Save artifact must be a regular file");
+                Files.createDirectories(state.resolve("persistence"));
+                Path archived = state.resolve("persistence/native-character.cmo3");
+                Files.move(output, archived);
+                output = archived;
+            }
             report.setProperty("native.ids", imported.stream().map(ArtMeshId::value).sorted().reduce((a,b) -> a + "," + b).orElseThrow());
             report.setProperty("native.banks.sha256", edt(() -> banksHash(imported)));
             if(Boolean.getBoolean("turboism.character.sourceControls"))report.setProperty("native.morphs.sha256",edt(this::morphsHash));
@@ -225,7 +279,7 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
         } finally {
             if (sampler != null) sampler.close();
             try {
-                Path state = context.paths().stateDir();
+                Path state = stateDir();
                 Files.createDirectories(state);
                 try (var out = Files.newOutputStream(state.resolve("result.properties"))) {
                     report.store(out, "Native character import stage; reopen acceptance is separate");
@@ -238,6 +292,63 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
                 }
             } catch (Exception failure) { context.logger().error("Native probe result failed", failure); }
         }
+    }
+
+    /** Small-model observation only: records actual native values without assuming a tie policy. */
+    private void observeOrderSemantics(Set<ArtMeshId> imported, Path state) throws Exception {
+        if (imported.size() > 16) throw new AssertionError("Order observation is limited to small fixtures");
+        var ids = imported.stream().sorted(Comparator.comparing(ArtMeshId::value)).toList();
+        var axes = edt(() -> model().parameters().all().stream()
+                .filter(p -> rotationParameter(p, "Yaw") || rotationParameter(p, "Pitch")).toList());
+        var yaw = axes.stream().filter(p -> rotationParameter(p, "Yaw")).findFirst().orElseThrow();
+        var pitch = axes.stream().filter(p -> rotationParameter(p, "Pitch")).findFirst().orElseThrow();
+        var stored = new StringBuilder();
+        for (var id : ids) stored.append(edt(() -> model().drawables().find(id).authoringSnapshot())).append('\n');
+        Files.writeString(state.resolve("order-stored-snapshots.txt"), stored);
+        var rows = new StringBuilder("yaw\tpitch\tmesh\tcalculatedDrawOrder\trenderOrder\tpassEntryTimeMillis\n");
+        var poses = new ArrayList<float[]>();
+        for (float angle : new float[] {0, 15, 22.49f, 22.5f, 22.51f, 30, 44.99f, 45, 45.01f, 60, 67.5f, 90}) {
+            poses.add(new float[] {angle, 0});
+            poses.add(new float[] {0, angle});
+            poses.add(new float[] {angle, angle});
+        }
+        try {
+            for (var pose : poses) {
+                edt(() -> { yaw.setValue(pose[0]); pitch.setValue(pose[1]); return null; });
+                await(() -> edt(() -> ids.stream().map(id -> model().drawables().find(id).evaluationSnapshot())
+                        .allMatch(e -> e.calculatedForm().isPresent()
+                                && e.liveParameters().parameters().equals(e.consumedParameters().parameters()))),
+                        30, "order observation parameter consumption");
+                // Exercise the render path before reading Core renderOrder as well as the calculated form.
+                edt(() -> model().renderPixels(256, 256));
+                rows.append(edt(() -> {
+                    var sample = new StringBuilder();
+                    for (var id : ids) {
+                        var mesh = model().drawables().find(id);
+                        var evaluation = mesh.evaluationSnapshot();
+                        if (!evaluation.liveParameters().parameters().equals(evaluation.consumedParameters().parameters()))
+                            throw new AssertionError("Order observation consumed stale parameters");
+                        String renderOrder;
+                        try {
+                            renderOrder = Integer.toString(mesh.renderOrder());
+                        } catch (IllegalStateException unavailable) {
+                            if (!unavailable.getMessage().startsWith("Core evaluated data is unavailable")) throw unavailable;
+                            renderOrder = "UNAVAILABLE";
+                            report.setProperty("order.renderOrder.unavailable", unavailable.getMessage());
+                        }
+                        sample.append(pose[0]).append('\t').append(pose[1]).append('\t').append(id.value())
+                                .append('\t').append(evaluation.calculatedForm().orElseThrow().drawOrder())
+                                .append('\t').append(renderOrder).append('\t').append(evaluation.passEntryTimeMillis()).append('\n');
+                    }
+                    return sample.toString();
+                }));
+            }
+        } finally {
+            edt(() -> { yaw.setValue(0); pitch.setValue(0); return null; });
+            Files.writeString(state.resolve("order-native-observations.tsv"), rows);
+        }
+        report.setProperty("order.observation.samples", "" + poses.size());
+        report.setProperty("order.observation.scope", "native observations only; no interpolation or equal-order policy asserted");
     }
 
     private void verifySharedSeam(Set<ArtMeshId> imported) throws Exception {
@@ -288,8 +399,75 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
         check("seam.withinTolerance", true, maximum <= 0.001);
     }
 
+
+    /** Export evaluated native geometry and actual pixels, never substitute planned geometry. */
+    private void capturePrimitivePoses(Set<ArtMeshId> imported, Path state) throws Exception {
+        var axes=edt(()->model().parameters().all().stream().filter(p->rotationParameter(p,"Yaw")||rotationParameter(p,"Pitch")).toList());
+        var yaw=axes.stream().filter(p->rotationParameter(p,"Yaw")).findFirst().orElseThrow();
+        var pitch=axes.stream().filter(p->rotationParameter(p,"Pitch")).findFirst().orElseThrow();
+        var poses=new ArrayList<float[]>();
+        for(float angle:new float[]{-180,-150,-90,-30,0,7.5f,22.49f,30,90,150,180}) poses.add(new float[]{angle,0});
+        for(float angle:new float[]{-90,-30,30,90,180}) poses.add(new float[]{0,angle});
+        poses.add(new float[]{22.49f,-22.49f}); poses.add(new float[]{-30,30});
+        poses.add(new float[]{3.75f,3.75f}); poses.add(new float[]{7.49f,3.75f});
+        var folder=state.resolve("primitive-poses"); Files.createDirectories(folder);
+        for(var pose:poses) {
+            edt(()->{yaw.setValue(pose[0]);pitch.setValue(pose[1]);return null;});
+            // Paint drives native evaluation; then verify the consumed parameter snapshot.
+            renderPixels();
+            await(()->edt(()->imported.stream().map(id->model().drawables().find(id).evaluationSnapshot())
+                    .allMatch(e->e.calculatedForm().isPresent()&&e.liveParameters().parameters().equals(e.consumedParameters().parameters()))),30,"primitive pose consumption");
+            String label="yaw"+pose[0]+"-pitch"+pose[1];
+            capture(folder.resolve(label+".png"));
+            var csv=edt(()->{
+                var out=new StringBuilder("mesh,order,coordinateType,slot,x,y,u,v\n");
+                var triangles=new StringBuilder("mesh,a,b,c\n");
+                for(var id:imported) {
+                    var mesh=model().drawables().find(id);
+                    var form=mesh.evaluationSnapshot().calculatedForm().orElseThrow();
+                    var geometry=mesh.authoringSnapshot().sourceGeometry();
+                    for(int i=0;i<form.positions().size();i++) {
+                        var xy=form.positions().get(i); var uv=geometry.uvs().get(i);
+                        out.append(id.value()).append(',').append(form.drawOrder()).append(',').append(form.coordinateType()).append(',')
+                            .append(i).append(',').append(xy.x()).append(',').append(xy.y()).append(',').append(uv.x()).append(',').append(uv.y()).append('\n');
+                    }
+                    var indices=geometry.triangleIndices();
+                    for(int i=0;i<indices.size();i+=3) triangles.append(id.value()).append(',').append(indices.get(i)).append(',').append(indices.get(i+1)).append(',').append(indices.get(i+2)).append('\n');
+                }
+                return new String[]{out.toString(),triangles.toString()};
+            });
+            Files.writeString(folder.resolve(label+".vertices.csv"),csv[0]);
+            Files.writeString(folder.resolve(label+".triangles.csv"),csv[1]);
+        }
+        edt(()->{yaw.setValue(0);pitch.setValue(0);return null;});
+        renderPixels();
+        check("primitive.nativePoseCaptures",20,poses.size());
+    }
+
+    private CubismRenderedPixels renderPixels() throws Exception {
+        String document=edt(()->context.cubism().activeDocument().orElseThrow().documentId());
+        for(int attempt=0;;attempt++) {
+            try {
+                return edt(()->{
+                    if(!document.equals(context.cubism().activeDocument().orElseThrow().documentId()))
+                        throw new AssertionError("Document switched during capture");
+                    return model().renderPixels(1024,1024);
+                });
+            } catch(Exception failure) {
+                Throwable cause=failure;
+                while(cause.getCause()!=null) cause=cause.getCause();
+                if(attempt>=2 || !(cause instanceof IllegalStateException)
+                        || !"Editor model-instance list changed across native render.".equals(cause.getMessage()))
+                    throw failure;
+                String key="capture.modelInstanceRefreshRetries";
+                report.setProperty(key,""+(Integer.parseInt(report.getProperty(key,"0"))+1));
+                Thread.sleep(500);
+            }
+        }
+    }
+
     private void capture(Path path) throws Exception {
-        var pixels = edt(() -> model().renderPixels(1024, 1024));
+        var pixels = renderPixels();
         var image = new java.awt.image.BufferedImage(1024, 1024, java.awt.image.BufferedImage.TYPE_INT_ARGB);
         image.setRGB(0, 0, 1024, 1024, pixels.argb(), 0, 1024);
         if (!ImageIO.write(image, "png", path.toFile())) throw new AssertionError("Native PNG encoding unavailable");
@@ -304,7 +482,7 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
         report.setProperty("stage." + name + ".epochMillis", "" + System.currentTimeMillis());
         context.logger().info("NATIVE_CHARACTER_STAGE " + name);
         report.setProperty("stage", name);
-        try (var out = Files.newOutputStream(context.paths().stateDir().resolve("progress.properties"))) {
+        try (var out = Files.newOutputStream(stateDir().resolve("progress.properties"))) {
             report.store(out, "Nonterminal native character progress");
         }
     }
@@ -341,6 +519,14 @@ public final class NativeCharacterHostProbe implements TurboismPlugin {
             long outfits = edt(() -> model().warpDeformers().all().stream()
                     .filter(d -> d.parentDeformerId().equals(Optional.of(body.id()))).count());
             check("reopen." + part + ".sharedOutfits", true, outfits >= 2);
+        }
+        if(Boolean.getBoolean("turboism.character.primitivePoses")) {
+            capturePrimitivePoses(imported,state);
+            var yaw=edt(()->model().parameters().all().stream().filter(p->rotationParameter(p,"Yaw")).findFirst().orElseThrow());
+            edt(()->{yaw.setValue(30);return null;});
+            renderPixels();
+            verifySourceControls();
+            edt(()->{yaw.setValue(0);return null;});
         }
         capture(state.resolve("native-reopened.png"));
         report.setProperty("persistence.reopen", "PASS");

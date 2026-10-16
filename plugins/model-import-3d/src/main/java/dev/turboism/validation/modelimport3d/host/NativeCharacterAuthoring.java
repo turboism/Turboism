@@ -15,6 +15,17 @@ import java.util.Optional;
  * protection and exact readback verification.
  */
 public final class NativeCharacterAuthoring {
+    /** Screen Y reverses source orientation. Compensate once at the native boundary. */
+    static List<Integer> targetWinding(List<Integer> source) {
+        var result = new ArrayList<Integer>(source.size());
+        for (int i = 0; i < source.size(); i += 3) {
+            result.add(source.get(i));
+            result.add(source.get(i + 2));
+            result.add(source.get(i + 1));
+        }
+        return List.copyOf(result);
+    }
+
     static final int MESH_CREATION_BATCH_SIZE = 32;
 
     private NativeCharacterAuthoring() {}
@@ -361,7 +372,7 @@ public final class NativeCharacterAuthoring {
                 inputs.add(new Drawables.SourceGeometryRequest(
                         request.name() + " " + partition.name() + " " + pIdx,
                         Optional.of(patchParts.get(pIdx)),
-                        new ArtMeshGeometry(imagePositions, partition.uvs(), partition.indices()),
+                        new ArtMeshGeometry(imagePositions, partition.uvs(), targetWinding(partition.indices())),
                         neutralSample.positions()));
             }
             // Limit each publication to a small batch: later native conversions should
@@ -413,10 +424,8 @@ public final class NativeCharacterAuthoring {
                         double dy = (restored.get(v).y() - bodyLocal.get(v).y()) * (frame.maxY - frame.minY);
                         double error = Math.hypot(dx, dy);
                         if (!Double.isFinite(error) || error > .001)
-                            throw new IllegalStateException(
-                                    "Final parent neutral coordinate conversion differs for partition "
-                                            + pIdx + ": canvasError=" + error + "px, expected=" + expected.get(v)
-                                            + ", actual=" + actual.get(v));
+                            throw new IllegalStateException("canvasError=" + error + "px at partition " + pIdx
+                                    + ", expected=" + expected.get(v) + ", actual=" + actual.get(v));
                         maxNeutralErrorPixels = Math.max(maxNeutralErrorPixels, error);
                     }
                 }

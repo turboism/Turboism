@@ -9,8 +9,8 @@ import java.util.Objects;
  * Pure projection for the shape probe; no host writes or visibility decisions.
  * Source positions are in a right-handed frame, after static node transforms.
  * Pose is R_y(yaw) * R_x(pitch) about one fixed pivot, in degrees.
- * The camera looks along +Z: screen X is +X, screen Y is -Y, depth is +Z
- * (smaller is nearer). Canvas scale and center never depend on the pose.
+ * The camera looks along -Z: screen X is +X, screen Y is -Y, depth is +Z
+ * (larger is nearer). Canvas scale and center never depend on the pose.
  * Input order and duplicate positions are preserved, including UV seam vertices.
  */
 final class SurfaceProjection {

@@ -47,6 +47,11 @@ public final class NativeOcclusionDiagnostic {
     System.out.printf(
         "partitions=%d triangles=%d slots=%d\n",
         plan.partitions().size(), plan.totalTriangles(), plan.totalKeyformSlots());
+    int compiledSide = Math.min(384, (int) Math.sqrt(
+        NativeCharacterVisibility.MAX_DEPTH_SLOTS / (double) Math.max(1, plan.partitions().size())));
+    System.out.printf("storedRankSamplingSide=%d exactPoseSamplingSide=%d%n", compiledSide, S);
+    System.out.println("storedOrderModel=continuous-double interpolation with partition-index ties; "
+        + "NOT native staged integer interpolation or verified native equal-order rendering");
     var out = Path.of(args[1]);
     Files.createDirectories(out);
     for (double yaw : new double[] {0, -30, 30, -90, 90, 180}) {

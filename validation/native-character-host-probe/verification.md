@@ -678,3 +678,107 @@ image/CSV directories, and `/tmp/native-occlusion-r33-comparison.txt`.
 The comparison tool rejects the selective candidate for both -90 gap regressions.
 Production source culling/visibility/opacity, geometry and budgets are unchanged.
 **T035 and T036 remain open.**
+
+
+## r35 coordinate invariant and remaining ordering gate
+
+- Reproduced translated/refitted-scene coverage loss in the original visibility
+  rasterizer: first failure yaw=-30, pitch=-30, mesh=0, pixel=1447 at 64 square.
+- Removed the duplicate camera-offset subtraction. Twelve poses now retain the
+  same coverage, depths, overlap votes and ordering under XY source translation.
+- Targeted Visibility/Plan tests: 11 cases, 10 passed, 1 explicit-fixture skip;
+  formatting applied; no geometry, culling, source controls or budgets changed.
+- Same explicit complete-controls GLB SHA-256
+  `ad25dbb8cd3f12901c17f104ef26ee5a16ba688a8b6422aeccaddef19896623a`;
+  default geometry path remains 873 partitions / 236437 triangles / 4818706
+  keyform slots / 55394770 cache slots. This is not the fitted 940-mesh path.
+- Six-pose stored-rank wrong counts before -> after: 0:831->832,
+  -30:1696->1783, +30:3747->2960, -90:5192->5204,
+  +90:5282->5267, 180:12548->12546. Missing stays zero; reference coverage
+  unchanged. Exact-pose reorder wrong counts fall in all six poses.
+- Comparison **rejects** stored-rank regressions. This candidate is not a complete
+  occlusion fix and was not deployed to the host. Evidence:
+  `/tmp/native-r35-translation-{red,green}.log`,
+  `/tmp/native-occlusion-r35-canvas.log` and its PNG/CSV directory.
+- Added opt-in small-model native integer-order observation. Its build/preflight
+  passes; execution evidence is recorded separately after the official runner.
+- No new full-character import timing: the 382.468-second r32 baseline remains.
+  T035/T036 remain open. Stop rank-spacing coefficient experiments until native
+  integer interpolation and equal-order behavior have a verified comparison.
+
+
+### r35b native order observations (old r32 production plugin)
+
+Official queued small-fixture job `39164217-0e74-44cc-aed7-97168cb4603b`,
+run `queue-ab857c4c662e4b8ca6d42518f8a21fd3`, label
+`5304-order-semantics-r35b-small`. New probe SHA-256:
+`c7b000c30a10ea5113a82b88acdd1a0e9d481fef89c6093c93b98d4f35ad472a`.
+Supervisor result is PASS: normal exit, verified identity, unchanged source fixture
+and safe cleanup. Probe result is PASS: Undo/Redo, rotation, 36 order samples
+(72 mesh rows), existing
+source-control/combination checks and save artifact checks complete. The coordinate
+candidate was **not** in this host package. First r35 probe failed because Core
+`renderOrder` has no verified active model in this editing context; r35b explicitly
+records UNAVAILABLE instead of inventing a tie order. That limitation remains.
+
+Native yaw samples for source mesh 0 / source mesh 1, pitch=0:
+
+| Yaw | calculated drawOrder mesh 0 | mesh 1 |
+| --- | ---: | ---: |
+| 44.99 | 499 | 500 |
+| 45.00 | 500 | 500 |
+| 45.01 | 500 | 499 |
+
+Source stored yaw knots are (0,1000) and (1000,0), respectively. At 15, 30, 60,
+67.5 degrees the first mesh evaluates to 166,333,666,750. These observations confirm
+integer output and a real equal-order sample. They do not establish the entire
+staged interpolation formula: this fixture's special 0/1000 endpoints are also
+consistent with final-only truncation. Additional endpoints/dual-axis rank grids
+and a native render tie observation remain necessary. Diagnostic output now
+explicitly identifies its continuous-double approximation and both sampling sizes.
+
+Evidence under the run's `turboism-home/state/dev.turboism.validation.native-character/`:
+`order-stored-snapshots.txt`, `order-native-observations.tsv`, `result.properties`.
+
+
+## Public primitive acceptance baseline (2026-10-16)
+
+Primary correctness acceptance now uses deterministic public textured GLBs, not a
+complete character. Generator and standards:
+`performance/create_primitive_fixtures.py`, `performance/PrimitiveAcceptance.md`.
+Six inputs: cube (12 triangles), octahedron (8), three-axis cross-star (60), torus
+(768), cylinder (124), ring/column assembly (892). All include numbered directional
+512-square texture and standard Expand morphs, without custom control extras.
+Generation twice produced identical manifests/hashes; welded edge counts are 2,
+face normals nondegenerate. Production preparation asserts topology, morph count,
+texture presence and small-standard-GLB native routing.
+
+Newly built production plugin, explicit SDK JAR, reproducible shell runner:
+`/tmp/native-primitive-acceptance-r2/{toolchain-sha256.txt,run.log,fixtures/manifest.json}`.
+Outputs: `results/geometry-results.csv`, per-pose depth images/partition CSV,
+source-textured previews and `primitive-contact-sheet.png`.
+**114 cases: 108 PASS, 6 FAIL**. No missing pixels. At yaw ±150/pitch 0:
+cross-star 8100 wrong-depth pixels, torus 522, assembly 185. These cases remain
+failing; no fixture-specific production fix or weakened threshold was introduced.
+This fast screen uses exact source projection and float rank interpolation, not
+native integer interpolation/geometry/RGBA acceptance. Morph pose combinations
+and the complete native pose matrix remain open.
+
+Cube official native import/save uses the existing r32 package as a separate host
+baseline: job `eb37217b-a6d6-4198-8f0b-91ed2c92b149`,
+run `queue-d3d523add73a47a1b88555e4dd2e4e9a`, label `5304-primitive-cube-r1`.
+Supervisor PASS, normal exit, identity verified, fixture unchanged, safe cleanup.
+One ArtMesh, 12 source triangles, XYZ + 1 standard morph in one source-file group.
+Undo/Redo, atlas binding, source-control endpoint/reset, opacity and official save
+checks pass. Saved CMO3: 147411 bytes. Inspected native neutral render shows the
+numbered green face with intact direction arrow, not an untextured placeholder.
+This host baseline does not contain the unaccepted r35 coordinate candidate and
+is not a visual acceptance of all corpus poses. Fresh-process reopen is separate.
+
+Cube fresh-process reopen: job `6b444752-1550-4506-b610-5ebe2157b267`,
+run `queue-e8787a7ef0344e1a8925ec66475c96d4`, label
+`5304-primitive-cube-reopen-r1`. Supervisor PASS with normal exit, verified identity,
+unchanged fixture and safe cleanup. Stored bank/morph hashes, atlas binding,
+filename parameter group, source morph endpoint/reset and reopen capture pass.
+This completes the cube persistence baseline, not native visual acceptance of the
+19-pose matrix or the other five shapes.
