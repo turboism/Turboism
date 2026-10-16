@@ -138,6 +138,128 @@ final class EditorObjectHierarchyEditAccess {
         return new CreatedSource(id, created);
     }
 
+    List<CreatedSource> createPartSources(
+            final String identity,
+            final Object modelSource,
+            final Object model,
+            final List<String> requestedNames,
+            final Object parentSource) {
+        final List<String> names = List.copyOf(requestedNames).stream()
+                .map(EditorObjectHierarchyEditAccess::requireName)
+                .toList();
+        if (!EditorHostThread.isCurrent()) {
+            return EditorHostThread.dispatch(
+                    "Create sibling Parts", () -> createPartSources(identity, modelSource, model, names, parentSource));
+        }
+        requireEditAuthorized();
+        currentGuard.requireCurrent(identity, model);
+        if (!EditorReviewedGeneration.admits(resolver)
+                || !resolver.authorizesFeature(
+                        EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
+                        EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID,
+                        EditorObjectHierarchyEditSelectorContract.PART_CREATE_5302_REQUIRED_ALIASES)) {
+            throw unavailable("Editor batch Part insertion is not verified.");
+        }
+        if (names.isEmpty()) return List.of();
+        final Object parent = parentSource == null
+                ? resolver.invoke("cubism.editor-model.model-source.root-part", modelSource)
+                : parentSource;
+        if (!resolver.isInstance("cubism.editor-model.part-source.class", parent))
+            throw unavailable("Editor parent Part is unavailable.");
+        final Object parentHandler =
+                resolver.invoke("cubism.editor-model.parameter-controllable-source.handler", parent);
+        if (!resolver.isInstance("cubism.editor-model.part-handler.class", parentHandler))
+            throw unavailable("Editor Part attachment Undo handler is unavailable.");
+        final Set<String> reserved = new HashSet<>();
+        for (Object source : iterable(
+                resolver.invoke("cubism.editor-model.model-source.all-objects", modelSource),
+                "Editor object collection")) reserved.add(objectId(source));
+        final List<CreatedSource> created = new ArrayList<>();
+        for (String name : names) {
+            final Object source = resolver.construct("cubism.editor-model.part-source.create", modelSource);
+            if (!resolver.isInstance("cubism.editor-model.part-source.class", source))
+                throw unavailable("Editor Part source construction is invalid.");
+            final String id = nextObjectId(reserved, "Part", name);
+            reserved.add(id);
+            setObjectId(source, "Part", id);
+            resolver.invoke("cubism.editor-model.parameter-controllable-source.set-local-name", source, name);
+            initializePart(source, modelSource);
+            created.add(new CreatedSource(id, source));
+        }
+        final var binding = Objects.requireNonNull(authoringBinding.get(), "authoring binding");
+        final var admitted = new ArrayList<Object>();
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final var targets = new ArrayList<HistoryTarget>();
+        final var changes = new ArrayList<HistoryChange>();
+        for (int index = 0; index < Math.min(created.size(), 64); index++) {
+            targets.add(new HistoryTarget("PART", Optional.of(created.get(index).id()), Optional.of(names.get(index))));
+            changes.add(new HistoryChange(
+                    HistoryChange.Operation.ADD,
+                    Optional.of(index),
+                    Optional.of("part"),
+                    Optional.empty(),
+                    Optional.of(created.get(index).id()),
+                    new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of())));
+        }
+        authoringCoordinator.mutateCreatedMany(
+                binding,
+                created.stream().map(CreatedSource::source).toList(),
+                new EditorUndoContribution(
+                        "cubism.part.create-many",
+                        binding.modelIdentity() + ":parts:" + created.get(0).id(),
+                        "Turboism: Create Parts",
+                        (edit, label) -> {
+                            for (var item : created) {
+                                final Object undo = resolver.invoke(
+                                        "cubism.editor-model.part-handler.add-part-child",
+                                        parentHandler,
+                                        item.source(),
+                                        Integer.valueOf(-1));
+                                // Own eager insertion even if Undo admission rejects this item.
+                                admitted.add(undo);
+                                requireUndoAccepted(edit, undo, "Batch Part creation");
+                            }
+                            if (authoringCoordinator.claimRootUndoListener(
+                                    binding, edit, "parts.create-many.refresh")) {
+                                final Object listener = resolver.createFunctionalProxy(
+                                        "cubism.editor-model.undo-listener.class", ignored -> {
+                                            resolver.invoke(
+                                                    "cubism.editor-model.model-source.update-instances", modelSource);
+                                            refresh(app, "cubism.editor-model.complete-pack.update-part-palette");
+                                            return null;
+                                        });
+                                if (Boolean.FALSE.equals(
+                                        resolver.invoke("cubism.editor-model.undo.add-listener", edit, listener)))
+                                    throw unavailable("Editor rejected batch Part Undo listener.");
+                            }
+                        },
+                        () -> resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource),
+                        () -> partBatchMembership(modelSource, parent, created, true),
+                        () -> {
+                            for (int index = admitted.size() - 1; index >= 0; index--)
+                                if (admitted.get(index) != null)
+                                    resolver.invoke("cubism.editor-model.undo.execute-undo", admitted.get(index));
+                        },
+                        () -> partBatchMembership(modelSource, parent, created, false),
+                        EnumSet.of(
+                                EditorRefreshRequirement.PART_PALETTE,
+                                EditorRefreshRequirement.CANVAS,
+                                EditorRefreshRequirement.MARK_DIRTY),
+                        new HistoryEntryDetail(
+                                "Create " + created.size() + " Parts",
+                                created.size() <= 64
+                                        ? HistoryAction.DetailLevel.FULL
+                                        : HistoryAction.DetailLevel.PARTIAL,
+                                HistoryOrigin.turboism(binding.pluginId(), "cubism.part.create-many"),
+                                targets,
+                                changes,
+                                Optional.empty(),
+                                created.size() <= 64
+                                        ? Optional.empty()
+                                        : Optional.of("history.detail.transaction-limit"))));
+        return List.copyOf(created);
+    }
+
     CreatedSource createArtMeshSource(
             final String identity,
             final Object modelSource,
@@ -1131,6 +1253,20 @@ final class EditorObjectHierarchyEditAccess {
                                 Optional.empty())));
     }
 
+    private boolean partBatchMembership(
+            final Object modelSource, final Object parent, final List<CreatedSource> created, final boolean present) {
+        final Set<Object> parts = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        final Set<Object> children = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        for (Object item : iterable(resolver.invoke("cubism.editor-model.model-source.parts", modelSource), "Parts"))
+            parts.add(item);
+        for (Object item :
+                iterable(resolver.invoke("cubism.editor-model.part-source.children", parent), "Part children"))
+            children.add(item);
+        return created.stream()
+                .allMatch(item ->
+                        parts.contains(item.source()) == present && children.contains(item.source()) == present);
+    }
+
     private boolean registered(final String alias, final Object modelSource, final Object objectSource) {
         for (Object existing : iterable(resolver.invoke(alias, modelSource), "Editor source collection")) {
             if (existing == objectSource) return true;
@@ -1256,6 +1392,10 @@ final class EditorObjectHierarchyEditAccess {
                 "Editor object collection")) {
             existing.add(objectId(source));
         }
+        return nextObjectId(existing, prefix, name);
+    }
+
+    private String nextObjectId(final Set<String> existing, final String prefix, final String name) {
         final String base = truncate(prefix + slug(name), MAX_OBJECT_ID_LENGTH - 8);
         if (!existing.contains(base)) return base;
         for (int suffix = 2; suffix < 1_000_000; suffix++) {

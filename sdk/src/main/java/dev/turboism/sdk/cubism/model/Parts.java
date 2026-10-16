@@ -31,6 +31,17 @@ public interface Parts {
         throw unavailable("Part creation");
     }
 
+    /**
+     * Appends sibling Parts in input order under one existing parent (null means root).
+     * The batch is one authoring edit; no intermediate instance state is published.
+     * Duplicate names are allowed and receive distinct generated IDs.
+     *
+     * @throws IllegalArgumentException when any name is blank
+     */
+    default List<Part> createMany(List<String> names, Part parent) {
+        throw unavailable("Batch Part creation");
+    }
+
     /** Deletes {@code part} through the native selection + native DELETE command path. */
     default void remove(Part part) {
         throw unavailable("Part deletion");

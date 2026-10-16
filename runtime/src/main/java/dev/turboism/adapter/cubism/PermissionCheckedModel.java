@@ -704,6 +704,16 @@ final class PermissionCheckedModel implements CubismModel {
             }
 
             @Override
+            public List<dev.turboism.sdk.cubism.model.Part> createMany(
+                    final List<String> names, final dev.turboism.sdk.cubism.model.Part parent) {
+                facade.requireModelWrite("model.parts.createMany");
+                return parts.createMany(List.copyOf(names), facade.unwrapPart(wrapperOwner, parent)).stream()
+                        .map(value -> (dev.turboism.sdk.cubism.model.Part)
+                                new PermissionCheckedPart(facade, wrapperOwner, value))
+                        .toList();
+            }
+
+            @Override
             public void remove(final dev.turboism.sdk.cubism.model.Part part) {
                 facade.requireModelWrite("model.parts.remove");
                 parts.remove(facade.unwrapPart(wrapperOwner, part));
