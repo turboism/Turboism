@@ -29,7 +29,7 @@ these six do not claim that coverage.
 ```bash
 python3 validation/native-character-host-probe/performance/create_primitive_fixtures.py /tmp/primitive-fixtures
 bash validation/native-character-host-probe/performance/run_primitive_acceptance.sh \
-  "$plugin_jar" "$sdk_or_runtime_jar" /tmp/primitive-acceptance
+  "$plugin_jar" "$sdk_jar" /tmp/primitive-acceptance
 ```
 
 Generation checks welded triangle-edge counts (two per undirected edge), rejects
@@ -186,3 +186,62 @@ Do not hide those failures by increasing color tolerance. Reports and marked ima
 remains 20 exact reviewed versions (5.0.00–5.3.04). Availability is derived from the
 existing SDK surface; this implementation adds no host-specific API or version bypass.
 The recorded native primitive campaign is **5.3.04 only**, not visual proof for all 20.
+
+### Unrigged input routing and final persistence
+
+A second corpus contains the same six numbered-texture solids **without bones,
+Morph Targets, weights or control extras**. Generate/run it with:
+
+```bash
+TURBOISM_PRIMITIVE_STATIC=true bash validation/native-character-host-probe/performance/run_primitive_acceptance.sh "$plugin_jar" "$sdk_jar" /tmp/primitive-static
+```
+
+`/tmp/native-primitive-static-verification-v2` passes **498/498** additional poses,
+so the two source-depth screens total **996 cases**. Preparation now checks the
+actual production entry, not just a direct planner call. Source controls are optional.
+The frozen small closed-convex route remains available only after its strict exact
+proof succeeds; other supported static inputs use the sampled native visibility path.
+The 300-triangle clustering bound is independent of whether source controls exist.
+Without that change the static assembly had 15 wrong-depth pixels at held-out angles;
+those failures remain in `/tmp/native-primitive-static-verification`.
+
+All six final morph-bearing CMO3 files passed independent fresh-process reopen:
+
+| Fixture | Successful queue run |
+| --- | --- |
+| Cube | `queue-ef695d9e397f44ba927f24f9e1c622cd` |
+| Octahedron | `queue-816c067a145449628659479cc43c656c` |
+| Cross-star | `queue-db8d01b00f204819b15bf9609eb9cf27` |
+| Torus | `queue-067dbe2bfee441d6a82f45036e3b4020` |
+| Cylinder | `queue-08220f08750e4fb0b336b26108c434f5` |
+| Ring/column | `queue-0b07b5f2545a479f9e47aac496717c23` |
+
+Banks, morph digests, parameter groups and atlas bindings match after reopening;
+20 native pose captures and rotated control endpoint/reset checks complete on each.
+The separate final-cylinder import is `queue-b5d1b21df9c647d7b395facebd5e9834`.
+Final saved-file native order reports: `/tmp/native-primitive-final-saved-pixels/summary.json`;
+120/120 stable occlusion interiors pass, while strict RGB failures remain visible.
+
+The assembly had a 116805 ms preparation outlier in the accumulated-document batch.
+An isolated official-host repeat with stack sampling,
+`queue-53db6a20eb994de4b15517f5e71a52e4`, measured 5298 ms preparation and
+8709 ms native authoring. The sampler identifies raster voting as the principal
+preparation work. The batch slowdown was not reproduced; do not claim its cause
+has been proved or include it in a low-latency guarantee. Host startup, Undo/Redo,
+20-pose captures and save/reopen campaign time are separate from import latency.
+
+Unrigged native validation also passes on 5.3.04: torus
+`queue-20d0b2a6858a45e79346a357138e57ea` and assembly
+`queue-7d07c7383d4c495380d16977d272974f`. Each verifies zero source-control
+parameters, XYZ, one filename-scoped parameter group, topology, atlas bindings,
+Undo/Redo, opacity and save. Their 40 native stable-interior depth checks pass;
+reports retain 25/18 boundary depth differences and 7/2217 strict RGB differences.
+Together with the six morph-bearing imports this is **160/160 native stable
+occlusion-interior pose checks**, not 160 pixel-perfect RGBA passes. The static
+campaign saves files; fresh-process reopening is established by the six morph-bearing
+campaign above, not separately claimed for these two static saves.
+
+After integrating local main, the full plugin suite is 283 tests, zero failures/errors,
+34 explicit external-fixture skips; final route/guard checks and the three Python
+negative/positive oracle tests also pass. Generated compatibility and exact-version
+set checks pass without modifying admission or adding a host-version bypass.

@@ -86,6 +86,14 @@ class NativeModelImportTest {
                 180,
                 SurfaceImportPlan.MAX_PROJECTED_VERTICES,
                 Optional.of(new ParameterId("Roll")));
+        String staticJson = json.replace(",\"targets\":[{\"POSITION\":1}]", "");
+        var staticPrepared = ModelImportPlugin.prepare(
+                staticJson.formatted(",\"uri\":\"" + dataUri + "\"").getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                request,
+                SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL);
+        assertNotNull(staticPrepared.character(), "Full-circle source import must not require rig or morphs");
+        assertTrue(staticPrepared.character().controls().controls().isEmpty());
+        assertEquals(1, staticPrepared.character().geometry().totalTriangles());
         for (byte[] input : List.of(
                 glb.array(),
                 json.formatted(",\"uri\":\"" + dataUri + "\"").getBytes(java.nio.charset.StandardCharsets.UTF_8))) {

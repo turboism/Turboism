@@ -310,7 +310,7 @@ public final class NativeCharacterPlan {
                     && scene.materials().get(mesh.materialIndex()).doubleSided();
             var subClusters = clusterMesh(
                     mesh,
-                    mesh.controlSamples().isEmpty() ? TARGET_MAX_TRIANGLES_PER_PARTITION : 300,
+                    Math.min(TARGET_MAX_TRIANGLES_PER_PARTITION, 300),
                     refinements.getOrDefault(mIdx, java.util.Set.of()),
                     doubleSided);
 
