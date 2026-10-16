@@ -16,13 +16,13 @@
 - Queue job: `f5ecbd7c-5849-4094-82ef-7aebc07eb173`.
 - Prepared inputs: `e248b3b45e6cbfe03536e979416946343b1cc569c58cab98f6db8b7fcf423c33`.
 - Probe JAR SHA-256: `db011aa4fc640ec561b611b8bf5e1bda15cd0961b283a2d064bdfb7dbe66a071`.
-- [Native probe report](results/5304-native-r7.json): PASS.
+- Native probe report (5304-native-r7): PASS (schemaVersion: `auto-atlas-probe-v1`).
 
 Verified zero-atlas bootstrap to 512x512, append of a 1024x1024 page while preserving the first page GUID and existing mesh UVs, exactly one history entry for the second mesh/image/atlas transaction, one-step Undo/Redo, actual exported ARGB primary-color samples on both pages, and intentional transaction failure with complete atlas/mesh/raw-image/ModelImage rollback and unchanged history position.
 
 Earlier runs were rejected by probe packaging or exposed incorrect probe assumptions (reading an invalidated mesh reference after Undo and sampling an accent grid line). These were corrected; earlier failures remain in queue evidence and are not counted as passing native runs.
 
-The [queue lifecycle](results/5304-native-r7-lifecycle.json) finished `succeeded`, with verified identity, unchanged source/copied fixture and golden installation, exit code 0, and safe cleanup. The probe explicitly requests JVM exit only in its opted-in queue-owned process; this is not validation of the Editor close/save-prompt workflow. Run r6 already passed the functional assertions but failed the lifecycle gate because it lacked this exit step.
+The queue lifecycle (job: `f5ecbd7c-5849-4094-82ef-7aebc07eb173`) finished `succeeded`, with verified identity, unchanged source/copied fixture and golden installation, exit code 0, and safe cleanup. The probe explicitly requests JVM exit only in its opted-in queue-owned process; this is not validation of the Editor close/save-prompt workflow. Run r6 already passed the functional assertions but failed the lifecycle gate because it lacked this exit step.
 
 ## Scope
 

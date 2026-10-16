@@ -39,6 +39,7 @@ include(
     "plugins:parameter-batch-transfer",
     "plugins:warp-deformer-alt-symmetry",
     "plugins:boundingbox-warp-mirror",
+    "plugins:frame-animation-import",
     "testing:test-support",
     "testing:integration-tests"
 )
