@@ -613,6 +613,16 @@ final class EditorObjectWriteAccess {
             resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
             refresh(app, Kind.ART_MESH, undoKind != UndoKind.ALL_EDIT);
         };
+        // Source batches are read back immediately, and native reparenting needs current
+        // evaluated instances. Only coalesce the palette/canvas work at the root boundary.
+        final boolean deferPanels =
+                "keyformPositionsBatch".equals(property) || "keyformDrawOrdersBatch".equals(property);
+        final EnumSet<EditorRefreshRequirement> refreshRequirements = EnumSet.of(EditorRefreshRequirement.MARK_DIRTY);
+        if (deferPanels) {
+            refreshRequirements.add(EditorRefreshRequirement.PART_PALETTE);
+            refreshRequirements.add(EditorRefreshRequirement.CANVAS);
+            if (undoKind != UndoKind.ALL_EDIT) refreshRequirements.add(EditorRefreshRequirement.DEFORMER_PALETTE);
+        }
         authoringCoordinator.mutate(
                 binding,
                 new EditorUndoContribution(
@@ -636,7 +646,10 @@ final class EditorObjectWriteAccess {
                                 },
                                 () -> {
                                     mutation.run();
-                                    update.run();
+                                    if (deferPanels)
+                                        resolver.invoke(
+                                                "cubism.editor-model.model-source.update-instances", modelSource);
+                                    else update.run();
                                 },
                                 applied,
                                 () -> {
@@ -645,7 +658,7 @@ final class EditorObjectWriteAccess {
                                 },
                                 () -> authoringCoordinator.isCreatedTargetRestored(binding, objectSource)
                                         || restored.getAsBoolean(),
-                                EnumSet.of(EditorRefreshRequirement.MARK_DIRTY),
+                                refreshRequirements,
                                 pending)
                         .withCaptureAfter(() -> {
                             if (!binding.equals(authoringBinding.get()))

@@ -28,6 +28,31 @@ import org.junit.jupiter.params.provider.ValueSource;
 class EditorObjectReadAccessTest {
 
     @Test
+    void artMeshMembershipRetainsSourceInstanceBijectionAcrossFreshReads() {
+        final Fixture fixture = new Fixture();
+        var core = new EditorObjectReadCore(resolver("5.3.02"), (identity, model) -> {}, null);
+        var source = fixture.source;
+        var model = source.model;
+        assertEquals(2, core.artMeshes("session", source, model).size());
+        var original = model.artMeshes.get(0);
+        model.artMeshes.add(new ArtMesh(original.source));
+        assertThrows(IllegalStateException.class, () -> core.artMeshes("session", source, model));
+        model.artMeshes.remove(model.artMeshes.size() - 1);
+        model.artMeshes.set(0, new ArtMesh(new ArtMeshSource("ArtMeshFace", "Replacement", true, fixture.failures)));
+        assertThrows(IllegalStateException.class, () -> core.artMeshes("session", source, model));
+        model.artMeshes.set(0, original);
+        var replaced = new ArtMesh(original.source);
+        model.artMeshes.set(0, replaced);
+        org.junit.jupiter.api.Assertions.assertSame(
+                replaced, core.artMeshes("session", source, model).get(0).instance());
+        source.artMeshSources.add(original.source);
+        assertThrows(IllegalStateException.class, () -> core.artMeshes("session", source, model));
+        source.artMeshSources.remove(source.artMeshSources.size() - 1);
+        model.artMeshes.clear();
+        assertThrows(IllegalStateException.class, () -> core.artMeshes("session", source, model));
+    }
+
+    @Test
     void replaySourceSurvivesRebuiltInstanceButRejectsReplacedSourceAndDocument() {
         final Fixture fixture = new Fixture();
         boolean[] active = {true};

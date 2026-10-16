@@ -240,17 +240,14 @@ public final class NativeCharacterAuthoring {
                                         false)),
                         parameterGroup);
 
-        // 7. Bind deformer, parameters and write 5x5 keyform positions and orders
-        var banks = new ArrayList<ArtMeshAuthoringSnapshot>();
+        // Complete native parent conversion while every ArtMesh still has one form.
+        // Later hierarchy writes must not repeatedly rebuild earlier meshes' 25-form banks.
         for (int pIdx = 0; pIdx < meshIds.size(); pIdx++) {
             var meshId = meshIds.get(pIdx);
             var mesh = model.drawables().find(meshId);
             var partition = plan.partitions().get(pIdx);
 
-            if (!partition.visible()) {
-                banks.add(mesh.authoringSnapshot());
-                continue;
-            }
+            if (!partition.visible()) continue;
 
             String group = Objects.requireNonNull(appearanceGroups.apply(partition.sourceMeshIndex()));
             String bodyPart = Objects.requireNonNull(bodyParts.apply(partition.sourceMeshIndex()));
@@ -277,6 +274,20 @@ public final class NativeCharacterAuthoring {
                 }
             }
             mesh.setTargetDeformer(Optional.of(opacityParent.id()));
+        }
+
+        // 7. Expand the completed hierarchy into the 5x5 rotation banks.
+        var banks = new ArrayList<ArtMeshAuthoringSnapshot>();
+        for (int pIdx = 0; pIdx < meshIds.size(); pIdx++) {
+            var mesh = model.drawables().find(meshIds.get(pIdx));
+            var partition = plan.partitions().get(pIdx);
+            if (!partition.visible()) {
+                banks.add(mesh.authoringSnapshot());
+                continue;
+            }
+            String group = Objects.requireNonNull(appearanceGroups.apply(partition.sourceMeshIndex()));
+            String bodyPart = Objects.requireNonNull(bodyParts.apply(partition.sourceMeshIndex()));
+            Frame frame = bodyFrames.get(bodyPart.isBlank() ? group : bodyPart);
 
             for (var axis : List.of(request.yaw(), request.pitch())) {
                 var points = new ArrayList<ParameterBindingPoint>();
