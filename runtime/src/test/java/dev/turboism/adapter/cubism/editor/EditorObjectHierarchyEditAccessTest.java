@@ -429,6 +429,99 @@ class EditorObjectHierarchyEditAccessTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"5.3.02", "5.3.04"})
+    void siblingPartsRejectMiddleAdmissionWithoutResidue(final String version) {
+        for (boolean nativeAbort : List.of(false, true)) {
+            final var scoped = ScopedFixture.onEdt(version);
+            scoped.host.nativeAbort = nativeAbort;
+            final var before = List.copyOf(scoped.fixture.partSet.sources);
+            final var children = List.copyOf(scoped.fixture.rootPart.children);
+            scoped.fixture.editMode.rejectAdmissionAt = 2;
+            final var result = scoped.execute(
+                    AuthoringTransactionOptions.of("batch siblings"),
+                    () -> scoped.access.createPartSources(
+                            "model",
+                            scoped.fixture.source,
+                            scoped.fixture.source.model,
+                            List.of("First", "Second", "Third"),
+                            scoped.fixture.rootPart));
+            assertEquals(
+                    AuthoringTransactionOutcome.ROLLED_BACK,
+                    result.outcome(),
+                    () -> String.valueOf(result.diagnosticId()));
+            assertEquals(before, scoped.fixture.partSet.sources);
+            assertEquals(children, scoped.fixture.rootPart.children);
+            assertEquals(0, scoped.fixture.editMode.edits.size());
+        }
+    }
+
+    @Test
+    void largeSiblingBatchKeepsEveryNativeUndoBeyondSemanticDetailLimit() {
+        final Fixture fixture = new Fixture();
+        fixture.source.treeMaterialization = true;
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.04"), "session-a").active();
+        final var before = List.copyOf(fixture.rootPart.children);
+        final var created = model.parts()
+                .createMany(
+                        java.util.stream.IntStream.range(0, 80)
+                                .mapToObj(index -> "Patch " + index)
+                                .toList(),
+                        null);
+        assertEquals(80, created.size());
+        assertEquals(1, fixture.source.updateCount);
+        assertEquals(80, fixture.editMode.edits.get(0).children.size());
+        fixture.editMode.edits.get(0).undo();
+        assertEquals(before, fixture.rootPart.children);
+        fixture.editMode.edits.get(0).redo();
+        assertEquals(before.size() + 80, fixture.rootPart.children.size());
+    }
+
+    @Test
+    void siblingPartsValidateAllNamesBeforeInsertionAndEmptyBatchDoesNothing() {
+        final Fixture fixture = new Fixture();
+        fixture.source.treeMaterialization = true;
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.04"), "session-a").active();
+        final var parent = model.parts().find(new PartId("Root"));
+        assertThrows(IllegalArgumentException.class, () -> model.parts().createMany(List.of("Valid", " "), parent));
+        assertEquals(List.of(), model.parts().createMany(List.of(), parent));
+        assertEquals(0, fixture.source.updateCount);
+        assertEquals(0, fixture.editMode.beginCalls);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.3.02", "5.3.04"})
+    void siblingPartsPublishOnceAndPreserveUndoOrder(final String version) {
+        final Fixture fixture = new Fixture();
+        fixture.source.treeMaterialization = true;
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver(version), "session-a").active();
+        final var parent = model.parts().find(new PartId("Root"));
+        final var before = List.copyOf(fixture.rootPart.children);
+        final var created = model.parts().createMany(List.of("Patch", "Patch", "Third"), parent);
+        assertEquals(1, fixture.source.updateCount, "publish the complete sibling batch once");
+        final var ids =
+                created.stream().map(dev.turboism.sdk.cubism.model.Part::id).toList();
+        assertEquals(3, new java.util.HashSet<>(ids).size());
+        assertEquals(
+                List.of("Patch", "Patch", "Third"),
+                created.stream().map(dev.turboism.sdk.cubism.model.Part::name).toList());
+        assertEquals(1, fixture.editMode.edits.size());
+        assertEquals(3, fixture.editMode.edits.get(0).children.size());
+        fixture.editMode.edits.get(0).undo();
+        assertEquals(before, fixture.rootPart.children);
+        for (var id : ids)
+            assertThrows(NoSuchElementException.class, () -> model.parts().find(id));
+        fixture.editMode.edits.get(0).redo();
+        for (var id : ids)
+            assertEquals(
+                    java.util.Optional.of(new PartId("Root")),
+                    model.parts().find(id).parentId());
+        assertEquals(before.size() + 3, fixture.rootPart.children.size());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.3.02", "5.3.04"})
     void initializedWarpPublishesFinalGridAndBothParentsWithOneUpdate(final String version) {
         for (boolean targeted : List.of(false, true)) {
             final Fixture fixture = new Fixture();
@@ -3436,6 +3529,8 @@ class EditorObjectHierarchyEditAccessTest {
         int beginCalls;
         boolean active;
         int rejectNextAdmission;
+        int rejectAdmissionAt;
+        int admissionCount;
 
         public GroupUndo begin(final String name) {
             beginCalls++;
@@ -3484,6 +3579,7 @@ class EditorObjectHierarchyEditAccessTest {
         }
 
         public boolean add(final Undo undo, final boolean significant) {
+            if (++owner.admissionCount == owner.rejectAdmissionAt) return false;
             if (owner.rejectNextAdmission > 0) {
                 owner.rejectNextAdmission--;
                 return false;

@@ -31,6 +31,52 @@ import org.junit.jupiter.api.Test;
 final class EditorAuthoringTransactionCoordinatorTest {
 
     @Test
+    void batchCreationRegistersEveryIdentityForDependentRecovery() {
+        final var f = new BindingFixture();
+        final var first = new Object();
+        final var second = new Object();
+        final var removed = new AtomicBoolean();
+        final var observed = new AtomicBoolean();
+        final var result = f.coordinator.execute(f.binding, AuthoringTransactionOptions.of("batch recovery"), () -> {
+            f.coordinator.mutateCreatedMany(
+                    f.binding,
+                    List.of(first, second),
+                    new EditorUndoContribution(
+                            "create-batch",
+                            "batch",
+                            "Create batch",
+                            (edit, label) -> {},
+                            () -> {},
+                            () -> true,
+                            () -> removed.set(true),
+                            removed::get,
+                            Set.of()));
+            f.coordinator.mutate(
+                    f.binding,
+                    new EditorUndoContribution(
+                            "dependent",
+                            "second",
+                            "Dependent",
+                            (edit, label) -> {},
+                            () -> removed.set(true),
+                            () -> true,
+                            () -> {},
+                            () -> {
+                                assertTrue(f.coordinator.isCreatedTargetRestored(f.binding, first));
+                                assertTrue(f.coordinator.isCreatedTargetRestored(f.binding, second));
+                                assertFalse(f.coordinator.isCreatedTargetRestored(f.binding, new Object()));
+                                observed.set(true);
+                                return true;
+                            },
+                            Set.of()));
+            throw new IllegalStateException("rollback");
+        });
+        assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+        assertTrue(observed.get());
+        assertFalse(f.coordinator.isCreatedTargetRestored(f.binding, second));
+    }
+
+    @Test
     void createdTargetRestorationIsIdentityAndRootScoped() {
         final var f = new BindingFixture();
         final Object target = new String("same-id");

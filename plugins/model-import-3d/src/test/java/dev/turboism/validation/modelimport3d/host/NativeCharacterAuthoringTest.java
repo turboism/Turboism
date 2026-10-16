@@ -45,6 +45,18 @@ public class NativeCharacterAuthoringTest {
     }
 
     static final class TestModelHost {
+        private Part createPart(String name, Part parent) {
+            if (!meshes.isEmpty()) partCreationsWithMeshes++;
+            var id = new PartId("part_" + (++partCounter));
+            var r = new PartRecord(id, name, parent);
+            parts.put(id, r);
+            return proxy(Part.class, (method, args) -> switch (method.getName()) {
+                case "id" -> id;
+                case "name" -> r.name;
+                default -> throw new AssertionError(method.toString());
+            });
+        }
+
         final List<ParameterDefinition> parameters = new ArrayList<>();
         final Map<ParameterId, Optional<ParameterGroupId>> parameterFolders = new LinkedHashMap<>();
         final Map<ArtMeshId, MeshRecord> meshes = new LinkedHashMap<>();
@@ -75,6 +87,7 @@ public class NativeCharacterAuthoringTest {
         int localParentConversions;
         int warpCreationsWithMeshes;
         int partCreationsWithMeshes;
+        int batchPartCalls;
         boolean simulateCompleteParentConversion;
         float nativeCanvasDrift;
         boolean requireDrawOrderBatch;
@@ -269,16 +282,13 @@ public class NativeCharacterAuthoringTest {
                                 if (method.getName().equals("id")) return pa[0];
                                 throw new AssertionError(method.toString());
                             });
-                        case "create" -> {
-                            if (!meshes.isEmpty()) partCreationsWithMeshes++;
-                            var id = new PartId("part_" + (++partCounter));
-                            var r = new PartRecord(id, (String) pa[0], (Part) pa[1]);
-                            parts.put(id, r);
-                            yield proxy(Part.class, (m1, a1) -> switch (m1.getName()) {
-                                case "id" -> id;
-                                case "name" -> r.name;
-                                default -> throw new AssertionError(m1.toString());
-                            });
+                        case "create" -> createPart((String) pa[0], (Part) pa[1]);
+                        case "createMany" -> {
+                            batchPartCalls++;
+                            yield ((List<String>) pa[0])
+                                    .stream()
+                                            .map(name -> createPart(name, (Part) pa[1]))
+                                            .toList();
                         }
                         default -> throw new AssertionError(pm.toString());
                     });
@@ -813,6 +823,7 @@ public class NativeCharacterAuthoringTest {
         NativeCharacterAuthoring.assemble(host.model(), plan, (id, source) -> {});
         assertEquals(
                 0, host.warpCreationsWithMeshes, "Anatomical Warp parents must be created before importing ArtMeshes");
+        assertEquals(1, host.batchPartCalls, "One batch creates all isolated patch Parts");
         assertEquals(0, host.partCreationsWithMeshes, "Create partition Parts before populated geometry is evaluated");
         assertEquals(
                 0,

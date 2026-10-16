@@ -425,6 +425,29 @@ class PermissionCheckedModelForwardingTest {
     }
 
     @Test
+    void batchPartsForwardNamesUnwrapParentAndGuardWriteAndScope() {
+        var calls = new ArrayList<String>();
+        boolean[] write = {true}, active = {true};
+        var delegate = new RecordingModel(calls);
+        var parts = facade(delegate, List.of(readPermission(true), writePermission(write)), () -> active[0])
+                .model()
+                .active()
+                .parts();
+        var parent = parts.find(PART_ID);
+        var created = parts.createMany(List.of("First", "Second"), parent);
+        assertEquals(List.of("parts.createMany:[First, Second]"), calls);
+        assertEquals(2, created.size());
+        assertNotSame(delegate.part(), created.get(0));
+        calls.clear();
+        write[0] = false;
+        assertThrows(CubismPermissionException.class, () -> parts.createMany(List.of("Denied"), parent));
+        write[0] = true;
+        active[0] = false;
+        assertThrows(IllegalStateException.class, () -> parts.createMany(List.of("Stale"), parent));
+        assertTrue(calls.isEmpty());
+    }
+
+    @Test
     void partWritesFailClosedWithoutWritePermission() {
         final List<String> calls = new ArrayList<>();
         final Parts parts =
@@ -1733,6 +1756,13 @@ class PermissionCheckedModelForwardingTest {
                 @Override
                 public Part find(final PartId id) {
                     return part;
+                }
+
+                @Override
+                public List<Part> createMany(final List<String> names, final Part parent) {
+                    assertSame(part, parent);
+                    calls.add("parts.createMany:" + names);
+                    return names.stream().map(ignored -> part).toList();
                 }
 
                 @Override

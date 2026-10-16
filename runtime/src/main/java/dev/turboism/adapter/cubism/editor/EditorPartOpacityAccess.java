@@ -1041,6 +1041,29 @@ final class EditorPartOpacityAccess {
             return EditorHostThread.dispatch("Cubism Parts", () -> createOnEdt(name, parent, index));
         }
 
+        @Override
+        public List<Part> createMany(final List<String> names, final Part parent) {
+            final List<String> checked = List.copyOf(names);
+            return EditorHostThread.dispatch("Create sibling Parts", () -> {
+                modelGuard.requireCurrent(identity, model);
+                final Object parentSource = nativeSourceOf(parent, "Part parent");
+                requirePartSourceCurrent(source, model, parentSource);
+                final var created =
+                        hierarchyEditAccess.createPartSources(identity, source, model, checked, parentSource);
+                final var current = new IdentityHashMap<Object, PartBinding>();
+                for (var value : bindings(source, model)) current.put(value.source(), value);
+                return created.stream()
+                        .map(item -> {
+                            final PartBinding value = current.get(item.source());
+                            if (value == null)
+                                throw unavailable("Created Part is absent after the batch instance update.");
+                            return (Part)
+                                    new EditorPart(identity, source, model, value.id(), value.source(), value.part());
+                        })
+                        .toList();
+            });
+        }
+
         private Part createOnEdt(final String name, final Part parent, final int index) {
             modelGuard.requireCurrent(identity, model);
             final Object parentSource = nativeSourceOf(parent, "Part parent");
