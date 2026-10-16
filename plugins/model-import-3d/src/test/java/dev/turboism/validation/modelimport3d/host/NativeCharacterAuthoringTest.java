@@ -73,6 +73,12 @@ public class NativeCharacterAuthoringTest {
         boolean simulateLocalParentConversion;
         boolean simulateWarpParentInstanceReplacement;
         int localParentConversions;
+        int warpCreationsWithMeshes;
+        int partCreationsWithMeshes;
+        boolean simulateCompleteParentConversion;
+        float nativeCanvasDrift;
+        boolean requireDrawOrderBatch;
+        boolean sourceBatchActive;
         int hierarchyChangesAfterMeshKeyforms;
         int rotationBindingsAfterSourceMorphs;
 
@@ -87,6 +93,7 @@ public class NativeCharacterAuthoringTest {
             final String name;
             final Part parent;
             ParameterId rollAxisId;
+            RotationDeformerForm neutral = new RotationDeformerForm(0, 0, 0, 1, false, false);
             float opacity = 1;
             Optional<DeformerId> targetDeformer = Optional.empty();
 
@@ -255,6 +262,7 @@ public class NativeCharacterAuthoringTest {
                                 throw new AssertionError(method.toString());
                             });
                         case "create" -> {
+                            if (!meshes.isEmpty()) partCreationsWithMeshes++;
                             var id = new PartId("part_" + (++partCounter));
                             var r = new PartRecord(id, (String) pa[0], (Part) pa[1]);
                             parts.put(id, r);
@@ -291,6 +299,7 @@ public class NativeCharacterAuthoringTest {
                 case "deformers" ->
                     proxy(Deformers.class, (dm, da) -> switch (dm.getName()) {
                         case "createWarp" -> {
+                            if (!meshes.isEmpty()) warpCreationsWithMeshes++;
                             var id = new DeformerId("warp_" + (++deformerCounter));
                             var r = new WarpRecord(id, (String) da[0]);
                             warps.put(id, r);
@@ -317,6 +326,7 @@ public class NativeCharacterAuthoringTest {
                                 case "getOpacity" -> r.opacity;
                                 case "replaceForm" -> {
                                     formRef[0] = (RotationDeformerForm) ra[0];
+                                    r.neutral = formRef[0];
                                     yield null;
                                 }
                                 case "authoringSnapshot" -> {
@@ -405,6 +415,36 @@ public class NativeCharacterAuthoringTest {
             });
         }
 
+        private Point2 toCanvas(Point2 point, Optional<DeformerId> parent) {
+            if (parent.isEmpty()) return point;
+            var warp = warps.get(parent.get());
+            if (warp != null) {
+                var a = warp.grid.controlPoints().get(0);
+                var b = warp.grid.controlPoints().get(warp.grid.controlPoints().size() - 1);
+                return toCanvas(
+                        new Point2(a.x() + point.x() * (b.x() - a.x()), a.y() + point.y() * (b.y() - a.y())),
+                        warp.targetDeformer);
+            }
+            var rotation = rotations.get(parent.get());
+            return toCanvas(
+                    new Point2(point.x() + rotation.neutral.originX(), point.y() + rotation.neutral.originY()),
+                    rotation.targetDeformer);
+        }
+
+        private Point2 fromCanvas(Point2 point, Optional<DeformerId> parent) {
+            if (parent.isEmpty()) return point;
+            var warp = warps.get(parent.get());
+            if (warp != null) {
+                var outer = fromCanvas(point, warp.targetDeformer);
+                var a = warp.grid.controlPoints().get(0);
+                var b = warp.grid.controlPoints().get(warp.grid.controlPoints().size() - 1);
+                return new Point2((outer.x() - a.x()) / (b.x() - a.x()), (outer.y() - a.y()) / (b.y() - a.y()));
+            }
+            var rotation = rotations.get(parent.get());
+            var outer = fromCanvas(point, rotation.targetDeformer);
+            return new Point2(outer.x() - rotation.neutral.originX(), outer.y() - rotation.neutral.originY());
+        }
+
         private Drawable createDrawableProxy(MeshRecord r) {
             return proxy(Drawable.class, (m, a) -> switch (m.getName()) {
                 case "id" -> r.id;
@@ -418,6 +458,8 @@ public class NativeCharacterAuthoringTest {
                     yield null;
                 }
                 case "setDrawOrder" -> {
+                    if (requireDrawOrderBatch)
+                        assertTrue(sourceBatchActive, "Initial draw orders must use the explicit stored-source batch");
                     r.drawOrder = (Integer) a[0];
                     yield null;
                 }
@@ -426,7 +468,20 @@ public class NativeCharacterAuthoringTest {
                         hierarchyChangesAfterMeshKeyforms++;
                     var target = (Optional<DeformerId>) a[0];
                     var warp = target.map(warps::get).orElse(null);
-                    if (simulateLocalParentConversion && warp != null) {
+                    if (simulateCompleteParentConversion && warp != null) {
+                        var before = r.snapshot();
+                        for (var form : before.forms())
+                            r.keyformPositions.put(
+                                    form.formGuid(),
+                                    form.positions().stream()
+                                            .map(point -> {
+                                                var canvas = toCanvas(point, r.targetDeformer);
+                                                return fromCanvas(
+                                                        new Point2(canvas.x() + nativeCanvasDrift, canvas.y()), target);
+                                            })
+                                            .toList());
+                        localParentConversions++;
+                    } else if (simulateLocalParentConversion && warp != null) {
                         var before = r.snapshot();
                         var origin = warp.grid.controlPoints().get(0);
                         var end = warp.grid
@@ -478,6 +533,25 @@ public class NativeCharacterAuthoringTest {
 
     @Test
     void sourceGeometryAndMultipleOpacityFactorsReacquireRebuiltWarpParents() {
+        exerciseSourceControls(false);
+    }
+
+    @Test
+    void completeControlHierarchyExistsBeforeImportedArtMeshes() {
+        exerciseSourceControls(true);
+    }
+
+    @Test
+    void directParentConversionRejectsMeasuredCanvasDrift() {
+        var failure = assertThrows(IllegalStateException.class, () -> exerciseSourceControls(true, .01f));
+        assertTrue(failure.getMessage().contains("canvasError="));
+    }
+
+    private void exerciseSourceControls(boolean prebuild) {
+        exerciseSourceControls(prebuild, 0);
+    }
+
+    private void exerciseSourceControls(boolean prebuild, float canvasDrift) {
         var base = simpleMesh("Arbitrary source", 0);
         var sample = new ViewerScene.ControlSample("shape", 1, new float[] {.01f, 0, 0, .01f, 0, 0, .01f, 0, 0});
         var mesh = new ViewerScene.Mesh(
@@ -512,18 +586,24 @@ public class NativeCharacterAuthoringTest {
         var controls = NativeControlWarpPlan.prepare(scene, geometry);
         var host = new TestModelHost();
         var model = host.model();
+        host.simulateCompleteParentConversion = prebuild;
+        host.nativeCanvasDrift = canvasDrift;
+        host.simulateWarpParentInstanceReplacement = prebuild;
         var folder = Optional.of(new ParameterGroupId("ImportedFile"));
         var finishControls = new java.util.concurrent.atomic.AtomicReference<Runnable>();
         var created = NativeCharacterAuthoring.assemble(
                 model,
                 geometry,
-                (id, index) -> {},
+                (id, index) -> assertTrue(
+                        host.meshes.get(id).targetDeformer.isEmpty(),
+                        "Native texture binding requires the new mesh to remain unparented"),
                 index -> new NativeCharacterAuthoring.ImageDimensions(16, 16),
                 index -> "Source",
                 index -> "Segment",
                 geometryCreated -> finishControls.get().run(),
                 folder,
                 geometryCreated -> {
+                    if (prebuild) return;
                     assertTrue(
                             host.interpolations.isEmpty(),
                             "Source control writes must precede every expensive interpolation cache");
@@ -542,7 +622,27 @@ public class NativeCharacterAuthoringTest {
                             folder,
                             "Param3D_Generic_unique_Control_"));
                 },
-                NativeControlAuthoring.rotationLocalizer(controls));
+                NativeControlAuthoring.rotationLocalizer(controls),
+                Runnable::run,
+                hierarchy -> {
+                    if (!prebuild) return hierarchy.parents();
+                    assertTrue(host.meshes.isEmpty(), "Build all source parents before materializing meshes");
+                    var prepared = NativeControlAuthoring.prepareHierarchy(
+                            model, hierarchy, scene, controls, stage -> {}, folder, "Param3D_Generic_unique_Control_");
+                    finishControls.set(prepared.finish());
+                    return prepared.parents();
+                },
+                prebuild ? NativeControlAuthoring.rotationRestorer(controls) : null);
+        if (prebuild) {
+            assertEquals(
+                    0,
+                    host.warpCreationsWithMeshes,
+                    "Source Warp creation must not repeatedly evaluate populated character geometry");
+            assertEquals(
+                    created.meshIds().size(),
+                    host.localParentConversions,
+                    "Each mesh converts directly into its final parent exactly once");
+        }
         assertEquals(
                 0,
                 host.hierarchyChangesAfterMeshKeyforms,
@@ -599,7 +699,7 @@ public class NativeCharacterAuthoringTest {
         for (var cell : stored.cells()) {
             float yaw = cell.coordinates().get(0).value();
             float pitch = cell.coordinates().get(1).value();
-            if (yaw == 0 && pitch == 0) continue;
+            if (yaw == 0 && pitch == 0 && !prebuild) continue;
             var projected =
                     SurfaceProjection.project(partition.positions(), camera, new SurfaceProjection.Pose(yaw, pitch));
             var bodyLocal = frame.normalize(projected.positions().stream()
@@ -611,8 +711,67 @@ public class NativeCharacterAuthoringTest {
                     .findFirst()
                     .orElseThrow()
                     .positions();
-            assertEquals(expected, actual, "Rotated geometry must use the pre-created local parent coordinates");
+            for (int i = 0; i < expected.size(); i++) {
+                assertEquals(expected.get(i).x(), actual.get(i).x(), 1e-5);
+                assertEquals(expected.get(i).y(), actual.get(i).y(), 1e-5);
+            }
         }
+    }
+
+    @Test
+    void initialDrawOrdersUseExplicitSourceBatchBeforeRotationBanks() {
+        var host = new TestModelHost();
+        host.requireDrawOrderBatch = true;
+        var batches = new int[1];
+        var geometry = planFor(simpleMesh("Left", 0), simpleMesh("Right", 1));
+        NativeCharacterAuthoring.assemble(
+                host.model(),
+                geometry,
+                (id, source) -> {},
+                source -> new NativeCharacterAuthoring.ImageDimensions(16, 16),
+                source -> "Group",
+                source -> "Body",
+                created -> {},
+                Optional.empty(),
+                created -> {},
+                (partition, points) -> points,
+                work -> {
+                    assertFalse(host.sourceBatchActive);
+                    host.sourceBatchActive = true;
+                    try {
+                        work.run();
+                    } finally {
+                        host.sourceBatchActive = false;
+                    }
+                    batches[0]++;
+                });
+        assertEquals(2, batches[0], "Initial scalar orders and rotation banks use separate evaluation barriers");
+    }
+
+    @Test
+    void incompleteVisibilityPlanIsRejectedBeforeCreatingNativeObjects() {
+        var host = new TestModelHost();
+        var p = planFor(simpleMesh("Source", 0));
+        var unfinished = new NativeCharacterPlan.Plan(
+                p.request(),
+                p.camera(),
+                p.keys(),
+                p.partitions(),
+                List.of(),
+                p.sampling(),
+                p.visibilityLimit(),
+                p.totalSourceSlots(),
+                p.totalPartitionSlots(),
+                p.totalTriangles(),
+                p.totalKeyformSlots(),
+                p.totalCacheSlots(),
+                p.maxInterpolationErrorPixels());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> NativeCharacterAuthoring.assemble(host.model(), unfinished, (id, source) -> {}));
+        assertTrue(host.parts.isEmpty());
+        assertTrue(host.meshes.isEmpty());
+        assertTrue(host.warps.isEmpty());
     }
 
     @Test
@@ -620,6 +779,9 @@ public class NativeCharacterAuthoringTest {
         var host = new TestModelHost();
         var plan = planFor(simpleMesh("Left", 0), simpleMesh("Right", 1));
         NativeCharacterAuthoring.assemble(host.model(), plan, (id, source) -> {});
+        assertEquals(
+                0, host.warpCreationsWithMeshes, "Anatomical Warp parents must be created before importing ArtMeshes");
+        assertEquals(0, host.partCreationsWithMeshes, "Create partition Parts before populated geometry is evaluated");
         assertEquals(
                 0,
                 host.hierarchyChangesAfterMeshKeyforms,

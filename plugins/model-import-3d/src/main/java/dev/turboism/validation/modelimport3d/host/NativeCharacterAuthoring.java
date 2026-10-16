@@ -45,7 +45,17 @@ public final class NativeCharacterAuthoring {
             PartId rootPartId,
             DeformerId rollDeformerId,
             List<ArtMeshId> meshIds,
-            Map<ArtMeshId, Integer> meshToSourceIndex) {
+            Map<ArtMeshId, Integer> meshToSourceIndex,
+            OptionalDouble maxNeutralConversionErrorPixels) {
+        /** Compatibility result for callers without a native-parent coordinate measurement. */
+        public Created(
+                PartId rootPartId,
+                DeformerId rollDeformerId,
+                List<ArtMeshId> meshIds,
+                Map<ArtMeshId, Integer> meshToSourceIndex) {
+            this(rootPartId, rollDeformerId, meshIds, meshToSourceIndex, OptionalDouble.empty());
+        }
+
         public Created {
             meshIds = List.copyOf(meshIds);
             meshToSourceIndex = Map.copyOf(meshToSourceIndex);
@@ -159,6 +169,45 @@ public final class NativeCharacterAuthoring {
             java.util.function.Consumer<Created> beforeRotation,
             java.util.function.BiFunction<Integer, List<Point2>, List<Point2>> rotationLocalizer,
             java.util.function.Consumer<Runnable> sourceBatch) {
+        return assemble(
+                model,
+                plan,
+                binder,
+                imageDimensions,
+                appearanceGroups,
+                bodyParts,
+                sourceWrites,
+                parameterGroup,
+                beforeRotation,
+                rotationLocalizer,
+                sourceBatch,
+                hierarchy -> hierarchy.parents(),
+                null);
+    }
+
+    /** Parent identities are complete before any imported ArtMesh is materialized. */
+    record Hierarchy(PartId rootPartId, List<Integer> sourceIndices, List<Optional<DeformerId>> parents) {
+        Hierarchy {
+            sourceIndices = List.copyOf(sourceIndices);
+            parents = List.copyOf(parents);
+            if (sourceIndices.size() != parents.size()) throw new IllegalArgumentException("Hierarchy size differs");
+        }
+    }
+
+    static Created assemble(
+            CubismModel model,
+            NativeCharacterPlan.Plan plan,
+            MeshMaterialBinder binder,
+            ImageDimensionProvider imageDimensions,
+            java.util.function.IntFunction<String> appearanceGroups,
+            java.util.function.IntFunction<String> bodyParts,
+            java.util.function.Consumer<Created> sourceWrites,
+            Optional<ParameterGroupId> parameterGroup,
+            java.util.function.Consumer<Created> beforeRotation,
+            java.util.function.BiFunction<Integer, List<Point2>, List<Point2>> rotationLocalizer,
+            java.util.function.Consumer<Runnable> sourceBatch,
+            java.util.function.Function<Hierarchy, List<Optional<DeformerId>>> prepareHierarchy,
+            java.util.function.BiFunction<Integer, List<Point2>, List<Point2>> rotationRestorer) {
         Objects.requireNonNull(beforeRotation, "beforeRotation");
         Objects.requireNonNull(rotationLocalizer, "rotationLocalizer");
         Objects.requireNonNull(sourceWrites, "sourceWrites");
@@ -167,6 +216,8 @@ public final class NativeCharacterAuthoring {
         Objects.requireNonNull(model, "model");
         Objects.requireNonNull(plan, "plan");
         Objects.requireNonNull(binder, "binder");
+        Objects.requireNonNull(prepareHierarchy, "prepareHierarchy");
+        Objects.requireNonNull(sourceBatch, "sourceBatch");
 
         var request = plan.request();
         var camera = plan.camera();
@@ -190,8 +241,20 @@ public final class NativeCharacterAuthoring {
             throw new IllegalArgumentException("Plan exceeds 64M cache budget: " + plan.totalCacheSlots());
         }
 
+        if (plan.orders().size() != plan.keys().size() * plan.keys().size()
+                || plan.orders().stream()
+                        .anyMatch(row -> row.size() != plan.partitions().size()))
+            throw new IllegalArgumentException("Native character plan has incomplete visibility orders");
+
         // 3. Create root Part
         var rootPart = model.parts().create(request.name(), null, -1);
+        // Part creation rebuilds native model instances. Create every isolated patch
+        // container before the imported geometry and its deformation hierarchy exist.
+        var patchParts = new ArrayList<PartId>();
+        for (int pIdx = 0; pIdx < plan.partitions().size(); pIdx++)
+            patchParts.add(model.parts()
+                    .create(request.name() + " 分区 " + pIdx, rootPart, -1)
+                    .id());
 
         // 4. Create Roll (Z-rotation) Deformer if requested
         RotationDeformer rollDeformer = null;
@@ -204,10 +267,9 @@ public final class NativeCharacterAuthoring {
 
         // 5. Create ArtMeshes for all partitions
         var meshIds = new ArrayList<ArtMeshId>();
-        var patchParts = new ArrayList<PartId>();
         var meshToSourceIndex = new LinkedHashMap<ArtMeshId, Integer>();
-        var opacityParents = new LinkedHashMap<List<String>, WarpDeformer>();
-        var bodyParents = new LinkedHashMap<String, WarpDeformer>();
+        var opacityParents = new LinkedHashMap<List<String>, DeformerId>();
+        var bodyParents = new LinkedHashMap<String, DeformerId>();
         var bodyFrames = new LinkedHashMap<String, Frame>();
         for (var partition : plan.partitions()) {
             String part = bodyParts.apply(partition.sourceMeshIndex());
@@ -220,13 +282,63 @@ public final class NativeCharacterAuthoring {
         }
         bodyFrames.values().forEach(Frame::pad);
 
+        // Build all deformation parents while the imported geometry is still absent.
+        var parentIds = new ArrayList<Optional<DeformerId>>();
+        for (int pIdx = 0; pIdx < plan.partitions().size(); pIdx++) {
+            var partition = plan.partitions().get(pIdx);
+
+            if (!partition.visible()) {
+                parentIds.add(Optional.empty());
+                continue;
+            }
+
+            String group = Objects.requireNonNull(appearanceGroups.apply(partition.sourceMeshIndex()));
+            String bodyPart = Objects.requireNonNull(bodyParts.apply(partition.sourceMeshIndex()));
+            String bodyKey = bodyPart.isBlank() ? group : bodyPart;
+            Frame frame = bodyFrames.get(bodyKey);
+            var bodyId = bodyParents.get(bodyKey);
+            if (bodyId == null) {
+                var bodyParent = model.deformers().createWarp(bodyKey, rootPart, -1, 2, 2);
+                bodyId = bodyParent.id();
+                if (rollDeformer != null) bodyParent.setTargetDeformer(Optional.of(rollDeformer.id()));
+                bodyParent = model.warpDeformers().find(bodyId);
+                bodyParent.replaceGrid(frame.grid());
+                bodyParent.setOpacity(1);
+                bodyParents.put(bodyKey, bodyId);
+            }
+            var opacityId = bodyId;
+            if (!bodyPart.isBlank()) {
+                var key = List.of(bodyKey, group);
+                opacityId = opacityParents.get(key);
+                if (opacityId == null) {
+                    var opacityParent = model.deformers().createWarp(group, rootPart, -1, 2, 2);
+                    opacityId = opacityParent.id();
+                    opacityParent.setTargetDeformer(Optional.of(bodyId));
+                    opacityParent = model.warpDeformers().find(opacityId);
+                    opacityParent.replaceGrid(Frame.unitGrid());
+                    opacityParent.setOpacity(1);
+                    opacityParents.put(key, opacityId);
+                }
+            }
+            parentIds.add(Optional.of(opacityId));
+        }
+
+        var finalParents = List.copyOf(prepareHierarchy.apply(new Hierarchy(
+                rootPart.id(),
+                plan.partitions().stream()
+                        .map(NativeCharacterPlan.Partition::sourceMeshIndex)
+                        .toList(),
+                parentIds)));
+        if (finalParents.size() != plan.partitions().size())
+            throw new IllegalStateException("Prepared parent count differs from partitions");
+
         int neutralKeyIndex = NativeCharacterPlan.KEYS.indexOf(0f) * NativeCharacterPlan.KEYS.size()
                 + NativeCharacterPlan.KEYS.indexOf(0f);
 
+        double maxNeutralErrorPixels = 0;
         for (int pIdx = 0; pIdx < plan.partitions().size(); pIdx++) {
             var partition = plan.partitions().get(pIdx);
-            var patchPart = model.parts().create(request.name() + " 分区 " + pIdx, rootPart, -1);
-            patchParts.add(patchPart.id());
+            var patchPart = model.parts().find(patchParts.get(pIdx));
 
             var neutralSample =
                     SurfaceProjection.project(partition.positions(), camera, new SurfaceProjection.Pose(0, 0));
@@ -254,14 +366,44 @@ public final class NativeCharacterAuthoring {
 
             mesh.setCulling(!partition.doubleSided());
             mesh.setVisible(partition.visible());
-            int initialOrder = plan.orders().get(neutralKeyIndex).get(pIdx);
-            mesh.setDrawOrder(initialOrder);
 
             meshIds.add(mesh.id());
             meshToSourceIndex.put(mesh.id(), partition.sourceMeshIndex());
 
-            // Notify material binder
+            // Image binding requires an unparented ArtMesh; keep it before native conversion.
             binder.bind(mesh.id(), partition.sourceMeshIndex());
+
+            // One native conversion goes directly from canvas to the completed parent chain.
+            if (finalParents.get(pIdx).isPresent()) mesh.setTargetDeformer(finalParents.get(pIdx));
+
+            if (rotationRestorer != null && partition.visible()) {
+                String group = appearanceGroups.apply(partition.sourceMeshIndex());
+                String part = bodyParts.apply(partition.sourceMeshIndex());
+                var frame = bodyFrames.get(part.isBlank() ? group : part);
+                var bodyLocal = frame.normalize(
+                        rollDeformer != null ? local(defaultCanvasPositions, ox, oy) : defaultCanvasPositions);
+                var expected = rotationLocalizer.apply(pIdx, bodyLocal);
+                var forms = mesh.authoringSnapshot().forms();
+                if (forms.size() != 1) throw new IllegalStateException("New mesh must have one form");
+                var actual = forms.get(0).positions();
+                if (expected.size() != actual.size()) throw new IllegalStateException("Parent changed vertex slots");
+                // Local Warp units vary with patch size. Verify in canvas pixels, not
+                // an arbitrary normalized-coordinate epsilon that amplifies tiny patches.
+                var restored = rotationRestorer.apply(pIdx, actual);
+                if (restored.size() != bodyLocal.size())
+                    throw new IllegalStateException("Restored vertex slots differ");
+                for (int v = 0; v < restored.size(); v++) {
+                    double dx = (restored.get(v).x() - bodyLocal.get(v).x()) * (frame.maxX - frame.minX);
+                    double dy = (restored.get(v).y() - bodyLocal.get(v).y()) * (frame.maxY - frame.minY);
+                    double error = Math.hypot(dx, dy);
+                    if (!Double.isFinite(error) || error > .001)
+                        throw new IllegalStateException(
+                                "Final parent neutral coordinate conversion differs for partition "
+                                        + pIdx + ": canvasError=" + error + "px, expected=" + expected.get(v)
+                                        + ", actual=" + actual.get(v));
+                    maxNeutralErrorPixels = Math.max(maxNeutralErrorPixels, error);
+                }
+            }
 
             // Readback verify source geometry
             var snapshot = mesh.authoringSnapshot();
@@ -269,6 +411,15 @@ public final class NativeCharacterAuthoring {
                 throw new IllegalStateException("Source geometry readback changed for partition " + pIdx);
             }
         }
+
+        // Render order does not participate in native parent conversion. Populate all
+        // initial stored scalars together, then evaluate once before binding rotation banks.
+        sourceBatch.accept(() -> {
+            for (int pIdx = 0; pIdx < meshIds.size(); pIdx++)
+                model.drawables()
+                        .find(meshIds.get(pIdx))
+                        .setDrawOrder(plan.orders().get(neutralKeyIndex).get(pIdx));
+        });
 
         // 6. Create Yaw and Pitch parameters
         model.parameters()
@@ -292,44 +443,13 @@ public final class NativeCharacterAuthoring {
                                         false)),
                         parameterGroup);
 
-        // Complete native parent conversion while every ArtMesh still has one form.
-        // Later hierarchy writes must not repeatedly rebuild earlier meshes' 25-form banks.
-        for (int pIdx = 0; pIdx < meshIds.size(); pIdx++) {
-            var meshId = meshIds.get(pIdx);
-            var mesh = model.drawables().find(meshId);
-            var partition = plan.partitions().get(pIdx);
-
-            if (!partition.visible()) continue;
-
-            String group = Objects.requireNonNull(appearanceGroups.apply(partition.sourceMeshIndex()));
-            String bodyPart = Objects.requireNonNull(bodyParts.apply(partition.sourceMeshIndex()));
-            String bodyKey = bodyPart.isBlank() ? group : bodyPart;
-            Frame frame = bodyFrames.get(bodyKey);
-            var bodyParent = bodyParents.get(bodyKey);
-            if (bodyParent == null) {
-                bodyParent = model.deformers().createWarp(bodyKey, rootPart, -1, 2, 2);
-                if (rollDeformer != null) bodyParent.setTargetDeformer(Optional.of(rollDeformer.id()));
-                bodyParent.replaceGrid(frame.grid());
-                bodyParent.setOpacity(1);
-                bodyParents.put(bodyKey, bodyParent);
-            }
-            WarpDeformer opacityParent = bodyParent;
-            if (!bodyPart.isBlank()) {
-                var key = List.of(bodyKey, group);
-                opacityParent = opacityParents.get(key);
-                if (opacityParent == null) {
-                    opacityParent = model.deformers().createWarp(group, rootPart, -1, 2, 2);
-                    opacityParent.setTargetDeformer(Optional.of(bodyParent.id()));
-                    opacityParent.replaceGrid(Frame.unitGrid());
-                    opacityParent.setOpacity(1);
-                    opacityParents.put(key, opacityParent);
-                }
-            }
-            mesh.setTargetDeformer(Optional.of(opacityParent.id()));
-        }
-
         DeformerId rollId = rollDeformer != null ? rollDeformer.id() : null;
-        var created = new Created(rootPart.id(), rollId, meshIds, meshToSourceIndex);
+        var created = new Created(
+                rootPart.id(),
+                rollId,
+                meshIds,
+                meshToSourceIndex,
+                rotationRestorer == null ? OptionalDouble.empty() : OptionalDouble.of(maxNeutralErrorPixels));
         // Complete local source-control parents with one form per mesh, before native
         // reparenting would otherwise convert all 25 rotation forms repeatedly.
         beforeRotation.accept(created);

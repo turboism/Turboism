@@ -239,6 +239,34 @@ public final class NativeCharacterPlan {
             ViewerScene scene,
             SurfaceImport.Request request,
             java.util.Map<Integer, java.util.Set<List<Integer>>> refinements) {
+        return prepareCandidate(scene, request, refinements).finish();
+    }
+
+    /** Geometry used only for control fitting; rejected candidates never need visibility votes. */
+    record GeometryCandidate(Plan geometry, ViewerScene scene) {
+        Plan finish() {
+            var p = geometry;
+            return new Plan(
+                    p.request(),
+                    p.camera(),
+                    p.keys(),
+                    p.partitions(),
+                    NativeCharacterVisibility.compile(p.partitions(), p.camera(), scene),
+                    p.sampling(),
+                    p.visibilityLimit(),
+                    p.totalSourceSlots(),
+                    p.totalPartitionSlots(),
+                    p.totalTriangles(),
+                    p.totalKeyformSlots(),
+                    p.totalCacheSlots(),
+                    p.maxInterpolationErrorPixels());
+        }
+    }
+
+    static GeometryCandidate prepareCandidate(
+            ViewerScene scene,
+            SurfaceImport.Request request,
+            java.util.Map<Integer, java.util.Set<List<Integer>>> refinements) {
         Objects.requireNonNull(scene, "scene");
         Objects.requireNonNull(request, "request");
 
@@ -379,7 +407,8 @@ public final class NativeCharacterPlan {
                     + " > " + MAX_TOTAL_KEYFORM_SLOTS);
         }
 
-        var orders = NativeCharacterVisibility.compile(partitions, camera, scene);
+        if (partitions.size() > NativeCharacterVisibility.MAX_PARTITIONS)
+            throw new IllegalArgumentException("Native draw order exceeds 1001 distinct ranks: " + partitions.size());
 
         // Achievable chord error bound for 5x5 keys under framing radius (e.g. 400px)
         double frameRadiusBound =
@@ -436,20 +465,22 @@ public final class NativeCharacterPlan {
         double visibilityLimit = Math.max(
                 bounds.maxX() - bounds.minX(), Math.max(bounds.maxY() - bounds.minY(), bounds.maxZ() - bounds.minZ()));
 
-        return new Plan(
-                framedRequest,
-                camera,
-                KEYS,
-                partitions,
-                orders,
-                samplingList,
-                visibilityLimit,
-                sourceSlots,
-                totalPartitionSlots,
-                sourceTriangles,
-                totalKeyformSlots,
-                totalCacheSlots,
-                maxError);
+        return new GeometryCandidate(
+                new Plan(
+                        framedRequest,
+                        camera,
+                        KEYS,
+                        partitions,
+                        List.of(),
+                        samplingList,
+                        visibilityLimit,
+                        sourceSlots,
+                        totalPartitionSlots,
+                        sourceTriangles,
+                        totalKeyformSlots,
+                        totalCacheSlots,
+                        maxError),
+                scene);
     }
 
     private static List<List<Face>> clusterMesh(

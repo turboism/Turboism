@@ -67,7 +67,13 @@ public class NativeCharacterPlanTest {
                 List.of(),
                 new ViewerScene.Bounds(-1, -1, -10, 11, 1, 1),
                 new ViewerScene.Stats(0, 2, 3, 1, 0, 0, 0));
-        var plan = NativeCharacterPlan.prepare(scene, defaultRequest());
+        var candidate = NativeCharacterPlan.prepareCandidate(scene, defaultRequest(), Map.of());
+        assertTrue(candidate.geometry().orders().isEmpty(), "Rejected fitting candidates must not compile visibility");
+        var plan = candidate.finish();
+        assertEquals(
+                NativeCharacterPlan.prepare(scene, defaultRequest()),
+                plan,
+                "Final ordering, geometry, camera and every budget must be identical");
         assertTrue(plan.partitions().get(0).center().z()
                 < plan.partitions().get(1).center().z());
         assertTrue(plan.orders().get(12).get(0) > plan.orders().get(12).get(1));
