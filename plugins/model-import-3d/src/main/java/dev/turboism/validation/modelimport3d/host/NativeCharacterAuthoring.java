@@ -367,15 +367,18 @@ public final class NativeCharacterAuthoring {
             mesh.setCulling(!partition.doubleSided());
             mesh.setVisible(partition.visible());
 
-            meshIds.add(mesh.id());
-            meshToSourceIndex.put(mesh.id(), partition.sourceMeshIndex());
+            var meshId = mesh.id();
+            meshIds.add(meshId);
+            meshToSourceIndex.put(meshId, partition.sourceMeshIndex());
 
             // Image binding requires an unparented ArtMesh; keep it before native conversion.
-            binder.bind(mesh.id(), partition.sourceMeshIndex());
+            binder.bind(meshId, partition.sourceMeshIndex());
 
             // One native conversion goes directly from canvas to the completed parent chain.
             if (finalParents.get(pIdx).isPresent()) mesh.setTargetDeformer(finalParents.get(pIdx));
 
+            // No native writes occur between the two readback checks below.
+            var snapshot = mesh.authoringSnapshot();
             if (rotationRestorer != null && partition.visible()) {
                 String group = appearanceGroups.apply(partition.sourceMeshIndex());
                 String part = bodyParts.apply(partition.sourceMeshIndex());
@@ -383,7 +386,7 @@ public final class NativeCharacterAuthoring {
                 var bodyLocal = frame.normalize(
                         rollDeformer != null ? local(defaultCanvasPositions, ox, oy) : defaultCanvasPositions);
                 var expected = rotationLocalizer.apply(pIdx, bodyLocal);
-                var forms = mesh.authoringSnapshot().forms();
+                var forms = snapshot.forms();
                 if (forms.size() != 1) throw new IllegalStateException("New mesh must have one form");
                 var actual = forms.get(0).positions();
                 if (expected.size() != actual.size()) throw new IllegalStateException("Parent changed vertex slots");
@@ -405,8 +408,7 @@ public final class NativeCharacterAuthoring {
                 }
             }
 
-            // Readback verify source geometry
-            var snapshot = mesh.authoringSnapshot();
+            // Readback verify source geometry from the same post-conversion state.
             if (!snapshot.sourceGeometry().equals(geometry)) {
                 throw new IllegalStateException("Source geometry readback changed for partition " + pIdx);
             }

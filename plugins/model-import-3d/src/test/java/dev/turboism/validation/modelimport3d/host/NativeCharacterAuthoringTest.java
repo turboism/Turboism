@@ -81,6 +81,7 @@ public class NativeCharacterAuthoringTest {
         boolean sourceBatchActive;
         int hierarchyChangesAfterMeshKeyforms;
         int rotationBindingsAfterSourceMorphs;
+        int parameterListReads;
 
         int partCounter = 0;
         int meshCounter = 0;
@@ -111,6 +112,7 @@ public class NativeCharacterAuthoringTest {
             final ArtMeshGeometry geometry;
             final List<Point2> defaultLocal;
             int drawOrder = 500;
+            int authoringReads;
             boolean culling = true;
             boolean visible = true;
             Optional<DeformerId> targetDeformer = Optional.empty();
@@ -227,10 +229,12 @@ public class NativeCharacterAuthoringTest {
             return proxy(CubismModel.class, (m, a) -> switch (m.getName()) {
                 case "parameters" ->
                     proxy(Parameters.class, (pm, pa) -> switch (pm.getName()) {
-                        case "all" ->
-                            parameters.stream()
+                        case "all" -> {
+                            parameterListReads++;
+                            yield parameters.stream()
                                     .map(p -> proxy(Parameter.class, (m1, a1) -> p.id()))
                                     .toList();
+                        }
                         case "find" -> {
                             var definition = parameters.stream()
                                     .filter(p -> p.id().equals(pa[0]))
@@ -503,7 +507,10 @@ public class NativeCharacterAuthoringTest {
                 }
                 case "parentDeformerId" -> r.targetDeformer;
                 case "parentPartId" -> Optional.of(r.parentPart.id());
-                case "authoringSnapshot" -> r.snapshot();
+                case "authoringSnapshot" -> {
+                    r.authoringReads++;
+                    yield r.snapshot();
+                }
                 case "setOrdinaryKeyformPositions" -> {
                     var edits = (List<ArtMeshKeyformPositions>) a[1];
                     var expected = (ArtMeshAuthoringSnapshot) a[0];
@@ -623,12 +630,23 @@ public class NativeCharacterAuthoringTest {
                             "Param3D_Generic_unique_Control_"));
                 },
                 NativeControlAuthoring.rotationLocalizer(controls),
-                Runnable::run,
+                work -> {
+                    if (prebuild && host.meshes.values().stream().allMatch(m -> m.boundAxes.isEmpty()))
+                        assertTrue(
+                                host.meshes.values().stream().allMatch(m -> m.authoringReads == 1),
+                                "Share one post-conversion snapshot between neutral and geometry verification");
+                    work.run();
+                },
                 hierarchy -> {
                     if (!prebuild) return hierarchy.parents();
                     assertTrue(host.meshes.isEmpty(), "Build all source parents before materializing meshes");
+                    int parameterReadsBefore = host.parameterListReads;
                     var prepared = NativeControlAuthoring.prepareHierarchy(
                             model, hierarchy, scene, controls, stage -> {}, folder, "Param3D_Generic_unique_Control_");
+                    assertEquals(
+                            parameterReadsBefore + 1,
+                            host.parameterListReads,
+                            "Check all source parameter conflicts with a single collection read");
                     finishControls.set(prepared.finish());
                     return prepared.parents();
                 },
