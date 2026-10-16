@@ -250,11 +250,16 @@ public final class NativeCharacterAuthoring {
         var rootPart = model.parts().create(request.name(), null, -1);
         // Part creation rebuilds native model instances. Create every isolated patch
         // container before the imported geometry and its deformation hierarchy exist.
-        var patchParts = new ArrayList<PartId>();
-        for (int pIdx = 0; pIdx < plan.partitions().size(); pIdx++)
-            patchParts.add(model.parts()
-                    .create(request.name() + " 分区 " + pIdx, rootPart, -1)
-                    .id());
+        var patchParts = model
+                .parts()
+                .createMany(
+                        java.util.stream.IntStream.range(0, plan.partitions().size())
+                                .mapToObj(index -> request.name() + " 分区 " + index)
+                                .toList(),
+                        rootPart)
+                .stream()
+                .map(Part::id)
+                .toList();
 
         // 4. Create Roll (Z-rotation) Deformer if requested
         RotationDeformer rollDeformer = null;

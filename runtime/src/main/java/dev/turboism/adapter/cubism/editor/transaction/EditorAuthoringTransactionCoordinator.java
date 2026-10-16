@@ -212,7 +212,7 @@ public final class EditorAuthoringTransactionCoordinator {
             throw new IllegalStateException("No ambient Editor authoring transaction is active on the host thread.");
         }
         scope.noteEnvelopeContribution();
-        apply(scope, scope.binding(), Objects.requireNonNull(contribution, "contribution"), null);
+        apply(scope, scope.binding(), Objects.requireNonNull(contribution, "contribution"), List.of());
     }
 
     /**
@@ -237,7 +237,7 @@ public final class EditorAuthoringTransactionCoordinator {
      * @throws IllegalStateException when a standalone transaction cannot commit safely
      */
     public void mutate(final Binding binding, final EditorUndoContribution contribution) {
-        mutate(binding, contribution, null);
+        mutate(binding, contribution, List.of());
     }
 
     /**
@@ -249,7 +249,15 @@ public final class EditorAuthoringTransactionCoordinator {
      * @param contribution creation primitive and native removal verifier
      */
     public void mutateCreated(final Binding binding, final Object target, final EditorUndoContribution contribution) {
-        mutate(binding, contribution, Objects.requireNonNull(target, "target"));
+        mutate(binding, contribution, List.of(Objects.requireNonNull(target, "target")));
+    }
+
+    /** Records every newly allocated identity owned by one atomic creation contribution. */
+    public void mutateCreatedMany(
+            final Binding binding, final List<?> targets, final EditorUndoContribution contribution) {
+        final List<?> checked = List.copyOf(targets);
+        if (checked.isEmpty()) throw new IllegalArgumentException("Empty creation batch");
+        mutate(binding, contribution, checked);
     }
 
     /**
@@ -308,12 +316,13 @@ public final class EditorAuthoringTransactionCoordinator {
                 && scope.ownsArtMeshParentRecovery(targetIdentity);
     }
 
-    private void mutate(final Binding binding, final EditorUndoContribution contribution, final Object createdTarget) {
+    private void mutate(
+            final Binding binding, final EditorUndoContribution contribution, final List<?> createdTargets) {
         final Binding checkedBinding = Objects.requireNonNull(binding, "binding");
         final EditorUndoContribution checkedContribution = Objects.requireNonNull(contribution, "contribution");
         final EditorAuthoringScope scope = ambient.get();
         if (scope != null) {
-            apply(scope, checkedBinding, checkedContribution, createdTarget);
+            apply(scope, checkedBinding, checkedContribution, createdTargets);
             return;
         }
 
@@ -323,7 +332,7 @@ public final class EditorAuthoringTransactionCoordinator {
                             Objects.requireNonNull(ambient.get(), "ambient scope"),
                             checkedBinding,
                             checkedContribution,
-                            createdTarget);
+                            createdTargets);
                     return null;
                 });
         if (!result.successful()) {
@@ -421,7 +430,7 @@ public final class EditorAuthoringTransactionCoordinator {
             final EditorAuthoringScope scope,
             final Binding binding,
             final EditorUndoContribution contribution,
-            final Object createdTarget) {
+            final List<?> createdTargets) {
         if (!scope.binding().sameScope(binding) || !binding.isCurrentThread()) {
             throw new ScopeRejectedException("authoring contribution does not match the ambient scope");
         }
@@ -436,7 +445,7 @@ public final class EditorAuthoringTransactionCoordinator {
         // Undo factories may already mutate the host (eager attach/register), so
         // a rejected admission must still be visible to recovery.
         scope.add(contribution);
-        if (createdTarget != null) scope.createdTarget(createdTarget, contribution);
+        for (Object target : createdTargets) scope.createdTarget(target, contribution);
         contribution.undoAdmission().admit(scope.edit(), scope.options().label());
         contribution.mutation().run();
         if (!contribution.applied().getAsBoolean()) {

@@ -82,6 +82,15 @@ final class SessionParts implements Parts {
     }
 
     @Override
+    public List<Part> createMany(final List<String> names, final Part parent) {
+        return host.guarded(
+                generation,
+                () -> delegate.createMany(names, host.unwrapPart(generation, parent)).stream()
+                        .map(value -> (Part) new SessionPart(host, generation, modelGeneration, modelId, value))
+                        .toList());
+    }
+
+    @Override
     public void remove(final Part part) {
         host.guardedVoid(generation, () -> delegate.remove(host.unwrapPart(generation, part)));
     }

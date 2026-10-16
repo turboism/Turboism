@@ -242,7 +242,7 @@ class CompleteCubismModelReadApiContractTest {
                 "setId",
                 "setIntensity",
                 "setName");
-        assertMethods(Parts.class, "add", "all", "copy", "create", "find", "remove");
+        assertMethods(Parts.class, "add", "all", "copy", "create", "createMany", "find", "remove");
         assertMethods(Deformers.class, "all", "applyToChildren", "createRotation", "createWarp", "find", "remove");
         assertMethods(
                 Drawables.class,
