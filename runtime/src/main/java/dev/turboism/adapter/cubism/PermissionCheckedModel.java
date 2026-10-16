@@ -608,6 +608,17 @@ final class PermissionCheckedModel implements CubismModel {
                 delegate.parameterBindingBatch();
         return new dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations() {
             @Override
+            public void setInterpolations(
+                    dev.turboism.sdk.cubism.model.ParameterBindingTarget target,
+                    java.util.Map<
+                                    dev.turboism.sdk.cubism.id.ParameterId,
+                                    dev.turboism.sdk.cubism.model.ParameterInterpolation>
+                            settings) {
+                facade.requireModelWrite("model.parameterBindingBatch.setInterpolations");
+                operations.setInterpolations(target, settings);
+            }
+
+            @Override
             public void invert(final List<dev.turboism.sdk.cubism.model.ParameterBindingTarget> targets) {
                 facade.requireModelWrite("model.parameterBindingBatch.invert");
                 facade.runSemantic(

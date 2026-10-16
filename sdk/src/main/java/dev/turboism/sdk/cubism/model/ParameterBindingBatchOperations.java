@@ -15,6 +15,17 @@ import java.util.List;
 public interface ParameterBindingBatchOperations {
 
     /**
+     * Atomically changes existing axes of one ArtMesh and rebuilds its cache once.
+     * All settings and the combined cache budget are validated before mutation.
+     * Empty settings are a no-op; unsupported backends fail closed.
+     */
+    default void setInterpolations(
+            ParameterBindingTarget target,
+            java.util.Map<dev.turboism.sdk.cubism.id.ParameterId, ParameterInterpolation> settings) {
+        throw new UnsupportedOperationException("Combined interpolation authoring is unavailable.");
+    }
+
+    /**
      * Atomically inverts the bindings of every listed target.
      *
      * @param targets the binding targets to invert
