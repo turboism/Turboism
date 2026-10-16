@@ -1416,6 +1416,24 @@ final class EditorObjectReadAccess {
         }
 
         @Override
+        public List<Drawable> createManyWithSourceGeometry(final List<Drawables.SourceGeometryRequest> requests) {
+            final var checked = List.copyOf(requests);
+            return EditorHostThread.dispatch("Create ArtMesh batch", () -> {
+                final var created = hierarchyEditAccess.createArtMeshSources(identity, source, model, checked);
+                final var current = new java.util.IdentityHashMap<Object, ObjectRef>();
+                for (var ref : core.artMeshes(identity, source, model)) current.put(ref.source(), ref);
+                return created.stream()
+                        .map(item -> {
+                            final var ref = current.get(item.source());
+                            if (ref == null)
+                                throw unavailable("Created ArtMesh is absent after the batch instance update.");
+                            return (Drawable) new EditorDrawable(identity, source, model, ref);
+                        })
+                        .toList();
+            });
+        }
+
+        @Override
         public void remove(final Drawable drawable) {
             Objects.requireNonNull(drawable, "drawable");
             final Object nodeSource = nativeSourceOf(drawable, "Drawable");

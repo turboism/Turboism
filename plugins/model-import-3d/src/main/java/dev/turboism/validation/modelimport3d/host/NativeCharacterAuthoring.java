@@ -15,6 +15,8 @@ import java.util.Optional;
  * protection and exact readback verification.
  */
 public final class NativeCharacterAuthoring {
+    static final int MESH_CREATION_BATCH_SIZE = 32;
+
     private NativeCharacterAuthoring() {}
 
     /** Binds a newly created mesh to its source primitive material. */
@@ -342,81 +344,87 @@ public final class NativeCharacterAuthoring {
                 + NativeCharacterPlan.KEYS.indexOf(0f);
 
         double maxNeutralErrorPixels = 0;
-        for (int pIdx = 0; pIdx < plan.partitions().size(); pIdx++) {
-            var partition = plan.partitions().get(pIdx);
-            var patchPart = model.parts().find(patchParts.get(pIdx));
-
-            var neutralSample =
-                    SurfaceProjection.project(partition.positions(), camera, new SurfaceProjection.Pose(0, 0));
-            var defaultCanvasPositions = neutralSample.positions();
-
-            var dim = imageDimensions != null
-                    ? imageDimensions.dimensions(partition.sourceMeshIndex())
-                    : new ImageDimensions(1024, 1024);
-            if (dim == null) dim = new ImageDimensions(1024, 1024);
-
-            var imagePositions = new ArrayList<Point2>(partition.uvs().size());
-            for (var uv : partition.uvs()) {
-                imagePositions.add(new Point2(uv.x() * dim.width(), uv.y() * dim.height()));
+        for (int batchStart = 0; batchStart < plan.partitions().size(); batchStart += MESH_CREATION_BATCH_SIZE) {
+            int batchEnd = Math.min(plan.partitions().size(), batchStart + MESH_CREATION_BATCH_SIZE);
+            var inputs = new ArrayList<Drawables.SourceGeometryRequest>();
+            for (int pIdx = batchStart; pIdx < batchEnd; pIdx++) {
+                var partition = plan.partitions().get(pIdx);
+                var neutralSample =
+                        SurfaceProjection.project(partition.positions(), camera, new SurfaceProjection.Pose(0, 0));
+                var dim = imageDimensions != null
+                        ? imageDimensions.dimensions(partition.sourceMeshIndex())
+                        : new ImageDimensions(1024, 1024);
+                if (dim == null) dim = new ImageDimensions(1024, 1024);
+                var imagePositions = new ArrayList<Point2>(partition.uvs().size());
+                for (var uv : partition.uvs())
+                    imagePositions.add(new Point2(uv.x() * dim.width(), uv.y() * dim.height()));
+                inputs.add(new Drawables.SourceGeometryRequest(
+                        request.name() + " " + partition.name() + " " + pIdx,
+                        Optional.of(patchParts.get(pIdx)),
+                        new ArtMeshGeometry(imagePositions, partition.uvs(), partition.indices()),
+                        neutralSample.positions()));
             }
+            // Limit each publication to a small batch: later native conversions should
+            // not evaluate all future mesh instances before those meshes need to exist.
+            var createdMeshes = model.drawables().createManyWithSourceGeometry(inputs);
+            if (createdMeshes.size() != inputs.size())
+                throw new IllegalStateException("Created mesh batch size differs");
+            for (int offset = 0; offset < inputs.size(); offset++) {
+                int pIdx = batchStart + offset;
+                var partition = plan.partitions().get(pIdx);
+                var defaultCanvasPositions = inputs.get(offset).defaultPositions();
+                var geometry = inputs.get(offset).sourceGeometry();
+                var mesh = createdMeshes.get(offset);
 
-            var geometry = new ArtMeshGeometry(imagePositions, partition.uvs(), partition.indices());
+                mesh.setCulling(!partition.doubleSided());
+                mesh.setVisible(partition.visible());
 
-            var mesh = model.drawables()
-                    .createWithSourceGeometry(
-                            request.name() + " " + partition.name() + " " + pIdx,
-                            patchPart,
-                            -1,
-                            geometry,
-                            defaultCanvasPositions);
+                var meshId = mesh.id();
+                meshIds.add(meshId);
+                meshToSourceIndex.put(meshId, partition.sourceMeshIndex());
 
-            mesh.setCulling(!partition.doubleSided());
-            mesh.setVisible(partition.visible());
+                // Image binding requires an unparented ArtMesh; keep it before native conversion.
+                binder.bind(meshId, partition.sourceMeshIndex());
 
-            var meshId = mesh.id();
-            meshIds.add(meshId);
-            meshToSourceIndex.put(meshId, partition.sourceMeshIndex());
+                // One native conversion goes directly from canvas to the completed parent chain.
+                if (finalParents.get(pIdx).isPresent()) mesh.setTargetDeformer(finalParents.get(pIdx));
 
-            // Image binding requires an unparented ArtMesh; keep it before native conversion.
-            binder.bind(meshId, partition.sourceMeshIndex());
-
-            // One native conversion goes directly from canvas to the completed parent chain.
-            if (finalParents.get(pIdx).isPresent()) mesh.setTargetDeformer(finalParents.get(pIdx));
-
-            // No native writes occur between the two readback checks below.
-            var snapshot = mesh.authoringSnapshot();
-            if (rotationRestorer != null && partition.visible()) {
-                String group = appearanceGroups.apply(partition.sourceMeshIndex());
-                String part = bodyParts.apply(partition.sourceMeshIndex());
-                var frame = bodyFrames.get(part.isBlank() ? group : part);
-                var bodyLocal = frame.normalize(
-                        rollDeformer != null ? local(defaultCanvasPositions, ox, oy) : defaultCanvasPositions);
-                var expected = rotationLocalizer.apply(pIdx, bodyLocal);
-                var forms = snapshot.forms();
-                if (forms.size() != 1) throw new IllegalStateException("New mesh must have one form");
-                var actual = forms.get(0).positions();
-                if (expected.size() != actual.size()) throw new IllegalStateException("Parent changed vertex slots");
-                // Local Warp units vary with patch size. Verify in canvas pixels, not
-                // an arbitrary normalized-coordinate epsilon that amplifies tiny patches.
-                var restored = rotationRestorer.apply(pIdx, actual);
-                if (restored.size() != bodyLocal.size())
-                    throw new IllegalStateException("Restored vertex slots differ");
-                for (int v = 0; v < restored.size(); v++) {
-                    double dx = (restored.get(v).x() - bodyLocal.get(v).x()) * (frame.maxX - frame.minX);
-                    double dy = (restored.get(v).y() - bodyLocal.get(v).y()) * (frame.maxY - frame.minY);
-                    double error = Math.hypot(dx, dy);
-                    if (!Double.isFinite(error) || error > .001)
-                        throw new IllegalStateException(
-                                "Final parent neutral coordinate conversion differs for partition "
-                                        + pIdx + ": canvasError=" + error + "px, expected=" + expected.get(v)
-                                        + ", actual=" + actual.get(v));
-                    maxNeutralErrorPixels = Math.max(maxNeutralErrorPixels, error);
+                // No native writes occur between the two readback checks below.
+                var snapshot = mesh.authoringSnapshot();
+                if (rotationRestorer != null && partition.visible()) {
+                    String group = appearanceGroups.apply(partition.sourceMeshIndex());
+                    String part = bodyParts.apply(partition.sourceMeshIndex());
+                    var frame = bodyFrames.get(part.isBlank() ? group : part);
+                    var bodyLocal = frame.normalize(
+                            rollDeformer != null ? local(defaultCanvasPositions, ox, oy) : defaultCanvasPositions);
+                    var expected = rotationLocalizer.apply(pIdx, bodyLocal);
+                    var forms = snapshot.forms();
+                    if (forms.size() != 1) throw new IllegalStateException("New mesh must have one form");
+                    var actual = forms.get(0).positions();
+                    if (expected.size() != actual.size())
+                        throw new IllegalStateException("Parent changed vertex slots");
+                    // Local Warp units vary with patch size. Verify in canvas pixels, not
+                    // an arbitrary normalized-coordinate epsilon that amplifies tiny patches.
+                    var restored = rotationRestorer.apply(pIdx, actual);
+                    if (restored.size() != bodyLocal.size())
+                        throw new IllegalStateException("Restored vertex slots differ");
+                    for (int v = 0; v < restored.size(); v++) {
+                        double dx = (restored.get(v).x() - bodyLocal.get(v).x()) * (frame.maxX - frame.minX);
+                        double dy = (restored.get(v).y() - bodyLocal.get(v).y()) * (frame.maxY - frame.minY);
+                        double error = Math.hypot(dx, dy);
+                        if (!Double.isFinite(error) || error > .001)
+                            throw new IllegalStateException(
+                                    "Final parent neutral coordinate conversion differs for partition "
+                                            + pIdx + ": canvasError=" + error + "px, expected=" + expected.get(v)
+                                            + ", actual=" + actual.get(v));
+                        maxNeutralErrorPixels = Math.max(maxNeutralErrorPixels, error);
+                    }
                 }
-            }
 
-            // Readback verify source geometry from the same post-conversion state.
-            if (!snapshot.sourceGeometry().equals(geometry)) {
-                throw new IllegalStateException("Source geometry readback changed for partition " + pIdx);
+                // Readback verify source geometry from the same post-conversion state.
+                if (!snapshot.sourceGeometry().equals(geometry)) {
+                    throw new IllegalStateException("Source geometry readback changed for partition " + pIdx);
+                }
             }
         }
 
