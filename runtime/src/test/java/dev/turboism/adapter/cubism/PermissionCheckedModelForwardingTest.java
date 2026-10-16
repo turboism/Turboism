@@ -592,6 +592,36 @@ class PermissionCheckedModelForwardingTest {
     }
 
     @Test
+    void initializedWarpCreationForwardsExactInputsAndRequiresWriteAndActiveScope() {
+        var calls = new ArrayList<String>();
+        boolean[] write = {true}, active = {true};
+        var delegate = new RecordingModel(calls);
+        var deformers = facade(delegate, List.of(readPermission(true), writePermission(write)), () -> active[0])
+                .model()
+                .active()
+                .deformers();
+        var target = Optional.of(new dev.turboism.sdk.cubism.id.DeformerId("WarpA"));
+        var grid = new dev.turboism.sdk.cubism.model.WarpGrid(
+                1,
+                1,
+                true,
+                List.of(
+                        new dev.turboism.sdk.cubism.model.Point2(0, 0), new dev.turboism.sdk.cubism.model.Point2(1, 0),
+                        new dev.turboism.sdk.cubism.model.Point2(0, 1),
+                                new dev.turboism.sdk.cubism.model.Point2(1, 1)));
+        deformers.createWarp("Final", null, -1, target, grid);
+        assertEquals(java.util.Arrays.asList("Final", null, -1, target, grid), delegate.initializedWarpArgs);
+        assertEquals(List.of("warp.createInitialized"), calls);
+        calls.clear();
+        write[0] = false;
+        assertThrows(CubismPermissionException.class, () -> deformers.createWarp("Final", null, -1, target, grid));
+        write[0] = true;
+        active[0] = false;
+        assertThrows(IllegalStateException.class, () -> deformers.createWarp("Final", null, -1, target, grid));
+        assertTrue(calls.isEmpty());
+    }
+
+    @Test
     void warpStoredFormsRetainReadWriteAndActiveScopeChecks() {
         final List<String> calls = new ArrayList<>();
         final boolean[] read = {true}, write = {true}, active = {true};
@@ -1190,6 +1220,8 @@ class PermissionCheckedModelForwardingTest {
 
     /** Delegate model recording every Wave 1 method invocation into {@code calls}. */
     private static final class RecordingModel implements CubismModel {
+        List<Object> initializedWarpArgs;
+
         @Override
         public ParameterBindingOperations parameterBindings(final ParameterId parameterId) {
             return new ParameterBindingOperations() {
@@ -1766,7 +1798,29 @@ class PermissionCheckedModelForwardingTest {
 
         @Override
         public dev.turboism.sdk.cubism.model.Deformers deformers() {
-            throw new UnsupportedOperationException();
+            return new dev.turboism.sdk.cubism.model.Deformers() {
+                @Override
+                public List<dev.turboism.sdk.cubism.model.Deformer> all() {
+                    return List.of();
+                }
+
+                @Override
+                public dev.turboism.sdk.cubism.model.Deformer find(dev.turboism.sdk.cubism.id.DeformerId id) {
+                    throw new java.util.NoSuchElementException();
+                }
+
+                @Override
+                public dev.turboism.sdk.cubism.model.WarpDeformer createWarp(
+                        String name,
+                        Part parent,
+                        int index,
+                        Optional<dev.turboism.sdk.cubism.id.DeformerId> target,
+                        dev.turboism.sdk.cubism.model.WarpGrid grid) {
+                    initializedWarpArgs = java.util.Arrays.asList(name, parent, index, target, grid);
+                    calls.add("warp.createInitialized");
+                    return warpDeformers().find(new dev.turboism.sdk.cubism.id.DeformerId("WarpA"));
+                }
+            };
         }
 
         @Override

@@ -427,6 +427,88 @@ class EditorObjectHierarchyEditAccessTest {
         assertFalse(fixture.document.dirty);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"5.3.02", "5.3.04"})
+    void initializedWarpPublishesFinalGridAndBothParentsWithOneUpdate(final String version) {
+        for (boolean targeted : List.of(false, true)) {
+            final Fixture fixture = new Fixture();
+            fixture.source.treeMaterialization = true;
+            Host.document = fixture.document;
+            final var model = new EditorBackedCubismModelAccess(resolver(version), "session-a").active();
+            final var target =
+                    targeted ? java.util.Optional.of(new DeformerId("WarpA")) : java.util.Optional.<DeformerId>empty();
+            final var grid = new WarpGrid(
+                    1,
+                    1,
+                    true,
+                    List.of(
+                            new Point2(.1f, .2f), new Point2(.8f, .2f),
+                            new Point2(.1f, .9f), new Point2(.8f, .9f)));
+            final var warp = model.deformers()
+                    .createWarp("Final Warp", model.parts().find(new PartId("Root")), -1, target, grid);
+            final var id = warp.id();
+            assertEquals(1, fixture.source.updateCount, "one publication, no intermediate reparent/grid updates");
+            assertEquals(grid, warp.grid());
+            assertEquals(target, warp.parentDeformerId());
+            assertEquals(java.util.Optional.of(new PartId("Root")), warp.parentPartId());
+            assertEquals(1, fixture.editMode.edits.size());
+            assertEquals(1, fixture.editMode.edits.get(0).children.size(), "one native insertion Undo");
+            fixture.editMode.edits.get(0).undo();
+            assertThrows(
+                    NoSuchElementException.class, () -> model.warpDeformers().find(id));
+            fixture.editMode.edits.get(0).redo();
+            final var restored = model.warpDeformers().find(id);
+            assertEquals(grid, restored.grid());
+            assertEquals(target, restored.parentDeformerId());
+            assertEquals(java.util.Optional.of(new PartId("Root")), restored.parentPartId());
+        }
+    }
+
+    @Test
+    void initializedWarpRejectsMissingTargetBeforeCreation() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.04"), "session-a").active();
+        final var before = List.copyOf(fixture.deformerSet.sources);
+        assertThrows(
+                NoSuchElementException.class,
+                () -> model.deformers()
+                        .createWarp(
+                                "Missing target",
+                                null,
+                                -1,
+                                java.util.Optional.of(new DeformerId("Missing")),
+                                EditorObjectHierarchyEditAccess.defaultWarpGrid(2, 2)));
+        assertEquals(before, fixture.deformerSet.sources);
+        assertEquals(0, fixture.source.updateCount);
+        assertTrue(fixture.editMode.edits.isEmpty());
+    }
+
+    @Test
+    void initializedWarpRejectedInsertionRestoresMembershipAndPartTree() {
+        final var scoped = ScopedFixture.onEdt("5.3.04");
+        final var before = List.copyOf(scoped.fixture.source.deformerSet.sources);
+        final var children = List.copyOf(scoped.fixture.rootPart.children);
+        scoped.fixture.editMode.rejectNextAdmission = 1;
+        final var result = scoped.execute(AuthoringTransactionOptions.of("initialized Warp rejection"), () -> {
+            scoped.access.createWarpSource(
+                    "model",
+                    scoped.fixture.source,
+                    scoped.fixture.source.model,
+                    "Rejected final Warp",
+                    scoped.fixture.rootPart,
+                    false,
+                    -1,
+                    EditorObjectHierarchyEditAccess.defaultWarpGrid(2, 2),
+                    scoped.fixture.warpSource);
+            return null;
+        });
+        assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+        assertEquals(before, scoped.fixture.source.deformerSet.sources);
+        assertEquals(children, scoped.fixture.rootPart.children);
+        assertTrue(scoped.fixture.editMode.edits.isEmpty());
+    }
+
     private static ArtMeshGeometry nativeGeometry() {
         return new ArtMeshGeometry(
                 List.of(new Point2(16, 24), new Point2(272, 24), new Point2(272, 152), new Point2(16, 152)),

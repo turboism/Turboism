@@ -375,6 +375,28 @@ final class EditorObjectHierarchyEditAccess {
             final boolean parentIsDeformer,
             final int index,
             final WarpGrid requestedGrid) {
+        return createWarpSource(
+                identity,
+                modelSource,
+                model,
+                requestedName,
+                parentSource,
+                parentIsDeformer,
+                index,
+                requestedGrid,
+                null);
+    }
+
+    CreatedSource createWarpSource(
+            final String identity,
+            final Object modelSource,
+            final Object model,
+            final String requestedName,
+            final Object parentSource,
+            final boolean parentIsDeformer,
+            final int index,
+            final WarpGrid requestedGrid,
+            final Object targetDeformerSource) {
         if (!EditorHostThread.isCurrent()) {
             return EditorHostThread.dispatch(
                     "Cubism hierarchy edit",
@@ -386,7 +408,8 @@ final class EditorObjectHierarchyEditAccess {
                             parentSource,
                             parentIsDeformer,
                             index,
-                            requestedGrid));
+                            requestedGrid,
+                            targetDeformerSource));
         }
         final WarpGrid grid = requireGrid(requestedGrid);
         final String name = requireName(requestedName);
@@ -409,6 +432,12 @@ final class EditorObjectHierarchyEditAccess {
         setObjectId(created, "Deformer", id);
         resolver.invoke("cubism.editor-model.parameter-controllable-source.set-local-name", created, name);
         initializeWarp(created, modelSource, grid);
+        if (targetDeformerSource != null) {
+            resolver.invoke(
+                    "cubism.editor-model.parameter-controllable-source.set-target-deformer-guid",
+                    created,
+                    resolver.invoke("cubism.editor-model.parameter-controllable-source.guid", targetDeformerSource));
+        }
         writeCreatedSourceThroughCoordinator(
                 modelSource,
                 created,
