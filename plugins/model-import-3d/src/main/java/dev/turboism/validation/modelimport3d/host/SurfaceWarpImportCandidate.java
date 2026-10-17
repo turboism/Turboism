@@ -78,7 +78,8 @@ final class SurfaceWarpImportCandidate {
                 request.yawLimit(),
                 request.pitchLimit(),
                 request.maxProjectedVertices(),
-                request.roll());
+                request.roll(),
+                request.labels());
         var prepared = prepareDecoded(sources, framed, config);
         try {
             return new Prepared(

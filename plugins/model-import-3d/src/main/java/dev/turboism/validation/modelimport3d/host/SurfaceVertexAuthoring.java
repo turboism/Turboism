@@ -79,7 +79,8 @@ final class SurfaceVertexAuthoring {
                 request.yawLimit(),
                 request.pitchLimit(),
                 request.maxProjectedVertices(),
-                request.roll());
+                request.roll(),
+                request.labels());
         return prepareDecoded(sources, framed, maximumMeshes);
     }
 
@@ -249,9 +250,15 @@ final class SurfaceVertexAuthoring {
         model.parameters()
                 .createMany(List.of(
                         new ParameterDefinition(
-                                request.yaw(), request.name() + " Y 旋转", -180, 0, 180, ParameterType.NORMAL, false),
+                                request.yaw(), request.rotationName("Y"), -180, 0, 180, ParameterType.NORMAL, false),
                         new ParameterDefinition(
-                                request.pitch(), request.name() + " X 旋转", -180, 0, 180, ParameterType.NORMAL, false)));
+                                request.pitch(),
+                                request.rotationName("X"),
+                                -180,
+                                0,
+                                180,
+                                ParameterType.NORMAL,
+                                false)));
         var banks = new ArrayList<ArtMeshAuthoringSnapshot>();
         for (int i = 0; i < ids.size(); i++) {
             var mesh = model.drawables().find(ids.get(i));
@@ -345,7 +352,7 @@ final class SurfaceVertexAuthoring {
                 throw new IllegalStateException("direct source texture changed");
             banks.add(expected);
         }
-        SurfacePlacementAuthoring.wrap(model, part, request.name(), roll);
+        SurfacePlacementAuthoring.wrap(model, part, request, roll);
         for (int i = 0; i < ids.size(); i++)
             if (!banks.get(i).equals(model.drawables().find(ids.get(i)).authoringSnapshot()))
                 throw new IllegalStateException("placement changed direct source banks");

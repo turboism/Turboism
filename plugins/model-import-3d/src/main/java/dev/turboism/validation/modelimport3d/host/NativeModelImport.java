@@ -153,7 +153,8 @@ final class NativeModelImport {
                             prepared.controls(),
                             progress,
                             parameterGroup,
-                            prepared.geometry().request().yaw().value() + "_Control_");
+                            prepared.geometry().request().yaw().value() + "_Control_",
+                            prepared.geometry().request()::localActionName);
                     finishSourceControls.set(controls.finish());
                     progress.accept("source-geometry");
                     return controls.parents();
