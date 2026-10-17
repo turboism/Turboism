@@ -156,7 +156,7 @@ class McpHostValidationClientTest(unittest.TestCase):
                     "5100", "5101", "5102", "5103",
                     "5200", "5201", "5202", "5203",
                     "5300", "5301", "5302", "5303", "5304"]
-        self.assertIn("|".join(reviewed) + ")", text)
+        self.assertIn('turboism_require_task_version mcp "$version"', text)
         manifest = json.loads((REPO_ROOT / "scripts/preview/host-validation-tasks.json").read_text())
         self.assertEqual(reviewed, manifest["tasks"]["mcp"]["versions"])
         self.assertIn('turboism_select_fixture "$version"', text)
