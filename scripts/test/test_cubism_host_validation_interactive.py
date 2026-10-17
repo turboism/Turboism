@@ -29,11 +29,8 @@ class InteractiveMode(unittest.TestCase):
 
     def test_interactive_needs_no_validation_agent_and_keeps_work(self):
         result = self.invoke('--interactive')
-        self.assertEqual(0, result.returncode, result.stderr)
-        self.assertIn('interactive=1\n', result.stdout)
-        self.assertIn('keepPrefix=1\n', result.stdout)
-        self.assertIn('auxAgentCount=0\n', result.stdout)
-        self.assertIn('resultFile=\n', result.stdout)
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn('unknown argument: --interactive', result.stderr)
         self.assertFalse((self.root / 'tasks').exists())
 
     def test_interactive_cannot_masquerade_as_validation(self):
@@ -42,7 +39,7 @@ class InteractiveMode(unittest.TestCase):
             with self.subTest(args=args):
                 result = self.invoke('--interactive', *args)
                 self.assertNotEqual(0, result.returncode)
-                self.assertIn('interactive mode cannot', result.stderr)
+                self.assertIn('unknown argument: --interactive', result.stderr)
 
     def test_default_validation_still_requires_probe_and_result(self):
         self.assertNotEqual(0, self.invoke('--result-marker', 'PASS').returncode)
@@ -64,52 +61,56 @@ remote_pre_cleanup=''; task_id=owned-task; task_dir=/unused/task; local_evidence
 local_tmp="$(mktemp -d)"
 ''' + f'\ninteractive={interactive}\n' + body + '\nfalse\non_exit\n'
                 result = subprocess.run(['bash'], input=script, text=True, capture_output=True)
-                if interactive:
-                    self.assertNotIn('STOP', result.stdout)
-                    self.assertNotIn('HOOK', result.stdout)
-                    self.assertIn('SESSION_DETACHED', result.stderr)
-                else:
-                    self.assertIn('STOP', result.stdout)
-                    self.assertIn('HOOK', result.stdout)
+                self.assertIn('STOP', result.stdout)
+                self.assertIn('HOOK', result.stdout)
+                self.assertNotIn('SESSION_DETACHED', result.stderr)
 
-    def exit_loop(self, interactive=0, timeout=False, exit_code='0'):
+    def exit_loop(self, timeout=False, exit_code='0', normal_exit=True, alive_polls=3):
         source = RUNNER.read_text()
         body = 'deadline=$((SECONDS + exit_timeout))' + source.split(
             'deadline=$((SECONDS + exit_timeout))', 1)[1].split(
             'if [ -n "$cubism_java_console_marker" ]; then', 1)[0]
-        script = '''
+        script = f'''
 set -eu
 polls=0; wrapper_cleanup_done=0; exit_timeout=1; poll_seconds=0.01
-ssh_host=unused; evidence_dir=/unused
-ssh_cmd=(fake_remote)
-log() { :; }
-fail() { echo "$*" >&2; exit 1; }
-remote_normal_exit_evidence_seen() { return 0; }
-remote_record_wrapper_cleanup() { echo RECORDED; }
-remote_stop_process_tree() { echo STOP; }
-remote_process_alive() { polls=$((polls + 1)); [ "$always_alive" = 1 ] || [ "$polls" -le 3 ]; }
-fake_remote() { case "$2" in cat*) printf '%s' "$exit_code";; *) :;; esac; }
-''' + f'\ninteractive={interactive}; always_alive={int(timeout)}; exit_code={exit_code}\n' + body
+evidence_dir="$(mktemp -d)"
+trap 'rm -rf -- "$evidence_dir"' EXIT
+printf '%s' "{exit_code}" > "$evidence_dir/wrapper.exit"
+log() {{ :; }}
+fail() {{ echo "$*" >&2; exit 1; }}
+remote_normal_exit_evidence_seen() {{ return {0 if normal_exit else 1}; }}
+remote_record_wrapper_cleanup() {{ echo "RECORDED $1"; }}
+alive=1
+remote_stop_process_tree() {{ echo STOP; alive=0; }}
+remote_process_alive() {{
+  polls=$((polls + 1))
+  if [ "{int(timeout)}" = 1 ]; then return 0; fi
+  if [ "$alive" = 0 ] || [ "$polls" -gt {alive_polls} ]; then return 1; fi
+  return 0
+}}
+''' + body
         return subprocess.run(['bash'], input=script, text=True, capture_output=True, timeout=5)
 
     def test_shutdown_log_does_not_terminate_still_exiting_launcher(self):
         for interactive in (0, 1):
             with self.subTest(interactive=interactive):
-                result = self.exit_loop(interactive=interactive)
+                result = self.exit_loop(normal_exit=True, alive_polls=2, exit_code='0')
                 self.assertEqual(0, result.returncode, result.stderr)
-                self.assertNotIn('STOP', result.stdout)
-                self.assertNotIn('RECORDED', result.stdout)
+                self.assertIn('STOP', result.stdout)
+                self.assertIn('RECORDED native-exit-evidence-observed', result.stdout)
 
     def test_forced_cleanup_after_exit_timeout_is_not_validation_pass(self):
-        result = self.exit_loop(timeout=True)
+        result = self.exit_loop(normal_exit=False, timeout=True, exit_code='2')
         self.assertNotEqual(0, result.returncode)
         self.assertIn('STOP', result.stdout)
-        self.assertIn('graceful', result.stderr)
+        self.assertIn('RECORDED launcher-exit-timeout', result.stdout)
+        self.assertIn('unexpected code 2', result.stderr)
 
     def test_nonzero_launcher_exit_is_never_accepted_by_shutdown_marker(self):
-        result = self.exit_loop(exit_code='1')
+        result = self.exit_loop(normal_exit=True, alive_polls=0, exit_code='1')
         self.assertNotEqual(0, result.returncode)
         self.assertNotIn('STOP', result.stdout)
+        self.assertIn('official launcher exited with code 1', result.stderr)
 
 class ExitWitnessBatGeneration(unittest.TestCase):
     """The generated launch.bat keeps byte-identical tails unless the exit

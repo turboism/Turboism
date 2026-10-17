@@ -69,15 +69,22 @@ class ValidationInventoryTest(unittest.TestCase):
     def test_core_wrapper_pins_every_catalogued_editor_and_core(self):
         root = INVENTORY.ROOT
         wrapper = (root / "scripts/preview/run-core-acquisition-host-validation.sh").read_text()
-        entries = re.findall(
-            r"^  (\d{4})\)\n\s+profile='([^']+)'\n\s+editor_jar_sha256='([^']+)'\n\s+core_jar_sha256='([^']+)'",
-            wrapper, re.M,
-        )
-        self.assertEqual(set(INVENTORY.HOSTS), {entry[0] for entry in entries})
-        for code, _profile, editor_sha, core_sha in entries:
+        self.assertIn('turboism_require_task_version core-acquisition "$version"', wrapper)
+        self.assertIn('turboism_core_acquisition_metadata "$version"', wrapper)
+
+        tasks = json.loads((root / "scripts/preview/host-validation-tasks.json").read_text())
+        task_versions = set(tasks["tasks"]["core-acquisition"]["versions"])
+        self.assertEqual(set(INVENTORY.HOSTS), task_versions)
+
+        for code in task_versions:
+            version_semver = INVENTORY.semver(code)
+            edit_rec = json.loads((root / f"compatibility/cubism/verification/cubism-{version_semver}-editor-model.json").read_text())
+            core_rec = json.loads((root / f"compatibility/cubism/verification/cubism-{version_semver}-core-model-read.json").read_text())
+            editor_sha = edit_rec["artifact"]["sha256"]
+            core_sha = core_rec["artifact"]["sha256"]
             self.assertEqual(INVENTORY.HOSTS[code][1], editor_sha)
             observed = json.loads((root / (
-                f"compatibility/cubism/core-api/observed/cubism-core-{INVENTORY.semver(code)}.json"
+                f"compatibility/cubism/core-api/observed/cubism-core-{version_semver}.json"
             )).read_text())
             self.assertEqual(observed["artifact"]["sha256"], core_sha)
 
