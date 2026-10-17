@@ -19,12 +19,26 @@ SHA = 'a' * 40
 OTHER = 'b' * 40
 
 
-def published(source=SHA, number=7, draft=False):
+def published(source=SHA, number=7, draft=False, contract='modern'):
     receipt = dict(bi.identity(f'1.2.4-0.nightly.{number}', source, str(100+number), 1), buildNumber=number)
     version = receipt['version']
-    names = [f'TurboismInstaller-{version}-full.exe', f'TurboismInstaller-{version}-thin.exe',
-             f'turboism-{version}-full.zip', f'turboism-{version}-thin.zip',
-             f'turboism-sdk-{version}.jar', f'turboism-event-processor-{version}.jar']
+    if contract == 'modern':
+        names = [f'TurboismInstaller-{version}-full.exe', f'TurboismInstaller-{version}-thin.exe',
+                 f'turboism-{version}-full.zip', f'turboism-{version}-thin.zip',
+                 f'turboism-sdk-{version}.jar', f'turboism-event-processor-{version}.jar']
+    elif contract == 'legacy_core':
+        names = [f'TurboismInstaller-{version}.exe', f'TurboismInstaller-{version}.jar',
+                 f'turboism-{version}-full.zip', f'turboism-{version}-lite.zip']
+    elif contract == 'legacy_sdk':
+        names = [f'TurboismInstaller-{version}.exe', f'TurboismInstaller-{version}.jar',
+                 f'turboism-{version}-full.zip', f'turboism-{version}-lite.zip',
+                 f'turboism-sdk-{version}.jar']
+    elif contract == 'legacy_all':
+        names = [f'TurboismInstaller-{version}.exe', f'TurboismInstaller-{version}.jar',
+                 f'turboism-{version}-full.zip', f'turboism-{version}-lite.zip',
+                 f'turboism-sdk-{version}.jar', f'turboism-event-processor-{version}.jar']
+    else:
+        raise ValueError(contract)
     return {'id': 1000+number, 'tag_name': 'v'+version, 'draft': draft, 'prerelease': True,
             'published_at': '2026-09-09T00:00:00Z',
             'body': '<!-- turboism-build-v1 '+json.dumps(receipt)+' -->',
@@ -83,6 +97,65 @@ class NightlyPolicyTest(unittest.TestCase):
     def test_nightly_base_never_regresses_behind_prior_nightly(self):
         raw,_=published()
         self.assertEqual(n.plan(ReadOnlyGitHub([raw]), OTHER,'1.2.3')['base_version'],'1.2.4')
+    def test_legacy_eight_asset_contract_recognized_as_published_baseline(self):
+        legacy, _ = published(SHA, 11, contract='legacy_core')
+        api = ReadOnlyGitHub([legacy])
+        p = n.plan(api, SHA, '1.2.3')
+        self.assertFalse(p['should_build'])
+        self.assertEqual(p['reason'], 'already_published')
+        self.assertEqual(p['previous_source'], SHA)
+
+    def test_legacy_ten_and_twelve_asset_contracts_recognized_as_published_baseline(self):
+        for contract in ('legacy_sdk', 'legacy_all'):
+            with self.subTest(contract=contract):
+                legacy, _ = published(SHA, 11, contract=contract)
+                api = ReadOnlyGitHub([legacy])
+                p = n.plan(api, SHA, '1.2.3')
+                self.assertFalse(p['should_build'])
+                self.assertEqual(p['reason'], 'already_published')
+
+    def test_legacy_baseline_builds_when_new_source_arrives(self):
+        legacy, _ = published(SHA, 11, contract='legacy_core')
+        api = ReadOnlyGitHub([legacy])
+        p = n.plan(api, OTHER, '1.2.3')
+        self.assertTrue(p['should_build'])
+        self.assertEqual(p['reason'], 'new_source')
+        self.assertEqual(p['previous_source'], SHA)
+
+    def test_diverged_source_history_reports_actionable_diagnostic_context(self):
+        raw, _ = published(OTHER, 11, contract='legacy_core')
+        class DivergedGitHub(ReadOnlyGitHub):
+            def api(self, path, **kwargs):
+                if path.startswith('compare/'): return {'status': 'diverged'}
+                return super().api(path, **kwargs)
+        with self.assertRaises(ValueError) as ctx:
+            n.plan(DivergedGitHub([raw]), SHA, '1.2.3')
+        msg = str(ctx.exception)
+        self.assertIn('Nightly source history diverged', msg)
+        self.assertIn(OTHER, msg)
+        self.assertIn(SHA, msg)
+        self.assertIn("relation='diverged'", msg)
+        self.assertIn('workflow_dispatch', msg)
+
+    def test_outdated_source_skips_cleanly(self):
+        raw, _ = published(OTHER, 11, contract='legacy_core')
+        for relation in ('behind', 'identical'):
+            with self.subTest(relation=relation):
+                class RelatedGitHub(ReadOnlyGitHub):
+                    def api(self, path, **kwargs):
+                        if path.startswith('compare/'): return {'status': relation}
+                        return super().api(path, **kwargs)
+                p = n.plan(RelatedGitHub([raw]), SHA, '1.2.3')
+                self.assertFalse(p['should_build'])
+                self.assertEqual(p['reason'], 'outdated_source')
+
+    def test_missing_published_at_reports_tag_in_error_message(self):
+        raw, _ = published(SHA, 11)
+        raw['published_at'] = None
+        with self.assertRaises(ValueError) as ctx:
+            n.plan(ReadOnlyGitHub([raw]), SHA, '1.2.3')
+        self.assertIn(raw['tag_name'], str(ctx.exception))
+
     def test_receipt_requires_unique_exact_nightly_identity(self):
         raw,rec=published()
         self.assertEqual(n.receipt_from_body(raw['body']),rec)
@@ -122,6 +195,17 @@ class NightlyPayloadTest(unittest.TestCase):
         for mutate in [lambda r:r['assets'].pop(),lambda r:r['assets'][0].update(digest='sha256:'+'e'*64),lambda r:r.update(prerelease=False)]:
             r=copy.deepcopy(raw);mutate(r)
             with self.assertRaises(ValueError):n.missing_assets(r,expected,raw['tag_name'])
+    def test_canonical_sets_contain_expected_historical_and_modern_rosters(self):
+        sets = n.canonical_sets_for('1.2.4-0.nightly.7')
+        self.assertEqual(len(sets), 4)
+        sizes = {len(s) for s in sets}
+        self.assertEqual(sizes, {8, 10, 12})
+        raw, rec = published()
+        expected = {a['name']: {'size': a['size'], 'sha256': a['digest'][7:]} for a in raw['assets']}
+        expected['unexpected-extra.jar'] = {'size': 1, 'sha256': 'a'*64}
+        with self.assertRaises(ValueError):
+            n.missing_assets(raw, expected, raw['tag_name'])
+
     def test_draft_upload_is_resumable_and_never_overwrites(self):
         raw,_=published(draft=True);expected={a['name']:{'size':a['size'],'sha256':a['digest'][7:]} for a in raw['assets']}
         missing=raw['assets'].pop()['name']
