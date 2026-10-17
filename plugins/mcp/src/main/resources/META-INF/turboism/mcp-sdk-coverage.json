@@ -1884,6 +1884,28 @@
       "undoVerification": "EXACT_HOST_VERIFIED",
       "supportedVersions": [],
       "reason": "Interpolation writes are exact-host authoring operations; the legacy bindings apply projection deliberately excludes them."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations#setInterpolations(Ldev/turboism/sdk/cubism/model/ParameterBindingTarget;Ljava/util/Map;)V",
+      "classification": "EXCLUDED_WITH_REASON",
+      "endpoint": "",
+      "operation": "",
+      "effect": "UNDOABLE_WRITE",
+      "transactionEligible": false,
+      "undoVerification": "EXACT_HOST_VERIFIED",
+      "supportedVersions": [],
+      "reason": "Batched interpolation updates scoped to exact-host authoring transactions; not an MCP capability."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.transaction.AuthoringTransactionService#batchStoredSourceWrites(Ljava/lang/Runnable;)V",
+      "classification": "EXCLUDED_WITH_REASON",
+      "endpoint": "",
+      "operation": "",
+      "effect": "TRANSACTION_CONTROL",
+      "transactionEligible": false,
+      "undoVerification": "RUNTIME_VERIFIED",
+      "supportedVersions": [],
+      "reason": "Internal batching helper for native authoring transactions; not exposed over MCP."
     }
   ],
   "temporaryPublicExceptions": [
