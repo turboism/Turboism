@@ -23555,7 +23555,7 @@
       "main": "b8c09b5a",
       "entryUnionCount": 1053
     },
-    "selectorCount": 1100,
+    "selectorCount": 1108,
     "capabilityCount": 116,
     "capabilityIds": [
       "cubism.editor-history.move",
@@ -23675,7 +23675,7 @@
       "cubism.texture-atlas.native-layout-invocation",
       "ui.object-context-menu.contribute"
     ],
-    "verificationRecordSha256": "6ca758d3ac0b3712feb57ed9a6501967e40c99b0e70a2111606e4be8ebb84154",
+    "verificationRecordSha256": "89be17e073abb2a90d37226b9a2c0260b4141e8274ddf8b1e1d275201f799258",
     "artifactName": "Live2D_Cubism.jar",
     "artifactSize": 40805584,
     "profileId": "cubism-5.2.03",
