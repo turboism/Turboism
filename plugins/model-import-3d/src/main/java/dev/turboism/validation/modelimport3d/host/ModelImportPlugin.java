@@ -179,7 +179,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
                 base.yawLimit(),
                 base.pitchLimit(),
                 base.maxProjectedVertices(),
-                base.roll().map(ignored -> new ParameterId(prefix + "_Roll")));
+                base.roll().map(ignored -> new ParameterId(prefix + "_Roll")),
+                base.labels());
     }
 
     /** Retain the frozen small-convex path only when its exact proof succeeds.
@@ -235,7 +236,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
                             request.yawLimit(),
                             request.pitchLimit(),
                             request.maxProjectedVertices(),
-                            request.roll());
+                            request.roll(),
+                            request.labels());
                     var choice = SurfaceImportCostPlan.chooseEditable(sources, framed, 512, 1001);
                     var optimized = choice.simplified();
                     var editable = SurfaceWarpImagePlan.compileEditableVertex(choice.geometry(), camera, 1001);
@@ -459,7 +461,20 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     choice == 0 ? 180 : 30,
                     choice == 0 ? 180 : 30,
                     SurfaceImportPlan.MAX_PROJECTED_VERTICES,
-                    choice == 0 ? Optional.of(new ParameterId("Param3DRoll" + suffix)) : Optional.empty());
+                    choice == 0 ? Optional.of(new ParameterId("Param3DRoll" + suffix)) : Optional.empty(),
+                    java.util.Map.of(
+                            "object.rotation.x",
+                            text("object.rotation.x", "X 旋转"),
+                            "object.rotation.y",
+                            text("object.rotation.y", "Y 旋转"),
+                            "object.rotation.z",
+                            text("object.rotation.z", "Z 旋转"),
+                            "object.placement",
+                            text("object.placement", "整体定位"),
+                            "object.warp",
+                            text("object.warp", "曲面变形"),
+                            "object.local-action",
+                            text("object.local-action", "分区 {0} 局部动作")));
             var files = context.userFiles();
             files.request(new UserFileRequest(
                             "import-model-" + suffix,
@@ -641,7 +656,14 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                 transactions::batchStoredSourceWrites);
                         if (fitCanvas)
                             SurfacePlacementAuthoring.fitCanvas(
-                                    target, existingDeformers, created.meshIds(), requestName);
+                                    target,
+                                    existingDeformers,
+                                    created.meshIds(),
+                                    finalPrepared
+                                            .character()
+                                            .geometry()
+                                            .request()
+                                            .placementName());
                         requireTarget(token, documentId, target);
                         return null;
                     }
@@ -694,7 +716,23 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     }
 
                     requireTarget(token, documentId, target);
-                    if (fitCanvas) SurfacePlacementAuthoring.fitCanvas(target, existingDeformers, meshIds, requestName);
+                    if (fitCanvas)
+                        SurfacePlacementAuthoring.fitCanvas(
+                                target,
+                                existingDeformers,
+                                meshIds,
+                                finalPrepared.simple() != null
+                                        ? finalPrepared.simple().request.placementName()
+                                        : finalPrepared.vertices() != null
+                                                ? finalPrepared
+                                                        .vertices()
+                                                        .request()
+                                                        .placementName()
+                                                : finalPrepared
+                                                        .layered()
+                                                        .surface()
+                                                        .request
+                                                        .placementName());
                     ModelTextureAtlasAuthoring.apply(target, meshIds, bindingsBySourceId, meshImageBindings, atlasPlan);
                     var group = target.parameterGroups().addGroup(requestName);
                     for (var parameter : target.parameters().all())

@@ -281,7 +281,12 @@ final class SurfaceWarpAuthoring {
             }
         var part = model.parts().create(p.request.name(), null, -1);
         var warp = model.deformers()
-                .createWarp(p.request.name() + " Warp", part, -1, p.geometry.rows(), p.geometry.columns());
+                .createWarp(
+                        p.request.name() + " " + p.request.label("object.warp", "曲面变形"),
+                        part,
+                        -1,
+                        p.geometry.rows(),
+                        p.geometry.columns());
         var identity = new ArrayList<Point2>();
         for (int y = 0; y <= p.geometry.rows(); y++)
             for (int x = 0; x <= p.geometry.columns(); x++)
@@ -350,7 +355,7 @@ final class SurfaceWarpAuthoring {
                 .createMany(List.of(
                         new ParameterDefinition(
                                 p.request.yaw(),
-                                p.request.name() + " Y 旋转",
+                                p.request.rotationName("Y"),
                                 p.yawKeys.get(0),
                                 0,
                                 p.yawKeys.get(p.yawKeys.size() - 1),
@@ -358,7 +363,7 @@ final class SurfaceWarpAuthoring {
                                 false),
                         new ParameterDefinition(
                                 p.request.pitch(),
-                                p.request.name() + " X 旋转",
+                                p.request.rotationName("X"),
                                 p.pitchKeys.get(0),
                                 0,
                                 p.pitchKeys.get(p.pitchKeys.size() - 1),
@@ -389,7 +394,7 @@ final class SurfaceWarpAuthoring {
         bake.verify(warp);
         verifyInputs(model, created, p.images.inputs, Optional.of(warp.id()));
         verifyImageInputs(model, created);
-        SurfacePlacementAuthoring.wrap(model, part, p.request.name(), projectionRoot);
+        SurfacePlacementAuthoring.wrap(model, part, p.request, projectionRoot);
         verifyInputs(model, created, p.images.inputs, Optional.of(warp.id()));
         verifyImageInputs(model, created);
         observer.completed(Stage.BAKED);
