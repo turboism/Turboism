@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas-dalsoo
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: modeling
 tags: texture-atlas, packing, polygon, auto-layout
 turboismApi: "[0.1.0,0.2.0)"
@@ -14,7 +14,7 @@ interface: none
 
 # Dalsoo Polygon Packing Algorithm
 
-> **Official Turboism plugin** · **Status: Development**
+> **Official Turboism plugin** · **Status: Preview**
 
 Adds an irregular-polygon automatic layout algorithm to Cubism's texture-atlas
 workflow, in the style of Cubism 5.4's contour packing. The kernel is an
@@ -161,13 +161,17 @@ No telemetry is sent by this plugin.
 
 ## Status and limitations
 
-- **Status:** Development.
+- **Status:** Preview.
 - Requires an active texture-atlas editor session and reviewed model
   read/write services.
 - Planning or application failure is reported without applying a partial
   layout; the MaxRects-BSSF and native algorithms remain available.
-- Real-host acceptance on all three supported versions is pending; only
-  offline benchmarks and unit/integration tests have been run.
+- Existing real-host evidence covers Cubism 5.2.03, 5.3.02 and 5.3.03:
+  the 54-run matrix includes 18 Dalsoo runs, with complete placement, finite
+  in-page output and confirmed plugin handling. Three optimized cases were
+  rerun on 5.3.03. See [host performance evidence](../../validation/texture-atlas-current-page/HOST-PERF-MATRIX.md).
+  These measurements do not establish every option, Undo/Redo or save/reopen
+  scenario on every supported host.
 
 ## Troubleshooting
 

@@ -5858,154 +5858,154 @@
   ],
   "plugins": [
     {
+      "id": "dev.turboism.plugin.acp",
+      "descriptor": "plugins/acp/src/main/resources/META-INF/turboism/plugin.json",
+      "sha256": "8fab8b51fbce5b56dcb72e09c9388f7edec01a32b48dfdcdac5363fcbc625e76"
+    },
+    {
       "id": "dev.turboism.plugin.texture-atlas-dalsoo",
       "descriptor": "plugins/atlas-dalsoo-polygon/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "5f72e19be26ca37fd45196cec6f1fa33770d474bba33b4b16a81fddb115d49c2"
+      "sha256": "22f1b7e1a6407b166e39f4ad110ab057da818826004382216a0c91e89b95f729"
     },
     {
       "id": "dev.turboism.plugin.texture-atlas",
       "descriptor": "plugins/atlas-maxrects-bssf/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "3721d3de4f44975394cdf1511a55ac8dba58aac1150551b2c765104e843feebd"
-    },
-    {
-      "id": "dev.turboism.plugin.bounding-box",
-      "descriptor": "plugins/bounding-box/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "8c11dff8bd9e364662d60ed2d44f0c5fc51922727c3cdacf4700072c7490ec07"
+      "sha256": "0997cdb75480e01508e79edf76954dfb24eba30712f8de7039216c651b61f81c"
     },
     {
       "id": "dev.turboism.plugin.boundingbox-warp-mirror",
       "descriptor": "plugins/boundingbox-warp-mirror/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "f6e89e8997ab1bfffa4178771cd8685af422cd0c97d340852337563e9bf5e125"
+      "sha256": "23483e8fac32fc7c8f477757b341abd6dfc1bd3603f41ef484518104af592ed8"
     },
     {
       "id": "dev.turboism.plugin.clipmask-viewer",
       "descriptor": "plugins/clipmask-viewer/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "a1259b302d9c61195d94f839057f2e77ca02ac849554c676b29c6e9226776945"
+      "sha256": "f6d0ab9b6a7380be3a09901fcbb5b81401b243758c0d774b89bf4a4dff86fc6e"
     },
     {
       "id": "dev.turboism.plugin.command-palette",
       "descriptor": "plugins/command-palette/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "1a8ccd929da3995c4adae5adbc931935b89a48223c1d5b919174fde7ee4d7aa7"
-    },
-    {
-      "id": "dev.turboism.plugin.context-menu",
-      "descriptor": "plugins/context-menu/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "3784df97c4d75a3d5547e8a8b0a1bbf81079c1024c215c6e474f7ac3c1806342"
+      "sha256": "fe1abc2655453ea1bb3f91ba93a05c30ff2d791acc589d233ab8ecd3b8b7aab0"
     },
     {
       "id": "dev.turboism.plugin.cubism-tab-filter",
       "descriptor": "plugins/cubism-tab-filter/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "06e92d105676628d1703c239558ba8c78bf41a6944dc6e1fd9b9112b77836310"
+      "sha256": "a95952710dea5c217f4a3ff52856fe99113dc2786f2f78cc955b6fa8a74688f1"
     },
     {
       "id": "dev.turboism.plugin.demo",
       "descriptor": "plugins/demo/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "8db5c03fe2cd3965a5fbef36fe1818aa7eb62e74b01b989e447ac631eff6931f"
+      "sha256": "2b0ef5f5cab0cd479f3de64464178b45a78f8d9040e8ccda27549c394793dc5b"
     },
     {
       "id": "dev.turboism.plugin.external-psd-edit",
       "descriptor": "plugins/external-psd-edit/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "f9abec3f986f9482c0dfa0693f0863a48d05bc997cd29171b1a106c782b3e27d"
+      "sha256": "6819c07ff6f5a24dffb9f5c154ce92579139a7f2201b666e273540ea266a677a"
+    },
+    {
+      "id": "dev.turboism.plugin.frame-animation-import",
+      "descriptor": "plugins/frame-animation-import/src/main/resources/META-INF/turboism/plugin.json",
+      "sha256": "60a4f1ea9f6d7273245d6cf5d650a4c16d43a437d29882b5f30f6f4a2296d6cb"
     },
     {
       "id": "dev.turboism.plugin.historypanel",
       "descriptor": "plugins/history-panel/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "11ce6a00f7b25df99c886ee9349c6a96a05adaafaec7bad1a36a1336953eba4c"
+      "sha256": "9ea45739f20b1181a037078e232219ec57a858787c279fc3371af80a754dea63"
     },
     {
       "id": "dev.turboism.plugin.mcp",
       "descriptor": "plugins/mcp/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "fd86113373804c4862c0f1cddc596d825df219708c787023addae8533c2b6f65"
+      "sha256": "243c8acd661b32615deaa6bd51f1e91222ca2ef19aa778d7e05238604aba92f0"
     },
     {
       "id": "dev.turboism.plugin.mesh-edit-mirror-axis-enhance",
       "descriptor": "plugins/mesh-edit-mirror-axis-enhance/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "9ce1ef4f98b6672bdd01d2c83d20e6a249213ec9bb7c0dd837a72fd11c410f6f"
+      "sha256": "79ab428222d14087a6d328f5803cffbcfda1d698f2900a44a346854ba63de841"
+    },
+    {
+      "id": "dev.turboism.plugin.model-import-3d",
+      "descriptor": "plugins/model-import-3d/src/main/resources/META-INF/turboism/plugin.json",
+      "sha256": "66d50a38ff5c031337e8c223e9a7b679371f0d033e719c3a73161705b1572928"
     },
     {
       "id": "dev.turboism.plugin.palette-label-style",
       "descriptor": "plugins/palette-label-style/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "b95bc9f71e40f3388543868a2cf7de080bdc82bc054e6a882e36477842240f6c"
+      "sha256": "11138417d0aa7a8320b945bb28a25d5a1cdd00e80f678a8a90254e0e67aa0507"
     },
     {
       "id": "dev.turboism.plugin.parameter",
       "descriptor": "plugins/parameter/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "e3b5210467c64c86bbb666af049e6199e9611d1f9d9d73972e9ea9b5bbe60dc6"
+      "sha256": "c4fe9835c90a4d967f2f76827ef51377bcdb2e32807b91641aefa5aa40722fc2"
     },
     {
       "id": "dev.turboism.plugin.parameter-batch-transfer",
       "descriptor": "plugins/parameter-batch-transfer/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "f25fd4f32a77bd5a093cda843f116bc0a678b7c2b6f0c8723af884b1e9606694"
+      "sha256": "e46b2fd3ce99677ed8b91cbd5262c9298392c5b7900932b9a62e212091504a69"
+    },
+    {
+      "id": "dev.turboism.plugin.parameter-lock",
+      "descriptor": "plugins/parameter-lock/src/main/resources/META-INF/turboism/plugin.json",
+      "sha256": "7b77f62b70d103bb3ff8617b97c20d4d9bdce38ad0397802e6d45a7526ea96db"
     },
     {
       "id": "dev.turboism.plugin.perf-stats",
       "descriptor": "plugins/perf-stats/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "fafc2be7b8b21ca7d1d42271afdc6cfaa0db5c87ee982eef1e28b3fff5325ada"
+      "sha256": "6f3d0ca6ff21134276d79c60285bd4f2cb4bbc037b0d70aa466c0e0c781f2c63"
     },
     {
       "id": "dev.turboism.plugin.physics-editor",
       "descriptor": "plugins/physics-editor/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "61231fcabc5b7f45b9e2c64f16ddf8cfac47e1d307295721f0be389a3566afb9"
+      "sha256": "93c4df138aa4e2a9eb8d0d165b012dc48eb75e4e672ea16077d2e65520c06b05"
     },
     {
       "id": "dev.turboism.plugin.project-inspector",
       "descriptor": "plugins/project-inspector/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "6711b8c1b65f4fdbfdf228aed7488ceb0141e2f6507c0ad9bee65cc2546fc7db"
-    },
-    {
-      "id": "dev.turboism.plugin.project-panel",
-      "descriptor": "plugins/project-panel/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "4f9fb2d8fdc5876b83064a9a95202bb29529fa9b7d4976fad0fb4bba8b2807e6"
+      "sha256": "9c5b3a475354685ecf87446d0f407907128af994a91acd66aba8eefc60e93e7c"
     },
     {
       "id": "dev.turboism.plugin.protected-export",
       "descriptor": "plugins/protected-export/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "dd5035676d9162a0a1b2b0c4c9bc3d63fd144619837d457b9d043521edf88e40"
+      "sha256": "d791bcd69350285949c2931f5d8f7a23b88bbdda92e1a6efb8705748428f27fb"
     },
     {
       "id": "dev.turboism.plugin.psd-clip-mask-import",
       "descriptor": "plugins/psd-clip-mask-import/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "86f52f90e1b67f88ee8fefb58bfdb4c70757bcd14ddb581d65c9831767afb519"
-    },
-    {
-      "id": "dev.turboism.plugin.psd-import",
-      "descriptor": "plugins/psd-import/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "3416117e2e7457aa0f03ede49f9c6a90df9a106d0a48fa53093a37ca0c340266"
+      "sha256": "b7bbd9bcb3fda9adf2b5554158d7c1a31da46ebc7cdc3eec5cd21710a11de6f2"
     },
     {
       "id": "dev.turboism.plugin.recent-preview",
       "descriptor": "plugins/recent-preview/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "2b6051ab13b9b1b170888dfe42405cf950501e4b8340dabd0ff21513727130ef"
+      "sha256": "66c8e1fad88a116b03f2c0c5eb9140634a3455d17a18f851dda456e955c4c78e"
     },
     {
       "id": "dev.turboism.plugin.scene-palette-enhancer",
       "descriptor": "plugins/scene-palette-enhancer/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "ef5b4911661d7069d5d46d11329c554896f81b7c20b2e26c0340572869465f3d"
+      "sha256": "ddd4b22b135c6bba38424f9c95dcbda94e2ac092f6b648ee14d67d4d472ca699"
+    },
+    {
+      "id": "dev.turboism.plugin.selection-brush",
+      "descriptor": "plugins/selection-brush/src/main/resources/META-INF/turboism/plugin.json",
+      "sha256": "0af93326e0aa09761dd593b82a97c5455a18b95674105aed5d7f747d5850f9d8"
     },
     {
       "id": "dev.turboism.plugin.texture-atlas-stats",
       "descriptor": "plugins/texture-atlas-stats/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "8dd1b4ad79a16b161ae8964b5072744c7b38cd1c948c652e10100f6994f5c5c4"
-    },
-    {
-      "id": "dev.turboism.plugin.turboism-with-fx",
-      "descriptor": "plugins/turboism-with-fx/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "964678460262884c33055edc2daca871a29734a06122f75434d54ff622a24fc1"
+      "sha256": "da54618711c0bd25e98e9fbb4b16a3531fa25b181cfae6346c4f0e8c2370e645"
     },
     {
       "id": "dev.turboism.plugin.uitheme",
       "descriptor": "plugins/ui-theme/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "e407e4c74386277de563e61663f35a19b091c5748d221fdc079e03838fdf9cc3"
+      "sha256": "4daf8a9fa69918d25be006330c1bffb3343c4b72b314ae05559740acf6cadbe7"
     },
     {
       "id": "dev.turboism.plugin.warp-deformer-alt-symmetry",
       "descriptor": "plugins/warp-deformer-alt-symmetry/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "e545b5d20ff52ccb615c97502fe5ea89878f83685e587159b3551b541edbbcb5"
+      "sha256": "b9df9addf2b4e4d5f984583076daae87a4951db0d29799ed115a29b8761724a0"
     },
     {
       "id": "dev.turboism.plugin.webdav",
       "descriptor": "plugins/webdav-backup/src/main/resources/META-INF/turboism/plugin.json",
-      "sha256": "71b848e8de6f732cec1ef20772f2615c77bb083076773dd706f1ae38f96e55b8"
+      "sha256": "e5f5346cba14f4a7bde44a9d9c1c206bcc2e77de1a6fcfac37360087e6f2fc73"
     }
   ],
   "scenarios": [

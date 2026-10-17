@@ -34,6 +34,43 @@ class NativeParameterAppearanceBridgeTest {
     }
 
     @Test
+    void appearanceChangesCaptureRowsCreatedBeforeHookInstallationWithoutFilterContributions() throws Exception {
+        final var coordinator = new PaletteAppearanceCoordinator();
+        coordinator.replaceHostGeneration(7);
+        final var parameter = new SingleRow("ParamAngleX", "Angle X");
+        final var folder = new FolderRow("GroupA", "Group A");
+        coordinator.bindParameterRowSource(() -> List.of(parameter, folder));
+        NativeParameterAppearanceBridge.install(selectors(), new ParameterControlAppearanceProvider(7, coordinator));
+        final var scope = new PaletteAppearanceCoordinator.Scope("doc", 1, "model", 1, 7, 1);
+        final var icon = new javax.swing.ImageIcon(new java.awt.image.BufferedImage(16, 16, 2));
+        coordinator.bindNativeIconResolver((ref, disabled) -> java.util.Optional.of(icon));
+        coordinator.reconcile(scope);
+        final var registration = coordinator.register(
+                "plugin",
+                1,
+                scope,
+                PaletteAppearanceCoordinator.Palette.PARAMETER,
+                "ParamAngleX",
+                PaletteAppearanceCoordinator.Property.LEADING_ACTION,
+                new dev.turboism.sdk.ui.appearance.PaletteRowAction(
+                        new dev.turboism.sdk.ui.resource.UiIconRef(dev.turboism.sdk.ui.resource.CubismIcon.LOCK),
+                        dev.turboism.sdk.ui.appearance.PaletteRowAction.State.LOCKED,
+                        "lock",
+                        () -> {}));
+        javax.swing.SwingUtilities.invokeAndWait(() -> {});
+        assertEquals(2, coordinator.parameterControlBindings().size());
+        assertEquals(
+                dev.turboism.sdk.ui.appearance.PaletteRowAction.State.LOCKED,
+                parameter.label.component().getClientProperty(NativeRowActionTracker.MARKER));
+        registration.close();
+        javax.swing.SwingUtilities.invokeAndWait(() -> {});
+        assertEquals(null, parameter.label.component().getIcon());
+        coordinator.clearParameterRowSource();
+        javax.swing.SwingUtilities.invokeAndWait(NativeParameterAppearanceBridge::uninstall);
+        assertEquals(0, coordinator.parameterControlBindings().size());
+    }
+
+    @Test
     void forwardsOffEdtRowCallbacksToTheEdt() throws Exception {
         final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
         coordinator.replaceHostGeneration(7);
@@ -47,6 +84,25 @@ class NativeParameterAppearanceBridgeTest {
         assertEquals(1, bindings.size());
         assertEquals("ParamAngleX", bindings.get(0).id());
         assertSame(parameter.label.component(), bindings.get(0).label());
+    }
+
+    @Test
+    void reportsOnlySelectedAttachedSourcesAndClearsOnUninstall() throws Exception {
+        final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
+        coordinator.replaceHostGeneration(7);
+        final SingleRow parameter = new SingleRow("ParamAngleX", "Angle X");
+        NativeParameterAppearanceBridge.install(selectors(), new ParameterControlAppearanceProvider(7, coordinator));
+        javax.swing.SwingUtilities.invokeAndWait(() -> {
+            NativeParameterAppearanceBridge.afterParameterSelection(parameter, true);
+            assertEquals(List.of(), NativeParameterAppearanceBridge.selectedParameterSources());
+            parameter.label.showing = true;
+            assertEquals(List.of(parameter.source), NativeParameterAppearanceBridge.selectedParameterSources());
+            NativeParameterAppearanceBridge.afterParameterSelection(parameter, false);
+            assertEquals(List.of(), NativeParameterAppearanceBridge.selectedParameterSources());
+            NativeParameterAppearanceBridge.afterParameterSelection(parameter, true);
+            NativeParameterAppearanceBridge.uninstall();
+            assertEquals(List.of(), NativeParameterAppearanceBridge.selectedParameterSources());
+        });
     }
 
     private static NativeParameterAppearanceBridge.Selectors selectors() {
@@ -147,9 +203,15 @@ class NativeParameterAppearanceBridgeTest {
 
     static final class CLabel {
         private final JLabel component;
+        private boolean showing;
 
         CLabel(final String text) {
-            component = new JLabel(text);
+            component = new JLabel(text) {
+                @Override
+                public boolean isShowing() {
+                    return showing;
+                }
+            };
         }
 
         public JLabel component() {

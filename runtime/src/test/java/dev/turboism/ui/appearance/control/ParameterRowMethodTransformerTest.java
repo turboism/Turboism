@@ -25,6 +25,7 @@ class ParameterRowMethodTransformerTest {
         final byte[] transformed =
                 transformer.transform(null, Target.class.getClassLoader(), owner, null, null, bytes());
         final AtomicInteger callbacks = new AtomicInteger();
+        final AtomicInteger selectionCallbacks = new AtomicInteger();
         new ClassReader(transformed)
                 .accept(
                         new ClassVisitor(Opcodes.ASM9) {
@@ -45,12 +46,18 @@ class ParameterRowMethodTransformerTest {
                                                 && invokedName.equals("afterParameterRow")
                                                 && invokedDescriptor.equals("(Ljava/lang/Object;)V"))
                                             callbacks.incrementAndGet();
+                                        if (invokedName.equals("afterParameterSelection")
+                                                && invokedDescriptor.equals("(Ljava/lang/Object;Z)V")) {
+                                            assertEquals("updateSelection", name);
+                                            selectionCallbacks.incrementAndGet();
+                                        }
                                     }
                                 };
                             }
                         },
                         0);
         assertEquals(2, callbacks.get());
+        assertEquals(1, selectionCallbacks.get());
     }
 
     private static byte[] bytes() throws Exception {

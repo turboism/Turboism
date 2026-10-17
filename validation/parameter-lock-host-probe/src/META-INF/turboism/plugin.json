@@ -1,0 +1,65 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.validation.parameter-lock",
+  "name": "Parameter Lock Host Validation Probe",
+  "version": "0.0.0",
+  "description": "Task-local exact-host probe validating parameter-lock production plugin row leading action lock/unlock, native 16px icon slot MouseEvent dispatch, MARKER verification, parameter group recursion & MIXED state, native controller write rejection, and persistence.",
+  "entrypoints": [
+    "dev.turboism.validation.parameterlock.ParameterLockHostValidationPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read model parameters, selection, and model ID for parameter lock validation."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Attempt parameter value modification before and after locking to verify rejection."
+    },
+    {
+      "id": "turboism.cubism.model.observe",
+      "scope": "application",
+      "reason": "Observe model readiness and active model changes."
+    },
+    {
+      "id": "turboism.file.read",
+      "scope": "application",
+      "reason": "Read probe result and snapshot state."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Write probe validation results and snapshot state."
+    }
+  ],
+  "capabilities": [
+    "cubism.model.read",
+    "cubism.model.write",
+    "cubism.model.observe",
+    "cubism.editor-ui.top-menu"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  },
+  "tags": [
+    "validation",
+    "parameter-lock"
+  ],
+  "category": "workflow"
+}

@@ -10,5 +10,7 @@ public enum CubismIcon {
     ART_MESH,
     WARP_DEFORMER,
     ROTATION_DEFORMER,
-    PART
+    PART,
+    LOCK,
+    LOCK_PLACEHOLDER
 }

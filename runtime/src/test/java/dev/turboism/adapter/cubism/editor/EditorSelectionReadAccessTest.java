@@ -66,6 +66,34 @@ class EditorSelectionReadAccessTest {
     }
 
     @Test
+    void projectsIndependentParameterPaletteSelectionAndRejectsCopiedModelSources() {
+        final Fixture active = new Fixture();
+        final Fixture copied = new Fixture();
+        Host.document = active.document;
+        final EditorSelectionReadAccess access =
+                new EditorSelectionReadAccess(resolver(true), () -> List.of(active.parameter, copied.parameter));
+        assertEquals(List.of("ParamA"), access.currentSelection().selectedObjectIds());
+        assertTrue(access.currentSelection().activeParameterId().isEmpty());
+
+        Host.document = copied.document;
+        final EditorSelectionReadAccess stale =
+                new EditorSelectionReadAccess(resolver(true), () -> List.of(active.parameter));
+        assertEquals(HostSelection.empty(), stale.currentSelection());
+        Host.document = null;
+        assertEquals(HostSelection.empty(), stale.currentSelection());
+    }
+
+    @Test
+    void mergesPaletteSelectionWithoutDuplicatingGlobalSelection() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        Host.updateManager.selection = List.of(fixture.mesh.guid, fixture.parameter.guid);
+        final EditorSelectionReadAccess access =
+                new EditorSelectionReadAccess(resolver(true), () -> List.of(fixture.parameter));
+        assertEquals(List.of("MeshA", "ParamA"), access.currentSelection().selectedObjectIds());
+    }
+
+    @Test
     void dropsUnknownGuidsInsteadOfMisattributingThem() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;

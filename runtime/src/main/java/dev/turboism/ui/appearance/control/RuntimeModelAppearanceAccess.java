@@ -575,6 +575,35 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
         }
 
         @Override
+        public Registration overrideLeadingAction(final dev.turboism.sdk.ui.appearance.PaletteRowAction action) {
+            Objects.requireNonNull(action, "action");
+            if (palette != PaletteAppearanceCoordinator.Palette.PARAMETER
+                    && palette != PaletteAppearanceCoordinator.Palette.PARAMETER_GROUP) {
+                throw new UnsupportedOperationException("Leading actions require a parameter or parameter-group row");
+            }
+            final var active = new java.util.concurrent.atomic.AtomicBoolean(true);
+            final var guarded = new dev.turboism.sdk.ui.appearance.PaletteRowAction(
+                    action.icon(),
+                    action.state(),
+                    action.tooltip(),
+                    () -> {
+                        if (!active.get()) throw new IllegalStateException("Palette row action is closed");
+                        appearanceModifyPermission("model.appearance.leading-action.invoke");
+                        requireScope(scope);
+                        action.onClick().run();
+                    },
+                    action.editingDisabled());
+            final Registration registration = register(
+                    PaletteAppearanceCoordinator.Property.LEADING_ACTION,
+                    guarded,
+                    "model.appearance.leading-action.register");
+            return () -> {
+                active.set(false);
+                registration.close();
+            };
+        }
+
+        @Override
         public PaletteEntryState resolved() {
             readPermission("model.appearance.resolved");
             final PaletteAppearanceCoordinator.Scope current = requireScope(scope);
