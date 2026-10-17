@@ -30,7 +30,8 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         BOLD,
         ITALIC,
         TEXT_COLOR,
-        BACKGROUND_COLOR
+        BACKGROUND_COLOR,
+        LEADING_ACTION
     }
 
     /**
@@ -73,8 +74,82 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
     private Scope currentScope;
     private long hostGeneration;
     private final CopyOnWriteArrayList<Runnable> listeners = new CopyOnWriteArrayList<>();
+    private volatile java.util.function.BiFunction<
+                    dev.turboism.sdk.ui.resource.UiIconRef, Boolean, Optional<javax.swing.Icon>>
+            nativeIcons = (ref, disabled) -> Optional.empty();
+    private volatile java.util.function.Supplier<Iterable<?>> parameterRowSource = java.util.List::of;
+    private final AtomicBoolean actionNotificationPending = new AtomicBoolean();
     private long sequence;
     private boolean closed;
+
+    private volatile java.util.function.BiFunction<Object, Boolean, ParameterEditorControls> parameterEditors =
+            (row, secondary) -> null;
+
+    /** Installs the exact verified editor source for the current host session. */
+    public void bindParameterEditorSource(
+            final java.util.function.BiFunction<Object, Boolean, ParameterEditorControls> source) {
+        parameterEditors = java.util.Objects.requireNonNull(source, "source");
+    }
+
+    /** Revokes native editor access on disconnect. */
+    public void clearParameterEditorSource() {
+        parameterEditors = (row, secondary) -> null;
+    }
+
+    ParameterEditorControls parameterEditors(final Object row, final boolean secondary) {
+        return parameterEditors.apply(row, secondary);
+    }
+
+    /** Supplies rows created before the appearance hook was installed, using the verified host plan. */
+    public void bindParameterRowSource(final java.util.function.Supplier<Iterable<?>> source) {
+        parameterRowSource = Objects.requireNonNull(source, "source");
+    }
+
+    /** Revokes the native row source before its host connection is released. */
+    public void clearParameterRowSource() {
+        parameterRowSource = java.util.List::of;
+        clearParameterEditorSource();
+    }
+
+    void replayParameterRows() {
+        NativeParameterAppearanceBridge.replayExistingRows(parameterRowSource.get());
+    }
+
+    /** Binds native icon resolution to the current verified host connection. */
+    public void bindNativeIconResolver(
+            final java.util.function.BiFunction<
+                            dev.turboism.sdk.ui.resource.UiIconRef, Boolean, Optional<javax.swing.Icon>>
+                    resolver) {
+        nativeIcons = Objects.requireNonNull(resolver, "resolver");
+    }
+
+    /** Clears any native handles when the host disconnects. */
+    public void clearNativeIconResolver() {
+        nativeIcons = (ref, disabled) -> Optional.empty();
+    }
+
+    Optional<javax.swing.Icon> resolveIcon(final dev.turboism.sdk.ui.resource.UiIconRef ref, final boolean disabled) {
+        return nativeIcons.apply(ref, disabled);
+    }
+
+    Optional<dev.turboism.sdk.ui.appearance.PaletteRowAction> resolveLeadingAction(
+            final long generation, final Palette palette, final String objectId) {
+        synchronized (monitor) {
+            if (closed || currentScope == null || currentScope.hostGeneration() != generation) return Optional.empty();
+            final Object action = latest(currentScope, palette, objectId, Property.LEADING_ACTION);
+            return action instanceof dev.turboism.sdk.ui.appearance.PaletteRowAction rowAction
+                    ? Optional.of(rowAction)
+                    : Optional.empty();
+        }
+    }
+
+    private void notifyActionChange() {
+        if (!actionNotificationPending.compareAndSet(false, true)) return;
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            actionNotificationPending.set(false);
+            notifyChange();
+        });
+    }
 
     /**
      * Reconciles the active scope. Scope switches only change which scope is readable;
@@ -190,6 +265,7 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
             changed =
                     hostGeneration != 0 || currentScope != null || !overrides.isEmpty() || !parameterControls.isEmpty();
             hostGeneration = 0;
+            clearParameterRowSource();
             overrides.clear();
             parameterControls.clear();
             currentScope = null;
@@ -241,7 +317,8 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
             requireCurrent(scope);
             overrides.put(key, new Stored(token, checkedValue, ++sequence));
         }
-        notifyChange();
+        if (property == Property.LEADING_ACTION) notifyActionChange();
+        else notifyChange();
         final AtomicBoolean closedRegistration = new AtomicBoolean();
         return () -> {
             if (closedRegistration.compareAndSet(false, true)) {
@@ -313,6 +390,7 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
                     hostGeneration != 0 || currentScope != null || !overrides.isEmpty() || !parameterControls.isEmpty();
             closed = true;
             hostGeneration = 0;
+            clearParameterRowSource();
             overrides.clear();
             parameterControls.clear();
             currentScope = null;
@@ -330,7 +408,10 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
                 changed = true;
             }
         }
-        if (changed) notifyChange();
+        if (changed) {
+            if (key.property() == Property.LEADING_ACTION) notifyActionChange();
+            else notifyChange();
+        }
     }
 
     private void notifyChange() {
@@ -388,6 +469,12 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
             }
             case BOLD, ITALIC -> {
                 if (!(value instanceof Boolean)) throw new IllegalArgumentException("style flag must be Boolean");
+                yield value;
+            }
+            case LEADING_ACTION -> {
+                if (!(value instanceof dev.turboism.sdk.ui.appearance.PaletteRowAction)) {
+                    throw new IllegalArgumentException("leading action must be PaletteRowAction");
+                }
                 yield value;
             }
             case TEXT_COLOR, BACKGROUND_COLOR -> {

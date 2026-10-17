@@ -21,8 +21,8 @@ class CubismNativeIconResolverTest {
     Path temporary;
 
     @Test
-    void catalogHasExactlyTheReviewedEightyVariantsAndNineArtifacts() {
-        assertEquals(80, CubismNativeIconCatalog.resources().size());
+    void catalogHasExactlyTheReviewed120VariantsAndNineArtifacts() {
+        assertEquals(120, CubismNativeIconCatalog.resources().size());
         for (var entry : CubismNativeIconCatalog.resources().entrySet()) {
             final NativeIconVariant key = entry.getKey();
             assertEquals(16 * key.scalePercent() / 100, key.physicalSize());
@@ -43,6 +43,10 @@ class CubismNativeIconResolverTest {
                     final var part = new NativeIconVariant(CubismIcon.PART, theme, scale, disabled);
                     assertTrue(CubismNativeIconCatalog.resources().containsKey(part));
                     assertTrue(part.resourcePath().contains("/Folder-Colored_16x16_"));
+
+                    final var lock = new NativeIconVariant(CubismIcon.LOCK, theme, scale, disabled);
+                    assertTrue(CubismNativeIconCatalog.resources().containsKey(lock));
+                    assertTrue(lock.resourcePath().contains("/Lock_16x16_"));
                 }
             }
         }

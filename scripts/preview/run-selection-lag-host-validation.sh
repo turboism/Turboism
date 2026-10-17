@@ -36,7 +36,6 @@ exec bash "$runner" \
   --bundle-root "$bundle_root" \
   --agent "$bundle_root/turboism-agent.jar" \
   --plugin "$bundle_root/plugins/parameter.jar:parameter.jar" \
-  --plugin "$bundle_root/plugins/context-menu.jar:context-menu.jar" \
   --plugin "$probe_jar:selection-lag-probe.jar" \
   --fixture-remote "$fixture_src" \
   --fixture-sha256 "$fixture_sha256" \

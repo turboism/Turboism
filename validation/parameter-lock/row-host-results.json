@@ -1,0 +1,200 @@
+[
+  {
+    "jobId": "d2c37947-1cd7-4f53-8277-d6e00638451b",
+    "runId": "queue-5efe88a3f217494ba2d369f8ad51f47c",
+    "terminalState": "succeeded",
+    "cleanup": "safe",
+    "normalExit": true,
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "validationStatus": "PASS",
+    "taskDir": "{HOST_HOME}/TurboismValidation/parameter-lock/5302-row-ui-replay-matrix/queue-5efe88a3f217494ba2d369f8ad51f47c"
+  },
+  {
+    "jobId": "4c1171c9-7074-4ecc-b051-5253f70b3d32",
+    "runId": "queue-1b5155f2fdfd4ed0a47a8b4f0c4be939",
+    "terminalState": "succeeded",
+    "cleanup": "safe",
+    "normalExit": true,
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "validationStatus": "PASS",
+    "taskDir": "{HOST_HOME}/TurboismValidation/parameter-lock/5203-row-ui-replay-matrix/queue-1b5155f2fdfd4ed0a47a8b4f0c4be939"
+  },
+  {
+    "jobId": "905e9f95-3de9-4c52-bc7c-2a59a4c85b5a",
+    "runId": "queue-f854503caad24ee6b52d35bec54b35cc",
+    "terminalState": "succeeded",
+    "cleanup": "safe",
+    "normalExit": true,
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "validationStatus": "PASS",
+    "taskDir": "{HOST_HOME}/TurboismValidation/parameter-lock/5302-row-ui-replay-persist-write/queue-f854503caad24ee6b52d35bec54b35cc"
+  },
+  {
+    "jobId": "27963bf9-0ddf-4ca0-858d-6b359759270c",
+    "runId": "queue-f9b129fd16604bfbaf5ff1831e867d91",
+    "terminalState": "succeeded",
+    "cleanup": "safe",
+    "normalExit": true,
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "validationStatus": "PASS",
+    "taskDir": "{HOST_HOME}/TurboismValidation/parameter-lock/5302-row-ui-replay-persist-read/queue-f9b129fd16604bfbaf5ff1831e867d91"
+  },
+  {
+    "jobId": "356d82ae-fd96-450b-bcc1-67023bd29c85",
+    "runId": "queue-0b72b12ac4034ea6ba5db78062cf2292",
+    "terminalState": "succeeded",
+    "cleanup": "safe",
+    "normalExit": true,
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "validationStatus": "PASS",
+    "taskDir": "{HOST_HOME}/TurboismValidation/parameter-lock/5302-row-ui-group-all-matrix/queue-0b72b12ac4034ea6ba5db78062cf2292",
+    "probeResults": {
+      "testedGroupId": "ParamGroup",
+      "testedGroupDescendantsCount": "2",
+      "groupLockAll.verifiedCount": "2",
+      "groupUnlockAll.verifiedCount": "2",
+      "nestedGroupRecursion.status": "NOT_TESTED",
+      "groupFixture.restored": "true",
+      "status": "PASS",
+      "mode": "matrix",
+      "checks": "rowLeadingActionVerified,unlockedWritable,nativeControllerWriteUnlockedAccepted,rowLockClicked,lockedRejectsWrite,nativeControllerWriteLockedRejected,nativeControlInspect,rowUnlockClicked,unlockedRestoredWritable,nativeControllerWriteUnlockedRestored,groupMixedStateVerified,groupMixedClickLocksAll,groupUnlockClickUnlocksAll,groupRecursionVerified"
+    },
+    "artifacts": [
+      {
+        "sha256": "f5242ef058d42a9b9d279a20f638e11fca8c793798feb8feb04dd3e714082b84",
+        "name": "turboism-agent.jar"
+      },
+      {
+        "sha256": "f871b6558b5e9c334c2398705c9ba01cc8622db6c688749e0fc4cc9876618e1d",
+        "name": "parameter-lock.jar"
+      },
+      {
+        "sha256": "ce6dc5b066b71497f2de28674ebc31ea48238b87f8edf5f64fb375109a0049f8",
+        "name": "parameter-lock-host-validation-probe.jar"
+      },
+      {
+        "sha256": "743fc360c0ef38bb2c51686a3a2c9f2e305a75a233185c0001293119ecf90996",
+        "name": "native-startup-assistance-agent.jar"
+      }
+    ]
+  },
+  {
+    "jobId": "b94f7555-8c07-4c0c-b163-4533a77d852e",
+    "runId": "queue-4330cb925acc420db34ebdb52358f621",
+    "terminalState": "succeeded",
+    "cleanup": "safe",
+    "normalExit": true,
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "validationStatus": "PASS",
+    "taskDir": "{HOST_HOME}/TurboismValidation/parameter-lock/5203-row-ui-group-all-matrix/queue-4330cb925acc420db34ebdb52358f621",
+    "probeResults": {
+      "testedGroupId": "ParamGroup",
+      "testedGroupDescendantsCount": "2",
+      "groupLockAll.verifiedCount": "2",
+      "groupUnlockAll.verifiedCount": "2",
+      "nestedGroupRecursion.status": "NOT_TESTED",
+      "groupFixture.restored": "true",
+      "status": "PASS",
+      "mode": "matrix",
+      "checks": "rowLeadingActionVerified,unlockedWritable,nativeControllerWriteUnlockedAccepted,rowLockClicked,lockedRejectsWrite,nativeControllerWriteLockedRejected,nativeControlInspect,rowUnlockClicked,unlockedRestoredWritable,nativeControllerWriteUnlockedRestored,groupMixedStateVerified,groupMixedClickLocksAll,groupUnlockClickUnlocksAll,groupRecursionVerified"
+    },
+    "artifacts": [
+      {
+        "sha256": "f5242ef058d42a9b9d279a20f638e11fca8c793798feb8feb04dd3e714082b84",
+        "name": "turboism-agent.jar"
+      },
+      {
+        "sha256": "f871b6558b5e9c334c2398705c9ba01cc8622db6c688749e0fc4cc9876618e1d",
+        "name": "parameter-lock.jar"
+      },
+      {
+        "sha256": "ce6dc5b066b71497f2de28674ebc31ea48238b87f8edf5f64fb375109a0049f8",
+        "name": "parameter-lock-host-validation-probe.jar"
+      },
+      {
+        "sha256": "743fc360c0ef38bb2c51686a3a2c9f2e305a75a233185c0001293119ecf90996",
+        "name": "native-startup-assistance-agent.jar"
+      }
+    ]
+  },
+  {
+    "jobId": "d8e762f7-ee5b-4ded-9e02-4efd2857b063",
+    "runId": "queue-2afe5e7c083147cb9f5d7ba69754c628",
+    "terminalState": "succeeded",
+    "cleanup": "safe",
+    "normalExit": true,
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "validationStatus": "PASS",
+    "taskDir": "{HOST_HOME}/TurboismValidation/parameter-lock/5302-row-ui-layout-persist-read/queue-2afe5e7c083147cb9f5d7ba69754c628",
+    "probeResults": {
+      "status": "PASS",
+      "mode": "persist-read",
+      "checks": "persistReadRestoredLocked,persistReadUnlocked"
+    },
+    "artifacts": [
+      {
+        "sha256": "f5242ef058d42a9b9d279a20f638e11fca8c793798feb8feb04dd3e714082b84",
+        "name": "turboism-agent.jar"
+      },
+      {
+        "sha256": "f871b6558b5e9c334c2398705c9ba01cc8622db6c688749e0fc4cc9876618e1d",
+        "name": "parameter-lock.jar"
+      },
+      {
+        "sha256": "ce6dc5b066b71497f2de28674ebc31ea48238b87f8edf5f64fb375109a0049f8",
+        "name": "parameter-lock-host-validation-probe.jar"
+      },
+      {
+        "sha256": "743fc360c0ef38bb2c51686a3a2c9f2e305a75a233185c0001293119ecf90996",
+        "name": "native-startup-assistance-agent.jar"
+      }
+    ]
+  },
+  {
+    "jobId": "9f10dcd0-ba85-484c-8051-373860f2342c",
+    "runId": "queue-7465328d7bf245b6bae6b9273e3a7b45",
+    "terminalState": "succeeded",
+    "cleanup": "safe",
+    "normalExit": true,
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "validationStatus": "PASS",
+    "taskDir": "{HOST_HOME}/TurboismValidation/parameter-lock/5302-row-ring-matrix/queue-7465328d7bf245b6bae6b9273e3a7b45",
+    "probeResults": {
+      "testedGroupId": "ParamGroup",
+      "testedGroupDescendantsCount": "2",
+      "groupLockAll.verifiedCount": "2",
+      "groupUnlockAll.verifiedCount": "2",
+      "nestedGroupRecursion.status": "NOT_TESTED",
+      "groupFixture.restored": "true",
+      "status": "PASS",
+      "mode": "matrix",
+      "checks": "rowLeadingActionVerified,unlockedWritable,nativeControllerWriteUnlockedAccepted,rowLockClicked,lockedRejectsWrite,nativeControllerWriteLockedRejected,nativeControlInspect,rowUnlockClicked,unlockedRestoredWritable,nativeControllerWriteUnlockedRestored,groupMixedStateVerified,groupMixedClickLocksAll,groupUnlockClickUnlocksAll,groupRecursionVerified"
+    },
+    "artifacts": [
+      {
+        "sha256": "41c6c395233ce34cdc26e70b3828149b56af67bbe3f4f25e7043fe93ec2673d4",
+        "name": "turboism-agent.jar"
+      },
+      {
+        "sha256": "f871b6558b5e9c334c2398705c9ba01cc8622db6c688749e0fc4cc9876618e1d",
+        "name": "parameter-lock.jar"
+      },
+      {
+        "sha256": "ce6dc5b066b71497f2de28674ebc31ea48238b87f8edf5f64fb375109a0049f8",
+        "name": "parameter-lock-host-validation-probe.jar"
+      },
+      {
+        "sha256": "743fc360c0ef38bb2c51686a3a2c9f2e305a75a233185c0001293119ecf90996",
+        "name": "native-startup-assistance-agent.jar"
+      }
+    ]
+  }
+]

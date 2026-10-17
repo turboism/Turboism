@@ -15,6 +15,12 @@ interface HostAdapterConnection extends AutoCloseable {
 
     RuntimeHostAdapters adapters();
 
+    /** Resolves only preloaded native icon handles for this connection. */
+    default java.util.Optional<javax.swing.Icon> resolveUiIcon(
+            final dev.turboism.sdk.ui.resource.UiIconRef reference, final boolean disabled) {
+        return java.util.Optional.empty();
+    }
+
     /**
      * Refreshes presentation-only state for already-installed host UI roots.
      *

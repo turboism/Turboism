@@ -366,14 +366,20 @@ final class PaletteToolbarSupport {
             final PaletteFilterHostOperations host,
             final PaletteToolbarHostOperations.ButtonContribution contribution) {
         final PaletteToolbarContributionDescriptor descriptor = contribution.descriptor();
-        ImageIcon icon = null;
-        if (host.resources != null) {
+        javax.swing.Icon icon = descriptor.nativeIcon() == null
+                ? null
+                : host.nativeIconResolver.apply(descriptor.nativeIcon(), false).orElse(null);
+        final javax.swing.Icon disabledIcon = descriptor.nativeIcon() == null
+                ? null
+                : host.nativeIconResolver.apply(descriptor.nativeIcon(), true).orElse(null);
+        if (descriptor.nativeIcon() == null && host.resources != null) {
             final URL url = host.resources
                     .resource(descriptor.pluginId(), descriptor.iconResourcePath())
                     .orElse(null);
             if (url != null) icon = new ImageIcon(url);
         }
         final JButton button = new JButton(descriptor.label(), icon);
+        button.setDisabledIcon(disabledIcon);
         button.setName(TOOLBAR_BUTTON_NAME);
         button.putClientProperty(TOOLBAR_BUTTON_MARKER_KEY, descriptor.nativeId());
         button.setToolTipText(descriptor.label());
