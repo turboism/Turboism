@@ -97,14 +97,10 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                 case "matrix" -> runMatrix(report);
                 case "persistence" -> runPersistence(report);
                 case "selection-brush" -> {
-                    if (context.services()
-                            .find(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class)
-                            .map(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry::isAvailable)
-                            .orElse(false)) {
+                    if (context.services().find(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class)
+                            .map(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry::isAvailable).orElse(false)) {
                         new WindowsModelingSelectionBrushProbe(this, context, report).run();
-                    } else {
-                        report.add("modeling.status=NOT_APPLICABLE_CAPABILITY_UNAVAILABLE");
-                    }
+                    } else { report.add("modeling.status=NOT_APPLICABLE_CAPABILITY_UNAVAILABLE"); }
                     runSelectionBrush(report);
                 }
                 default -> throw new IllegalArgumentException("unsupported mesh validation mode: " + mode);
@@ -119,11 +115,8 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         boolean terminalPublished = false;
         try {
             Files.createDirectories(result.getParent());
-            Files.writeString(
-                    result,
-                    String.join(System.lineSeparator(), report) + System.lineSeparator(),
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.TRUNCATE_EXISTING);
+            Files.writeString( result, String.join(System.lineSeparator(), report) + System.lineSeparator(),
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             terminalPublished = true;
             context.logger()
                     .info("MESH_EDIT_HOST_VALIDATION_RESULT status=" + (passed ? "PASS" : "FAIL") + " mode=" + mode
@@ -144,10 +137,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         require(report, "fixture.edges", !original.edges().isEmpty(), original.toString());
         final MeshPointPosition addedPosition = distinctPosition(original);
 
-        final MeshSnapshot afterAddPoint = mutate(
-                report,
-                "addPoint",
-                original,
+        final MeshSnapshot afterAddPoint = mutate( report, "addPoint", original,
                 () -> edit.addPoints(List.of(addedPosition)),
                 snapshot -> isExactPointAddition(original, snapshot, addedPosition));
         final MeshPointRef added = discoverAddedPoint(original, afterAddPoint, addedPosition);
@@ -155,89 +145,52 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
 
         final MeshPointRef moveSource = pointWithConnectedEdge(original);
         final MeshPointRef moved = movedPoint(moveSource, afterAddPoint);
-        final MeshSnapshot afterMove = mutate(
-                report,
-                "movePoint",
-                afterAddPoint,
-                () -> edit.movePoints(List.of(moved)),
-                snapshot -> isExactPointMove(afterAddPoint, snapshot, moved));
+        final MeshSnapshot afterMove = mutate( report, "movePoint", afterAddPoint,
+                () -> edit.movePoints(List.of(moved)), snapshot -> isExactPointMove(afterAddPoint, snapshot, moved));
         undoRedo(report, "movePoint", afterAddPoint, afterMove);
-        require(
-                report,
-                "movePoint.connectedEdges",
+        require( report, "movePoint.connectedEdges",
                 connectedEdges(original, moveSource.id()).equals(connectedEdges(afterMove, moveSource.id())),
                 "before=" + connectedEdges(original, moveSource.id()) + " after="
                         + connectedEdges(afterMove, moveSource.id()));
 
         final MeshPointRef addEdgePartner = chooseEdgePartner(afterMove, added.id());
         final MeshEdgeRef addedEdge = new MeshEdgeRef(added.id(), addEdgePartner.id(), MeshEdgeKind.INNER);
-        final MeshSnapshot afterAddEdge = mutate(
-                report,
-                "addEdge",
-                afterMove,
-                () -> edit.addEdges(List.of(addedEdge)),
+        final MeshSnapshot afterAddEdge = mutate( report, "addEdge", afterMove, () -> edit.addEdges(List.of(addedEdge)),
                 snapshot -> isExactEdgeAddition(afterMove, snapshot, addedEdge));
         undoRedo(report, "addEdge", afterMove, afterAddEdge);
 
-        final MeshSnapshot afterDeleteEdge = mutate(
-                report,
-                "deleteEdge",
-                afterAddEdge,
+        final MeshSnapshot afterDeleteEdge = mutate( report, "deleteEdge", afterAddEdge,
                 () -> edit.deleteEdges(List.of(addedEdge)),
                 snapshot -> isExactEdgeDeletion(afterAddEdge, snapshot, addedEdge));
         undoRedo(report, "deleteEdge", afterAddEdge, afterDeleteEdge);
 
-        final MeshSnapshot afterDeletePoint = mutate(
-                report,
-                "deletePoint",
-                afterDeleteEdge,
+        final MeshSnapshot afterDeletePoint = mutate( report, "deletePoint", afterDeleteEdge,
                 () -> edit.deletePoints(List.of(added)),
                 snapshot -> isExactPointDeletion(afterDeleteEdge, snapshot, added.id()));
         undoRedo(report, "deletePoint", afterDeleteEdge, afterDeletePoint);
 
         executeCommand(report, "cleanup.deletePoint", EditorCommand.UNDO);
-        require(
-                report,
-                "cleanup.afterDeletePointUndo",
-                awaitSnapshot(afterDeleteEdge::equals, "cleanup delete point undo")
-                        .equals(afterDeleteEdge),
+        require( report, "cleanup.afterDeletePointUndo",
+                awaitSnapshot(afterDeleteEdge::equals, "cleanup delete point undo").equals(afterDeleteEdge),
                 afterDeleteEdge.toString());
         executeCommand(report, "cleanup.deleteEdge", EditorCommand.UNDO);
-        require(
-                report,
-                "cleanup.afterDeleteEdgeUndo",
+        require( report, "cleanup.afterDeleteEdgeUndo",
                 awaitSnapshot(afterAddEdge::equals, "cleanup delete edge undo").equals(afterAddEdge),
                 afterAddEdge.toString());
         executeCommand(report, "cleanup.addEdge", EditorCommand.UNDO);
-        require(
-                report,
-                "cleanup.afterAddEdgeUndo",
-                awaitSnapshot(afterMove::equals, "cleanup add edge undo").equals(afterMove),
-                afterMove.toString());
+        require( report, "cleanup.afterAddEdgeUndo",
+                awaitSnapshot(afterMove::equals, "cleanup add edge undo").equals(afterMove), afterMove.toString());
         executeCommand(report, "cleanup.movePoint", EditorCommand.UNDO);
-        require(
-                report,
-                "cleanup.afterMoveUndo",
+        require( report, "cleanup.afterMoveUndo",
                 awaitSnapshot(afterAddPoint::equals, "cleanup move point undo").equals(afterAddPoint),
                 afterAddPoint.toString());
         executeCommand(report, "cleanup.addPoint", EditorCommand.UNDO);
         final MeshSnapshot restored = awaitSnapshot(original::equals, "cleanup add point undo");
         require(report, "cleanup.restored", restored.equals(original), restored.toString());
         finishMeshEditIfActive(report);
-        require(
-                report,
-                "cleanup.meshEditorExited",
-                context.services()
-                        .find(MeshEditService.class)
-                        .orElse(MeshEditService.unavailable())
-                        .snapshot()
-                        .points()
-                        .isEmpty(),
-                context.services()
-                        .find(MeshEditService.class)
-                        .orElse(MeshEditService.unavailable())
-                        .snapshot()
-                        .toString());
+        require( report, "cleanup.meshEditorExited", context.services().find(MeshEditService.class)
+                        .orElse(MeshEditService.unavailable()).snapshot().points().isEmpty(), context.services()
+                        .find(MeshEditService.class).orElse(MeshEditService.unavailable()).snapshot().toString());
         report.add("original.points=" + original.points().size());
         report.add("original.edges=" + original.edges().size());
         report.add("assignedPointId=" + added.id());
@@ -257,9 +210,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         report.add("input.windowOrigin=" + awaitRobotWindowOrigin(view));
         final VertexSelection selectionBefore = awaitNativeSelection(session);
         final var historyBefore = onEdt(() -> context.cubism().history().snapshot());
-        require(
-                report,
-                "selectionBrush.historyAvailable",
+        require( report, "selectionBrush.historyAvailable",
                 historyBefore.availability() == dev.turboism.sdk.cubism.history.HistorySnapshot.Availability.AVAILABLE,
                 historyBefore.toString());
         final List<String> dirtyBefore = onEdt(() -> dirtySnapshot(session));
@@ -281,10 +232,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         report.add("slider.default=" + controls.value());
         require(report, "selectionBrush.toolCount", controls.toolCount() == 1, controls.toString());
         require(report, "selectionBrush.sliderCount", controls.sliderCount() == 1, controls.toString());
-        require(
-                report,
-                "selectionBrush.sliderRange",
-                controls.minimum() == 8 && controls.maximum() == 128,
+        require( report, "selectionBrush.sliderRange", controls.minimum() == 8 && controls.maximum() == 128,
                 controls.toString());
         require(report, "selectionBrush.sliderDefault", controls.value() == 32, controls.toString());
         setSliderValue(controls.slider(), 8);
@@ -296,34 +244,22 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         clickBrushTool(controls.button());
         final JComponent overlay = awaitOverlay(1);
         requireBrushControlsVisible(awaitBrushControls(), report, "afterActivation");
-        require(
-                report,
-                "selectionBrush.radiusAfterActivation",
-                awaitBrushControls().value() == 8,
+        require( report, "selectionBrush.radiusAfterActivation", awaitBrushControls().value() == 8,
                 "activation reset the displayed radius");
         final StrokeTarget target = projectedTarget(session, selectionBefore, overlay);
         report.add("selection.targetIndex=" + target.index());
         dispatchStroke(overlay, target.point(), InputEvent.BUTTON1_DOWN_MASK);
         final VertexSelection selectionAfter = awaitSelectionContains(target.index());
         report.add("selection.after=" + safe(selectionAfter.indices().toString()));
-        require(
-                report,
-                "selectionBrush.selected",
-                selectionAfter.indices().contains(target.index()),
+        require( report, "selectionBrush.selected", selectionAfter.indices().contains(target.index()),
                 selectionAfter.toString());
-        require(
-                report,
-                "selectionBrush.selectionChanged",
-                !selectionAfter.equals(selectionBefore),
+        require( report, "selectionBrush.selectionChanged", !selectionAfter.equals(selectionBefore),
                 "before=" + selectionBefore + " after=" + selectionAfter);
 
         setSliderValue(awaitBrushControls().slider(), 8);
         final GesturePair pair = separatedPair(session, overlay, 8, target.index());
         report.add("gesture.separatedPair=" + (pair != null));
-        require(
-                report,
-                "selectionBrush.gesturePair",
-                pair != null,
+        require( report, "selectionBrush.gesturePair", pair != null,
                 "the fixture exposes no pair of projectable vertices further apart than 2r+2");
 
         dispatchStroke(overlay, pair.firstPoint(), InputEvent.BUTTON1_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
@@ -331,110 +267,69 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         report.add("gesture.shiftAdded=" + pair.first());
         require(report, "selectionBrush.shiftAdds", shiftAdded.indices().contains(pair.first()), shiftAdded.toString());
         report.add("gesture.shiftPreservedPrior=" + shiftAdded.indices().contains(target.index()));
-        require(
-                report,
-                "selectionBrush.shiftPreservesPrior",
-                shiftAdded.indices().contains(target.index()),
+        require( report, "selectionBrush.shiftPreservesPrior", shiftAdded.indices().contains(target.index()),
                 "a Shift stroke must add to the existing native selection: " + shiftAdded);
 
         dispatchStroke(overlay, pair.secondPoint(), InputEvent.BUTTON1_DOWN_MASK);
         final VertexSelection replacedByPlainStroke = awaitSelectionContains(pair.second());
         report.add("gesture.replaceSelected=" + pair.second());
-        require(
-                report,
-                "selectionBrush.replaceSelectsHit",
-                replacedByPlainStroke.indices().contains(pair.second()),
+        require( report, "selectionBrush.replaceSelectsHit", replacedByPlainStroke.indices().contains(pair.second()),
                 replacedByPlainStroke.toString());
-        report.add("gesture.replaceDroppedPrior="
-                + !replacedByPlainStroke.indices().contains(pair.first()));
-        require(
-                report,
-                "selectionBrush.replaceDropsPrior",
-                !replacedByPlainStroke.indices().contains(pair.first()),
+        report.add("gesture.replaceDroppedPrior=" + !replacedByPlainStroke.indices().contains(pair.first()));
+        require( report, "selectionBrush.replaceDropsPrior", !replacedByPlainStroke.indices().contains(pair.first()),
                 "an unmodified stroke must replace the native selection: " + replacedByPlainStroke);
 
         dispatchStroke(overlay, pair.firstPoint(), InputEvent.BUTTON1_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
         final VertexSelection unionAgain = awaitSelectionContains(pair.first());
         report.add("gesture.unionKeptSecond=" + unionAgain.indices().contains(pair.second()));
-        require(
-                report,
-                "selectionBrush.shiftPreservesSecond",
-                unionAgain.indices().contains(pair.second()),
+        require( report, "selectionBrush.shiftPreservesSecond", unionAgain.indices().contains(pair.second()),
                 "a Shift stroke must keep the vertices selected by the previous stroke: " + unionAgain);
 
         dispatchStroke(overlay, pair.secondPoint(), InputEvent.BUTTON1_DOWN_MASK | InputEvent.CTRL_DOWN_MASK);
         final VertexSelection removed = awaitSelectionExcludes(pair.second());
         report.add("gesture.ctrlRemoved=" + pair.second());
-        require(
-                report,
-                "selectionBrush.ctrlRemoves",
-                !removed.indices().contains(pair.second()),
+        require( report, "selectionBrush.ctrlRemoves", !removed.indices().contains(pair.second()),
                 "a Ctrl stroke must deselect its hits: " + removed);
         report.add("gesture.ctrlKeptFirst=" + removed.indices().contains(pair.first()));
-        require(
-                report,
-                "selectionBrush.ctrlKeepsOthers",
-                removed.indices().contains(pair.first()),
+        require( report, "selectionBrush.ctrlKeepsOthers", removed.indices().contains(pair.first()),
                 "a Ctrl stroke must not disturb the rest of the native selection: " + removed);
-        dispatchStroke(
-                overlay,
-                pair.firstPoint(),
+        dispatchStroke( overlay, pair.firstPoint(),
                 InputEvent.BUTTON1_DOWN_MASK | InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
-        require(
-                report,
-                "selectionBrush.ctrlShiftRemoves",
-                !awaitSelectionExcludes(pair.first()).indices().contains(pair.first()),
-                "Ctrl must win over Shift");
+        require( report, "selectionBrush.ctrlShiftRemoves",
+                !awaitSelectionExcludes(pair.first()).indices().contains(pair.first()), "Ctrl must win over Shift");
         runBrushInputAssertions(session, awaitBrushControls(), overlay, report);
         proveBrushCancellation(session, overlay, report);
 
-        final MeshSnapshot geometryAfter = context.services()
-                .find(MeshEditService.class)
-                .orElse(MeshEditService.unavailable())
-                .snapshot();
+        final MeshSnapshot geometryAfter = context.services().find(MeshEditService.class)
+                .orElse(MeshEditService.unavailable()).snapshot();
         final boolean geometryUnchanged = geometryBefore.equals(geometryAfter);
         final boolean undoAfter = isCommandAvailable(EditorCommand.UNDO);
         report.add("geometry.unchanged=" + geometryUnchanged);
         report.add("undo.available.after=" + undoAfter);
         require(report, "selectionBrush.geometryUnchanged", geometryUnchanged, geometryAfter.toString());
-        require(
-                report,
-                "selectionBrush.undoUnchanged",
-                undoBefore == undoAfter,
+        require( report, "selectionBrush.undoUnchanged", undoBefore == undoAfter,
                 "before=" + undoBefore + " after=" + undoAfter);
 
         final List<String> dirtyAfter = onEdt(() -> dirtySnapshot(session));
         require(report, "selectionBrush.dirtyUnchanged", dirtyBefore.equals(dirtyAfter), dirtyAfter.toString());
         final var historyAfter = onEdt(() -> context.cubism().history().snapshot());
         require(report, "selectionBrush.historyUnchanged", historyBefore.equals(historyAfter), historyAfter.toString());
-        require(
-                report,
-                "selectionBrush.redoUnchanged",
-                redoBefore == isCommandAvailable(EditorCommand.REDO),
+        require( report, "selectionBrush.redoUnchanged", redoBefore == isCommandAvailable(EditorCommand.REDO),
                 "Redo availability changed");
         proveNativeConfirmationClick(session, awaitBrushControls().button(), report);
         final MeshSnapshot rebuiltGeometry = awaitEditableMesh(report);
-        require(
-                report,
-                "selectionBrush.rebuildGeometry",
-                rebuiltGeometry.equals(geometryBefore),
+        require( report, "selectionBrush.rebuildGeometry", rebuiltGeometry.equals(geometryBefore),
                 rebuiltGeometry.toString());
         final BrushControls rebuilt = awaitBrushControls();
         requireBrushControlsVisible(rebuilt, report, "afterSessionRebuild");
-        require(
-                report,
-                "selectionBrush.radiusAfterSessionRebuild",
-                rebuilt.value() == 8,
+        require( report, "selectionBrush.radiusAfterSessionRebuild", rebuilt.value() == 8,
                 "session rebuild reset the displayed radius");
         final boolean replaced = controls.button() != rebuilt.button() && controls.slider() != rebuilt.slider();
         report.add("rebuild.replaced=" + replaced);
         require(report, "selectionBrush.rebuildReplaced", replaced, "before=" + controls + " after=" + rebuilt);
         clickBrushTool(rebuilt.button());
         final JComponent rebuiltOverlay = awaitOverlay(1);
-        require(
-                report,
-                "selectionBrush.radiusAfterRebuildActivation",
-                awaitBrushControls().value() == 8,
+        require( report, "selectionBrush.radiusAfterRebuildActivation", awaitBrushControls().value() == 8,
                 "rebuilt activation reset the displayed radius");
         invokeEscape(rebuiltOverlay);
         awaitOverlay(0);
@@ -452,9 +347,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         final JComponent view = onEdt(() -> (JComponent) invokeNoArgs(invokeNoArgs(session, "identity"), "component"));
         final Point origin = awaitRobotWindowOrigin(view);
         final Point target = onEdt(() -> nativeConfirmationCenter(session));
-        require(
-                report,
-                "selectionBrush.confirmationPassThrough",
+        require( report, "selectionBrush.confirmationPassThrough",
                 onEdt(() -> SwingUtilities.getDeepestComponentAt(view, target.x, target.y) == view),
                 "the brush intercepts the native confirmation at " + target);
         final int[] nativeReceipts = new int[2];
@@ -480,39 +373,19 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             pressed = false;
             robot.waitForIdle();
             report.add("input.nativeConfirmation=" + target + " delivery=java.awt.Robot");
-            require(
-                    report,
-                    "selectionBrush.confirmationReceivesGesture",
-                    onEdt(() -> nativeReceipts[0] == 1
+            require( report, "selectionBrush.confirmationReceivesGesture", onEdt(() -> nativeReceipts[0] == 1
                             && nativeReceipts[1] == 1
                             && brushReceipts[0] == 0
-                            && brushReceipts[1] == 0),
-                    "native=" + java.util.Arrays.toString(nativeReceipts) + " brush="
+                            && brushReceipts[1] == 0), "native=" + java.util.Arrays.toString(nativeReceipts) + " brush="
                             + java.util.Arrays.toString(brushReceipts));
             final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
-            while (!context.services()
-                            .find(MeshEditService.class)
-                            .orElse(MeshEditService.unavailable())
-                            .snapshot()
-                            .points()
-                            .isEmpty()
-                    && System.nanoTime() < deadline) {
-                Thread.sleep(100);
-            }
-            require(
-                    report,
-                    "selectionBrush.confirmationEndsMeshEdit",
-                    context.services()
-                            .find(MeshEditService.class)
-                            .orElse(MeshEditService.unavailable())
-                            .snapshot()
-                            .points()
-                            .isEmpty(),
+            while (!context.services().find(MeshEditService.class).orElse(MeshEditService.unavailable()).snapshot()
+                            .points().isEmpty()
+                    && System.nanoTime() < deadline) { Thread.sleep(100); }
+            require( report, "selectionBrush.confirmationEndsMeshEdit", context.services().find(MeshEditService.class)
+                            .orElse(MeshEditService.unavailable()).snapshot().points().isEmpty(),
                     "native check did not end mesh edit");
-            require(
-                    report,
-                    "selectionBrush.confirmationRemovesOverlay",
-                    awaitOverlay(0) == null,
+            require( report, "selectionBrush.confirmationRemovesOverlay", awaitOverlay(0) == null,
                     "native check retained the brush overlay");
         } finally {
             if (pressed) robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
@@ -527,14 +400,10 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     private static java.awt.event.MouseAdapter confirmationReceipts(final int[] receipts) {
         return new java.awt.event.MouseAdapter() {
             @Override
-            public void mousePressed(final MouseEvent event) {
-                receipts[0]++;
-            }
+            public void mousePressed(final MouseEvent event) { receipts[0]++; }
 
             @Override
-            public void mouseReleased(final MouseEvent event) {
-                receipts[1]++;
-            }
+            public void mouseReleased(final MouseEvent event) { receipts[1]++; }
         };
     }
 
@@ -583,108 +452,64 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         report.add("input.radiusWitness=" + gesture.radiusWitness());
         setSliderValue(controls.slider(), 8);
         final List<Long> eventNanos = new ArrayList<>();
-        eventNanos.add(dispatchBrushEvent(
-                overlay,
-                MouseEvent.MOUSE_PRESSED,
-                gesture.path().get(0),
+        eventNanos.add(dispatchBrushEvent( overlay, MouseEvent.MOUSE_PRESSED, gesture.path().get(0),
                 InputEvent.BUTTON1_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK));
-        require(
-                report,
-                "selectionBrush.noWriteBeforeRelease",
-                before.equals(awaitNativeSelection(session)),
+        require( report, "selectionBrush.noWriteBeforeRelease", before.equals(awaitNativeSelection(session)),
                 before.toString());
         setSliderValue(controls.slider(), 128);
         for (int step = 1; step < gesture.path().size(); step++) {
-            eventNanos.add(dispatchBrushEvent(
-                    overlay,
-                    MouseEvent.MOUSE_DRAGGED,
-                    gesture.path().get(step),
+            eventNanos.add(dispatchBrushEvent( overlay, MouseEvent.MOUSE_DRAGGED, gesture.path().get(step),
                     InputEvent.BUTTON1_DOWN_MASK | InputEvent.CTRL_DOWN_MASK));
         }
-        require(
-                report,
-                "selectionBrush.noWriteDuringDrag",
-                before.equals(awaitNativeSelection(session)),
+        require( report, "selectionBrush.noWriteDuringDrag", before.equals(awaitNativeSelection(session)),
                 before.toString());
-        require(
-                report,
-                "selectionBrush.previewVisible",
+        require( report, "selectionBrush.previewVisible",
                 onEdt(() -> Boolean.TRUE.equals(overlay.getClientProperty("turboism:selection-brush-preview-visible"))),
                 "stroke preview is absent");
         final var robot = new java.awt.Robot();
         captureBrushPreview(report);
-        eventNanos.add(dispatchBrushEvent(
-                overlay,
-                MouseEvent.MOUSE_RELEASED,
-                gesture.path().get(gesture.path().size() - 1),
-                InputEvent.CTRL_DOWN_MASK));
+        eventNanos.add(dispatchBrushEvent( overlay, MouseEvent.MOUSE_RELEASED,
+                gesture.path().get(gesture.path().size() - 1), InputEvent.CTRL_DOWN_MASK));
         final java.util.TreeSet<Integer> expected = new java.util.TreeSet<>(before.indices());
         expected.addAll(expectedBrushHits(vertices, gesture.path(), 8));
         final VertexSelection after = awaitNativeSelection(session);
-        require(
-                report,
-                "selectionBrush.exactLockedDrag",
-                after.equals(new VertexSelection(List.copyOf(expected))),
+        require( report, "selectionBrush.exactLockedDrag", after.equals(new VertexSelection(List.copyOf(expected))),
                 "expected=" + expected + " actual=" + after);
-        require(
-                report,
-                "selectionBrush.capsuleInterior",
-                after.indices().contains(gesture.interiorIndex()),
+        require( report, "selectionBrush.capsuleInterior", after.indices().contains(gesture.interiorIndex()),
                 after.toString());
-        require(
-                report,
-                "selectionBrush.radiusLocked",
-                !after.indices().contains(gesture.radiusWitness()),
+        require( report, "selectionBrush.radiusLocked", !after.indices().contains(gesture.radiusWitness()),
                 after.toString());
-        require(
-                report,
-                "selectionBrush.previewCleared",
-                onEdt(() ->
+        require( report, "selectionBrush.previewCleared", onEdt(() ->
                         Boolean.FALSE.equals(overlay.getClientProperty("turboism:selection-brush-preview-visible"))),
                 "released stroke preview remains");
         report.add("input.syntheticDragSteps=" + (gesture.path().size() - 1));
         report.add("input.eventNanos=" + eventNanos);
-        report.add("input.maxEventNanos="
-                + eventNanos.stream().mapToLong(Long::longValue).max().orElseThrow());
+        report.add("input.maxEventNanos=" + eventNanos.stream().mapToLong(Long::longValue).max().orElseThrow());
 
         setSliderValue(controls.slider(), 8);
         final Point empty = emptyBrushPoint(vertices, overlay);
         dispatchStroke(overlay, empty, InputEvent.BUTTON1_DOWN_MASK);
-        require(
-                report,
-                "selectionBrush.emptyStroke",
-                after.equals(awaitNativeSelection(session)),
+        require( report, "selectionBrush.emptyStroke", after.equals(awaitNativeSelection(session)),
                 "empty stroke changed selection");
         proveRobotStroke(robot, session, overlay, vertices, gesture.path(), report);
         proveViewInput(session, overlay, report);
     }
 
-    private void proveRobotStroke(
-            final java.awt.Robot robot,
-            final Object session,
-            final JComponent overlay,
-            final List<ProjectedBrushVertex> vertices,
-            final List<Point> path,
-            final List<String> report)
+    private void proveRobotStroke( final java.awt.Robot robot, final Object session, final JComponent overlay,
+            final List<ProjectedBrushVertex> vertices, final List<Point> path, final List<String> report)
             throws Exception {
         final VertexSelection expected = new VertexSelection(expectedBrushHits(vertices, path, 8));
         final List<Point> robotPath = sampledRobotPath(path);
         final var size = onEdt(overlay::getSize);
         final ProjectedBrushVertex seed = vertices.stream()
-                .filter(vertex -> !expected.indices().contains(vertex.index()))
-                .filter(vertex -> vertex.x() >= 1
+                .filter(vertex -> !expected.indices().contains(vertex.index())).filter(vertex -> vertex.x() >= 1
                         && vertex.y() >= 1
                         && vertex.x() < size.width - 1
-                        && vertex.y() < size.height - 1)
-                .findFirst()
-                .orElseThrow(
+                        && vertex.y() < size.height - 1).findFirst().orElseThrow(
                         () -> new IllegalStateException("fixture lacks a distinct real-stroke selection baseline"));
         dispatchStroke(overlay, new Point(Math.round(seed.x()), Math.round(seed.y())), InputEvent.BUTTON1_DOWN_MASK);
         final VertexSelection seeded = awaitNativeSelection(session);
-        require(
-                report,
-                "selectionBrush.realInputBaselineDistinct",
-                !seeded.equals(expected),
+        require( report, "selectionBrush.realInputBaselineDistinct", !seeded.equals(expected),
                 "before=" + seeded + " expected=" + expected);
         final int[] delivered = new int[3];
         final List<Point> deliveredPath = new ArrayList<>();
@@ -719,10 +544,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         try {
             final Point origin = awaitRobotWindowOrigin(overlay);
             final VertexSelection before = awaitNativeSelection(session);
-            require(
-                    report,
-                    "selectionBrush.realInputCalibrationPreservesSelection",
-                    before.equals(seeded),
+            require( report, "selectionBrush.realInputCalibrationPreservesSelection", before.equals(seeded),
                     before.toString());
             robot.mouseMove(origin.x + robotPath.get(0).x, origin.y + robotPath.get(0).y);
             robot.delay(100);
@@ -730,20 +552,14 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
             pressed = true;
             robot.waitForIdle();
-            require(
-                    report,
-                    "selectionBrush.realInputNoWriteBeforeRelease",
-                    before.equals(awaitNativeSelection(session)),
-                    before.toString());
+            require( report, "selectionBrush.realInputNoWriteBeforeRelease",
+                    before.equals(awaitNativeSelection(session)), before.toString());
             for (int step = 1; step < robotPath.size(); step++) {
                 robot.mouseMove(origin.x + robotPath.get(step).x, origin.y + robotPath.get(step).y);
                 robot.delay(50);
             }
             robot.waitForIdle();
-            require(
-                    report,
-                    "selectionBrush.realInputNoWriteDuringDrag",
-                    before.equals(awaitNativeSelection(session)),
+            require( report, "selectionBrush.realInputNoWriteDuringDrag", before.equals(awaitNativeSelection(session)),
                     before.toString());
             robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
             pressed = false;
@@ -752,28 +568,17 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             report.add("input.robotSampledPath=" + safe(robotPath.toString()));
             report.add("input.deliveredEvents=" + safe(onEdt(deliveredEvents::toString)));
             report.add("input.deliveredPathHits=" + onEdt(() -> expectedBrushHits(vertices, deliveredPath, 8)));
-            require(
-                    report,
-                    "selectionBrush.realInputDelivered",
+            require( report, "selectionBrush.realInputDelivered",
                     onEdt(() -> delivered[0] == 1 && delivered[1] > 0 && delivered[2] == 1),
                     "press/drag/release=" + java.util.Arrays.toString(delivered));
             final VertexSelection actual = awaitNativeSelection(session);
             final VertexSelection deliveredExpected =
                     new VertexSelection(onEdt(() -> expectedBrushHits(vertices, deliveredPath, 8)));
-            require(
-                    report,
-                    "selectionBrush.realInputMatchesDeliveredPath",
-                    deliveredExpected.equals(actual),
+            require( report, "selectionBrush.realInputMatchesDeliveredPath", deliveredExpected.equals(actual),
                     "expected=" + deliveredExpected + " actual=" + actual);
-            require(
-                    report,
-                    "selectionBrush.realInputExactSelection",
-                    expected.equals(actual),
+            require( report, "selectionBrush.realInputExactSelection", expected.equals(actual),
                     "expected=" + expected + " actual=" + actual);
-            require(
-                    report,
-                    "selectionBrush.realInputChangesSelection",
-                    !before.equals(actual),
+            require( report, "selectionBrush.realInputChangesSelection", !before.equals(actual),
                     "before=" + before + " after=" + actual);
             report.add("input.delivery=java.awt.Robot");
         } finally {
@@ -819,8 +624,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                     properties.load(input);
                 }
                 if (runId.equals(properties.getProperty("runId")) && "1".equals(properties.getProperty("scale"))) {
-                    final Rectangle actual = new Rectangle(
-                            Integer.parseInt(properties.getProperty("originX")),
+                    final Rectangle actual = new Rectangle( Integer.parseInt(properties.getProperty("originX")),
                             Integer.parseInt(properties.getProperty("originY")),
                             Integer.parseInt(properties.getProperty("width")),
                             Integer.parseInt(properties.getProperty("height")));
@@ -840,12 +644,8 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                         return new RobotCoordinateCandidates(nativeOrigin, awt, origin);
                     });
                     try {
-                        return calibrateRobotWithMoves(
-                                component,
-                                candidates.nativeOrigin(),
-                                candidates.nativeBounds(),
-                                new Point(
-                                        (int) candidates.nativeBounds().getCenterX(),
+                        return calibrateRobotWithMoves( component, candidates.nativeOrigin(), candidates.nativeBounds(),
+                                new Point( (int) candidates.nativeBounds().getCenterX(),
                                         candidates.nativeBounds().y + 30));
                     } catch (IllegalStateException nativeFailure) {
                         context.logger()
@@ -853,10 +653,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                         try {
                             // The compositor rectangle is the client area; the client-drawn
                             // title bar sits above it.
-                            return calibrateRobotWithMoves(
-                                    component,
-                                    candidates.compositorOrigin(),
-                                    actual,
+                            return calibrateRobotWithMoves( component, candidates.compositorOrigin(), actual,
                                     new Point((int) actual.getCenterX(), Math.max(1, actual.y - 15)));
                         } catch (IllegalStateException compositorFailure) {
                             lastRejection = compositorFailure.getMessage();
@@ -902,8 +699,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             throw new IllegalStateException(
                     "Robot coordinate verification differs: requested=" + requestedLocal + " delivered=" + secondLocal);
         }
-        context.logger()
-                .info("Robot coordinate calibration firstScreen=" + firstScreen + " firstLocal=" + firstLocal
+        context.logger().info("Robot coordinate calibration firstScreen=" + firstScreen + " firstLocal=" + firstLocal
                         + " secondScreen=" + secondScreen + " secondLocal=" + secondLocal + " componentOrigin="
                         + origin);
         return origin;
@@ -980,27 +776,19 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         try (var input = Files.newInputStream(receipt)) {
             properties.load(input);
         }
-        require(
-                report,
-                "selectionBrush.previewBoundToRun",
-                runId.equals(properties.getProperty("runId"))
+        require( report, "selectionBrush.previewBoundToRun", runId.equals(properties.getProperty("runId"))
                         && "PASS".equals(properties.getProperty("status"))
-                        && "niri".equals(properties.getProperty("source")),
-                properties.toString());
+                        && "niri".equals(properties.getProperty("source")), properties.toString());
         final Path preview = state.resolve("selection-brush-preview.png");
         final byte[] data = Files.readAllBytes(preview);
         final String digest = java.util.HexFormat.of()
                 .formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(data));
         final var image = javax.imageio.ImageIO.read(preview.toFile());
-        require(
-                report,
-                "selectionBrush.previewCaptured",
-                digest.equals(properties.getProperty("sha256"))
+        require( report, "selectionBrush.previewCaptured", digest.equals(properties.getProperty("sha256"))
                         && image != null
                         && image.getWidth() == Integer.parseInt(properties.getProperty("width"))
                         && image.getHeight() == Integer.parseInt(properties.getProperty("height"))
-                        && imageHasVariation(image),
-                preview.getFileName().toString());
+                        && imageHasVariation(image), preview.getFileName().toString());
         report.add("input.previewSource=niri");
     }
 
@@ -1017,66 +805,27 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         final List<ProjectedBrushVertex> beforeZoom = projectedBrushVertices(session, overlay);
         final Point center = onEdt(() -> new Point(overlay.getWidth() / 2, overlay.getHeight() / 2));
         onEdt(() -> {
-            overlay.dispatchEvent(new java.awt.event.MouseWheelEvent(
-                    overlay,
-                    MouseEvent.MOUSE_WHEEL,
-                    System.currentTimeMillis(),
-                    0,
-                    center.x,
-                    center.y,
-                    0,
-                    false,
-                    java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL,
-                    3,
-                    -1));
+            overlay.dispatchEvent(new java.awt.event.MouseWheelEvent( overlay, MouseEvent.MOUSE_WHEEL,
+                    System.currentTimeMillis(), 0, center.x, center.y, 0, false,
+                    java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL, 3, -1));
             return null;
         });
         final List<ProjectedBrushVertex> zoomed = awaitProjectionChange(session, overlay, beforeZoom);
-        require(
-                report,
-                "selectionBrush.zoomForwarded",
-                !beforeZoom.equals(zoomed),
+        require( report, "selectionBrush.zoomForwarded", !beforeZoom.equals(zoomed),
                 "wheel did not change native projection");
         verifyProjectedCircle(session, overlay, zoomed, report, "afterZoom");
         onEdt(() -> {
             final long when = System.currentTimeMillis();
-            overlay.dispatchEvent(new MouseEvent(
-                    overlay,
-                    MouseEvent.MOUSE_PRESSED,
-                    when,
-                    InputEvent.BUTTON2_DOWN_MASK,
-                    center.x,
-                    center.y,
-                    1,
-                    false,
-                    MouseEvent.BUTTON2));
-            overlay.dispatchEvent(new MouseEvent(
-                    overlay,
-                    MouseEvent.MOUSE_DRAGGED,
-                    when + 1,
-                    InputEvent.BUTTON2_DOWN_MASK,
-                    center.x + 24,
-                    center.y + 12,
-                    0,
-                    false,
-                    MouseEvent.NOBUTTON));
-            overlay.dispatchEvent(new MouseEvent(
-                    overlay,
-                    MouseEvent.MOUSE_RELEASED,
-                    when + 2,
-                    0,
-                    center.x + 24,
-                    center.y + 12,
-                    1,
-                    false,
-                    MouseEvent.BUTTON2));
+            overlay.dispatchEvent(new MouseEvent( overlay, MouseEvent.MOUSE_PRESSED, when, InputEvent.BUTTON2_DOWN_MASK,
+                    center.x, center.y, 1, false, MouseEvent.BUTTON2));
+            overlay.dispatchEvent(new MouseEvent( overlay, MouseEvent.MOUSE_DRAGGED, when + 1,
+                    InputEvent.BUTTON2_DOWN_MASK, center.x + 24, center.y + 12, 0, false, MouseEvent.NOBUTTON));
+            overlay.dispatchEvent(new MouseEvent( overlay, MouseEvent.MOUSE_RELEASED, when + 2, 0, center.x + 24,
+                    center.y + 12, 1, false, MouseEvent.BUTTON2));
             return null;
         });
         final List<ProjectedBrushVertex> panned = awaitProjectionChange(session, overlay, zoomed);
-        require(
-                report,
-                "selectionBrush.panForwarded",
-                !zoomed.equals(panned),
+        require( report, "selectionBrush.panForwarded", !zoomed.equals(panned),
                 "middle drag did not change native projection");
         verifyProjectedCircle(session, overlay, panned, report, "afterPan");
     }
@@ -1093,29 +842,20 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         return current;
     }
 
-    private void verifyProjectedCircle(
-            final Object session,
-            final JComponent overlay,
-            final List<ProjectedBrushVertex> vertices,
-            final List<String> report,
-            final String label)
+    private void verifyProjectedCircle( final Object session, final JComponent overlay,
+            final List<ProjectedBrushVertex> vertices, final List<String> report, final String label)
             throws Exception {
         final java.awt.Dimension size = onEdt(overlay::getSize);
-        final ProjectedBrushVertex target = vertices.stream()
-                .filter(vertex -> vertex.x() >= 9
+        final ProjectedBrushVertex target = vertices.stream().filter(vertex -> vertex.x() >= 9
                         && vertex.y() >= 9
                         && vertex.x() < size.width - 9
-                        && vertex.y() < size.height - 9)
-                .findFirst()
+                        && vertex.y() < size.height - 9).findFirst()
                 .orElseThrow(() -> new IllegalStateException("no visible vertex after native view input"));
         final Point point = new Point(Math.round(target.x()), Math.round(target.y()));
         dispatchStroke(overlay, point, InputEvent.BUTTON1_DOWN_MASK);
         final VertexSelection expected = new VertexSelection(expectedBrushHits(vertices, List.of(point), 8));
         final VertexSelection actual = awaitNativeSelection(session);
-        require(
-                report,
-                "selectionBrush." + label,
-                expected.equals(actual),
+        require( report, "selectionBrush." + label, expected.equals(actual),
                 "point=" + point + " expected=" + expected + " actual=" + actual + " overlayBounds="
                         + onEdt(overlay::getBounds));
     }
@@ -1128,18 +868,12 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         if (point == null) throw new IllegalStateException("cancellation target is outside the viewport");
         dispatchBrushEvent(
                 overlay, MouseEvent.MOUSE_PRESSED, point, InputEvent.BUTTON1_DOWN_MASK | InputEvent.CTRL_DOWN_MASK);
-        dispatchBrushEvent(
-                overlay,
-                MouseEvent.MOUSE_DRAGGED,
-                new Point(point.x + 2, point.y),
+        dispatchBrushEvent( overlay, MouseEvent.MOUSE_DRAGGED, new Point(point.x + 2, point.y),
                 InputEvent.BUTTON1_DOWN_MASK | InputEvent.CTRL_DOWN_MASK);
         invokeEscape(overlay);
         require(report, "selectionBrush.escape", awaitOverlay(0) == null, "overlay remained installed");
         dispatchBrushEvent(overlay, MouseEvent.MOUSE_RELEASED, point, 0);
-        require(
-                report,
-                "selectionBrush.interruptedStroke",
-                before.equals(awaitNativeSelection(session)),
+        require( report, "selectionBrush.interruptedStroke", before.equals(awaitNativeSelection(session)),
                 "Escape committed a partial stroke");
         final BrushControls resumed = awaitBrushControls();
         require(report, "selectionBrush.radiusAfterEscape", resumed.value() == 8, "Escape reset the displayed radius");
@@ -1148,10 +882,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         dispatchBrushEvent(
                 replacement, MouseEvent.MOUSE_PRESSED, point, InputEvent.BUTTON1_DOWN_MASK | InputEvent.CTRL_DOWN_MASK);
         final BrushControls activeControls = awaitBrushControls();
-        require(
-                report,
-                "selectionBrush.radiusAfterReactivation",
-                activeControls.value() == 8,
+        require( report, "selectionBrush.radiusAfterReactivation", activeControls.value() == 8,
                 "reactivation reset the displayed radius");
         final AbstractButton nativePeer = onEdt(() -> {
             final Container row = activeControls.button().getParent();
@@ -1170,21 +901,12 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             nativePeer.doClick();
             return null;
         });
-        require(
-                report,
-                "selectionBrush.nativeToolSwitch",
-                awaitOverlay(0) == null,
+        require( report, "selectionBrush.nativeToolSwitch", awaitOverlay(0) == null,
                 "native tool retained brush overlay");
         dispatchBrushEvent(replacement, MouseEvent.MOUSE_RELEASED, point, 0);
-        require(
-                report,
-                "selectionBrush.nativeSwitchCancelledStroke",
-                before.equals(awaitNativeSelection(session)),
+        require( report, "selectionBrush.nativeSwitchCancelledStroke", before.equals(awaitNativeSelection(session)),
                 "native tool switch committed a partial stroke");
-        require(
-                report,
-                "selectionBrush.radiusAfterNativeSwitch",
-                awaitBrushControls().value() == 8,
+        require( report, "selectionBrush.radiusAfterNativeSwitch", awaitBrushControls().value() == 8,
                 "native tool switch reset the displayed radius");
     }
 
@@ -1192,15 +914,8 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             final JComponent overlay, final int type, final Point point, final int modifiers) throws Exception {
         return onEdt(() -> {
             final long start = System.nanoTime();
-            overlay.dispatchEvent(new MouseEvent(
-                    overlay,
-                    type,
-                    System.currentTimeMillis(),
-                    modifiers,
-                    point.x,
-                    point.y,
-                    type == MouseEvent.MOUSE_DRAGGED ? 0 : 1,
-                    false,
+            overlay.dispatchEvent(new MouseEvent( overlay, type, System.currentTimeMillis(), modifiers, point.x,
+                    point.y, type == MouseEvent.MOUSE_DRAGGED ? 0 : 1, false,
                     type == MouseEvent.MOUSE_DRAGGED ? MouseEvent.NOBUTTON : MouseEvent.BUTTON1));
             return System.nanoTime() - start;
         });
@@ -1215,11 +930,8 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             final JComponent component = (JComponent) invokeNoArgs(identity, "component");
             final Point offset = SwingUtilities.convertPoint(component, 0, 0, overlay);
             final float[] positions = nativeCanvasPositions(identity, resolver);
-            final int count = ((Number) resolverInvoke(
-                            resolver,
-                            "cubism.editor-model.editable-mesh.point-count",
-                            invokeNoArgs(identity, "editableMesh")))
-                    .intValue();
+            final int count = ((Number) resolverInvoke( resolver, "cubism.editor-model.editable-mesh.point-count",
+                            invokeNoArgs(identity, "editableMesh"))).intValue();
             if (count < 0 || count > positions.length / 2)
                 throw new IllegalStateException("invalid editable mesh point count");
             final List<ProjectedBrushVertex> vertices = new ArrayList<>();
@@ -1244,8 +956,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
 
     private static List<Integer> expectedBrushHits(
             final List<ProjectedBrushVertex> vertices, final List<Point> path, final int radius) {
-        return vertices.stream()
-                .filter(vertex -> {
+        return vertices.stream().filter(vertex -> {
                     if (path.size() == 1) return path.get(0).distanceSq(vertex.x(), vertex.y()) <= radius * radius;
                     for (int step = 1; step < path.size(); step++) {
                         final Point a = path.get(step - 1);
@@ -1254,9 +965,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                                 <= radius * radius) return true;
                     }
                     return false;
-                })
-                .map(ProjectedBrushVertex::index)
-                .toList();
+                }).map(ProjectedBrushVertex::index).toList();
     }
 
     private static CapsuleGesture capsuleGesture(
@@ -1268,21 +977,17 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             for (int axis = 0; axis < 2; axis++) {
                 final List<Point> path = new ArrayList<>();
                 for (int step = 0; step <= 4; step++) {
-                    path.add(new Point(
-                            Math.round(vertex.x()) + (axis == 0 ? step * 24 - 36 : 0),
+                    path.add(new Point( Math.round(vertex.x()) + (axis == 0 ? step * 24 - 36 : 0),
                             Math.round(vertex.y()) + (axis == 1 ? step * 24 - 36 : 0)));
                 }
-                if (path.stream()
-                        .anyMatch(point ->
+                if (path.stream().anyMatch(point ->
                                 point.x < 1 || point.y < 1 || point.x >= size.width - 1 || point.y >= size.height - 1))
                     continue;
                 if (path.stream().anyMatch(point -> point.distanceSq(vertex.x(), vertex.y()) <= 8 * 8)) continue;
                 final List<Integer> narrow = expectedBrushHits(vertices, path, 8);
                 if (!narrow.contains(vertex.index())) continue;
-                final var witness = expectedBrushHits(vertices, path, 128).stream()
-                        .filter(index ->
-                                !narrow.contains(index) && !before.indices().contains(index))
-                        .findFirst();
+                final var witness = expectedBrushHits(vertices, path, 128).stream().filter(index ->
+                                !narrow.contains(index) && !before.indices().contains(index)).findFirst();
                 if (witness.isPresent()) return new CapsuleGesture(List.copyOf(path), vertex.index(), witness.get());
             }
         }
@@ -1310,17 +1015,13 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         Throwable last = null;
         while (System.nanoTime() < deadline && !Thread.currentThread().isInterrupted()) {
             try {
-                final Class<?> bridge = Class.forName(
-                        "dev.turboism.adapter.cubism.mesh.NativeMeshToolSessionBridge",
-                        false,
-                        null); // The distributed agent owns this diagnostic bridge on the bootstrap loader.
+                final Class<?> bridge = Class.forName( "dev.turboism.adapter.cubism.mesh.NativeMeshToolSessionBridge",
+                        false, null); // The distributed agent owns this diagnostic bridge on the bootstrap loader.
                 final Method current = bridge.getDeclaredMethod("currentSessionForTests");
                 current.setAccessible(true);
                 final Object session = current.invoke(null);
                 if (session != null) return session;
-            } catch (Throwable failure) {
-                last = failure;
-            }
+            } catch (Throwable failure) { last = failure; }
             Thread.sleep(100L);
         }
         if (Thread.currentThread().isInterrupted()) throw new InterruptedException("mesh-session wait interrupted");
@@ -1390,10 +1091,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             final BrushControls controls, final List<String> report, final String phase) throws Exception {
         final boolean buttonVisible = awaitControlVisible(controls.button());
         final boolean sliderVisible = awaitControlVisible(controls.slider());
-        require(
-                report,
-                "selectionBrush.controlsVisible." + phase,
-                buttonVisible && sliderVisible,
+        require( report, "selectionBrush.controlsVisible." + phase, buttonVisible && sliderVisible,
                 onEdt(() -> "button=" + controlAncestors(controls.button()) + " slider="
                         + controlAncestors(controls.slider())));
         onEdt(() -> {
@@ -1448,23 +1146,17 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
 
     private static BrushControls brushControls() {
         final List<Component> components = showingComponents();
-        final List<AbstractButton> tools = components.stream()
-                .filter(AbstractButton.class::isInstance)
+        final List<AbstractButton> tools = components.stream().filter(AbstractButton.class::isInstance)
                 .map(AbstractButton.class::cast)
                 .filter(button -> button.getName() != null && button.getName().startsWith("turboism:mesh:"))
-                .filter(button -> matches(button, "selection-brush"))
-                .toList();
+                .filter(button -> matches(button, "selection-brush")).toList();
         final List<Component> sliders = components.stream()
                 .filter(component -> matches(component, "selection-brush.radius"))
                 .filter(component -> hasIntMethod(component, "getValue") && hasIntSetter(component, "setValue"))
                 .toList();
         final AbstractButton tool = tools.size() == 1 ? tools.get(0) : null;
         final Component slider = sliders.size() == 1 ? sliders.get(0) : null;
-        return new BrushControls(
-                tool,
-                slider,
-                tools.size(),
-                sliders.size(),
+        return new BrushControls( tool, slider, tools.size(), sliders.size(),
                 slider == null ? Integer.MIN_VALUE : intValue(slider, "getMinimum"),
                 slider == null ? Integer.MIN_VALUE : intValue(slider, "getMaximum"),
                 slider == null ? Integer.MIN_VALUE : sliderValue(slider));
@@ -1496,18 +1188,14 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         try {
             target.getClass().getMethod(name);
             return true;
-        } catch (NoSuchMethodException ignored) {
-            return false;
-        }
+        } catch (NoSuchMethodException ignored) { return false; }
     }
 
     private static boolean hasIntSetter(final Object target, final String name) {
         try {
             target.getClass().getMethod(name, int.class);
             return true;
-        } catch (NoSuchMethodException ignored) {
-            return false;
-        }
+        } catch (NoSuchMethodException ignored) { return false; }
     }
 
     private static int intValue(final Object target, final String method) {
@@ -1518,9 +1206,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         }
     }
 
-    private static int sliderValue(final Object slider) {
-        return intValue(slider, "getValue");
-    }
+    private static int sliderValue(final Object slider) { return intValue(slider, "getValue"); }
 
     private static void setSliderValue(final Object slider, final int value) throws Exception {
         if (!(slider instanceof Component component) || !awaitControlVisible(component)) {
@@ -1631,14 +1317,11 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             final String helperName = lassoConverterHelperName((String) invokeNoArgs(resolver, "cubismVersion"));
             final Class<?> helper = Class.forName(
                     "com.live2d.cubism.view.context.action.action_meshEditor." + helperName, true, loader);
-            final Object converter = helper.getMethod(
-                            "b",
+            final Object converter = helper.getMethod( "b",
                             Class.forName("com.live2d.cubism.doc.model.drawable.artMesh.CArtMesh", false, loader),
                             Class.forName("com.live2d.graphics3d.editableMesh.GEditableMesh2", false, loader))
                     .invoke(helper.getField("a").get(null), artMesh, invokeNoArgs(identity, "editableMesh"));
-            final float[] canvas = (float[]) converter
-                    .getClass()
-                    .getMethod("transform", float[].class, float[].class)
+            final float[] canvas = (float[]) converter.getClass().getMethod("transform", float[].class, float[].class)
                     .invoke(converter, raw, new float[raw.length]);
             if (canvas.length != raw.length) throw new IllegalStateException("native lasso vertex count differs");
             return canvas;
@@ -1662,9 +1345,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             report.add("projection.sourceToCanvasMaxDistance=" + maximum);
             report.add("projection.vertexCount=" + canvas.length / 2);
             report.add("projection.viewMode="
-                    + invokeNoArgs(invokeNoArgs(identity, "modelingView"), "getCurrentViewMode")
-                            .getClass()
-                            .getName());
+                    + invokeNoArgs(invokeNoArgs(identity, "modelingView"), "getCurrentViewMode").getClass().getName());
             return null;
         });
     }
@@ -1729,16 +1410,8 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             throws Exception {
         onEdt(() -> {
             final long when = System.currentTimeMillis();
-            overlay.dispatchEvent(new MouseEvent(
-                    overlay,
-                    MouseEvent.MOUSE_PRESSED,
-                    when,
-                    pressModifiers,
-                    point.x,
-                    point.y,
-                    1,
-                    false,
-                    MouseEvent.BUTTON1));
+            overlay.dispatchEvent(new MouseEvent( overlay, MouseEvent.MOUSE_PRESSED, when, pressModifiers, point.x,
+                    point.y, 1, false, MouseEvent.BUTTON1));
             overlay.dispatchEvent(new MouseEvent(
                     overlay, MouseEvent.MOUSE_RELEASED, when + 1L, 0, point.x, point.y, 1, false, MouseEvent.BUTTON1));
             return null;
@@ -1749,11 +1422,9 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         final long deadline = System.nanoTime() + 10_000_000_000L;
         List<JComponent> overlays = List.of();
         while (System.nanoTime() < deadline && !Thread.currentThread().isInterrupted()) {
-            overlays = onEdt(() -> showingComponents().stream()
-                    .filter(JComponent.class::isInstance)
+            overlays = onEdt(() -> showingComponents().stream().filter(JComponent.class::isInstance)
                     .map(JComponent.class::cast)
-                    .filter(component -> "turboism:selection-brush-overlay".equals(component.getName()))
-                    .toList());
+                    .filter(component -> "turboism:selection-brush-overlay".equals(component.getName())).toList());
             if (overlays.size() == expected) return expected == 0 ? null : overlays.get(0);
             Thread.sleep(50L);
         }
@@ -1764,8 +1435,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
 
     static int overlayCount() throws Exception {
         return onEdt(() -> (int) showingComponents().stream()
-                .filter(component -> "turboism:selection-brush-overlay".equals(component.getName()))
-                .count());
+                .filter(component -> "turboism:selection-brush-overlay".equals(component.getName())).count());
     }
 
     static void invokeEscape(final JComponent overlay) throws Exception {
@@ -1780,14 +1450,8 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         });
     }
 
-    private record BrushControls(
-            AbstractButton button,
-            Component slider,
-            int toolCount,
-            int sliderCount,
-            int minimum,
-            int maximum,
-            int value) {}
+    private record BrushControls( AbstractButton button, Component slider, int toolCount, int sliderCount, int minimum,
+            int maximum, int value) {}
 
     private record StrokeTarget(int index, Point point) {}
 
@@ -1795,18 +1459,14 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
 
     private void cleanupAfterFailure(final List<String> report) {
         try {
-            MeshSnapshot current = context.services()
-                    .find(MeshEditService.class)
-                    .orElse(MeshEditService.unavailable())
+            MeshSnapshot current = context.services().find(MeshEditService.class).orElse(MeshEditService.unavailable())
                     .snapshot();
             if (current.points().isEmpty()) return;
             final MeshSnapshot baseline = failureBaseline.get();
             if (baseline != null) {
                 for (int attempts = 0; attempts < 12 && !current.equals(baseline); attempts++) {
-                    final EditorCommandResult undo = context.services()
-                            .find(EditorCommandService.class)
-                            .orElse(EditorCommandService.unavailable())
-                            .execute(EditorCommand.UNDO);
+                    final EditorCommandResult undo = context.services().find(EditorCommandService.class)
+                            .orElse(EditorCommandService.unavailable()).execute(EditorCommand.UNDO);
                     report.add("failureCleanup.undo." + attempts + "=" + undo.status());
                     if (!undo.executed()) break;
                     current = awaitCleanupSnapshotChange(current, 5_000L);
@@ -1817,28 +1477,17 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                     return;
                 }
             }
-            final EditorCommandResult exit = context.services()
-                    .find(EditorCommandService.class)
-                    .orElse(EditorCommandService.unavailable())
-                    .execute(EditorCommand.START_OR_END_MESH_EDITOR);
+            final EditorCommandResult exit = context.services().find(EditorCommandService.class)
+                    .orElse(EditorCommandService.unavailable()).execute(EditorCommand.START_OR_END_MESH_EDITOR);
             report.add("failureCleanup.meshExit=" + exit.status());
             final long deadline = System.nanoTime() + 10_000_000_000L;
             while (System.nanoTime() < deadline
-                    && !context.services()
-                            .find(MeshEditService.class)
-                            .orElse(MeshEditService.unavailable())
-                            .snapshot()
-                            .points()
-                            .isEmpty()) {
+                    && !context.services().find(MeshEditService.class).orElse(MeshEditService.unavailable()).snapshot()
+                            .points().isEmpty()) {
                 Thread.sleep(100L);
             }
-            report.add("failureCleanup.meshInactive="
-                    + context.services()
-                            .find(MeshEditService.class)
-                            .orElse(MeshEditService.unavailable())
-                            .snapshot()
-                            .points()
-                            .isEmpty());
+            report.add("failureCleanup.meshInactive=" + context.services().find(MeshEditService.class)
+                            .orElse(MeshEditService.unavailable()).snapshot().points().isEmpty());
         } catch (Exception failure) {
             report.add("failureCleanup.error=" + safe(failureDescription(failure)));
             if (failure instanceof InterruptedException) Thread.currentThread().interrupt();
@@ -1857,24 +1506,17 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             }
         } catch (Exception failure) {
             report.add("failureCleanup.fixtureRestoreError=" + safe(failureDescription(failure)));
-        } finally {
-            persistenceFileWritten = false;
-        }
+        } finally { persistenceFileWritten = false; }
     }
 
     private MeshSnapshot awaitCleanupSnapshotChange(final MeshSnapshot before, final long timeoutMillis)
             throws InterruptedException {
         final long deadline = System.nanoTime() + timeoutMillis * 1_000_000L;
-        MeshSnapshot current = context.services()
-                .find(MeshEditService.class)
-                .orElse(MeshEditService.unavailable())
+        MeshSnapshot current = context.services().find(MeshEditService.class).orElse(MeshEditService.unavailable())
                 .snapshot();
         while (System.nanoTime() < deadline && current.equals(before)) {
             Thread.sleep(100L);
-            current = context.services()
-                    .find(MeshEditService.class)
-                    .orElse(MeshEditService.unavailable())
-                    .snapshot();
+            current = context.services().find(MeshEditService.class).orElse(MeshEditService.unavailable()).snapshot();
         }
         return current;
     }
@@ -1899,10 +1541,8 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         require(report, "persist.saveWritten", firstSave.confirmed(), firstSave.toString());
         report.add(firstSave.report("saveWritten."));
 
-        final EditorCommandResult reloadWritten = context.services()
-                .find(EditorCommandService.class)
-                .orElse(EditorCommandService.unavailable())
-                .execute(EditorCommand.RELOAD_MODEL);
+        final EditorCommandResult reloadWritten = context.services().find(EditorCommandService.class)
+                .orElse(EditorCommandService.unavailable()).execute(EditorCommand.RELOAD_MODEL);
         require(report, "persist.reloadWritten", reloadWritten.executed(), reloadWritten.toString());
         final MeshSnapshot persisted = awaitEditableMesh(report);
         require(report, "persist.reopened", persisted.equals(after), "expected=" + after + " actual=" + persisted);
@@ -1910,42 +1550,24 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         final MeshPointRef persistedAdded = point(persisted, added.id()).orElseThrow();
         final MeshEditResult removed = edit.deletePoints(List.of(persistedAdded));
         requireApplied(report, "persist.cleanupDelete", removed);
-        final MeshSnapshot restored = awaitSnapshot(
-                snapshot -> snapshot.points().size() == before.points().size()
+        final MeshSnapshot restored = awaitSnapshot( snapshot -> snapshot.points().size() == before.points().size()
                         && snapshot.edges().size() == before.edges().size()
-                        && point(snapshot, added.id()).isEmpty(),
-                "persist cleanup");
+                        && point(snapshot, added.id()).isEmpty(), "persist cleanup");
         finishMeshEditIfActive(report);
         final SaveConfirmation cleanupSave = saveFixture(report, "saveRestored");
         require(report, "persist.saveRestored", cleanupSave.confirmed(), cleanupSave.toString());
         report.add(cleanupSave.report("saveRestored."));
 
-        final EditorCommandResult reloadRestored = context.services()
-                .find(EditorCommandService.class)
-                .orElse(EditorCommandService.unavailable())
-                .execute(EditorCommand.RELOAD_MODEL);
+        final EditorCommandResult reloadRestored = context.services().find(EditorCommandService.class)
+                .orElse(EditorCommandService.unavailable()).execute(EditorCommand.RELOAD_MODEL);
         require(report, "persist.reloadRestored", reloadRestored.executed(), reloadRestored.toString());
         final MeshSnapshot finalState = awaitEditableMesh(report);
-        require(
-                report,
-                "persist.finalRestored",
-                finalState.equals(before),
+        require( report, "persist.finalRestored", finalState.equals(before),
                 "expected=" + before + " actual=" + finalState);
         finishMeshEditIfActive(report);
-        require(
-                report,
-                "persist.finalMeshEditorExited",
-                context.services()
-                        .find(MeshEditService.class)
-                        .orElse(MeshEditService.unavailable())
-                        .snapshot()
-                        .points()
-                        .isEmpty(),
-                context.services()
-                        .find(MeshEditService.class)
-                        .orElse(MeshEditService.unavailable())
-                        .snapshot()
-                        .toString());
+        require( report, "persist.finalMeshEditorExited", context.services().find(MeshEditService.class)
+                        .orElse(MeshEditService.unavailable()).snapshot().points().isEmpty(), context.services()
+                        .find(MeshEditService.class).orElse(MeshEditService.unavailable()).snapshot().toString());
         report.add("persist.addedPointId=" + added.id());
         report.add("persist.restoredPoints=" + restored.points().size());
         report.add("persist.restoredEdges=" + restored.edges().size());
@@ -1957,21 +1579,16 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     private MeshSnapshot awaitEditableMesh(final List<String> report) throws Exception {
         awaitVisibleModelWindow();
         awaitModelingDocument();
-        MeshSnapshot snapshot = context.services()
-                .find(MeshEditService.class)
-                .orElse(MeshEditService.unavailable())
+        MeshSnapshot snapshot = context.services().find(MeshEditService.class).orElse(MeshEditService.unavailable())
                 .snapshot();
         if (!snapshot.points().isEmpty()) {
             report.add("meshEntry=already-active");
             return snapshot;
         }
         final SelectionTarget target = selectFirstArtMesh(report);
-        report.add("detail.selection.snapshot="
-                + safe(context.cubism().runtime().selection().toString()));
-        final EditorCommandResult entered = context.services()
-                .find(EditorCommandService.class)
-                .orElse(EditorCommandService.unavailable())
-                .execute(EditorCommand.START_OR_END_MESH_EDITOR);
+        report.add("detail.selection.snapshot=" + safe(context.cubism().runtime().selection().toString()));
+        final EditorCommandResult entered = context.services().find(EditorCommandService.class)
+                .orElse(EditorCommandService.unavailable()).execute(EditorCommand.START_OR_END_MESH_EDITOR);
         report.add("meshEntry.attempts=1"); // A toggle is never blindly retried.
         require(report, "meshEntry.command", entered.executed(), entered.toString());
         report.add("meshEntry=command");
@@ -1988,21 +1605,15 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                         if (frame.isShowing()
                                 && frame.isDisplayable()
                                 && frame.getTitle() != null
-                                && frame.getTitle().contains(".cmo3")) {
-                            return true;
-                        }
+                                && frame.getTitle().contains(".cmo3")) { return true; }
                     }
                     return false;
                 });
                 if (visible) return;
-            } catch (IllegalStateException failure) {
-                unavailable = failure;
-            }
+            } catch (IllegalStateException failure) { unavailable = failure; }
             Thread.sleep(250L);
         }
-        if (Thread.currentThread().isInterrupted()) {
-            throw new InterruptedException("model-window wait interrupted");
-        }
+        if (Thread.currentThread().isInterrupted()) throw new InterruptedException("model-window wait interrupted");
         throw unavailable == null
                 ? new IllegalStateException("visible Cubism model window did not become ready")
                 : unavailable;
@@ -2029,15 +1640,12 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     SelectionTarget selectFirstArtMesh(final List<String> report) throws Exception {
         if (!onEdt(WindowsMeshEditValidationProbe::partsPaletteShowing)) {
             executeCommand(report, "selection.showPartsPalette", EditorCommand.SHOW_PARTS_PALETTE);
-        } else {
-            report.add("selection.partsPalette=already-visible");
-        }
+        } else { report.add("selection.partsPalette=already-visible"); }
         final SelectionTarget target = onEdt(() -> uniqueSelectionTarget(
                 context.cubism().model().active().drawables().all()));
         report.add("selection.requestedArtMeshId=" + safe(target.id()));
         report.add("selection.requestedDisplayName=" + safe(target.displayName()));
-        report.add("selection.before="
-                + safe(onEdt(() -> context.cubism().runtime().selection().toString())));
+        report.add("selection.before=" + safe(onEdt(() -> context.cubism().runtime().selection().toString())));
         SelectionAttempt attempt = new SelectionAttempt(false, "none", target.displayName(), -1, -1, -1, -1, -1, -1);
         final long selectionDeadline = System.nanoTime() + 30_000_000_000L;
         while (System.nanoTime() < selectionDeadline && !attempt.selected()) {
@@ -2045,17 +1653,13 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             if (!attempt.selected()) Thread.sleep(250L);
         }
         require(report, "selection.treePath", attempt.selected(), attempt.toString());
-        report.add("selection.afterDispatch="
-                + safe(onEdt(() -> context.cubism().runtime().selection().toString())));
-        if (!onEdt(
-                () -> context.cubism().runtime().selection().selectedObjectIds().contains(target.id()))) {
+        report.add("selection.afterDispatch=" + safe(onEdt(() -> context.cubism().runtime().selection().toString())));
+        if (!onEdt( () -> context.cubism().runtime().selection().selectedObjectIds().contains(target.id()))) {
             final java.awt.Robot robot = new java.awt.Robot();
             robot.mouseMove(attempt.screenX(), attempt.screenY());
             robot.delay(200);
             final var pointer = java.awt.MouseInfo.getPointerInfo();
-            report.add("selection.robotPointer="
-                    + safe(
-                            pointer == null
+            report.add("selection.robotPointer=" + safe( pointer == null
                                     ? "unavailable"
                                     : pointer.getLocation().toString()));
             robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
@@ -2063,8 +1667,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
             robot.waitForIdle();
             report.add("selection.input=java.awt.Robot");
-            report.add("selection.afterRobot="
-                    + safe(onEdt(() -> context.cubism().runtime().selection().toString())));
+            report.add("selection.afterRobot=" + safe(onEdt(() -> context.cubism().runtime().selection().toString())));
         }
         final long nativeDeadline = System.nanoTime() + 10_000_000_000L;
         boolean selected = false;
@@ -2073,10 +1676,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                     context.cubism().runtime().selection().selectedObjectIds().contains(target.id()));
             if (!selected) Thread.sleep(100L);
         }
-        require(
-                report,
-                "selection.nativeObject",
-                selected,
+        require( report, "selection.nativeObject", selected,
                 onEdt(() -> context.cubism().runtime().selection().toString()));
         report.add("selection.tree=" + safe(attempt.treeDescription()));
         return target;
@@ -2107,13 +1707,11 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             final String name = drawable.name();
             if (name != null && !name.isBlank()) counts.merge(name, 1, Integer::sum);
         }
-        return drawables.stream()
-                .map(drawable -> new SelectionTarget(drawable.id().value(), drawable.name()))
+        return drawables.stream().map(drawable -> new SelectionTarget(drawable.id().value(), drawable.name()))
                 .filter(target ->
                         target.displayName() != null && !target.displayName().isBlank())
                 .filter(target -> counts.getOrDefault(target.displayName(), 0) == 1)
-                .min(Comparator.comparing(SelectionTarget::id))
-                .orElseThrow(
+                .min(Comparator.comparing(SelectionTarget::id)).orElseThrow(
                         () -> new IllegalStateException("fixture has no ArtMesh with a unique nonblank display name"));
     }
 
@@ -2204,81 +1802,31 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             final int[] receipts = new int[3];
             final var receiptListener = new java.awt.event.MouseAdapter() {
                 @Override
-                public void mousePressed(final MouseEvent event) {
-                    receipts[0]++;
-                }
+                public void mousePressed(final MouseEvent event) { receipts[0]++; }
 
                 @Override
-                public void mouseReleased(final MouseEvent event) {
-                    receipts[1]++;
-                }
+                public void mouseReleased(final MouseEvent event) { receipts[1]++; }
 
                 @Override
-                public void mouseClicked(final MouseEvent event) {
-                    receipts[2]++;
-                }
+                public void mouseClicked(final MouseEvent event) { receipts[2]++; }
             };
             clickComponent.addMouseListener(receiptListener);
             try {
-                clickComponent.dispatchEvent(new MouseEvent(
-                        clickComponent,
-                        MouseEvent.MOUSE_PRESSED,
-                        when,
-                        InputEvent.BUTTON1_DOWN_MASK,
-                        localX,
-                        localY,
-                        1,
-                        false,
-                        MouseEvent.BUTTON1));
-                clickComponent.dispatchEvent(new MouseEvent(
-                        clickComponent,
-                        MouseEvent.MOUSE_RELEASED,
-                        when + 1,
-                        0,
-                        localX,
-                        localY,
-                        1,
-                        false,
-                        MouseEvent.BUTTON1));
-                clickComponent.dispatchEvent(new MouseEvent(
-                        clickComponent,
-                        MouseEvent.MOUSE_CLICKED,
-                        when + 2,
-                        0,
-                        localX,
-                        localY,
-                        1,
-                        false,
-                        MouseEvent.BUTTON1));
-            } finally {
-                clickComponent.removeMouseListener(receiptListener);
-            }
+                clickComponent.dispatchEvent(new MouseEvent(clickComponent, MouseEvent.MOUSE_PRESSED, when, InputEvent.BUTTON1_DOWN_MASK, localX, localY, 1, false, MouseEvent.BUTTON1));
+                clickComponent.dispatchEvent(new MouseEvent(clickComponent, MouseEvent.MOUSE_RELEASED, when + 1, 0, localX, localY, 1, false, MouseEvent.BUTTON1));
+                clickComponent.dispatchEvent(new MouseEvent(clickComponent, MouseEvent.MOUSE_CLICKED, when + 2, 0, localX, localY, 1, false, MouseEvent.BUTTON1));
+            } finally { clickComponent.removeMouseListener(receiptListener); }
             final Point screen = new Point(localX, localY);
             SwingUtilities.convertPointToScreen(screen, clickComponent);
-            final Point focus = new Point(
-                    Math.max(1, window.getWidth() / 2),
-                    Math.max(1, Math.min(window.getHeight() - 1, window.getHeight() / 3)));
+            final Point focus = new Point(Math.max(1, window.getWidth() / 2), Math.max(1, Math.min(window.getHeight() - 1, window.getHeight() / 3)));
             SwingUtilities.convertPointToScreen(focus, window);
-            return new SelectionAttempt(
-                    true,
-                    describeTree(tree)
-                            + " owner="
-                            + (owner == null ? "none" : owner.getClass().getName() + " rows=" + owner.getRowCount())
-                            + " click=" + clickComponent.getClass().getName()
-                            + " nameColumn=" + nameColumn
-                            + " nodeClass="
-                            + path.getLastPathComponent().getClass().getName()
-                            + " dispatchReceipts=" + java.util.Arrays.toString(receipts)
-                            + " window=" + window.getClass().getName()
-                            + " active=" + window.isActive() + " focused=" + window.isFocused()
-                            + " listeners=" + listenerClasses(tree),
-                    String.valueOf(path.getLastPathComponent()),
-                    screen.x,
-                    screen.y,
-                    focus.x,
-                    focus.y,
-                    tree.getRowForPath(path),
-                    clickBounds.height);
+            final String desc = describeTree(tree) + " owner=" + (owner == null ? "none" : owner.getClass().getName() + " rows=" + owner.getRowCount())
+                    + " click=" + clickComponent.getClass().getName() + " nameColumn=" + nameColumn
+                    + " nodeClass=" + path.getLastPathComponent().getClass().getName()
+                    + " dispatchReceipts=" + java.util.Arrays.toString(receipts)
+                    + " window=" + window.getClass().getName() + " active=" + window.isActive() + " focused=" + window.isFocused()
+                    + " listeners=" + listenerClasses(tree);
+            return new SelectionAttempt(true, desc, String.valueOf(path.getLastPathComponent()), screen.x, screen.y, focus.x, focus.y, tree.getRowForPath(path), clickBounds.height);
         }
         return new SelectionAttempt(false, String.join("|", observed), displayName, -1, -1, -1, -1, -1, -1);
     }
@@ -2358,9 +1906,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     }
 
     private static javax.swing.JTable findTreeTableOwner(final Component component, final JTree tree) {
-        if (component instanceof javax.swing.JTable table && extractTree(table) == tree) {
-            return table;
-        }
+        if (component instanceof javax.swing.JTable table && extractTree(table) == tree) return table;
         if (component instanceof Container container) {
             for (Component child : container.getComponents()) {
                 final javax.swing.JTable owner = findTreeTableOwner(child, tree);
@@ -2392,9 +1938,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             final JTree tree, final TreePath path, final String displayName, final List<TreePath> matches) {
         final Object node = path.getLastPathComponent();
         final String rendered = tree.convertValueToText(node, false, false, false, 0, false);
-        if (displayName.equals(rendered) || displayName.equals(String.valueOf(node))) {
-            matches.add(path);
-        }
+        if (displayName.equals(rendered) || displayName.equals(String.valueOf(node))) { matches.add(path); }
         final int children = tree.getModel().getChildCount(node);
         for (int index = 0; index < children; index++) {
             final Object child = tree.getModel().getChild(node, index);
@@ -2422,58 +1966,25 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         return "[" + String.join(",", labels) + (pending.isEmpty() ? "" : ",…") + "]";
     }
 
-    static <T> T onEdt(final Callable<T> call) throws Exception {
-        if (SwingUtilities.isEventDispatchThread()) return call.call();
-        final FutureTask<T> task = new FutureTask<>(call);
-        SwingUtilities.invokeLater(task);
-        try {
-            return task.get(30L, TimeUnit.SECONDS);
-        } catch (TimeoutException failure) {
-            task.cancel(false);
-            throw new IllegalStateException("EDT operation timed out", failure);
-        } catch (ExecutionException failure) {
-            final Throwable cause = failure.getCause();
-            if (cause instanceof Exception exception) throw exception;
-            if (cause instanceof Error error) throw error;
-            throw new IllegalStateException("EDT operation failed", cause);
-        }
-    }
+    static <T> T onEdt(final Callable<T> call) throws Exception { return WindowsProbeHarness.onEdt(call, 30_000L); }
 
     record SelectionTarget(String id, String displayName) {}
 
-    record SelectionAttempt(
-            boolean selected,
-            String treeDescription,
-            String node,
-            int screenX,
-            int screenY,
-            int focusX,
-            int focusY,
-            int treeRow,
-            int rowHeight) {}
+    record SelectionAttempt( boolean selected, String treeDescription, String node, int screenX, int screenY,
+            int focusX, int focusY, int treeRow, int rowHeight) {}
 
     private void finishMeshEditIfActive(final List<String> report) throws Exception {
-        if (context.services()
-                .find(MeshEditService.class)
-                .orElse(MeshEditService.unavailable())
-                .snapshot()
-                .points()
+        if (context.services().find(MeshEditService.class).orElse(MeshEditService.unavailable()).snapshot().points()
                 .isEmpty()) {
             report.add("meshExit=already-inactive");
             return;
         }
-        final EditorCommandResult result = context.services()
-                .find(EditorCommandService.class)
-                .orElse(EditorCommandService.unavailable())
-                .execute(EditorCommand.START_OR_END_MESH_EDITOR);
+        final EditorCommandResult result = context.services().find(EditorCommandService.class)
+                .orElse(EditorCommandService.unavailable()).execute(EditorCommand.START_OR_END_MESH_EDITOR);
         require(report, "meshExit.command", result.executed(), result.toString());
         final long deadline = System.nanoTime() + SNAPSHOT_TIMEOUT_MILLIS * 1_000_000L;
         while (System.nanoTime() < deadline) {
-            if (context.services()
-                    .find(MeshEditService.class)
-                    .orElse(MeshEditService.unavailable())
-                    .snapshot()
-                    .points()
+            if (context.services().find(MeshEditService.class).orElse(MeshEditService.unavailable()).snapshot().points()
                     .isEmpty()) {
                 report.add("meshExit=command");
                 return;
@@ -2483,12 +1994,8 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         throw new IllegalStateException("mesh editor did not exit within the bounded wait");
     }
 
-    private MeshSnapshot mutate(
-            final List<String> report,
-            final String name,
-            final MeshSnapshot before,
-            final Callable<MeshEditResult> mutation,
-            final java.util.function.Predicate<MeshSnapshot> expected)
+    private MeshSnapshot mutate( final List<String> report, final String name, final MeshSnapshot before,
+            final Callable<MeshEditResult> mutation, final java.util.function.Predicate<MeshSnapshot> expected)
             throws Exception {
         final MeshEditResult result = mutation.call();
         requireApplied(report, name + ".result", result);
@@ -2501,16 +2008,10 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             final List<String> report, final String name, final MeshSnapshot before, final MeshSnapshot after)
             throws Exception {
         executeCommand(report, name + ".undo", EditorCommand.UNDO);
-        require(
-                report,
-                name + ".undoState",
-                awaitSnapshot(before::equals, name + " undo").equals(before),
+        require( report, name + ".undoState", awaitSnapshot(before::equals, name + " undo").equals(before),
                 before.toString());
         executeCommand(report, name + ".redo", EditorCommand.REDO);
-        require(
-                report,
-                name + ".redoState",
-                awaitSnapshot(after::equals, name + " redo").equals(after),
+        require( report, name + ".redoState", awaitSnapshot(after::equals, name + " redo").equals(after),
                 after.toString());
         report.add("assertion." + name + ".oneUndoStep=PASS");
     }
@@ -2518,31 +2019,14 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     static boolean isAdmittedCubismVersion(final String version) {
         try {
             return WindowsHistoryNativeUiHostClose.hostCloseRoute(version) != null;
-        } catch (IllegalArgumentException unsupported) {
-            return false;
-        }
+        } catch (IllegalArgumentException unsupported) { return false; }
     }
 
     static String lassoConverterHelperName(final String cubismVersion) {
-        if (cubismVersion == null) {
-            throw new IllegalStateException("unreviewed native lasso converter factory: null");
-        }
+        if (cubismVersion == null) throw new IllegalStateException("unreviewed native lasso converter factory: null");
         return switch (cubismVersion) {
-            case "5.0.00",
-                    "5.0.01",
-                    "5.0.02",
-                    "5.0.03",
-                    "5.0.04",
-                    "5.0.05",
-                    "5.0.06",
-                    "5.1.00",
-                    "5.1.01",
-                    "5.1.02",
-                    "5.1.03",
-                    "5.2.00",
-                    "5.2.01",
-                    "5.2.02",
-                    "5.2.03" -> "j";
+            case "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                    "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03" -> "j";
             case "5.3.00", "5.3.01" -> "k";
             case "5.3.02", "5.3.03" -> "p";
             case "5.3.04" -> "r";
@@ -2551,14 +2035,11 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     }
 
     private List<String> dirtySnapshot(final Object session) throws Exception {
-        final var backup = context.services()
-                .find(dev.turboism.sdk.cubism.backup.EditorAutoBackupService.class)
+        final var backup = context.services().find(dev.turboism.sdk.cubism.backup.EditorAutoBackupService.class)
                 .filter(dev.turboism.sdk.cubism.backup.EditorAutoBackupService::isAvailable);
         if (backup.isPresent()) {
             return backup.get().statuses().stream()
-                    .map(status -> status.documentName() + ":" + status.modifiedAfterSaving())
-                    .sorted()
-                    .toList();
+                    .map(status -> status.documentName() + ":" + status.modifiedAfterSaving()).sorted().toList();
         }
         final Object document = invokeNoArgs(invokeNoArgs(session, "identity"), "document");
         final Object modified = invokeNoArgs(document, "isModifiedAfterSaving");
@@ -2567,9 +2048,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
 
     private boolean isCommandAvailable(final EditorCommand command) throws Exception {
         final var service = context.services().find(EditorCommandService.class);
-        if (service.isPresent() && service.get().isAvailable()) {
-            return service.get().available().contains(command);
-        }
+        if (service.isPresent() && service.get().isAvailable()) return service.get().available().contains(command);
         return onEdt(() -> {
             final javax.swing.JMenuItem item = findCommandMenuItem("CMD_" + command.name());
             return item != null && item.isEnabled();
@@ -2588,9 +2067,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     }
 
     private static javax.swing.JMenuItem findMenuItemByName(final Component root, final String name) {
-        if (root instanceof javax.swing.JMenuItem item && name.equals(item.getName())) {
-            return item;
-        }
+        if (root instanceof javax.swing.JMenuItem item && name.equals(item.getName())) return item;
         if (root instanceof javax.swing.JMenu menu) {
             for (final Component child : menu.getMenuComponents()) {
                 final javax.swing.JMenuItem found = findMenuItemByName(child, name);
@@ -2622,25 +2099,18 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                 return true;
             });
             require(report, phase + ".command", clicked, "CMD_" + command.name());
-        } catch (Exception failure) {
-            throw new IllegalStateException(phase + ".command failed", failure);
-        }
+        } catch (Exception failure) { throw new IllegalStateException(phase + ".command failed", failure); }
     }
 
     private MeshSnapshot awaitSnapshot(final java.util.function.Predicate<MeshSnapshot> expected, final String phase)
             throws Exception {
         final long deadline = System.nanoTime() + SNAPSHOT_TIMEOUT_MILLIS * 1_000_000L;
-        MeshSnapshot actual = context.services()
-                .find(MeshEditService.class)
-                .orElse(MeshEditService.unavailable())
+        MeshSnapshot actual = context.services().find(MeshEditService.class).orElse(MeshEditService.unavailable())
                 .snapshot();
         while (System.nanoTime() < deadline) {
             if (expected.test(actual)) return actual;
             Thread.sleep(100L);
-            actual = context.services()
-                    .find(MeshEditService.class)
-                    .orElse(MeshEditService.unavailable())
-                    .snapshot();
+            actual = context.services().find(MeshEditService.class).orElse(MeshEditService.unavailable()).snapshot();
         }
         throw new IllegalStateException("mesh snapshot timed out during " + phase + "; actual=" + actual);
     }
@@ -2661,18 +2131,13 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         for (MeshPointRef point : before.points()) {
             if (!after.points().contains(point)) return false;
         }
-        return after.points().stream()
-                        .filter(point -> !old.containsKey(point.id()))
-                        .filter(point -> same(point.x(), requested.x()) && same(point.y(), requested.y()))
-                        .count()
+        return after.points().stream().filter(point -> !old.containsKey(point.id()))
+                        .filter(point -> same(point.x(), requested.x()) && same(point.y(), requested.y())).count()
                 == 1L;
     }
 
     static boolean isExactPointMove(final MeshSnapshot before, final MeshSnapshot after, final MeshPointRef moved) {
-        if (!after.edges().equals(before.edges())
-                || after.points().size() != before.points().size()) {
-            return false;
-        }
+        if (!after.edges().equals(before.edges()) || after.points().size() != before.points().size()) return false;
         for (MeshPointRef point : before.points()) {
             final MeshPointRef expected = point.id() == moved.id() ? moved : point;
             if (!after.points().contains(expected)) return false;
@@ -2681,38 +2146,27 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     }
 
     static boolean isExactEdgeAddition(final MeshSnapshot before, final MeshSnapshot after, final MeshEdgeRef added) {
-        if (!after.points().equals(before.points())
-                || after.edges().size() != before.edges().size() + 1
-                || !after.edges().contains(added)) return false;
-        return before.edges().stream().allMatch(after.edges()::contains);
+        return after.points().equals(before.points()) && after.edges().size() == before.edges().size() + 1
+                && after.edges().contains(added) && before.edges().stream().allMatch(after.edges()::contains);
     }
 
     static boolean isExactEdgeDeletion(final MeshSnapshot before, final MeshSnapshot after, final MeshEdgeRef deleted) {
-        if (!after.points().equals(before.points())
-                || after.edges().size() != before.edges().size() - 1
-                || after.edges().contains(deleted)) return false;
-        return after.edges().stream().allMatch(before.edges()::contains);
+        return after.points().equals(before.points()) && after.edges().size() == before.edges().size() - 1
+                && !after.edges().contains(deleted) && after.edges().stream().allMatch(before.edges()::contains);
     }
 
     static boolean isExactPointDeletion(final MeshSnapshot before, final MeshSnapshot after, final int deletedId) {
-        if (after.points().size() != before.points().size() - 1
-                || point(after, deletedId).isPresent()) return false;
+        if (after.points().size() != before.points().size() - 1 || point(after, deletedId).isPresent()) return false;
         if (!after.points().stream().allMatch(before.points()::contains)) return false;
-        final List<MeshEdgeRef> expectedEdges = before.edges().stream()
-                .filter(edge -> !endpoint(edge, deletedId))
-                .toList();
+        final List<MeshEdgeRef> expectedEdges = before.edges().stream().filter(edge -> !endpoint(edge, deletedId)).toList();
         return after.edges().equals(expectedEdges);
     }
 
     static MeshPointRef discoverAddedPoint(
             final MeshSnapshot before, final MeshSnapshot after, final MeshPointPosition requested) {
         final Map<Integer, MeshPointRef> old = pointsById(before);
-        final List<MeshPointRef> added = after.points().stream()
-                .filter(point -> !old.containsKey(point.id()))
-                .toList();
-        if (added.size() != 1) {
-            throw new IllegalStateException("expected exactly one assigned point id; added=" + added);
-        }
+        final List<MeshPointRef> added = after.points().stream().filter(p -> !old.containsKey(p.id())).toList();
+        if (added.size() != 1) throw new IllegalStateException("expected exactly one assigned point id; added=" + added);
         final MeshPointRef point = added.get(0);
         if (!same(point.x(), requested.x()) || !same(point.y(), requested.y())) {
             throw new IllegalStateException("assigned point position differs from request: " + point);
@@ -2722,22 +2176,11 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
 
     static MeshPointPosition distinctPosition(final MeshSnapshot snapshot) {
         if (snapshot.points().isEmpty()) throw new IllegalArgumentException("mesh has no points");
-        final float minX = snapshot.points().stream()
-                .map(MeshPointRef::x)
-                .min(Float::compare)
-                .orElseThrow();
-        final float maxX = snapshot.points().stream()
-                .map(MeshPointRef::x)
-                .max(Float::compare)
-                .orElseThrow();
-        final float minY = snapshot.points().stream()
-                .map(MeshPointRef::y)
-                .min(Float::compare)
-                .orElseThrow();
-        final float maxY = snapshot.points().stream()
-                .map(MeshPointRef::y)
-                .max(Float::compare)
-                .orElseThrow();
+        float minX = Float.MAX_VALUE, maxX = -Float.MAX_VALUE, minY = Float.MAX_VALUE, maxY = -Float.MAX_VALUE;
+        for (MeshPointRef p : snapshot.points()) {
+            minX = Math.min(minX, p.x()); maxX = Math.max(maxX, p.x());
+            minY = Math.min(minY, p.y()); maxY = Math.max(maxY, p.y());
+        }
         final float span = Math.max(Math.max(maxX - minX, maxY - minY), 1.0F);
         return new MeshPointPosition(maxX + span * 0.173F, maxY + span * 0.197F);
     }
@@ -2749,20 +2192,16 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
 
     static MeshPointRef chooseEdgePartner(final MeshSnapshot snapshot, final int addedId) {
         final Map<Integer, MeshPointRef> points = pointsById(snapshot);
-        return snapshot.points().stream()
-                .filter(point -> point.id() != addedId)
+        return snapshot.points().stream().filter(point -> point.id() != addedId)
                 .filter(point -> snapshot.edges().stream()
                         .noneMatch(edge -> edge.equals(new MeshEdgeRef(addedId, point.id(), edge.kind()))))
-                .min(Comparator.comparingInt(MeshPointRef::id))
-                .orElseGet(() -> points.values().stream()
-                        .filter(point -> point.id() != addedId)
-                        .findFirst()
+                .min(Comparator.comparingInt(MeshPointRef::id)).orElseGet(() -> points.values().stream()
+                        .filter(point -> point.id() != addedId).findFirst()
                         .orElseThrow(() -> new IllegalStateException("no edge partner is available")));
     }
 
     static MeshPointRef pointWithConnectedEdge(final MeshSnapshot snapshot) {
-        final MeshEdgeRef edge = snapshot.edges().get(0);
-        return point(snapshot, edge.startPointId()).orElseThrow();
+        return point(snapshot, snapshot.edges().get(0).startPointId()).orElseThrow();
     }
 
     static List<MeshEdgeRef> connectedEdges(final MeshSnapshot snapshot, final int pointId) {
@@ -2791,9 +2230,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         return same(first.x(), second.x()) && same(first.y(), second.y());
     }
 
-    private static boolean same(final float first, final float second) {
-        return Math.abs(first - second) <= EPSILON;
-    }
+    private static boolean same(final float first, final float second) { return Math.abs(first - second) <= EPSILON; }
 
     private static void requireApplied(final List<String> report, final String name, final MeshEditResult result) {
         require(report, name, result.accepted() && result.rejected().isEmpty(), result.toString());
@@ -2813,64 +2250,25 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         return Path.of(value);
     }
 
-    static SaveConfirmation awaitSaveConfirmation(
-            final Path fixture,
-            final FileTime beforeMtime,
-            final long beforeSize,
-            final long deadlineMillis,
-            final long pollMillis)
+    static SaveConfirmation awaitSaveConfirmation( final Path fixture, final FileTime beforeMtime,
+            final long beforeSize, final long deadlineMillis, final long pollMillis)
             throws Exception {
-        if (!Files.isRegularFile(fixture)) {
-            throw new IllegalArgumentException("validation fixture is missing: " + fixture);
-        }
-        final long deadline = System.nanoTime() + deadlineMillis * 1_000_000L;
-        FileTime changedMtime = null;
-        long changedSize = -1L;
-        int stable = 0;
-        while (System.nanoTime() < deadline) {
-            final FileTime mtime = Files.getLastModifiedTime(fixture);
-            final long size = Files.size(fixture);
-            if (!mtime.equals(beforeMtime) || size != beforeSize) {
-                if (!Objects.equals(changedMtime, mtime) || changedSize != size) {
-                    changedMtime = mtime;
-                    changedSize = size;
-                    stable = 0;
-                }
-                if (++stable >= SAVE_STABLE_SAMPLES) {
-                    return new SaveConfirmation(true, beforeMtime.toMillis(), beforeSize, mtime.toMillis(), size);
-                }
-            }
-            Thread.sleep(pollMillis);
-        }
-        return new SaveConfirmation(
-                false,
-                beforeMtime.toMillis(),
-                beforeSize,
-                Files.getLastModifiedTime(fixture).toMillis(),
-                Files.size(fixture));
+        final WindowsProbeHarness.SaveConfirmation sc = WindowsProbeHarness.awaitSaveConfirmation(
+                fixture, beforeMtime, beforeSize, deadlineMillis, pollMillis);
+        return new SaveConfirmation(sc.confirmed(), sc.beforeMtimeMillis(), sc.beforeSize(), sc.afterMtimeMillis(), sc.afterSize());
     }
 
     record SaveConfirmation(
             boolean confirmed, long beforeMtimeMillis, long beforeSize, long afterMtimeMillis, long afterSize) {
         String report(final String prefix) {
-            return prefix + "confirmed=" + confirmed + ";"
-                    + prefix + "beforeMtimeMillis=" + beforeMtimeMillis + ";"
-                    + prefix + "beforeSize=" + beforeSize + ";"
-                    + prefix + "afterMtimeMillis=" + afterMtimeMillis + ";"
+            return prefix + "confirmed=" + confirmed + ";" + prefix + "beforeMtimeMillis=" + beforeMtimeMillis + ";"
+                    + prefix + "beforeSize=" + beforeSize + ";" + prefix + "afterMtimeMillis=" + afterMtimeMillis + ";"
                     + prefix + "afterSize=" + afterSize;
         }
     }
 
     private static String failureDescription(final Throwable failure) {
-        final StringBuilder result = new StringBuilder();
-        Throwable current = failure;
-        for (int depth = 0; current != null && depth < 4; depth++, current = current.getCause()) {
-            if (depth > 0) result.append(" <- ");
-            result.append(current.getClass().getSimpleName())
-                    .append(": ")
-                    .append(current.getMessage() == null ? "" : current.getMessage());
-        }
-        return result.toString();
+        return WindowsProbeHarness.failureDescription(failure);
     }
 
     private static String safe(final String value) {
@@ -2879,15 +2277,11 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
 
     private void requestHostClose(final boolean terminalPublished) {
         try {
-            final var close = WindowsHistoryNativeUiHostClose.closeIfEligible(
-                    Boolean.getBoolean(EXIT_PROPERTY),
-                    worker == Thread.currentThread() && !Thread.currentThread().isInterrupted(),
-                    terminalPublished,
+            final var close = WindowsHistoryNativeUiHostClose.closeIfEligible( Boolean.getBoolean(EXIT_PROPERTY),
+                    worker == Thread.currentThread() && !Thread.currentThread().isInterrupted(), terminalPublished,
                     System.getProperty(WindowsHistoryNativeUiHostClose.RUN_ID_PROPERTY),
                     System.getProperty(WindowsHistoryNativeUiHostClose.HOST_VERSION_PROPERTY));
             context.logger().info("Mesh validation host close status=" + close.status() + " reason=" + close.reason());
-        } catch (Exception failure) {
-            context.logger().error("Automated mesh validation host close failed", failure);
-        }
+        } catch (Exception failure) { context.logger().error("Automated mesh validation host close failed", failure); }
     }
 }

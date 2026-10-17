@@ -26,8 +26,7 @@ class WindowsHistoryManagerValidationProbeTest {
 
     @Test
     void escapesEvidenceAsJsonLines() {
-        assertEquals(
-                "quote\\\" slash\\\\ line\\n tab\\t",
+        assertEquals( "quote\\\" slash\\\\ line\\n tab\\t",
                 WindowsHistoryManagerValidationProbe.json("quote\" slash\\ line\n tab\t"));
     }
 
@@ -43,9 +42,7 @@ class WindowsHistoryManagerValidationProbeTest {
     void semanticScalarProjectionRejectsUnknownObjectStringConversion() {
         final Object explosive = new Object() {
             @Override
-            public String toString() {
-                throw new AssertionError("must not stringify unknown host objects");
-            }
+            public String toString() { throw new AssertionError("must not stringify unknown host objects"); }
         };
         assertEquals("", WindowsHistoryManagerValidationProbe.safeScalar(explosive));
         assertEquals("", WindowsHistoryManagerValidationProbe.boundedLabel(explosive));
@@ -141,12 +138,10 @@ class WindowsHistoryManagerValidationProbeTest {
 
     @Test
     void aFormWhosePositionsCannotBeComparedDegrades() throws Exception {
-        assertEquals(
-                "history.geometry.shape-changed",
+        assertEquals( "history.geometry.shape-changed",
                 WindowsHistoryManagerValidationProbe.geometryDelta(form(0.0F, 0.0F), form(0.0F, 0.0F, 1.0F, 1.0F))
                         .degradationCode());
-        assertEquals(
-                "history.geometry.value-unsupported",
+        assertEquals( "history.geometry.value-unsupported",
                 WindowsHistoryManagerValidationProbe.geometryDelta(form(0.0F, 0.0F), form(Float.NaN, 0.0F))
                         .degradationCode());
     }
@@ -155,8 +150,7 @@ class WindowsHistoryManagerValidationProbeTest {
     void aFormOverThePointLimitDegradesRatherThanSummarisingInPart() throws Exception {
         final float[] huge = new float[(WindowsHistoryManagerValidationProbe.MAX_GEOMETRY_POINTS + 1) * 2];
 
-        assertEquals(
-                "history.geometry.point-limit",
+        assertEquals( "history.geometry.point-limit",
                 WindowsHistoryManagerValidationProbe.geometryDelta(new Form(huge.clone()), new Form(huge.clone()))
                         .degradationCode());
     }
@@ -164,34 +158,15 @@ class WindowsHistoryManagerValidationProbeTest {
     @Test
     void anEntryThatCarriesNoFormPositionsIsReportedAsNone() throws Exception {
         // A SimpleUndo over something that is not an ArtMesh form proves no geometry at all.
-        assertEquals(
-                "NONE",
-                WindowsHistoryManagerValidationProbe.geometryDelta(new Object(), new Object())
-                        .family());
-        assertEquals(
-                "NONE",
-                WindowsHistoryManagerValidationProbe.geometryDelta(null, form(0.0F, 0.0F))
-                        .family());
+        assertEquals( "NONE", WindowsHistoryManagerValidationProbe.geometryDelta(new Object(), new Object()).family());
+        assertEquals( "NONE", WindowsHistoryManagerValidationProbe.geometryDelta(null, form(0.0F, 0.0F)).family());
     }
 
     @Test
     void geometryAppearsInTheDetailJson() {
         final WindowsHistoryManagerValidationProbe.NativeDetail detail =
-                new WindowsHistoryManagerValidationProbe.NativeDetail(
-                        "SIMPLE",
-                        "com.live2d.undo.SimpleUndo",
-                        "target",
-                        "",
-                        "",
-                        "",
-                        "",
-                        -1,
-                        0,
-                        List.of(),
-                        List.of(),
-                        true,
-                        true,
-                        "",
+                new WindowsHistoryManagerValidationProbe.NativeDetail( "SIMPLE", "com.live2d.undo.SimpleUndo", "target",
+                        "", "", "", "", -1, 0, List.of(), List.of(), true, true, "",
                         WindowsHistoryManagerValidationProbe.GeometryDelta.summary(4, true, 1.5, -2.5, 0.25));
 
         final String json = detail.json();
@@ -200,8 +175,7 @@ class WindowsHistoryManagerValidationProbeTest {
         assertTrue(json.contains("\"translationX\":\"1.500000\""), json);
         assertTrue(json.contains("\"translationY\":\"-2.500000\""), json);
         assertTrue(json.contains("\"maxDeviation\":\"0.250000\""), json);
-        assertFalse(
-                json.contains("0.0,1.0") || json.contains("positions\":["),
+        assertFalse( json.contains("0.0,1.0") || json.contains("positions\":["),
                 "the artifact must never carry vertex coordinates");
     }
 
@@ -209,8 +183,7 @@ class WindowsHistoryManagerValidationProbeTest {
     void anExhaustedGeometryBudgetReportsOmittedRatherThanNone() throws Exception {
         final int[] budget = {1};
 
-        assertEquals(
-                "POSITIONS",
+        assertEquals( "POSITIONS",
                 WindowsHistoryManagerValidationProbe.budgetedGeometry(budget, form(0.0F, 0.0F), form(1.0F, 0.0F))
                         .family());
         assertEquals(0, budget[0], "one summary must spend exactly one unit of the budget");
@@ -220,11 +193,9 @@ class WindowsHistoryManagerValidationProbeTest {
 
         assertEquals("OMITTED", exhausted.family());
         assertFalse(exhausted.changed(), "an omitted summary claims no change");
-        assertFalse(
-                "NONE".equals(exhausted.family()),
+        assertFalse( "NONE".equals(exhausted.family()),
                 "a spent budget must not look like a detail that carries no form at all");
-        assertEquals(
-                "OMITTED",
+        assertEquals( "OMITTED",
                 WindowsHistoryManagerValidationProbe.budgetedGeometry(null, form(0.0F, 0.0F), form(1.0F, 0.0F))
                         .family());
     }
@@ -247,41 +218,24 @@ class WindowsHistoryManagerValidationProbeTest {
         final HistoryTarget oldDeformer =
                 new HistoryTarget("WARP_DEFORMER", Optional.of("warp-old"), Optional.of("Old Warp"));
         final HistoryRelationChange partMembership = new HistoryRelationChange(
-                HistoryRelationChange.Kind.PART_MEMBERSHIP,
-                targetEndpoint(oldPart),
+                HistoryRelationChange.Kind.PART_MEMBERSHIP, targetEndpoint(oldPart),
                 new HistoryRelationChange.Endpoint(HistoryRelationChange.State.ROOT, Optional.empty()));
         final HistoryRelationChange deformerParent = new HistoryRelationChange(
-                HistoryRelationChange.Kind.DEFORMER_PARENT,
-                targetEndpoint(oldDeformer),
+                HistoryRelationChange.Kind.DEFORMER_PARENT, targetEndpoint(oldDeformer),
                 new HistoryRelationChange.Endpoint(HistoryRelationChange.State.UNKNOWN, Optional.empty()));
-        final HistoryChange ordinaryChange = new HistoryChange(
-                HistoryChange.Operation.SET,
-                Optional.of(0),
-                Optional.of("multiplyColor"),
-                Optional.of("#ffffff"),
-                Optional.of("#66\"\\ccff"),
-                new HistoryEditContext(
-                        HistoryEditContext.Kind.KEYFORM,
-                        Optional.of("form\"\\id"),
-                        List.of(new dev.turboism.sdk.cubism.history.HistoryParameterCoordinate(
-                                new HistoryTarget(
+        final HistoryChange ordinaryChange = new HistoryChange( HistoryChange.Operation.SET, Optional.of(0),
+                Optional.of("multiplyColor"), Optional.of("#ffffff"), Optional.of("#66\"\\ccff"),
+                new HistoryEditContext( HistoryEditContext.Kind.KEYFORM, Optional.of("form\"\\id"),
+                        List.of(new dev.turboism.sdk.cubism.history.HistoryParameterCoordinate( new HistoryTarget(
                                         "PARAMETER", Optional.of("Param\"\\X"), Optional.of("Angle \"X\" \\ axis")),
                                 "1\"\\2"))));
         final HistoryChange partChange = relationChange(partMembership);
         final HistoryChange deformerChange = relationChange(deformerParent);
-        final HistoryEntryDetail nested = new HistoryEntryDetail(
-                "Nested relation",
-                HistoryAction.DetailLevel.PARTIAL,
-                HistoryOrigin.hostUnattributed(),
-                List.of(child),
-                List.of(partChange),
-                Optional.empty(),
+        final HistoryEntryDetail nested = new HistoryEntryDetail( "Nested relation", HistoryAction.DetailLevel.PARTIAL,
+                HistoryOrigin.hostUnattributed(), List.of(child), List.of(partChange), Optional.empty(),
                 Optional.of("history.detail.relation-partial"));
-        final HistoryEntryDetail detail = new HistoryEntryDetail(
-                "Relation \"summary\" \\ escaped",
-                HistoryAction.DetailLevel.PARTIAL,
-                HistoryOrigin.hostUnattributed(),
-                List.of(child),
+        final HistoryEntryDetail detail = new HistoryEntryDetail( "Relation \"summary\" \\ escaped",
+                HistoryAction.DetailLevel.PARTIAL, HistoryOrigin.hostUnattributed(), List.of(child),
                 List.of(ordinaryChange, partChange, deformerChange),
                 Optional.of(new HistoryGroup(Optional.of("group\"\\id"), 1, List.of(nested), false)),
                 Optional.of("history.detail.relation-partial"));
@@ -298,25 +252,11 @@ class WindowsHistoryManagerValidationProbeTest {
         assertEquals("#66\"\\ccff", ordinary.get("after").asText());
         assertEquals("KEYFORM", ordinary.get("context").get("kind").asText());
         assertEquals("form\"\\id", ordinary.get("context").get("formId").asText());
-        assertEquals(
-                "PARAMETER",
-                ordinary.get("context")
-                        .get("coordinates")
-                        .get(0)
-                        .get("parameter")
-                        .get("type")
+        assertEquals( "PARAMETER", ordinary.get("context").get("coordinates").get(0).get("parameter").get("type")
                         .asText());
-        assertEquals(
-                "Param\"\\X",
-                ordinary.get("context")
-                        .get("coordinates")
-                        .get(0)
-                        .get("parameter")
-                        .get("id")
+        assertEquals( "Param\"\\X", ordinary.get("context").get("coordinates").get(0).get("parameter").get("id")
                         .asText());
-        assertEquals(
-                "1\"\\2",
-                ordinary.get("context").get("coordinates").get(0).get("value").asText());
+        assertEquals( "1\"\\2", ordinary.get("context").get("coordinates").get(0).get("value").asText());
         assertTrue(ordinary.get("relation").isNull());
 
         final JsonNode part = root.get("changes").get(1).get("relation");
@@ -334,8 +274,7 @@ class WindowsHistoryManagerValidationProbeTest {
         final JsonNode nestedChange =
                 root.get("group").get("children").get(0).get("changes").get(0);
         assertEquals("PART_MEMBERSHIP", nestedChange.get("relation").get("kind").asText());
-        assertEquals(
-                "ROOT", nestedChange.get("relation").get("after").get("state").asText());
+        assertEquals( "ROOT", nestedChange.get("relation").get("after").get("state").asText());
         assertTrue(nestedChange.get("relation").get("after").get("target").isNull());
     }
 
@@ -355,85 +294,36 @@ class WindowsHistoryManagerValidationProbeTest {
     }
 
     private static HistoryRelationChange.Endpoint targetEndpoint(final HistoryTarget target) {
-        return new HistoryRelationChange.Endpoint(HistoryRelationChange.State.TARGET, Optional.of(target));
+        return WindowsProbeHarness.targetEndpoint(target);
     }
 
     private static HistoryChange relationChange(final HistoryRelationChange relation) {
-        return new HistoryChange(
-                HistoryChange.Operation.SET,
-                Optional.of(0),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
-                Optional.of(relation));
+        return WindowsProbeHarness.relationChange(relation);
     }
 
     private static void assertRelationTarget(final JsonNode endpoint, final HistoryTarget expected) {
         assertEquals("TARGET", endpoint.get("state").asText());
         assertEquals(expected.type(), endpoint.get("target").get("type").asText());
-        assertEquals(
-                expected.id().orElseThrow(), endpoint.get("target").get("id").asText());
-        assertEquals(
-                expected.displayName().orElseThrow(),
-                endpoint.get("target").get("displayName").asText());
+        assertEquals(expected.id().orElseThrow(), endpoint.get("target").get("id").asText());
+        assertEquals(expected.displayName().orElseThrow(), endpoint.get("target").get("displayName").asText());
     }
 
-    private static Object form(final float... positions) {
-        return new Form(positions);
-    }
+    private static Object form(final float... positions) { return new Form(positions); }
 
-    /** Test double for the only thing the summary reads: a public {@code getPositions}. */
     public static final class Form {
         private final float[] positions;
 
-        Form(final float[] positions) {
-            this.positions = positions;
-        }
+        Form(final float[] positions) { this.positions = positions; }
 
-        public float[] getPositions() {
-            return positions;
-        }
+        public float[] getPositions() { return positions; }
     }
 
     private static WindowsHistoryManagerValidationProbe.NativeDetail simpleUnavailable() {
-        return new WindowsHistoryManagerValidationProbe.NativeDetail(
-                "SIMPLE",
-                "com.live2d.undo.SimpleUndo",
-                "target",
-                "",
-                "",
-                "",
-                "",
-                -1,
-                0,
-                List.of(),
-                List.of(),
-                true,
-                false,
-                "history.detail.post-state-unavailable");
+        return WindowsProbeHarness.simpleUnavailable();
     }
 
-    private static WindowsHistoryManagerValidationProbe.NativeDetail group(
-            final int observedChildCount,
-            final List<WindowsHistoryManagerValidationProbe.NativeDetail> children,
-            final String degradationCode) {
-        return new WindowsHistoryManagerValidationProbe.NativeDetail(
-                "GROUP",
-                "com.live2d.undo.GroupUndo",
-                "",
-                "",
-                "",
-                "",
-                "",
-                -1,
-                observedChildCount,
-                children.stream()
-                        .map(WindowsHistoryManagerValidationProbe.NativeDetail::entryClass)
-                        .toList(),
-                children,
-                false,
-                false,
-                degradationCode);
+    private static WindowsHistoryManagerValidationProbe.NativeDetail group( final int observedChildCount,
+            final List<WindowsHistoryManagerValidationProbe.NativeDetail> children, final String degradationCode) {
+        return WindowsProbeHarness.group(observedChildCount, children, degradationCode);
     }
 }
