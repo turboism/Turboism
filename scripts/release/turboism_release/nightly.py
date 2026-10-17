@@ -29,6 +29,12 @@ def names_for(version):
     return primary_names(version)
 
 
+def canonical_sets_for(version):
+    require(NIGHTLY.fullmatch(version), 'Not a canonical Nightly version')
+    from .prerelease import canonical_sets_for as prerelease_canonical_sets
+    return prerelease_canonical_sets(version)
+
+
 def missing_assets(raw, expected, tag):
     require(NIGHTLY.fullmatch(tag[1:]), 'Not a canonical Nightly tag')
     from .prerelease import missing_assets as missing
@@ -74,7 +80,7 @@ def plan(github, source_sha, declared_version):
             continue
         tag = raw.get('tag_name','')
         if tag.startswith('v') and NIGHTLY.fullmatch(tag[1:]):
-            require(raw.get('published_at'), 'Nightly publication timestamp missing')
+            require(raw.get('published_at'), f"Nightly publication timestamp missing for release {tag}")
             receipt = validate_published(github, raw)
             successes.append(receipt)
             bases.append(tuple(map(int, NIGHTLY.fullmatch(receipt['version']).groups()[:3])))
@@ -88,7 +94,9 @@ def plan(github, source_sha, declared_version):
         reason = 'already_published'
     elif previous:
         relation = github.api(f"compare/{previous['sourceRevision']}...{source_sha}")['status']
-        require(relation in ('ahead','behind','identical'), 'Nightly source history diverged; refusing automatic replacement')
+        require(relation in ('ahead','behind','identical'),
+                f"Nightly source history diverged ({previous['sourceRevision']}...{source_sha}: relation='{relation}'); "
+                f"refusing automatic replacement. Verify main branch history or run manually with workflow_dispatch.")
         if relation in ('behind','identical'):
             should_build, reason = False, 'outdated_source'
     return {'should_build':should_build,'reason':reason,'source_sha':source_sha,

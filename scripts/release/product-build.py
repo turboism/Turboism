@@ -99,5 +99,8 @@ if __name__ == '__main__':
     try:
         sys.exit(main())
     except (ValueError,OSError,KeyError,ReleaseError,subprocess.SubprocessError) as error:
-        print(f'Product build refused: {error}',file=sys.stderr)
+        print(f'Product build refused: {error}',file=sys.stderr,flush=True)
+        sys.exit(1)
+    except Exception as error:
+        print(f'Product build failed unexpectedly: {error}',file=sys.stderr,flush=True)
         sys.exit(1)
