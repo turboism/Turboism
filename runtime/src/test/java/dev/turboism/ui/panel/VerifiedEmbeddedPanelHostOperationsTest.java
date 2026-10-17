@@ -47,6 +47,8 @@ import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class VerifiedEmbeddedPanelHostOperationsTest {
 
@@ -999,13 +1001,13 @@ public class VerifiedEmbeddedPanelHostOperationsTest {
         assertFalse(host.log.contains("set-visible:" + paletteId + ":true"));
     }
 
-    @Test
-    void showWithoutAnyPaletteBoxRunsNativeNewColumnPath() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"emptySplitContainer", "onlyContentsBox"})
+    void showWithoutPaletteBoxRunsNativeNewColumnPath(final String scenario) throws Exception {
         final InstallHost host = installHost();
-        // The workspace root exists but the split tree holds no palette box at all,
-        // so the native new-column path (workspace activate + setPaletteVisible)
-        // runs unchanged.
-        host.workspaceTree = new SplitContainer(List.of(new SplitContainer(List.of())));
+        host.workspaceTree = "emptySplitContainer".equals(scenario)
+                ? new SplitContainer(List.of(new SplitContainer(List.of())))
+                : new SplitContainer(List.of(new ContentsBox()));
         runOnEdt(() -> host.operations.addPanel(
                 new EmbeddedPanelContributionDescriptor(
                         "turboism.core",
@@ -1082,37 +1084,6 @@ public class VerifiedEmbeddedPanelHostOperationsTest {
                 host.log);
     }
 
-    @Test
-    void showWithOnlyContentComponentsRunsNativeNewColumnPath() throws Exception {
-        final InstallHost host = installHost();
-        // A workspace whose tree holds only a non-split content component has no
-        // palette box: the native new-column path runs unchanged.
-        host.workspaceTree = new SplitContainer(List.of(new ContentsBox()));
-        runOnEdt(() -> host.operations.addPanel(
-                new EmbeddedPanelContributionDescriptor(
-                        "turboism.core",
-                        "test-pane",
-                        "Test Pane",
-                        "window",
-                        100,
-                        new dev.turboism.sdk.ui.PanelView.Text("content"),
-                        false),
-                (actionId, event) -> {}));
-        final FakePaletteId paletteId = host.paletteId("test-pane");
-
-        assertEquals(
-                List.of(
-                        "add:" + paletteId,
-                        "activate:" + paletteId,
-                        "set-visible:" + paletteId + ":true",
-                        "update-window-menu",
-                        "check:" + paletteId + ":true",
-                        "update-window-menu",
-                        "check:" + paletteId + ":true",
-                        "repaint"),
-                host.log);
-        assertFalse(host.log.contains("add-tab:"));
-    }
 
     @Test
     void treeTraversalSkipsNonSplitComponentsDuringCleanupAndTreeChecks() {

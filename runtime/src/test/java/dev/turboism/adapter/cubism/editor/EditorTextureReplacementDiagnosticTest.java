@@ -38,6 +38,8 @@ import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 
 class EditorTextureReplacementDiagnosticTest {
@@ -509,15 +511,21 @@ class EditorTextureReplacementDiagnosticTest {
         assertFalse(post.contains("nativeModelImage.0.id="));
     }
 
-    @Test
-    void replacementCallSiteContinuesWhenIncomingDiagnosticIdentityReadFailsBeforeNative() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"guidRead", "hasRead", "linkageError"})
+    void replacementCallSiteContinuesWhenDiagnosticFails(final String failureType) throws Exception {
         System.setProperty("turboism.home", tempDir.toString());
         System.setProperty("turboism.editorObjectValidation.trace", "true");
         System.setProperty(EditorTextureReplacementDiagnostic.ENABLE_PROPERTY, "true");
         final CallSiteFixture fixture = callSiteFixture();
-        // The first incoming GUID read is the production application-evidence read. Fail the
-        // second one so this test remains specifically diagnostic-only.
-        CallSiteLayeredImage.failIncomingGuidReadAt = 2;
+
+        if ("guidRead".equals(failureType)) {
+            CallSiteLayeredImage.failIncomingGuidReadAt = 2;
+        } else if ("hasRead".equals(failureType)) {
+            CallSiteFilterEnv.throwOnHasRead = 2;
+        } else {
+            CallSiteFilterEnv.throwOnHasReadLinkageError = 2;
+        }
 
         final PsdReplaceHost.Replacement result = replaceAtCallSite(fixture);
 
@@ -526,56 +534,22 @@ class EditorTextureReplacementDiagnosticTest {
         assertEquals(1, CallSiteNativeProcess.calls);
         final List<String> lines = Files.readAllLines(diagnosticArtifact());
         assertEquals(2, lines.size());
-        assertTrue(lines.get(0).contains("incomingRawStatus=UNAVAILABLE"));
-        assertTrue(lines.get(0).contains("incoming-guid-unavailable"));
-        assertTrue(lines.get(1).contains("nativeReturned=true"));
-        assertFalse(lines.get(1).contains("committed=true"));
-    }
-
-    @Test
-    void replacementCallSiteKeepsNativeResultWhenEnabledDiagnosticReadFails() throws Exception {
-        System.setProperty("turboism.home", tempDir.toString());
-        System.setProperty("turboism.editorObjectValidation.trace", "true");
-        System.setProperty(EditorTextureReplacementDiagnostic.ENABLE_PROPERTY, "true");
-        final CallSiteFixture fixture = callSiteFixture();
-        // The first read belongs to the ordinary before snapshot. The second
-        // is the diagnostic pre-read; the native call must still be reached.
-        CallSiteFilterEnv.throwOnHasRead = 2;
-
-        final PsdReplaceHost.Replacement result = replaceAtCallSite(fixture);
-
-        assertEquals("NATIVE_RETURNED", result.nativeStatus());
-        assertTrue(result.nativeReturned());
-        assertEquals(1, CallSiteNativeProcess.calls);
-        final List<String> lines = Files.readAllLines(diagnosticArtifact());
-        assertEquals(2, lines.size());
-        assertTrue(lines.get(0).contains("nativeRelationObservation=UNAVAILABLE"));
-        assertTrue(lines.get(0).contains("native-relation-observation-failed"));
-        assertTrue(lines.get(1).contains("nativeRelationObservation=AVAILABLE"));
-        assertTrue(lines.get(1).contains("nativeReturnObservation=SYNCHRONOUS_RETURN_ONLY"));
-        assertFalse(lines.get(1).contains("committed=true"));
-    }
-
-    @Test
-    void replacementCallSiteContinuesWhenEnabledDiagnosticLinkageErrorOccurs() throws Exception {
-        System.setProperty("turboism.home", tempDir.toString());
-        System.setProperty("turboism.editorObjectValidation.trace", "true");
-        System.setProperty(EditorTextureReplacementDiagnostic.ENABLE_PROPERTY, "true");
-        final CallSiteFixture fixture = callSiteFixture();
-        // The diagnostic pre-read is the second filter read after the ordinary
-        // relation projection. A host LinkageError must remain diagnostic-only.
-        CallSiteFilterEnv.throwOnHasReadLinkageError = 2;
-
-        final PsdReplaceHost.Replacement result = replaceAtCallSite(fixture);
-
-        assertEquals("NATIVE_RETURNED", result.nativeStatus());
-        assertTrue(result.nativeReturned());
-        assertEquals(1, CallSiteNativeProcess.calls);
-        final List<String> lines = Files.readAllLines(diagnosticArtifact());
-        assertEquals(2, lines.size());
-        assertTrue(lines.get(0).contains("nativeRelationObservation=UNAVAILABLE"));
-        assertTrue(lines.get(0).contains("native-relation-observation-failed"));
-        assertTrue(lines.get(1).contains("nativeReturned=true"));
+        if ("guidRead".equals(failureType)) {
+            assertTrue(lines.get(0).contains("incomingRawStatus=UNAVAILABLE"));
+            assertTrue(lines.get(0).contains("incoming-guid-unavailable"));
+            assertTrue(lines.get(1).contains("nativeReturned=true"));
+            assertFalse(lines.get(1).contains("committed=true"));
+        } else if ("hasRead".equals(failureType)) {
+            assertTrue(lines.get(0).contains("nativeRelationObservation=UNAVAILABLE"));
+            assertTrue(lines.get(0).contains("native-relation-observation-failed"));
+            assertTrue(lines.get(1).contains("nativeRelationObservation=AVAILABLE"));
+            assertTrue(lines.get(1).contains("nativeReturnObservation=SYNCHRONOUS_RETURN_ONLY"));
+            assertFalse(lines.get(1).contains("committed=true"));
+        } else {
+            assertTrue(lines.get(0).contains("nativeRelationObservation=UNAVAILABLE"));
+            assertTrue(lines.get(0).contains("native-relation-observation-failed"));
+            assertTrue(lines.get(1).contains("nativeReturned=true"));
+        }
     }
 
     @Test
