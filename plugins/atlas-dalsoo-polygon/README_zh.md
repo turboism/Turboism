@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas-dalsoo
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: modeling
 tags: texture-atlas, packing, polygon, auto-layout
 turboismApi: "[0.1.0,0.2.0)"
@@ -14,7 +14,7 @@ interface: none
 
 # Dalsoo 多边形排版算法
 
-> **Turboism 官方插件** · **状态：开发中**
+> **Turboism 官方插件** · **状态：预览版**
 
 为 Cubism 纹理集工作流提供不规则多边形自动排版算法，风格对应 Cubism 5.4
 的轮廓打包。内核独立移植自 MIT 许可的 `whitegreen/Dalsoo-Bin-Packing`
@@ -32,7 +32,7 @@ interface: none
 | 界面模式 | `none` |
 | 许可证 | MIT（内核移植） |
 
-## 功能
+## 功能概述
 
 - 在现有 MaxRects-BSSF 矩形后端之外注册 `dalsoo` 纹理集排版算法；矩形后端
   保持不变。
@@ -81,7 +81,7 @@ interface: none
 本官方插件为**商店候选**，尚未上架。通过 Turboism 官方发布包安装后，在
 **插件管理**中启用。
 
-## 使用方式
+## 使用方法
 
 1. 打开 Cubism 纹理集编辑器，选择自动排版工作流。
 2. 选择 `dalsoo` 算法；选中时对话框会暴露下述打包控件，选择其他算法时
@@ -110,7 +110,7 @@ Cubism 5.4 的纹理压缩预设（`PRESET_COMPRESSION`、`IMAGE_QUALITY`、
 默认值保持改动前行为：旋转 `QUARTER`、锁定预设 `NONE`、自动缩放
 （容差 `0.005`）、按质量档推导的尝试上限、Abey 内核、串行规划。
 
-## 能力
+## 功能能力
 
 | 声明的能力 | 用户效果 |
 |---|---|
@@ -141,14 +141,16 @@ Cubism 5.4 的纹理压缩预设（`PRESET_COMPRESSION`、`IMAGE_QUALITY`、
 
 ## 状态与限制
 
-- **状态：** 开发中。
+- **状态：** 预览版。
 - 需要活动的纹理集编辑器会话与审阅过的模型读写服务。
 - 排版或应用失败会报告且不应用部分布局；MaxRects-BSSF 与原生算法仍可
   作为回退。
-- 三个支持版本的真实宿主验收尚未执行；目前仅有离线基准与单元/集成
-  测试。
+- 已有 Cubism 5.2.03、5.3.02、5.3.03 的真实宿主证据：54 次排版矩阵
+  包含 18 次 Dalsoo 调用，均完整放入、结果有限且位于页内，并确认插件实际
+  接管；优化后另在 5.3.03 复测了三例。见[宿主性能记录](../../validation/texture-atlas-current-page/HOST-PERF-MATRIX.md)。
+  这些测量不代表所有支持宿主上的全部选项、撤销/重做及保存重开场景均已验收。
 
-## 故障排查
+## 故障排除
 
 | 症状 | 检查项 |
 |---|---|
@@ -157,7 +159,7 @@ Cubism 5.4 的纹理压缩预设（`PRESET_COMPRESSION`、`IMAGE_QUALITY`、
 | 排版缓慢 | 凹形打包代价高；降低质量预设、改用 `QUARTER`/`NONE`，或对近矩形输入选 `AUTO`/矩形后端。 |
 | 排版未应用 | 查看 Turboism 日志中的校验失败；计划是原子拒绝的。 |
 
-## 支持与许可
+## 支持与许可证
 
 - **项目网站：** [https://turboism.dev](https://turboism.dev)
 - **发布者：** Turboism Contributors

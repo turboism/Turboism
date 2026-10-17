@@ -29,10 +29,11 @@ INSTALLER_NSI = Path(__file__).resolve().parent / "installer.nsi"
 EULA_DIR = Path(__file__).resolve().parent.parent / "eula"
 ICON_DIR = Path(__file__).resolve().parent / "assets"
 
-# 冻结的 25 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
+# 冻结的 26 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
 # 第 2 项由 "backup" 改名为 "webdav-backup"（插件改名），增加 frame-animation-import。
 EXPECTED_PATHS = [
     ":plugins:acp",
+    ":plugins:atlas-dalsoo-polygon",
     ":plugins:atlas-maxrects-bssf",
     ":plugins:boundingbox-warp-mirror",
     ":plugins:clipmask-viewer",
@@ -58,9 +59,8 @@ EXPECTED_PATHS = [
     ":plugins:warp-deformer-alt-symmetry",
     ":plugins:webdav-backup",
 ]
-# 七个公开排除模块：必须从清单及一切发布载荷/选择面缺席（回归 oracle）
-EXCLUDED = {"bounding-box", "context-menu", "demo", "parameter",
-            "project-inspector", "project-panel", "psd-import"}
+# 四个公开排除模块：必须从清单及一切发布载荷/选择面缺席（回归 oracle）
+EXCLUDED = {"demo", "parameter", "parameter-lock", "project-inspector"}
 
 
 def check(name, cond, detail=""):

@@ -19,6 +19,8 @@ public final class ParameterControlAppearanceProvider implements AutoCloseable {
 
     private final PaletteAppearanceCoordinator coordinator;
     private final NativeStyleTracker styles = new NativeStyleTracker();
+    private final NativeRowActionTracker rowActions = new NativeRowActionTracker();
+    private final ParameterEditingTracker editing = new ParameterEditingTracker();
     private final List<Binding> bindings = new ArrayList<>();
     private final AutoCloseable changeSubscription;
     private volatile long hostGeneration;
@@ -47,14 +49,23 @@ public final class ParameterControlAppearanceProvider implements AutoCloseable {
      * @throws NullPointerException if any argument is {@code null}
      */
     public void bind(final Kind kind, final String id, final Component component) {
+        bind(kind, id, component, null);
+    }
+
+    void bindParameter(final String id, final Component component, final Object row, final boolean secondary) {
+        bind(Kind.PARAMETER, id, component, coordinator.parameterEditors(row, secondary));
+    }
+
+    void bind(final Kind kind, final String id, final Component component, final ParameterEditorControls controls) {
         Objects.requireNonNull(kind, "kind");
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(component, "component");
         if (!javax.swing.SwingUtilities.isEventDispatchThread()) return;
         bindings.removeIf(binding -> binding.component().get() == component);
-        bindings.add(new Binding(kind, id, new WeakReference<>(component)));
+        bindings.add(new Binding(
+                kind, id, new WeakReference<>(component), controls == null ? null : new WeakControls(controls)));
         coordinator.bindParameterControl(kind == Kind.FOLDER, id, component);
-        apply(kind, id, component);
+        apply(kind, id, component, controls);
     }
 
     /**
@@ -68,19 +79,51 @@ public final class ParameterControlAppearanceProvider implements AutoCloseable {
     public void reapply() {
         final Runnable action = () -> {
             styles.restoreAll();
+            rowActions.restoreAll();
+            editing.restoreAll();
+            if (hostGeneration > 0) coordinator.replayParameterRows();
             final Iterator<Binding> iterator = bindings.iterator();
             while (iterator.hasNext()) {
                 final Binding binding = iterator.next();
                 final Component component = binding.component().get();
                 if (component == null) iterator.remove();
-                else apply(binding.kind(), binding.id(), component);
+                else
+                    apply(
+                            binding.kind(),
+                            binding.id(),
+                            component,
+                            binding.controls() == null
+                                    ? null
+                                    : binding.controls().get());
             }
         };
         if (javax.swing.SwingUtilities.isEventDispatchThread()) action.run();
         else javax.swing.SwingUtilities.invokeLater(action);
     }
 
-    private void apply(final Kind kind, final String id, final Component component) {
+    private void apply(
+            final Kind kind, final String id, final Component component, final ParameterEditorControls controls) {
+        final var rowAction = coordinator.resolveLeadingAction(
+                hostGeneration,
+                kind == Kind.FOLDER
+                        ? PaletteAppearanceCoordinator.Palette.PARAMETER_GROUP
+                        : PaletteAppearanceCoordinator.Palette.PARAMETER,
+                id);
+        editing.apply(
+                component,
+                controls,
+                rowAction
+                        .map(dev.turboism.sdk.ui.appearance.PaletteRowAction::editingDisabled)
+                        .orElse(false));
+        rowActions.apply(
+                component,
+                coordinator.resolveLeadingAction(
+                        hostGeneration,
+                        kind == Kind.FOLDER
+                                ? PaletteAppearanceCoordinator.Palette.PARAMETER_GROUP
+                                : PaletteAppearanceCoordinator.Palette.PARAMETER,
+                        id),
+                coordinator);
         styles.apply(
                 component,
                 coordinator.resolveCurrent(
@@ -100,6 +143,8 @@ public final class ParameterControlAppearanceProvider implements AutoCloseable {
         }
         final Runnable action = () -> {
             styles.restoreAll();
+            rowActions.restoreAll();
+            editing.restoreAll();
             for (Binding binding : bindings) {
                 final Component component = binding.component().get();
                 if (component != null) {
@@ -112,5 +157,30 @@ public final class ParameterControlAppearanceProvider implements AutoCloseable {
         else javax.swing.SwingUtilities.invokeLater(action);
     }
 
-    private record Binding(Kind kind, String id, WeakReference<Component> component) {}
+    private record Binding(Kind kind, String id, WeakReference<Component> component, WeakControls controls) {}
+
+    private record WeakControls(
+            WeakReference<javax.swing.JComponent> row,
+            WeakReference<javax.swing.JComponent> drag,
+            WeakReference<javax.swing.JComponent> value) {
+        WeakControls(ParameterEditorControls controls) {
+            this(
+                    new WeakReference<>(controls.row()),
+                    new WeakReference<>(controls.drag()),
+                    new WeakReference<>(controls.value()));
+        }
+
+        ParameterEditorControls get() {
+            final var r = row.get();
+            final var d = drag.get();
+            final var v = value.get();
+            return r == null
+                            || d == null
+                            || v == null
+                            || !javax.swing.SwingUtilities.isDescendingFrom(d, r)
+                            || !javax.swing.SwingUtilities.isDescendingFrom(v, r)
+                    ? null
+                    : new ParameterEditorControls(r, d, v);
+        }
+    }
 }

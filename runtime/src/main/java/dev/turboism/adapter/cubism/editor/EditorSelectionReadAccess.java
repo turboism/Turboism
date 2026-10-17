@@ -16,7 +16,8 @@ import java.util.Optional;
 
 /**
  * Live Editor selection read: projects the update manager's selection GUID list onto
- * SDK object ids of the active modeling document.
+ * SDK object ids of the active modeling document, then includes the parameter palette's
+ * independently selected rows captured by its verified selection hook.
  *
  * <p>The host list stores {@code Guid} values, not SDK ids, so every element is resolved
  * through a GUID→id map built from the document's object sources
@@ -25,6 +26,8 @@ import java.util.Optional;
  * multi selection are therefore unchanged. A GUID with no live source — a deleted object
  * or a kind this projection does not enumerate — has no SDK id and is dropped rather than
  * guessed onto another object.
+ * Palette rows must still be attached and their source objects must belong to the active
+ * model by reference identity; IDs or GUIDs shared by copied documents are insufficient.
  *
  * <p>{@code HostSelection.active*Id} stays empty: no reviewed selector proves which
  * palette entry is active, and the first selected entry is not a substitute.
@@ -36,9 +39,17 @@ import java.util.Optional;
 final class EditorSelectionReadAccess {
 
     private final VerifiedMemberResolver resolver;
+    private final java.util.function.Supplier<List<Object>> parameterPaletteSelection;
 
     EditorSelectionReadAccess(final VerifiedMemberResolver resolver) {
+        this(resolver, dev.turboism.ui.appearance.control.NativeParameterAppearanceBridge::selectedParameterSources);
+    }
+
+    EditorSelectionReadAccess(
+            final VerifiedMemberResolver resolver,
+            final java.util.function.Supplier<List<Object>> parameterPaletteSelection) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
+        this.parameterPaletteSelection = Objects.requireNonNull(parameterPaletteSelection, "parameterPaletteSelection");
     }
 
     boolean authorized() {
@@ -60,12 +71,14 @@ final class EditorSelectionReadAccess {
         final List<?> guidElements = list(
                 resolver.invoke("cubism.editor-model.update-manager.selection-guid-list", updateManager),
                 "Editor selection GUID list");
-        if (guidElements.isEmpty()) {
+        final List<Object> paletteSources = parameterPaletteSelection.get();
+        if (guidElements.isEmpty() && paletteSources.isEmpty()) {
             traceProjection(0, 0);
             return HostSelection.empty();
         }
         final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
         if (!resolver.isInstance("cubism.editor-model.modeling-document.class", document)) {
+            if (guidElements.isEmpty()) return HostSelection.empty();
             throw unavailable("Editor selection cannot be projected without an active modeling document.");
         }
         final Object modelSource = resolver.invoke("cubism.editor-model.modeling-document.model-source", document);
@@ -86,6 +99,21 @@ final class EditorSelectionReadAccess {
             }
             if (id != null) {
                 selectedObjectIds.add(id);
+            }
+        }
+        if (!paletteSources.isEmpty()) {
+            // Native parameter palettes have an independent selection list. Match source
+            // object identity, not ID/GUID text: copied models can retain both identifiers.
+            final java.util.Set<Object> selectedSources =
+                    java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+            selectedSources.addAll(paletteSources);
+            for (Object source : list(
+                    resolver.invoke("cubism.editor-model.model-source.all-parameters", modelSource),
+                    "Editor parameter source collection")) {
+                if (!selectedSources.contains(source)) continue;
+                final Object id = resolver.invoke("cubism.editor-model.parameter-source.id", source);
+                final String value = text(resolver.invoke("cubism.editor-model.id.value", id), "Editor parameter ID");
+                if (!selectedObjectIds.contains(value)) selectedObjectIds.add(value);
             }
         }
         traceProjection(guidElements.size(), selectedObjectIds.size());

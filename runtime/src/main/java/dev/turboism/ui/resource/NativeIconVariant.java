@@ -24,14 +24,16 @@ public record NativeIconVariant(CubismIcon icon, Theme theme, int scalePercent, 
     }
 
     String resourcePath() {
-        final String object =
+        final String prefix =
                 switch (icon) {
-                    case ART_MESH -> "Artmesh";
-                    case WARP_DEFORMER -> "WarpDef";
-                    case ROTATION_DEFORMER -> "RotDef";
-                    case PART -> "Folder";
+                    case ART_MESH -> "Artmesh-Colored_16x16_";
+                    case WARP_DEFORMER -> "WarpDef-Colored_16x16_";
+                    case ROTATION_DEFORMER -> "RotDef-Colored_16x16_";
+                    case PART -> "Folder-Colored_16x16_";
+                    case LOCK -> "Lock_16x16_";
+                    case LOCK_PLACEHOLDER -> "None_16x16_";
                 };
-        return "res/image_" + (theme == Theme.LIGHT ? "light" : "dark") + "/icons/" + object + "-Colored_16x16_"
+        return "res/image_" + (theme == Theme.LIGHT ? "light" : "dark") + "/icons/" + prefix
                 + (disabled ? "Disabled" : "Default") + ".scale-" + scalePercent + ".png";
     }
 }

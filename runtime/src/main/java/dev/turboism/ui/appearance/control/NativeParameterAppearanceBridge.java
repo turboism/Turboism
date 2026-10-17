@@ -28,6 +28,50 @@ public final class NativeParameterAppearanceBridge {
     public static void afterParameterRow(final Object row) {
         after(row, false);
     }
+
+    /** Records the boolean passed to the exact, verified native row selection method. */
+    @SuppressWarnings("ReferenceEquality") // Installation identity is the session revocation token.
+    public static void afterParameterSelection(final Object row, final boolean selected) {
+        final Installed installed = INSTALLED.get();
+        if (installed == null || row == null) return;
+        if (!javax.swing.SwingUtilities.isEventDispatchThread()) {
+            javax.swing.SwingUtilities.invokeLater(() -> {
+                if (INSTALLED.get() == installed) afterParameterSelection(row, selected);
+            });
+            return;
+        }
+        if (!installed.selectors().parameterRow(row)) return;
+        if (selected) installed.selectedRows().put(row, Boolean.TRUE);
+        else installed.selectedRows().remove(row);
+    }
+
+    /**
+     * Returns native sources of selected, attached parameter rows on the host thread.
+     * Callers must additionally match source identity against the active model. No active
+     * parameter is inferred from selection order. Uninstall discards the session's rows.
+     */
+    public static java.util.List<Object> selectedParameterSources() {
+        final Installed installed = INSTALLED.get();
+        if (installed == null || !javax.swing.SwingUtilities.isEventDispatchThread()) return java.util.List.of();
+        final java.util.List<Object> sources = new java.util.ArrayList<>();
+        for (Object row : installed.selectedRows().keySet()) {
+            try {
+                final Component label = installed
+                        .selectors()
+                        .swingLabel(field(row, installed.selectors().parameterLabelField()));
+                if (label == null || !label.isShowing()) continue;
+                sources.add(invoke(row, installed.selectors().parameterSourceMethod()));
+                if (row.getClass()
+                        .getName()
+                        .equals(installed.selectors().doubleRowOwner().replace('/', '.'))) {
+                    sources.add(invoke(row, installed.selectors().secondaryParameterSourceMethod()));
+                }
+            } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+            }
+        }
+        return java.util.List.copyOf(sources);
+    }
     /**
      * Entry point the instrumented host parameter-folder constructor calls once the folder row is
      * built, binding its label so it can be styled.
@@ -115,7 +159,14 @@ public final class NativeParameterAppearanceBridge {
         else javax.swing.SwingUtilities.invokeLater(replay);
     }
 
-    private record Installed(Selectors selectors, ParameterControlAppearanceProvider provider) {
+    private record Installed(
+            Selectors selectors,
+            ParameterControlAppearanceProvider provider,
+            java.util.Map<Object, Boolean> selectedRows) {
+        Installed(Selectors selectors, ParameterControlAppearanceProvider provider) {
+            this(selectors, provider, new java.util.WeakHashMap<>());
+        }
+
         void bindParameter(final Object row) throws ReflectiveOperationException {
             if (!selectors.parameterRow(row)) return;
             bind(
@@ -151,7 +202,9 @@ public final class NativeParameterAppearanceBridge {
             final Object source = invoke(row, sourceMethod);
             final String id = selectors.id(source, selectors.parameterIdMethod());
             final Component component = selectors.swingLabel(field(row, labelField));
-            if (id != null && component != null) provider.bind(kind, id, component);
+            if (id != null && component != null)
+                provider.bindParameter(
+                        id, component, row, sourceMethod.equals(selectors.secondaryParameterSourceMethod()));
         }
     }
 
