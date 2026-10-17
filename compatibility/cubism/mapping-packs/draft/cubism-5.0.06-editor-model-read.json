@@ -26263,8 +26263,8 @@
       "intermediary": "",
       "descriptor": "()Lcom/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox;",
       "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-operation.rows",
-        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_rows",
+        "recordAlias": "cubism.editor-model.parameter-operation.row-layout",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_row_layout",
         "exactArtifactSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
         "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
       }
@@ -26290,8 +26290,8 @@
       "intermediary": "",
       "descriptor": "()Ljava/util/List;",
       "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-operation.rows",
-        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_rows",
+        "recordAlias": "cubism.editor-model.parameter-row-container.children",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_row_children",
         "exactArtifactSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
         "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
       }
@@ -26317,8 +26317,8 @@
       "intermediary": "",
       "descriptor": "()Lcom/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox;",
       "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-operation.rows",
-        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_rows",
+        "recordAlias": "cubism.editor-model.parameter-group-row.layout",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_group_row_layout",
         "exactArtifactSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
         "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
       }
@@ -26344,8 +26344,8 @@
       "intermediary": "",
       "descriptor": "()Lcom/live2d/ui/control/CSlidableFloat;",
       "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-operation.rows",
-        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_rows",
+        "recordAlias": "cubism.editor-model.parameter-single-row.slider",
+        "recordMappingId": "cubism.mapping.v5_0_06.editor_model.method.parameter_single_row_slider",
         "exactArtifactSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
         "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
       }
@@ -26371,8 +26371,8 @@
       "intermediary": "",
       "descriptor": "Lcom/live2d/ui/control/CCustomPaintComponent;",
       "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-operation.rows",
-        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_rows",
+        "recordAlias": "cubism.editor-model.parameter-single-row.paint",
+        "recordMappingId": "cubism.mapping.v5_0_06.editor_model.field.parameter_single_row_paint",
         "exactArtifactSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
         "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
       }
@@ -26398,8 +26398,8 @@
       "intermediary": "",
       "descriptor": "()Lcom/live2d/ui/control/CSlidableFloat;",
       "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-operation.rows",
-        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_rows",
+        "recordAlias": "cubism.editor-model.parameter-double-row.slider",
+        "recordMappingId": "cubism.mapping.v5_0_06.editor_model.method.parameter_double_row_slider",
         "exactArtifactSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
         "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
       }
@@ -26425,8 +26425,8 @@
       "intermediary": "",
       "descriptor": "Lcom/live2d/ui/control/CCustomPaintComponent;",
       "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-operation.rows",
-        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_rows",
+        "recordAlias": "cubism.editor-model.parameter-double-row.paint",
+        "recordMappingId": "cubism.mapping.v5_0_06.editor_model.field.parameter_double_row_paint",
         "exactArtifactSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
         "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
       }
@@ -26452,8 +26452,8 @@
       "intermediary": "",
       "descriptor": "()Lcom/live2d/ui/control/CSlidableFloat;",
       "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-operation.rows",
-        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_rows",
+        "recordAlias": "cubism.editor-model.parameter-double-row.secondary-slider",
+        "recordMappingId": "cubism.mapping.v5_0_06.editor_model.method.parameter_double_row_secondary_slider",
         "exactArtifactSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
         "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
       }
@@ -26466,10 +26466,10 @@
     "artifactSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
     "profileId": "cubism-5.0.06",
     "verificationId": "cubism-5.0.06.editor-model.static",
-    "selectorCount": 1058,
+    "selectorCount": 1066,
     "capabilityCount": 110,
     "validationNotes": "DRAFT only. Every selector is statically checked against the exact 5.0.06 JAR by kind/owner/name/descriptor/access. Runtime/host behavior is not claimed because no host was started.",
-    "verificationRecordSha256": "1c8baa0efcbf933c82b33ebcc65d71a169db5c585be17a7cdd6768a290418b8a",
+    "verificationRecordSha256": "b70f51ac768ae60719cc45be2c3253c05ab15ae9a2df74c4622e014020f5c21b",
     "capabilityIds": [
       "cubism.editor-history.move",
       "cubism.editor-history.read",
