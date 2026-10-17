@@ -47,6 +47,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Focused permission-gate coverage for the Wave 1 SDK method forwardings added
@@ -246,103 +248,108 @@ class PermissionCheckedModelForwardingTest {
         assertEquals(3, calls.size());
     }
 
-    @Test
-    void modelReadForwardingsDelegateToBackendWhenReadIsGranted() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void modelReadForwardingsEnforceReadPermission(final boolean readGranted) {
         final List<String> calls = new ArrayList<>();
-        final CubismModel model = facade(List.of(readPermission(true), writePermission(true)), calls)
+        final boolean[] granted = {true};
+        final CubismModel model = facade(List.of(readPermission(granted), writePermission(true)), calls)
                 .model()
                 .active();
+        granted[0] = readGranted;
 
-        assertSame(PROFILE, model.profile());
-        assertSame(PHYSICS, model.physicsSettings());
-        assertSame(AUTO_YURE, model.autoYure());
-        // Animation documents are permission-checked wrappers: identity differs but the
-        // delegate's contract is preserved verbatim through the facade.
-        assertEquals(
-                List.of(ANIMATION.animationName()),
-                model.animationDocuments().stream()
-                        .map(AnimationDocument::animationName)
-                        .toList());
-        assertEquals(List.of(), model.textures().rawImages());
-        assertSame(PIXELS, model.renderPixels(2, 1));
-        assertSame(EXPORT, model.exportMoc(EXPORT_SETTINGS));
-        assertEquals(
-                List.of(
-                        "profile",
-                        "physicsSettings",
-                        "autoYure",
-                        "animationDocuments",
-                        "textures",
-                        "renderPixels",
-                        "exportMoc"),
-                calls);
+        if (readGranted) {
+            assertSame(PROFILE, model.profile());
+            assertSame(PHYSICS, model.physicsSettings());
+            assertSame(AUTO_YURE, model.autoYure());
+            // Animation documents are permission-checked wrappers: identity differs but the
+            // delegate's contract is preserved verbatim through the facade.
+            assertEquals(
+                    List.of(ANIMATION.animationName()),
+                    model.animationDocuments().stream()
+                            .map(AnimationDocument::animationName)
+                            .toList());
+            assertEquals(List.of(), model.textures().rawImages());
+            assertSame(PIXELS, model.renderPixels(2, 1));
+            assertSame(EXPORT, model.exportMoc(EXPORT_SETTINGS));
+            assertEquals(
+                    List.of(
+                            "profile",
+                            "physicsSettings",
+                            "autoYure",
+                            "animationDocuments",
+                            "textures",
+                            "renderPixels",
+                            "exportMoc"),
+                    calls);
+        } else {
+            assertThrows(CubismPermissionException.class, model::profile);
+            assertThrows(CubismPermissionException.class, model::physicsSettings);
+            assertThrows(CubismPermissionException.class, model::autoYure);
+            assertThrows(CubismPermissionException.class, model::animationDocuments);
+            assertThrows(CubismPermissionException.class, model::textures);
+            assertThrows(CubismPermissionException.class, () -> model.renderPixels(2, 1));
+            assertThrows(CubismPermissionException.class, () -> model.exportMoc(EXPORT_SETTINGS));
+            assertTrue(calls.isEmpty(), "delegate must not be invoked when read permission is denied");
+        }
     }
 
-    @Test
-    void modelReadForwardingsFailClosedWithoutReadPermission() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void parameterWritesEnforceWritePermission(final boolean writeGranted) {
         final List<String> calls = new ArrayList<>();
-        final boolean[] readGranted = {true};
-        final CubismModel model = facade(List.of(readPermission(readGranted), writePermission(true)), calls)
-                .model()
-                .active();
-        readGranted[0] = false;
+        if (writeGranted) {
+            final RecordingModel delegate = new RecordingModel(calls);
+            final Parameters parameters = facade(delegate, List.of(readPermission(true), writePermission(true)))
+                    .model()
+                    .active()
+                    .parameters();
 
-        assertThrows(CubismPermissionException.class, model::profile);
-        assertThrows(CubismPermissionException.class, model::physicsSettings);
-        assertThrows(CubismPermissionException.class, model::autoYure);
-        assertThrows(CubismPermissionException.class, model::animationDocuments);
-        assertThrows(CubismPermissionException.class, model::textures);
-        assertThrows(CubismPermissionException.class, () -> model.renderPixels(2, 1));
-        assertThrows(CubismPermissionException.class, () -> model.exportMoc(EXPORT_SETTINGS));
-        assertTrue(calls.isEmpty(), "delegate must not be invoked when read permission is denied");
+            final Parameter created = parameters.create(DEFINITION);
+            final Parameter createdInFolder = parameters.create(DEFINITION, Optional.of(GROUP_ID));
+            final Parameter copied = parameters.copy(PARAMETER_ID);
+            parameters.remove(PARAMETER_ID);
+
+            assertNotSame(created, delegate.parameter(), "create must return a PermissionChecked wrapper");
+            assertNotSame(createdInFolder, delegate.parameter(), "create must return a PermissionChecked wrapper");
+            assertNotSame(copied, delegate.parameter(), "copy must return a PermissionChecked wrapper");
+        } else {
+            final Parameters parameters =
+                    facade(List.of(readPermission(true)), calls).model().active().parameters();
+
+            assertThrows(CubismPermissionException.class, () -> parameters.create(DEFINITION));
+            assertThrows(CubismPermissionException.class, () -> parameters.create(DEFINITION, Optional.of(GROUP_ID)));
+            assertThrows(CubismPermissionException.class, () -> parameters.copy(PARAMETER_ID));
+            assertThrows(CubismPermissionException.class, () -> parameters.remove(PARAMETER_ID));
+            assertTrue(calls.isEmpty(), "delegate must not be invoked when write permission is denied");
+        }
     }
 
-    @Test
-    void parameterWritesDelegateAndWrapReturnValuesWhenWriteIsGranted() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void parameterGroupWritesEnforceWritePermission(final boolean writeGranted) {
         final List<String> calls = new ArrayList<>();
-        final RecordingModel delegate = new RecordingModel(calls);
-        final Parameters parameters = facade(delegate, List.of(readPermission(true), writePermission(true)))
-                .model()
-                .active()
-                .parameters();
+        if (writeGranted) {
+            final RecordingModel delegate = new RecordingModel(calls);
+            final ParameterGroups groups = facade(delegate, List.of(readPermission(true), writePermission(true)))
+                    .model()
+                    .active()
+                    .parameterGroups();
 
-        final Parameter created = parameters.create(DEFINITION);
-        final Parameter createdInFolder = parameters.create(DEFINITION, Optional.of(GROUP_ID));
-        final Parameter copied = parameters.copy(PARAMETER_ID);
-        parameters.remove(PARAMETER_ID);
+            final ParameterGroup created = groups.addGroup("Group B");
+            groups.removeGroup(GROUP_ID);
+            groups.moveParameter(PARAMETER_ID, GROUP_ID);
 
-        assertNotSame(created, delegate.parameter(), "create must return a PermissionChecked wrapper");
-        assertNotSame(createdInFolder, delegate.parameter(), "create must return a PermissionChecked wrapper");
-        assertNotSame(copied, delegate.parameter(), "copy must return a PermissionChecked wrapper");
-    }
+            assertNotSame(created, delegate.group(), "addGroup must return a PermissionChecked wrapper");
+        } else {
+            final ParameterGroups groups =
+                    facade(List.of(readPermission(true)), calls).model().active().parameterGroups();
 
-    @Test
-    void parameterWritesFailClosedWithoutWritePermission() {
-        final List<String> calls = new ArrayList<>();
-        final Parameters parameters =
-                facade(List.of(readPermission(true)), calls).model().active().parameters();
-
-        assertThrows(CubismPermissionException.class, () -> parameters.create(DEFINITION));
-        assertThrows(CubismPermissionException.class, () -> parameters.create(DEFINITION, Optional.of(GROUP_ID)));
-        assertThrows(CubismPermissionException.class, () -> parameters.copy(PARAMETER_ID));
-        assertThrows(CubismPermissionException.class, () -> parameters.remove(PARAMETER_ID));
-        assertTrue(calls.isEmpty(), "delegate must not be invoked when write permission is denied");
-    }
-
-    @Test
-    void parameterGroupWritesDelegateAndWrapReturnValueWhenWriteIsGranted() {
-        final List<String> calls = new ArrayList<>();
-        final RecordingModel delegate = new RecordingModel(calls);
-        final ParameterGroups groups = facade(delegate, List.of(readPermission(true), writePermission(true)))
-                .model()
-                .active()
-                .parameterGroups();
-
-        final ParameterGroup created = groups.addGroup("Group B");
-        groups.removeGroup(GROUP_ID);
-        groups.moveParameter(PARAMETER_ID, GROUP_ID);
-
-        assertNotSame(created, delegate.group(), "addGroup must return a PermissionChecked wrapper");
+            assertThrows(CubismPermissionException.class, () -> groups.addGroup("Group B"));
+            assertThrows(CubismPermissionException.class, () -> groups.removeGroup(GROUP_ID));
+            assertThrows(CubismPermissionException.class, () -> groups.moveParameter(PARAMETER_ID, GROUP_ID));
+            assertTrue(calls.isEmpty(), "delegate must not be invoked when write permission is denied");
+        }
     }
 
     @Test
@@ -366,71 +373,69 @@ class PermissionCheckedModelForwardingTest {
         assertEquals(List.of("create:ParamNew", "addGroup:Group B", "add:PartA"), calls);
     }
 
-    @Test
-    void parameterGroupWritesFailClosedWithoutWritePermission() {
-        final List<String> calls = new ArrayList<>();
-        final ParameterGroups groups =
-                facade(List.of(readPermission(true)), calls).model().active().parameterGroups();
 
-        assertThrows(CubismPermissionException.class, () -> groups.addGroup("Group B"));
-        assertThrows(CubismPermissionException.class, () -> groups.removeGroup(GROUP_ID));
-        assertThrows(CubismPermissionException.class, () -> groups.moveParameter(PARAMETER_ID, GROUP_ID));
-        assertTrue(calls.isEmpty(), "delegate must not be invoked when write permission is denied");
-    }
 
-    @Test
-    void textureRegisterAndBindWritesFailClosedWithoutWritePermission() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void textureRegisterAndBindWritesEnforceWritePermission(final boolean writeGranted) {
         final List<String> calls = new ArrayList<>();
         final RecordingModel delegate = new RecordingModel(calls).withTextures(recordingTextures(calls));
-        final var textures =
-                facade(delegate, List.of(readPermission(true))).model().active().textures();
+        final var permissions = writeGranted
+                ? List.of(readPermission(true), writePermission(true))
+                : List.of(readPermission(true));
+        final var textures = facade(delegate, permissions).model().active().textures();
 
-        assertThrows(CubismPermissionException.class, () -> textures.registerImageAndBind(imageGrant(), MESH_ID));
-        assertThrows(CubismPermissionException.class, () -> textures.bindModelImage(MODEL_IMAGE_ID, MESH_ID));
-        assertEquals(
-                List.of("textures"),
-                calls,
-                "register/bind must not reach the delegate when write permission is denied");
+        if (writeGranted) {
+            assertSame(BINDING, textures.registerImageAndBind(imageGrant(), MESH_ID));
+            assertSame(BINDING, textures.bindModelImage(MODEL_IMAGE_ID, MESH_ID));
+            assertEquals(List.of("textures", "registerImageAndBind:ArtMeshA", "bindModelImage:ArtMeshA"), calls);
+        } else {
+            assertThrows(CubismPermissionException.class, () -> textures.registerImageAndBind(imageGrant(), MESH_ID));
+            assertThrows(CubismPermissionException.class, () -> textures.bindModelImage(MODEL_IMAGE_ID, MESH_ID));
+            assertEquals(
+                    List.of("textures"),
+                    calls,
+                    "register/bind must not reach the delegate when write permission is denied");
+        }
     }
 
-    @Test
-    void textureRegisterAndBindWritesDelegateWhenWriteIsGranted() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void partWritesEnforceWritePermission(final boolean writeGranted) {
         final List<String> calls = new ArrayList<>();
-        final RecordingModel delegate = new RecordingModel(calls).withTextures(recordingTextures(calls));
-        final var textures = facade(delegate, List.of(readPermission(true), writePermission(true)))
-                .model()
-                .active()
-                .textures();
+        if (writeGranted) {
+            final RecordingModel delegate = new RecordingModel(calls);
+            final Parts parts = facade(delegate, List.of(readPermission(true), writePermission(true)))
+                    .model()
+                    .active()
+                    .parts();
 
-        assertSame(BINDING, textures.registerImageAndBind(imageGrant(), MESH_ID));
-        assertSame(BINDING, textures.bindModelImage(MODEL_IMAGE_ID, MESH_ID));
-        assertEquals(List.of("textures", "registerImageAndBind:ArtMeshA", "bindModelImage:ArtMeshA"), calls);
-    }
+            final Part added = parts.add(PART_ID);
+            final Part addedUnder = parts.add(PART_ID, PART_ID);
+            final Part copied = parts.copy(PART_ID);
+            parts.remove(PART_ID);
 
-    @Test
-    void partWritesDelegateAndWrapReturnValuesWhenWriteIsGranted() {
-        final List<String> calls = new ArrayList<>();
-        final RecordingModel delegate = new RecordingModel(calls);
-        final Parts parts = facade(delegate, List.of(readPermission(true), writePermission(true)))
-                .model()
-                .active()
-                .parts();
+            assertNotSame(added, delegate.part(), "add must return a PermissionChecked wrapper");
+            assertNotSame(addedUnder, delegate.part(), "add must return a PermissionChecked wrapper");
+            assertNotSame(copied, delegate.part(), "copy must return a PermissionChecked wrapper");
 
-        final Part added = parts.add(PART_ID);
-        final Part addedUnder = parts.add(PART_ID, PART_ID);
-        final Part copied = parts.copy(PART_ID);
-        parts.remove(PART_ID);
+            // String overloads route through the PartId overloads (SDK default), so they
+            // are permission-checked too.
+            final Part addedByString = parts.add("PartString");
+            final Part addedUnderByString = parts.add("PartString", PART_ID);
+            assertNotSame(addedByString, delegate.part(), "String add must return a PermissionChecked wrapper");
+            assertNotSame(addedUnderByString, delegate.part(), "String add must return a PermissionChecked wrapper");
+        } else {
+            final Parts parts =
+                    facade(List.of(readPermission(true)), calls).model().active().parts();
 
-        assertNotSame(added, delegate.part(), "add must return a PermissionChecked wrapper");
-        assertNotSame(addedUnder, delegate.part(), "add must return a PermissionChecked wrapper");
-        assertNotSame(copied, delegate.part(), "copy must return a PermissionChecked wrapper");
-
-        // String overloads route through the PartId overloads (SDK default), so they
-        // are permission-checked too.
-        final Part addedByString = parts.add("PartString");
-        final Part addedUnderByString = parts.add("PartString", PART_ID);
-        assertNotSame(addedByString, delegate.part(), "String add must return a PermissionChecked wrapper");
-        assertNotSame(addedUnderByString, delegate.part(), "String add must return a PermissionChecked wrapper");
+            assertThrows(CubismPermissionException.class, () -> parts.add(PART_ID));
+            assertThrows(CubismPermissionException.class, () -> parts.add(PART_ID, PART_ID));
+            assertThrows(CubismPermissionException.class, () -> parts.add("PartString"));
+            assertThrows(CubismPermissionException.class, () -> parts.copy(PART_ID));
+            assertThrows(CubismPermissionException.class, () -> parts.remove(PART_ID));
+            assertTrue(calls.isEmpty(), "delegate must not be invoked when write permission is denied");
+        }
     }
 
     @Test
@@ -491,19 +496,7 @@ class PermissionCheckedModelForwardingTest {
         assertTrue(calls.isEmpty());
     }
 
-    @Test
-    void partWritesFailClosedWithoutWritePermission() {
-        final List<String> calls = new ArrayList<>();
-        final Parts parts =
-                facade(List.of(readPermission(true)), calls).model().active().parts();
 
-        assertThrows(CubismPermissionException.class, () -> parts.add(PART_ID));
-        assertThrows(CubismPermissionException.class, () -> parts.add(PART_ID, PART_ID));
-        assertThrows(CubismPermissionException.class, () -> parts.add("PartString"));
-        assertThrows(CubismPermissionException.class, () -> parts.copy(PART_ID));
-        assertThrows(CubismPermissionException.class, () -> parts.remove(PART_ID));
-        assertTrue(calls.isEmpty(), "delegate must not be invoked when write permission is denied");
-    }
 
     @Test
     void parameterGroupRenameDelegatesWhenWriteIsGrantedAndFailsClosedWithout() {
@@ -568,34 +561,29 @@ class PermissionCheckedModelForwardingTest {
         assertThrows(CubismPermissionException.class, created::id);
     }
 
-    @Test
-    void morphTargetsReadsDelegateToBackendWhenReadIsGranted() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void morphTargetsReadsEnforceReadPermission(final boolean readGranted) {
         final List<String> calls = new ArrayList<>();
-        final CubismModel model = facade(List.of(readPermission(true), writePermission(true)), calls)
-                .model()
-                .active();
-
-        assertSame(EMPTY_MORPH_TARGETS, model.parts().find(PART_ID).morphTargets());
-        assertSame(
-                EMPTY_MORPH_TARGETS,
-                model.drawables().find(new ArtMeshId("ArtMeshA")).morphTargets());
-        assertEquals(List.of("part.morphTargets", "drawable.morphTargets"), calls);
-    }
-
-    @Test
-    void morphTargetsReadsFailClosedWithoutReadPermission() {
-        final List<String> calls = new ArrayList<>();
-        final boolean[] readGranted = {true};
-        final CubismModel model = facade(List.of(readPermission(readGranted), writePermission(true)), calls)
+        final boolean[] granted = {true};
+        final CubismModel model = facade(List.of(readPermission(granted), writePermission(true)), calls)
                 .model()
                 .active();
         final Part part = model.parts().find(PART_ID);
         final Drawable drawable = model.drawables().find(new ArtMeshId("ArtMeshA"));
-        readGranted[0] = false;
+        granted[0] = readGranted;
 
-        assertThrows(CubismPermissionException.class, part::morphTargets);
-        assertThrows(CubismPermissionException.class, drawable::morphTargets);
-        assertTrue(calls.isEmpty(), "delegate must not be invoked when read permission is denied");
+        if (readGranted) {
+            assertSame(EMPTY_MORPH_TARGETS, part.morphTargets());
+            assertSame(
+                    EMPTY_MORPH_TARGETS,
+                    drawable.morphTargets());
+            assertEquals(List.of("part.morphTargets", "drawable.morphTargets"), calls);
+        } else {
+            assertThrows(CubismPermissionException.class, part::morphTargets);
+            assertThrows(CubismPermissionException.class, drawable::morphTargets);
+            assertTrue(calls.isEmpty(), "delegate must not be invoked when read permission is denied");
+        }
     }
 
     private static final dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot AUTHORING =
