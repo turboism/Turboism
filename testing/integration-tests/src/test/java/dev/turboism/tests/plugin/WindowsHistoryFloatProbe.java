@@ -29,7 +29,9 @@ public final class WindowsHistoryFloatProbe implements CubismPlugin {
     private PluginContext context;
 
     @Override
-    public void init(final PluginContext context) { this.context = context; }
+    public void init(final PluginContext context) {
+        this.context = context;
+    }
 
     @Override
     public void enable() {
@@ -38,14 +40,23 @@ public final class WindowsHistoryFloatProbe implements CubismPlugin {
             Files.createDirectories(evidence.getParent());
             if (Files.exists(evidence)) throw new IllegalStateException("History float evidence already exists");
             write(evidence, "status=RUNNING at=" + Instant.now() + "\n");
-            final Registration panel = context.services().find(UiHostCapabilityService.class)
+            final Registration panel = context.services()
+                    .find(UiHostCapabilityService.class)
                     .orElse(UiHostCapabilityService.unavailable())
-                    .contributeEmbeddedPanel(new EmbeddedPanelContribution( PANEL_ID, "History Float Probe", "side", 90,
+                    .contributeEmbeddedPanel(new EmbeddedPanelContribution(
+                            PANEL_ID,
+                            "History Float Probe",
+                            "side",
+                            90,
                             PanelView.column(PanelView.text("Float probe panel"))));
             try {
-                context.services().find(UiHostCapabilityService.class).orElse(UiHostCapabilityService.unavailable())
+                context.services()
+                        .find(UiHostCapabilityService.class)
+                        .orElse(UiHostCapabilityService.unavailable())
                         .activateEmbeddedPanelFloating(EmbeddedPanelId.of(PANEL_ID));
-                write( evidence, "status=PASS\npanelId=" + PANEL_ID
+                write(
+                        evidence,
+                        "status=PASS\npanelId=" + PANEL_ID
                                 + "\nfloating=activated via SDK activateEmbeddedPanelFloating\n"
                                 + "at=" + Instant.now() + "\n");
                 // Poll the Swing tree for the history tool strip over ~18s:
@@ -65,14 +76,17 @@ public final class WindowsHistoryFloatProbe implements CubismPlugin {
                     panel.close();
                     append(evidence, "cleanup=closed\n");
                 } catch (Exception cleanupFailure) {
-                    append( evidence, "cleanup=FAIL:" + cleanupFailure.getClass().getSimpleName() + ":"
+                    append(
+                            evidence,
+                            "cleanup=FAIL:" + cleanupFailure.getClass().getSimpleName() + ":"
                                     + cleanupFailure.getMessage() + "\n");
                 }
             }
         } catch (Exception failure) {
             context.logger().error("History float probe failed", failure);
             try {
-                write( evidence,
+                write(
+                        evidence,
                         "status=FAIL\nerror=" + failure.getClass().getName() + ": " + failure.getMessage() + "\n");
             } catch (Exception ignored) {
             }
@@ -93,17 +107,25 @@ public final class WindowsHistoryFloatProbe implements CubismPlugin {
         try {
             final String wanted = "turboism:dev.turboism.plugin.historypanel:history.toolstrip";
             final java.util.List<String> found = new java.util.ArrayList<>();
-            for (java.awt.Window window : java.awt.Window.getWindows()) { scan(window, wanted, found); }
+            for (java.awt.Window window : java.awt.Window.getWindows()) {
+                scan(window, wanted, found);
+            }
             return found.isEmpty() ? "ABSENT" : String.join(",", found);
-        } catch (Throwable failure) { return "ERROR:" + failure.getClass().getSimpleName(); }
+        } catch (Throwable failure) {
+            return "ERROR:" + failure.getClass().getSimpleName();
+        }
     }
 
     private static String dumpStructure() {
         try {
             final java.util.List<String> hits = new java.util.ArrayList<>();
-            for (java.awt.Window window : java.awt.Window.getWindows()) { scanNames(window, hits); }
+            for (java.awt.Window window : java.awt.Window.getWindows()) {
+                scanNames(window, hits);
+            }
             return hits.isEmpty() ? "NO_CANVAS" : String.join("|", hits);
-        } catch (Throwable failure) { return "ERROR:" + failure.getClass().getSimpleName(); }
+        } catch (Throwable failure) {
+            return "ERROR:" + failure.getClass().getSimpleName();
+        }
     }
 
     static void scanNames(final Container container, final java.util.List<String> hits) {
@@ -112,14 +134,20 @@ public final class WindowsHistoryFloatProbe implements CubismPlugin {
             hits.add(name);
         }
         for (Component child : container.getComponents()) {
-            if (child instanceof Container nested) { scanNames(nested, hits); }
+            if (child instanceof Container nested) {
+                scanNames(nested, hits);
+            }
         }
     }
 
     static void scan(final Container container, final String wanted, final java.util.List<String> found) {
         for (Component child : container.getComponents()) {
-            if (wanted.equals(child.getName())) { found.add(child.getClass().getName() + "@" + child.getBounds()); }
-            if (child instanceof Container nested) { scan(nested, wanted, found); }
+            if (wanted.equals(child.getName())) {
+                found.add(child.getClass().getName() + "@" + child.getBounds());
+            }
+            if (child instanceof Container nested) {
+                scan(nested, wanted, found);
+            }
         }
     }
 
@@ -132,7 +160,11 @@ public final class WindowsHistoryFloatProbe implements CubismPlugin {
     }
 
     static void write(final Path artifact, final String value) throws Exception {
-        Files.writeString( artifact, value, StandardCharsets.UTF_8, StandardOpenOption.CREATE,
+        Files.writeString(
+                artifact,
+                value,
+                StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING);
     }
 }

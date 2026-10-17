@@ -59,16 +59,20 @@ class WindowsHistoryNativeUiHostCloseTest {
 
     @Test
     void exactMcp5303RouteIsAddedWithoutChangingEstablishedRoutes() {
-        assertEquals( WindowsHistoryNativeUiHostClose.HostCloseRoute.ROBOT_ALT_F4,
+        assertEquals(
+                WindowsHistoryNativeUiHostClose.HostCloseRoute.ROBOT_ALT_F4,
                 WindowsHistoryNativeUiHostClose.hostCloseRoute("5302"));
-        assertEquals( WindowsHistoryNativeUiHostClose.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
+        assertEquals(
+                WindowsHistoryNativeUiHostClose.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
                 WindowsHistoryNativeUiHostClose.hostCloseRoute("5203"));
-        assertEquals( WindowsHistoryNativeUiHostClose.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
+        assertEquals(
+                WindowsHistoryNativeUiHostClose.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
                 WindowsHistoryNativeUiHostClose.hostCloseRoute("5303"));
         for (String version : java.util.List.of(
                 "5000", "5001", "5002", "5003", "5004", "5005", "5006", "5100", "5101", "5102", "5103", "5200", "5201",
                 "5202", "5203", "5300", "5301", "5303", "5304")) {
-            assertEquals( WindowsHistoryNativeUiHostClose.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
+            assertEquals(
+                    WindowsHistoryNativeUiHostClose.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
                     WindowsHistoryNativeUiHostClose.hostCloseRoute(version));
         }
         assertThrows(IllegalArgumentException.class, () -> WindowsHistoryNativeUiHostClose.hostCloseRoute("5400"));
@@ -88,21 +92,26 @@ class WindowsHistoryNativeUiHostCloseTest {
 
     @Test
     void fixtureIdentityIsRequiredBeforeWindowSelection() {
-        assertThrows( IllegalStateException.class, () -> WindowsHistoryNativeUiHostClose.selectHostWindowCandidate(
+        assertThrows(
+                IllegalStateException.class,
+                () -> WindowsHistoryNativeUiHostClose.selectHostWindowCandidate(
                         List.of(new WindowsHistoryNativeUiHostClose.HostWindowCandidate("Cubism Editor", "")),
                         "history-native-ui-5302-r1.cmo3"));
     }
 
     @Test
     void missingConfirmationIsACleanClose() {
-        assertEquals( WindowsHistoryNativeUiHostClose.HostCloseDecision.CLEAN_CLOSE,
+        assertEquals(
+                WindowsHistoryNativeUiHostClose.HostCloseDecision.CLEAN_CLOSE,
                 WindowsHistoryNativeUiHostClose.hostCloseDecision(false, null, "history-native-ui-5302-r1.cmo3"));
     }
 
     @Test
     void unknownYesNoConfirmationIsNotEnoughToPermitDiscard() {
-        assertEquals( WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
-                WindowsHistoryNativeUiHostClose.hostCloseDecision( true,
+        assertEquals(
+                WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+                WindowsHistoryNativeUiHostClose.hostCloseDecision(
+                        true,
                         dialog("Confirm", "Are you sure?", JOptionPane.YES_NO_OPTION, button("Yes"), button("No")),
                         "history-native-ui-5302-r1.cmo3"));
     }
@@ -110,52 +119,90 @@ class WindowsHistoryNativeUiHostCloseTest {
     @Test
     void negativeDiscardPhraseIsNotADiscardAction() {
         assertEquals(-1, WindowsHistoryNativeUiHostClose.selectDiscardButton(List.of(button("Do not discard"))));
-        assertEquals( WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
-                WindowsHistoryNativeUiHostClose.hostCloseDecision( true, dialog( "Save Changes",
+        assertEquals(
+                WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+                WindowsHistoryNativeUiHostClose.hostCloseDecision(
+                        true,
+                        dialog(
+                                "Save Changes",
                                 "Do you want to save changes to history-native-ui-5302-r1.cmo3?",
-                                JOptionPane.YES_NO_OPTION, button("Yes"), button("Do not discard")),
+                                JOptionPane.YES_NO_OPTION,
+                                button("Yes"),
+                                button("Do not discard")),
                         "history-native-ui-5302-r1.cmo3"));
     }
 
-    private static void assertSaveDecision( final WindowsHistoryNativeUiHostClose.HostCloseDecision expected,
-            final String title, final String message, final String fixture,
+    private static void assertSaveDecision(
+            final WindowsHistoryNativeUiHostClose.HostCloseDecision expected,
+            final String title,
+            final String message,
+            final String fixture,
             final WindowsHistoryNativeUiHostClose.ButtonSnapshot... buttons) {
-        assertEquals( expected, WindowsHistoryNativeUiHostClose.hostCloseDecision(
+        assertEquals(
+                expected,
+                WindowsHistoryNativeUiHostClose.hostCloseDecision(
                         true, dialog(title, message, JOptionPane.YES_NO_OPTION, buttons), fixture));
     }
 
     @Test
     void otherFixtureSavePromptIsRejected() {
-        assertSaveDecision( WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
-                "Save Changes", "Do you want to save changes to another-fixture.cmo3?",
-                "history-native-ui-5302-r1.cmo3", button("Yes"), button("No"));
+        assertSaveDecision(
+                WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+                "Save Changes",
+                "Do you want to save changes to another-fixture.cmo3?",
+                "history-native-ui-5302-r1.cmo3",
+                button("Yes"),
+                button("No"));
     }
 
     @Test
     void fixtureAtPromptStartIsAcceptedAsACompleteToken() {
         final String fixture = "history-native-ui-5302-r1.cmo3";
-        assertSaveDecision(WindowsHistoryNativeUiHostClose.HostCloseDecision.DISCARD, fixture, "Save Changes", fixture, button("Yes"), button("No"));
+        assertSaveDecision(
+                WindowsHistoryNativeUiHostClose.HostCloseDecision.DISCARD,
+                fixture,
+                "Save Changes",
+                fixture,
+                button("Yes"),
+                button("No"));
     }
 
     @Test
     void fixtureAtPromptEndIsAcceptedWithoutTrailingPunctuation() {
         final String fixture = "history-native-ui-5302-r1.cmo3";
-        assertSaveDecision(WindowsHistoryNativeUiHostClose.HostCloseDecision.DISCARD, "Save Changes", "Do you want to save changes to " + fixture, fixture, button("Yes"), button("No"));
+        assertSaveDecision(
+                WindowsHistoryNativeUiHostClose.HostCloseDecision.DISCARD,
+                "Save Changes",
+                "Do you want to save changes to " + fixture,
+                fixture,
+                button("Yes"),
+                button("No"));
     }
 
     @Test
     void fixtureInsideALongerFilenameIsRejected() {
         final String fixture = "history-native-ui-5302-r1.cmo3";
-        assertSaveDecision(WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION, "Save Changes", "Do you want to save changes to " + fixture + "-backup", fixture, button("Yes"), button("No"));
+        assertSaveDecision(
+                WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+                "Save Changes",
+                "Do you want to save changes to " + fixture + "-backup",
+                fixture,
+                button("Yes"),
+                button("No"));
     }
 
     @Test
     void legalTaskFixtureSavePromptSelectsItsExplicitNoAction() {
-        final WindowsHistoryNativeUiHostClose.CloseDialogSnapshot prompt = dialog( "Save Changes",
-                "Do you want to save changes to history-native-ui-5302-r1.cmo3?", JOptionPane.YES_NO_CANCEL_OPTION,
-                button("Yes"), button("No (N)"), button("Cancel"));
+        final WindowsHistoryNativeUiHostClose.CloseDialogSnapshot prompt = dialog(
+                "Save Changes",
+                "Do you want to save changes to history-native-ui-5302-r1.cmo3?",
+                JOptionPane.YES_NO_CANCEL_OPTION,
+                button("Yes"),
+                button("No (N)"),
+                button("Cancel"));
 
-        assertEquals( WindowsHistoryNativeUiHostClose.HostCloseDecision.DISCARD,
+        assertEquals(
+                WindowsHistoryNativeUiHostClose.HostCloseDecision.DISCARD,
                 WindowsHistoryNativeUiHostClose.hostCloseDecision(true, prompt, "history-native-ui-5302-r1.cmo3"));
         assertEquals(1, WindowsHistoryNativeUiHostClose.selectDiscardButton(prompt.buttons()));
     }
@@ -163,10 +210,16 @@ class WindowsHistoryNativeUiHostCloseTest {
     @Test
     void observedR80ChineseSavePromptSelectsItsExplicitNoAction() {
         final String fixture = "queue-19112224a5154b1f81b996cc432c1f10.cmo3";
-        final WindowsHistoryNativeUiHostClose.CloseDialogSnapshot prompt = dialog( "确定", "你想保存" + fixture + "的文件吗?",
-                JOptionPane.YES_NO_CANCEL_OPTION, button("Yes(Y)"), button("No(N)"), button("Cancel(C)"));
+        final WindowsHistoryNativeUiHostClose.CloseDialogSnapshot prompt = dialog(
+                "确定",
+                "你想保存" + fixture + "的文件吗?",
+                JOptionPane.YES_NO_CANCEL_OPTION,
+                button("Yes(Y)"),
+                button("No(N)"),
+                button("Cancel(C)"));
 
-        assertEquals( WindowsHistoryNativeUiHostClose.HostCloseDecision.DISCARD,
+        assertEquals(
+                WindowsHistoryNativeUiHostClose.HostCloseDecision.DISCARD,
                 WindowsHistoryNativeUiHostClose.hostCloseDecision(true, prompt, fixture));
         assertEquals(1, WindowsHistoryNativeUiHostClose.selectDiscardButton(prompt.buttons()));
     }
@@ -182,9 +235,13 @@ class WindowsHistoryNativeUiHostCloseTest {
 
         assertTrue(snapshot.optionPanePresent());
         assertEquals(3, snapshot.buttons().size());
-        assertEquals( List.of("Yes(Y)", "No(N)", "Cancel(C)"), snapshot.buttons().stream()
-                        .map(WindowsHistoryNativeUiHostClose.ButtonSnapshot::text).toList());
-        assertEquals( WindowsHistoryNativeUiHostClose.HostCloseDecision.DISCARD,
+        assertEquals(
+                List.of("Yes(Y)", "No(N)", "Cancel(C)"),
+                snapshot.buttons().stream()
+                        .map(WindowsHistoryNativeUiHostClose.ButtonSnapshot::text)
+                        .toList());
+        assertEquals(
+                WindowsHistoryNativeUiHostClose.HostCloseDecision.DISCARD,
                 WindowsHistoryNativeUiHostClose.handleCloseDialogForTest(dialog.root(), "确定", fixture));
         assertEquals(1, dialog.noClicks().get());
         assertEquals(1, dialog.paneClicks().get());
@@ -197,7 +254,8 @@ class WindowsHistoryNativeUiHostCloseTest {
         final SwingDialogFixture dialog = swingDialog(
                 "你想保存other-queue.cmo3的文件吗?", JOptionPane.YES_NO_CANCEL_OPTION, "Yes(Y)", "No(N)", "Cancel(C)");
 
-        assertThrows( IllegalStateException.class,
+        assertThrows(
+                IllegalStateException.class,
                 () -> WindowsHistoryNativeUiHostClose.handleCloseDialogForTest(dialog.root(), "确定", fixture));
         assertEquals(0, dialog.paneClicks().get());
         assertEquals(0, dialog.titlebarClicks().get());
@@ -209,7 +267,8 @@ class WindowsHistoryNativeUiHostCloseTest {
         final SwingDialogFixture dialog =
                 swingDialog("你想保存" + fixture + "的文件吗?", JOptionPane.YES_NO_CANCEL_OPTION, "Yes(Y)", "No(N)", "Discard");
 
-        assertThrows( IllegalStateException.class,
+        assertThrows(
+                IllegalStateException.class,
                 () -> WindowsHistoryNativeUiHostClose.handleCloseDialogForTest(dialog.root(), "确定", fixture));
         assertEquals(0, dialog.paneClicks().get());
         assertEquals(0, dialog.titlebarClicks().get());
@@ -224,17 +283,27 @@ class WindowsHistoryNativeUiHostCloseTest {
 
         assertFalse(snapshot.optionPanePresent());
         assertTrue(snapshot.buttons().isEmpty());
-        assertThrows( IllegalStateException.class, () -> WindowsHistoryNativeUiHostClose.handleCloseDialogForTest(
+        assertThrows(
+                IllegalStateException.class,
+                () -> WindowsHistoryNativeUiHostClose.handleCloseDialogForTest(
                         root, "确定", "queue-19112224a5154b1f81b996cc432c1f10.cmo3"));
         assertEquals(0, titlebarClicks.get());
     }
 
     @Test
     void multipleOptionPanesAreAmbiguousAndCannotBeClicked() throws Exception {
-        final SwingDialogFixture first = swingDialog( "你想保存queue-19112224a5154b1f81b996cc432c1f10.cmo3的文件吗?",
-                JOptionPane.YES_NO_CANCEL_OPTION, "Yes(Y)", "No(N)", "Cancel(C)");
-        final SwingDialogFixture second = swingDialog( "你想保存queue-19112224a5154b1f81b996cc432c1f10.cmo3的文件吗?",
-                JOptionPane.YES_NO_CANCEL_OPTION, "Yes(Y)", "No(N)", "Cancel(C)");
+        final SwingDialogFixture first = swingDialog(
+                "你想保存queue-19112224a5154b1f81b996cc432c1f10.cmo3的文件吗?",
+                JOptionPane.YES_NO_CANCEL_OPTION,
+                "Yes(Y)",
+                "No(N)",
+                "Cancel(C)");
+        final SwingDialogFixture second = swingDialog(
+                "你想保存queue-19112224a5154b1f81b996cc432c1f10.cmo3的文件吗?",
+                JOptionPane.YES_NO_CANCEL_OPTION,
+                "Yes(Y)",
+                "No(N)",
+                "Cancel(C)");
         final JPanel panes = new JPanel();
         panes.add(first.optionPane());
         panes.add(second.optionPane());
@@ -245,60 +314,95 @@ class WindowsHistoryNativeUiHostCloseTest {
 
         assertFalse(snapshot.optionPanePresent());
         assertTrue(snapshot.buttons().isEmpty());
-        assertThrows( IllegalStateException.class, () -> WindowsHistoryNativeUiHostClose.handleCloseDialogForTest(
+        assertThrows(
+                IllegalStateException.class,
+                () -> WindowsHistoryNativeUiHostClose.handleCloseDialogForTest(
                         root, "确定", "queue-19112224a5154b1f81b996cc432c1f10.cmo3"));
         assertEquals(0, first.paneClicks().get());
         assertEquals(0, second.paneClicks().get());
         assertEquals(0, titlebarClicks.get());
     }
 
-    private static void assertPromptDecision( final WindowsHistoryNativeUiHostClose.HostCloseDecision expected,
-            final String fixture, final String message,
+    private static void assertPromptDecision(
+            final WindowsHistoryNativeUiHostClose.HostCloseDecision expected,
+            final String fixture,
+            final String message,
             final WindowsHistoryNativeUiHostClose.ButtonSnapshot... buttons) {
-        assertEquals( expected, WindowsHistoryNativeUiHostClose.hostCloseDecision(
+        assertEquals(
+                expected,
+                WindowsHistoryNativeUiHostClose.hostCloseDecision(
                         true, dialog("确定", message, JOptionPane.YES_NO_CANCEL_OPTION, buttons), fixture));
     }
 
     @Test
     void observedR80ChineseSavePromptForAnotherFixtureIsRejected() {
-        assertPromptDecision( WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
-                "queue-19112224a5154b1f81b996cc432c1f10.cmo3", "你想保存other-queue.cmo3的文件吗?",
-                button("Yes(Y)"), button("No(N)"), button("Cancel(C)"));
+        assertPromptDecision(
+                WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+                "queue-19112224a5154b1f81b996cc432c1f10.cmo3",
+                "你想保存other-queue.cmo3的文件吗?",
+                button("Yes(Y)"),
+                button("No(N)"),
+                button("Cancel(C)"));
     }
 
     @Test
     void observedR80ChineseSavePromptWithPrefixedFixtureIsRejected() {
         final String fixture = "queue-19112224a5154b1f81b996cc432c1f10.cmo3";
-        assertPromptDecision( WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
-                fixture, "你想保存prefix-" + fixture + "的文件吗?", button("Yes(Y)"), button("No(N)"), button("Cancel(C)"));
+        assertPromptDecision(
+                WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+                fixture,
+                "你想保存prefix-" + fixture + "的文件吗?",
+                button("Yes(Y)"),
+                button("No(N)"),
+                button("Cancel(C)"));
     }
 
     @Test
     void observedR80ChineseSavePromptWithSuffixedFixtureIsRejected() {
         final String fixture = "queue-19112224a5154b1f81b996cc432c1f10.cmo3";
-        assertPromptDecision( WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
-                fixture, "你想保存" + fixture + "-backup的文件吗?", button("Yes(Y)"), button("No(N)"), button("Cancel(C)"));
+        assertPromptDecision(
+                WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+                fixture,
+                "你想保存" + fixture + "-backup的文件吗?",
+                button("Yes(Y)"),
+                button("No(N)"),
+                button("Cancel(C)"));
     }
 
     @Test
     void negativeR80ChinesePromptIsRejected() {
         final String fixture = "queue-19112224a5154b1f81b996cc432c1f10.cmo3";
-        assertPromptDecision( WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
-                fixture, "不要保存" + fixture + "的文件吗?", button("Yes(Y)"), button("No(N)"), button("Cancel(C)"));
+        assertPromptDecision(
+                WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+                fixture,
+                "不要保存" + fixture + "的文件吗?",
+                button("Yes(Y)"),
+                button("No(N)"),
+                button("Cancel(C)"));
     }
 
     @Test
     void unrelatedR80ChinesePromptIsRejected() {
         final String fixture = "queue-19112224a5154b1f81b996cc432c1f10.cmo3";
-        assertPromptDecision( WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
-                fixture, "你想打开" + fixture + "的文件吗?", button("Yes(Y)"), button("No(N)"), button("Cancel(C)"));
+        assertPromptDecision(
+                WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+                fixture,
+                "你想打开" + fixture + "的文件吗?",
+                button("Yes(Y)"),
+                button("No(N)"),
+                button("Cancel(C)"));
     }
 
     @Test
     void observedR80ChinesePromptWithAmbiguousDiscardButtonsIsRejected() {
         final String fixture = "queue-19112224a5154b1f81b996cc432c1f10.cmo3";
-        assertPromptDecision( WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
-                fixture, "你想保存" + fixture + "的文件吗?", button("Yes(Y)"), button("No(N)"), button("不保存"));
+        assertPromptDecision(
+                WindowsHistoryNativeUiHostClose.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+                fixture,
+                "你想保存" + fixture + "的文件吗?",
+                button("Yes(Y)"),
+                button("No(N)"),
+                button("不保存"));
     }
 
     @Test
@@ -314,8 +418,11 @@ class WindowsHistoryNativeUiHostCloseTest {
                 new WindowsHistoryNativeUiHostClose.HostWindowCandidate("Other", ""));
 
         assertEquals(0, WindowsHistoryNativeUiHostClose.selectHostWindowCandidate(candidates, fixture));
-        assertThrows( IllegalStateException.class, () -> WindowsHistoryNativeUiHostClose.selectHostWindowCandidate(
-                        List.of( new WindowsHistoryNativeUiHostClose.HostWindowCandidate(
+        assertThrows(
+                IllegalStateException.class,
+                () -> WindowsHistoryNativeUiHostClose.selectHostWindowCandidate(
+                        List.of(
+                                new WindowsHistoryNativeUiHostClose.HostWindowCandidate(
                                         "" + fixture + " - Cubism Editor", ""),
                                 new WindowsHistoryNativeUiHostClose.HostWindowCandidate("Cubism - " + fixture, "")),
                         fixture));
@@ -336,14 +443,21 @@ class WindowsHistoryNativeUiHostCloseTest {
                 "javax.swing.JButton", text, text, null, text, true, true);
     }
 
-    private static WindowsHistoryNativeUiHostClose.CloseDialogSnapshot dialog( final String title, final String message,
-            final int optionType, final WindowsHistoryNativeUiHostClose.ButtonSnapshot... buttons) {
+    private static WindowsHistoryNativeUiHostClose.CloseDialogSnapshot dialog(
+            final String title,
+            final String message,
+            final int optionType,
+            final WindowsHistoryNativeUiHostClose.ButtonSnapshot... buttons) {
         return new WindowsHistoryNativeUiHostClose.CloseDialogSnapshot(
                 "javax.swing.JDialog", title, message, true, optionType, List.of(buttons));
     }
 
-    private record SwingDialogFixture( JPanel root, JOptionPane optionPane, AtomicInteger titlebarClicks,
-            AtomicInteger paneClicks, AtomicInteger noClicks) {}
+    private record SwingDialogFixture(
+            JPanel root,
+            JOptionPane optionPane,
+            AtomicInteger titlebarClicks,
+            AtomicInteger paneClicks,
+            AtomicInteger noClicks) {}
 
     private static SwingDialogFixture swingDialog(
             final String message, final int optionType, final String... buttonTexts) {

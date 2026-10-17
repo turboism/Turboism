@@ -103,7 +103,9 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
 
     /** Raised when the durable protocol-state watermark is unreadable; the scan fails closed. */
     static final class ProtocolStateException extends RuntimeException {
-        ProtocolStateException(final String message) { super(message); }
+        ProtocolStateException(final String message) {
+            super(message);
+        }
     }
 
     private final Object scanLock = new Object();
@@ -125,14 +127,27 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
     @Override
     public void enable() {
         if (scanHandle != null) return;
-        declaredPermissions = context.permissions().stream().map(PluginPermission::id).sorted().toList();
-        synchronized (scanLock) { scanEnabled = true; }
-        final TaskSubmission submission = context.tasks().scheduleWithFixedDelay(new FixedDelayTaskRequest(
-                        new TaskId("workspace-validation-scan"), PluginTaskKind.LOW_FREQUENCY_REFRESH,
-                        PluginTaskPriority.LOW, Duration.ofSeconds(1), Duration.ofMillis(500), this::scanOnce));
+        declaredPermissions = context.permissions().stream()
+                .map(PluginPermission::id)
+                .sorted()
+                .toList();
+        synchronized (scanLock) {
+            scanEnabled = true;
+        }
+        final TaskSubmission submission = context.tasks()
+                .scheduleWithFixedDelay(new FixedDelayTaskRequest(
+                        new TaskId("workspace-validation-scan"),
+                        PluginTaskKind.LOW_FREQUENCY_REFRESH,
+                        PluginTaskPriority.LOW,
+                        Duration.ofSeconds(1),
+                        Duration.ofMillis(500),
+                        this::scanOnce));
         if (!submission.accepted()) {
-            synchronized (scanLock) { scanEnabled = false; }
-            context.logger().warn("Windows workspace validation scan rejected: "
+            synchronized (scanLock) {
+                scanEnabled = false;
+            }
+            context.logger()
+                    .warn("Windows workspace validation scan rejected: "
                             + submission.rejectionReason().map(Object::toString).orElse("unknown"));
             return;
         }
@@ -142,14 +157,20 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             automaticMatrixThread.setDaemon(true);
             automaticMatrixThread.start();
         }
-        context.logger().info("Windows workspace validation probe listening under " + context.paths().stateDir());
+        context.logger()
+                .info("Windows workspace validation probe listening under "
+                        + context.paths().stateDir());
     }
 
     @Override
-    public void disable() { cancelScan(); }
+    public void disable() {
+        cancelScan();
+    }
 
     @Override
-    public void shutdown() { cancelScan(); }
+    public void shutdown() {
+        cancelScan();
+    }
 
     /**
      * Disables scanning and returns only after any in-flight scan has finished: the enabled flag
@@ -167,7 +188,9 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             matrixThread = automaticMatrixThread;
             automaticMatrixThread = null;
         }
-        if (matrixThread != null) { matrixThread.interrupt(); }
+        if (matrixThread != null) {
+            matrixThread.interrupt();
+        }
         if (handle != null) {
             handle.cancel();
             handle.close();
@@ -178,14 +201,21 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
         synchronized (scanLock) {
             if (!scanEnabled || token.isCancellationRequested()) return;
             try {
-                final long next = processPending( context.paths().stateDir(), lastProcessed,
+                final long next = processPending(
+                        context.paths().stateDir(),
+                        lastProcessed,
                         context.services().find(WorkspaceService.class).orElse(WorkspaceService.unavailable()),
-                        context.cubism(), declaredPermissions);
-                if (next >= 0) { lastProcessed = next; }
+                        context.cubism(),
+                        declaredPermissions);
+                if (next >= 0) {
+                    lastProcessed = next;
+                }
             } catch (Exception failure) {
                 // The scheduled task survives transient I/O failures; evidence records them.
                 try {
-                    appendEvidence( context.paths().stateDir(), "scan",
+                    appendEvidence(
+                            context.paths().stateDir(),
+                            "scan",
                             "error=" + sanitizeText(failure.getClass().getName() + ": " + failure.getMessage()));
                 } catch (IOException ignored) {
                     // No state directory writable at all; stay quiet and retry next scan.
@@ -209,7 +239,9 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             runWorkspaceMatrix(report);
             passed = true;
         } catch (Exception failure) {
-            if (failure instanceof InterruptedException) { Thread.currentThread().interrupt(); }
+            if (failure instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             report.add(
                     "error=" + encodeValue(failure.getClass().getName() + ": " + String.valueOf(failure.getMessage())));
         }
@@ -224,10 +256,15 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
         try {
             writeAtomic(result, String.join("\n", report) + "\n");
             published = true;
-            context.logger().info("WORKSPACE_HOST_VALIDATION_RESULT status=" + (passed ? "PASS" : "FAIL") + " result="
+            context.logger()
+                    .info("WORKSPACE_HOST_VALIDATION_RESULT status=" + (passed ? "PASS" : "FAIL") + " result="
                             + result);
-        } catch (Exception failure) { context.logger().error("WORKSPACE_HOST_VALIDATION_RESULT status=FAIL", failure); }
-        if (published && Boolean.getBoolean(EXIT_ON_COMPLETE_PROPERTY)) { requestAutomatedHostClose(); }
+        } catch (Exception failure) {
+            context.logger().error("WORKSPACE_HOST_VALIDATION_RESULT status=FAIL", failure);
+        }
+        if (published && Boolean.getBoolean(EXIT_ON_COMPLETE_PROPERTY)) {
+            requestAutomatedHostClose();
+        }
     }
 
     private void runWorkspaceMatrix(final List<String> report) throws Exception {
@@ -240,9 +277,15 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
         boolean connected = false;
         try {
             final String baselineAgent = awaitAgentState(stateDir, "DISCONNECTED", AUTOMATIC_TIMEOUT);
-            require( report, "agent.baselineDisconnected", hasLine(baselineAgent, "status=DISCONNECTED"),
+            require(
+                    report,
+                    "agent.baselineDisconnected",
+                    hasLine(baselineAgent, "status=DISCONNECTED"),
                     "agent status was not DISCONNECTED");
-            require( report, "host.active", hasLine(baselineAgent, "hostState=ACTIVE"),
+            require(
+                    report,
+                    "host.active",
+                    hasLine(baselineAgent, "hostState=ACTIVE"),
                     "validation agent did not admit host=ACTIVE");
             final ProviderCounts baselineCounts =
                     awaitProviderCounts(stateDir, counts -> counts.allZero(), AUTOMATIC_TIMEOUT);
@@ -259,9 +302,14 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             requireCommandLine(
                     report, "baseline.status", baselineStatus, "status.diagnosticCode=workspace.provider.unavailable");
             requireCommandLine(report, "baseline.current", baselineCurrent, "status.availability=UNAVAILABLE");
-            requireCommandLine( report, "baseline.current", baselineCurrent,
+            requireCommandLine(
+                    report,
+                    "baseline.current",
+                    baselineCurrent,
                     "status.diagnosticCode=workspace.provider.unavailable");
-            require( report, "baseline.typedUnavailable",
+            require(
+                    report,
+                    "baseline.typedUnavailable",
                     "OK".equals(baselineStatus.status()) && "OK".equals(baselineCurrent.status()),
                     baselineStatus.status() + "/" + baselineCurrent.status());
             require(report, "baseline.countsFrozen", baselineCounts.allZero(), baselineCounts.toString());
@@ -269,26 +317,39 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             writeMarker(stateDir, CONNECT_MARKER);
             final String connectedAgent = awaitAgentState(stateDir, "CONNECTED", AUTOMATIC_TIMEOUT);
             connected = true;
-            require( report, "agent.connected", hasLine(connectedAgent, "status=CONNECTED"),
+            require(
+                    report,
+                    "agent.connected",
+                    hasLine(connectedAgent, "status=CONNECTED"),
                     "agent did not reach CONNECTED");
 
             final WorkspaceStatus initial = awaitCurrent(workspace);
             recordWorkspaceStatus(report, "active.workspace", initial);
-            require( report, "workspace.available", initial.availability() == WorkspaceStatus.Availability.AVAILABLE,
+            require(
+                    report,
+                    "workspace.available",
+                    initial.availability() == WorkspaceStatus.Availability.AVAILABLE,
                     initial.availability().toString());
             final WorkspaceInfo original = initial.current().orElse(null);
             require(report, "workspace.current", original != null, "current workspace is absent");
             originalId = original.id().value();
             final String expectedOriginalId = originalId;
             final Optional<WorkspaceInfo> alternateValue = initial.available().stream()
-                    .filter(info -> !info.id().value().equals(expectedOriginalId)).filter(info ->
+                    .filter(info -> !info.id().value().equals(expectedOriginalId))
+                    .filter(info ->
                             info.id().value().equals(System.getProperty("turboism.workspaceValidation.customId", "")))
                     .findFirst();
-            require( report, "workspace.alternate", alternateValue.isPresent(),
+            require(
+                    report,
+                    "workspace.alternate",
+                    alternateValue.isPresent(),
                     "native UI did not create the task-local custom workspace");
             final WorkspaceInfo alternate = alternateValue.orElseThrow();
             final String alternateId = alternate.id().value();
-            require( report, "workspace.availableList", initial.available().size() > 1,
+            require(
+                    report,
+                    "workspace.availableList",
+                    initial.available().size() > 1,
                     "available workspace list has fewer than two entries");
 
             recordActiveSnapshot(report, cubismRead, initial);
@@ -304,30 +365,52 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             recordOperation(report, "switch.self", self);
             requireOperation(report, "switch.self", self, WorkspaceOperationResult.Outcome.NO_CHANGE, originalId);
             final WorkspaceId absentId = new WorkspaceId("__turboism-validation-absent__");
-            require( report, "switch.absentId",
-                    initial.available().stream().noneMatch(info -> info.id().equals(absentId)), absentId.value());
+            require(
+                    report,
+                    "switch.absentId",
+                    initial.available().stream().noneMatch(info -> info.id().equals(absentId)),
+                    absentId.value());
             final WorkspaceOperationResult absent = switchTo(workspace, absentId);
             recordOperation(report, "switch.absent", absent);
             requireOperation(report, "switch.absent", absent, WorkspaceOperationResult.Outcome.NOT_FOUND, originalId);
 
             final WorkspaceOperationResult defaultAlternate = switchTo(workspace, alternate.id());
-            requireOperation( report, "updateDefault.prepare", defaultAlternate,
-                    WorkspaceOperationResult.Outcome.CHANGED, alternateId);
+            requireOperation(
+                    report,
+                    "updateDefault.prepare",
+                    defaultAlternate,
+                    WorkspaceOperationResult.Outcome.CHANGED,
+                    alternateId);
             final var layoutBeforeSave = currentLayout();
             perturbLayout(stateDir);
             final var savedLayout = currentLayout();
-            require( report, "updateDefault.layoutChanged", !savedLayout.equals(layoutBeforeSave),
+            require(
+                    report,
+                    "updateDefault.layoutChanged",
+                    !savedLayout.equals(layoutBeforeSave),
                     "native palette toggle did not change the dock tree");
             final WorkspaceOperationResult updatedAlternate = updateDefault(workspace);
             recordOperation(report, "updateDefault.alternate", updatedAlternate);
-            requireOperation( report, "updateDefault.alternate", updatedAlternate,
-                    WorkspaceOperationResult.Outcome.CHANGED, alternateId);
+            requireOperation(
+                    report,
+                    "updateDefault.alternate",
+                    updatedAlternate,
+                    WorkspaceOperationResult.Outcome.CHANGED,
+                    alternateId);
             final WorkspaceOperationResult awayFromAlternate = switchTo(workspace, original.id());
-            requireOperation( report, "updateDefault.away", awayFromAlternate, WorkspaceOperationResult.Outcome.CHANGED,
+            requireOperation(
+                    report,
+                    "updateDefault.away",
+                    awayFromAlternate,
+                    WorkspaceOperationResult.Outcome.CHANGED,
                     originalId);
             final WorkspaceOperationResult backToAlternate = switchTo(workspace, alternate.id());
-            requireOperation( report, "updateDefault.restore", backToAlternate,
-                    WorkspaceOperationResult.Outcome.CHANGED, alternateId);
+            requireOperation(
+                    report,
+                    "updateDefault.restore",
+                    backToAlternate,
+                    WorkspaceOperationResult.Outcome.CHANGED,
+                    alternateId);
             report.add("updateDefault.restoredId=" + encodeValue(alternateId));
 
             final WorkspaceOperationResult resetAway = switchTo(workspace, original.id());
@@ -337,13 +420,23 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             requireOperation(
                     report, "resetDefault.prepare", resetBack, WorkspaceOperationResult.Outcome.CHANGED, alternateId);
             perturbLayout(stateDir);
-            require( report, "resetDefault.layoutPerturbed", !currentLayout().equals(savedLayout),
+            require(
+                    report,
+                    "resetDefault.layoutPerturbed",
+                    !currentLayout().equals(savedLayout),
                     "reset requires a layout different from the saved default");
             final WorkspaceOperationResult resetAlternate = resetDefault(workspace);
             recordOperation(report, "resetDefault.restore", resetAlternate);
-            requireOperation( report, "resetDefault.restore", resetAlternate, WorkspaceOperationResult.Outcome.CHANGED,
+            requireOperation(
+                    report,
+                    "resetDefault.restore",
+                    resetAlternate,
+                    WorkspaceOperationResult.Outcome.CHANGED,
                     alternateId);
-            require( report, "resetDefault.layoutRestored", currentLayout().equals(savedLayout),
+            require(
+                    report,
+                    "resetDefault.layoutRestored",
+                    currentLayout().equals(savedLayout),
                     "native reset did not restore the saved dock tree");
             report.add("resetDefault.restoredId=" + encodeValue(alternateId));
 
@@ -352,20 +445,29 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             requireOperation(
                     report, "cleanup.prepare", finalOriginal, WorkspaceOperationResult.Outcome.CHANGED, originalId);
 
-            final ProviderCounts connectedCounts = awaitProviderCounts( stateDir,
+            final ProviderCounts connectedCounts = awaitProviderCounts(
+                    stateDir,
                     counts -> counts.read() > baselineCounts.read()
                             && counts.switchCalls() >= 10
                             && counts.updateCalls() >= 1
-                            && counts.resetCalls() >= 1, AUTOMATIC_TIMEOUT);
+                            && counts.resetCalls() >= 1,
+                    AUTOMATIC_TIMEOUT);
             reportCounts(report, "agent.connectedCounts", connectedCounts);
-            require( report, "agent.edt", connectedCounts.onEdtCalls() > 0
+            require(
+                    report,
+                    "agent.edt",
+                    connectedCounts.onEdtCalls() > 0
                             && connectedCounts.offEdtCalls() == 0
-                            && connectedCounts.lastOnEdt(), connectedCounts.toString());
+                            && connectedCounts.lastOnEdt(),
+                    connectedCounts.toString());
 
             writeMarker(stateDir, DISCONNECT_MARKER);
             connected = false;
             final String disconnectedAgent = awaitAgentState(stateDir, "DISCONNECTED", AUTOMATIC_TIMEOUT);
-            require( report, "agent.disconnected", hasLine(disconnectedAgent, "status=DISCONNECTED"),
+            require(
+                    report,
+                    "agent.disconnected",
+                    hasLine(disconnectedAgent, "status=DISCONNECTED"),
                     "agent did not reach DISCONNECTED");
             final ProviderCounts fenceBefore =
                     awaitProviderCounts(stateDir, counts -> counts.sameCalls(connectedCounts), AUTOMATIC_TIMEOUT);
@@ -388,12 +490,21 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             requireCommandLine(
                     report, "disconnect.switch", staleSwitch, "result.diagnosticCode=workspace.provider.unavailable");
             requireCommandLine(report, "disconnect.updateDefault", staleUpdate, "outcome=UNAVAILABLE");
-            requireCommandLine( report, "disconnect.updateDefault", staleUpdate,
+            requireCommandLine(
+                    report,
+                    "disconnect.updateDefault",
+                    staleUpdate,
                     "result.diagnosticCode=workspace.provider.unavailable");
             requireCommandLine(report, "disconnect.resetDefault", staleReset, "outcome=UNAVAILABLE");
-            requireCommandLine( report, "disconnect.resetDefault", staleReset,
+            requireCommandLine(
+                    report,
+                    "disconnect.resetDefault",
+                    staleReset,
                     "result.diagnosticCode=workspace.provider.unavailable");
-            require( report, "disconnect.typedUnavailable", "OK".equals(staleStatus.status())
+            require(
+                    report,
+                    "disconnect.typedUnavailable",
+                    "OK".equals(staleStatus.status())
                             && "OK".equals(staleSwitch.status())
                             && "OK".equals(staleUpdate.status())
                             && "OK".equals(staleReset.status()),
@@ -409,15 +520,26 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             connected = true;
             final WorkspaceStatus resumed = awaitCurrent(workspace);
             recordWorkspaceStatus(report, "reconnect.workspace", resumed);
-            require( report, "reconnect.available", resumed.availability() == WorkspaceStatus.Availability.AVAILABLE
-                            && resumed.current().map(info -> info.id().value().equals(expectedOriginalId))
-                                    .orElse(false), resumed.toString());
+            require(
+                    report,
+                    "reconnect.available",
+                    resumed.availability() == WorkspaceStatus.Availability.AVAILABLE
+                            && resumed.current()
+                                    .map(info -> info.id().value().equals(expectedOriginalId))
+                                    .orElse(false),
+                    resumed.toString());
             final ProviderCounts resumedCounts =
                     awaitProviderCounts(stateDir, counts -> counts.read() > fenceAfter.read(), AUTOMATIC_TIMEOUT);
             reportCounts(report, "agent.reconnectedCounts", resumedCounts);
-            require( report, "reconnect.countsResume", resumedCounts.read() > fenceAfter.read(),
+            require(
+                    report,
+                    "reconnect.countsResume",
+                    resumedCounts.read() > fenceAfter.read(),
                     resumedCounts.toString());
-            require( report, "agent.reconnected", hasLine(reconnectedAgent, "status=CONNECTED"),
+            require(
+                    report,
+                    "agent.reconnected",
+                    hasLine(reconnectedAgent, "status=CONNECTED"),
                     "agent did not reconnect");
             require(report, "model.noMutation", true, "workspace SDK operations do not write model state");
         } finally {
@@ -429,11 +551,17 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
                         connected = true;
                     }
                     final WorkspaceOperationResult cleanup = switchTo(workspace, new WorkspaceId(originalId));
-                    final String cleanupId = cleanup.status().current().map(WorkspaceInfo::id).map(WorkspaceId::value)
+                    final String cleanupId = cleanup.status()
+                            .current()
+                            .map(WorkspaceInfo::id)
+                            .map(WorkspaceId::value)
                             .orElse("absent");
                     report.add("cleanup.restoreOutcome=" + cleanup.outcome());
                     report.add("cleanup.restoredId=" + encodeValue(cleanupId));
-                    require( report, "cleanup.restore", cleanupId.equals(originalId)
+                    require(
+                            report,
+                            "cleanup.restore",
+                            cleanupId.equals(originalId)
                                     && cleanup.outcome() != WorkspaceOperationResult.Outcome.FAILED
                                     && cleanup.outcome() != WorkspaceOperationResult.Outcome.UNAVAILABLE,
                             cleanup.outcome() + "/" + cleanupId);
@@ -452,8 +580,11 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
     }
 
     private dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutSnapshot currentLayout() throws Exception {
-        final var layout = context.services().find(WorkspaceLayoutService.class)
-                .orElse(WorkspaceLayoutService.unavailable()).current().toCompletableFuture()
+        final var layout = context.services()
+                .find(WorkspaceLayoutService.class)
+                .orElse(WorkspaceLayoutService.unavailable())
+                .current()
+                .toCompletableFuture()
                 .get(SDK_CALL_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
         if (layout.availability() != dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutSnapshot.Availability.AVAILABLE
                 || layout.root().isEmpty()) {
@@ -512,8 +643,12 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
         });
         require(report, "active.project", project.isPresent(), "active project is absent");
         require(report, "active.projectDocuments", projectDocumentsPresent, "active project has no documents");
-        require( report, "active.workspace", workspace.availability() == WorkspaceStatus.Availability.AVAILABLE
-                        && workspace.current().isPresent(), workspace.availability().toString());
+        require(
+                report,
+                "active.workspace",
+                workspace.availability() == WorkspaceStatus.Availability.AVAILABLE
+                        && workspace.current().isPresent(),
+                workspace.availability().toString());
     }
 
     private static void recordWorkspaceStatus(
@@ -525,17 +660,29 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             final List<String> report, final String prefix, final WorkspaceOperationResult result) {
         report.add(prefix + ".outcome=" + result.outcome());
         result.diagnosticCode().ifPresent(code -> report.add(prefix + ".diagnosticCode=" + sanitizeText(code)));
-        result.status().current().ifPresent(current -> report.add(
+        result.status()
+                .current()
+                .ifPresent(current -> report.add(
                         prefix + ".currentId=" + encodeValue(current.id().value())));
         report.add(prefix + ".availability=" + result.status().availability());
     }
 
-    private static void requireOperation( final List<String> report, final String name,
-            final WorkspaceOperationResult result, final WorkspaceOperationResult.Outcome expectedOutcome,
+    private static void requireOperation(
+            final List<String> report,
+            final String name,
+            final WorkspaceOperationResult result,
+            final WorkspaceOperationResult.Outcome expectedOutcome,
             final String expectedCurrentId) {
-        final String actualCurrentId = result.status().current().map(WorkspaceInfo::id).map(WorkspaceId::value)
+        final String actualCurrentId = result.status()
+                .current()
+                .map(WorkspaceInfo::id)
+                .map(WorkspaceId::value)
                 .orElse("absent");
-        require( report, name + ".outcome", result.outcome() == expectedOutcome, result.outcome().toString());
+        require(
+                report,
+                name + ".outcome",
+                result.outcome() == expectedOutcome,
+                result.outcome().toString());
         require(report, name + ".current", actualCurrentId.equals(expectedCurrentId), actualCurrentId);
     }
 
@@ -595,7 +742,9 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
     }
 
     private static ProviderCounts parseProviderCounts(final String evidence) {
-        final String line = evidence.lines().filter(value -> value.contains("counts=")).reduce((left, right) -> right)
+        final String line = evidence.lines()
+                .filter(value -> value.contains("counts="))
+                .reduce((left, right) -> right)
                 .orElseThrow(() -> new IllegalArgumentException("counts are absent"));
         final String counts = line.substring(line.lastIndexOf("counts=") + "counts=".length());
         long read = -1L;
@@ -670,7 +819,9 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
                         modelFrame = swingFrame;
                         break;
                     }
-                    if (cubismFrame == null && title != null && title.contains("Cubism")) { cubismFrame = swingFrame; }
+                    if (cubismFrame == null && title != null && title.contains("Cubism")) {
+                        cubismFrame = swingFrame;
+                    }
                 }
                 final javax.swing.JFrame frame =
                         modelFrame != null ? modelFrame : cubismFrame != null ? cubismFrame : fallbackFrame;
@@ -687,8 +838,15 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
         }
     }
 
-    private record ProviderCounts( long read, long switchCalls, long updateCalls, long resetCalls, long onEdtCalls,
-            long offEdtCalls, String lastThread, boolean lastOnEdt) {
+    private record ProviderCounts(
+            long read,
+            long switchCalls,
+            long updateCalls,
+            long resetCalls,
+            long onEdtCalls,
+            long offEdtCalls,
+            String lastThread,
+            boolean lastOnEdt) {
         boolean allZero() {
             return read == 0
                     && switchCalls == 0
@@ -725,8 +883,12 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
      *
      * Returns the new durable watermark, or {@code -1} when the scan failed closed.
      */
-    static long processPending( final Path root, final long lastProcessed, final WorkspaceService workspace,
-            final CubismFacade cubism, final List<String> declaredPermissions)
+    static long processPending(
+            final Path root,
+            final long lastProcessed,
+            final WorkspaceService workspace,
+            final CubismFacade cubism,
+            final List<String> declaredPermissions)
             throws IOException {
         final Path commands = root.resolve(COMMANDS_DIR);
         final Path results = root.resolve(RESULTS_DIR);
@@ -751,22 +913,31 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             return -1L;
         }
         if (watermark.value() < lastProcessed) {
-            appendEvidence( root, "watermark",
+            appendEvidence(
+                    root,
+                    "watermark",
                     "status=WATERMARK_REGRESSED disk=" + watermark.value() + " memory=" + lastProcessed);
             return -1L;
         }
         final List<Matcher> acceptedResultMatchers = listFiles(results, ".txt").stream()
-                .map(path -> ACCEPTED_RESULT_FILE.matcher(path.getFileName().toString())).filter(Matcher::matches)
+                .map(path -> ACCEPTED_RESULT_FILE.matcher(path.getFileName().toString()))
+                .filter(Matcher::matches)
                 .toList();
         if (!watermark.filePresent() && !acceptedResultMatchers.isEmpty()) {
-            appendEvidence( root, "watermark",
+            appendEvidence(
+                    root,
+                    "watermark",
                     "status=RESULTS_WITHOUT_WATERMARK acceptedResults=" + acceptedResultMatchers.size());
             return -1L;
         }
         final long maxAcceptedResultSequence = acceptedResultMatchers.stream()
-                .mapToLong(matcher -> Long.parseLong(matcher.group(1))).max().orElse(0L);
+                .mapToLong(matcher -> Long.parseLong(matcher.group(1)))
+                .max()
+                .orElse(0L);
         if (maxAcceptedResultSequence > watermark.value()) {
-            appendEvidence( root, "watermark",
+            appendEvidence(
+                    root,
+                    "watermark",
                     "status=ACCEPTED_RESULTS_ABOVE_WATERMARK watermark=" + watermark.value() + " maxResult="
                             + maxAcceptedResultSequence);
             return -1L;
@@ -777,7 +948,9 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
         for (final Path path : listFiles(commands, ".cmd")) {
             try {
                 pending.add(PendingFile.parse(path));
-            } catch (IllegalArgumentException ignored) { malformed.add(path); }
+            } catch (IllegalArgumentException ignored) {
+                malformed.add(path);
+            }
         }
         for (final Path path : malformed) {
             final Path target = rejected.resolve(path.getFileName() + ".malformed");
@@ -794,8 +967,11 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
                 break;
             }
             if (file.sequence() <= next) {
-                final CommandResult duplicate = new CommandResult( "DUPLICATE", List.of(
-                                "sequence=" + formatSequence(file.sequence()), "command=" + file.name(),
+                final CommandResult duplicate = new CommandResult(
+                        "DUPLICATE",
+                        List.of(
+                                "sequence=" + formatSequence(file.sequence()),
+                                "command=" + file.name(),
                                 "reason=sequence-not-greater-than-durable-watermark"));
                 writeResultVariant(results, file, duplicate, ".duplicate");
                 appendEvidence(root, file.name(), "status=DUPLICATE");
@@ -881,8 +1057,11 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
      * free text is sanitized. Permission denial and unexpected failures are recorded without
      * host access; typed UNAVAILABLE results are recorded as OK evidence, not errors.
      */
-    static CommandResult executeCommand( final WorkspaceService workspace, final CubismFacade cubism,
-            final Command command, final List<String> declaredPermissions) {
+    static CommandResult executeCommand(
+            final WorkspaceService workspace,
+            final CubismFacade cubism,
+            final Command command,
+            final List<String> declaredPermissions) {
         Objects.requireNonNull(workspace, "workspace");
         Objects.requireNonNull(cubism, "cubism");
         Objects.requireNonNull(command, "command");
@@ -909,7 +1088,9 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             final WorkspaceOperationResult result =
                     switch (command.name()) {
                         case "switch" ->
-                            workspace.switchTo(new WorkspaceId(command.argument().orElseThrow())).toCompletableFuture()
+                            workspace
+                                    .switchTo(new WorkspaceId(command.argument().orElseThrow()))
+                                    .toCompletableFuture()
                                     .join();
                         case "update-default" ->
                             workspace.updateDefault().toCompletableFuture().join();
@@ -959,7 +1140,9 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             lines.add("documentName=" + encodeValue(snapshot.name()));
             lines.add("modelPresent=" + snapshot.model().isPresent());
             snapshot.model().ifPresent(model -> lines.add("modelId=" + encodeValue(model.modelId())));
-        } else { lines.add("documentId=absent"); }
+        } else {
+            lines.add("documentId=absent");
+        }
         final Optional<ModelSnapshot> model = cubism.activeModel();
         lines.add("activeModelPresent=" + model.isPresent());
         model.ifPresent(snapshot -> {
@@ -977,7 +1160,8 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
         lines.add(prefix + ".availableCount=" + status.available().size());
         for (int index = 0; index < status.available().size(); index++) {
             final WorkspaceInfo info = status.available().get(index);
-            lines.add(prefix + ".available." + index + ".id=" + encodeValue(info.id().value()));
+            lines.add(prefix + ".available." + index + ".id="
+                    + encodeValue(info.id().value()));
             lines.add(prefix + ".available." + index + ".name=" + encodeValue(info.displayName()));
         }
         status.diagnosticCode().ifPresent(code -> lines.add(prefix + ".diagnosticCode=" + sanitizeText(code)));
@@ -993,23 +1177,32 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
 
     /** Single-line printable sanitization for free text; never emits newlines or raw controls. */
     static String sanitizeText(final String value) {
-        final String normalized = (value == null ? "" : value).replace('\r', ' ').replace('\n', ' ')
-                .replaceAll("[\\p{Cntrl}]", " ").replaceAll(" {2,}", " ").strip();
+        final String normalized = (value == null ? "" : value)
+                .replace('\r', ' ')
+                .replace('\n', ' ')
+                .replaceAll("[\\p{Cntrl}]", " ")
+                .replaceAll(" {2,}", " ")
+                .strip();
         if (normalized.getBytes(StandardCharsets.UTF_8).length <= MAX_TEXT_LINE_BYTES) return normalized;
         return REDACTED_VALUE;
     }
 
     private static void writeResultAtomic(final Path results, final PendingFile file, final CommandResult result)
-            throws IOException { writeResultVariant(results, file, result, ""); }
+            throws IOException {
+        writeResultVariant(results, file, result, "");
+    }
 
     private static void writeResultVariant(
             final Path results, final PendingFile file, final CommandResult result, final String suffix)
             throws IOException {
-        writeAtomic(results.resolve(formatSequence(file.sequence()) + "-" + file.name() + suffix + ".txt"), resultText(result));
+        writeAtomic(
+                results.resolve(formatSequence(file.sequence()) + "-" + file.name() + suffix + ".txt"),
+                resultText(result));
     }
 
     private static String resultText(final CommandResult result) {
-        return "status=" + result.status() + "\n" + String.join("\n", result.lines()) + (result.lines().isEmpty() ? "" : "\n");
+        return "status=" + result.status() + "\n" + String.join("\n", result.lines())
+                + (result.lines().isEmpty() ? "" : "\n");
     }
 
     private static void moveToRejected(final Path root, final PendingFile file, final String reason)
@@ -1021,19 +1214,25 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
     private static void appendEvidence(final Path root, final String command, final String detail) throws IOException {
         final Path evidence = root.resolve(EVIDENCE_FILE);
         Files.createDirectories(evidence.getParent());
-        Files.writeString( evidence,
+        Files.writeString(
+                evidence,
                 "time=" + Instant.now() + " command=" + sanitizeText(command) + " " + sanitizeText(detail) + "\n",
-                StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.APPEND);
     }
 
     private static List<Path> listFiles(final Path directory, final String suffix) throws IOException {
         try (var stream = Files.list(directory)) {
-            return stream.filter(path -> path.getFileName().toString().endsWith(suffix)).toList();
+            return stream.filter(path -> path.getFileName().toString().endsWith(suffix))
+                    .toList();
         }
     }
 
     private static String joinNames(final List<Path> paths) {
-        return paths.stream().map(path -> path.getFileName().toString()).reduce((left, right) -> left + "," + right)
+        return paths.stream()
+                .map(path -> path.getFileName().toString())
+                .reduce((left, right) -> left + "," + right)
                 .orElse("");
     }
 
@@ -1069,7 +1268,9 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
         WindowsProbeHarness.writeAtomic(target, text);
     }
 
-    private static String formatSequence(final long sequence) { return String.format(Locale.ROOT, "%06d", sequence); }
+    private static String formatSequence(final long sequence) {
+        return String.format(Locale.ROOT, "%06d", sequence);
+    }
 
     private record PendingFile(long sequence, String name, Path path) {
 
@@ -1081,6 +1282,8 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
     }
 
     static final class ProtocolException extends RuntimeException {
-        ProtocolException(final String message) { super(message); }
+        ProtocolException(final String message) {
+            super(message);
+        }
     }
 }

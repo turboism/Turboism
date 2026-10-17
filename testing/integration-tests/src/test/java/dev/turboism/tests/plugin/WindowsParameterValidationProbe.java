@@ -84,15 +84,23 @@ import javax.swing.event.DocumentListener;
 public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     enum SearchMode {
-        CONTAINS, EXACT_ID, EXACT_NAME
+        CONTAINS,
+        EXACT_ID,
+        EXACT_NAME
     }
 
     enum TypeFilter {
-        ANY, NORMAL, BLEND_SHAPE, UNKNOWN
+        ANY,
+        NORMAL,
+        BLEND_SHAPE,
+        UNKNOWN
     }
 
     enum BooleanFilter {
-        ANY, YES, NO, UNKNOWN
+        ANY,
+        YES,
+        NO,
+        UNKNOWN
     }
 
     record QuerySpec(
@@ -106,8 +114,16 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         }
     }
 
-    record ParameterRow( ParameterId id, Optional<String> name, ParameterType type, Optional<Boolean> repeat,
-            Optional<Boolean> combined, float value, float minimum, float maximum, float defaultValue) {
+    record ParameterRow(
+            ParameterId id,
+            Optional<String> name,
+            ParameterType type,
+            Optional<Boolean> repeat,
+            Optional<Boolean> combined,
+            float value,
+            float minimum,
+            float maximum,
+            float defaultValue) {
         ParameterRow {
             id = Objects.requireNonNull(id, "id");
             name = Objects.requireNonNull(name, "name");
@@ -116,13 +132,18 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             combined = Objects.requireNonNull(combined, "combined");
         }
 
-        boolean blendShape() { return type == ParameterType.BLEND_SHAPE; }
+        boolean blendShape() {
+            return type == ParameterType.BLEND_SHAPE;
+        }
 
-        String displayName() { return name.orElse(id.value()); }
+        String displayName() {
+            return name.orElse(id.value());
+        }
 
         @Override
         public String toString() {
-            return name.filter(value -> !value.equals(id.value())).map(value -> id.value() + "  —  " + value)
+            return name.filter(value -> !value.equals(id.value()))
+                    .map(value -> id.value() + "  —  " + value)
                     .orElse(id.value());
         }
     }
@@ -138,14 +159,19 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     case EXACT_ID -> parameters.findById(text).stream().toList();
                     case EXACT_NAME -> parameters.findByName(text);
                 };
-        return textMatches.stream().filter(parameter -> matchesType(parameter.type(), spec.type()))
+        return textMatches.stream()
+                .filter(parameter -> matchesType(parameter.type(), spec.type()))
                 .filter(parameter -> matchesBoolean(parameter.repeat(), spec.repeat()))
                 .filter(parameter -> matchesBoolean(parameter.combined(), spec.combined()))
-                .map(WindowsParameterValidationProbe::row).toList();
+                .map(WindowsParameterValidationProbe::row)
+                .toList();
     }
 
-    static Optional<ParameterId> preferredSelection( final List<ParameterRow> rows, final Optional<ParameterId> current,
-            final Optional<ParameterId> cubismSelection, final boolean followCubismSelection) {
+    static Optional<ParameterId> preferredSelection(
+            final List<ParameterRow> rows,
+            final Optional<ParameterId> current,
+            final Optional<ParameterId> cubismSelection,
+            final boolean followCubismSelection) {
         Objects.requireNonNull(rows, "rows");
         Objects.requireNonNull(current, "current");
         Objects.requireNonNull(cubismSelection, "cubismSelection");
@@ -158,8 +184,15 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     private static ParameterRow row(final Parameter parameter) {
-        return new ParameterRow( parameter.id(), parameter.name(), parameter.type(), parameter.repeat(),
-                parameter.combined(), parameter.getValue(), parameter.getMinimumValue(), parameter.getMaximumValue(),
+        return new ParameterRow(
+                parameter.id(),
+                parameter.name(),
+                parameter.type(),
+                parameter.repeat(),
+                parameter.combined(),
+                parameter.getValue(),
+                parameter.getMinimumValue(),
+                parameter.getMaximumValue(),
                 parameter.getDefaultValue());
     }
 
@@ -241,7 +274,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     @Override
     public void enable() {
-        partValidationThread = new Thread( () -> {
+        partValidationThread = new Thread(
+                () -> {
                     final String mode = System.getProperty("turboism.editorObjectValidation.mode", "matrix");
                     final long startedNanos = System.nanoTime();
                     try {
@@ -291,9 +325,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                             finishAutomatedValidation(mode, startedNanos);
                             return;
                         }
-                        if (showsValidationWindow(mode)) { SwingUtilities.invokeLater(this::showWindow); }
+                        if (showsValidationWindow(mode)) {
+                            SwingUtilities.invokeLater(this::showWindow);
+                        }
                     }
-                }, "turboism-editor-object-validation");
+                },
+                "turboism-editor-object-validation");
         partValidationThread.setDaemon(true);
         partValidationThread.start();
     }
@@ -305,7 +342,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     @Override
-    public void shutdown() { disposeWindow(); }
+    public void shutdown() {
+        disposeWindow();
+    }
 
     @Override
     public float beforeSetParameterValue(final Parameter parameter, final float value) {
@@ -496,14 +535,16 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     private void recordEditorObjectLifecycle(final String operation, final String phase) {
-        editorObjectLifecycleCounts.computeIfAbsent(operation + "." + phase, ignored -> new AtomicInteger())
+        editorObjectLifecycleCounts
+                .computeIfAbsent(operation + "." + phase, ignored -> new AtomicInteger())
                 .incrementAndGet();
     }
 
     private static String deformerLifecycleLabel(final Deformer deformer, final String suffix) {
         if (deformer instanceof WarpDeformer) return "warp" + suffix;
         if (deformer instanceof RotationDeformer) return "rotation" + suffix;
-        throw new IllegalArgumentException( "Unsupported deformer hook target: " + deformer.getClass().getName());
+        throw new IllegalArgumentException(
+                "Unsupported deformer hook target: " + deformer.getClass().getName());
     }
 
     private void showWindow() {
@@ -570,13 +611,19 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
         final DocumentListener listener = new DocumentListener() {
             @Override
-            public void insertUpdate(final DocumentEvent event) { refresh(); }
+            public void insertUpdate(final DocumentEvent event) {
+                refresh();
+            }
 
             @Override
-            public void removeUpdate(final DocumentEvent event) { refresh(); }
+            public void removeUpdate(final DocumentEvent event) {
+                refresh();
+            }
 
             @Override
-            public void changedUpdate(final DocumentEvent event) { refresh(); }
+            public void changedUpdate(final DocumentEvent event) {
+                refresh();
+            }
         };
         searchField.getDocument().addDocumentListener(listener);
         searchModeBox.addActionListener(ignored -> refresh());
@@ -587,8 +634,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return panel;
     }
 
-    private void addQueryField( final JPanel panel, final GridBagConstraints constraints, final String label,
-            final java.awt.Component component, final int column, final double weight) {
+    private void addQueryField(
+            final JPanel panel,
+            final GridBagConstraints constraints,
+            final String label,
+            final java.awt.Component component,
+            final int column,
+            final double weight) {
         constraints.gridx = column;
         constraints.gridwidth = 1;
         constraints.weightx = 0.0;
@@ -694,8 +746,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return panel;
     }
 
-    private void addAuthoringField( final JPanel panel, final GridBagConstraints constraints, final String label,
-            final java.awt.Component component, final int column) {
+    private void addAuthoringField(
+            final JPanel panel,
+            final GridBagConstraints constraints,
+            final String label,
+            final java.awt.Component component,
+            final int column) {
         constraints.gridx = column;
         constraints.gridwidth = 1;
         panel.add(new JLabel(label + ':'), constraints);
@@ -758,8 +814,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return editor;
     }
 
-    private void addEditorField( final JPanel panel, final GridBagConstraints constraints, final String label,
-            final java.awt.Component component, final int column, final int row) {
+    private void addEditorField(
+            final JPanel panel,
+            final GridBagConstraints constraints,
+            final String label,
+            final java.awt.Component component,
+            final int column,
+            final int row) {
         constraints.gridx = column;
         constraints.gridy = row;
         constraints.gridwidth = 1;
@@ -808,14 +869,19 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         }
     }
 
-    private void writeInput() { write(parseFiniteValue(setterField.getText())); }
+    private void writeInput() {
+        write(parseFiniteValue(setterField.getText()));
+    }
 
     private void writeLabelColor() {
         final String selectedGroupId = selected(parameterGroupBox, null);
         if (selectedGroupId == null) throw new IllegalStateException("Select one parameter group first.");
         final ParameterGroupId groupId = new ParameterGroupId(selectedGroupId);
-        final UiColor requested = parseColor( labelRedField.getText(), labelGreenField.getText(),
-                labelBlueField.getText(), labelAlphaField.getText());
+        final UiColor requested = parseColor(
+                labelRedField.getText(),
+                labelGreenField.getText(),
+                labelBlueField.getText(),
+                labelAlphaField.getText());
         final ParameterGroup group = activeModel().parameterGroups().find(groupId);
         final NativeLabelColorState authoritative = setParameterFolderLabelColor(group, requested);
         lastActionStatus = "Parameter folder " + groupId.value()
@@ -863,11 +929,14 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     enum HostCloseDecision {
-        CLEAN_CLOSE, DISCARD, UNSUPPORTED_CONFIRMATION
+        CLEAN_CLOSE,
+        DISCARD,
+        UNSUPPORTED_CONFIRMATION
     }
 
     enum HostCloseRoute {
-        SYNTHETIC_WINDOW_CLOSING, ROBOT_ALT_F4
+        SYNTHETIC_WINDOW_CLOSING,
+        ROBOT_ALT_F4
     }
 
     /**
@@ -876,8 +945,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
      * host accepts the synthetic task-window close event.
      */
     static HostCloseRoute hostCloseRoute(final String hostVersion) {
-        return WindowsHistoryNativeUiHostClose.hostCloseRoute(hostVersion) == WindowsHistoryNativeUiHostClose.HostCloseRoute.ROBOT_ALT_F4
-                ? HostCloseRoute.ROBOT_ALT_F4 : HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
+        return WindowsHistoryNativeUiHostClose.hostCloseRoute(hostVersion)
+                        == WindowsHistoryNativeUiHostClose.HostCloseRoute.ROBOT_ALT_F4
+                ? HostCloseRoute.ROBOT_ALT_F4
+                : HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
     }
 
     /** Chooses the non-saving branch without depending on localized button text. */
@@ -903,15 +974,18 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     /** RUNNING progress phase written before the bounded peer wait so a stuck run reports correctly. */
     static String scopeCloseRunningPhase(final String modelId, final String hostThread) {
-        return "status=RUNNING\nphase=plugin-scope-close\n" + "modelId=" + modelId + "\n"
-                + "hostThread=" + hostThread + "\n";
+        return "status=RUNNING\nphase=plugin-scope-close\n" + "modelId=" + modelId + "\n" + "hostThread=" + hostThread
+                + "\n";
     }
 
     /** Writes the scope-close progress phase from the pre-close captured values only. */
     static void writeRunningScopeClosePhase(final Path artifact, final String modelId, final String hostThread)
             throws Exception {
         Files.createDirectories(artifact.getParent());
-        Files.writeString( artifact, scopeCloseRunningPhase(modelId, hostThread), StandardOpenOption.CREATE,
+        Files.writeString(
+                artifact,
+                scopeCloseRunningPhase(modelId, hostThread),
+                StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING);
     }
 
@@ -951,12 +1025,17 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 fixture, beforeMtime, beforeSize, DEFAULT_SAVE_DEADLINE_MILLIS, DEFAULT_SAVE_POLL_MILLIS);
     }
 
-    static SaveConfirmation awaitSaveConfirmation( final Path fixture, final FileTime beforeMtime,
-            final long beforeSize, final long deadlineMillis, final long pollMillis)
+    static SaveConfirmation awaitSaveConfirmation(
+            final Path fixture,
+            final FileTime beforeMtime,
+            final long beforeSize,
+            final long deadlineMillis,
+            final long pollMillis)
             throws Exception {
-        final WindowsProbeHarness.SaveConfirmation sc = WindowsProbeHarness.awaitSaveConfirmation(
-                fixture, beforeMtime, beforeSize, deadlineMillis, pollMillis);
-        return new SaveConfirmation(sc.confirmed(), sc.beforeMtimeMillis(), sc.beforeSize(), sc.afterMtimeMillis(), sc.afterSize());
+        final WindowsProbeHarness.SaveConfirmation sc =
+                WindowsProbeHarness.awaitSaveConfirmation(fixture, beforeMtime, beforeSize, deadlineMillis, pollMillis);
+        return new SaveConfirmation(
+                sc.confirmed(), sc.beforeMtimeMillis(), sc.beforeSize(), sc.afterMtimeMillis(), sc.afterSize());
     }
 
     static final long DEFAULT_SAVE_DEADLINE_MILLIS = 30_000L;
@@ -999,9 +1078,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     private void writeDefinition() {
         final ParameterId currentId = selectedParameterId.orElseThrow(
                 () -> new IllegalStateException("Select one filtered parameter first."));
-        final ParameterDefinition requested = parseDefinition( definitionIdField.getText(),
-                definitionNameField.getText(), definitionMinimumField.getText(), definitionDefaultField.getText(),
-                definitionMaximumField.getText(), selected(definitionTypeBox, ParameterType.NORMAL),
+        final ParameterDefinition requested = parseDefinition(
+                definitionIdField.getText(),
+                definitionNameField.getText(),
+                definitionMinimumField.getText(),
+                definitionDefaultField.getText(),
+                definitionMaximumField.getText(),
+                selected(definitionTypeBox, ParameterType.NORMAL),
                 definitionRepeatBox.isSelected());
         final ParameterDefinition authoritative = updateParameterDefinition(activeParameters(), currentId, requested);
         selectedParameterId = Optional.of(authoritative.id());
@@ -1018,8 +1101,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         final ParameterId partnerId =
                 resolvePartnerId(selectedPartner == null ? "" : selectedPartner.toString(), candidates);
         final Optional<ParameterId> authoritative = combineParameters(activeParameters(), currentId, partnerId);
-        lastActionStatus = "Combined " + currentId.value() + " with " + authoritative.orElseThrow().value()
-                + "; use Cubism Undo/Redo and save/reopen to validate";
+        lastActionStatus = "Combined " + currentId.value() + " with "
+                + authoritative.orElseThrow().value() + "; use Cubism Undo/Redo and save/reopen to validate";
         refresh();
     }
 
@@ -1054,11 +1137,22 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         refresh();
     }
 
-    static ParameterDefinition parseDefinition( final String id, final String name, final String minimum,
-            final String defaultValue, final String maximum, final ParameterType type, final boolean repeat) {
-        return new ParameterDefinition( new ParameterId(Objects.requireNonNull(id, "id").strip()),
-                Objects.requireNonNull(name, "name"), parseFiniteValue(minimum), parseFiniteValue(defaultValue),
-                parseFiniteValue(maximum), Objects.requireNonNull(type, "type"), repeat);
+    static ParameterDefinition parseDefinition(
+            final String id,
+            final String name,
+            final String minimum,
+            final String defaultValue,
+            final String maximum,
+            final ParameterType type,
+            final boolean repeat) {
+        return new ParameterDefinition(
+                new ParameterId(Objects.requireNonNull(id, "id").strip()),
+                Objects.requireNonNull(name, "name"),
+                parseFiniteValue(minimum),
+                parseFiniteValue(defaultValue),
+                parseFiniteValue(maximum),
+                Objects.requireNonNull(type, "type"),
+                repeat);
     }
 
     static ParameterDefinition updateParameterDefinition(
@@ -1068,17 +1162,27 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         Objects.requireNonNull(definition, "definition");
         parameters.find(currentId).updateDefinition(definition);
         final Parameter authoritative = parameters.find(definition.id());
-        return new ParameterDefinition( authoritative.id(), authoritative.name()
+        return new ParameterDefinition(
+                authoritative.id(),
+                authoritative
+                        .name()
                         .orElseThrow(() -> new IllegalStateException("Updated parameter name is unavailable.")),
-                authoritative.getMinimumValue(), authoritative.getDefaultValue(), authoritative.getMaximumValue(),
-                authoritative.type(), authoritative.repeat()
+                authoritative.getMinimumValue(),
+                authoritative.getDefaultValue(),
+                authoritative.getMaximumValue(),
+                authoritative.type(),
+                authoritative
+                        .repeat()
                         .orElseThrow(() -> new IllegalStateException("Updated parameter repeat flag is unavailable.")));
     }
 
     static List<ParameterId> partnerCandidates(final Parameters parameters, final ParameterId currentId) {
         Objects.requireNonNull(parameters, "parameters");
         Objects.requireNonNull(currentId, "currentId");
-        return parameters.all().stream().map(Parameter::id).filter(id -> !currentId.equals(id)).toList();
+        return parameters.all().stream()
+                .map(Parameter::id)
+                .filter(id -> !currentId.equals(id))
+                .toList();
     }
 
     static ParameterId resolvePartnerId(final String text, final List<ParameterId> candidates) {
@@ -1128,13 +1232,18 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return activeParameters().find(id);
     }
 
-    private CubismModel activeModel() { return context.cubism().model().active(); }
+    private CubismModel activeModel() {
+        return context.cubism().model().active();
+    }
 
     private void runModelStatisticsValidation() {
         final Path artifact = Path.of(System.getProperty("turboism.home"), "logs", "model-statistics-validation.txt");
         try {
             Files.createDirectories(artifact.getParent());
-            Files.writeString( artifact, "status=RUNNING phase=await-model\n", StandardOpenOption.CREATE,
+            Files.writeString(
+                    artifact,
+                    "status=RUNNING phase=await-model\n",
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
             final CubismModel model = awaitEditorObjectModel(artifact);
             final ModelStatistics statistics = onHostThread(model::statistics);
@@ -1150,24 +1259,53 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     || statistics.deformerCount() != deformerCount) {
                 throw new IllegalStateException("Model statistics counts disagree with SDK collections.");
             }
-            final String report = new StringBuilder("status=PASS\n").append("modelId=")
-                    .append(onHostThread(() -> model.id().value())).append('\n').append("parameterCount=")
-                    .append(statistics.parameterCount()).append('\n').append("partCount=")
-                    .append(statistics.partCount()).append('\n').append("drawableCount=")
-                    .append(statistics.drawableCount()).append('\n').append("artMeshCount=")
-                    .append(statistics.artMeshCount()).append('\n').append("deformerCount=")
-                    .append(statistics.deformerCount()).append('\n').append("vertexCount=")
-                    .append(statistics.vertexCount()).append('\n').append("triangleCount=")
-                    .append(statistics.triangleCount()).append('\n').append("textureCount=")
-                    .append(statistics.textureCount()).append('\n').append("maskedDrawableCount=")
-                    .append(statistics.maskedDrawableCount()).append('\n').append("maskGroupCount=")
-                    .append(statistics.maskGroupCount()).append('\n').append("offscreenRenderingCount=").append(
+            final String report = new StringBuilder("status=PASS\n")
+                    .append("modelId=")
+                    .append(onHostThread(() -> model.id().value()))
+                    .append('\n')
+                    .append("parameterCount=")
+                    .append(statistics.parameterCount())
+                    .append('\n')
+                    .append("partCount=")
+                    .append(statistics.partCount())
+                    .append('\n')
+                    .append("drawableCount=")
+                    .append(statistics.drawableCount())
+                    .append('\n')
+                    .append("artMeshCount=")
+                    .append(statistics.artMeshCount())
+                    .append('\n')
+                    .append("deformerCount=")
+                    .append(statistics.deformerCount())
+                    .append('\n')
+                    .append("vertexCount=")
+                    .append(statistics.vertexCount())
+                    .append('\n')
+                    .append("triangleCount=")
+                    .append(statistics.triangleCount())
+                    .append('\n')
+                    .append("textureCount=")
+                    .append(statistics.textureCount())
+                    .append('\n')
+                    .append("maskedDrawableCount=")
+                    .append(statistics.maskedDrawableCount())
+                    .append('\n')
+                    .append("maskGroupCount=")
+                    .append(statistics.maskGroupCount())
+                    .append('\n')
+                    .append("offscreenRenderingCount=")
+                    .append(
                             statistics.offscreenRenderingCount().isPresent()
                                     ? statistics.offscreenRenderingCount().getAsInt()
-                                    : "unavailable").append('\n').append("maxOffscreenDepth=").append(
+                                    : "unavailable")
+                    .append('\n')
+                    .append("maxOffscreenDepth=")
+                    .append(
                             statistics.maxOffscreenDepth().isPresent()
                                     ? statistics.maxOffscreenDepth().getAsInt()
-                                    : "unavailable").append('\n').toString();
+                                    : "unavailable")
+                    .append('\n')
+                    .toString();
             Files.writeString(artifact, report, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception exception) {
             writeValidationFailure(artifact, exception, "Model statistics validation failed");
@@ -1181,7 +1319,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             final boolean callerEdt = SwingUtilities.isEventDispatchThread();
             if (callerEdt) throw new IllegalStateException("Model edit-level validation must run off the AWT EDT.");
             Files.createDirectories(artifact.getParent());
-            Files.writeString( artifact, "status=RUNNING phase=await-model\n", StandardOpenOption.CREATE,
+            Files.writeString(
+                    artifact,
+                    "status=RUNNING phase=await-model\n",
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
             final CubismModel model = awaitEditorObjectModel(artifact);
             final String modelId = onHostThread(() -> model.id().value());
@@ -1193,7 +1334,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             model.setEditLevel(before);
             final ModelEditLevel restored = model.editLevel();
             final boolean passed = afterWrite == written && restored == before;
-            Files.writeString( artifact, "status=" + (passed ? "PASS" : "FAIL") + System.lineSeparator()
+            Files.writeString(
+                    artifact,
+                    "status=" + (passed ? "PASS" : "FAIL") + System.lineSeparator()
                             + "modelId=" + modelId + System.lineSeparator()
                             + "callerThread=" + callerThread + System.lineSeparator()
                             + "callerEdt=" + callerEdt + System.lineSeparator()
@@ -1203,7 +1346,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                             + "restored=" + restored + System.lineSeparator()
                             + "undoRedo=NOT_APPLICABLE_HOST_VIEW_STATE" + System.lineSeparator()
                             + "dirtyState=NOT_EXPECTED" + System.lineSeparator()
-                            + "persistence=NOT_CLAIMED" + System.lineSeparator(), StandardOpenOption.CREATE,
+                            + "persistence=NOT_CLAIMED" + System.lineSeparator(),
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception exception) {
             writeValidationFailure(artifact, exception, "Model edit-level validation failed");
@@ -1211,22 +1355,36 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     private void runFixedApiValidation(final boolean closeDocument) {
-        final Path artifact = Path.of( System.getProperty("turboism.home"), "logs",
+        final Path artifact = Path.of(
+                System.getProperty("turboism.home"),
+                "logs",
                 closeDocument ? "fixed-api-document-close.txt" : "fixed-api-validation.txt");
         final AtomicReference<String> phase = new AtomicReference<>("await-model");
         try {
             Files.createDirectories(artifact.getParent());
-            Files.writeString( artifact, "status=RUNNING phase=await-model\n", StandardOpenOption.CREATE,
+            Files.writeString(
+                    artifact,
+                    "status=RUNNING phase=await-model\n",
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
             final CubismModel model = awaitEditorObjectModel(artifact);
             phase.set("identity");
-            final StringBuilder report = new StringBuilder("status=RUNNING\n").append("phase=fixed-api-read\n")
-                    .append("hostThread=").append(onHostThread(
+            final StringBuilder report = new StringBuilder("status=RUNNING\n")
+                    .append("phase=fixed-api-read\n")
+                    .append("hostThread=")
+                    .append(onHostThread(
                             () -> Thread.currentThread().getName() + "|edt=" + SwingUtilities.isEventDispatchThread()))
-                    .append('\n').append("modelId=").append(onHostThread(() -> model.id().value())).append('\n');
+                    .append('\n')
+                    .append("modelId=")
+                    .append(onHostThread(() -> model.id().value()))
+                    .append('\n');
 
-            appendRequiredFixedOutcome( report, "activeDocument", () -> onHostThread(() -> context.cubism()
-                            .activeDocument().map(document -> document.documentId() + "|" + document.name())
+            appendRequiredFixedOutcome(
+                    report,
+                    "activeDocument",
+                    () -> onHostThread(() -> context.cubism()
+                            .activeDocument()
+                            .map(document -> document.documentId() + "|" + document.name())
                             .orElse("none")));
             phase.set("parameters");
 
@@ -1236,10 +1394,19 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             final Parameter parameter = parameterValues.get(0);
             final int parameterIndex = onHostThread(parameter::index);
             if (parameterIndex < 0) throw new IllegalStateException("Parameter index must be non-negative.");
-            report.append("parameters.count=").append(parameterValues.size()).append('\n').append("parameter.id=")
-                    .append(onHostThread(() -> parameter.id().value())).append('\n').append("parameter.index=")
-                    .append(parameterIndex).append('\n');
-            appendFixedOutcome( report, "parameter.keyValues", () -> onHostThread(() -> parameter.keyValues().size()));
+            report.append("parameters.count=")
+                    .append(parameterValues.size())
+                    .append('\n')
+                    .append("parameter.id=")
+                    .append(onHostThread(() -> parameter.id().value()))
+                    .append('\n')
+                    .append("parameter.index=")
+                    .append(parameterIndex)
+                    .append('\n');
+            appendFixedOutcome(
+                    report,
+                    "parameter.keyValues",
+                    () -> onHostThread(() -> parameter.keyValues().size()));
             phase.set("parameter-definitions");
 
             final dev.turboism.sdk.cubism.model.ParameterDefinitions definitions =
@@ -1251,8 +1418,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             if (!definition.equals(foundDefinition)) {
                 throw new IllegalStateException("Parameter definition lookup does not match stable order.");
             }
-            report.append("parameterDefinitions.count=").append(definitionValues.size()).append('\n')
-                    .append("parameterDefinition.first=").append(fixedText(definition)).append('\n');
+            report.append("parameterDefinitions.count=")
+                    .append(definitionValues.size())
+                    .append('\n')
+                    .append("parameterDefinition.first=")
+                    .append(fixedText(definition))
+                    .append('\n');
             phase.set("parts");
 
             final dev.turboism.sdk.cubism.model.Parts parts = onHostThread(model::parts);
@@ -1267,7 +1438,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 if (parentId.isPresent()) {
                     final Part parent = onHostThread(() -> parts.find(parentId.orElseThrow()));
                     if (!onHostThread(parent::childIds).contains(onHostThread(current::id))) {
-                        throw new IllegalStateException("Part parent does not contain child " + current.id().value());
+                        throw new IllegalStateException("Part parent does not contain child "
+                                + current.id().value());
                     }
                 }
                 for (dev.turboism.sdk.cubism.model.PartId childId : onHostThread(current::childIds)) {
@@ -1279,15 +1451,35 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 }
             }
             final Part part = partValues.get(0);
-            report.append("parts.count=").append(partValues.size()).append('\n').append("part.first.id=")
-                    .append(onHostThread(() -> part.id().value())).append('\n').append("part.first.index=")
-                    .append(onHostThread(part::index)).append('\n').append("part.first.parentId=")
-                    .append(fixedText(onHostThread(part::parentId))).append('\n').append("part.first.childIds=")
-                    .append(fixedText(onHostThread(part::childIds))).append('\n').append("fixedReads.status=PASS\n");
+            report.append("parts.count=")
+                    .append(partValues.size())
+                    .append('\n')
+                    .append("part.first.id=")
+                    .append(onHostThread(() -> part.id().value()))
+                    .append('\n')
+                    .append("part.first.index=")
+                    .append(onHostThread(part::index))
+                    .append('\n')
+                    .append("part.first.parentId=")
+                    .append(fixedText(onHostThread(part::parentId)))
+                    .append('\n')
+                    .append("part.first.childIds=")
+                    .append(fixedText(onHostThread(part::childIds)))
+                    .append('\n')
+                    .append("fixedReads.status=PASS\n");
             phase.set("required-fixed-api");
-            req(report, "coreRuntime.version", () -> context.cubism().coreRuntime().version());
-            req(report, "coreRuntime.capabilities", () -> context.cubism().coreRuntime().capabilities());
-            req(report, "coreRuntime.latestMocVersion", () -> context.cubism().coreRuntime().mocInspector().latestVersion());
+            req(
+                    report,
+                    "coreRuntime.version",
+                    () -> context.cubism().coreRuntime().version());
+            req(
+                    report,
+                    "coreRuntime.capabilities",
+                    () -> context.cubism().coreRuntime().capabilities());
+            req(
+                    report,
+                    "coreRuntime.latestMocVersion",
+                    () -> context.cubism().coreRuntime().mocInspector().latestVersion());
             req(report, "model.name", model::name);
             opt(report, "model.mocInfo", model::mocInfo);
 
@@ -1417,7 +1609,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                             && deformersStale
                             && deformerStale
                             && gluesStale
-                            && glueStale) { break; }
+                            && glueStale) {
+                        break;
+                    }
                 }
             } else {
                 context.disposableScope().close();
@@ -1444,25 +1638,55 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     && deformerStale
                     && gluesStale
                     && glueStale;
-            report.append("lifecycle.phase=").append(closeDocument ? "document-close" : "plugin-scope-close")
-                    .append('\n').append("modelStale=").append(modelStale).append('\n')
-                    .append("parameterDefinitionsStale=").append(definitionsStale).append('\n')
-                    .append("parameterStale=").append(parameterStale).append('\n').append("partsStale=")
-                    .append(partsStale).append('\n').append("partStale=").append(partStale).append('\n')
-                    .append("drawablesStale=").append(drawablesStale).append('\n').append("drawableStale=")
-                    .append(drawableStale).append('\n').append("deformersStale=").append(deformersStale).append('\n')
-                    .append("deformerStale=").append(deformerStale).append('\n').append("gluesStale=")
-                    .append(gluesStale).append('\n').append("glueInstancePresent=").append(glue != null).append('\n')
-                    .append("glueStale=").append(glue == null ? "NOT_EXERCISED" : Boolean.toString(glueStale))
+            report.append("lifecycle.phase=")
+                    .append(closeDocument ? "document-close" : "plugin-scope-close")
+                    .append('\n')
+                    .append("modelStale=")
+                    .append(modelStale)
+                    .append('\n')
+                    .append("parameterDefinitionsStale=")
+                    .append(definitionsStale)
+                    .append('\n')
+                    .append("parameterStale=")
+                    .append(parameterStale)
+                    .append('\n')
+                    .append("partsStale=")
+                    .append(partsStale)
+                    .append('\n')
+                    .append("partStale=")
+                    .append(partStale)
+                    .append('\n')
+                    .append("drawablesStale=")
+                    .append(drawablesStale)
+                    .append('\n')
+                    .append("drawableStale=")
+                    .append(drawableStale)
+                    .append('\n')
+                    .append("deformersStale=")
+                    .append(deformersStale)
+                    .append('\n')
+                    .append("deformerStale=")
+                    .append(deformerStale)
+                    .append('\n')
+                    .append("gluesStale=")
+                    .append(gluesStale)
+                    .append('\n')
+                    .append("glueInstancePresent=")
+                    .append(glue != null)
+                    .append('\n')
+                    .append("glueStale=")
+                    .append(glue == null ? "NOT_EXERCISED" : Boolean.toString(glueStale))
                     .append('\n');
             report.replace(0, "status=RUNNING".length(), "status=" + (passed ? "PASS" : "FAIL"));
             Files.writeString(
                     artifact, report.toString(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception exception) {
             try {
-                Files.writeString( artifact,
+                Files.writeString(
+                        artifact,
                         "status=FAIL\nphase=" + phase.get() + "\nerror=" + failureDescription(exception) + "\n",
-                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.TRUNCATE_EXISTING);
             } catch (Exception ignored) {
                 context.logger().error("Fixed API validation artifact could not be written", exception);
             }
@@ -1480,14 +1704,26 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     private static void appendFixedOutcome(final StringBuilder report, final String key, final Callable<?> call) {
         try {
             final Object value = call.call();
-            report.append(key).append(".status=AVAILABLE\n").append(key).append(".value=").append(fixedText(value))
+            report.append(key)
+                    .append(".status=AVAILABLE\n")
+                    .append(key)
+                    .append(".value=")
+                    .append(fixedText(value))
                     .append('\n');
         } catch (UnsupportedOperationException | IllegalStateException unavailable) {
-            report.append(key).append(".status=UNAVAILABLE\n").append(key).append(".reason=")
-                    .append(fixedText(unavailable.getMessage())).append('\n');
+            report.append(key)
+                    .append(".status=UNAVAILABLE\n")
+                    .append(key)
+                    .append(".reason=")
+                    .append(fixedText(unavailable.getMessage()))
+                    .append('\n');
         } catch (Exception failure) {
-            report.append(key).append(".status=ERROR\n").append(key).append(".reason=")
-                    .append(fixedText(failureDescription(failure))).append('\n');
+            report.append(key)
+                    .append(".status=ERROR\n")
+                    .append(key)
+                    .append(".reason=")
+                    .append(fixedText(failureDescription(failure)))
+                    .append('\n');
         }
     }
 
@@ -1495,7 +1731,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             throws Exception {
         try {
             final Object value = call.call();
-            report.append(key).append(".status=AVAILABLE\n").append(key).append(".value=").append(fixedText(value))
+            report.append(key)
+                    .append(".status=AVAILABLE\n")
+                    .append(key)
+                    .append(".value=")
+                    .append(fixedText(value))
                     .append('\n');
         } catch (Exception failure) {
             throw new IllegalStateException(key + " is unavailable: " + failureDescription(failure), failure);
@@ -1506,7 +1746,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         try {
             call.call();
             return false;
-        } catch (Exception expected) { return expected instanceof IllegalStateException; }
+        } catch (Exception expected) {
+            return expected instanceof IllegalStateException;
+        }
     }
 
     private static String fixedText(final Object value) {
@@ -1514,7 +1756,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     private static List<Integer> fixedInts(final dev.turboism.sdk.cubism.model.IntSequence values) {
-        return java.util.stream.IntStream.range(0, values.size()).map(values::get).boxed().toList();
+        return java.util.stream.IntStream.range(0, values.size())
+                .map(values::get)
+                .boxed()
+                .toList();
     }
 
     private void runParameterBindingDiscoveryRead() {
@@ -1522,21 +1767,45 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         try {
             final CubismModel model = awaitEditorObjectModel(artifact);
             final Parameter parameter = onHostThread(() -> model.parameters().all().stream()
-                    .filter(candidate -> !candidate.getParameterBindings().isEmpty()).findFirst().orElseThrow(
+                    .filter(candidate -> !candidate.getParameterBindings().isEmpty())
+                    .findFirst()
+                    .orElseThrow(
                             () -> new IllegalStateException("No parameter with Editor object bindings is available.")));
             final List<ParameterBinding> bindings = onHostThread(parameter::getParameterBindings);
-            final StringBuilder report = new StringBuilder("status=PASS\n").append("modelId=")
-                    .append(onHostThread(() -> model.id().value())).append('\n').append("parameterId=")
-                    .append(onHostThread(() -> parameter.id().value())).append('\n').append("bindingCount=")
-                    .append(bindings.size()).append('\n');
+            final StringBuilder report = new StringBuilder("status=PASS\n")
+                    .append("modelId=")
+                    .append(onHostThread(() -> model.id().value()))
+                    .append('\n')
+                    .append("parameterId=")
+                    .append(onHostThread(() -> parameter.id().value()))
+                    .append('\n')
+                    .append("bindingCount=")
+                    .append(bindings.size())
+                    .append('\n');
             for (int index = 0; index < bindings.size(); index++) {
                 final ParameterBinding binding = bindings.get(index);
-                report.append("binding.").append(index).append(".targetType=").append(binding.target().type())
-                        .append('\n').append("binding.").append(index).append(".targetId=")
-                        .append(binding.target().id()).append('\n').append("binding.").append(index).append(".family=")
-                        .append(binding.family()).append('\n').append("binding.").append(index).append(".points=")
-                        .append(binding.points().stream().map(point -> point.id().value() + ":" + point.value())
-                                .toList()).append('\n');
+                report.append("binding.")
+                        .append(index)
+                        .append(".targetType=")
+                        .append(binding.target().type())
+                        .append('\n')
+                        .append("binding.")
+                        .append(index)
+                        .append(".targetId=")
+                        .append(binding.target().id())
+                        .append('\n')
+                        .append("binding.")
+                        .append(index)
+                        .append(".family=")
+                        .append(binding.family())
+                        .append('\n')
+                        .append("binding.")
+                        .append(index)
+                        .append(".points=")
+                        .append(binding.points().stream()
+                                .map(point -> point.id().value() + ":" + point.value())
+                                .toList())
+                        .append('\n');
             }
             Files.writeString(
                     artifact, report.toString(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
@@ -1570,25 +1839,36 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                         return java.util.Set.copyOf(found);
                     });
                     if (items.contains("Invert Bindings") && items.contains("Transfer Bindings")) break;
-                } catch (Exception failure) { lastFailure = failure; }
+                } catch (Exception failure) {
+                    lastFailure = failure;
+                }
                 Thread.sleep(1000L);
             }
             final boolean passed = items.contains("Invert Bindings") && items.contains("Transfer Bindings");
             if (!passed && lastFailure != null && items.isEmpty()) throw lastFailure;
-            Files.writeString( artifact, "status=" + (passed ? "PASS" : "FAIL") + "\nitems=" + items + "\n",
-                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-        } catch (Exception failure) { writeValidationFailure(artifact, failure, "Parameter menu smoke failed"); }
+            Files.writeString(
+                    artifact,
+                    "status=" + (passed ? "PASS" : "FAIL") + "\nitems=" + items + "\n",
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (Exception failure) {
+            writeValidationFailure(artifact, failure, "Parameter menu smoke failed");
+        }
     }
 
     private void runParameterBindingValidation() {
         final Path artifact = Path.of(System.getProperty("turboism.home"), "logs", "parameter-binding-validation.txt");
         try {
             Files.createDirectories(artifact.getParent());
-            Files.writeString( artifact, "status=RUNNING phase=await-model\n", StandardOpenOption.CREATE,
+            Files.writeString(
+                    artifact,
+                    "status=RUNNING phase=await-model\n",
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
             final CubismModel model = awaitEditorObjectModel(artifact);
             final Parameter parameter = onHostThread(() -> model.parameters().all().stream()
-                    .filter(candidate -> candidate.getMaximumValue() > candidate.getMinimumValue()).findFirst()
+                    .filter(candidate -> candidate.getMaximumValue() > candidate.getMinimumValue())
+                    .findFirst()
                     .orElseThrow(() -> new IllegalStateException("No writable parameter is available.")));
             final float minimum = onHostThread(parameter::getMinimumValue);
             final float maximum = onHostThread(parameter::getMaximumValue);
@@ -1598,7 +1878,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     onHostThread(() -> model.warpDeformers().all().get(0));
             final RotationDeformer rotation =
                     onHostThread(() -> model.rotationDeformers().all().get(0));
-            final List<ParameterBindingTarget> targets = List.of( ParameterBindingTarget.artMesh(mesh.id()),
+            final List<ParameterBindingTarget> targets = List.of(
+                    ParameterBindingTarget.artMesh(mesh.id()),
                     ParameterBindingTarget.warpDeformer(warp.id()),
                     ParameterBindingTarget.rotationDeformer(rotation.id()));
             final List<ParameterBindingPoint> points = List.of(
@@ -1606,19 +1887,32 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     new ParameterBindingPoint(new ParameterBindingPointId("probe:mid"), middle),
                     new ParameterBindingPoint(new ParameterBindingPointId("probe:max"), maximum));
             final java.awt.Robot robot = new java.awt.Robot();
-            final StringBuilder report = new StringBuilder("status=RUNNING\n").append("parameterId=")
-                    .append(parameter.id().value()).append('\n').append("meshId=").append(mesh.id().value())
-                    .append('\n').append("warpId=").append(warp.id().value()).append('\n').append("rotationId=")
-                    .append(rotation.id().value()).append('\n').append("hostThread=")
-                    .append(onHostThread(() -> Thread.currentThread().getName())).append('\n');
+            final StringBuilder report = new StringBuilder("status=RUNNING\n")
+                    .append("parameterId=")
+                    .append(parameter.id().value())
+                    .append('\n')
+                    .append("meshId=")
+                    .append(mesh.id().value())
+                    .append('\n')
+                    .append("warpId=")
+                    .append(warp.id().value())
+                    .append('\n')
+                    .append("rotationId=")
+                    .append(rotation.id().value())
+                    .append('\n')
+                    .append("hostThread=")
+                    .append(onHostThread(() -> Thread.currentThread().getName()))
+                    .append('\n');
             boolean passed = true;
             for (ParameterBindingTarget target : targets) {
                 final ParameterBindingOperations operations =
                         onHostThread(() -> model.parameterBindings(parameter.id()));
                 final List<ParameterBindingPoint> originalPoints =
                         onHostThread(() -> parameter.getParameterBindings().stream()
-                                .filter(binding -> binding.target().equals(target)).findFirst()
-                                .map(ParameterBinding::points).orElseGet(List::of));
+                                .filter(binding -> binding.target().equals(target))
+                                .findFirst()
+                                .map(ParameterBinding::points)
+                                .orElseGet(List::of));
                 onHostThread(() -> {
                     operations.unbind(target);
                     return null;
@@ -1633,7 +1927,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
                 final List<Float> redone = awaitBindingValues(parameter, target, List.of(minimum, middle, maximum));
                 final ParameterBindingPointId middleId = onHostThread(() -> parameter.getParameterBindings().stream()
-                        .filter(binding -> binding.target().equals(target)).findFirst().orElseThrow().points().get(1)
+                        .filter(binding -> binding.target().equals(target))
+                        .findFirst()
+                        .orElseThrow()
+                        .points()
+                        .get(1)
                         .id());
                 final float movedValue = minimum + (maximum - minimum) * 0.6F;
                 onHostThread(() -> {
@@ -1650,14 +1948,22 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 awaitBindingValues(parameter, target, List.of(minimum, middle, maximum));
                 final float createdValue = minimum + (maximum - minimum) * 0.8F;
                 onHostThread(() -> {
-                    operations.createPoint( target,
+                    operations.createPoint(
+                            target,
                             new ParameterBindingPoint(new ParameterBindingPointId("probe:create"), createdValue));
                     return null;
                 });
                 final List<Float> created = bindingValues(parameter, target);
                 final ParameterBindingPointId createdId = onHostThread(() -> parameter.getParameterBindings().stream()
-                        .filter(binding -> binding.target().equals(target)).findFirst().orElseThrow().points().stream()
-                        .filter(point -> point.value() == createdValue).findFirst().orElseThrow().id());
+                        .filter(binding -> binding.target().equals(target))
+                        .findFirst()
+                        .orElseThrow()
+                        .points()
+                        .stream()
+                        .filter(point -> point.value() == createdValue)
+                        .findFirst()
+                        .orElseThrow()
+                        .id());
                 onHostThread(() -> {
                     operations.deletePoint(target, createdId);
                     return null;
@@ -1682,21 +1988,65 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                         && moveRedone.equals(List.of(minimum, movedValue, maximum))
                         && created.equals(List.of(minimum, middle, createdValue, maximum))
                         && deleted.equals(List.of(minimum, middle, maximum))
-                        && restored.equals(originalPoints.stream().map(ParameterBindingPoint::value).toList());
-                report.append("target.").append(target.type()).append(".written=").append(written).append('\n')
-                        .append("target.").append(target.type()).append(".undo=").append(undone).append('\n')
-                        .append("target.").append(target.type()).append(".redo=").append(redone).append('\n')
-                        .append("target.").append(target.type()).append(".moved=").append(moved).append('\n')
-                        .append("target.").append(target.type()).append(".moveUndo=").append(moveUndone).append('\n')
-                        .append("target.").append(target.type()).append(".moveRedo=").append(moveRedone).append('\n')
-                        .append("target.").append(target.type()).append(".created=").append(created).append('\n')
-                        .append("target.").append(target.type()).append(".deleted=").append(deleted).append('\n')
-                        .append("target.").append(target.type()).append(".restored=").append(restored).append('\n')
-                        .append("target.").append(target.type()).append(".passed=").append(targetPassed).append('\n');
+                        && restored.equals(originalPoints.stream()
+                                .map(ParameterBindingPoint::value)
+                                .toList());
+                report.append("target.")
+                        .append(target.type())
+                        .append(".written=")
+                        .append(written)
+                        .append('\n')
+                        .append("target.")
+                        .append(target.type())
+                        .append(".undo=")
+                        .append(undone)
+                        .append('\n')
+                        .append("target.")
+                        .append(target.type())
+                        .append(".redo=")
+                        .append(redone)
+                        .append('\n')
+                        .append("target.")
+                        .append(target.type())
+                        .append(".moved=")
+                        .append(moved)
+                        .append('\n')
+                        .append("target.")
+                        .append(target.type())
+                        .append(".moveUndo=")
+                        .append(moveUndone)
+                        .append('\n')
+                        .append("target.")
+                        .append(target.type())
+                        .append(".moveRedo=")
+                        .append(moveRedone)
+                        .append('\n')
+                        .append("target.")
+                        .append(target.type())
+                        .append(".created=")
+                        .append(created)
+                        .append('\n')
+                        .append("target.")
+                        .append(target.type())
+                        .append(".deleted=")
+                        .append(deleted)
+                        .append('\n')
+                        .append("target.")
+                        .append(target.type())
+                        .append(".restored=")
+                        .append(restored)
+                        .append('\n')
+                        .append("target.")
+                        .append(target.type())
+                        .append(".passed=")
+                        .append(targetPassed)
+                        .append('\n');
                 passed &= targetPassed;
             }
             final Parameter transferTarget = onHostThread(() -> model.parameters().all().stream()
-                    .filter(candidate -> !candidate.id().equals(parameter.id())).findFirst().orElseThrow(() ->
+                    .filter(candidate -> !candidate.id().equals(parameter.id()))
+                    .findFirst()
+                    .orElseThrow(() ->
                             new IllegalStateException("No destination parameter is available for binding transfer.")));
             final java.util.Map<ParameterBindingTarget, List<ParameterBindingPoint>> originalSource =
                     new java.util.LinkedHashMap<>();
@@ -1768,15 +2118,20 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 try {
                     return bindingValues(parameter, target).isEmpty()
                             && bindingValues(transferTarget, target).equals(List.of(minimum, middle, maximum));
-                } catch (Exception exception) { throw new IllegalStateException(exception); }
+                } catch (Exception exception) {
+                    throw new IllegalStateException(exception);
+                }
             });
             pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
             final boolean batchTransferUndone = targets.stream().allMatch(target -> {
                 try {
                     return awaitBindingValues(parameter, target, List.of(minimum, middle, maximum))
                                     .equals(List.of(minimum, middle, maximum))
-                            && awaitBindingValues(transferTarget, target, List.of()).isEmpty();
-                } catch (Exception exception) { throw new IllegalStateException(exception); }
+                            && awaitBindingValues(transferTarget, target, List.of())
+                                    .isEmpty();
+                } catch (Exception exception) {
+                    throw new IllegalStateException(exception);
+                }
             });
             pressShortcut(robot, java.awt.event.KeyEvent.VK_Y);
             final boolean batchTransferRedone = targets.stream().allMatch(target -> {
@@ -1784,7 +2139,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     return awaitBindingValues(parameter, target, List.of()).isEmpty()
                             && awaitBindingValues(transferTarget, target, List.of(minimum, middle, maximum))
                                     .equals(List.of(minimum, middle, maximum));
-                } catch (Exception exception) { throw new IllegalStateException(exception); }
+                } catch (Exception exception) {
+                    throw new IllegalStateException(exception);
+                }
             });
             pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
             for (ParameterBindingTarget target : targets) {
@@ -1809,11 +2166,17 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             }
             final boolean batchRestored = targets.stream().allMatch(target -> {
                 try {
-                    return bindingValues(parameter, target).equals(originalSource.get(target).stream()
-                                            .map(ParameterBindingPoint::value).toList())
-                            && bindingValues(transferTarget, target).equals(originalDestination.get(target).stream()
-                                            .map(ParameterBindingPoint::value).toList());
-                } catch (Exception exception) { throw new IllegalStateException(exception); }
+                    return bindingValues(parameter, target)
+                                    .equals(originalSource.get(target).stream()
+                                            .map(ParameterBindingPoint::value)
+                                            .toList())
+                            && bindingValues(transferTarget, target)
+                                    .equals(originalDestination.get(target).stream()
+                                            .map(ParameterBindingPoint::value)
+                                            .toList());
+                } catch (Exception exception) {
+                    throw new IllegalStateException(exception);
+                }
             });
             final boolean batchPassed = batchInverted
                     && batchInvertUndone
@@ -1823,13 +2186,33 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     && batchTransferRedone
                     && batchRestored;
             passed &= batchPassed;
-            report.append("batch.destinationParameterId=").append(transferTarget.id().value()).append('\n')
-                    .append("batch.inverted=").append(batchInverted).append('\n').append("batch.invertUndo=")
-                    .append(batchInvertUndone).append('\n').append("batch.invertRedo=").append(batchInvertRedone)
-                    .append('\n').append("batch.transferred=").append(batchTransferred).append('\n')
-                    .append("batch.transferUndo=").append(batchTransferUndone).append('\n')
-                    .append("batch.transferRedo=").append(batchTransferRedone).append('\n').append("batch.restored=")
-                    .append(batchRestored).append('\n').append("batch.passed=").append(batchPassed).append('\n');
+            report.append("batch.destinationParameterId=")
+                    .append(transferTarget.id().value())
+                    .append('\n')
+                    .append("batch.inverted=")
+                    .append(batchInverted)
+                    .append('\n')
+                    .append("batch.invertUndo=")
+                    .append(batchInvertUndone)
+                    .append('\n')
+                    .append("batch.invertRedo=")
+                    .append(batchInvertRedone)
+                    .append('\n')
+                    .append("batch.transferred=")
+                    .append(batchTransferred)
+                    .append('\n')
+                    .append("batch.transferUndo=")
+                    .append(batchTransferUndone)
+                    .append('\n')
+                    .append("batch.transferRedo=")
+                    .append(batchTransferRedone)
+                    .append('\n')
+                    .append("batch.restored=")
+                    .append(batchRestored)
+                    .append('\n')
+                    .append("batch.passed=")
+                    .append(batchPassed)
+                    .append('\n');
             report.replace(0, "status=RUNNING".length(), "status=" + (passed ? "PASS" : "FAIL"));
             Files.writeString(
                     artifact, report.toString(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
@@ -1840,26 +2223,39 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     private List<Float> bindingValues(final Parameter parameter, final ParameterBindingTarget target) throws Exception {
         return onHostThread(() -> parameter.getParameterBindings().stream()
-                .filter(binding -> binding.target().equals(target)).findFirst().map(binding -> binding.points().stream()
-                        .map(ParameterBindingPoint::value).toList()).orElseGet(List::of));
+                .filter(binding -> binding.target().equals(target))
+                .findFirst()
+                .map(binding -> binding.points().stream()
+                        .map(ParameterBindingPoint::value)
+                        .toList())
+                .orElseGet(List::of));
     }
 
     private List<ParameterBindingPoint> bindingPoints(final Parameter parameter, final ParameterBindingTarget target)
             throws Exception {
         return onHostThread(() -> parameter.getParameterBindings().stream()
-                .filter(binding -> binding.target().equals(target)).findFirst().map(ParameterBinding::points)
+                .filter(binding -> binding.target().equals(target))
+                .findFirst()
+                .map(ParameterBinding::points)
                 .orElseGet(List::of));
     }
 
-    private java.util.Map<ParameterBindingTarget, Object> targetStates( final CubismModel model,
-            final Parameter parameter, final float value, final List<ParameterBindingTarget> targets,
-            final Drawable mesh, final WarpDeformer warp, final RotationDeformer rotation)
+    private java.util.Map<ParameterBindingTarget, Object> targetStates(
+            final CubismModel model,
+            final Parameter parameter,
+            final float value,
+            final List<ParameterBindingTarget> targets,
+            final Drawable mesh,
+            final WarpDeformer warp,
+            final RotationDeformer rotation)
             throws Exception {
         return onHostThread(() -> {
             parameter.setValue(value);
             final java.util.Map<ParameterBindingTarget, Object> states = new java.util.LinkedHashMap<>();
             for (ParameterBindingTarget target : targets) {
-                states.put( target, switch (target.type()) {
+                states.put(
+                        target,
+                        switch (target.type()) {
                             case ART_MESH -> mesh.geometry();
                             case WARP_DEFORMER -> warp.grid();
                             case ROTATION_DEFORMER -> rotation.form();
@@ -1884,7 +2280,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         final Path artifact = Path.of(System.getProperty("turboism.home"), "logs", "editor-object-validation.txt");
         try {
             Files.createDirectories(artifact.getParent());
-            Files.writeString( artifact, "status=RUNNING phase=await-model\n", StandardOpenOption.CREATE,
+            Files.writeString(
+                    artifact,
+                    "status=RUNNING phase=await-model\n",
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
             CubismModel model = null;
             Exception unavailable = null;
@@ -1905,7 +2304,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 } catch (Exception exception) {
                     model = null;
                     unavailable = exception;
-                    Files.writeString( artifact, "status=RUNNING phase=await-model attempt=" + attempt + " error="
+                    Files.writeString(
+                            artifact,
+                            "status=RUNNING phase=await-model attempt=" + attempt + " error="
                                     + exception.getClass().getName() + ": " + exception.getMessage() + "\n",
                             StandardOpenOption.TRUNCATE_EXISTING);
                     Thread.sleep(1000L);
@@ -1926,11 +2327,25 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             final java.awt.Robot robot = new java.awt.Robot();
             editorObjectLifecycleCounts.clear();
             final StringBuilder report = new StringBuilder();
-            report.append("status=RUNNING\n").append("meshId=").append(mesh.id().value()).append('\n')
-                    .append("meshName=").append(onHostThread(mesh::name)).append('\n').append("warpId=")
-                    .append(warp.id().value()).append('\n').append("warpName=").append(onHostThread(warp::name))
-                    .append('\n').append("rotationId=").append(rotation.id().value()).append('\n')
-                    .append("rotationName=").append(onHostThread(rotation::name)).append('\n');
+            report.append("status=RUNNING\n")
+                    .append("meshId=")
+                    .append(mesh.id().value())
+                    .append('\n')
+                    .append("meshName=")
+                    .append(onHostThread(mesh::name))
+                    .append('\n')
+                    .append("warpId=")
+                    .append(warp.id().value())
+                    .append('\n')
+                    .append("warpName=")
+                    .append(onHostThread(warp::name))
+                    .append('\n')
+                    .append("rotationId=")
+                    .append(rotation.id().value())
+                    .append('\n')
+                    .append("rotationName=")
+                    .append(onHostThread(rotation::name))
+                    .append('\n');
 
             final boolean meshOpacity =
                     validateFloatEdit("meshOpacity", mesh::getOpacity, mesh::setOpacity, robot, report);
@@ -1976,9 +2391,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     artifact, report.toString(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception exception) {
             try {
-                Files.writeString( artifact,
+                Files.writeString(
+                        artifact,
                         "status=FAIL\nerror=" + exception.getClass().getName() + ": " + exception.getMessage() + "\n",
-                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.TRUNCATE_EXISTING);
             } catch (Exception ignored) {
                 context.logger().error("Editor object validation artifact could not be written", exception);
             }
@@ -1986,14 +2403,28 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     private boolean awaitEditorObjectLifecycle(final StringBuilder report) throws InterruptedException {
-        final List<String> operations = List.of( "meshOpacity", "meshVisible", "meshLocked", "meshGeometry",
-                "warpOpacity", "warpVisible", "warpLocked", "warpGrid", "rotationOpacity", "rotationVisible",
-                "rotationLocked", "rotationBaseAngle", "rotationForm");
+        final List<String> operations = List.of(
+                "meshOpacity",
+                "meshVisible",
+                "meshLocked",
+                "meshGeometry",
+                "warpOpacity",
+                "warpVisible",
+                "warpLocked",
+                "warpGrid",
+                "rotationOpacity",
+                "rotationVisible",
+                "rotationLocked",
+                "rotationBaseAngle",
+                "rotationForm");
         final long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(15L);
         while (System.nanoTime() < deadline) {
-            if (operations.stream().allMatch(operation -> lifecycleCount(operation, "before") == 1
+            if (operations.stream()
+                    .allMatch(operation -> lifecycleCount(operation, "before") == 1
                             && lifecycleCount(operation, "on") == 1
-                            && lifecycleCount(operation, "after") == 1)) { break; }
+                            && lifecycleCount(operation, "after") == 1)) {
+                break;
+            }
             Thread.sleep(50L);
         }
         boolean passed = true;
@@ -2002,9 +2433,21 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             final int on = lifecycleCount(operation, "on");
             final int after = lifecycleCount(operation, "after");
             final boolean operationPassed = before == 1 && on == 1 && after == 1;
-            report.append(operation).append("Lifecycle.before=").append(before).append('\n').append(operation)
-                    .append("Lifecycle.on=").append(on).append('\n').append(operation).append("Lifecycle.after=")
-                    .append(after).append('\n').append(operation).append("Lifecycle.passed=").append(operationPassed)
+            report.append(operation)
+                    .append("Lifecycle.before=")
+                    .append(before)
+                    .append('\n')
+                    .append(operation)
+                    .append("Lifecycle.on=")
+                    .append(on)
+                    .append('\n')
+                    .append(operation)
+                    .append("Lifecycle.after=")
+                    .append(after)
+                    .append('\n')
+                    .append(operation)
+                    .append("Lifecycle.passed=")
+                    .append(operationPassed)
                     .append('\n');
             passed &= operationPassed;
         }
@@ -2062,13 +2505,17 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     } catch (Throwable exception) {
                         failureBox.set(new IllegalStateException(
                                 exception.getClass().getName() + ": " + exception.getMessage(), exception));
-                    } finally { accepted.countDown(); }
+                    } finally {
+                        accepted.countDown();
+                    }
                 });
             }
-            final long waitNanos = Math.min( java.util.concurrent.TimeUnit.SECONDS.toNanos(perCallSeconds),
+            final long waitNanos = Math.min(
+                    java.util.concurrent.TimeUnit.SECONDS.toNanos(perCallSeconds),
                     Math.max(deadlineNanos - System.nanoTime(), 1L));
             if (!accepted.await(waitNanos, java.util.concurrent.TimeUnit.NANOSECONDS)) {
-                writeStatusAsync( artifact,
+                writeStatusAsync(
+                        artifact,
                         "status=RUNNING phase=await-model attempt=" + attempt + " error=EDT probe still queued after "
                                 + perCallSeconds + "s\n");
                 continue;
@@ -2093,7 +2540,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     modal = " modal-scan-failed=" + scanFailure.getClass().getSimpleName();
                 }
             }
-            writeStatusAsync( artifact, "status=RUNNING phase=await-model attempt=" + attempt + " error="
+            writeStatusAsync(
+                    artifact,
+                    "status=RUNNING phase=await-model attempt=" + attempt + " error="
                             + failure.getClass().getName() + ": " + failure.getMessage() + modal + "\n");
             Thread.sleep(1000L);
         }
@@ -2118,7 +2567,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             try {
                 Files.writeString(artifact, content, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             } catch (Throwable ignored) {
-            } finally { statusWriteInFlight.set(false); }
+            } finally {
+                statusWriteInFlight.set(false);
+            }
         });
         writer.setDaemon(true);
         writer.start();
@@ -2185,7 +2636,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             // The observed 5.3.03 prompt renders Yes(Y)/No(N)/Cancel(C)
             // CButton widgets titled 确定, so "No"/"否"/"いいえ" count as
             // discard — always gated by a 保存/save mention in the body.
-            final Component discard = enabled.stream().filter(b -> {
+            final Component discard = enabled.stream()
+                    .filter(b -> {
                         final String label = clickLabel(b);
                         return label.contains("不保存")
                                 || label.contains("保存しない")
@@ -2195,7 +2647,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                                 || label.startsWith("No")
                                 || label.equals("否")
                                 || label.equals("いいえ");
-                    }).findFirst().orElse(null);
+                    })
+                    .findFirst()
+                    .orElse(null);
             // The prompt body may be custom-painted (no JLabel), so also
             // accept the Yes/No/Cancel button trio itself as the signature.
             final boolean savePrompt = body.contains("保存")
@@ -2252,16 +2706,21 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         try {
             component.getClass().getMethod("doClick");
             return true;
-        } catch (NoSuchMethodException noClick) { return false; }
+        } catch (NoSuchMethodException noClick) {
+            return false;
+        }
     }
 
     /** Best-effort label for a clickable component: JButton text or reflective getText(). */
     private static String clickLabel(final Component component) {
         try {
-            if (component instanceof JButton button) return button.getText() == null ? "" : button.getText().trim();
+            if (component instanceof JButton button)
+                return button.getText() == null ? "" : button.getText().trim();
             final Object text = component.getClass().getMethod("getText").invoke(component);
             return text == null ? "" : text.toString().trim();
-        } catch (Throwable failure) { return ""; }
+        } catch (Throwable failure) {
+            return "";
+        }
     }
 
     /**
@@ -2290,11 +2749,17 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 buttons.add(component);
                 text.append('[').append(clickLabel(component)).append(']');
             } else if (component instanceof JLabel label) {
-                if (label.getText() != null) { text.append(' ').append(label.getText()); }
+                if (label.getText() != null) {
+                    text.append(' ').append(label.getText());
+                }
             } else if (component instanceof JTextField field) {
-                if (field.getText() != null && !field.getText().isBlank()) { text.append(' ').append(field.getText()); }
+                if (field.getText() != null && !field.getText().isBlank()) {
+                    text.append(' ').append(field.getText());
+                }
             }
-            if (component instanceof Container child) { collectDialogSurface(child, text, buttons); }
+            if (component instanceof Container child) {
+                collectDialogSurface(child, text, buttons);
+            }
         }
     }
 
@@ -2373,9 +2838,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             final java.awt.Robot robot = new java.awt.Robot();
             pressShortcut(robot, java.awt.event.KeyEvent.VK_S);
             Thread.sleep(2500L);
-            Files.writeString( artifact, "status=PASS\nphase=saved\nmeshId=" + mesh.id().value()
-                            + "\nwarpId=" + warp.id().value() + "\nrotationId=" + rotation.id().value() + "\n",
-                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.writeString(
+                    artifact,
+                    "status=PASS\nphase=saved\nmeshId=" + mesh.id().value() + "\nwarpId="
+                            + warp.id().value() + "\nrotationId="
+                            + rotation.id().value() + "\n",
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception exception) {
             writeValidationFailure(
                     artifact, exception, "Editor object persistence write artifact could not be written");
@@ -2414,8 +2883,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     && same(expected, "rotation.locked", onHostThread(rotation::locked))
                     && same(expected, "rotation.baseAngle", onHostThread(rotation::baseAngle))
                     && expected.getProperty("rotation.form").equals(rotationForm.toString());
-            Files.writeString( artifact, "status=" + (passed ? "PASS" : "FAIL") + "\nphase=reopened\n",
-                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.writeString(
+                    artifact,
+                    "status=" + (passed ? "PASS" : "FAIL") + "\nphase=reopened\n",
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception exception) {
             writeValidationFailure(artifact, exception, "Editor object persistence read artifact could not be written");
         }
@@ -2443,7 +2915,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     Path.of(System.getProperty("turboism.home"), "logs", "editor-object-peer-scope-close.txt");
             Files.createDirectories(peerRequest.getParent());
             Files.deleteIfExists(peerArtifact);
-            Files.writeString( peerRequest, "primaryScopeClosed=true\n", StandardOpenOption.CREATE,
+            Files.writeString(
+                    peerRequest,
+                    "primaryScopeClosed=true\n",
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
             String peerEvidence = "";
             for (int attempt = 0; attempt < 3_000; attempt++) {
@@ -2454,10 +2929,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             final boolean secondPluginUsable =
                     peerEvidence.contains("status=PASS") && peerEvidence.contains("secondPluginUsable=true");
             final boolean passed = modelStale && meshStale && warpStale && rotationStale && secondPluginUsable;
-            Files.writeString( artifact, "status=" + (passed ? "PASS" : "FAIL") + "\nphase=plugin-scope-close"
+            Files.writeString(
+                    artifact,
+                    "status=" + (passed ? "PASS" : "FAIL") + "\nphase=plugin-scope-close"
                             + "\nmodelStale=" + modelStale + "\nmeshStale=" + meshStale + "\nwarpStale=" + warpStale
                             + "\nrotationStale=" + rotationStale + "\nsharedHostActive=true"
-                            + "\nsecondPluginUsable=" + secondPluginUsable + "\n", StandardOpenOption.CREATE,
+                            + "\nsecondPluginUsable=" + secondPluginUsable + "\n",
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception exception) {
             writeValidationFailure(
@@ -2489,9 +2967,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 rotationStale = failsClosed(rotation::form);
             }
             final boolean passed = modelStale && meshStale && warpStale && rotationStale;
-            Files.writeString( artifact, "status=" + (passed ? "PASS" : "FAIL") + "\nphase=document-close"
+            Files.writeString(
+                    artifact,
+                    "status=" + (passed ? "PASS" : "FAIL") + "\nphase=document-close"
                             + "\nmodelStale=" + modelStale + "\nmeshStale=" + meshStale + "\nwarpStale=" + warpStale
-                            + "\nrotationStale=" + rotationStale + "\n", StandardOpenOption.CREATE,
+                            + "\nrotationStale=" + rotationStale + "\n",
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception exception) {
             writeValidationFailure(
@@ -2503,7 +2984,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         final Path artifact = Path.of(System.getProperty("turboism.home"), "logs", "perf-observe-validation.txt");
         try {
             Files.createDirectories(artifact.getParent());
-            Files.writeString( artifact, "status=RUNNING phase=await-model\n", StandardOpenOption.CREATE,
+            Files.writeString(
+                    artifact,
+                    "status=RUNNING phase=await-model\n",
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
             // The heavy fixture's document load is asynchronous and the post-load
             // EDT churn (parameter-structure rebuild + auto-backup I/O) can starve
@@ -2536,7 +3020,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             // measurement window clean.
             metrics.append("autoBackupStopped=").append(autoBackupStopped).append('\n');
             metrics.append("heapUsedAfterOpenBytes=").append(heapAfterOpen).append('\n');
-            metrics.append("nonHeapUsedAfterOpenBytes=").append(nonHeapAfterOpen).append('\n');
+            metrics.append("nonHeapUsedAfterOpenBytes=")
+                    .append(nonHeapAfterOpen)
+                    .append('\n');
             final int drawableCount = onHostThread(() -> model.drawables().all().size());
             final int parameterCount =
                     onHostThread(() -> model.parameters().all().size());
@@ -2545,12 +3031,31 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
             final long gcCountBefore = gcCollectionCount();
             final long gcTimeBefore = gcCollectionTimeMillis();
-            measureCall( metrics, "runtime", allocThreads, edtId, () -> context.cubism().runtime());
-            measureCall( metrics, "activeProject", allocThreads, edtId, () -> context.cubism().activeProject());
-            measureCall( metrics, "activeDocument", allocThreads, edtId, () -> context.cubism().activeDocument());
+            measureCall(
+                    metrics,
+                    "runtime",
+                    allocThreads,
+                    edtId,
+                    () -> context.cubism().runtime());
+            measureCall(
+                    metrics,
+                    "activeProject",
+                    allocThreads,
+                    edtId,
+                    () -> context.cubism().activeProject());
+            measureCall(
+                    metrics,
+                    "activeDocument",
+                    allocThreads,
+                    edtId,
+                    () -> context.cubism().activeDocument());
             measureCall(metrics, "modelActive", allocThreads, edtId, this::activeModel);
-            metrics.append("gcCollectionsDuringReads=").append(gcCollectionCount() - gcCountBefore).append('\n');
-            metrics.append("gcMillisDuringReads=").append(gcCollectionTimeMillis() - gcTimeBefore).append('\n');
+            metrics.append("gcCollectionsDuringReads=")
+                    .append(gcCollectionCount() - gcCountBefore)
+                    .append('\n');
+            metrics.append("gcMillisDuringReads=")
+                    .append(gcCollectionTimeMillis() - gcTimeBefore)
+                    .append('\n');
 
             forceGcQuietly();
             metrics.append("heapUsedAfterReadsBytes=").append(heapUsedBytes()).append('\n');
@@ -2583,29 +3088,46 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 final boolean batchWrite = Boolean.getBoolean("turboism.perf.batchWrite");
                 metrics.append("batchWrite=").append(batchWrite).append('\n');
                 if (batchWrite) {
-                    final var batchResult = onHostThread(() -> context.cubism().authoringTransactions()
+                    final var batchResult = onHostThread(() -> context.cubism()
+                            .authoringTransactions()
                             .execute(AuthoringTransactionOptions.of("perf-observe batch writes"), () -> {
                                 measureCall(metrics, "parameterWrite", allocThreads, edtId, writeCall);
                                 return null;
                             }));
-                    metrics.append("batchWriteCommitted=").append(batchResult.successful()).append('\n');
-                    metrics.append("batchWriteOutcome=").append(batchResult.outcome()).append('\n');
-                } else { measureCall(metrics, "parameterWrite", allocThreads, edtId, writeCall); }
-                metrics.append("gcCollectionsDuringWrites=").append(gcCollectionCount() - gcBeforeEdits).append('\n');
-                metrics.append("gcMillisDuringWrites=").append(gcCollectionTimeMillis() - gcMillisBeforeEdits)
+                    metrics.append("batchWriteCommitted=")
+                            .append(batchResult.successful())
+                            .append('\n');
+                    metrics.append("batchWriteOutcome=")
+                            .append(batchResult.outcome())
+                            .append('\n');
+                } else {
+                    measureCall(metrics, "parameterWrite", allocThreads, edtId, writeCall);
+                }
+                metrics.append("gcCollectionsDuringWrites=")
+                        .append(gcCollectionCount() - gcBeforeEdits)
+                        .append('\n');
+                metrics.append("gcMillisDuringWrites=")
+                        .append(gcCollectionTimeMillis() - gcMillisBeforeEdits)
                         .append('\n');
                 forceGcQuietly();
-                metrics.append("heapUsedAfterWritesBytes=").append(heapUsedBytes()).append('\n');
+                metrics.append("heapUsedAfterWritesBytes=")
+                        .append(heapUsedBytes())
+                        .append('\n');
                 final long restoreGcBefore = gcCollectionCount();
                 onHostThread(() -> {
                     editTarget.setValue(baseValue);
                     return null;
                 });
                 forceGcQuietly();
-                metrics.append("heapUsedAfterRestoreBytes=").append(heapUsedBytes()).append('\n');
-                metrics.append("gcCollectionsDuringRestore=").append(gcCollectionCount() - restoreGcBefore)
+                metrics.append("heapUsedAfterRestoreBytes=")
+                        .append(heapUsedBytes())
                         .append('\n');
-            } else { metrics.append("editParameter=none\n"); }
+                metrics.append("gcCollectionsDuringRestore=")
+                        .append(gcCollectionCount() - restoreGcBefore)
+                        .append('\n');
+            } else {
+                metrics.append("editParameter=none\n");
+            }
             appendImageResourceReport(metrics, "imageCacheBeforeClose");
 
             // Drain the undo stack so the document is no longer dirty; otherwise
@@ -2613,13 +3135,18 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             // --require-fixture-unchanged.
             final java.awt.Robot robot = new java.awt.Robot();
             if (allParameters != null && !allParameters.isEmpty()) {
-                for (int undo = 0; undo < 40; undo++) { pressShortcut(robot, java.awt.event.KeyEvent.VK_Z); }
+                for (int undo = 0; undo < 40; undo++) {
+                    pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+                }
             }
             // Write a provisional verdict before the close sequence: if the
             // host exits on its own during close (observed r18 — app exited
             // mid-write and the terminal PASS never landed), the measurement
             // data up to this point survives.
-            Files.writeString( artifact, "status=PASS\nphase=closing\n" + metrics, StandardOpenOption.CREATE,
+            Files.writeString(
+                    artifact,
+                    "status=PASS\nphase=closing\n" + metrics,
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
             // .log extension matters: the result summarizer sweeps *.txt files
             // containing "-close" as artifacts and fails the run on any without
@@ -2629,7 +3156,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             // Re-disable auto-backup right before close — the host re-arms it
             // on document events and a backup storm inside the close window
             // already cost r18 its terminal artifact.
-            metrics.append("autoBackupStoppedPreClose=").append(stopAutoBackup()).append('\n');
+            metrics.append("autoBackupStoppedPreClose=")
+                    .append(stopAutoBackup())
+                    .append('\n');
             // Clear any lingering informational dialog first so the close
             // accelerator reaches the document.
             try {
@@ -2659,7 +3188,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                         // entries — check for a positive dismissal marker.
                         if (note.contains("action=discarded")
                                 || note.contains("action=acknowledged")
-                                || note.contains("action=accepted")) { dismissedAny = true; }
+                                || note.contains("action=accepted")) {
+                            dismissedAny = true;
+                        }
                     }
                 } catch (Exception ignored) {
                 }
@@ -2679,21 +3210,31 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 }
             }
             appendCloseLog(closeLog, "closeLoopDone modelStale=" + modelStale);
-            if (modalNotes.length() > 0) { metrics.append("closeModals=").append(modalNotes).append('\n'); }
+            if (modalNotes.length() > 0) {
+                metrics.append("closeModals=").append(modalNotes).append('\n');
+            }
             metrics.append("modelStale=").append(modelStale).append('\n');
             forceGcQuietly();
             metrics.append("heapUsedAfterCloseBytes=").append(heapUsedBytes()).append('\n');
-            metrics.append("nonHeapUsedAfterCloseBytes=").append(nonHeapUsedBytes()).append('\n');
+            metrics.append("nonHeapUsedAfterCloseBytes=")
+                    .append(nonHeapUsedBytes())
+                    .append('\n');
             appendImageResourceReport(metrics, "imageCache");
 
             // The verdict lands before the JFR dump: the dump serializes
             // several MB on Wine and is the last long operation where a
             // host-initiated exit can still kill the write (observed r18).
-            Files.writeString( artifact, "status=PASS\nphase=perf-observe\n" + metrics, StandardOpenOption.CREATE,
+            Files.writeString(
+                    artifact,
+                    "status=PASS\nphase=perf-observe\n" + metrics,
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
             stopJfrRecording(jfrRecording, metrics);
             try {
-                Files.writeString( artifact, "status=PASS\nphase=perf-observe\n" + metrics, StandardOpenOption.CREATE,
+                Files.writeString(
+                        artifact,
+                        "status=PASS\nphase=perf-observe\n" + metrics,
+                        StandardOpenOption.CREATE,
                         StandardOpenOption.TRUNCATE_EXISTING);
             } catch (Throwable ignored) {
             }
@@ -2702,8 +3243,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         }
     }
 
-    private void measureCall( final StringBuilder metrics, final String name,
-            final com.sun.management.ThreadMXBean threads, final long edtId, final Callable<?> call)
+    private void measureCall(
+            final StringBuilder metrics,
+            final String name,
+            final com.sun.management.ThreadMXBean threads,
+            final long edtId,
+            final Callable<?> call)
             throws Exception {
         for (int warmup = 0; warmup < 5; warmup++) {
             onHostThread(() -> {
@@ -2724,9 +3269,18 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         final long[] sorted = nanos.clone();
         java.util.Arrays.sort(sorted);
         metrics.append(name).append("Calls=").append(nanos.length).append('\n');
-        metrics.append(name).append("MedianNanos=").append(sorted[nanos.length / 2]).append('\n');
-        metrics.append(name).append("P95Nanos=").append(sorted[(int) (nanos.length * 0.95)]).append('\n');
-        metrics.append(name).append("EdtAllocatedBytesTotal=").append(allocBytes).append('\n');
+        metrics.append(name)
+                .append("MedianNanos=")
+                .append(sorted[nanos.length / 2])
+                .append('\n');
+        metrics.append(name)
+                .append("P95Nanos=")
+                .append(sorted[(int) (nanos.length * 0.95)])
+                .append('\n');
+        metrics.append(name)
+                .append("EdtAllocatedBytesTotal=")
+                .append(allocBytes)
+                .append('\n');
     }
 
     /**
@@ -2747,7 +3301,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             recordingClass.getMethod("setDestination", Path.class).invoke(recording, destination);
             recordingClass.getMethod("start").invoke(recording);
             return recording;
-        } catch (Throwable unavailable) { return null; }
+        } catch (Throwable unavailable) {
+            return null;
+        }
     }
 
     private void stopJfrRecording(final Object recording, final StringBuilder metrics) {
@@ -2760,7 +3316,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             recording.getClass().getMethod("close").invoke(recording);
             metrics.append("jfrRecording=dumped\n");
         } catch (Throwable failure) {
-            metrics.append("jfrRecording=dumpFailed:").append(failure.getClass().getSimpleName()).append('\n');
+            metrics.append("jfrRecording=dumpFailed:")
+                    .append(failure.getClass().getSimpleName())
+                    .append('\n');
         }
     }
 
@@ -2822,7 +3380,18 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         }
         return switch (hostVersion) {
             case "5000", "5001", "5002", "5003", "5004", "5005", "5006" -> "f";
-            case "5100", "5101", "5102", "5103", "5200", "5201", "5202", "5203", "5300", "5301", "5302", "5303",
+            case "5100",
+                    "5101",
+                    "5102",
+                    "5103",
+                    "5200",
+                    "5201",
+                    "5202",
+                    "5203",
+                    "5300",
+                    "5301",
+                    "5302",
+                    "5303",
                     "5304" -> "g";
             default ->
                 throw new IllegalArgumentException(
@@ -2879,8 +3448,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 final Object value;
                 try {
                     if (!field.trySetAccessible()) {
-                        metrics.append(prefix).append(".").append(fieldIndex).append("=")
-                                .append(field.getType().getSimpleName()).append(":inaccessible\n");
+                        metrics.append(prefix)
+                                .append(".")
+                                .append(fieldIndex)
+                                .append("=")
+                                .append(field.getType().getSimpleName())
+                                .append(":inaccessible\n");
                         continue;
                     }
                     value = field.get(null);
@@ -2892,7 +3465,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             }
             metrics.append(prefix).append(".staticFields=").append(fieldIndex).append('\n');
         } catch (Throwable failure) {
-            metrics.append(prefix).append("Error=").append(failure.getClass().getSimpleName()).append('\n');
+            metrics.append(prefix)
+                    .append("Error=")
+                    .append(failure.getClass().getSimpleName())
+                    .append('\n');
         }
     }
 
@@ -2914,8 +3490,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     referent = reference.get();
                     if (referent == null) {
                         deadRefs++;
-                    } else { liveRefs++; }
-                } else { strongValues++; }
+                    } else {
+                        liveRefs++;
+                    }
+                } else {
+                    strongValues++;
+                }
                 payloadBytes += primitiveArrayBytes(referent);
                 payloadBytes += primitiveArrayBytes(entry.getKey());
                 payloadBytes += elementPrimitiveFieldBytes(referent);
@@ -2957,7 +3537,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 || element instanceof Number
                 || element instanceof Boolean
                 || element instanceof CharSequence
-                || element.getClass().isEnum()) { return 0L; }
+                || element.getClass().isEnum()) {
+            return 0L;
+        }
         if (element.getClass().isArray()) return 0L;
         final Object target = element instanceof java.lang.ref.Reference<?> reference ? reference.get() : element;
         if (target == null) return 0L;
@@ -2996,15 +3578,25 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return 0L;
     }
 
-    private static void forceGcQuietly() { WindowsProbeHarness.forceGcQuietly(); }
+    private static void forceGcQuietly() {
+        WindowsProbeHarness.forceGcQuietly();
+    }
 
-    private static long heapUsedBytes() { return WindowsProbeHarness.heapUsedBytes(); }
+    private static long heapUsedBytes() {
+        return WindowsProbeHarness.heapUsedBytes();
+    }
 
-    private static long nonHeapUsedBytes() { return WindowsProbeHarness.nonHeapUsedBytes(); }
+    private static long nonHeapUsedBytes() {
+        return WindowsProbeHarness.nonHeapUsedBytes();
+    }
 
-    private static long gcCollectionCount() { return WindowsProbeHarness.gcCollectionCount(); }
+    private static long gcCollectionCount() {
+        return WindowsProbeHarness.gcCollectionCount();
+    }
 
-    private static long gcCollectionTimeMillis() { return WindowsProbeHarness.gcCollectionTimeMillis(); }
+    private static long gcCollectionTimeMillis() {
+        return WindowsProbeHarness.gcCollectionTimeMillis();
+    }
 
     private static boolean failsClosed(final Callable<?> call) {
         try {
@@ -3028,12 +3620,17 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
      */
     private static boolean modelBecameStale(final CubismModel model) {
         try {
-            return Boolean.TRUE.equals(STALE_CHECK_POOL.submit(() -> failsClosed(model::id))
+            return Boolean.TRUE.equals(STALE_CHECK_POOL
+                    .submit(() -> failsClosed(model::id))
                     .get(5L, java.util.concurrent.TimeUnit.SECONDS));
-        } catch (Exception inconclusive) { return false; }
+        } catch (Exception inconclusive) {
+            return false;
+        }
     }
 
-    private static float alternate(final float before) { return Float.compare(before, 0.625F) == 0 ? 0.75F : 0.625F; }
+    private static float alternate(final float before) {
+        return Float.compare(before, 0.625F) == 0 ? 0.75F : 0.625F;
+    }
 
     private static boolean same(final Properties expected, final String key, final float actual) {
         return Float.compare(Float.parseFloat(expected.getProperty(key)), actual) == 0;
@@ -3046,10 +3643,14 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     private void writeValidationFailure(final Path artifact, final Throwable exception, final String logMessage) {
         try {
             Files.createDirectories(artifact.getParent());
-            Files.writeString( artifact,
+            Files.writeString(
+                    artifact,
                     "status=FAIL\nerror=" + exception.getClass().getName() + ": " + exception.getMessage() + "\n",
-                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-        } catch (Exception ignored) { context.logger().error(logMessage, exception); }
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (Exception ignored) {
+            context.logger().error(logMessage, exception);
+        }
     }
 
     private void finishAutomatedValidation(final String mode, final long startedNanos) {
@@ -3061,21 +3662,33 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             Files.createDirectories(result.getParent());
             final java.util.List<Path> artifacts;
             try (var files = Files.list(logs)) {
-                artifacts = files.filter(Files::isRegularFile).filter(path -> {
+                artifacts = files.filter(Files::isRegularFile)
+                        .filter(path -> {
                             final String name = path.getFileName().toString();
                             return name.endsWith(".txt")
                                     && (name.contains("validation")
                                             || name.contains("smoke")
                                             || name.contains("-close")
                                             || name.startsWith("native-control-background-"));
-                        }).sorted().toList();
+                        })
+                        .sorted()
+                        .toList();
             }
 
-            final StringBuilder report = new StringBuilder().append("schemaVersion=1\n").append("runId=")
-                    .append(System.getProperty("turboism.validation.runId", "unknown")).append('\n').append("mode=")
-                    .append(mode).append('\n').append("durationMillis=")
-                    .append((System.nanoTime() - startedNanos) / 1_000_000L).append('\n').append("artifactCount=")
-                    .append(artifacts.size()).append('\n');
+            final StringBuilder report = new StringBuilder()
+                    .append("schemaVersion=1\n")
+                    .append("runId=")
+                    .append(System.getProperty("turboism.validation.runId", "unknown"))
+                    .append('\n')
+                    .append("mode=")
+                    .append(mode)
+                    .append('\n')
+                    .append("durationMillis=")
+                    .append((System.nanoTime() - startedNanos) / 1_000_000L)
+                    .append('\n')
+                    .append("artifactCount=")
+                    .append(artifacts.size())
+                    .append('\n');
             // Peer probes keep a non-terminal status=RUNNING placeholder in logs/ while they
             // wait for the primary's request marker; it is evidence, not a verdict, and must
             // not gate modes that never trigger the peer (its own phase artifact is counted
@@ -3090,7 +3703,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         } catch (Exception exception) {
             writeValidationFailure(result, exception, "Host validation summary could not be written");
             context.logger().error("HOST_VALIDATION_RESULT status=FAIL mode=" + mode, exception);
-        } finally { requestAutomatedHostClose(); }
+        } finally {
+            requestAutomatedHostClose();
+        }
     }
 
     static boolean summarizeArtifacts(final java.util.List<Path> artifacts, final StringBuilder report)
@@ -3105,8 +3720,16 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             }
             final String rawStatus = properties.getProperty("status", "MISSING");
             final String status = rawStatus.split("\\s+", 2)[0];
-            report.append("artifact.").append(index).append(".path=").append(artifact.getFileName()).append('\n')
-                    .append("artifact.").append(index).append(".status=").append(status).append('\n');
+            report.append("artifact.")
+                    .append(index)
+                    .append(".path=")
+                    .append(artifact.getFileName())
+                    .append('\n')
+                    .append("artifact.")
+                    .append(index)
+                    .append(".status=")
+                    .append(status)
+                    .append('\n');
             if ("RUNNING".equals(status)) continue;
             terminalArtifacts++;
             passed &= "PASS".equals(status);
@@ -3117,14 +3740,17 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     private enum CloseDialogHandling {
-        DISCARDED, UNSUPPORTED
+        DISCARDED,
+        UNSUPPORTED
     }
 
     private record CloseDialogState(java.awt.Dialog dialog, JOptionPane optionPane, List<JButton> buttons) {
         String description() {
             return "window=" + dialog.getClass().getName()
                     + " optionType=" + (optionPane == null ? "none" : optionPane.getOptionType()) + " buttonMetadata="
-                    + buttons.stream().map(WindowsParameterValidationProbe::buttonMetadata).toList();
+                    + buttons.stream()
+                            .map(WindowsParameterValidationProbe::buttonMetadata)
+                            .toList();
         }
     }
 
@@ -3151,7 +3777,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         }
     }
 
-    private static void pressAltF4(final java.awt.Robot robot) { WindowsProbeHarness.pressAltF4(robot); }
+    private static void pressAltF4(final java.awt.Robot robot) {
+        WindowsProbeHarness.pressAltF4(robot);
+    }
 
     static java.awt.Window selectHostWindow(final java.awt.Window[] windows) {
         return WindowsProbeHarness.selectHostWindow(windows);
@@ -3165,7 +3793,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         final long deadline = System.nanoTime() + 3_000_000_000L;
         while (System.nanoTime() < deadline) {
             final CloseDialogState cur = visibleCloseDialog();
-            if (cur == null) { Thread.sleep(100L); continue; }
+            if (cur == null) {
+                Thread.sleep(100L);
+                continue;
+            }
             final CloseDialogHandling h = handleCloseDialog(cur);
             if (h == CloseDialogHandling.UNSUPPORTED) {
                 throw new IllegalStateException("Unsaved confirmation could not be handled: " + cur.description());
@@ -3176,7 +3807,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             }
             throw new IllegalStateException("Unsaved confirmation did not close host window: " + cur.description());
         }
-        if (!hostWindowClosed(hostWindow)) throw new IllegalStateException("Host window remained open without unsaved confirmation.");
+        if (!hostWindowClosed(hostWindow))
+            throw new IllegalStateException("Host window remained open without unsaved confirmation.");
         return HostCloseDecision.CLEAN_CLOSE;
     }
 
@@ -3195,7 +3827,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     private static CloseDialogState visibleCloseDialog() throws Exception {
         final AtomicReference<CloseDialogState> res = new AtomicReference<>();
         SwingUtilities.invokeAndWait(() -> {
-            final java.awt.Window act = java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+            final java.awt.Window act = java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .getActiveWindow();
             for (final java.awt.Window w : java.awt.Window.getWindows()) {
                 if (w instanceof java.awt.Dialog d && d.isVisible() && (d.isModal() || w == act)) {
                     res.set(new CloseDialogState(d, findOptionPane(w), visibleButtons(w)));
@@ -3224,16 +3857,22 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     static JButton selectDiscardButton(final List<JButton> buttons) {
-        final List<JButton> m = buttons.stream().filter(WindowsParameterValidationProbe::isDiscardAction).toList();
+        final List<JButton> m = buttons.stream()
+                .filter(WindowsParameterValidationProbe::isDiscardAction)
+                .toList();
         return m.size() == 1 ? m.get(0) : null;
     }
 
     private static boolean isDiscardAction(final JButton b) {
         final String acc = accessibleName(b);
-        return matchesDiscardValue(b.getActionCommand()) || matchesDiscardValue(b.getName())
-                || matchesDiscardValue(b.getText()) || matchesDiscardValue(acc)
-                || matchesNoButtonValue(b.getActionCommand()) || matchesNoButtonValue(b.getName())
-                || matchesNoButtonValue(b.getText()) || matchesNoButtonValue(acc);
+        return matchesDiscardValue(b.getActionCommand())
+                || matchesDiscardValue(b.getName())
+                || matchesDiscardValue(b.getText())
+                || matchesDiscardValue(acc)
+                || matchesNoButtonValue(b.getActionCommand())
+                || matchesNoButtonValue(b.getName())
+                || matchesNoButtonValue(b.getText())
+                || matchesNoButtonValue(acc);
     }
 
     private static String accessibleName(final JButton b) {
@@ -3244,11 +3883,24 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     private static boolean matchesDiscardValue(final String val) {
         if (val == null || val.isBlank()) return false;
         final String n = val.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]", "");
-        return n.equals("no") || n.contains("discard") || n.contains("dontsave") || n.contains("donotsave")
-                || n.contains("nosave") || n.contains("notsave") || n.contains("不保存") || n.contains("不要保存")
-                || n.contains("不儲存") || n.contains("不要儲存") || n.contains("不存檔") || n.contains("不要存檔")
-                || n.contains("放弃") || n.contains("放棄") || n.contains("舍弃") || n.contains("捨棄")
-                || n.contains("保存しない") || n.contains("セーブしない");
+        return n.equals("no")
+                || n.contains("discard")
+                || n.contains("dontsave")
+                || n.contains("donotsave")
+                || n.contains("nosave")
+                || n.contains("notsave")
+                || n.contains("不保存")
+                || n.contains("不要保存")
+                || n.contains("不儲存")
+                || n.contains("不要儲存")
+                || n.contains("不存檔")
+                || n.contains("不要存檔")
+                || n.contains("放弃")
+                || n.contains("放棄")
+                || n.contains("舍弃")
+                || n.contains("捨棄")
+                || n.contains("保存しない")
+                || n.contains("セーブしない");
     }
 
     private static boolean matchesNoButtonValue(final String val) {
@@ -3268,28 +3920,44 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     @FunctionalInterface
-    private interface FloatWriter { void set(float value); }
+    private interface FloatWriter {
+        void set(float value);
+    }
 
     @FunctionalInterface
-    private interface BooleanWriter { void set(boolean value); }
+    private interface BooleanWriter {
+        void set(boolean value);
+    }
 
-    private boolean validateFloatEdit( final String label, final Callable<Float> reader, final FloatWriter writer,
-            final java.awt.Robot robot, final StringBuilder report)
+    private boolean validateFloatEdit(
+            final String label,
+            final Callable<Float> reader,
+            final FloatWriter writer,
+            final java.awt.Robot robot,
+            final StringBuilder report)
             throws Exception {
         final float before = onHostThread(reader);
         final float written = Float.compare(before, 0.625F) == 0 ? 0.75F : 0.625F;
         return validateValueEdit(label, reader, writer::set, written, robot, report);
     }
 
-    private boolean validateBooleanEdit( final String label, final Callable<Boolean> reader, final BooleanWriter writer,
-            final java.awt.Robot robot, final StringBuilder report)
+    private boolean validateBooleanEdit(
+            final String label,
+            final Callable<Boolean> reader,
+            final BooleanWriter writer,
+            final java.awt.Robot robot,
+            final StringBuilder report)
             throws Exception {
         final boolean before = onHostThread(reader);
         return validateValueEdit(label, reader, writer::set, !before, robot, report);
     }
 
-    private <T> boolean validateValueEdit( final String label, final Callable<T> reader,
-            final java.util.function.Consumer<T> writer, final T written, final java.awt.Robot robot,
+    private <T> boolean validateValueEdit(
+            final String label,
+            final Callable<T> reader,
+            final java.util.function.Consumer<T> writer,
+            final T written,
+            final java.awt.Robot robot,
             final StringBuilder report)
             throws Exception {
         final T before = onHostThread(reader);
@@ -3314,20 +3982,35 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     private boolean validateMeshGeometry(final Drawable mesh, final java.awt.Robot robot, final StringBuilder report)
             throws Exception {
-        return validateValueEdit( "meshGeometry", mesh::geometry, mesh::replaceGeometry,
-                changedMeshGeometry(onHostThread(mesh::geometry), 0.25F), robot, report);
+        return validateValueEdit(
+                "meshGeometry",
+                mesh::geometry,
+                mesh::replaceGeometry,
+                changedMeshGeometry(onHostThread(mesh::geometry), 0.25F),
+                robot,
+                report);
     }
 
     private boolean validateWarpGrid(final WarpDeformer warp, final java.awt.Robot robot, final StringBuilder report)
             throws Exception {
-        return validateValueEdit( "warpGrid", warp::grid, warp::replaceGrid,
-                changedWarpGrid(onHostThread(warp::grid), 0.25F), robot, report);
+        return validateValueEdit(
+                "warpGrid",
+                warp::grid,
+                warp::replaceGrid,
+                changedWarpGrid(onHostThread(warp::grid), 0.25F),
+                robot,
+                report);
     }
 
     private boolean validateRotationForm(
             final RotationDeformer rotation, final java.awt.Robot robot, final StringBuilder report) throws Exception {
-        return validateValueEdit( "rotationForm", rotation::form, rotation::replaceForm,
-                changedRotationForm(onHostThread(rotation::form), 5.0F), robot, report);
+        return validateValueEdit(
+                "rotationForm",
+                rotation::form,
+                rotation::replaceForm,
+                changedRotationForm(onHostThread(rotation::form), 5.0F),
+                robot,
+                report);
     }
 
     private static ArtMeshGeometry changedMeshGeometry(final ArtMeshGeometry before, final float delta) {
@@ -3388,8 +4071,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     private static RotationDeformerForm changedRotationForm(final RotationDeformerForm before, final float angleDelta) {
-        return new RotationDeformerForm( before.angle() + angleDelta, before.originX() + 0.25F,
-                before.originY() - 0.25F, before.scale() * 1.125F, !before.reflectedX(), !before.reflectedY());
+        return new RotationDeformerForm(
+                before.angle() + angleDelta,
+                before.originX() + 0.25F,
+                before.originY() - 0.25F,
+                before.scale() * 1.125F,
+                !before.reflectedX(),
+                !before.reflectedY());
     }
 
     private <T> T awaitValue(final Callable<T> reader, final T expected) throws Exception {
@@ -3401,33 +4089,69 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return actual;
     }
 
-    private static void appendMatrix( final StringBuilder report, final String label, final Object before,
-            final Object written, final Object afterWrite, final Object afterUndo, final Object afterRedo,
-            final Object restored, final boolean passed) {
-        report.append(label).append(".status=").append(passed ? "PASS" : "FAIL").append('\n').append(label)
-                .append(".before=").append(before).append('\n').append(label).append(".written=").append(written)
-                .append('\n').append(label).append(".afterWrite=").append(afterWrite).append('\n').append(label)
-                .append(".afterUndo=").append(afterUndo).append('\n').append(label).append(".afterRedo=")
-                .append(afterRedo).append('\n').append(label).append(".restored=").append(restored).append('\n');
+    private static void appendMatrix(
+            final StringBuilder report,
+            final String label,
+            final Object before,
+            final Object written,
+            final Object afterWrite,
+            final Object afterUndo,
+            final Object afterRedo,
+            final Object restored,
+            final boolean passed) {
+        report.append(label)
+                .append(".status=")
+                .append(passed ? "PASS" : "FAIL")
+                .append('\n')
+                .append(label)
+                .append(".before=")
+                .append(before)
+                .append('\n')
+                .append(label)
+                .append(".written=")
+                .append(written)
+                .append('\n')
+                .append(label)
+                .append(".afterWrite=")
+                .append(afterWrite)
+                .append('\n')
+                .append(label)
+                .append(".afterUndo=")
+                .append(afterUndo)
+                .append('\n')
+                .append(label)
+                .append(".afterRedo=")
+                .append(afterRedo)
+                .append('\n')
+                .append(label)
+                .append(".restored=")
+                .append(restored)
+                .append('\n');
     }
 
     private void runPartOpacityValidation() {
         final Path artifact = Path.of(System.getProperty("turboism.home"), "logs", "part-opacity-validation.txt");
         try {
             Files.createDirectories(artifact.getParent());
-            Files.writeString( artifact, "status=RUNNING phase=await-model\n", StandardOpenOption.CREATE,
+            Files.writeString(
+                    artifact,
+                    "status=RUNNING phase=await-model\n",
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
             Part part = null;
             Exception unavailable = null;
             for (int attempt = 0; attempt < 120 && !Thread.currentThread().isInterrupted(); attempt++) {
                 try {
                     part = onHostThread(() -> activeModel().parts().all().stream()
-                            .filter(value -> !"__RootPart__".equals(value.id().value())).findFirst()
+                            .filter(value -> !"__RootPart__".equals(value.id().value()))
+                            .findFirst()
                             .orElseThrow(() -> new IllegalStateException("No non-root Part is available.")));
                     break;
                 } catch (Exception exception) {
                     unavailable = exception;
-                    Files.writeString( artifact, "status=RUNNING phase=await-model attempt=" + attempt + " error="
+                    Files.writeString(
+                            artifact,
+                            "status=RUNNING phase=await-model attempt=" + attempt + " error="
                                     + exception.getClass().getName() + ": " + exception.getMessage() + "\n",
                             StandardOpenOption.TRUNCATE_EXISTING);
                     Thread.sleep(1000L);
@@ -3458,25 +4182,41 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             final Optional<String> currentShortName = onHostThread(selectedPart::shortName);
             final Optional<String> writtenShortName =
                     Optional.of(currentShortName.equals(Optional.of("Turboism")) ? "Turboism 2" : "Turboism");
-            final boolean shortNamePassed = validateValueEdit( "shortName", selectedPart::shortName,
-                    selectedPart::setShortName, writtenShortName, robot, basicSettings);
+            final boolean shortNamePassed = validateValueEdit(
+                    "shortName",
+                    selectedPart::shortName,
+                    selectedPart::setShortName,
+                    writtenShortName,
+                    robot,
+                    basicSettings);
             final boolean visiblePassed = validateBooleanEdit(
                     "visible", selectedPart::visible, selectedPart::setVisible, robot, basicSettings);
             final boolean lockedPassed =
                     validateBooleanEdit("locked", selectedPart::locked, selectedPart::setLocked, robot, basicSettings);
             final Optional<Color> currentEditColor = onHostThread(selectedPart::editColor);
             final Color firstColor = new Color(32F / 255F, 64F / 255F, 128F / 255F, 1F);
-            final Optional<Color> writtenEditColor = Optional.of( currentEditColor.equals(Optional.of(firstColor))
+            final Optional<Color> writtenEditColor = Optional.of(
+                    currentEditColor.equals(Optional.of(firstColor))
                             ? new Color(128F / 255F, 64F / 255F, 32F / 255F, 1F)
                             : firstColor);
-            final boolean editColorPassed = validateValueEdit( "editColor", selectedPart::editColor,
-                    selectedPart::setEditColor, writtenEditColor, robot, basicSettings);
+            final boolean editColorPassed = validateValueEdit(
+                    "editColor",
+                    selectedPart::editColor,
+                    selectedPart::setEditColor,
+                    writtenEditColor,
+                    robot,
+                    basicSettings);
             final boolean sketchPassed =
                     validateBooleanEdit("sketch", selectedPart::sketch, selectedPart::setSketch, robot, basicSettings);
             final int currentDefaultOrder = onHostThread(selectedPart::defaultOrder);
             final int writtenDefaultOrder = currentDefaultOrder == 1 ? 2 : 1;
-            final boolean defaultOrderPassed = validateValueEdit( "defaultOrder", selectedPart::defaultOrder,
-                    selectedPart::setDefaultOrder, writtenDefaultOrder, robot, basicSettings);
+            final boolean defaultOrderPassed = validateValueEdit(
+                    "defaultOrder",
+                    selectedPart::defaultOrder,
+                    selectedPart::setDefaultOrder,
+                    writtenDefaultOrder,
+                    robot,
+                    basicSettings);
 
             final float written = Float.compare(before, 0.625F) == 0 ? 0.75F : 0.625F;
             Float afterWrite = null;
@@ -3519,7 +4259,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     && sketchPassed
                     && defaultOrderPassed
                     && opacityPassed;
-            Files.writeString( artifact, "status=" + (passed ? "PASS" : "FAIL") + System.lineSeparator()
+            Files.writeString(
+                    artifact,
+                    "status=" + (passed ? "PASS" : "FAIL") + System.lineSeparator()
                             + "partId=" + part.id().value() + System.lineSeparator()
                             + "partIndex=" + part.index() + System.lineSeparator()
                             + "partParentIndex=" + part.parentIndex() + System.lineSeparator()
@@ -3535,13 +4277,17 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                             + "afterWrite=" + afterWrite + System.lineSeparator()
                             + "afterUndo=" + afterUndo + System.lineSeparator()
                             + "afterRedo=" + afterRedo + System.lineSeparator()
-                            + "restoredOpacity=" + restoredOpacity + System.lineSeparator(), StandardOpenOption.CREATE,
+                            + "restoredOpacity=" + restoredOpacity + System.lineSeparator(),
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception exception) {
             try {
-                Files.writeString( artifact, "status=FAIL" + System.lineSeparator()
+                Files.writeString(
+                        artifact,
+                        "status=FAIL" + System.lineSeparator()
                                 + "error=" + exception.getClass().getName() + ": "
-                                + exception.getMessage() + System.lineSeparator(), StandardOpenOption.CREATE,
+                                + exception.getMessage() + System.lineSeparator(),
+                        StandardOpenOption.CREATE,
                         StandardOpenOption.TRUNCATE_EXISTING);
             } catch (Exception ignored) {
                 context.logger().error("Part opacity validation artifact could not be written", exception);
@@ -3559,7 +4305,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 Path.of(System.getProperty("turboism.home"), "logs", "native-control-background-validation.txt");
         try {
             Files.createDirectories(artifact.getParent());
-            Files.writeString( artifact, "status=RUNNING phase=await-model\n", StandardOpenOption.CREATE,
+            Files.writeString(
+                    artifact,
+                    "status=RUNNING phase=await-model\n",
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
             final CubismModel model = awaitNativeLabelColorModel(artifact);
             final ParameterGroup folder = firstNonRootParameterGroup(model);
@@ -3583,8 +4332,14 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 final MatrixValues folderMatrix = runBackgroundMatrix(
                         () -> nativeLabelColor(folder), color -> setNativeLabelColor(folder, color), customRequested);
                 folderPassed = folderMatrix.passed();
-                appendBackgroundReport( report, "parameterFolder", folder.id().value(), modelId, hostThread,
-                        folderMatrix, folderPassed);
+                appendBackgroundReport(
+                        report,
+                        "parameterFolder",
+                        folder.id().value(),
+                        modelId,
+                        hostThread,
+                        folderMatrix,
+                        folderPassed);
 
                 final NativeLabelColor partRequested = presetDifferentFrom(partOriginal.labelColor());
                 final MatrixValues partMatrix = runBackgroundMatrix(
@@ -3592,9 +4347,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 partPassed = partMatrix.passed();
                 appendBackgroundReport(report, "part", part.id().value(), modelId, hostThread, partMatrix, partPassed);
 
-                report.append("deformer.original.background=").append(backgroundText(deformerOriginal.labelColor()))
-                        .append('\n').append("deformer.original.effective=")
-                        .append(effectiveText(deformerOriginal.actualColor())).append('\n');
+                report.append("deformer.original.background=")
+                        .append(backgroundText(deformerOriginal.labelColor()))
+                        .append('\n')
+                        .append("deformer.original.effective=")
+                        .append(effectiveText(deformerOriginal.actualColor()))
+                        .append('\n');
                 NativeLabelColor matrixBefore = deformerOriginal.labelColor();
                 if (matrixBefore instanceof NativeLabelColor.Default) {
                     final NativeLabelColor establishing = presetDifferentFrom(matrixBefore);
@@ -3605,9 +4363,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     matrixBefore =
                             onHostThread(() -> nativeLabelColor(deformer)).labelColor();
                 }
-                report.append("deformer.matrixBefore.background=").append(backgroundText(matrixBefore)).append('\n');
-                final MatrixValues deformerMatrix = runBackgroundMatrix( () -> nativeLabelColor(deformer),
-                        color -> setNativeLabelColor(deformer, color), new NativeLabelColor.Default());
+                report.append("deformer.matrixBefore.background=")
+                        .append(backgroundText(matrixBefore))
+                        .append('\n');
+                final MatrixValues deformerMatrix = runBackgroundMatrix(
+                        () -> nativeLabelColor(deformer),
+                        color -> setNativeLabelColor(deformer, color),
+                        new NativeLabelColor.Default());
                 onHostThread(() -> {
                     setNativeLabelColor(deformer, deformerOriginal.labelColor());
                     return null;
@@ -3617,36 +4379,63 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 deformerPassed = deformerMatrix.passed() && finalRestoreOk;
                 appendBackgroundReport(
                         report, "deformer", deformer.id().value(), modelId, hostThread, deformerMatrix, deformerPassed);
-                report.append("deformer.finalRestored.background=").append(backgroundText(finalRestored.labelColor()))
-                        .append('\n').append("deformer.finalRestored.effective=")
-                        .append(effectiveText(finalRestored.actualColor())).append('\n')
-                        .append("deformer.finalRestore=").append(finalRestoreOk ? "PASS" : "FAIL").append('\n');
+                report.append("deformer.finalRestored.background=")
+                        .append(backgroundText(finalRestored.labelColor()))
+                        .append('\n')
+                        .append("deformer.finalRestored.effective=")
+                        .append(effectiveText(finalRestored.actualColor()))
+                        .append('\n')
+                        .append("deformer.finalRestore=")
+                        .append(finalRestoreOk ? "PASS" : "FAIL")
+                        .append('\n');
             } catch (Exception exception) {
-                report.append("matrix.error=").append(exception.getClass().getName()).append(": ")
-                        .append(exception.getMessage()).append('\n');
+                report.append("matrix.error=")
+                        .append(exception.getClass().getName())
+                        .append(": ")
+                        .append(exception.getMessage())
+                        .append('\n');
             } finally {
-                restoreReport.append(restoreStatus( "parameterFolder", () -> nativeLabelColor(folder),
-                        color -> setNativeLabelColor(folder, color), folderOriginal, restoreFailed));
-                restoreReport.append(restoreStatus( "part", () -> nativeLabelColor(part),
-                        color -> setNativeLabelColor(part, color), partOriginal, restoreFailed));
-                restoreReport.append(restoreStatus( "deformer", () -> nativeLabelColor(deformer),
-                        color -> setNativeLabelColor(deformer, color), deformerOriginal, restoreFailed));
+                restoreReport.append(restoreStatus(
+                        "parameterFolder",
+                        () -> nativeLabelColor(folder),
+                        color -> setNativeLabelColor(folder, color),
+                        folderOriginal,
+                        restoreFailed));
+                restoreReport.append(restoreStatus(
+                        "part",
+                        () -> nativeLabelColor(part),
+                        color -> setNativeLabelColor(part, color),
+                        partOriginal,
+                        restoreFailed));
+                restoreReport.append(restoreStatus(
+                        "deformer",
+                        () -> nativeLabelColor(deformer),
+                        color -> setNativeLabelColor(deformer, color),
+                        deformerOriginal,
+                        restoreFailed));
             }
             final boolean scopeClosePassed =
                     verifyNativeControlScopeClose(model, folder, scopeReport, artifact, modelId, hostThread);
             final boolean overall =
                     folderPassed && partPassed && deformerPassed && !restoreFailed.get() && scopeClosePassed;
-            Files.writeString( artifact, "status=" + (overall ? "PASS" : "FAIL") + System.lineSeparator()
+            Files.writeString(
+                    artifact,
+                    "status=" + (overall ? "PASS" : "FAIL") + System.lineSeparator()
                             + "mode=native-control-background" + System.lineSeparator()
                             + "modelId=" + modelId + System.lineSeparator()
                             + "hostThread=" + hostThread + System.lineSeparator()
                             + "overall=" + (overall ? "PASS" : "FAIL") + System.lineSeparator() + report + restoreReport
-                            + scopeReport, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                            + scopeReport,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception exception) {
             try {
-                Files.writeString( artifact, "status=FAIL" + System.lineSeparator()
+                Files.writeString(
+                        artifact,
+                        "status=FAIL" + System.lineSeparator()
                                 + "error=" + exception.getClass().getName() + ": "
-                                + exception.getMessage() + System.lineSeparator(), StandardOpenOption.CREATE,
+                                + exception.getMessage() + System.lineSeparator(),
+                        StandardOpenOption.CREATE,
                         StandardOpenOption.TRUNCATE_EXISTING);
             } catch (Exception ignored) {
                 context.logger()
@@ -3665,7 +4454,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 Path.of(System.getProperty("turboism.home"), "logs", "native-control-background-document-close.txt");
         try {
             Files.createDirectories(artifact.getParent());
-            Files.writeString( artifact, "status=RUNNING phase=await-model\n", StandardOpenOption.CREATE,
+            Files.writeString(
+                    artifact,
+                    "status=RUNNING phase=await-model\n",
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
             final CubismModel model = awaitNativeLabelColorModel(artifact);
             final ParameterGroup folder = firstNonRootParameterGroup(model);
@@ -3687,13 +4479,16 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 }));
             }
             final boolean passed = modelStale && readStale && writeStale;
-            Files.writeString( artifact, "status=" + (passed ? "PASS" : "FAIL") + System.lineSeparator()
+            Files.writeString(
+                    artifact,
+                    "status=" + (passed ? "PASS" : "FAIL") + System.lineSeparator()
                             + "phase=document-close" + System.lineSeparator()
                             + "modelId=" + modelId + System.lineSeparator()
                             + "hostThread=" + hostThread + System.lineSeparator()
                             + "modelStale=" + modelStale + System.lineSeparator()
                             + "readStale=" + readStale + System.lineSeparator()
-                            + "writeStale=" + writeStale + System.lineSeparator(), StandardOpenOption.CREATE,
+                            + "writeStale=" + writeStale + System.lineSeparator(),
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception exception) {
             writeValidationFailure(
@@ -3713,7 +4508,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         try {
             Files.createDirectories(artifact.getParent());
             Files.createDirectories(propertiesFile.getParent());
-            Files.writeString( artifact, "status=RUNNING phase=await-model\n", StandardOpenOption.CREATE,
+            Files.writeString(
+                    artifact,
+                    "status=RUNNING phase=await-model\n",
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
             final CubismModel model = awaitNativeLabelColorModel(artifact);
             final ParameterGroup folder = firstNonRootParameterGroup(model);
@@ -3766,13 +4564,16 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             pressShortcut(robot, java.awt.event.KeyEvent.VK_S);
             final SaveConfirmation save = awaitSaveConfirmation(fixture, beforeMtime, beforeSize);
             final boolean saved = save.confirmed();
-            Files.writeString( artifact, "status=" + (saved ? "PASS" : "FAIL") + System.lineSeparator()
+            Files.writeString(
+                    artifact,
+                    "status=" + (saved ? "PASS" : "FAIL") + System.lineSeparator()
                             + "phase=saved" + System.lineSeparator() + "modelId=" + modelId + System.lineSeparator()
                             + "hostThread=" + hostThread + System.lineSeparator()
                             + "folderId=" + folder.id().value() + System.lineSeparator()
                             + "partId=" + part.id().value() + System.lineSeparator()
                             + "deformerId=" + deformer.id().value() + System.lineSeparator() + save.report("save."),
-                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception exception) {
             writeValidationFailure(
                     artifact, exception, "Native control background persistence write artifact could not be written");
@@ -3790,7 +4591,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         final Path propertiesFile = home.resolve("state/native-control-background-persist.properties");
         try {
             Files.createDirectories(artifact.getParent());
-            Files.writeString( artifact, "status=RUNNING phase=await-model\n", StandardOpenOption.CREATE,
+            Files.writeString(
+                    artifact,
+                    "status=RUNNING phase=await-model\n",
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
             final CubismModel model = awaitNativeLabelColorModel(artifact);
             final Properties stored = new Properties();
@@ -3832,13 +4636,16 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             pressShortcut(robot, java.awt.event.KeyEvent.VK_S);
             final SaveConfirmation save = awaitSaveConfirmation(fixture, beforeMtime, beforeSize);
             final boolean saved = save.confirmed();
-            Files.writeString( artifact, "status=" + (saved ? "PASS" : "FAIL") + System.lineSeparator()
+            Files.writeString(
+                    artifact,
+                    "status=" + (saved ? "PASS" : "FAIL") + System.lineSeparator()
                             + "phase=reopen-restored-saved" + System.lineSeparator()
                             + "modelId=" + modelId + System.lineSeparator()
                             + "hostThread=" + hostThread + System.lineSeparator()
                             + "verifiedRequested=parameterFolder,part,deformer" + System.lineSeparator()
                             + "restored=parameterFolder,part,deformer" + System.lineSeparator() + save.report("save."),
-                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception exception) {
             writeValidationFailure(
                     artifact, exception, "Native control background persistence reopen artifact could not be written");
@@ -3855,7 +4662,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         final Path propertiesFile = home.resolve("state/native-control-background-persist.properties");
         try {
             Files.createDirectories(artifact.getParent());
-            Files.writeString( artifact, "status=RUNNING phase=await-model\n", StandardOpenOption.CREATE,
+            Files.writeString(
+                    artifact,
+                    "status=RUNNING phase=await-model\n",
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
             final CubismModel model = awaitNativeLabelColorModel(artifact);
             final Properties stored = new Properties();
@@ -3877,10 +4687,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
             final String modelId = onHostThread(() -> model.id().value());
             final String hostThread = onHostThread(() -> Thread.currentThread().getName());
-            Files.writeString( artifact, "status=PASS\nphase=final-verify-restored\n"
+            Files.writeString(
+                    artifact,
+                    "status=PASS\nphase=final-verify-restored\n"
                             + "modelId=" + modelId + System.lineSeparator()
                             + "hostThread=" + hostThread + System.lineSeparator()
-                            + "verifiedRestored=parameterFolder,part,deformer\n", StandardOpenOption.CREATE,
+                            + "verifiedRestored=parameterFolder,part,deformer\n",
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception exception) {
             writeValidationFailure(
@@ -3893,8 +4706,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
      * facade fail closed, while the existing peer-probe handshake proves the shared host remains
      * usable. No native color changes or overlays are left behind.
      */
-    private boolean verifyNativeControlScopeClose( final CubismModel model, final ParameterGroup folder,
-            final StringBuilder scopeReport, final Path artifact, final String modelId, final String hostThread) {
+    private boolean verifyNativeControlScopeClose(
+            final CubismModel model,
+            final ParameterGroup folder,
+            final StringBuilder scopeReport,
+            final Path artifact,
+            final String modelId,
+            final String hostThread) {
         try {
             context.disposableScope().close();
             final boolean modelStale = failsClosed(() -> onHostThread(model::id));
@@ -3909,7 +4727,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     Path.of(System.getProperty("turboism.home"), "logs", "editor-object-peer-scope-close.txt");
             Files.createDirectories(peerRequest.getParent());
             Files.deleteIfExists(peerArtifact);
-            Files.writeString( peerRequest, "primaryScopeClosed=true\n", StandardOpenOption.CREATE,
+            Files.writeString(
+                    peerRequest,
+                    "primaryScopeClosed=true\n",
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
             writeRunningScopeClosePhase(artifact, modelId, hostThread);
             final String peerEvidence =
@@ -3918,16 +4739,42 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             final boolean secondPluginUsable =
                     peerEvidence.contains("status=PASS") && peerEvidence.contains("secondPluginUsable=true");
             final boolean passed = modelStale && uiReadStale && uiWriteStale && peerTerminal && secondPluginUsable;
-            scopeReport.append("phase=plugin-scope-close\n").append("modelStale=").append(modelStale).append('\n')
-                    .append("uiReadStale=").append(uiReadStale).append('\n').append("uiWriteStale=")
-                    .append(uiWriteStale).append('\n').append("peerTerminal=").append(peerTerminal).append('\n')
-                    .append("secondPluginUsable=").append(secondPluginUsable).append('\n').append("peerTimeout=")
-                    .append(!peerTerminal).append('\n').append("peerMissingEvidence=").append(!peerTerminal)
-                    .append('\n').append("scopeClose=").append(passed ? "PASS" : "FAIL").append('\n');
+            scopeReport
+                    .append("phase=plugin-scope-close\n")
+                    .append("modelStale=")
+                    .append(modelStale)
+                    .append('\n')
+                    .append("uiReadStale=")
+                    .append(uiReadStale)
+                    .append('\n')
+                    .append("uiWriteStale=")
+                    .append(uiWriteStale)
+                    .append('\n')
+                    .append("peerTerminal=")
+                    .append(peerTerminal)
+                    .append('\n')
+                    .append("secondPluginUsable=")
+                    .append(secondPluginUsable)
+                    .append('\n')
+                    .append("peerTimeout=")
+                    .append(!peerTerminal)
+                    .append('\n')
+                    .append("peerMissingEvidence=")
+                    .append(!peerTerminal)
+                    .append('\n')
+                    .append("scopeClose=")
+                    .append(passed ? "PASS" : "FAIL")
+                    .append('\n');
             return passed;
         } catch (Exception exception) {
-            scopeReport.append("phase=plugin-scope-close\n").append("scopeClose=FAIL\n").append("scopeClose.error=")
-                    .append(exception.getClass().getName()).append(": ").append(exception.getMessage()).append('\n');
+            scopeReport
+                    .append("phase=plugin-scope-close\n")
+                    .append("scopeClose=FAIL\n")
+                    .append("scopeClose.error=")
+                    .append(exception.getClass().getName())
+                    .append(": ")
+                    .append(exception.getMessage())
+                    .append('\n');
             return false;
         }
     }
@@ -3936,18 +4783,23 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return onHostThread(() -> {
             final ParameterGroups groups = model.parameterGroups();
             final ParameterGroupId root = groups.root().id();
-            return groups.all().stream().filter(group -> !group.id().equals(root)).findFirst()
+            return groups.all().stream()
+                    .filter(group -> !group.id().equals(root))
+                    .findFirst()
                     .orElseThrow(() -> new IllegalStateException("No non-root parameter group is available."));
         });
     }
 
     private Part firstNonRootPart(final CubismModel model) throws Exception {
-        return onHostThread(() -> model.parts().all().stream().filter(part -> !"__RootPart__".equals(part.id().value()))
-                .findFirst().orElseThrow(() -> new IllegalStateException("No non-root Part is available.")));
+        return onHostThread(() -> model.parts().all().stream()
+                .filter(part -> !"__RootPart__".equals(part.id().value()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No non-root Part is available.")));
     }
 
     private Deformer firstDeformer(final CubismModel model) throws Exception {
-        return onHostThread(() -> model.deformers().all().stream().findFirst()
+        return onHostThread(() -> model.deformers().all().stream()
+                .findFirst()
                 .orElseThrow(() -> new IllegalStateException("No Deformer is available.")));
     }
 
@@ -3964,10 +4816,14 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             properties.setProperty(prefix + ".preset", preset.color().name());
         } else if (background instanceof NativeLabelColor.Custom custom) {
             properties.setProperty(prefix + ".type", "custom");
-            properties.setProperty( prefix + ".red", Float.toString(custom.color().red()));
-            properties.setProperty( prefix + ".green", Float.toString(custom.color().green()));
-            properties.setProperty( prefix + ".blue", Float.toString(custom.color().blue()));
-            properties.setProperty( prefix + ".alpha", Float.toString(custom.color().alpha()));
+            properties.setProperty(
+                    prefix + ".red", Float.toString(custom.color().red()));
+            properties.setProperty(
+                    prefix + ".green", Float.toString(custom.color().green()));
+            properties.setProperty(
+                    prefix + ".blue", Float.toString(custom.color().blue()));
+            properties.setProperty(
+                    prefix + ".alpha", Float.toString(custom.color().alpha()));
         } else {
             throw new IllegalArgumentException("unsupported native control background: "
                     + background.getClass().getName());
@@ -3988,7 +4844,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             return new NativeLabelColor.Preset(PresetColor.valueOf(preset));
         }
         if ("custom".equals(type)) {
-            return new NativeLabelColor.Custom(new UiColor( parseFiniteValue(properties.getProperty(prefix + ".red")),
+            return new NativeLabelColor.Custom(new UiColor(
+                    parseFiniteValue(properties.getProperty(prefix + ".red")),
                     parseFiniteValue(properties.getProperty(prefix + ".green")),
                     parseFiniteValue(properties.getProperty(prefix + ".blue")),
                     parseFiniteValue(properties.getProperty(prefix + ".alpha"))));
@@ -4005,10 +4862,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 final CubismModel candidate = model;
                 onHostThread(() -> {
                     final ParameterGroups groups = candidate.parameterGroups();
-                    if (groups.all().stream().noneMatch(group -> !group.id().equals(groups.root().id()))) {
+                    if (groups.all().stream()
+                            .noneMatch(group -> !group.id().equals(groups.root().id()))) {
                         throw new IllegalStateException("No non-root parameter group is available.");
                     }
-                    if (candidate.parts().all().stream().noneMatch(part -> !"__RootPart__".equals(part.id().value()))) {
+                    if (candidate.parts().all().stream()
+                            .noneMatch(part -> !"__RootPart__".equals(part.id().value()))) {
                         throw new IllegalStateException("No non-root Part is available.");
                     }
                     if (candidate.deformers().all().isEmpty()) {
@@ -4020,9 +4879,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             } catch (Exception exception) {
                 model = null;
                 unavailable = exception;
-                Files.writeString( artifact, "status=RUNNING phase=await-model attempt=" + attempt + " error="
+                Files.writeString(
+                        artifact,
+                        "status=RUNNING phase=await-model attempt=" + attempt + " error="
                                 + exception.getClass().getName() + ": " + exception.getMessage() + "\n",
-                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.TRUNCATE_EXISTING);
                 Thread.sleep(1000L);
             }
         }
@@ -4032,17 +4894,23 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     private static NativeLabelColorState nativeLabelColor(final ParameterGroup group) {
-        return group.ui().nativeLabelColor().orElseThrow(() -> new IllegalStateException(
+        return group.ui()
+                .nativeLabelColor()
+                .orElseThrow(() -> new IllegalStateException(
                         "No native label color is available for ParameterGroup " + group.id()));
     }
 
     private static NativeLabelColorState nativeLabelColor(final Part part) {
-        return part.ui().nativeLabelColor().orElseThrow(
+        return part.ui()
+                .nativeLabelColor()
+                .orElseThrow(
                         () -> new IllegalStateException("No native label color is available for Part " + part.id()));
     }
 
     private static NativeLabelColorState nativeLabelColor(final Deformer deformer) {
-        return deformer.ui().nativeLabelColor().orElseThrow(() ->
+        return deformer.ui()
+                .nativeLabelColor()
+                .orElseThrow(() ->
                         new IllegalStateException("No native label color is available for Deformer " + deformer.id()));
     }
 
@@ -4058,8 +4926,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         deformer.ui().setNativeLabelColor(color);
     }
 
-    private MatrixValues runBackgroundMatrix( final java.util.function.Supplier<NativeLabelColorState> read,
-            final java.util.function.Consumer<NativeLabelColor> write, final NativeLabelColor requested)
+    private MatrixValues runBackgroundMatrix(
+            final java.util.function.Supplier<NativeLabelColorState> read,
+            final java.util.function.Consumer<NativeLabelColor> write,
+            final NativeLabelColor requested)
             throws Exception {
         final NativeLabelColorState before = onHostThread(read::get);
         requireDistinctBackgroundRequest(requested, before.labelColor());
@@ -4087,41 +4957,103 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return new MatrixValues(before, requested, afterWrite, sameValueSecondWrite, afterUndo, afterRedo, restored);
     }
 
-    private static void appendBackgroundReport( final StringBuilder report, final String family, final String targetId,
-            final String modelId, final String hostThread, final MatrixValues matrix, final boolean passed) {
+    private static void appendBackgroundReport(
+            final StringBuilder report,
+            final String family,
+            final String targetId,
+            final String modelId,
+            final String hostThread,
+            final MatrixValues matrix,
+            final boolean passed) {
         final String prefix = family + ".";
-        report.append(prefix).append("family=").append(family).append('\n').append(prefix).append("target=")
-                .append(targetId).append('\n').append(prefix).append("modelId=").append(modelId).append('\n')
-                .append(prefix).append("hostThread=").append(hostThread).append('\n').append(prefix)
-                .append("before.background=").append(backgroundText(matrix.before().labelColor())).append('\n')
-                .append(prefix).append("before.effective=").append(effectiveText(matrix.before().actualColor()))
-                .append('\n').append(prefix).append("requested=").append(backgroundText(matrix.requested()))
-                .append('\n').append(prefix).append("afterWrite.background=")
-                .append(backgroundText(matrix.afterWrite().labelColor())).append('\n').append(prefix)
-                .append("afterWrite.effective=").append(effectiveText(matrix.afterWrite().actualColor())).append('\n')
-                .append(prefix).append("sameValueSecondWrite.background=")
-                .append(backgroundText(matrix.sameValueSecondWrite().labelColor())).append('\n').append(prefix)
-                .append("afterUndo.background=").append(backgroundText(matrix.afterUndo().labelColor())).append('\n')
-                .append(prefix).append("afterRedo.background=").append(backgroundText(matrix.afterRedo().labelColor()))
-                .append('\n').append(prefix).append("restored.background=")
-                .append(backgroundText(matrix.restored().labelColor())).append('\n').append(prefix)
+        report.append(prefix)
+                .append("family=")
+                .append(family)
+                .append('\n')
+                .append(prefix)
+                .append("target=")
+                .append(targetId)
+                .append('\n')
+                .append(prefix)
+                .append("modelId=")
+                .append(modelId)
+                .append('\n')
+                .append(prefix)
+                .append("hostThread=")
+                .append(hostThread)
+                .append('\n')
+                .append(prefix)
+                .append("before.background=")
+                .append(backgroundText(matrix.before().labelColor()))
+                .append('\n')
+                .append(prefix)
+                .append("before.effective=")
+                .append(effectiveText(matrix.before().actualColor()))
+                .append('\n')
+                .append(prefix)
+                .append("requested=")
+                .append(backgroundText(matrix.requested()))
+                .append('\n')
+                .append(prefix)
+                .append("afterWrite.background=")
+                .append(backgroundText(matrix.afterWrite().labelColor()))
+                .append('\n')
+                .append(prefix)
+                .append("afterWrite.effective=")
+                .append(effectiveText(matrix.afterWrite().actualColor()))
+                .append('\n')
+                .append(prefix)
+                .append("sameValueSecondWrite.background=")
+                .append(backgroundText(matrix.sameValueSecondWrite().labelColor()))
+                .append('\n')
+                .append(prefix)
+                .append("afterUndo.background=")
+                .append(backgroundText(matrix.afterUndo().labelColor()))
+                .append('\n')
+                .append(prefix)
+                .append("afterRedo.background=")
+                .append(backgroundText(matrix.afterRedo().labelColor()))
+                .append('\n')
+                .append(prefix)
+                .append("restored.background=")
+                .append(backgroundText(matrix.restored().labelColor()))
+                .append('\n')
+                .append(prefix)
                 .append("check.afterWrite=")
-                .append(matrix.afterWrite().labelColor().equals(matrix.requested()) ? "PASS" : "FAIL").append('\n')
-                .append(prefix).append("check.sameValueSecondWrite=")
-                .append(matrix.sameValueSecondWrite().equals(matrix.afterWrite()) ? "PASS" : "FAIL").append('\n')
-                .append(prefix).append("check.afterUndo=")
-                .append(matrix.afterUndo().equals(matrix.before()) ? "PASS" : "FAIL").append('\n').append(prefix)
-                .append("check.afterRedo=").append(matrix.afterRedo().equals(matrix.afterWrite()) ? "PASS" : "FAIL")
-                .append('\n').append(prefix).append("check.restored=")
-                .append(matrix.restored().equals(matrix.before()) ? "PASS" : "FAIL").append('\n').append(prefix)
-                .append("check.singleUndoGroup=").append(matrix.afterUndo().equals(matrix.before()) ? "PASS" : "FAIL")
+                .append(matrix.afterWrite().labelColor().equals(matrix.requested()) ? "PASS" : "FAIL")
+                .append('\n')
+                .append(prefix)
+                .append("check.sameValueSecondWrite=")
+                .append(matrix.sameValueSecondWrite().equals(matrix.afterWrite()) ? "PASS" : "FAIL")
+                .append('\n')
+                .append(prefix)
+                .append("check.afterUndo=")
+                .append(matrix.afterUndo().equals(matrix.before()) ? "PASS" : "FAIL")
+                .append('\n')
+                .append(prefix)
+                .append("check.afterRedo=")
+                .append(matrix.afterRedo().equals(matrix.afterWrite()) ? "PASS" : "FAIL")
+                .append('\n')
+                .append(prefix)
+                .append("check.restored=")
+                .append(matrix.restored().equals(matrix.before()) ? "PASS" : "FAIL")
+                .append('\n')
+                .append(prefix)
+                .append("check.singleUndoGroup=")
+                .append(matrix.afterUndo().equals(matrix.before()) ? "PASS" : "FAIL")
                 .append(" // one Undo returned directly to before; the same-value second write added no Undo group")
-                .append('\n').append(prefix).append("status=").append(passed ? "PASS" : "FAIL").append('\n');
+                .append('\n')
+                .append(prefix)
+                .append("status=")
+                .append(passed ? "PASS" : "FAIL")
+                .append('\n');
     }
 
-    private static String restoreStatus( final String label,
+    private static String restoreStatus(
+            final String label,
             final java.util.function.Supplier<NativeLabelColorState> read,
-            final java.util.function.Consumer<NativeLabelColor> write, final NativeLabelColorState original,
+            final java.util.function.Consumer<NativeLabelColor> write,
+            final NativeLabelColorState original,
             final AtomicBoolean restoreFailed) {
         try {
             onHostThread(() -> {
@@ -4130,7 +5062,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             });
             final NativeLabelColorState confirmed = onHostThread(read::get);
             final boolean ok = confirmed.equals(original);
-            if (!ok) { restoreFailed.set(true); }
+            if (!ok) {
+                restoreFailed.set(true);
+            }
             return "restore." + label + "=" + (ok ? "PASS" : "FAIL") + System.lineSeparator()
                     + "restore." + label + ".confirmed.background="
                     + backgroundText(confirmed.labelColor()) + System.lineSeparator()
@@ -4166,13 +5100,18 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     private NativeLabelColorState awaitBackground(
             final java.util.function.Supplier<NativeLabelColorState> read, final NativeLabelColor semantic)
-            throws Exception { return awaitBackground(read, appearance -> semantic.equals(appearance.labelColor())); }
+            throws Exception {
+        return awaitBackground(read, appearance -> semantic.equals(appearance.labelColor()));
+    }
 
     private NativeLabelColorState awaitBackground(
             final java.util.function.Supplier<NativeLabelColorState> read, final NativeLabelColorState expected)
-            throws Exception { return awaitBackground(read, expected::equals); }
+            throws Exception {
+        return awaitBackground(read, expected::equals);
+    }
 
-    private NativeLabelColorState awaitBackground( final java.util.function.Supplier<NativeLabelColorState> read,
+    private NativeLabelColorState awaitBackground(
+            final java.util.function.Supplier<NativeLabelColorState> read,
             final java.util.function.Predicate<NativeLabelColorState> predicate)
             throws Exception {
         NativeLabelColorState actual = onHostThread(read::get);
@@ -4197,9 +5136,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     private static String backgroundText(final NativeLabelColor background) {
         if (background instanceof NativeLabelColor.Default) return "default";
-        if (background instanceof NativeLabelColor.Preset preset) return "preset(" + preset.color().name() + ")";
+        if (background instanceof NativeLabelColor.Preset preset)
+            return "preset(" + preset.color().name() + ")";
         if (background instanceof NativeLabelColor.Custom custom) return "custom(" + colorText(custom.color()) + ")";
-        throw new IllegalArgumentException("unsupported native control background: " + background.getClass().getName());
+        throw new IllegalArgumentException("unsupported native control background: "
+                + background.getClass().getName());
     }
 
     private static final UiColor[] CUSTOM_CANDIDATES = {
@@ -4207,9 +5148,14 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         new UiColor(0.25F, 0.5F, 0.75F, 1.0F), new UiColor(0.1F, 0.2F, 0.3F, 0.4F), new UiColor(0.8F, 0.6F, 0.4F, 0.2F)
     };
 
-    private record MatrixValues( NativeLabelColorState before, NativeLabelColor requested,
-            NativeLabelColorState afterWrite, NativeLabelColorState sameValueSecondWrite,
-            NativeLabelColorState afterUndo, NativeLabelColorState afterRedo, NativeLabelColorState restored) {
+    private record MatrixValues(
+            NativeLabelColorState before,
+            NativeLabelColor requested,
+            NativeLabelColorState afterWrite,
+            NativeLabelColorState sameValueSecondWrite,
+            NativeLabelColorState afterUndo,
+            NativeLabelColorState afterRedo,
+            NativeLabelColorState restored) {
         boolean passed() {
             return afterWrite.labelColor().equals(requested)
                     && sameValueSecondWrite.equals(afterWrite)
@@ -4241,7 +5187,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                         hostFrame.set(frame);
                         break;
                     }
-                    if (hostFrame.get() == null && title != null && title.contains("Cubism")) { hostFrame.set(frame); }
+                    if (hostFrame.get() == null && title != null && title.contains("Cubism")) {
+                        hostFrame.set(frame);
+                    }
                 }
                 if (hostFrame.get() == null) hostFrame.set(fallback);
                 final java.awt.Frame frame = hostFrame.get();
@@ -4250,7 +5198,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     frame.toFront();
                     frame.requestFocus();
                 }
-            } finally { focused.countDown(); }
+            } finally {
+                focused.countDown();
+            }
         });
         focused.await(10L, java.util.concurrent.TimeUnit.SECONDS);
         final java.awt.Frame frame = hostFrame.get();
@@ -4272,17 +5222,24 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return WindowsProbeHarness.invokeMenuShortcut(key);
     }
 
-    private Parameters activeParameters() { return activeModel().parameters(); }
+    private Parameters activeParameters() {
+        return activeModel().parameters();
+    }
 
     private Optional<ParameterId> cubismSelection() {
         try {
             return context.cubism().runtime().selection().activeParameterId().map(ParameterId::new);
-        } catch (RuntimeException unavailable) { return Optional.empty(); }
+        } catch (RuntimeException unavailable) {
+            return Optional.empty();
+        }
     }
 
     private QuerySpec currentQuery() {
-        return new QuerySpec( searchField.getText(), selected(searchModeBox, SearchMode.CONTAINS),
-                selected(typeFilterBox, TypeFilter.ANY), selected(repeatFilterBox, BooleanFilter.ANY),
+        return new QuerySpec(
+                searchField.getText(),
+                selected(searchModeBox, SearchMode.CONTAINS),
+                selected(typeFilterBox, TypeFilter.ANY),
+                selected(repeatFilterBox, BooleanFilter.ANY),
                 selected(combinedFilterBox, BooleanFilter.ANY));
     }
 
@@ -4292,15 +5249,20 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return box.getItemAt(box.getSelectedIndex());
     }
 
-    private void refreshLater() { SwingUtilities.invokeLater(this::refresh); }
+    private void refreshLater() {
+        SwingUtilities.invokeLater(this::refresh);
+    }
 
     private void refresh() {
         if (frame == null || resultModel == null) return;
         try {
             final List<ParameterRow> rows = queryRows(activeParameters(), currentQuery());
             final boolean followCubismSelection = followSelectionBox.isSelected();
-            final Optional<ParameterId> nextSelection = preferredSelection( rows, selectedParameterId,
-                    followCubismSelection ? cubismSelection() : Optional.empty(), followCubismSelection);
+            final Optional<ParameterId> nextSelection = preferredSelection(
+                    rows,
+                    selectedParameterId,
+                    followCubismSelection ? cubismSelection() : Optional.empty(),
+                    followCubismSelection);
             applyRows(rows, nextSelection);
             refreshModelAuthoring(activeModel());
             statusLabel.setText(lastActionStatus + " — " + rows.size()
@@ -4318,9 +5280,14 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         final List<ParameterGroup> groups = model.parameterGroups().all();
         parameterGroupBox.removeAllItems();
         groups.stream().map(group -> group.id().value()).forEach(parameterGroupBox::addItem);
-        final String chosen = groups.stream().map(group -> group.id().value()).filter(id -> id.equals(prior))
-                .findFirst().orElseGet(() -> groups.isEmpty() ? null : groups.get(0).id().value());
-        if (chosen != null) { parameterGroupBox.setSelectedItem(chosen); }
+        final String chosen = groups.stream()
+                .map(group -> group.id().value())
+                .filter(id -> id.equals(prior))
+                .findFirst()
+                .orElseGet(() -> groups.isEmpty() ? null : groups.get(0).id().value());
+        if (chosen != null) {
+            parameterGroupBox.setSelectedItem(chosen);
+        }
         refreshSelectedGroupColor();
         defaultKeyformLockLabel.setText("Default keyform locked: " + model.defaultKeyformLocked());
     }
@@ -4358,10 +5325,14 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             if (index >= 0) {
                 resultList.setSelectedIndex(index);
                 resultList.ensureIndexIsVisible(index);
-            } else { resultList.clearSelection(); }
+            } else {
+                resultList.clearSelection();
+            }
             selectedParameterId = nextSelection;
             resultCountLabel.setText(rows.size() + " parameter(s)");
-        } finally { applyingSelection = false; }
+        } finally {
+            applyingSelection = false;
+        }
         updateDetailsFromSelection();
     }
 
@@ -4389,8 +5360,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         currentValueLabel.setText(number(row.value()));
         rangeValueLabel.setText('[' + number(row.minimum()) + ", " + number(row.maximum()) + ']');
         defaultValueLabel.setText(number(row.defaultValue()));
-        if (!setterField.hasFocus()) { setterField.setText(Float.toString(row.value())); }
-        if (definitionIdField != null && !definitionIdField.hasFocus()) { definitionIdField.setText(row.id().value()); }
+        if (!setterField.hasFocus()) {
+            setterField.setText(Float.toString(row.value()));
+        }
+        if (definitionIdField != null && !definitionIdField.hasFocus()) {
+            definitionIdField.setText(row.id().value());
+        }
         if (definitionNameField != null && !definitionNameField.hasFocus()) {
             definitionNameField.setText(row.name().orElse(""));
         }
@@ -4427,22 +5402,46 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     private void showNoSelection() {
-        for (final JLabel label : List.of( idValueLabel, nameValueLabel, typeValueLabel, blendShapeValueLabel,
-                combinedValueLabel, repeatValueLabel, currentValueLabel, rangeValueLabel, defaultValueLabel)) {
-            if (label != null) { label.setText("—"); }
+        for (final JLabel label : List.of(
+                idValueLabel,
+                nameValueLabel,
+                typeValueLabel,
+                blendShapeValueLabel,
+                combinedValueLabel,
+                repeatValueLabel,
+                currentValueLabel,
+                rangeValueLabel,
+                defaultValueLabel)) {
+            if (label != null) {
+                label.setText("—");
+            }
         }
-        if (setterField != null) { setterField.setText(""); }
-        for (final JTextField field : List.of( definitionIdField, definitionNameField, definitionMinimumField,
-                definitionDefaultField, definitionMaximumField)) {
-            if (field != null) { field.setText(""); }
+        if (setterField != null) {
+            setterField.setText("");
+        }
+        for (final JTextField field : List.of(
+                definitionIdField,
+                definitionNameField,
+                definitionMinimumField,
+                definitionDefaultField,
+                definitionMaximumField)) {
+            if (field != null) {
+                field.setText("");
+            }
         }
         if (definitionRepeatBox != null) {
             definitionRepeatBox.setSelected(false);
             definitionRepeatBox.setEnabled(false);
         }
-        if (definitionCombinedLabel != null) { definitionCombinedLabel.setText("Combined marker: —"); }
-        if (combinedPartnerBox != null) { combinedPartnerBox.removeAllItems(); }
-        if (combinedPartnerValueLabel != null) { combinedPartnerValueLabel.setText("Current partner: —"); }
+        if (definitionCombinedLabel != null) {
+            definitionCombinedLabel.setText("Combined marker: —");
+        }
+        if (combinedPartnerBox != null) {
+            combinedPartnerBox.removeAllItems();
+        }
+        if (combinedPartnerValueLabel != null) {
+            combinedPartnerValueLabel.setText("Current partner: —");
+        }
     }
 
     private void updateLifecycleLabels() {
@@ -4455,7 +5454,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return value.map(String::valueOf).orElse("unknown");
     }
 
-    private static String number(final float value) { return String.format(Locale.ROOT, "%.3f", value); }
+    private static String number(final float value) {
+        return String.format(Locale.ROOT, "%.3f", value);
+    }
 
     private static String colorText(final UiColor color) {
         return "rgba(" + number(color.red()) + ", " + number(color.green()) + ", " + number(color.blue()) + ", "
@@ -4467,7 +5468,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     private enum Bound {
-        MINIMUM, DEFAULT, MAXIMUM
+        MINIMUM,
+        DEFAULT,
+        MAXIMUM
     }
 
     private void disposeWindow() {
@@ -4514,7 +5517,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             lifecycleLabel = null;
             statusLabel = null;
             selectedParameterId = Optional.empty();
-            if (current != null) { current.dispose(); }
+            if (current != null) {
+                current.dispose();
+            }
         };
         if (SwingUtilities.isEventDispatchThread()) {
             dispose.run();
@@ -4535,12 +5540,17 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         final List<ParameterId> candidates = partnerCandidates(parameters, currentId);
         combinedPartnerBox.removeAllItems();
         candidates.stream().map(ParameterId::value).forEach(combinedPartnerBox::addItem);
-        final Optional<String> typedCandidate = candidates.stream().map(ParameterId::value).filter(typed::equals)
+        final Optional<String> typedCandidate = candidates.stream()
+                .map(ParameterId::value)
+                .filter(typed::equals)
                 .findFirst();
-        final String preferred = currentPartner.map(ParameterId::value).or(() -> typedCandidate)
+        final String preferred = currentPartner
+                .map(ParameterId::value)
+                .or(() -> typedCandidate)
                 .orElseGet(() -> candidates.isEmpty() ? "" : candidates.get(0).value());
         combinedPartnerBox.getEditor().setItem(preferred);
-        combinedPartnerBox.setToolTipText( candidates.isEmpty()
+        combinedPartnerBox.setToolTipText(
+                candidates.isEmpty()
                         ? "No other model parameter is available."
                         : "Choose another parameter, or type its exact ID. Runtime validates group and pair eligibility.");
     }
@@ -4551,6 +5561,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     private static String safeMessage(final Throwable failure) {
         final String message = failure == null ? null : failure.getMessage();
-        return message == null || message.isBlank() ? (failure == null ? "null" : failure.getClass().getSimpleName()) : message;
+        return message == null || message.isBlank()
+                ? (failure == null ? "null" : failure.getClass().getSimpleName())
+                : message;
     }
 }

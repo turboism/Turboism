@@ -37,8 +37,12 @@ final class WindowsPsdClipMaskValidationProbeTest {
 
     @Test
     void wrongExpectedBatchTruncatesFirstNonEmptyExpectation() {
-        final ClipMaskReplacement replacement = new ClipMaskReplacement( new ArtMeshId("target"),
-                List.of(new ArtMeshId("m1"), new ArtMeshId("m2")), false, List.of(new ArtMeshId("r1")), false);
+        final ClipMaskReplacement replacement = new ClipMaskReplacement(
+                new ArtMeshId("target"),
+                List.of(new ArtMeshId("m1"), new ArtMeshId("m2")),
+                false,
+                List.of(new ArtMeshId("r1")),
+                false);
         final List<ClipMaskReplacement> wrong =
                 WindowsPsdClipMaskValidationProbe.wrongExpectedBatch(List.of(replacement));
         assertEquals(List.of(new ArtMeshId("m1")), wrong.get(0).expectedMaskArtMeshIds());
