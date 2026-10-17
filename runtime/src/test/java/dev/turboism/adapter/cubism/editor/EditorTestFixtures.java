@@ -1,23 +1,18 @@
 package dev.turboism.adapter.cubism.editor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
+import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
-import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -43,8 +38,7 @@ public final class EditorTestFixtures {
 
     public static StaticSelector method(
             final String alias, final Class<?> owner, final String name, final String descriptor) {
-        return StaticSelector.method(
-                alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
+        return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
     }
 
     public interface Copyable {
@@ -78,8 +72,15 @@ public final class EditorTestFixtures {
         public SimpleUndo(final String name, final Copyable target, final Object copyParam) {
             this.target = target;
             this.snapshot = target != null ? target.snapshot() : null;
-            this.redo = () -> { if (this.target != null) this.target.restore(this.restored); };
-            this.undo = () -> { if (this.target != null) { this.restored = this.target.snapshot(); this.target.restore(this.snapshot); } };
+            this.redo = () -> {
+                if (this.target != null) this.target.restore(this.restored);
+            };
+            this.undo = () -> {
+                if (this.target != null) {
+                    this.restored = this.target.snapshot();
+                    this.target.restore(this.snapshot);
+                }
+            };
             this.updated = null;
         }
 
@@ -166,7 +167,6 @@ public final class EditorTestFixtures {
         }
     }
 
-
     public static final class RuntimeParameter {
         final ParameterSource source;
 
@@ -208,7 +208,8 @@ public final class EditorTestFixtures {
         }
 
         public void remove(final Id guid) {
-            children.removeIf(source -> source instanceof ParameterSource ps && ps.guid.value().equals(guid.value()));
+            children.removeIf(source ->
+                    source instanceof ParameterSource ps && ps.guid.value().equals(guid.value()));
         }
 
         public void add(final ParameterSource source, final int index) {
@@ -394,7 +395,10 @@ public final class EditorTestFixtures {
         public Id paramType = Id.NORMAL;
         public ParameterGroup parentGroup;
 
-        public boolean combined() { return combined; }
+        public boolean combined() {
+            return combined;
+        }
+
         public void setCombined(final boolean value) {
             combined = value;
         }
@@ -409,14 +413,37 @@ public final class EditorTestFixtures {
             combined = (Boolean) snapshot;
         }
 
-        public String name() { return name != null ? name : id.value; }
-        public boolean isRepeat() { return repeat; }
-        public float minValue() { return minimum; }
-        public float maxValue() { return maximum; }
-        public float defaultValue() { return defaultValue; }
-        public Id paramType() { return paramType; }
-        public void setRepeat(final boolean value) { repeat = value; }
-        public ParameterGroup parentGroup() { return parentGroup; }
+        public String name() {
+            return name != null ? name : id.value;
+        }
+
+        public boolean isRepeat() {
+            return repeat;
+        }
+
+        public float minValue() {
+            return minimum;
+        }
+
+        public float maxValue() {
+            return maximum;
+        }
+
+        public float defaultValue() {
+            return defaultValue;
+        }
+
+        public Id paramType() {
+            return paramType;
+        }
+
+        public void setRepeat(final boolean value) {
+            repeat = value;
+        }
+
+        public ParameterGroup parentGroup() {
+            return parentGroup;
+        }
 
         public ParameterSource(final Id guid, final Id id) {
             this(id != null ? id.value() : "");
@@ -729,7 +756,6 @@ public final class EditorTestFixtures {
     // resolver + selectors
     // ------------------------------------------------------------------
 
-
     // fixture: host surface mirroring the verified native members
     // ------------------------------------------------------------------
 
@@ -773,13 +799,17 @@ public final class EditorTestFixtures {
                 final var f = fixture.getClass();
                 try {
                     currentDocument = (Document) f.getDeclaredField("document").get(fixture);
-                } catch (NoSuchFieldException ignored) {}
+                } catch (NoSuchFieldException ignored) {
+                }
                 try {
-                    completePack = (CompletePack) f.getDeclaredField("completePack").get(fixture);
-                } catch (NoSuchFieldException ignored) {}
+                    completePack =
+                            (CompletePack) f.getDeclaredField("completePack").get(fixture);
+                } catch (NoSuchFieldException ignored) {
+                }
                 try {
                     mainFrame = (MainFrame) f.getDeclaredField("mainFrame").get(fixture);
-                } catch (NoSuchFieldException ignored) {}
+                } catch (NoSuchFieldException ignored) {
+                }
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -1222,7 +1252,8 @@ public final class EditorTestFixtures {
                     final var b = (ParameterSource) f.getDeclaredField("b").get(fixtureRef);
                     final var c = (ParameterSource) f.getDeclaredField("c").get(fixtureRef);
                     return List.of(new RuntimeParameter(a), new RuntimeParameter(b), new RuntimeParameter(c));
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
             if (!runtimeParameters.isEmpty()) return runtimeParameters;
             return parameters;
@@ -1568,22 +1599,70 @@ public final class EditorTestFixtures {
         public void setLocalName(final String value) {
             super.setLocalName(value);
         }
-        public boolean visible() { return visible; }
-        public void setVisible(final boolean value) { visible = value; }
-        public boolean locked() { return locked; }
-        public void setLocked(final boolean value) { locked = value; }
-        public boolean visibleInHierarchy() { return visibleInHierarchy; }
-        public void setVisibleInHierarchy(final boolean value) { visibleInHierarchy = value; }
-        public boolean lockedInHierarchy() { return lockedInHierarchy; }
-        public void setLockedInHierarchy(final boolean value) { lockedInHierarchy = value; }
-        public boolean sketch() { return sketch; }
-        public void setSketch(final boolean value) { sketch = value; }
-        public int defaultOrder() { return defaultOrder; }
-        public void setDefaultOrder(final int value) { defaultOrder = value; }
-        public HostColor editColor() { return editColor; }
-        public void setEditColor(final HostColor value) { editColor = value; }
-        public PartHandler handler() { return partHandler(); }
-        public Undo basicUndo(final String name) { return new Undo(); }
+
+        public boolean visible() {
+            return visible;
+        }
+
+        public void setVisible(final boolean value) {
+            visible = value;
+        }
+
+        public boolean locked() {
+            return locked;
+        }
+
+        public void setLocked(final boolean value) {
+            locked = value;
+        }
+
+        public boolean visibleInHierarchy() {
+            return visibleInHierarchy;
+        }
+
+        public void setVisibleInHierarchy(final boolean value) {
+            visibleInHierarchy = value;
+        }
+
+        public boolean lockedInHierarchy() {
+            return lockedInHierarchy;
+        }
+
+        public void setLockedInHierarchy(final boolean value) {
+            lockedInHierarchy = value;
+        }
+
+        public boolean sketch() {
+            return sketch;
+        }
+
+        public void setSketch(final boolean value) {
+            sketch = value;
+        }
+
+        public int defaultOrder() {
+            return defaultOrder;
+        }
+
+        public void setDefaultOrder(final int value) {
+            defaultOrder = value;
+        }
+
+        public HostColor editColor() {
+            return editColor;
+        }
+
+        public void setEditColor(final HostColor value) {
+            editColor = value;
+        }
+
+        public PartHandler handler() {
+            return partHandler();
+        }
+
+        public Undo basicUndo(final String name) {
+            return new Undo();
+        }
 
         public void setId(final Id value) {
             id = value;
@@ -1749,8 +1828,9 @@ public final class EditorTestFixtures {
             final Document doc = Host.current != null ? Host.current : Host.document;
             final ModelSource src = doc.source;
             src.sources.removeIf(s -> s.guid.value().equals(guid.value()));
-            if (src.rootGroup != null) src.rootGroup.children.removeIf(
-                    child -> child instanceof ParameterSource s && s.guid.value.equals(guid.value()));
+            if (src.rootGroup != null)
+                src.rootGroup.children.removeIf(
+                        child -> child instanceof ParameterSource s && s.guid.value.equals(guid.value()));
             return new GroupUndo(new ArrayList<>());
         }
 
@@ -1806,6 +1886,7 @@ public final class EditorTestFixtures {
         public ModelHandler() {
             this(null);
         }
+
         private final ModelSource source;
 
         ModelHandler(final ModelSource source) {
@@ -2240,6 +2321,7 @@ public final class EditorTestFixtures {
 
     public static class Undo {
         public boolean captured = true;
+
         public Undo() {}
 
         public Undo(final String name, final Object target, final Object copyParam) {
@@ -2809,7 +2891,6 @@ public final class EditorTestFixtures {
         }
     }
 
-
     public static List<StaticSelector> hierarchySelectors() {
         final List<StaticSelector> selectors = new ArrayList<>();
         selectors.add(StaticSelector.classSelector("cubism.editor-model.app-controller.class", internal(Host.class)));
@@ -3339,36 +3420,87 @@ public final class EditorTestFixtures {
 
         selectors.add(StaticSelector.classSelector("cubism.editor-model.guid.class", internal(Id.class)));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.id.class", internal(Id.class)));
-        selectors.add(method("cubism.editor-model.model-source.name", ModelSource.class, "name", "()Ljava/lang/String;"));
-        selectors.add(method("cubism.editor-model.part-source.set-local-name", PartSource.class, "setLocalName", "(Ljava/lang/String;)V"));
+        selectors.add(
+                method("cubism.editor-model.model-source.name", ModelSource.class, "name", "()Ljava/lang/String;"));
+        selectors.add(method(
+                "cubism.editor-model.part-source.set-local-name",
+                PartSource.class,
+                "setLocalName",
+                "(Ljava/lang/String;)V"));
         selectors.add(method("cubism.editor-model.part-source.default-order", PartSource.class, "defaultOrder", "()I"));
-        selectors.add(method("cubism.editor-model.part-source.set-default-order", PartSource.class, "setDefaultOrder", "(I)V"));
+        selectors.add(method(
+                "cubism.editor-model.part-source.set-default-order", PartSource.class, "setDefaultOrder", "(I)V"));
         selectors.add(method("cubism.editor-model.part-source.sketch", PartSource.class, "sketch", "()Z"));
         selectors.add(method("cubism.editor-model.part-source.set-sketch", PartSource.class, "setSketch", "(Z)V"));
-        selectors.add(method("cubism.editor-model.part-source.edit-color", PartSource.class, "editColor", desc(HostColor.class)));
-        selectors.add(method("cubism.editor-model.part-source.set-edit-color", PartSource.class, "setEditColor", "(" + type(HostColor.class) + ")V"));
-        selectors.add(method("cubism.editor-model.part-source.create-undo-for-basic-settings", PartSource.class, "basicUndo", "(Ljava/lang/String;)" + type(Undo.class)));
-        selectors.add(method("cubism.editor-model.parameter-controllable-source.set-visible", PartSource.class, "setVisible", "(Z)V"));
-        selectors.add(method("cubism.editor-model.parameter-controllable-source.set-locked", PartSource.class, "setLocked", "(Z)V"));
+        selectors.add(method(
+                "cubism.editor-model.part-source.edit-color", PartSource.class, "editColor", desc(HostColor.class)));
+        selectors.add(method(
+                "cubism.editor-model.part-source.set-edit-color",
+                PartSource.class,
+                "setEditColor",
+                "(" + type(HostColor.class) + ")V"));
+        selectors.add(method(
+                "cubism.editor-model.part-source.create-undo-for-basic-settings",
+                PartSource.class,
+                "basicUndo",
+                "(Ljava/lang/String;)" + type(Undo.class)));
+        selectors.add(method(
+                "cubism.editor-model.parameter-controllable-source.set-visible",
+                PartSource.class,
+                "setVisible",
+                "(Z)V"));
+        selectors.add(method(
+                "cubism.editor-model.parameter-controllable-source.set-locked", PartSource.class, "setLocked", "(Z)V"));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.color.class", internal(HostColor.class)));
-        selectors.add(StaticSelector.constructor("cubism.editor-model.color.create", internal(HostColor.class), "(FFFF)V", StaticSelector.ACCESS_PUBLIC));
+        selectors.add(StaticSelector.constructor(
+                "cubism.editor-model.color.create",
+                internal(HostColor.class),
+                "(FFFF)V",
+                StaticSelector.ACCESS_PUBLIC));
         selectors.add(method("cubism.editor-model.color.red", HostColor.class, "red", "()F"));
         selectors.add(method("cubism.editor-model.color.green", HostColor.class, "green", "()F"));
         selectors.add(method("cubism.editor-model.color.blue", HostColor.class, "blue", "()F"));
         selectors.add(method("cubism.editor-model.color.alpha", HostColor.class, "alpha", "()F"));
-        selectors.add(method("cubism.editor-model.part-handler.create-undo-for-all-edit", PartHandler.class, "undo", "(Ljava/lang/String;)" + type(Undo.class)));
+        selectors.add(method(
+                "cubism.editor-model.part-handler.create-undo-for-all-edit",
+                PartHandler.class,
+                "undo",
+                "(Ljava/lang/String;)" + type(Undo.class)));
         selectors.add(method("cubism.editor-model.part.parts-opacity", HostPart.class, "partsOpacity", "()F"));
         selectors.add(method("cubism.editor-model.part.set-parts-opacity", HostPart.class, "setPartsOpacity", "(F)V"));
-        selectors.add(method("cubism.editor-model.part.current-keyform", HostPart.class, "currentForm", desc(PartForm.class)));
+        selectors.add(method(
+                "cubism.editor-model.part.current-keyform", HostPart.class, "currentForm", desc(PartForm.class)));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.part-form.class", internal(PartForm.class)));
         selectors.add(method("cubism.editor-model.part-form.opacity", PartForm.class, "opacity", "()F"));
         selectors.add(method("cubism.editor-model.part-form.set-opacity", PartForm.class, "setOpacity", "(F)V"));
-        selectors.add(StaticSelector.classSelector("cubism.editor-model.model-handler.class", internal(ModelHandler.class)));
-        selectors.add(StaticSelector.staticMethod("cubism.editor-model.model-handler.create-free-id-default", internal(ModelHandler.class), "createFreeIdDefault", "(L" + internal(ModelHandler.class) + ";L" + internal(Id.class) + ";L" + internal(Object.class) + ";ILjava/lang/Object;)L" + internal(Id.class) + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-        selectors.add(method("cubism.editor-model.model-handler.remove-objects", ModelHandler.class, "removeObjects", "(Ljava/util/List;L" + internal(Model.class) + ";Z)L" + internal(Undo.class) + ";"));
-        selectors.add(StaticSelector.staticMethod("cubism.editor-model.copy-helper.copy", internal(CopyHelper.class), "copy", "(L" + internal(Object.class) + ";L" + internal(Object.class) + ";ILjava/lang/Object;)L" + internal(Object.class) + ";", StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
-        selectors.add(method("cubism.editor-model.part-source.set-guid", PartSource.class, "setGuid", "(L" + internal(Id.class) + ";)V"));
-        selectors.add(StaticSelector.constructor("cubism.editor-model.part-guid.create", internal(Id.class), "()V", StaticSelector.ACCESS_PUBLIC));
+        selectors.add(
+                StaticSelector.classSelector("cubism.editor-model.model-handler.class", internal(ModelHandler.class)));
+        selectors.add(StaticSelector.staticMethod(
+                "cubism.editor-model.model-handler.create-free-id-default",
+                internal(ModelHandler.class),
+                "createFreeIdDefault",
+                "(L" + internal(ModelHandler.class) + ";L" + internal(Id.class) + ";L" + internal(Object.class)
+                        + ";ILjava/lang/Object;)L" + internal(Id.class) + ";",
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+        selectors.add(method(
+                "cubism.editor-model.model-handler.remove-objects",
+                ModelHandler.class,
+                "removeObjects",
+                "(Ljava/util/List;L" + internal(Model.class) + ";Z)L" + internal(Undo.class) + ";"));
+        selectors.add(StaticSelector.staticMethod(
+                "cubism.editor-model.copy-helper.copy",
+                internal(CopyHelper.class),
+                "copy",
+                "(L" + internal(Object.class) + ";L" + internal(Object.class) + ";ILjava/lang/Object;)L"
+                        + internal(Object.class) + ";",
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+        selectors.add(method(
+                "cubism.editor-model.part-source.set-guid",
+                PartSource.class,
+                "setGuid",
+                "(L" + internal(Id.class) + ";)V"));
+        selectors.add(StaticSelector.constructor(
+                "cubism.editor-model.part-guid.create", internal(Id.class), "()V", StaticSelector.ACCESS_PUBLIC));
 
         return selectors;
     }
@@ -3398,6 +3530,4 @@ public final class EditorTestFixtures {
         }
         return selectors;
     }
-
-
 }

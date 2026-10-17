@@ -397,10 +397,7 @@ class EditorDocumentReadAccessTest {
     }
 
     @ParameterizedTest
-    @CsvSource({
-        "2.0, 0, 0, 60, 120, 49.0, 72.0, true",
-        "0.5, 20, 10, 25, 40, 22.25, 28.0, false"
-    })
+    @CsvSource({"2.0, 0, 0, 60, 120, 49.0, 72.0, true", "0.5, 20, 10, 25, 40, 22.25, 28.0, false"})
     void scalesKeyframeTimesAroundGivenOrigin(
             final double factor,
             final int origin,
@@ -813,9 +810,8 @@ class EditorDocumentReadAccessTest {
         } else {
             capabilityId = EditorAnimationSceneOperationSelectorContract.EVAL_CAPABILITY_ID;
         }
-        final var model = new EditorBackedCubismModelAccess(
-                        writeResolverWithout("5.3.02", capabilityId), "session-a")
-                .active();
+        final var model =
+                new EditorBackedCubismModelAccess(writeResolverWithout("5.3.02", capabilityId), "session-a").active();
         final AnimationScene scene = model.animationDocuments().get(0).scenes().get(0);
         if ("playback".equals(capability)) {
             assertThrows(UnsupportedOperationException.class, scene::playheadFrame);

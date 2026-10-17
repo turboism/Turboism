@@ -38,9 +38,9 @@ import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.junit.jupiter.api.io.TempDir;
 
 class EditorTextureReplacementDiagnosticTest {
 
@@ -953,17 +953,19 @@ class EditorTextureReplacementDiagnosticTest {
                                 longValue("selector-" + imageIndex + '-', keyIndex)),
                         List.of());
             }
-            final EditorTextureRelationsTestFixtures.ModelImage image = new EditorTextureRelationsTestFixtures.ModelImage(
-                    new EditorTextureRelationsTestFixtures.HostId(target ? "target-model" : "filler-model-" + imageIndex),
-                    target ? "Target" : "Filler",
-                    100,
-                    100,
-                    linked,
-                    new EditorTextureRelationsTestFixtures.FilterEnv(
-                            true,
-                            new EditorTextureRelationsTestFixtures.SelectorMap(selectorKeys),
-                            true,
-                            target ? oldId : linked.get(0)));
+            final EditorTextureRelationsTestFixtures.ModelImage image =
+                    new EditorTextureRelationsTestFixtures.ModelImage(
+                            new EditorTextureRelationsTestFixtures.HostId(
+                                    target ? "target-model" : "filler-model-" + imageIndex),
+                            target ? "Target" : "Filler",
+                            100,
+                            100,
+                            linked,
+                            new EditorTextureRelationsTestFixtures.FilterEnv(
+                                    true,
+                                    new EditorTextureRelationsTestFixtures.SelectorMap(selectorKeys),
+                                    true,
+                                    target ? oldId : linked.get(0)));
             modelImages.add(image);
             groups.add(new EditorTextureRelationsTestFixtures.HostModelImageGroup(
                     target ? "Target group" : "Filler group " + imageIndex,
@@ -1019,18 +1021,19 @@ class EditorTextureReplacementDiagnosticTest {
                         new File("/incoming.psd"),
                         new EditorTextureRelationsTestFixtures.PsdDocument(),
                         List.of());
-        final EditorTextureRelationsTestFixtures.ModelImage modelImage = new EditorTextureRelationsTestFixtures.ModelImage(
-                new EditorTextureRelationsTestFixtures.HostId("model-a"),
-                "Image",
-                100,
-                100,
-                List.of(oldId),
-                new EditorTextureRelationsTestFixtures.FilterEnv(
-                        true,
-                        new EditorTextureRelationsTestFixtures.SelectorMap(
-                                emptySelectorMap ? Map.of() : Map.of(oldId, List.of())),
-                        true,
-                        oldId));
+        final EditorTextureRelationsTestFixtures.ModelImage modelImage =
+                new EditorTextureRelationsTestFixtures.ModelImage(
+                        new EditorTextureRelationsTestFixtures.HostId("model-a"),
+                        "Image",
+                        100,
+                        100,
+                        List.of(oldId),
+                        new EditorTextureRelationsTestFixtures.FilterEnv(
+                                true,
+                                new EditorTextureRelationsTestFixtures.SelectorMap(
+                                        emptySelectorMap ? Map.of() : Map.of(oldId, List.of())),
+                                true,
+                                oldId));
         final EditorTextureRelationsTestFixtures.HostModelImageGroup group =
                 new EditorTextureRelationsTestFixtures.HostModelImageGroup(
                         "Group A", "memo", List.of(modelImage), List.of(oldId, incomingId));
@@ -1100,7 +1103,10 @@ class EditorTextureReplacementDiagnosticTest {
                 EditorTextureRelationsTestFixtures.LayeredImage.class,
                 "getGuid",
                 desc(EditorTextureRelationsTestFixtures.HostId.class));
-        putClass(selectors, "cubism.editor-model.model-image.class", EditorTextureRelationsTestFixtures.ModelImage.class);
+        putClass(
+                selectors,
+                "cubism.editor-model.model-image.class",
+                EditorTextureRelationsTestFixtures.ModelImage.class);
         putMethod(
                 selectors,
                 "cubism.editor-model.model-image.guid",

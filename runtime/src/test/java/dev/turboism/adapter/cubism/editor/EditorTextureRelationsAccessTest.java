@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
 import static dev.turboism.adapter.cubism.editor.EditorTextureRelationsTestFixtures.*;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -931,5 +930,4 @@ class EditorTextureRelationsAccessTest {
             this.model = new Model("model-a", meshInstances);
         }
     }
-
 }

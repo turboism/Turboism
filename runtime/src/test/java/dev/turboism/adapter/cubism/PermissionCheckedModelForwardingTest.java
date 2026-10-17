@@ -314,8 +314,10 @@ class PermissionCheckedModelForwardingTest {
             assertNotSame(createdInFolder, delegate.parameter(), "create must return a PermissionChecked wrapper");
             assertNotSame(copied, delegate.parameter(), "copy must return a PermissionChecked wrapper");
         } else {
-            final Parameters parameters =
-                    facade(List.of(readPermission(true)), calls).model().active().parameters();
+            final Parameters parameters = facade(List.of(readPermission(true)), calls)
+                    .model()
+                    .active()
+                    .parameters();
 
             assertThrows(CubismPermissionException.class, () -> parameters.create(DEFINITION));
             assertThrows(CubismPermissionException.class, () -> parameters.create(DEFINITION, Optional.of(GROUP_ID)));
@@ -342,8 +344,10 @@ class PermissionCheckedModelForwardingTest {
 
             assertNotSame(created, delegate.group(), "addGroup must return a PermissionChecked wrapper");
         } else {
-            final ParameterGroups groups =
-                    facade(List.of(readPermission(true)), calls).model().active().parameterGroups();
+            final ParameterGroups groups = facade(List.of(readPermission(true)), calls)
+                    .model()
+                    .active()
+                    .parameterGroups();
 
             assertThrows(CubismPermissionException.class, () -> groups.addGroup("Group B"));
             assertThrows(CubismPermissionException.class, () -> groups.removeGroup(GROUP_ID));
@@ -373,16 +377,13 @@ class PermissionCheckedModelForwardingTest {
         assertEquals(List.of("create:ParamNew", "addGroup:Group B", "add:PartA"), calls);
     }
 
-
-
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void textureRegisterAndBindWritesEnforceWritePermission(final boolean writeGranted) {
         final List<String> calls = new ArrayList<>();
         final RecordingModel delegate = new RecordingModel(calls).withTextures(recordingTextures(calls));
-        final var permissions = writeGranted
-                ? List.of(readPermission(true), writePermission(true))
-                : List.of(readPermission(true));
+        final var permissions =
+                writeGranted ? List.of(readPermission(true), writePermission(true)) : List.of(readPermission(true));
         final var textures = facade(delegate, permissions).model().active().textures();
 
         if (writeGranted) {
@@ -426,8 +427,10 @@ class PermissionCheckedModelForwardingTest {
             assertNotSame(addedByString, delegate.part(), "String add must return a PermissionChecked wrapper");
             assertNotSame(addedUnderByString, delegate.part(), "String add must return a PermissionChecked wrapper");
         } else {
-            final Parts parts =
-                    facade(List.of(readPermission(true)), calls).model().active().parts();
+            final Parts parts = facade(List.of(readPermission(true)), calls)
+                    .model()
+                    .active()
+                    .parts();
 
             assertThrows(CubismPermissionException.class, () -> parts.add(PART_ID));
             assertThrows(CubismPermissionException.class, () -> parts.add(PART_ID, PART_ID));
@@ -495,8 +498,6 @@ class PermissionCheckedModelForwardingTest {
         assertThrows(IllegalStateException.class, () -> parts.createMany(List.of("Stale"), parent));
         assertTrue(calls.isEmpty());
     }
-
-
 
     @Test
     void parameterGroupRenameDelegatesWhenWriteIsGrantedAndFailsClosedWithout() {
@@ -575,9 +576,7 @@ class PermissionCheckedModelForwardingTest {
 
         if (readGranted) {
             assertSame(EMPTY_MORPH_TARGETS, part.morphTargets());
-            assertSame(
-                    EMPTY_MORPH_TARGETS,
-                    drawable.morphTargets());
+            assertSame(EMPTY_MORPH_TARGETS, drawable.morphTargets());
             assertEquals(List.of("part.morphTargets", "drawable.morphTargets"), calls);
         } else {
             assertThrows(CubismPermissionException.class, part::morphTargets);

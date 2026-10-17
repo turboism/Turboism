@@ -1084,7 +1084,6 @@ public class VerifiedEmbeddedPanelHostOperationsTest {
                 host.log);
     }
 
-
     @Test
     void treeTraversalSkipsNonSplitComponentsDuringCleanupAndTreeChecks() {
         final PaletteBox live = new PaletteBox(1);
