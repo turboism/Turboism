@@ -72,6 +72,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class DynamicCubismModelAccessTest {
 
@@ -1863,10 +1865,12 @@ class DynamicCubismModelAccessTest {
         assertThrows(IllegalStateException.class, parameter::uncombine);
     }
 
-    @Test
-    void resetIsForwardedOnlyWhileTheSessionGenerationIsCurrent() {
+    @ParameterizedTest
+    @ValueSource(strings = {"reset", "definitionUpdate"})
+    void parameterDirectOperationsAreForwardedOnlyWhileTheSessionGenerationIsCurrent(final String operation) {
         final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
         final float[] value = {0.75F};
+        final AtomicReference<ParameterDefinition> updated = new AtomicReference<>();
         final Parameter delegate = new Parameter() {
             @Override
             public ParameterId id() {
@@ -1897,53 +1901,6 @@ class DynamicCubismModelAccessTest {
             public void setValue(final float nextValue) {
                 value[0] = nextValue;
             }
-        };
-        access.connect(() -> model("model-a", delegate));
-        final Parameter parameter = access.active().parameters().find(new ParameterId("ParamA"));
-
-        parameter.resetToDefault();
-        assertEquals(-0.25F, value[0]);
-
-        value[0] = 0.5F;
-        access.connect(modelAccess("model-b", 2.0F));
-        assertThrows(IllegalStateException.class, parameter::resetToDefault);
-        assertEquals(0.5F, value[0]);
-    }
-
-    @Test
-    void definitionUpdateIsForwardedOnlyWhileTheSessionGenerationIsCurrent() {
-        final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
-        final AtomicReference<ParameterDefinition> updated = new AtomicReference<>();
-        final Parameter delegate = new Parameter() {
-            @Override
-            public ParameterId id() {
-                return new ParameterId("ParamA");
-            }
-
-            @Override
-            public float getValue() {
-                return 0.0F;
-            }
-
-            @Override
-            public float getMinimumValue() {
-                return -1.0F;
-            }
-
-            @Override
-            public float getMaximumValue() {
-                return 1.0F;
-            }
-
-            @Override
-            public float getDefaultValue() {
-                return 0.0F;
-            }
-
-            @Override
-            public void setValue(final float value) {
-                throw unsupported();
-            }
 
             @Override
             public void updateDefinition(final ParameterDefinition definition) {
@@ -1955,12 +1912,23 @@ class DynamicCubismModelAccessTest {
         final ParameterDefinition definition = new ParameterDefinition(
                 new ParameterId("ParamRenamed"), "Renamed", -2.0F, 0.0F, 2.0F, ParameterType.NORMAL, false);
 
-        parameter.updateDefinition(definition);
-        assertEquals(definition, updated.get());
+        if ("reset".equals(operation)) {
+            parameter.resetToDefault();
+            assertEquals(-0.25F, value[0]);
+            value[0] = 0.5F;
+        } else {
+            parameter.updateDefinition(definition);
+            assertEquals(definition, updated.get());
+        }
 
         access.connect(modelAccess("model-b", 2.0F));
-        assertThrows(IllegalStateException.class, () -> parameter.updateDefinition(definition));
-        assertEquals(definition, updated.get());
+        if ("reset".equals(operation)) {
+            assertThrows(IllegalStateException.class, parameter::resetToDefault);
+            assertEquals(0.5F, value[0]);
+        } else {
+            assertThrows(IllegalStateException.class, () -> parameter.updateDefinition(definition));
+            assertEquals(definition, updated.get());
+        }
     }
 
     @Test
