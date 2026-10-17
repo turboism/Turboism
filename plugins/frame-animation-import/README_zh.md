@@ -47,6 +47,7 @@ interface: swing
 <!-- compatibility:begin -->
 **Cubism Editor 版本支持（自动生成）：** 全部审核版本.
 - 部件不透明度写入 仅 5.3.00–5.3.04（[Cubism 5.3.00 新增部件离屏绘制（可设部件不透明度与剪贴蒙版）](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
+- 顶部菜单集成 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能）
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->
 
