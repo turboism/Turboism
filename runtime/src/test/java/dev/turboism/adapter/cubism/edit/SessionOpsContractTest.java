@@ -57,6 +57,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Fake-host contract tests for the T3 routed operation families. The scripted {@link
@@ -331,134 +333,49 @@ final class SessionOpsContractTest {
         assertFalse(fixture.access.called("cubism.editor-model.model-handler.remove-objects"));
     }
 
-    @Test
-    void editPartRejectsEveryUnverifiableField() throws EditSessionException {
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "grouped",
+                "offscreen",
+                "clippingIds",
+                "reverseMask",
+                "multiplyColor",
+                "screenColor",
+                "colorBlend",
+                "parentId"
+            })
+    void editPartRejectsEveryUnverifiableField(final String field) throws EditSessionException {
         final Fixture fixture = new Fixture();
         final EditSession session = fixture.open();
 
         // Each BLOCKED field is rejected on its own; the operation never dispatches.
-        // Field order: newId, name, parentId, grouped, guidImage, offscreen, clippingIds,
-        // reverseMask, drawOrder, opacity, multiplyColor, screenColor, colorBlend.
-        assertEditPartRejected(
-                session,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.of(Boolean.TRUE),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
-        assertEditPartRejected(
-                session,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.of(Boolean.TRUE),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
-        assertEditPartRejected(
-                session,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.of(List.of(new ModelObjectId("clip"))),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
-        assertEditPartRejected(
-                session,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.of(Boolean.TRUE),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
-        assertEditPartRejected(
-                session,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.of("#FF0000"),
-                Optional.empty(),
-                Optional.empty());
-        assertEditPartRejected(
-                session,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.of("#00FF00"),
-                Optional.empty());
-        assertEditPartRejected(
-                session,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.of(dev.turboism.sdk.cubism.edit.EditColorBlend.ADD));
-        assertEditPartRejected(
-                session,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.of(new PartId("parent")),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
+        assertThrows(
+                EditUnavailableException.class,
+                () -> session.partObjects()
+                        .editPart(new PartObjectOps.EditPart(
+                                new PartId("root-part"),
+                                List.of(),
+                                false,
+                                Optional.empty(),
+                                Optional.empty(),
+                                "parentId".equals(field) ? Optional.of(new PartId("parent")) : Optional.empty(),
+                                "grouped".equals(field) ? Optional.of(Boolean.TRUE) : Optional.empty(),
+                                Optional.empty(),
+                                "offscreen".equals(field) ? Optional.of(Boolean.TRUE) : Optional.empty(),
+                                "clippingIds".equals(field)
+                                        ? Optional.of(List.of(new ModelObjectId("clip")))
+                                        : Optional.empty(),
+                                "reverseMask".equals(field) ? Optional.of(Boolean.TRUE) : Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                "multiplyColor".equals(field) ? Optional.of("#FF0000") : Optional.empty(),
+                                "screenColor".equals(field) ? Optional.of("#00FF00") : Optional.empty(),
+                                "colorBlend".equals(field)
+                                        ? Optional.of(dev.turboism.sdk.cubism.edit.EditColorBlend.ADD)
+                                        : Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty())));
         assertFalse(fixture.host.opsDispatchLabels().contains("EditPart"));
     }
 
@@ -478,8 +395,9 @@ final class SessionOpsContractTest {
         assertRefreshRan(fixture.access);
     }
 
-    @Test
-    void editArtMeshRejectsColorBlendAndParentId() throws EditSessionException {
+    @ParameterizedTest
+    @ValueSource(strings = {"colorBlend", "parentId"})
+    void editArtMeshRejectsColorBlendAndParentId(final String field) throws EditSessionException {
         final Fixture fixture = new Fixture();
         final EditSession session = fixture.open();
 
@@ -489,25 +407,18 @@ final class SessionOpsContractTest {
                         .editArtMesh(editArtMesh(
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.empty(),
-                                Optional.of(dev.turboism.sdk.cubism.edit.EditColorBlend.NORMAL),
-                                Optional.empty(),
-                                Optional.empty())));
-        assertThrows(
-                EditUnavailableException.class,
-                () -> session.partObjects()
-                        .editArtMesh(editArtMesh(
-                                Optional.empty(),
-                                Optional.empty(),
-                                Optional.of(new PartId("p")),
-                                Optional.empty(),
+                                "parentId".equals(field) ? Optional.of(new PartId("p")) : Optional.empty(),
+                                "colorBlend".equals(field)
+                                        ? Optional.of(dev.turboism.sdk.cubism.edit.EditColorBlend.NORMAL)
+                                        : Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty())));
         assertFalse(fixture.host.opsDispatchLabels().contains("EditArtMesh"));
     }
 
-    @Test
-    void editGlueRejectsNewIdIntensityAndParentId() throws EditSessionException {
+    @ParameterizedTest
+    @ValueSource(strings = {"newId", "intensity", "parentId"})
+    void editGlueRejectsNewIdIntensityAndParentId(final String field) throws EditSessionException {
         final Fixture fixture = new Fixture();
         final EditSession session = fixture.open();
 
@@ -515,16 +426,10 @@ final class SessionOpsContractTest {
                 EditUnavailableException.class,
                 () -> session.partObjects()
                         .editGlue(editGlue(
-                                Optional.of(new GlueId("g2")), Optional.empty(), Optional.empty(), Optional.empty())));
-        assertThrows(
-                EditUnavailableException.class,
-                () -> session.partObjects()
-                        .editGlue(editGlue(Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(0.5))));
-        assertThrows(
-                EditUnavailableException.class,
-                () -> session.partObjects()
-                        .editGlue(editGlue(
-                                Optional.empty(), Optional.empty(), Optional.of(new PartId("p")), Optional.empty())));
+                                "newId".equals(field) ? Optional.of(new GlueId("g2")) : Optional.empty(),
+                                Optional.empty(),
+                                "parentId".equals(field) ? Optional.of(new PartId("p")) : Optional.empty(),
+                                "intensity".equals(field) ? Optional.of(0.5) : Optional.empty())));
         assertFalse(fixture.host.opsDispatchLabels().contains("EditGlue"));
     }
 
@@ -766,49 +671,36 @@ final class SessionOpsContractTest {
         assertEquals(EditObjectKind.ROTATION_DEFORMER, warp.children().get(0).kind());
     }
 
-    @Test
-    void addWarpDeformerRejectsEachUnverifiableLatticeField() throws EditSessionException {
+    @ParameterizedTest
+    @ValueSource(strings = {"bezierDivH", "bezierDivV", "inheritDrawOrder", "inheritOpacity"})
+    void addWarpDeformerRejectsEachUnverifiableLatticeField(final String field) throws EditSessionException {
         final Fixture fixture = new Fixture();
         final EditSession session = fixture.open();
 
         assertThrows(
                 EditUnavailableException.class,
                 () -> session.deformers()
-                        .addWarpDeformer(
-                                addWarp(Optional.of(3), Optional.empty(), Optional.empty(), Optional.empty())));
-        assertThrows(
-                EditUnavailableException.class,
-                () -> session.deformers()
-                        .addWarpDeformer(
-                                addWarp(Optional.empty(), Optional.of(3), Optional.empty(), Optional.empty())));
-        assertThrows(
-                EditUnavailableException.class,
-                () -> session.deformers()
                         .addWarpDeformer(addWarp(
-                                Optional.empty(), Optional.empty(), Optional.of(Boolean.TRUE), Optional.empty())));
-        assertThrows(
-                EditUnavailableException.class,
-                () -> session.deformers()
-                        .addWarpDeformer(addWarp(
-                                Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(Boolean.TRUE))));
+                                "bezierDivH".equals(field) ? Optional.of(3) : Optional.empty(),
+                                "bezierDivV".equals(field) ? Optional.of(3) : Optional.empty(),
+                                "inheritDrawOrder".equals(field) ? Optional.of(Boolean.TRUE) : Optional.empty(),
+                                "inheritOpacity".equals(field) ? Optional.of(Boolean.TRUE) : Optional.empty())));
         assertFalse(fixture.host.opsDispatchLabels().contains("AddWarpDeformer"));
     }
 
-    @Test
-    void editWarpDeformerRejectsBezierDivAndConditions() throws EditSessionException {
+    @ParameterizedTest
+    @ValueSource(strings = {"bezierDivH", "bezierDivV", "condition"})
+    void editWarpDeformerRejectsBezierDivAndConditions(final String field) throws EditSessionException {
         final Fixture fixture = new Fixture();
         final EditSession session = fixture.open();
 
         assertThrows(
                 EditUnavailableException.class,
-                () -> session.deformers().editWarpDeformer(editWarp(List.of(), Optional.of(4), Optional.empty())));
-        assertThrows(
-                EditUnavailableException.class,
-                () -> session.deformers().editWarpDeformer(editWarp(List.of(), Optional.empty(), Optional.of(4))));
-        assertThrows(
-                EditUnavailableException.class,
                 () -> session.deformers()
-                        .editWarpDeformer(editWarp(List.of(condition()), Optional.empty(), Optional.empty())));
+                        .editWarpDeformer(editWarp(
+                                "condition".equals(field) ? List.of(condition()) : List.of(),
+                                "bezierDivH".equals(field) ? Optional.of(4) : Optional.empty(),
+                                "bezierDivV".equals(field) ? Optional.of(4) : Optional.empty())));
         assertFalse(fixture.host.opsDispatchLabels().contains("EditWarpDeformer"));
     }
 
@@ -1130,44 +1022,6 @@ final class SessionOpsContractTest {
         return new EditParameterKeyCondition(Optional.of(new ParameterId("AngleZ")), Optional.of(0.5));
     }
 
-    private static void assertEditPartRejected(
-            final EditSession session,
-            final Optional<PartId> newId,
-            final Optional<String> name,
-            final Optional<PartId> parentId,
-            final Optional<Boolean> grouped,
-            final Optional<Boolean> guidImage,
-            final Optional<Boolean> offscreen,
-            final Optional<List<ModelObjectId>> clippingIds,
-            final Optional<Boolean> reverseMask,
-            final Optional<Integer> drawOrder,
-            final Optional<Double> opacity,
-            final Optional<String> multiplyColor,
-            final Optional<String> screenColor,
-            final Optional<dev.turboism.sdk.cubism.edit.EditColorBlend> colorBlend) {
-        assertThrows(
-                EditUnavailableException.class,
-                () -> session.partObjects()
-                        .editPart(new PartObjectOps.EditPart(
-                                new PartId("root-part"),
-                                List.of(),
-                                false,
-                                newId,
-                                name,
-                                parentId,
-                                grouped,
-                                guidImage,
-                                offscreen,
-                                clippingIds,
-                                reverseMask,
-                                drawOrder,
-                                opacity,
-                                multiplyColor,
-                                screenColor,
-                                colorBlend,
-                                Optional.empty(),
-                                Optional.empty())));
-    }
 
     private static PartObjectOps.EditPart editPart(
             final Optional<PartId> newId, final Optional<String> name, final Optional<EditLabelColor> labelColor) {
