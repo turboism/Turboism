@@ -8,6 +8,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- The Windows installer now pre-selects official Cubism BAT integration, matching the legacy
+  auto-start behavior: backing up and modifying the selected `CubismEditor5.bat` launchers is
+  on by default, so existing Cubism shortcuts, file associations and other entry points load
+  Turboism without going through the managed launcher. The option can still be unchecked on the
+  launch-options page, stays hash-guarded and idempotent, and is restored on uninstall. Silent
+  installs apply it as well; only the integration step elevates through UAC.
+
 ## [0.67.0] - 2026-10-13
 
 ### Added
