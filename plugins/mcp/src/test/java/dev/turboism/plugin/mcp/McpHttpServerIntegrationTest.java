@@ -1,5 +1,6 @@
 package dev.turboism.plugin.mcp;
 
+import static dev.turboism.plugin.mcp.McpHttpServerTestFixtures.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -7,50 +8,28 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.sdk.action.ActionRegistry;
-import dev.turboism.sdk.cubism.ArtMeshSnapshot;
-import dev.turboism.sdk.cubism.ClipMaskSnapshot;
-import dev.turboism.sdk.cubism.DeformerSnapshot;
 import dev.turboism.sdk.cubism.DocumentKind;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
-import dev.turboism.sdk.cubism.ModelObjectSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ParameterSnapshot;
 import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
-import dev.turboism.sdk.cubism.PsdDocumentSnapshot;
-import dev.turboism.sdk.cubism.RenderStatusSnapshot;
-import dev.turboism.sdk.cubism.SelectionSnapshot;
-import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
-import dev.turboism.sdk.cubism.WorkspaceSnapshot;
-import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.model.ModelObjectCreateRequest;
-import dev.turboism.sdk.cubism.model.ModelObjectDeletePolicy;
 import dev.turboism.sdk.cubism.model.ModelObjectDescriptor;
 import dev.turboism.sdk.cubism.model.ModelObjectKind;
 import dev.turboism.sdk.cubism.model.ModelObjectOperationException;
 import dev.turboism.sdk.cubism.model.ModelObjectReference;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
-import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRecord;
-import dev.turboism.sdk.cubism.service.query.HierarchyNode;
-import dev.turboism.sdk.cubism.service.query.ModelHierarchy;
-import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
-import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
-import dev.turboism.sdk.cubism.service.query.SelectionSummary;
-import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
-import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.mcp.McpConnectionService;
 import dev.turboism.sdk.mcp.McpHttpConnection;
 import dev.turboism.sdk.menu.MenuRegistry;
-import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.UiScheduler;
 import java.io.IOException;
 import java.net.URI;
@@ -65,14 +44,14 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 final class McpHttpServerIntegrationTest {
 
@@ -381,37 +360,20 @@ final class McpHttpServerIntegrationTest {
         }
     }
 
-    @Test
-    void malformedStructuralTailIsRejectedOverHttpBeforeAnyRename() throws Exception {
-        final MutableObjects objects = new MutableObjects();
-        objects.put(new ModelObjectDescriptor(
-                new ModelObjectReference(ModelObjectKind.PART, "PartHead"), "Head", Optional.empty()));
-        try (McpHttpServer server =
-                McpHttpServer.start(dependencies(new CapturingLogger(), objects, new FakeReadServices()))) {
-            final HttpResponse<byte[]> response = toolCall(
-                    server.endpoint(),
-                    100,
-                    McpProductionDomainCatalog.APPLY,
-                    Map.of(
-                            "operations",
-                            List.of(
-                                    Map.of("operation", "rename", "kind", "part", "id", "PartHead", "name", "Changed"),
-                                    7)));
-            assertEquals(200, response.statusCode());
-            final Map<String, Object> body = object(Json.parseObject(response.body()));
-            assertEquals(-32602L, integer(object(body.get("error")).get("code")));
-            assertEquals("Head", objects.find(ModelObjectKind.PART, "PartHead").name());
-        }
-    }
-
-    @Test
-    void invalidRequestIdCannotExecuteAnOtherwiseValidStructuralWrite() throws Exception {
+    @ParameterizedTest(name = "malformed write rejected with code {0}")
+    @CsvSource({"-32602, malformed_tail", "-32600, invalid_id"})
+    void invalidStructuralWriteIsRejectedOverHttpBeforeAnyRename(long expectedErrorCode, String caseKind)
+            throws Exception {
         final MutableObjects objects = new MutableObjects();
         objects.put(new ModelObjectDescriptor(
                 new ModelObjectReference(ModelObjectKind.PART, "PartHead"), "Head", Optional.empty()));
         try (McpHttpServer server =
                 McpHttpServer.start(dependencies(new CapturingLogger(), objects, new FakeReadServices()))) {
             ensureSession(server.endpoint());
+            final Object requestId = "invalid_id".equals(caseKind) ? List.of(100) : 100;
+            final Object operations = "malformed_tail".equals(caseKind)
+                    ? List.of(Map.of("operation", "rename", "kind", "part", "id", "PartHead", "name", "Changed"), 7)
+                    : List.of(Map.of("operation", "rename", "kind", "part", "id", "PartHead", "name", "Changed"));
             final HttpResponse<byte[]> response = request(
                     server.endpoint(),
                     bearer(),
@@ -422,7 +384,7 @@ final class McpHttpServerIntegrationTest {
                             "jsonrpc",
                             "2.0",
                             "id",
-                            List.of(100),
+                            requestId,
                             "method",
                             "tools/call",
                             "params",
@@ -430,32 +392,27 @@ final class McpHttpServerIntegrationTest {
                                     "name",
                                     McpProductionDomainCatalog.APPLY,
                                     "arguments",
-                                    Map.of(
-                                            "operations",
-                                            List.of(Map.of(
-                                                    "operation",
-                                                    "rename",
-                                                    "kind",
-                                                    "part",
-                                                    "id",
-                                                    "PartHead",
-                                                    "name",
-                                                    "Changed"))))));
+                                    Map.of("operations", operations))));
             assertEquals(200, response.statusCode());
             final Map<String, Object> body = object(Json.parseObject(response.body()));
-            assertEquals(-32600L, integer(object(body.get("error")).get("code")));
+            assertEquals(expectedErrorCode, integer(object(body.get("error")).get("code")));
             assertEquals("Head", objects.find(ModelObjectKind.PART, "PartHead").name());
         }
     }
 
-    @Test
-    void rejectsSymlinkedConnectionFileWithoutTouchingItsTarget() throws Exception {
-        final Path outside = temporaryDirectory.resolveSibling(temporaryDirectory.getFileName() + "-mcp-outside");
+    @ParameterizedTest(name = "rejects symlinked {0} without touching target")
+    @CsvSource({
+        "connection-file, mcp-connection.json, -mcp-outside, connection-file publication",
+        "access-token, mcp.token, -token-outside, access-token publication"
+    })
+    void rejectsSymlinkedProtectedFileWithoutTouchingItsTarget(
+            String name, String fileName, String suffix, String expectedStage) throws Exception {
+        final Path outside = temporaryDirectory.resolveSibling(temporaryDirectory.getFileName() + suffix);
         Files.writeString(outside, "sentinel", StandardCharsets.UTF_8);
-        final Path connectionFile = temporaryDirectory.resolve("mcp-connection.json");
+        final Path targetFile = temporaryDirectory.resolve(fileName);
         try {
-            Files.createSymbolicLink(connectionFile, outside);
-        } catch (UnsupportedOperationException | java.io.IOException unavailable) {
+            Files.createSymbolicLink(targetFile, outside);
+        } catch (UnsupportedOperationException | IOException unavailable) {
             org.junit.jupiter.api.Assumptions.assumeTrue(false, "symbolic links unavailable");
         }
 
@@ -464,10 +421,10 @@ final class McpHttpServerIntegrationTest {
                 () -> McpHttpServer.start(
                         dependencies(new CapturingLogger(), new MutableObjects(), new FakeReadServices())));
 
-        assertEquals("connection-file publication", failure.stage());
-        assertTrue(Files.isSymbolicLink(connectionFile));
+        assertEquals(expectedStage, failure.stage());
+        assertTrue(Files.isSymbolicLink(targetFile));
         assertEquals("sentinel", Files.readString(outside, StandardCharsets.UTF_8));
-        Files.deleteIfExists(connectionFile);
+        Files.deleteIfExists(targetFile);
         Files.deleteIfExists(outside);
     }
 
@@ -887,21 +844,8 @@ final class McpHttpServerIntegrationTest {
                     result.get("readbackWarning"));
             assertNotNull(result.get("diagnosticId"));
 
-            final Map<String, Object> diagnostics = resourceJson(request(
-                    server.endpoint(),
-                    bearer(),
-                    null,
-                    true,
-                    SESSIONS.get(server.endpoint()),
-                    Map.of(
-                            "jsonrpc",
-                            "2.0",
-                            "id",
-                            61,
-                            "method",
-                            "resources/read",
-                            "params",
-                            Map.of("uri", McpDiagnosticsDomain.RUNTIME_DIAGNOSTICS))));
+            final Map<String, Object> diagnostics = readResourceJson(
+                    server, SESSIONS.get(server.endpoint()), 61, McpDiagnosticsDomain.RUNTIME_DIAGNOSTICS);
             final Map<String, Object> event =
                     object(array(diagnostics.get("events")).get(0));
             assertEquals(result.get("diagnosticId"), event.get("diagnosticId"));
@@ -955,40 +899,14 @@ final class McpHttpServerIntegrationTest {
             assertEquals(Boolean.FALSE, unavailableResult.get("retryable"));
 
             final String sessionId = SESSIONS.get(server.endpoint());
-            final Map<String, Object> hierarchy = resourceJson(request(
-                    server.endpoint(),
-                    bearer(),
-                    null,
-                    true,
-                    sessionId,
-                    Map.of(
-                            "jsonrpc",
-                            "2.0",
-                            "id",
-                            61,
-                            "method",
-                            "resources/read",
-                            "params",
-                            Map.of("uri", McpProductionDomainCatalog.MODEL_HIERARCHY))));
+            final Map<String, Object> hierarchy =
+                    readResourceJson(server, sessionId, 61, McpProductionDomainCatalog.MODEL_HIERARCHY);
             assertEquals("UNAVAILABLE", hierarchy.get("availability"));
             assertEquals(null, hierarchy.get("root"));
             assertEquals("MODEL_HIERARCHY_PROVIDER_UNAVAILABLE", hierarchy.get("diagnosticCode"));
 
-            final Map<String, Object> overview = resourceJson(request(
-                    server.endpoint(),
-                    bearer(),
-                    null,
-                    true,
-                    sessionId,
-                    Map.of(
-                            "jsonrpc",
-                            "2.0",
-                            "id",
-                            62,
-                            "method",
-                            "resources/read",
-                            "params",
-                            Map.of("uri", McpProductionDomainCatalog.MODEL_OVERVIEW))));
+            final Map<String, Object> overview =
+                    readResourceJson(server, sessionId, 62, McpProductionDomainCatalog.MODEL_OVERVIEW);
             assertEquals("UNAVAILABLE", overview.get("availability"));
             assertEquals(null, overview.get("objects"));
             assertEquals("MODEL_OBJECT_PROVIDER_UNAVAILABLE", overview.get("diagnosticCode"));
@@ -1037,57 +955,18 @@ final class McpHttpServerIntegrationTest {
                     Map.of("jsonrpc", "2.0", "id", 10, "method", "resources/list"));
             assertEquals(15, array(result(listed).get("resources")).size());
 
-            final Map<String, Object> workspaceResource = resourceJson(request(
-                    server.endpoint(),
-                    bearer(),
-                    null,
-                    true,
-                    sessionId,
-                    Map.of(
-                            "jsonrpc",
-                            "2.0",
-                            "id",
-                            100,
-                            "method",
-                            "resources/read",
-                            "params",
-                            Map.of("uri", McpDiagnosticsDomain.WORKSPACE))));
+            final Map<String, Object> workspaceResource =
+                    readResourceJson(server, sessionId, 100, McpDiagnosticsDomain.WORKSPACE);
             assertEquals("UNAVAILABLE", workspaceResource.get("availability"));
             assertEquals("workspace.unavailable", workspaceResource.get("diagnosticCode"));
 
-            final Map<String, Object> layoutResource = resourceJson(request(
-                    server.endpoint(),
-                    bearer(),
-                    null,
-                    true,
-                    sessionId,
-                    Map.of(
-                            "jsonrpc",
-                            "2.0",
-                            "id",
-                            101,
-                            "method",
-                            "resources/read",
-                            "params",
-                            Map.of("uri", McpDiagnosticsDomain.WORKSPACE_LAYOUT))));
+            final Map<String, Object> layoutResource =
+                    readResourceJson(server, sessionId, 101, McpDiagnosticsDomain.WORKSPACE_LAYOUT);
             assertEquals("UNAVAILABLE", layoutResource.get("availability"));
             assertEquals("workspace.layout.unavailable", layoutResource.get("diagnosticCode"));
 
-            final Map<String, Object> diagnosticsResource = resourceJson(request(
-                    server.endpoint(),
-                    bearer(),
-                    null,
-                    true,
-                    sessionId,
-                    Map.of(
-                            "jsonrpc",
-                            "2.0",
-                            "id",
-                            102,
-                            "method",
-                            "resources/read",
-                            "params",
-                            Map.of("uri", McpDiagnosticsDomain.DIAGNOSTICS))));
+            final Map<String, Object> diagnosticsResource =
+                    readResourceJson(server, sessionId, 102, McpDiagnosticsDomain.DIAGNOSTICS);
             assertEquals("startup", diagnosticsResource.get("kind"));
             assertEquals("turboism", diagnosticsResource.get("provider"));
             assertEquals(null, diagnosticsResource.get("createdAt"));
@@ -1095,21 +974,8 @@ final class McpHttpServerIntegrationTest {
             assertEquals(List.of(), diagnosticsResource.get("problems"));
             assertEquals(Boolean.FALSE, diagnosticsResource.get("truncated"));
 
-            final Map<String, Object> runtimeDiagnostics = resourceJson(request(
-                    server.endpoint(),
-                    bearer(),
-                    null,
-                    true,
-                    sessionId,
-                    Map.of(
-                            "jsonrpc",
-                            "2.0",
-                            "id",
-                            103,
-                            "method",
-                            "resources/read",
-                            "params",
-                            Map.of("uri", McpDiagnosticsDomain.RUNTIME_DIAGNOSTICS))));
+            final Map<String, Object> runtimeDiagnostics =
+                    readResourceJson(server, sessionId, 103, McpDiagnosticsDomain.RUNTIME_DIAGNOSTICS);
             assertEquals("runtime", runtimeDiagnostics.get("kind"));
             assertEquals("turboism-mcp", runtimeDiagnostics.get("provider"));
             assertFalse(runtimeDiagnostics.containsKey("createdAt"));
@@ -1118,39 +984,13 @@ final class McpHttpServerIntegrationTest {
             assertEquals(Boolean.FALSE, runtimeDiagnostics.get("truncated"));
             assertEquals(0L, integer(runtimeDiagnostics.get("dropped")));
 
-            final Map<String, Object> documentResource = resourceJson(request(
-                    server.endpoint(),
-                    bearer(),
-                    null,
-                    true,
-                    sessionId,
-                    Map.of(
-                            "jsonrpc",
-                            "2.0",
-                            "id",
-                            11,
-                            "method",
-                            "resources/read",
-                            "params",
-                            Map.of("uri", McpProductionDomainCatalog.ACTIVE_DOCUMENT))));
+            final Map<String, Object> documentResource =
+                    readResourceJson(server, sessionId, 11, McpProductionDomainCatalog.ACTIVE_DOCUMENT);
             assertEquals(Boolean.TRUE, documentResource.get("ok"));
             assertEquals("DocA", object(documentResource.get("document")).get("documentId"));
 
-            final Map<String, Object> hierarchyResource = resourceJson(request(
-                    server.endpoint(),
-                    bearer(),
-                    null,
-                    true,
-                    sessionId,
-                    Map.of(
-                            "jsonrpc",
-                            "2.0",
-                            "id",
-                            12,
-                            "method",
-                            "resources/read",
-                            "params",
-                            Map.of("uri", McpProductionDomainCatalog.MODEL_HIERARCHY))));
+            final Map<String, Object> hierarchyResource =
+                    readResourceJson(server, sessionId, 12, McpProductionDomainCatalog.MODEL_HIERARCHY);
             final Map<String, Object> hierarchyRoot = object(hierarchyResource.get("root"));
             assertEquals("AVAILABLE", hierarchyResource.get("availability"));
             assertEquals("active-model", hierarchyRoot.get("id"));
@@ -1159,40 +999,14 @@ final class McpHttpServerIntegrationTest {
             assertEquals("PartBody", object(hierarchyParts.get(0)).get("id"));
             assertEquals(1, array(object(hierarchyParts.get(0)).get("children")).size());
 
-            final Map<String, Object> overview = resourceJson(request(
-                    server.endpoint(),
-                    bearer(),
-                    null,
-                    true,
-                    sessionId,
-                    Map.of(
-                            "jsonrpc",
-                            "2.0",
-                            "id",
-                            120,
-                            "method",
-                            "resources/read",
-                            "params",
-                            Map.of("uri", McpProductionDomainCatalog.MODEL_OVERVIEW))));
+            final Map<String, Object> overview =
+                    readResourceJson(server, sessionId, 120, McpProductionDomainCatalog.MODEL_OVERVIEW);
             assertEquals("AVAILABLE", overview.get("availability"));
             assertEquals(2, array(overview.get("objects")).size());
             assertEquals(overview.get("objects"), overview.get("modelObjects"));
 
-            final Map<String, Object> masks = resourceJson(request(
-                    server.endpoint(),
-                    bearer(),
-                    null,
-                    true,
-                    sessionId,
-                    Map.of(
-                            "jsonrpc",
-                            "2.0",
-                            "id",
-                            13,
-                            "method",
-                            "resources/read",
-                            "params",
-                            Map.of("uri", McpProductionDomainCatalog.CLIP_MASKS))));
+            final Map<String, Object> masks =
+                    readResourceJson(server, sessionId, 13, McpProductionDomainCatalog.CLIP_MASKS);
             assertEquals(1L, integer(masks.get("count")));
         } finally {
             server.close();
@@ -1232,21 +1046,8 @@ final class McpHttpServerIntegrationTest {
                 McpHttpServer.start(dependencies(new CapturingLogger(), new MutableObjects(), reads));
         try {
             ensureSession(server.endpoint());
-            final Map<String, Object> resource = resourceJson(request(
-                    server.endpoint(),
-                    bearer(),
-                    null,
-                    true,
-                    SESSIONS.get(server.endpoint()),
-                    Map.of(
-                            "jsonrpc",
-                            "2.0",
-                            "id",
-                            15,
-                            "method",
-                            "resources/read",
-                            "params",
-                            Map.of("uri", McpProductionDomainCatalog.ACTIVE_DOCUMENT))));
+            final Map<String, Object> resource = readResourceJson(
+                    server, SESSIONS.get(server.endpoint()), 15, McpProductionDomainCatalog.ACTIVE_DOCUMENT);
             final String wire = Json.stringify(resource);
             assertFalse(wire.contains("projectDirectory"));
             assertFalse(wire.contains("filePath"));
@@ -1262,21 +1063,8 @@ final class McpHttpServerIntegrationTest {
                 McpHttpServer.start(dependencies(new CapturingLogger(), new MutableObjects(), new FakeReadServices()));
         try {
             ensureSession(server.endpoint());
-            final Map<String, Object> document = resourceJson(request(
-                    server.endpoint(),
-                    bearer(),
-                    null,
-                    true,
-                    SESSIONS.get(server.endpoint()),
-                    Map.of(
-                            "jsonrpc",
-                            "2.0",
-                            "id",
-                            14,
-                            "method",
-                            "resources/read",
-                            "params",
-                            Map.of("uri", McpProductionDomainCatalog.ACTIVE_DOCUMENT))));
+            final Map<String, Object> document = readResourceJson(
+                    server, SESSIONS.get(server.endpoint()), 14, McpProductionDomainCatalog.ACTIVE_DOCUMENT);
             assertEquals(Boolean.TRUE, document.get("ok"));
             assertEquals(null, document.get("document"));
             assertEquals(null, document.get("model"));
@@ -1441,66 +1229,54 @@ final class McpHttpServerIntegrationTest {
         }
     }
 
-    @Test
-    void stdioLaunchDescriptorSpawnsTheCompiledBridgeForMutatingCalls() throws Exception {
+    @ParameterizedTest(name = "stdio bridge survives state dir: {0}")
+    @ValueSource(strings = {"standard", "spaced state dir"})
+    void stdioLaunchDescriptorSpawnsBridgeForMutatingCallsAcrossStateDirs(String stateDirType) throws Exception {
+        final Path stateDir = "spaced state dir".equals(stateDirType)
+                ? Files.createDirectory(temporaryDirectory.resolve("spaced state dir"))
+                : temporaryDirectory;
+        final String partId = "spaced state dir".equals(stateDirType) ? "PartArm" : "PartHead";
+        final String initialName = "spaced state dir".equals(stateDirType) ? "Arm" : "Head";
+        final String newName = "spaced state dir".equals(stateDirType) ? "Arm Moved" : "Renamed via stdio";
+
         final MutableObjects objects = new MutableObjects();
         objects.put(new ModelObjectDescriptor(
-                new ModelObjectReference(ModelObjectKind.PART, "PartHead"), "Head", Optional.empty()));
-        final McpHttpServer server =
-                McpHttpServer.start(dependencies(new CapturingLogger(), objects, new FakeReadServices()));
+                new ModelObjectReference(ModelObjectKind.PART, partId), initialName, Optional.empty()));
+        final McpHttpServer server = "spaced state dir".equals(stateDirType)
+                ? McpHttpServer.start(dependencies(new CapturingLogger(), objects, new FakeReadServices(), stateDir))
+                : McpHttpServer.start(dependencies(new CapturingLogger(), objects, new FakeReadServices()));
         try {
             final dev.turboism.sdk.mcp.McpStdioLaunch launch =
                     server.stdioLaunch().orElseThrow();
-            assertLaunchDescriptor(launch, temporaryDirectory);
-            final String token = bearer();
-            assertFalse(launch.command().contains(token));
-            launch.args().forEach(arg -> assertFalse(arg.contains(token)));
+            if ("standard".equals(stateDirType)) {
+                assertLaunchDescriptor(launch, temporaryDirectory);
+                final String token = bearer();
+                assertFalse(launch.command().contains(token));
+                launch.args().forEach(arg -> assertFalse(arg.contains(token)));
+            } else {
+                assertEquals(
+                        stateDir.toAbsolutePath().normalize().toString(),
+                        launch.args().get(launch.args().size() - 1));
+            }
 
             try (BridgeProcess bridge = spawnBridge(launch)) {
                 final Map<String, Object> initialized = bridge.call(initializeMessage(1));
-                assertEquals(
-                        McpProtocol.VERSION, object(initialized.get("result")).get("protocolVersion"));
+                if ("standard".equals(stateDirType)) {
+                    assertEquals(
+                            McpProtocol.VERSION,
+                            object(initialized.get("result")).get("protocolVersion"));
+                }
                 bridge.notify(initializedNotification());
-                final Map<String, Object> renamed = bridge.call(renameCall(2));
+                final Map<String, Object> renamed = bridge.call(renameCall(2, partId, newName));
                 assertEquals(Boolean.FALSE, object(renamed.get("result")).get("isError"));
-                assertEquals(
-                        "Renamed via stdio",
-                        objects.find(ModelObjectKind.PART, "PartHead").name());
+                assertEquals(newName, objects.find(ModelObjectKind.PART, partId).name());
             }
 
-            // The same mutating call over plain HTTP without the token is refused.
-            ensureSession(server.endpoint());
-            final HttpResponse<byte[]> denied =
-                    request(server.endpoint(), null, null, true, SESSIONS.get(server.endpoint()), renameCall(9));
-            assertEquals(401, denied.statusCode());
-        } finally {
-            server.close();
-        }
-    }
-
-    @Test
-    void stdioLaunchDescriptorSurvivesAStateDirectoryContainingSpaces() throws Exception {
-        final Path spacedState = Files.createDirectory(temporaryDirectory.resolve("spaced state dir"));
-        final MutableObjects objects = new MutableObjects();
-        objects.put(new ModelObjectDescriptor(
-                new ModelObjectReference(ModelObjectKind.PART, "PartArm"), "Arm", Optional.empty()));
-        final McpHttpServer server =
-                McpHttpServer.start(dependencies(new CapturingLogger(), objects, new FakeReadServices(), spacedState));
-        try {
-            final dev.turboism.sdk.mcp.McpStdioLaunch launch =
-                    server.stdioLaunch().orElseThrow();
-            assertEquals(
-                    spacedState.toAbsolutePath().normalize().toString(),
-                    launch.args().get(launch.args().size() - 1));
-
-            try (BridgeProcess bridge = spawnBridge(launch)) {
-                bridge.call(initializeMessage(1));
-                bridge.notify(initializedNotification());
-                final Map<String, Object> renamed = bridge.call(renameCall(2, "PartArm", "Arm Moved"));
-                assertEquals(Boolean.FALSE, object(renamed.get("result")).get("isError"));
-                assertEquals(
-                        "Arm Moved",
-                        objects.find(ModelObjectKind.PART, "PartArm").name());
+            if ("standard".equals(stateDirType)) {
+                ensureSession(server.endpoint());
+                final HttpResponse<byte[]> denied =
+                        request(server.endpoint(), null, null, true, SESSIONS.get(server.endpoint()), renameCall(9));
+                assertEquals(401, denied.statusCode());
             }
         } finally {
             server.close();
@@ -1664,27 +1440,15 @@ final class McpHttpServerIntegrationTest {
         }
     }
 
-    @Test
-    void rejectsSymlinkedTokenFileWithoutTouchingItsTarget() throws Exception {
-        final Path outside = temporaryDirectory.resolveSibling(temporaryDirectory.getFileName() + "-token-outside");
-        Files.writeString(outside, "sentinel", StandardCharsets.UTF_8);
-        final Path tokenFile = temporaryDirectory.resolve(McpAccessToken.FILE_NAME);
-        try {
-            Files.createSymbolicLink(tokenFile, outside);
-        } catch (UnsupportedOperationException | IOException unavailable) {
-            org.junit.jupiter.api.Assumptions.assumeTrue(false, "symbolic links unavailable");
-        }
-
-        final McpHttpServer.McpStartupFailure failure = assertThrows(
-                McpHttpServer.McpStartupFailure.class,
-                () -> McpHttpServer.start(
-                        dependencies(new CapturingLogger(), new MutableObjects(), new FakeReadServices())));
-
-        assertEquals("access-token publication", failure.stage());
-        assertTrue(Files.isSymbolicLink(tokenFile));
-        assertEquals("sentinel", Files.readString(outside, StandardCharsets.UTF_8));
-        Files.deleteIfExists(tokenFile);
-        Files.deleteIfExists(outside);
+    private Map<String, Object> readResourceJson(
+            final McpHttpServer server, final String sessionId, final int id, final String uri) throws Exception {
+        return resourceJson(request(
+                server.endpoint(),
+                bearer(),
+                null,
+                true,
+                sessionId,
+                Map.of("jsonrpc", "2.0", "id", id, "method", "resources/read", "params", Map.of("uri", uri))));
     }
 
     private HttpResponse<byte[]> toolCall(
@@ -1962,403 +1726,5 @@ final class McpHttpServerIntegrationTest {
                 });
     }
 
-    static final class FakeReadServices {
-        final FakeHierarchyQuery hierarchy = new FakeHierarchyQuery();
-        final FakeSelectionQuery selection = new FakeSelectionQuery();
-        final FakeRead read = new FakeRead();
-        final FakeClipMasks clipMasks = new FakeClipMasks();
-    }
-
-    static final class FakeHierarchyQuery implements ModelHierarchyQueryService {
-        private final LinkedHashMap<String, HierarchyNode> nodes = new LinkedHashMap<>();
-
-        void put(final HierarchyNode node) {
-            nodes.put(node.id().value(), node);
-        }
-
-        @Override
-        public Optional<ModelHierarchy> currentHierarchy() {
-            final HierarchyNode root = nodes.values().stream()
-                    .filter(node -> node.parentId().isEmpty())
-                    .findFirst()
-                    .orElse(null);
-            if (root == null) return Optional.empty();
-            return Optional.of(new ModelHierarchy(root, List.copyOf(nodes.values())));
-        }
-
-        @Override
-        public List<HierarchyNode> childrenOf(final ModelObjectId id) {
-            final HierarchyNode node = nodes.get(id.value());
-            if (node == null) return List.of();
-            return node.childIds().stream()
-                    .map(child -> nodes.get(child.value()))
-                    .filter(Objects::nonNull)
-                    .toList();
-        }
-
-        @Override
-        public Optional<HierarchyNode> findNode(final ModelObjectId id) {
-            return Optional.ofNullable(nodes.get(id.value()));
-        }
-    }
-
-    static final class FakeSelectionQuery implements SelectionQueryService {
-        private SelectionSummary current = SelectionSummary.empty();
-
-        void set(final SelectionSummary value) {
-            current = value;
-        }
-
-        @Override
-        public SelectionSummary currentSelection() {
-            return current;
-        }
-
-        @Override
-        public List<ModelObjectId> selectedIds(final HierarchyNode.Kind kind) {
-            throw new UnsupportedOperationException("selectedIds is not used by MCP tools");
-        }
-    }
-
-    static final class FakeRead implements CubismReadCapabilityService {
-        private Optional<ProjectSnapshot> project = Optional.empty();
-        private Optional<DocumentSnapshot> document = Optional.empty();
-        private Optional<ModelSnapshot> model = Optional.empty();
-        private SelectionSnapshot selection =
-                new SelectionSnapshot(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
-        private List<ParameterSnapshot> parameters = List.of();
-        private List<ModelObjectSnapshot> modelObjects = List.of();
-        private List<ArtMeshSnapshot> meshes = List.of();
-        private List<DeformerSnapshot> deformers = List.of();
-        private List<PsdDocumentSnapshot> psdDocuments = List.of();
-        private List<ClipMaskSnapshot> clipMasks = List.of();
-        private List<TextureAtlasSnapshot> textureAtlases = List.of();
-        private Optional<RenderStatusSnapshot> renderStatus = Optional.empty();
-        private Optional<WorkspaceSnapshot> workspace = Optional.empty();
-        private Optional<ThemeStatusSnapshot> themeStatus = Optional.empty();
-
-        void project(final ProjectSnapshot value) {
-            project = Optional.of(value);
-        }
-
-        void document(final DocumentSnapshot value) {
-            document = Optional.of(value);
-        }
-
-        void model(final ModelSnapshot value) {
-            model = Optional.of(value);
-        }
-
-        void selection(final SelectionSnapshot value) {
-            selection = value;
-        }
-
-        void parameters(final List<ParameterSnapshot> value) {
-            parameters = value;
-        }
-
-        void modelObjects(final List<ModelObjectSnapshot> value) {
-            modelObjects = value;
-        }
-
-        void meshes(final List<ArtMeshSnapshot> value) {
-            meshes = value;
-        }
-
-        void deformers(final List<DeformerSnapshot> value) {
-            deformers = value;
-        }
-
-        void psdDocuments(final List<PsdDocumentSnapshot> value) {
-            psdDocuments = value;
-        }
-
-        void clipMasks(final List<ClipMaskSnapshot> value) {
-            clipMasks = value;
-        }
-
-        void textureAtlases(final List<TextureAtlasSnapshot> value) {
-            textureAtlases = value;
-        }
-
-        void renderStatus(final Optional<RenderStatusSnapshot> value) {
-            renderStatus = value;
-        }
-
-        void workspace(final Optional<WorkspaceSnapshot> value) {
-            workspace = value;
-        }
-
-        void themeStatus(final Optional<ThemeStatusSnapshot> value) {
-            themeStatus = value;
-        }
-
-        @Override
-        public Optional<ProjectSnapshot> activeProject() {
-            return project;
-        }
-
-        @Override
-        public Optional<DocumentSnapshot> activeDocument() {
-            return document;
-        }
-
-        @Override
-        public Optional<ModelSnapshot> activeModel() {
-            return model;
-        }
-
-        @Override
-        public SelectionSnapshot selection() {
-            return selection;
-        }
-
-        @Override
-        public List<ParameterSnapshot> parameters() {
-            return parameters;
-        }
-
-        @Override
-        public List<ModelObjectSnapshot> modelObjects() {
-            return modelObjects;
-        }
-
-        @Override
-        public List<ArtMeshSnapshot> meshes() {
-            return meshes;
-        }
-
-        @Override
-        public List<DeformerSnapshot> deformers() {
-            return deformers;
-        }
-
-        @Override
-        public List<PsdDocumentSnapshot> psdDocuments() {
-            return psdDocuments;
-        }
-
-        @Override
-        public List<ClipMaskSnapshot> clipMasks() {
-            return clipMasks;
-        }
-
-        @Override
-        public List<TextureAtlasSnapshot> textureAtlases() {
-            return textureAtlases;
-        }
-
-        @Override
-        public Optional<RenderStatusSnapshot> renderStatus() {
-            return renderStatus;
-        }
-
-        @Override
-        public Optional<WorkspaceSnapshot> workspace() {
-            return workspace;
-        }
-
-        @Override
-        public Optional<ThemeStatusSnapshot> themeStatus() {
-            return themeStatus;
-        }
-    }
-
-    static final class FakeClipMasks implements CubismClipMaskService {
-        private final ArrayList<ClipMaskRecord> records = new ArrayList<>();
-
-        void add(final ClipMaskRecord record) {
-            records.add(record);
-        }
-
-        @Override
-        public List<ClipMaskRecord> collectClipMaskRecords() {
-            return List.copyOf(records);
-        }
-    }
-
-    private static class MutableObjects implements ModelObjectService {
-        private final LinkedHashMap<ModelObjectReference, ModelObjectDescriptor> values = new LinkedHashMap<>();
-        private final AtomicInteger generated = new AtomicInteger();
-        ModelObjectCreateRequest lastCreate;
-        ModelObjectReference lastReparentTarget;
-        ModelObjectReference lastReparentParent;
-        int lastReparentIndex = Integer.MIN_VALUE;
-        ModelObjectReference lastDelete;
-        ModelObjectDeletePolicy lastDeletePolicy;
-
-        void put(final ModelObjectDescriptor value) {
-            values.put(value.reference(), value);
-        }
-
-        ModelObjectDescriptor find(final ModelObjectKind kind, final String id) {
-            final ModelObjectDescriptor result = values.get(new ModelObjectReference(kind, id));
-            if (result == null) throw new NoSuchElementException(id);
-            return result;
-        }
-
-        boolean contains(final ModelObjectKind kind, final String id) {
-            return values.containsKey(new ModelObjectReference(kind, id));
-        }
-
-        @Override
-        public List<ModelObjectDescriptor> list() {
-            return List.copyOf(values.values());
-        }
-
-        @Override
-        public ModelObjectDescriptor rename(final ModelObjectReference target, final String name) {
-            final ModelObjectDescriptor current = values.get(target);
-            if (current == null) throw new NoSuchElementException(target.id());
-            final ModelObjectDescriptor renamed =
-                    new ModelObjectDescriptor(current.reference(), name, current.parent());
-            values.put(target, renamed);
-            return renamed;
-        }
-
-        @Override
-        public ModelObjectDescriptor reparent(
-                final ModelObjectReference target, final ModelObjectReference parent, final int index) {
-            final ModelObjectDescriptor current = values.get(target);
-            if (current == null) throw new NoSuchElementException(target.id());
-            if (!values.containsKey(parent)) throw new NoSuchElementException(parent.id());
-            lastReparentTarget = target;
-            lastReparentParent = parent;
-            lastReparentIndex = index;
-            final ModelObjectDescriptor reparented =
-                    new ModelObjectDescriptor(current.reference(), current.name(), Optional.of(parent));
-            values.put(target, reparented);
-            return reparented;
-        }
-
-        @Override
-        public ModelObjectDescriptor create(final ModelObjectCreateRequest request) {
-            lastCreate = request;
-            final ModelObjectReference reference =
-                    new ModelObjectReference(request.kind(), "Generated" + generated.incrementAndGet());
-            final ModelObjectDescriptor created =
-                    new ModelObjectDescriptor(reference, request.name(), request.parent());
-            values.put(reference, created);
-            return created;
-        }
-
-        @Override
-        public void delete(final ModelObjectReference target, final ModelObjectDeletePolicy policy) {
-            lastDelete = target;
-            lastDeletePolicy = policy;
-            if (values.remove(target) == null) throw new NoSuchElementException(target.id());
-        }
-    }
-
-    private static final class RecordingUi implements ActionRegistry, MenuRegistry {
-        private final LinkedHashMap<String, Action> actions = new LinkedHashMap<>();
-        private final ArrayList<MenuContribution> menus = new ArrayList<>();
-        private final DisposableScope scope = new DisposableScope();
-        private final PluginLocalization localization = new PluginLocalization() {
-            @Override
-            public java.util.Locale locale() {
-                return java.util.Locale.ENGLISH;
-            }
-
-            @Override
-            public String text(final String key) {
-                return "menu.connection".equals(key) ? "MCP Connection" : key;
-            }
-
-            @Override
-            public String format(final String key, final Object... arguments) {
-                return text(key);
-            }
-
-            @Override
-            public boolean contains(final String key) {
-                return "menu.connection".equals(key);
-            }
-        };
-        private int actionRevocations;
-        private int menuRevocations;
-
-        @Override
-        public Registration register(final String id, final Action action) {
-            if (!id.equals(action.id())) throw new IllegalArgumentException("action id mismatch");
-            if (actions.putIfAbsent(id, action) != null) {
-                throw new IllegalStateException("fixture action already registered");
-            }
-            final java.util.concurrent.atomic.AtomicBoolean closed = new java.util.concurrent.atomic.AtomicBoolean();
-            return () -> {
-                if (!closed.compareAndSet(false, true)) return;
-                actions.remove(id, action);
-                actionRevocations++;
-            };
-        }
-
-        @Override
-        public Registration contribute(final MenuContribution contribution) {
-            menus.add(contribution);
-            final java.util.concurrent.atomic.AtomicBoolean closed = new java.util.concurrent.atomic.AtomicBoolean();
-            return () -> {
-                if (!closed.compareAndSet(false, true)) return;
-                menus.remove(contribution);
-                menuRevocations++;
-            };
-        }
-    }
-
-    private static final class RecordingConnections implements McpConnectionService {
-        private Optional<McpHttpConnection> current = Optional.empty();
-        private boolean failNextPublish;
-        private int revocations;
-
-        @Override
-        public Optional<McpHttpConnection> current() {
-            return current;
-        }
-
-        @Override
-        public Registration publish(final McpHttpConnection connection) {
-            if (failNextPublish) {
-                failNextPublish = false;
-                throw new IllegalStateException("fixture publication failure");
-            }
-            if (current.isPresent()) {
-                throw new IllegalStateException("fixture already has a connection");
-            }
-            current = Optional.of(connection);
-            final java.util.concurrent.atomic.AtomicBoolean closed = new java.util.concurrent.atomic.AtomicBoolean();
-            return () -> {
-                if (!closed.compareAndSet(false, true)) return;
-                current = Optional.empty();
-                revocations++;
-            };
-        }
-    }
-
-    private static final class CapturingLogger implements PluginLogger {
-        private final List<String> messages = new ArrayList<>();
-
-        @Override
-        public void debug(final String message) {
-            messages.add(message);
-        }
-
-        @Override
-        public void info(final String message) {
-            messages.add(message);
-        }
-
-        @Override
-        public void warn(final String message) {
-            messages.add(message);
-        }
-
-        @Override
-        public void error(final String message) {
-            messages.add(message);
-        }
-
-        @Override
-        public void error(final String message, final Throwable throwable) {
-            messages.add(message);
-        }
-    }
+    static final class FakeReadServices extends McpHttpServerTestFixtures.FakeReadServices {}
 }
