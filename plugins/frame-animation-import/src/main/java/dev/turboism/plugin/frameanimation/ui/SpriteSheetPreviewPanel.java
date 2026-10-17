@@ -1,6 +1,7 @@
 package dev.turboism.plugin.frameanimation.ui;
 
 import dev.turboism.plugin.frameanimation.domain.SpriteSheetConfig;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -18,10 +19,16 @@ import javax.swing.JPanel;
  */
 public final class SpriteSheetPreviewPanel extends JPanel {
 
+    private final PluginLocalization loc;
     private BufferedImage image;
     private SpriteSheetConfig config;
 
     public SpriteSheetPreviewPanel() {
+        this(null);
+    }
+
+    public SpriteSheetPreviewPanel(final PluginLocalization localization) {
+        this.loc = localization;
         setPreferredSize(new Dimension(340, 240));
         setMinimumSize(new Dimension(240, 180));
         setBackground(new Color(35, 38, 44));
@@ -40,7 +47,7 @@ public final class SpriteSheetPreviewPanel extends JPanel {
         super.paintComponent(g);
         if (image == null) {
             g.setColor(new Color(130, 135, 145));
-            final String text = "No image loaded";
+            final String text = loc != null ? loc.text("dialog.preview.noImage") : "No image loaded";
             final FontMetrics fm = g.getFontMetrics();
             final int tx = (getWidth() - fm.stringWidth(text)) / 2;
             final int ty = (getHeight() + fm.getAscent()) / 2;

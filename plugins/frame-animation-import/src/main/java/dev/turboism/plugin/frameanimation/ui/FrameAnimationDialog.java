@@ -52,7 +52,7 @@ public final class FrameAnimationDialog extends JDialog {
     private final JSpinner spinCols = new JSpinner(new SpinnerNumberModel(4, 1, 64, 1));
     private final JSpinner spinFrameCount = new JSpinner(new SpinnerNumberModel(7, 0, 4096, 1));
     private final JCheckBox chkColMajor = new JCheckBox();
-    private final SpriteSheetPreviewPanel previewPanel = new SpriteSheetPreviewPanel();
+    private final SpriteSheetPreviewPanel previewPanel;
     private BufferedImage currentSpriteSheet;
 
     // Image sequence tab controls
@@ -76,6 +76,7 @@ public final class FrameAnimationDialog extends JDialog {
         super(owner, localization.text("dialog.title"), true);
         TurboismWindowFactory.style(this);
         this.loc = Objects.requireNonNull(localization, "localization");
+        this.previewPanel = new SpriteSheetPreviewPanel(localization);
 
         buildUi();
         pack();

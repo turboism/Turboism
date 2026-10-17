@@ -47,6 +47,11 @@
       "reason": "Expose frame animation import in part and deformer context menus."
     },
     {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Adds the frame animation import launcher to the Turboism top-level menu."
+    },
+    {
       "id": "turboism.ui.status.notify",
       "scope": "application",
       "reason": "Notify import outcomes and validation errors."
@@ -56,8 +61,8 @@
     "cubism.model.read",
     "cubism.model.write",
     "cubism.parameter.write",
-    "file.read",
     "ui.context-menu.contribute",
+    "ui.menu.contribute",
     "ui.status.notify"
   ],
   "environment": {
