@@ -27,54 +27,53 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class EditorObjectReadAccessTest {
 
-    @Test
-    void artMeshMembershipRetainsSourceInstanceBijectionAcrossFreshReads() {
+    @ParameterizedTest
+    @ValueSource(strings = {"artmesh", "deformer"})
+    void objectMembershipRetainsSourceInstanceBijectionAcrossFreshReads(final String kind) {
         final Fixture fixture = new Fixture();
         var core = new EditorObjectReadCore(resolver("5.3.02"), (identity, model) -> {}, null);
         var source = fixture.source;
         var model = source.model;
-        assertEquals(2, core.artMeshes("session", source, model).size());
-        var original = model.artMeshes.get(0);
-        model.artMeshes.add(new ArtMesh(original.source));
-        assertThrows(IllegalStateException.class, () -> core.artMeshes("session", source, model));
-        model.artMeshes.remove(model.artMeshes.size() - 1);
-        model.artMeshes.set(0, new ArtMesh(new ArtMeshSource("ArtMeshFace", "Replacement", true, fixture.failures)));
-        assertThrows(IllegalStateException.class, () -> core.artMeshes("session", source, model));
-        model.artMeshes.set(0, original);
-        var replaced = new ArtMesh(original.source);
-        model.artMeshes.set(0, replaced);
-        org.junit.jupiter.api.Assertions.assertSame(
-                replaced, core.artMeshes("session", source, model).get(0).instance());
-        source.artMeshSources.add(original.source);
-        assertThrows(IllegalStateException.class, () -> core.artMeshes("session", source, model));
-        source.artMeshSources.remove(source.artMeshSources.size() - 1);
-        model.artMeshes.clear();
-        assertThrows(IllegalStateException.class, () -> core.artMeshes("session", source, model));
-    }
+        final boolean isArtMesh = "artmesh".equals(kind);
+        final java.util.function.Supplier<List<?>> reader = () ->
+                isArtMesh ? core.artMeshes("session", source, model) : core.deformerRefs("session", source, model);
 
-    @Test
-    void deformerMembershipRetainsSourceInstanceBijectionAcrossFreshReads() {
-        final Fixture fixture = new Fixture();
-        var core = new EditorObjectReadCore(resolver("5.3.02"), (identity, model) -> {}, null);
-        var source = fixture.source;
-        var model = source.model;
-        assertEquals(2, core.deformerRefs("session", source, model).size());
-        var original = model.deformers.get(0);
-        model.deformers.add(new Warp((WarpSource) source.deformerSources.get(0)));
-        assertThrows(IllegalStateException.class, () -> core.deformerRefs("session", source, model));
-        model.deformers.remove(model.deformers.size() - 1);
-        model.deformers.set(0, new Warp(new WarpSource(fixture.failures)));
-        assertThrows(IllegalStateException.class, () -> core.deformerRefs("session", source, model));
-        model.deformers.set(0, original);
-        var replaced = new Warp((WarpSource) source.deformerSources.get(0));
-        model.deformers.set(0, replaced);
-        org.junit.jupiter.api.Assertions.assertSame(
-                replaced, core.deformerRefs("session", source, model).get(0).instance());
-        source.deformerSources.add(source.deformerSources.get(0));
-        assertThrows(IllegalStateException.class, () -> core.deformerRefs("session", source, model));
-        source.deformerSources.remove(source.deformerSources.size() - 1);
-        model.deformers.clear();
-        assertThrows(IllegalStateException.class, () -> core.deformerRefs("session", source, model));
+        assertEquals(2, reader.get().size());
+        if (isArtMesh) {
+            var original = model.artMeshes.get(0);
+            model.artMeshes.add(new ArtMesh(original.source));
+            assertThrows(IllegalStateException.class, reader::get);
+            model.artMeshes.remove(model.artMeshes.size() - 1);
+            model.artMeshes.set(0, new ArtMesh(new ArtMeshSource("ArtMeshFace", "Replacement", true, fixture.failures)));
+            assertThrows(IllegalStateException.class, reader::get);
+            model.artMeshes.set(0, original);
+            var replaced = new ArtMesh(original.source);
+            model.artMeshes.set(0, replaced);
+            org.junit.jupiter.api.Assertions.assertSame(
+                    replaced, core.artMeshes("session", source, model).get(0).instance());
+            source.artMeshSources.add(original.source);
+            assertThrows(IllegalStateException.class, reader::get);
+            source.artMeshSources.remove(source.artMeshSources.size() - 1);
+            model.artMeshes.clear();
+            assertThrows(IllegalStateException.class, reader::get);
+        } else {
+            var original = model.deformers.get(0);
+            model.deformers.add(new Warp((WarpSource) source.deformerSources.get(0)));
+            assertThrows(IllegalStateException.class, reader::get);
+            model.deformers.remove(model.deformers.size() - 1);
+            model.deformers.set(0, new Warp(new WarpSource(fixture.failures)));
+            assertThrows(IllegalStateException.class, reader::get);
+            model.deformers.set(0, original);
+            var replaced = new Warp((WarpSource) source.deformerSources.get(0));
+            model.deformers.set(0, replaced);
+            org.junit.jupiter.api.Assertions.assertSame(
+                    replaced, core.deformerRefs("session", source, model).get(0).instance());
+            source.deformerSources.add(source.deformerSources.get(0));
+            assertThrows(IllegalStateException.class, reader::get);
+            source.deformerSources.remove(source.deformerSources.size() - 1);
+            model.deformers.clear();
+            assertThrows(IllegalStateException.class, reader::get);
+        }
     }
 
     @Test
