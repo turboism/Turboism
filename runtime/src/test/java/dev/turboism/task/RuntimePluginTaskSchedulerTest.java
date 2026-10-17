@@ -925,6 +925,7 @@ class RuntimePluginTaskSchedulerTest {
             assertEquals(0, outcome.runCount());
             assertTrue(outcome.lastRunOutcome().isEmpty());
             assertFalse(actionStarted.get());
+            scheduler.awaitContinuationQuiescence(Duration.ofSeconds(1));
             assertEquals(baselineScopeRegistrations, scopedRegistrationCount(scope));
             assertEquals(0, scheduler.activeTaskCount());
             assertEquals(64, scheduler.availableActiveTaskPermits());

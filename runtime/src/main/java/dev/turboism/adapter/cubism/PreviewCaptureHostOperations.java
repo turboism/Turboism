@@ -36,7 +36,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.imageio.ImageIO;
-import javax.swing.JComponent;
 import javax.swing.SwingUtilities;
 
 /**
