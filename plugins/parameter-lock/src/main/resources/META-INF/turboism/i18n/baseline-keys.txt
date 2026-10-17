@@ -1,0 +1,13 @@
+action.lock.selected
+action.toggle.selected
+action.unlock.selected
+menu.parameter.lock
+menu.parameter.toggle
+menu.parameter.unlock
+plugin.description
+plugin.name
+row.action.empty_group
+row.action.lock_all
+row.action.lock_parameter
+row.action.unlock_all
+row.action.unlock_parameter

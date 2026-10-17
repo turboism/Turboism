@@ -95,17 +95,21 @@ Section "-插件载荷" SecPluginPayload
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0021.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
+    File "/oname=atlas-dalsoo-polygon.jar" "${STAGING_DIR}/plugins/atlas-dalsoo-polygon.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0022.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
+    File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0023.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=warp-deformer-alt-symmetry.jar" "${STAGING_DIR}/plugins/warp-deformer-alt-symmetry.jar"
+    File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0024.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=warp-deformer-alt-symmetry.jar" "${STAGING_DIR}/plugins/warp-deformer-alt-symmetry.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0025.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
     File "/oname=webdav-backup.jar" "${STAGING_DIR}/plugins/webdav-backup.jar"
   ${EndIf}
@@ -290,6 +294,14 @@ LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas ${LANG_JAPANESE} "MaxRe
 LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas ${LANG_JAPANESE} "Turboism のMaxRects-BSSF レイアウトアルゴリズム。"
 LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas ${LANG_KOREAN} "MaxRects-BSSF 레이아웃 알고리즘 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas ${LANG_KOREAN} "Turboism MaxRects-BSSF 레이아웃 알고리즘 플러그인입니다."
+LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_dalsoo ${LANG_ENGLISH} "Dalsoo Polygon Packing Algorithm 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_dalsoo ${LANG_ENGLISH} "Irregular-polygon texture-atlas packing (concave outlines, free rotation, per-item locks)."
+LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_dalsoo ${LANG_SIMPCHINESE} "Dalsoo 多边形排版算法 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_dalsoo ${LANG_SIMPCHINESE} "不规则多边形纹理集排版（支持凹轮廓、自由角度、逐项锁定）。"
+LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_dalsoo ${LANG_JAPANESE} "Dalsoo ポリゴン充填アルゴリズム 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_dalsoo ${LANG_JAPANESE} "不規則ポリゴンのテクスチャアトラス充填（凹み輪郭・自由回転・アイテム単位のロック対応）。"
+LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_dalsoo ${LANG_KOREAN} "Dalsoo 폴리곤 패킹 알고리즘 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_dalsoo ${LANG_KOREAN} "불규칙 폴리곤 텍스처 아틀라스 패킹(오목 윤곽, 자유 회전, 항목별 잠금 지원)."
 LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_stats ${LANG_ENGLISH} "Texture Atlas Statistics 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_stats ${LANG_ENGLISH} "Shows the total and current-texture model-image counts in the native texture-atlas editor window."
 LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_stats ${LANG_SIMPCHINESE} "纹理图集统计 0.1.0"
@@ -326,7 +338,7 @@ LangString PLUGIN_DESC_dev_turboism_plugin_webdav ${LANG_KOREAN} "Turboism WebDA
 !if "${VARIANT}" != "thin"
 ; 导出完整捆绑插件 id 清单，供前置配置提交保留无关禁用项。
 Function SetBundledPluginIds
-  StrCpy $bundledPluginIds "dev.turboism.plugin.acp;dev.turboism.plugin.boundingbox-warp-mirror;dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.command-palette;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.external-psd-edit;dev.turboism.plugin.frame-animation-import;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.model-import-3d;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.protected-export;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.selection-brush;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.uitheme;dev.turboism.plugin.warp-deformer-alt-symmetry;dev.turboism.plugin.webdav"
+  StrCpy $bundledPluginIds "dev.turboism.plugin.acp;dev.turboism.plugin.boundingbox-warp-mirror;dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.command-palette;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.external-psd-edit;dev.turboism.plugin.frame-animation-import;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.model-import-3d;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.protected-export;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.selection-brush;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-dalsoo;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.uitheme;dev.turboism.plugin.warp-deformer-alt-symmetry;dev.turboism.plugin.webdav"
 FunctionEnd
 !endif
 
@@ -334,6 +346,7 @@ FunctionEnd
 Function un.DeleteInstallerPluginJars
 !if "${VARIANT}" != "thin"
   Delete "$INSTDIR\plugins\acp.jar"
+  Delete "$INSTDIR\plugins\atlas-dalsoo-polygon.jar"
   Delete "$INSTDIR\plugins\atlas-maxrects-bssf.jar"
   Delete "$INSTDIR\plugins\boundingbox-warp-mirror.jar"
   Delete "$INSTDIR\plugins\clipmask-viewer.jar"

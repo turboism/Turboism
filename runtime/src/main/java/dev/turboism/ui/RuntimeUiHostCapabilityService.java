@@ -1053,7 +1053,8 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
                 contribution.iconResourcePath(),
                 contribution.paletteId(),
                 contribution.anchor(),
-                contribution.order());
+                contribution.order(),
+                contribution.nativeIcon());
     }
 
     private PaletteFilterRegistry.PaletteFilterContribution resolvePaletteFilterPlaceholder(

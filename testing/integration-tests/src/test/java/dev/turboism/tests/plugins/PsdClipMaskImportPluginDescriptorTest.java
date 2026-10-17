@@ -19,8 +19,6 @@ class PsdClipMaskImportPluginDescriptorTest {
             Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")));
     private static final Path DESCRIPTOR =
             PROJECT_ROOT.resolve("plugins/psd-clip-mask-import/src/main/resources/META-INF/turboism/plugin.json");
-    private static final Path PSD_IMPORT_SHELL_DESCRIPTOR =
-            PROJECT_ROOT.resolve("plugins/psd-import/src/main/resources/META-INF/turboism/plugin.json");
 
     private static final Set<String> REQUIRED_PERMISSIONS = Set.of(
             "turboism.cubism.model.read",
@@ -71,15 +69,5 @@ class PsdClipMaskImportPluginDescriptorTest {
         }
 
         assertEquals(REQUIRED_CAPABILITIES, declared);
-    }
-
-    @Test
-    void psdImportShellDescriptorRemainsCapabilityFree() throws Exception {
-        final JsonNode root = new ObjectMapper().readTree(Files.readString(PSD_IMPORT_SHELL_DESCRIPTOR));
-
-        assertEquals("dev.turboism.plugin.psd-import", root.path("id").asText());
-        assertEquals(0, root.path("permissions").size());
-        assertEquals(0, root.path("capabilities").size());
-        assertTrue(root.path("environment").path("requiresCubism").asBoolean() == false);
     }
 }

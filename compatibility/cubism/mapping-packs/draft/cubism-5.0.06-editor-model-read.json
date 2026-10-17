@@ -26241,6 +26241,222 @@
         "exactArtifactSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
         "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
       }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_1_03.editor_model.method.parameter_row_layout",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.parameter-operation.row-layout",
+      "runtime": "b",
+      "profile": "cubism-5.0.06",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/palette/parameter/m",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.parameter-operation.rows",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_rows",
+        "exactArtifactSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
+        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_1_03.editor_model.method.parameter_row_children",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.parameter-row-container.children",
+      "runtime": "getChildren",
+      "profile": "cubism-5.0.06",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/container/CContainer",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljava/util/List;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.parameter-operation.rows",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_rows",
+        "exactArtifactSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
+        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_1_03.editor_model.method.parameter_group_row_layout",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.parameter-group-row.layout",
+      "runtime": "getRowLayout",
+      "profile": "cubism-5.0.06",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.parameter-operation.rows",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_rows",
+        "exactArtifactSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
+        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_0_06.editor_model.method.parameter_single_row_slider",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.parameter-single-row.slider",
+      "runtime": "getSliderFloat",
+      "profile": "cubism-5.0.06",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/ui/control/CSlidableFloat;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.parameter-operation.rows",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_rows",
+        "exactArtifactSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
+        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_0_06.editor_model.field.parameter_single_row_paint",
+      "kind": "field",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.parameter-single-row.paint",
+      "runtime": "paintComp",
+      "profile": "cubism-5.0.06",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget",
+        "requiredAccessFlags": 2,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "Lcom/live2d/ui/control/CCustomPaintComponent;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.parameter-operation.rows",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_rows",
+        "exactArtifactSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
+        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_0_06.editor_model.method.parameter_double_row_slider",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.parameter-double-row.slider",
+      "runtime": "getSliderFloat",
+      "profile": "cubism-5.0.06",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/ui/control/CSlidableFloat;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.parameter-operation.rows",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_rows",
+        "exactArtifactSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
+        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_0_06.editor_model.field.parameter_double_row_paint",
+      "kind": "field",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.parameter-double-row.paint",
+      "runtime": "paintComp",
+      "profile": "cubism-5.0.06",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
+        "requiredAccessFlags": 2,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "Lcom/live2d/ui/control/CCustomPaintComponent;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.parameter-operation.rows",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_rows",
+        "exactArtifactSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
+        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_0_06.editor_model.method.parameter_double_row_secondary_slider",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.parameter-double-row.secondary-slider",
+      "runtime": "getSliderFloatSec",
+      "profile": "cubism-5.0.06",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/ui/control/CSlidableFloat;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.parameter-operation.rows",
+        "recordMappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_rows",
+        "exactArtifactSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
+        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
+      }
     }
   ],
   "metadata": {

@@ -1,0 +1,91 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.plugin.parameter-lock",
+  "name": "Parameter Lock Plugin",
+  "version": "0.1.0",
+  "description": "Lock and protect Cubism parameter values from accidental editing, with cross-session persistence and native icon integration.",
+  "entrypoints": [
+    "dev.turboism.plugin.parameterlock.ParameterLockPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    {
+      "name": "Turboism Contributors"
+    }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["en", "ja", "ko", "zh-Hans", "zh-Hant"]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Register parameter lock, unlock, and toggle actions."
+    },
+    {
+      "id": "turboism.ui.context-menu.contribute",
+      "scope": "application",
+      "reason": "Contribute lock and unlock actions to parameter palette context menu."
+    },
+    {
+      "id": "turboism.ui.appearance.modify",
+      "scope": "application",
+      "reason": "Override parameter and parameter group palette entry leading actions with native lock icons."
+    },
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read active model parameter IDs and native model GUID for locking."
+    },
+    {
+      "id": "turboism.cubism.model.observe",
+      "scope": "application",
+      "reason": "Receive model open/create/close lifecycle callbacks to manage lock persistence."
+    },
+    {
+      "id": "turboism.cubism.model.intercept",
+      "scope": "application",
+      "reason": "Intercept parameter value writes before they reach the host to prevent modification of locked parameters."
+    },
+    {
+      "id": "turboism.file.read",
+      "scope": "application",
+      "reason": "Read persisted parameter lock states from plugin storage."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Persist parameter lock states to plugin storage."
+    }
+  ],
+  "capabilities": [
+    "action.register",
+    "ui.context-menu.contribute",
+    "ui.appearance.modify",
+    "cubism.model.read",
+    "cubism.model.observe",
+    "cubism.model.intercept",
+    "file.read",
+    "file.write"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  },
+  "lifecycle": {
+    "hotReload": true
+  },
+  "tags": [
+    "parameter",
+    "lock",
+    "palette",
+    "safety"
+  ],
+  "category": "workflow"
+}

@@ -64,6 +64,7 @@ public interface PaletteToolbarRegistry {
      * @param paletteId identifier of the Editor palette whose toolbar receives the button
      * @param anchor placement hint relative to existing toolbar content
      * @param order sort key among contributions sharing the same anchor; lower sorts earlier
+     * @param nativeIcon optional native icon reference; when present it takes precedence over the resource path
      */
     record PaletteToolbarContribution(
             String contributionId,
@@ -72,5 +73,18 @@ public interface PaletteToolbarRegistry {
             String iconResourcePath,
             String paletteId,
             String anchor,
-            int order) {}
+            int order,
+            dev.turboism.sdk.ui.resource.UiIconRef nativeIcon) {
+        /** Creates a contribution using a plugin-owned icon resource. */
+        public PaletteToolbarContribution(
+                String contributionId,
+                String actionId,
+                String labelKey,
+                String iconResourcePath,
+                String paletteId,
+                String anchor,
+                int order) {
+            this(contributionId, actionId, labelKey, iconResourcePath, paletteId, anchor, order, null);
+        }
+    }
 }

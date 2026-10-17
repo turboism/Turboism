@@ -13,13 +13,26 @@ public record PaletteToolbarContributionDescriptor(
         String iconResourcePath,
         String paletteId,
         String anchor,
-        int order) {
+        int order,
+        dev.turboism.sdk.ui.resource.UiIconRef nativeIcon) {
+    public PaletteToolbarContributionDescriptor(
+            String pluginId,
+            String contributionId,
+            String actionId,
+            String label,
+            String iconResourcePath,
+            String paletteId,
+            String anchor,
+            int order) {
+        this(pluginId, contributionId, actionId, label, iconResourcePath, paletteId, anchor, order, null);
+    }
+
     public PaletteToolbarContributionDescriptor {
         pluginId = requireText(pluginId, "pluginId");
         contributionId = requireText(contributionId, "contributionId");
         actionId = requireText(actionId, "actionId");
         label = requireText(label, "label");
-        iconResourcePath = requireText(iconResourcePath, "iconResourcePath");
+        iconResourcePath = nativeIcon == null ? requireText(iconResourcePath, "iconResourcePath") : "";
         paletteId = requireText(paletteId, "paletteId");
         anchor = requireText(anchor, "anchor");
     }
@@ -44,7 +57,8 @@ public record PaletteToolbarContributionDescriptor(
                 value.iconResourcePath(),
                 value.paletteId(),
                 value.anchor(),
-                contribution.order());
+                contribution.order(),
+                value.nativeIcon());
     }
 
     /** @return the stable plugin-scoped identity used to join native buttons across reconciles */

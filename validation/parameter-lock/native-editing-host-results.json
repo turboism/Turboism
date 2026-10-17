@@ -1,0 +1,169 @@
+[
+  {
+    "jobId": "79ae4117-803b-4f97-8464-299a103b7bbb",
+    "runId": "queue-01abc773fced44e78fdaad8a9686a9b2",
+    "terminalState": "failed",
+    "cleanup": "safe",
+    "normalExit": false,
+    "identityVerified": false,
+    "fixtureUnchanged": false,
+    "validationStatus": "FAIL",
+    "taskDir": "{HOST_HOME}/TurboismValidation/parameter-lock/5302-disabled-ui-matrix/queue-01abc773fced44e78fdaad8a9686a9b2",
+    "probeResults": {
+      "editing.true.valueEnabled": "true",
+      "editing.true.dragEnabled": "true",
+      "editing.true.pointerShielded": "false",
+      "status": "FAIL",
+      "mode": "matrix",
+      "checks": "rowLeadingActionVerified,unlockedWritable,nativeControllerWriteUnlockedAccepted,rowLockClicked",
+      "failures": "unexpected_failure: IllegalStateException - Native editing controls did not reach disabled=true: {modelId=41f72ac0-bd7f-4431-8011-be1ee7131e8a, parameterId=ParamAngleX, parameterName=角度 X, rowLeadingAction.marker=UNLOCKED, rowLeadingIcon.wrapperWidth=16, rowLeadingIcon.wrapperHeight=16, rowLeadingIcon.wrapperClass=dev.turboism.ui.appearance.control.NativeRowActionTracker$Binding, rowLeadingIcon.normal.width=16, rowLeadingIcon.normal.height=16, rowLeadingIcon.normal.class=dev.turboism.ui.resource.CubismNativeIconResolver$CachedIcon, rowLeadingIcon.normal.provenance=VERIFIED_CUBISM_NATIVE, rowLeadingIcon.disabled.width=16, rowLeadingIcon.disabled.height=16, rowLeadingIcon.disabled.class=dev.turboism.ui.resource.CubismNativeIconResolver$CachedIcon, diag.bridgeInstalled=true, diag.selectedRowsSize=1, diag.selectedRowsKeys=SingleParameterRowWidget@62d3eb58, diag.selectedParameterSourcesSize=1, diag.selectedParameterSources=CParameterSource@561c51b4, diag.rowShowing=true, diag.rowSwingClass=com.live2d.ui.swingImpl.p, diag.rowSwingShowing=true, diag.labelShowing=true, diag.labelClass=com.live2d.ui.control.y, diag.rowSourceClass=com.live2d.cubism.doc.model.param.CParameterSource, diag.rowSourceIdentity=@561c51b4, diag.rowSourceId=ParamAngleX, diag.sdkUnwrapTrace=jdk.proxy1.$Proxy78 -> proxyHandler(dev.turboism.preview.PluginGenerationGuard$Handler) -> jdk.proxy1.$Proxy78 -> proxyHandler(dev.turboism.core.plugin.context.CubismEditorApiAvailabilityInterceptor$Handler) -> dev.turboism.adapter.cubism.PermissionCheckedParameter -> dev.turboism.adapter.host.SessionParameter -> dev.turboism.adapter.host.SessionParameter -> dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess$EditorParameter -> source()->com.live2d.cubism.doc.model.param.CParameterSource, diag.sdkSourceClass=com.live2d.cubism.doc.model.param.CParameterSource, diag.sdkSourceIdentity=@561c51b4, diag.sourceIdentityMatch=true, editing.true.valueEnabled=true, editing.true.dragEnabled=true, editing.true.pointerShielded=false}"
+    },
+    "artifacts": [
+      {
+        "sha256": "5cee92d9bbcd2e5ee6bf4a546a1332bb6387819c8a8c55b2342d237e5c6f80db",
+        "name": "turboism-agent.jar"
+      },
+      {
+        "sha256": "f871b6558b5e9c334c2398705c9ba01cc8622db6c688749e0fc4cc9876618e1d",
+        "name": "parameter-lock.jar"
+      },
+      {
+        "sha256": "83ae9b330beab4ef20448ce95c4526829fb166edc67d13e6d3f4109380ed5ee4",
+        "name": "parameter-lock-host-validation-probe.jar"
+      },
+      {
+        "sha256": "743fc360c0ef38bb2c51686a3a2c9f2e305a75a233185c0001293119ecf90996",
+        "name": "native-startup-assistance-agent.jar"
+      }
+    ]
+  },
+  {
+    "jobId": "eb259a97-21bb-41c4-8cc6-4e93fa905496",
+    "runId": "queue-bc3aa7c7aca64a0e89aa6d111a0bb515",
+    "terminalState": "succeeded",
+    "cleanup": "safe",
+    "normalExit": true,
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "validationStatus": "PASS",
+    "taskDir": "{HOST_HOME}/TurboismValidation/parameter-lock/5302-disabled-ui-final-matrix/queue-bc3aa7c7aca64a0e89aa6d111a0bb515",
+    "probeResults": {
+      "editing.true.valueEnabled": "false",
+      "editing.true.dragEnabled": "false",
+      "editing.true.pointerShielded": "true",
+      "editing.false.valueEnabled": "true",
+      "editing.false.dragEnabled": "true",
+      "editing.false.pointerShielded": "false",
+      "testedGroupId": "ParamGroup",
+      "testedGroupDescendantsCount": "2",
+      "groupLockAll.verifiedCount": "2",
+      "groupUnlockAll.verifiedCount": "2",
+      "nestedGroupRecursion.status": "NOT_TESTED",
+      "groupFixture.restored": "true",
+      "status": "PASS",
+      "mode": "matrix",
+      "checks": "rowLeadingActionVerified,unlockedWritable,nativeControllerWriteUnlockedAccepted,rowLockClicked,lockedEditorsDisabledAndShielded,lockedRejectsWrite,nativeControllerWriteLockedRejected,nativeControlInspect,rowUnlockClicked,unlockedEditorsEnabledAndUnshielded,unlockedRestoredWritable,nativeControllerWriteUnlockedRestored,groupMixedStateVerified,groupMixedClickLocksAll,groupUnlockClickUnlocksAll,groupRecursionVerified"
+    },
+    "artifacts": [
+      {
+        "sha256": "1b9e041f0b723bd39c6b05ed19f4266c71638270a72a783a123ceffbb0a63f27",
+        "name": "turboism-agent.jar"
+      },
+      {
+        "sha256": "8b9ad3e6ed5a73d83dc7ce0a458c8424cc680256445beae6ca2e447f21adc161",
+        "name": "parameter-lock.jar"
+      },
+      {
+        "sha256": "83ae9b330beab4ef20448ce95c4526829fb166edc67d13e6d3f4109380ed5ee4",
+        "name": "parameter-lock-host-validation-probe.jar"
+      },
+      {
+        "sha256": "743fc360c0ef38bb2c51686a3a2c9f2e305a75a233185c0001293119ecf90996",
+        "name": "native-startup-assistance-agent.jar"
+      }
+    ]
+  },
+  {
+    "jobId": "691299c6-1443-4336-8adb-0d72af8b7a32",
+    "runId": "queue-a932aeef55c8425ea8c1a96394d73629",
+    "terminalState": "succeeded",
+    "cleanup": "safe",
+    "normalExit": true,
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "validationStatus": "PASS",
+    "taskDir": "{HOST_HOME}/TurboismValidation/parameter-lock/5302-disabled-ui-final-persist-read/queue-a932aeef55c8425ea8c1a96394d73629",
+    "probeResults": {
+      "editing.true.valueEnabled": "false",
+      "editing.true.dragEnabled": "false",
+      "editing.true.pointerShielded": "true",
+      "status": "PASS",
+      "mode": "persist-read",
+      "checks": "persistReadEditorsDisabled,persistReadRestoredLocked,persistReadUnlocked"
+    },
+    "artifacts": [
+      {
+        "sha256": "f2af27767cf5d98823cdc7685e6fde87084653df36837a5b0ad81911f0c8a9a4",
+        "name": "turboism-agent.jar"
+      },
+      {
+        "sha256": "8b9ad3e6ed5a73d83dc7ce0a458c8424cc680256445beae6ca2e447f21adc161",
+        "name": "parameter-lock.jar"
+      },
+      {
+        "sha256": "83ae9b330beab4ef20448ce95c4526829fb166edc67d13e6d3f4109380ed5ee4",
+        "name": "parameter-lock-host-validation-probe.jar"
+      },
+      {
+        "sha256": "743fc360c0ef38bb2c51686a3a2c9f2e305a75a233185c0001293119ecf90996",
+        "name": "native-startup-assistance-agent.jar"
+      }
+    ]
+  },
+  {
+    "jobId": "ce994cee-b71f-4ed5-ac21-d181f8fab986",
+    "runId": "queue-416c908a58e7446bb5e7aab62c152722",
+    "terminalState": "succeeded",
+    "cleanup": "safe",
+    "normalExit": true,
+    "identityVerified": true,
+    "fixtureUnchanged": true,
+    "validationStatus": "PASS",
+    "taskDir": "{HOST_HOME}/TurboismValidation/parameter-lock/5203-disabled-ui-final-matrix/queue-416c908a58e7446bb5e7aab62c152722",
+    "probeResults": {
+      "editing.true.valueEnabled": "false",
+      "editing.true.dragEnabled": "false",
+      "editing.true.pointerShielded": "true",
+      "editing.false.valueEnabled": "true",
+      "editing.false.dragEnabled": "true",
+      "editing.false.pointerShielded": "false",
+      "testedGroupId": "ParamGroup",
+      "testedGroupDescendantsCount": "2",
+      "groupLockAll.verifiedCount": "2",
+      "groupUnlockAll.verifiedCount": "2",
+      "nestedGroupRecursion.status": "NOT_TESTED",
+      "groupFixture.restored": "true",
+      "status": "PASS",
+      "mode": "matrix",
+      "checks": "rowLeadingActionVerified,unlockedWritable,nativeControllerWriteUnlockedAccepted,rowLockClicked,lockedEditorsDisabledAndShielded,lockedRejectsWrite,nativeControllerWriteLockedRejected,nativeControlInspect,rowUnlockClicked,unlockedEditorsEnabledAndUnshielded,unlockedRestoredWritable,nativeControllerWriteUnlockedRestored,groupMixedStateVerified,groupMixedClickLocksAll,groupUnlockClickUnlocksAll,groupRecursionVerified"
+    },
+    "artifacts": [
+      {
+        "sha256": "f2af27767cf5d98823cdc7685e6fde87084653df36837a5b0ad81911f0c8a9a4",
+        "name": "turboism-agent.jar"
+      },
+      {
+        "sha256": "8b9ad3e6ed5a73d83dc7ce0a458c8424cc680256445beae6ca2e447f21adc161",
+        "name": "parameter-lock.jar"
+      },
+      {
+        "sha256": "83ae9b330beab4ef20448ce95c4526829fb166edc67d13e6d3f4109380ed5ee4",
+        "name": "parameter-lock-host-validation-probe.jar"
+      },
+      {
+        "sha256": "743fc360c0ef38bb2c51686a3a2c9f2e305a75a233185c0001293119ecf90996",
+        "name": "native-startup-assistance-agent.jar"
+      }
+    ]
+  }
+]
