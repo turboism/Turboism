@@ -580,13 +580,13 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
     record CapturedImage(BufferedImage image, String tier) {}
 
     private static BufferedImage paintToImage(final Component component) {
-        if (!(component instanceof JComponent swing)) return null;
+        if (!(component instanceof Container container)) return null;
         final BufferedImage image =
                 new BufferedImage(component.getWidth(), component.getHeight(), BufferedImage.TYPE_INT_ARGB);
         final Graphics2D graphics = image.createGraphics();
         try {
             graphics.setClip(0, 0, image.getWidth(), image.getHeight());
-            swing.printAll(graphics);
+            container.printAll(graphics);
             return image;
         } catch (RuntimeException | Error failure) {
             diagnose("paintToImage:" + failure.getClass().getName());
