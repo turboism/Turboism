@@ -29,6 +29,29 @@ class PrereleaseTest(unittest.TestCase):
             names=self.p.names_for(version);self.assertEqual(len(names),12)
         with self.assertRaises(ValueError):self.p.names_for('1.2.3')
 
+    def test_canonical_sets_support_legacy_and_modern_and_reject_invalid(self):
+        for version in ['1.2.3-beta.2', '1.2.3-0.nightly.7']:
+            sets = self.p.canonical_sets_for(version)
+            self.assertEqual(len(sets), 4)
+            self.assertEqual(self.p.names_for(version), sets[0])
+            self.assertEqual({len(s) for s in sets}, {8, 10, 12})
+        with self.assertRaises(ValueError):
+            self.p.canonical_sets_for('1.2.3')
+        # Test missing_assets with a legacy asset set
+        v = '1.2.3-0.nightly.7'
+        legacy_names = [f'TurboismInstaller-{v}.exe', f'TurboismInstaller-{v}.jar',
+                        f'turboism-{v}-full.zip', f'turboism-{v}-lite.zip']
+        legacy_set = {name for item in legacy_names for name in (item, item + '.sha256')}
+        raw = {'id': 100, 'tag_name': 'v' + v, 'draft': False, 'prerelease': True,
+               'assets': [{'name': x, 'state': 'uploaded', 'size': 10, 'digest': 'sha256:' + 'a' * 64}
+                          for x in legacy_set]}
+        expected = {x: {'size': 10, 'sha256': 'a' * 64} for x in legacy_set}
+        self.assertEqual(self.p.missing_assets(raw, expected, 'v' + v), [])
+        # Invalid set is rejected
+        expected_bad = {**expected, 'invalid.zip': {'size': 10, 'sha256': 'a' * 64}}
+        with self.assertRaises(ValueError):
+            self.p.missing_assets(raw, expected_bad, 'v' + v)
+
     def test_beta_publication_resumes_identical_files_and_never_becomes_latest(self):
         from scripts.test.test_release_promotion import FakeGitHub as Base
         from turboism_release.promotion import ReleaseError
