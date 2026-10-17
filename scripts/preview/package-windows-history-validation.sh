@@ -56,7 +56,8 @@ tmp="$(mktemp -d "$repo_root/build/.history-probe.XXXXXX")"
 trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/$probe_class_dir" "$tmp/META-INF/turboism/i18n"
 find "$test_classes/$probe_class_dir" -maxdepth 1 -type f \
-  \( -name "$probe_class.class" -o -name "$probe_class\$*.class" \) \
+  \( -name "$probe_class.class" -o -name "$probe_class\$*.class" \
+     -o -name 'WindowsProbeHarness.class' -o -name 'WindowsProbeHarness\$*.class' \) \
   -exec cp {} "$tmp/$probe_class_dir/" \;
 cp "$descriptor" "$tmp/META-INF/turboism/plugin.json"
 # PluginJarContract requires the declared i18n base-name catalog inside the jar.
@@ -78,7 +79,8 @@ fi
 rm -rf "$tmp/$probe_class_dir" "$tmp/META-INF/turboism"
 mkdir -p "$tmp/$probe_class_dir" "$tmp/META-INF/turboism/i18n"
 find "$test_classes/$probe_class_dir" -maxdepth 1 -type f \
-  \( -name "$seed_class.class" -o -name "$seed_class\$*.class" \) \
+  \( -name "$seed_class.class" -o -name "$seed_class\$*.class" \
+     -o -name 'WindowsProbeHarness.class' -o -name 'WindowsProbeHarness\$*.class' \) \
   -exec cp {} "$tmp/$probe_class_dir/" \;
 cp "$seed_descriptor" "$tmp/META-INF/turboism/plugin.json"
 printf '# History seed validation probe: no localized messages.\n' \

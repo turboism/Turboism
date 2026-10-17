@@ -73,7 +73,9 @@ mkdir -p "$probe_tmp/$probe_class_dir_rel" "$probe_tmp/dev/turboism/validation" 
   "$probe_tmp/META-INF/turboism/i18n"
 find "$test_classes/$probe_class_dir_rel" -maxdepth 1 -type f \
   \( -name 'WindowsParameterValidationProbe.class' \
-     -o -name 'WindowsParameterValidationProbe$*.class' \) \
+     -o -name 'WindowsParameterValidationProbe$*.class' \
+     -o -name 'WindowsProbeHarness.class' \
+     -o -name 'WindowsProbeHarness$*.class' \) \
   -exec cp {} "$probe_tmp/$probe_class_dir_rel/" \;
 # The probe delegates startup/warning answers to the shared audited responder;
 # ship it inside the probe jar so the plugin classloader resolves it.
@@ -89,7 +91,9 @@ printf '# Parameter validation probe: no localized messages.\n' \
   mapfile -t probe_classes < <(
     find "$probe_class_dir_rel" -maxdepth 1 -type f \
       \( -name 'WindowsParameterValidationProbe.class' \
-         -o -name 'WindowsParameterValidationProbe$*.class' \) \
+         -o -name 'WindowsParameterValidationProbe$*.class' \
+         -o -name 'WindowsProbeHarness.class' \
+         -o -name 'WindowsProbeHarness$*.class' \) \
       -printf '%p\n' | LC_ALL=C sort
   )
   mapfile -t startup_classes < <(
@@ -119,6 +123,9 @@ fi
 peer_tmp="$(mktemp -d "$repo_root/build/.editor-object-peer-probe.XXXXXX")"
 mkdir -p "$peer_tmp/$probe_class_dir_rel" "$peer_tmp/META-INF/turboism/i18n"
 cp "$test_classes/$peer_probe_class_rel" "$peer_tmp/$probe_class_dir_rel/"
+# The peer probe reuses the shared probe harness helpers; ship them alongside.
+cp "$test_classes/$probe_class_dir_rel/WindowsProbeHarness.class" \
+  "$peer_tmp/$probe_class_dir_rel/"
 cp "$peer_probe_descriptor" "$peer_tmp/META-INF/turboism/plugin.json"
 printf '# Editor-object peer validation probe: no localized messages.\n' \
   > "$peer_tmp/META-INF/turboism/i18n/messages.properties"
@@ -126,6 +133,7 @@ printf '# Editor-object peer validation probe: no localized messages.\n' \
   cd "$peer_tmp"
   jar --create --file "$bundle_root/plugins/editor-object-peer-validation-probe.jar" \
     "$peer_probe_class_rel" \
+    "$probe_class_dir_rel/WindowsProbeHarness.class" \
     META-INF/turboism/plugin.json \
     META-INF/turboism/i18n/messages.properties
 )

@@ -61,6 +61,10 @@ for class_family in "$main_class" "$host_close_class" "$modeling_class"; do
     \( -name "$class_family.class" -o -name "$class_family\$*.class" \) \
     -exec cp {} "$probe_tmp/$class_dir/" \;
 done
+# The probes share the extracted harness helpers; ship them in the same jar.
+find "$test_classes/$class_dir" -maxdepth 1 -type f \
+  \( -name 'WindowsProbeHarness.class' -o -name 'WindowsProbeHarness\$*.class' \) \
+  -exec cp {} "$probe_tmp/$class_dir/" \;
 cp "$descriptor" "$probe_tmp/META-INF/turboism/plugin.json"
 printf '%s\n' \
   'plugin.name=Windows Mesh Edit Validation Probe' \
@@ -69,7 +73,7 @@ printf '%s\n' \
 (
   cd "$probe_tmp"
   mapfile -t classes < <(find "$class_dir" -maxdepth 1 -type f \
-    \( -name "$main_class*.class" -o -name "$host_close_class*.class" -o -name "$modeling_class*.class" \) -printf '%p\n' | LC_ALL=C sort)
+    \( -name "$main_class*.class" -o -name "$host_close_class*.class" -o -name "$modeling_class*.class" -o -name 'WindowsProbeHarness*.class' \) -printf '%p\n' | LC_ALL=C sort)
   [ "${#classes[@]}" -gt 1 ] || { printf 'error: validation probe nested classes were not packaged\n' >&2; exit 1; }
   jar --create --file "$bundle_root/plugins/mesh-edit-validation-probe.jar" \
     "${classes[@]}" META-INF/turboism/plugin.json META-INF/turboism/i18n/messages.properties
