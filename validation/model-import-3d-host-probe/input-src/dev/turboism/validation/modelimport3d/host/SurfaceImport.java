@@ -23,12 +23,21 @@ final class SurfaceImport {
     static final double IDEAL_TOLERANCE_PIXELS = .05;
 
     record Request(String name, ParameterId yaw, ParameterId pitch, SurfaceProjection.Camera camera,
-            double yawLimit, double pitchLimit, long maxProjectedVertices, java.util.Optional<ParameterId> roll) {
+            double yawLimit, double pitchLimit, long maxProjectedVertices, java.util.Optional<ParameterId> roll, java.util.Map<String,String> labels) {
+        Request(String name, ParameterId yaw, ParameterId pitch, SurfaceProjection.Camera camera,
+                double yawLimit, double pitchLimit, long maxProjectedVertices, java.util.Optional<ParameterId> roll) {
+            this(name,yaw,pitch,camera,yawLimit,pitchLimit,maxProjectedVertices,roll,java.util.Map.of());
+        }
         Request(String name, ParameterId yaw, ParameterId pitch, SurfaceProjection.Camera camera,
                 double yawLimit, double pitchLimit, long maxProjectedVertices) {
             this(name,yaw,pitch,camera,yawLimit,pitchLimit,maxProjectedVertices,java.util.Optional.empty());
         }
+        String label(String key, String fallback) { return labels.getOrDefault(key,fallback); }
+        String rotationName(String axis) { return name + " " + label("object.rotation."+axis.toLowerCase(java.util.Locale.ROOT),axis+" 旋转"); }
+        String localActionName(int partition) { return label("object.local-action","分区 {0} 局部动作").replace("{0}",Integer.toString(partition)); }
+        String placementName() { return name + " " + label("object.placement","整体定位"); }
         Request {
+            labels=java.util.Map.copyOf(labels);
             name = Objects.requireNonNull(name, "name").strip();
             Objects.requireNonNull(yaw, "yaw"); Objects.requireNonNull(pitch, "pitch");
             Objects.requireNonNull(camera, "camera");
@@ -87,7 +96,7 @@ final class SurfaceImport {
         var surfaces=GlbSurfaceReader.read(frozen);
         var camera=SurfaceAutoCamera.fit(surfaces,request.camera().centerX(),request.camera().centerY(),400);
         var framed=new Request(request.name(),request.yaw(),request.pitch(),camera,
-            request.yawLimit(),request.pitchLimit(),request.maxProjectedVertices(),request.roll());
+            request.yawLimit(),request.pitchLimit(),request.maxProjectedVertices(),request.roll(),request.labels());
         return prepareDecoded(frozen,surfaces,framed,appearanceMode);
     }
 
@@ -140,8 +149,8 @@ final class SurfaceImport {
         var yaw = SurfaceKeyformBake.bindingKeys(prepared.geometry.grid().yawKeys());
         var pitch = SurfaceKeyformBake.bindingKeys(prepared.geometry.grid().pitchKeys());
         model.parameters().createMany(List.of(
-            new ParameterDefinition(request.yaw(), request.name() + " Yaw", yaw.get(0), 0, yaw.get(yaw.size() - 1), ParameterType.NORMAL, false),
-            new ParameterDefinition(request.pitch(), request.name() + " Pitch", pitch.get(0), 0, pitch.get(pitch.size() - 1), ParameterType.NORMAL, false)));
+            new ParameterDefinition(request.yaw(), request.rotationName("Y"), yaw.get(0), 0, yaw.get(yaw.size() - 1), ParameterType.NORMAL, false),
+            new ParameterDefinition(request.pitch(), request.rotationName("X"), pitch.get(0), 0, pitch.get(pitch.size() - 1), ParameterType.NORMAL, false)));
         observer.completed(Stage.AXES);
         var part = model.parts().create(request.name(), null, -1);
         observer.completed(Stage.GROUP);

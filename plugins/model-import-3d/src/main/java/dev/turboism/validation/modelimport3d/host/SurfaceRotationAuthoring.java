@@ -25,13 +25,13 @@ final class SurfaceRotationAuthoring {
         var camera = request.camera();
         float x = (float) (camera.centerX() + camera.scale() * camera.pivot().x());
         float y = (float) (camera.centerY() - camera.scale() * camera.pivot().y());
-        var rotation = model.deformers().createRotation(request.name() + " Z 旋转", parent, -1);
+        var rotation = model.deformers().createRotation(request.rotationName("Z"), parent, -1);
         var neutral = new RotationDeformerForm(0, x, y, 1, false, false);
         rotation.replaceForm(neutral);
         model.parameters()
                 .createMany(
                         List.of(new ParameterDefinition(
-                                axis, request.name() + " Z 旋转", -180, 0, 180, ParameterType.NORMAL, false)),
+                                axis, request.rotationName("Z"), -180, 0, 180, ParameterType.NORMAL, false)),
                         parameterGroup);
         var points = new ArrayList<ParameterBindingPoint>();
         for (int k = 0; k < KEYS.size(); k++)

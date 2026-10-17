@@ -112,6 +112,19 @@ final class NativeControlAuthoring {
             java.util.function.Consumer<String> progress,
             Optional<ParameterGroupId> parameterGroup,
             String prefix) {
+        return prepareHierarchy(
+                model, hierarchy, scene, plan, progress, parameterGroup, prefix, index -> "分区 " + index + " 局部动作");
+    }
+
+    static PreparedHierarchy prepareHierarchy(
+            CubismModel model,
+            NativeCharacterAuthoring.Hierarchy hierarchy,
+            ViewerScene scene,
+            NativeControlWarpPlan.Plan plan,
+            java.util.function.Consumer<String> progress,
+            Optional<ParameterGroupId> parameterGroup,
+            String prefix,
+            java.util.function.IntFunction<String> localActionName) {
         if (plan.controls().isEmpty()) return new PreparedHierarchy(hierarchy.parents(), () -> {});
         var parameters = new LinkedHashMap<String, ParameterId>();
         var definitions = new ArrayList<ParameterDefinition>();
@@ -172,7 +185,7 @@ final class NativeControlAuthoring {
             var base = mapControls(NativeControlWarpPlan.identity(patch.cells()).controlPoints(), patch);
             var warp = model.deformers()
                     .createWarp(
-                            "分区 " + patch.partition() + " 局部动作",
+                            localActionName.apply(patch.partition()),
                             model.parts().find(hierarchy.rootPartId()),
                             -1,
                             Optional.of(parent),

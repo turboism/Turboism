@@ -281,7 +281,8 @@ public final class NativeCharacterPlan {
                 request.yawLimit(),
                 request.pitchLimit(),
                 request.maxProjectedVertices(),
-                request.roll());
+                request.roll(),
+                request.labels());
 
         var rawMeshes = scene.meshes();
         long sourceSlots = 0;

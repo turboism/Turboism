@@ -452,7 +452,7 @@ public final class NativeCharacterAuthoring {
                         List.of(
                                 new ParameterDefinition(
                                         request.yaw(),
-                                        request.name() + " Y 旋转",
+                                        request.rotationName("Y"),
                                         -180,
                                         0,
                                         180,
@@ -460,7 +460,7 @@ public final class NativeCharacterAuthoring {
                                         false),
                                 new ParameterDefinition(
                                         request.pitch(),
-                                        request.name() + " X 旋转",
+                                        request.rotationName("X"),
                                         -180,
                                         0,
                                         180,
@@ -588,7 +588,7 @@ public final class NativeCharacterAuthoring {
 
         // 8. Outer placement wrapper
         if (rollDeformer != null) {
-            SurfacePlacementAuthoring.wrap(model, rootPart, request.name(), rollDeformer);
+            SurfacePlacementAuthoring.wrap(model, rootPart, request, rollDeformer);
         }
 
         // Verify placement did not mutate stored authoring snapshots

@@ -14,13 +14,17 @@ class SurfacePlacementAuthoringTest {
         var roll = new SurfaceRotationAuthoringTest.State();
         SurfaceRotationAuthoring.create(roll.model(), null, SurfaceRotationAuthoringTest.request());
         var before = roll.snapshot();
+        var current = new java.util.concurrent.atomic.AtomicReference<RotationAuthoringSnapshot>(before);
         var host = new SurfaceWarpAuthoringTest.State(null, "normal");
         var parent = new java.util.concurrent.atomic.AtomicReference<Optional<DeformerId>>(Optional.empty());
         var child = proxy(RotationDeformer.class, (m, a) -> switch (m.getName()) {
-            case "authoringSnapshot" -> roll.snapshot();
+            case "authoringSnapshot" -> current.get();
             case "parentDeformerId" -> parent.get();
             case "setTargetDeformer" -> {
                 parent.set((Optional<DeformerId>) a[0]);
+                var pivot = before.forms().get(0).value();
+                current.set((RotationAuthoringSnapshot)
+                        SurfacePlacementAuthoring.rebased(before, pivot.originX(), pivot.originY()));
                 yield null;
             }
             default -> throw new AssertionError(m);
@@ -28,6 +32,23 @@ class SurfacePlacementAuthoringTest {
         var placed = SurfacePlacementAuthoring.wrap(host.model(), null, "Apple", child);
         assertEquals(Optional.of(placed.id()), parent.get());
         assertEquals(before, roll.snapshot());
+        assertEquals(
+                SurfacePlacementAuthoring.rebased(
+                        before,
+                        before.forms().get(0).value().originX(),
+                        before.forms().get(0).value().originY()),
+                current.get());
+        var outer = placed.authoringSnapshot().forms().get(0).value();
+        assertEquals(before.forms().get(0).value().originX(), outer.originX());
+        assertEquals(before.forms().get(0).value().originY(), outer.originY());
+        for (int i = 0; i < before.forms().size(); i++) {
+            var original = before.forms().get(i).value();
+            var local = current.get().forms().get(i).value();
+            double angle = Math.toRadians(original.angle());
+            double px = 7 * Math.cos(angle) + 2 * Math.sin(angle), py = 7 * Math.sin(angle) - 2 * Math.cos(angle);
+            assertEquals(original.originX() + px, outer.originX() + local.originX() + px, 1e-5);
+            assertEquals(original.originY() + py, outer.originY() + local.originY() + py, 1e-5);
+        }
         assertTrue(placed.authoringSnapshot().axes().isEmpty());
         assertEquals(1, placed.authoringSnapshot().forms().size());
         // Translation through the unbound outer form is added after all X/Y/Z projection.
@@ -36,16 +57,23 @@ class SurfacePlacementAuthoringTest {
         placed.replaceForm(shifted);
         assertEquals(shifted, placed.authoringSnapshot().forms().get(0).value());
         assertEquals(before, roll.snapshot());
+        assertEquals(
+                SurfacePlacementAuthoring.rebased(
+                        before,
+                        before.forms().get(0).value().originX(),
+                        before.forms().get(0).value().originY()),
+                current.get());
     }
 
     @Test
     void canvasMappingCentersNormalizedWorkspaceAndFitsShorterEdge() {
         assertEquals(
-                new RotationDeformerForm(0, 0, 0, 1, false, false), SurfacePlacementAuthoring.canvasForm(1024, 1024));
+                new RotationDeformerForm(0, 512, 512, 1, false, false),
+                SurfacePlacementAuthoring.canvasForm(1024, 1024));
         for (double[] size : new double[][] {{2400, 1600}, {600, 1200}, {512, 512}, {4096, 2048}}) {
             var form = SurfacePlacementAuthoring.canvasForm(size[0], size[1]);
-            assertEquals(size[0] / 2, form.originX() + 512 * form.scale(), .001);
-            assertEquals(size[1] / 2, form.originY() + 512 * form.scale(), .001);
+            assertEquals(size[0] / 2, form.originX(), .001);
+            assertEquals(size[1] / 2, form.originY(), .001);
             assertTrue(800 * form.scale() <= Math.min(size[0], size[1]));
         }
         assertThrows(IllegalArgumentException.class, () -> SurfacePlacementAuthoring.canvasForm(0, 1024));

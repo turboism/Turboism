@@ -7,6 +7,7 @@ dialog.appearance.option.source-material
 dialog.appearance.title
 dialog.confirm.atlas-info
 dialog.confirm.character
+dialog.confirm.character-controls
 dialog.confirm.layers
 dialog.confirm.layers.roll-note
 dialog.confirm.simple
@@ -37,6 +38,12 @@ error.transaction-uncommitted
 file.chooser.title
 menu.group
 model.default-name
+object.local-action
+object.placement
+object.rotation.x
+object.rotation.y
+object.rotation.z
+object.warp
 plugin.description
 plugin.name
 resource.chooser.title
@@ -54,4 +61,3 @@ viewer.reset
 viewer.stats
 viewer.title
 viewer.too-large
-dialog.confirm.character-controls

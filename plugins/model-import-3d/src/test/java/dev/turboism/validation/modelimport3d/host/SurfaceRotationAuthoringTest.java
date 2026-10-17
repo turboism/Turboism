@@ -74,6 +74,53 @@ class SurfaceRotationAuthoringTest {
                         20000000));
     }
 
+    @Test
+    void localizesRotationDeformerAndParameterNamesWithoutChangingIdsOrValues() throws Exception {
+        var base = request();
+        String[] locales = {"", "en", "ja", "ko", "zh_Hans", "zh_Hant"};
+        for (String locale : locales) {
+            var properties = new java.util.Properties();
+            try (var in = getClass()
+                    .getResourceAsStream("/META-INF/turboism/i18n/messages" + (locale.isEmpty() ? "" : "_" + locale)
+                            + ".properties")) {
+                assertNotNull(in);
+                properties.load(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8));
+            }
+            var labels = new java.util.HashMap<String, String>();
+            for (String key : List.of(
+                    "object.rotation.x",
+                    "object.rotation.y",
+                    "object.rotation.z",
+                    "object.placement",
+                    "object.warp",
+                    "object.local-action")) {
+                assertNotNull(properties.getProperty(key));
+                labels.put(key, properties.getProperty(key));
+            }
+            var request = new SurfaceImport.Request(
+                    base.name(),
+                    base.yaw(),
+                    base.pitch(),
+                    base.camera(),
+                    base.yawLimit(),
+                    base.pitchLimit(),
+                    base.maxProjectedVertices(),
+                    base.roll(),
+                    labels);
+            var state = new State();
+            SurfaceRotationAuthoring.create(state.model(), null, request);
+            assertEquals("Apple " + labels.get("object.rotation.z"), state.rotationName);
+            assertEquals(state.rotationName, state.definitions.get(0).name());
+            assertEquals(base.roll().orElseThrow(), state.definitions.get(0).id());
+            var file = ModelImportPlugin.requestForFile(request, "模型.glb", "scope");
+            assertEquals("模型 " + labels.get("object.placement"), file.placementName());
+            assertEquals(labels, file.labels());
+            assertEquals(request.localActionName(2), file.localActionName(2));
+            labels.put("object.rotation.z", "CHANGED");
+            assertNotEquals("Apple CHANGED", request.rotationName("Z"));
+        }
+    }
+
     static SurfaceImport.Request request() {
         return new SurfaceImport.Request(
                 "Apple",
@@ -93,6 +140,7 @@ class SurfaceRotationAuthoringTest {
         List<ParameterBindingPoint> keys = List.of();
         List<RotationKeyformForm> lastEdits = List.of();
         int batches, creations;
+        String rotationName;
         final RotationDeformer rotation = proxy(RotationDeformer.class, (method, args) -> switch (method.getName()) {
             case "id" -> new DeformerId("roll");
             case "replaceForm" -> {
@@ -149,6 +197,7 @@ class SurfaceRotationAuthoringTest {
                     proxy(Deformers.class, (m, a) -> {
                         assertEquals("createRotation", m.getName());
                         creations++;
+                        rotationName = (String) a[0];
                         return rotation;
                     });
                 case "parameterBindings" ->
