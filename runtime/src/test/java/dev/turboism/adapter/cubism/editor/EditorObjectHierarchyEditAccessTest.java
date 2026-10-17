@@ -49,6 +49,7 @@ import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -1304,56 +1305,49 @@ class EditorObjectHierarchyEditAccessTest {
         assertRelationTarget(secondRelation.after(), "PART", "Final", "C");
     }
 
-    @Test
-    void publicArtMeshTargetDeformerAliasCapturesOneTypedRelation() {
+    @ParameterizedTest
+    @ValueSource(strings = {"artmesh", "deformer"})
+    void targetDeformerAliasCapturesOneTypedRelation(final String targetKind) {
         final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
-        fixture.meshSource.targetDeformerGuid = fixture.warpSource.guid;
+        final boolean isArtMesh = "artmesh".equals(targetKind);
+        if (isArtMesh) {
+            Host.document = fixture.document;
+            fixture.meshSource.targetDeformerGuid = fixture.warpSource.guid;
+        } else {
+            fixture.warpSource.targetDeformerGuid = fixture.rotationSource.guid;
+            fixture.attachWarpTarget();
+            Host.document = fixture.document;
+        }
         final VerifiedMemberResolver resolver = relationAliasResolver("5.3.02");
         final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
 
-        model.drawables().find(new ArtMeshId("MeshA")).setTargetDeformer(Optional.of(new DeformerId("RotationA")));
+        if (isArtMesh) {
+            model.drawables().find(new ArtMeshId("MeshA")).setTargetDeformer(Optional.of(new DeformerId("RotationA")));
+        } else {
+            model.warpDeformers().find(new DeformerId("WarpA")).setTargetDeformer(Optional.of(new DeformerId("WarpB")));
+        }
 
         assertEquals(1, fixture.editMode.edits.size());
         assertEquals(1, fixture.document.undoManager.entries().size());
-        assertEquals(1, fixture.meshSource.setTargetCalls);
-        assertEquals(fixture.rotationSource.guid, fixture.meshSource.targetDeformerGuid);
+        assertEquals(1, isArtMesh ? fixture.meshSource.setTargetCalls : fixture.warpSource.setTargetCalls);
+        assertEquals(isArtMesh ? fixture.rotationSource.guid : fixture.warpTargetSource.guid,
+                isArtMesh ? fixture.meshSource.targetDeformerGuid : fixture.warpSource.targetDeformerGuid);
         final HistoryEntryDetail detail = lastHistoryDetail(resolver);
         assertEquals(1, detail.changes().size());
         final HistoryRelationChange relation =
                 detail.changes().get(0).relation().orElseThrow();
         assertEquals(HistoryRelationChange.Kind.DEFORMER_PARENT, relation.kind());
-        assertRelationTarget(relation.before(), "WARP_DEFORMER", "WarpA", "WarpA");
-        assertRelationTarget(relation.after(), "ROTATION_DEFORMER", "RotationA", "RotationA");
+        assertRelationTarget(relation.before(), isArtMesh ? "WARP_DEFORMER" : "ROTATION_DEFORMER",
+                isArtMesh ? "WarpA" : "RotationA", isArtMesh ? "WarpA" : "RotationA");
+        assertRelationTarget(relation.after(), isArtMesh ? "ROTATION_DEFORMER" : "WARP_DEFORMER",
+                isArtMesh ? "RotationA" : "WarpB", isArtMesh ? "RotationA" : "WarpB");
 
         fixture.editMode.edits.get(0).undo();
-        assertEquals(fixture.warpSource.guid, fixture.meshSource.targetDeformerGuid);
+        assertEquals(isArtMesh ? fixture.warpSource.guid : fixture.rotationSource.guid,
+                isArtMesh ? fixture.meshSource.targetDeformerGuid : fixture.warpSource.targetDeformerGuid);
         fixture.editMode.edits.get(0).redo();
-        assertEquals(fixture.rotationSource.guid, fixture.meshSource.targetDeformerGuid);
-    }
-
-    @Test
-    void publicDeformerTargetDeformerAliasCapturesOneTypedRelation() {
-        final Fixture fixture = new Fixture();
-        fixture.warpSource.targetDeformerGuid = fixture.rotationSource.guid;
-        fixture.attachWarpTarget();
-        Host.document = fixture.document;
-        final VerifiedMemberResolver resolver = relationAliasResolver("5.3.02");
-        final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
-
-        model.warpDeformers().find(new DeformerId("WarpA")).setTargetDeformer(Optional.of(new DeformerId("WarpB")));
-
-        assertEquals(1, fixture.editMode.edits.size());
-        assertEquals(1, fixture.document.undoManager.entries().size());
-        assertEquals(1, fixture.warpSource.setTargetCalls);
-        assertEquals(fixture.warpTargetSource.guid, fixture.warpSource.targetDeformerGuid);
-        final HistoryEntryDetail detail = lastHistoryDetail(resolver);
-        assertEquals(1, detail.changes().size());
-        final HistoryRelationChange relation =
-                detail.changes().get(0).relation().orElseThrow();
-        assertEquals(HistoryRelationChange.Kind.DEFORMER_PARENT, relation.kind());
-        assertRelationTarget(relation.before(), "ROTATION_DEFORMER", "RotationA", "RotationA");
-        assertRelationTarget(relation.after(), "WARP_DEFORMER", "WarpB", "WarpB");
+        assertEquals(isArtMesh ? fixture.rotationSource.guid : fixture.warpTargetSource.guid,
+                isArtMesh ? fixture.meshSource.targetDeformerGuid : fixture.warpSource.targetDeformerGuid);
     }
 
     @Test
@@ -1628,51 +1622,36 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
-    void warpCreatesJoinOneAmbientRootTransaction(final String cubismVersion) {
+    @CsvSource({
+        "5.0.00, WARP", "5.0.06, WARP", "5.1.03, WARP", "5.2.00, WARP", "5.2.03, WARP", "5.3.00, WARP", "5.3.04, WARP",
+        "5.0.00, ROTATION", "5.0.06, ROTATION", "5.1.03, ROTATION", "5.2.00, ROTATION", "5.2.03, ROTATION", "5.3.00, ROTATION", "5.3.04, ROTATION"
+    })
+    void deformerCreatesJoinOneAmbientRootTransaction(final String cubismVersion, final String kind) {
         final var scoped = ScopedFixture.onEdt(cubismVersion);
-        final WarpGrid grid = new WarpGrid(
-                1,
-                2,
-                true,
-                List.of(
-                        new Point2(-2F, -1F),
-                        new Point2(0F, -1F),
-                        new Point2(2F, -1F),
-                        new Point2(-2F, 1F),
-                        new Point2(0F, 1F),
-                        new Point2(2F, 1F)));
-        final var result = scoped.execute(AuthoringTransactionOptions.of("create two warps"), () -> {
-            scoped.access.createWarpSource(
-                    "model", scoped.fixture.source, scoped.fixture.source.model, "WARP_A", null, false, -1, grid);
-            scoped.access.createWarpSource(
-                    "model", scoped.fixture.source, scoped.fixture.source.model, "WARP_B", null, false, -1, grid);
-            return null;
-        });
-        assertEquals(
-                AuthoringTransactionOutcome.COMMITTED, result.outcome(), () -> String.valueOf(result.diagnosticId()));
-        assertEquals(1, scoped.host.begins);
-        assertEquals(1, scoped.host.commits);
-        assertEquals(0, scoped.host.aborts);
-        assertEquals(1, scoped.fixture.editMode.edits.size());
-        final int created = scoped.fixture.source.deformerSet.sources.size() - 2;
-        assertEquals(2, created);
-        scoped.fixture.editMode.edits.get(0).undo();
-        assertEquals(2, scoped.fixture.source.deformerSet.sources.size());
-        scoped.fixture.editMode.edits.get(0).redo();
-        assertEquals(4, scoped.fixture.source.deformerSet.sources.size());
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"5.0.00", "5.0.06", "5.1.03", "5.2.00", "5.2.03", "5.3.00", "5.3.04"})
-    void rotationCreatesJoinOneAmbientRootTransaction(final String cubismVersion) {
-        final var scoped = ScopedFixture.onEdt(cubismVersion);
-        final RotationDeformerForm form = new RotationDeformerForm(0F, 512F, 512F, 1F, false, false);
-        final var result = scoped.execute(AuthoringTransactionOptions.of("create two rotations"), () -> {
-            scoped.access.createRotationSource(
-                    "model", scoped.fixture.source, scoped.fixture.source.model, "ROTATION_A", null, false, -1, form);
-            scoped.access.createRotationSource(
-                    "model", scoped.fixture.source, scoped.fixture.source.model, "ROTATION_B", null, false, -1, form);
+        final var result = scoped.execute(AuthoringTransactionOptions.of("create two " + kind.toLowerCase()), () -> {
+            if ("WARP".equals(kind)) {
+                final WarpGrid grid = new WarpGrid(
+                        1,
+                        2,
+                        true,
+                        List.of(
+                                new Point2(-2F, -1F),
+                                new Point2(0F, -1F),
+                                new Point2(2F, -1F),
+                                new Point2(-2F, 1F),
+                                new Point2(0F, 1F),
+                                new Point2(2F, 1F)));
+                scoped.access.createWarpSource(
+                        "model", scoped.fixture.source, scoped.fixture.source.model, "WARP_A", null, false, -1, grid);
+                scoped.access.createWarpSource(
+                        "model", scoped.fixture.source, scoped.fixture.source.model, "WARP_B", null, false, -1, grid);
+            } else {
+                final RotationDeformerForm form = new RotationDeformerForm(0F, 512F, 512F, 1F, false, false);
+                scoped.access.createRotationSource(
+                        "model", scoped.fixture.source, scoped.fixture.source.model, "ROTATION_A", null, false, -1, form);
+                scoped.access.createRotationSource(
+                        "model", scoped.fixture.source, scoped.fixture.source.model, "ROTATION_B", null, false, -1, form);
+            }
             return null;
         });
         assertEquals(
