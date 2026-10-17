@@ -331,6 +331,10 @@ tasks.named<Test>("test") {
     @Suppress("UNCHECKED_CAST")
     val buildMetadata = rootProject.extra["turboismBuildMetadata"] as Map<String, String>
     systemProperty("turboism.expectedFrameworkVersion", buildMetadata.getValue("version"))
+    // Optional test-JVM parallelism for the big runtime suite. Off (1) by default;
+    // CI enables it via -PruntimeTestForks=2 after the isolation audit. Lanes that
+    // must stay serial pin maxParallelForks on their own tasks and are unaffected.
+    maxParallelForks = (findProperty("runtimeTestForks") as String?)?.toInt()?.coerceAtLeast(1) ?: 1
     // Optional real-host evidence paths for gated sample tests; absent means skip.
     listOf(
         "turboism.test.cubismEditorJar",
