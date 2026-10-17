@@ -44,7 +44,8 @@ class EditorObjectReadAccessTest {
             model.artMeshes.add(new ArtMesh(original.source));
             assertThrows(IllegalStateException.class, reader::get);
             model.artMeshes.remove(model.artMeshes.size() - 1);
-            model.artMeshes.set(0, new ArtMesh(new ArtMeshSource("ArtMeshFace", "Replacement", true, fixture.failures)));
+            model.artMeshes.set(
+                    0, new ArtMesh(new ArtMeshSource("ArtMeshFace", "Replacement", true, fixture.failures)));
             assertThrows(IllegalStateException.class, reader::get);
             model.artMeshes.set(0, original);
             var replaced = new ArtMesh(original.source);

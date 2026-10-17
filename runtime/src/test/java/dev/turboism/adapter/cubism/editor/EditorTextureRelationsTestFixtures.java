@@ -120,7 +120,8 @@ public final class EditorTextureRelationsTestFixtures {
         private final String modifiedTime;
         private final boolean replaced;
 
-        public Wrapper(final LayeredImage image, final String importTime, final String modifiedTime, final boolean replaced) {
+        public Wrapper(
+                final LayeredImage image, final String importTime, final String modifiedTime, final boolean replaced) {
             this.image = image;
             this.importTime = importTime;
             this.modifiedTime = modifiedTime;
@@ -515,5 +516,4 @@ public final class EditorTextureRelationsTestFixtures {
     }
 
     public static final class UnknownInput {}
-
 }

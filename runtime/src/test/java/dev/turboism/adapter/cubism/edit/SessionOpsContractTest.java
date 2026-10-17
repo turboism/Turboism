@@ -1022,7 +1022,6 @@ final class SessionOpsContractTest {
         return new EditParameterKeyCondition(Optional.of(new ParameterId("AngleZ")), Optional.of(0.5));
     }
 
-
     private static PartObjectOps.EditPart editPart(
             final Optional<PartId> newId, final Optional<String> name, final Optional<EditLabelColor> labelColor) {
         return new PartObjectOps.EditPart(

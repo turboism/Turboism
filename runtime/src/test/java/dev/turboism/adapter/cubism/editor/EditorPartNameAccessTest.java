@@ -1,19 +1,15 @@
 package dev.turboism.adapter.cubism.editor;
 
 import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.*;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorPartBasicSettingsSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartNameSelectorContract;
 import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.PartId;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
