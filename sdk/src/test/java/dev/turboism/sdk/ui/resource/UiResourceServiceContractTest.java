@@ -13,7 +13,7 @@ class UiResourceServiceContractTest {
     @Test
     void referencesAreClosedImmutableKeysNotNativeHandles() {
         assertEquals(
-                List.of("ART_MESH", "WARP_DEFORMER", "ROTATION_DEFORMER", "PART"),
+                List.of("ART_MESH", "WARP_DEFORMER", "ROTATION_DEFORMER", "PART", "LOCK", "LOCK_PLACEHOLDER"),
                 Arrays.stream(CubismIcon.values()).map(Enum::name).toList());
         assertTrue(UiIconRef.class.isRecord());
         assertEquals(1, UiIconRef.class.getRecordComponents().length);

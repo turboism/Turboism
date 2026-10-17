@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas-dalsoo
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: modeling
 tags: texture-atlas, packing, polygon, auto-layout
 turboismApi: "[0.1.0,0.2.0)"
@@ -14,7 +14,7 @@ interface: none
 
 # Dalsoo ポリゴンパッキングアルゴリズム
 
-> **Turboism 公式プラグイン** · **ステータス： 開発中**
+> **Turboism 公式プラグイン** · **ステータス： プレビュー**
 
 Cubism のテクスチャアトラスワークフローに、Cubism 5.4 の輪郭パッキング
 スタイルの不規則ポリゴン自動レイアウトアルゴリズムを追加します。カーネルは
@@ -34,7 +34,7 @@ MIT ライセンスの `whitegreen/Dalsoo-Bin-Packing`（コミット `bde2a3e`�
 | インターフェース | `none` |
 | ライセンス | MIT（カーネル移植） |
 
-## 機能
+## 機能概要
 
 - 既存の MaxRects-BSSF 矩形バックエンドに加えて `dalsoo` テクスチャ
   アトラスレイアウトアルゴリズムを登録します。矩形バックエンドは変更
@@ -128,13 +128,13 @@ Cubism 5.4 のテクスチャ圧縮プリセット（`PRESET_COMPRESSION`、
 `NONE`、自動スケール（許容誤差 `0.005`）、品質プリセット由来の試行上限、
 Abey カーネル、逐次計画。
 
-## ケーパビリティ
+## 機能
 
 | 宣言ケーパビリティ | ユーザーへの効果 |
 |---|---|
 | `cubism.texture-atlas.layout` | レビュー済みエディタサービスが利用可能な場合にポリゴンパッキングアルゴリズムを登録・適用します。 |
 
-## パーミッション
+## 権限
 
 | パーミッション | スコープ | 要求理由 |
 |---|---|---|
@@ -158,16 +158,19 @@ Abey カーネル、逐次計画。
 
 本プラグインはテレメトリを送信しません。
 
-## ステータスと制限
+## 状態と制限
 
-- **ステータス:** 開発中。
+- **ステータス:** プレビュー。
 - アクティブなテクスチャアトラスエディタセッションとレビュー済みの
   モデル読み書きサービスが必要です。
 - プランニングまたは適用の失敗は部分的なレイアウトを適用せず報告され
   ます。MaxRects-BSSF とネイティブアルゴリズムは引き続きフォールバック
   として利用可能です。
-- 3 つの対応バージョンでの実ホスト受け入れは未実施です。現時点では
-  オフラインベンチマークと単体/統合テストのみが実行されています。
+- Cubism 5.2.03、5.3.02、5.3.03 の実ホスト記録があります。54 回の
+  レイアウト行列には Dalsoo の 18 回を含み、全項目の配置、有限のページ内
+  出力、プラグインによる処理を確認しています。最適化後は 5.3.03 で
+  3 ケースを再測定しました。[実ホスト性能記録](../../validation/texture-atlas-current-page/HOST-PERF-MATRIX.md)を参照してください。
+  全対応ホストの全オプション、Undo/Redo、保存・再読込の検証を意味しません。
 
 ## トラブルシューティング
 

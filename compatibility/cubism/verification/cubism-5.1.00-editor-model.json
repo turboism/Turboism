@@ -12099,6 +12099,94 @@
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_row_layout",
+      "alias": "cubism.editor-model.parameter-operation.row-layout",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/palette/parameter/m",
+      "memberName": "b",
+      "descriptor": "()Lcom/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_row_children",
+      "alias": "cubism.editor-model.parameter-row-container.children",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/container/CContainer",
+      "memberName": "getChildren",
+      "descriptor": "()Ljava/util/List;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_1_03.editor_model.method.parameter_group_row_layout",
+      "alias": "cubism.editor-model.parameter-group-row.layout",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget",
+      "memberName": "getRowLayout",
+      "descriptor": "()Lcom/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "alias": "cubism.editor-model.parameter-single-row.slider",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget",
+      "memberName": "getSliderFloat",
+      "descriptor": "()Lcom/live2d/ui/control/CSlidableFloat;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC",
+      "mappingId": "cubism.mapping.v5_1_00.editor_model.method.parameter_single_row_slider"
+    },
+    {
+      "alias": "cubism.editor-model.parameter-single-row.paint",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget",
+      "memberName": "paintComp",
+      "descriptor": "Lcom/live2d/ui/control/CCustomPaintComponent;",
+      "requiredAccessFlags": 2,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC",
+      "mappingId": "cubism.mapping.v5_1_00.editor_model.field.parameter_single_row_paint"
+    },
+    {
+      "alias": "cubism.editor-model.parameter-double-row.slider",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
+      "memberName": "getSliderFloat",
+      "descriptor": "()Lcom/live2d/ui/control/CSlidableFloat;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC",
+      "mappingId": "cubism.mapping.v5_1_00.editor_model.method.parameter_double_row_slider"
+    },
+    {
+      "alias": "cubism.editor-model.parameter-double-row.paint",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
+      "memberName": "paintComp",
+      "descriptor": "Lcom/live2d/ui/control/CCustomPaintComponent;",
+      "requiredAccessFlags": 2,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC",
+      "mappingId": "cubism.mapping.v5_1_00.editor_model.field.parameter_double_row_paint"
+    },
+    {
+      "alias": "cubism.editor-model.parameter-double-row.secondary-slider",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
+      "memberName": "getSliderFloatSec",
+      "descriptor": "()Lcom/live2d/ui/control/CSlidableFloat;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC",
+      "mappingId": "cubism.mapping.v5_1_00.editor_model.method.parameter_double_row_secondary_slider"
     }
   ],
   "capabilityConditions": {

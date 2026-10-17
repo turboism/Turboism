@@ -173,7 +173,8 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
                 contribution.iconResourcePath(),
                 contribution.paletteId(),
                 contribution.anchor(),
-                contribution.order());
+                contribution.order(),
+                contribution.nativeIcon());
     }
 
     private synchronized PluginLocalization lockLocalizationForContribution() {

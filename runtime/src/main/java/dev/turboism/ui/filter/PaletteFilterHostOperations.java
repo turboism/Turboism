@@ -80,6 +80,22 @@ public class PaletteFilterHostOperations
     final Map<PaletteKind, List<PaletteToolbarHostOperations.ButtonContribution>> toolbarContributions =
             new ConcurrentHashMap<>();
     final EditorUiPluginResourceRegistry resources;
+    volatile java.util.function.BiFunction<dev.turboism.sdk.ui.resource.UiIconRef, Boolean, Optional<javax.swing.Icon>>
+            nativeIconResolver = (reference, disabled) -> Optional.empty();
+
+    /** Binds cached native icons for the current verified host connection. */
+    public void bindNativeIconResolver(
+            final java.util.function.BiFunction<
+                            dev.turboism.sdk.ui.resource.UiIconRef, Boolean, Optional<javax.swing.Icon>>
+                    resolver) {
+        nativeIconResolver = Objects.requireNonNull(resolver, "resolver");
+    }
+
+    /** Releases the previous connection's native icon owner. */
+    public void clearNativeIconResolver() {
+        nativeIconResolver = (reference, disabled) -> Optional.empty();
+    }
+
     private final PaletteControllerResolver controllerResolver;
     final Map<PaletteKind, String> lastAttachStatus = new ConcurrentHashMap<>();
     volatile SceneFilterSink sceneFilterSink;

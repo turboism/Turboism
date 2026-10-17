@@ -59,6 +59,16 @@ public final class ParameterRowMethodTransformer implements ClassFileTransformer
                                     visitVarInsn(Opcodes.ALOAD, 0);
                                     visitMethodInsn(
                                             Opcodes.INVOKESTATIC, BRIDGE, callback, "(Ljava/lang/Object;)V", false);
+                                    if (callback.equals("afterParameterRow") && descriptor.equals("(Z)V")) {
+                                        visitVarInsn(Opcodes.ALOAD, 0);
+                                        visitVarInsn(Opcodes.ILOAD, 1);
+                                        visitMethodInsn(
+                                                Opcodes.INVOKESTATIC,
+                                                BRIDGE,
+                                                "afterParameterSelection",
+                                                "(Ljava/lang/Object;Z)V",
+                                                false);
+                                    }
                                 }
                                 super.visitInsn(opcode);
                             }
