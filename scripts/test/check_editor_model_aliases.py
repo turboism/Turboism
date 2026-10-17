@@ -49,6 +49,14 @@ REVIEWED_UNCONSUMED_ALIASES = frozenset({
     "cubism.editor-model.parameter-group.guid",
     "cubism.editor-model.part-source.remove-child",
     "cubism.editor-model.part.id",
+    # Parameter-lock row selectors (single/double-row sliders and paint): reviewed
+    # into the records for the parameter-lock plugin's draft packs; the runtime
+    # adapter does not invoke them yet, so they stay pinned rather than admitted.
+    "cubism.editor-model.parameter-single-row.slider",
+    "cubism.editor-model.parameter-single-row.paint",
+    "cubism.editor-model.parameter-double-row.slider",
+    "cubism.editor-model.parameter-double-row.paint",
+    "cubism.editor-model.parameter-double-row.secondary-slider",
 })
 
 
