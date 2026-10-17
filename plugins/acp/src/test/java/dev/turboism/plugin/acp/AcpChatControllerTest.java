@@ -1,31 +1,25 @@
 package dev.turboism.plugin.acp;
 
+import static dev.turboism.plugin.acp.AcpChatControllerTestFixtures.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.sdk.config.ConfigKey;
-import dev.turboism.sdk.config.ConfigMigration;
-import dev.turboism.sdk.config.ConfigReadResult;
-import dev.turboism.sdk.config.ConfigSchema;
-import dev.turboism.sdk.config.ConfigWriteResult;
-import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.mcp.McpConnectionService;
 import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 final class AcpChatControllerTest {
 
@@ -58,17 +52,27 @@ final class AcpChatControllerTest {
         assertTrue(fixture.logger.warnings.stream().anyMatch(message -> message.contains("could not be persisted")));
     }
 
-    @Test
-    void laterSettingsWriteFailureRollsBackEarlierValues() throws Exception {
+    @ParameterizedTest(name = "settings write failure on {0} ({1}) restores previous values")
+    @CsvSource({
+        "initialPrompt, fail_only",
+        "agentId, mutate_then_fail",
+        "customCommand, mutate_then_fail",
+        "initialPrompt, mutate_then_fail",
+        "acpSessionId, mutate_then_fail"
+    })
+    void settingsWriteFailureRestoresPreviousValues(String failedKey, String mode) throws Exception {
         final Fixture fixture = new Fixture();
         fixture.config.values.put("agentId", "codex");
         fixture.config.values.put("customCommand", "/old/agent");
         fixture.config.values.put("initialPrompt", "old instructions");
-        fixture.config.failKey = "initialPrompt";
+        if ("fail_only".equals(mode)) {
+            fixture.config.failKey = failedKey;
+        } else {
+            fixture.config.mutateThenFailKey = failedKey;
+        }
         try (AcpChatController controller = fixture.controller()) {
             controller.connect("custom", "/new/agent", "new instructions");
             fixture.view.awaitFailure("status.settings-save-failed");
-            // Rollback runs on the serial lane; wait for it before close() can drain the lane.
             awaitConfigValue(fixture, "agentId", "codex");
             awaitConfigValue(fixture, "customCommand", "/old/agent");
             awaitConfigValue(fixture, "initialPrompt", "old instructions");
@@ -77,29 +81,6 @@ final class AcpChatControllerTest {
         assertEquals("codex", fixture.config.value("agentId"));
         assertEquals("/old/agent", fixture.config.value("customCommand"));
         assertEquals("old instructions", fixture.config.value("initialPrompt"));
-    }
-
-    @Test
-    void mutatingSettingsWriteFailureRestoresEveryAttemptedValue() throws Exception {
-        for (String failedKey : List.of("agentId", "customCommand", "initialPrompt", "acpSessionId")) {
-            final Fixture fixture = new Fixture();
-            fixture.config.values.put("agentId", "codex");
-            fixture.config.values.put("customCommand", "/old/agent");
-            fixture.config.values.put("initialPrompt", "old instructions");
-            fixture.config.mutateThenFailKey = failedKey;
-            try (AcpChatController controller = fixture.controller()) {
-                controller.connect("custom", "/new/agent", "new instructions");
-                fixture.view.awaitFailure("status.settings-save-failed");
-                // Rollback runs on the serial lane; wait for it before close() can drain the lane.
-                awaitConfigValue(fixture, "agentId", "codex");
-                awaitConfigValue(fixture, "customCommand", "/old/agent");
-                awaitConfigValue(fixture, "initialPrompt", "old instructions");
-            }
-
-            assertEquals("codex", fixture.config.value("agentId"));
-            assertEquals("/old/agent", fixture.config.value("customCommand"));
-            assertEquals("old instructions", fixture.config.value("initialPrompt"));
-        }
     }
 
     @Test
@@ -909,14 +890,15 @@ final class AcpChatControllerTest {
         }
     }
 
-    @Test
-    void pendingLoadAcceptsExactly64EventsWithoutOverflow() throws Exception {
+    @ParameterizedTest(name = "pending load handles {0} events (overflow: {1})")
+    @CsvSource({"64, false", "70, true"})
+    void pendingLoadEventCountBoundary(int eventCount, boolean expectOverflow) throws Exception {
         final Fixture fixture = new Fixture();
         try (AcpClient source = inactiveClient();
                 AcpChatController controller = fixture.controller()) {
             set(controller, "client", source);
             final Object load = beginPendingLoad(controller, source, "bounded-session");
-            for (int index = 0; index < 64; index++) {
+            for (int index = 0; index < eventCount; index++) {
                 controller.agentText(source, "bounded-session", "event-" + index);
             }
 
@@ -929,87 +911,60 @@ final class AcpChatControllerTest {
 
             assertEquals(65, fixture.view.timeline.size());
             assertEquals("agent:event-63", fixture.view.timeline.get(64));
-            assertFalse(fixture.logger.warnings.stream()
-                    .anyMatch(message -> message.contains("session-load replay events")));
-        }
-    }
-
-    @Test
-    void pendingLoadLatchesAt65thEventAndDropsAllLaterEvents() throws Exception {
-        final Fixture fixture = new Fixture();
-        try (AcpClient source = inactiveClient();
-                AcpChatController controller = fixture.controller()) {
-            set(controller, "client", source);
-            final Object load = beginPendingLoad(controller, source, "bounded-session");
-            for (int index = 0; index < 70; index++) {
-                controller.agentText(source, "bounded-session", "event-" + index);
+            if (!expectOverflow) {
+                assertFalse(fixture.logger.warnings.stream()
+                        .anyMatch(message -> message.contains("session-load replay events")));
+            } else {
+                assertEquals(
+                        1L,
+                        fixture.logger.warnings.stream()
+                                .filter(message -> message.contains("session-load replay events"))
+                                .count());
             }
-
-            assertTrue(completePendingLoad(
-                    controller,
-                    load,
-                    new AcpSession("bounded-session", List.of()),
-                    () -> fixture.view.record("reset")));
-            flushUi();
-
-            assertEquals(65, fixture.view.timeline.size());
-            assertEquals("agent:event-63", fixture.view.timeline.get(64));
-            assertEquals(
-                    1L,
-                    fixture.logger.warnings.stream()
-                            .filter(message -> message.contains("session-load replay events"))
-                            .count());
         }
     }
 
-    @Test
-    void pendingLoadAcceptsExactlyOneMiBUtf8AcrossAllStringFields() throws Exception {
+    @ParameterizedTest(name = "pending load text boundary (exceedsLimit: {0})")
+    @ValueSource(booleans = {false, true})
+    void pendingLoadTextPayloadBoundary(boolean exceedsLimit) throws Exception {
         final Fixture fixture = new Fixture();
         try (AcpClient source = inactiveClient();
                 AcpChatController controller = fixture.controller()) {
             set(controller, "client", source);
             final Object load = beginPendingLoad(controller, source, "bounded-session");
-            final String content = "é".repeat(((int) AcpChatController.MAX_PENDING_LOAD_TEXT_BYTES - 2) / 2);
 
-            controller.toolCallUpdate(source, "bounded-session", "i", "s", content);
-            assertTrue(completePendingLoad(
-                    controller,
-                    load,
-                    new AcpSession("bounded-session", List.of()),
-                    () -> fixture.view.record("reset")));
-            flushUi();
+            if (!exceedsLimit) {
+                final String content = "é".repeat(((int) AcpChatController.MAX_PENDING_LOAD_TEXT_BYTES - 2) / 2);
+                controller.toolCallUpdate(source, "bounded-session", "i", "s", content);
+                assertTrue(completePendingLoad(
+                        controller,
+                        load,
+                        new AcpSession("bounded-session", List.of()),
+                        () -> fixture.view.record("reset")));
+                flushUi();
 
-            assertEquals(List.of("reset", "update:i:s:" + content), fixture.view.timeline);
-            assertFalse(fixture.logger.warnings.stream()
-                    .anyMatch(message -> message.contains("session-load replay events")));
-        }
-    }
+                assertEquals(List.of("reset", "update:i:s:" + content), fixture.view.timeline);
+                assertFalse(fixture.logger.warnings.stream()
+                        .anyMatch(message -> message.contains("session-load replay events")));
+            } else {
+                final String exact = "x".repeat((int) AcpChatController.MAX_PENDING_LOAD_TEXT_BYTES);
+                controller.agentText(source, "bounded-session", exact);
+                controller.agentText(source, "bounded-session", "x");
+                controller.agentText(source, "bounded-session", "later");
+                assertTrue(completePendingLoad(
+                        controller,
+                        load,
+                        new AcpSession("bounded-session", List.of()),
+                        () -> fixture.view.record("reset")));
+                flushUi();
 
-    @Test
-    void pendingLoadLatchesOneByteOverTextLimitAndDropsLaterEvents() throws Exception {
-        final Fixture fixture = new Fixture();
-        try (AcpClient source = inactiveClient();
-                AcpChatController controller = fixture.controller()) {
-            set(controller, "client", source);
-            final Object load = beginPendingLoad(controller, source, "bounded-session");
-            final String exact = "x".repeat((int) AcpChatController.MAX_PENDING_LOAD_TEXT_BYTES);
-
-            controller.agentText(source, "bounded-session", exact);
-            controller.agentText(source, "bounded-session", "x");
-            controller.agentText(source, "bounded-session", "later");
-            assertTrue(completePendingLoad(
-                    controller,
-                    load,
-                    new AcpSession("bounded-session", List.of()),
-                    () -> fixture.view.record("reset")));
-            flushUi();
-
-            assertEquals(List.of("reset", "agent:" + exact), fixture.view.timeline);
-            assertEquals(
-                    1L,
-                    fixture.logger.warnings.stream()
-                            .filter(message -> message.contains("session-load replay events"))
-                            .count());
+                assertEquals(List.of("reset", "agent:" + exact), fixture.view.timeline);
+                assertEquals(
+                        1L,
+                        fixture.logger.warnings.stream()
+                                .filter(message -> message.contains("session-load replay events"))
+                                .count());
+            }
         }
     }
 
@@ -1227,10 +1182,11 @@ final class AcpChatControllerTest {
         assertEquals(2, launches.get());
     }
 
-    @Test
-    void stdioAttachedSessionReconnectsOnMcpEndpointDrift() throws Exception {
+    @ParameterizedTest(name = "endpoint drift with stdioAttached={0}")
+    @ValueSource(booleans = {true, false})
+    void mcpEndpointDriftAttachmentBehavior(boolean stdioAttached) throws Exception {
         final Fixture fixture = new Fixture();
-        fixture.mcpConnection = Optional.of(stdioMcpConnection());
+        fixture.mcpConnection = Optional.of(stdioAttached ? stdioMcpConnection() : testMcpConnection());
         final java.util.concurrent.atomic.AtomicInteger launches = new java.util.concurrent.atomic.AtomicInteger();
         try (AcpClient source = inactiveClient();
                 AcpChatController controller = fixture.controller((configuration, listener) -> {
@@ -1248,52 +1204,21 @@ final class AcpChatControllerTest {
                     new AcpSession(
                             "sess-1",
                             List.of(),
-                            // No HTTP MCP capability: this session attaches through the
-                            // stdio bridge alone, so endpoint drift must still reconnect.
                             new AcpClient.AcpCapabilities(true, false, false, false, false, false, false)));
-            set(controller, "mcpConnection", stdioMcpConnection());
+            set(controller, "mcpConnection", stdioAttached ? stdioMcpConnection() : testMcpConnection());
 
             fixture.pushMcpConnection(Optional.of(new dev.turboism.sdk.mcp.McpHttpConnection(
                     java.net.URI.create("http://127.0.0.1:49998/mcp"), "2025-06-18", stdioLaunch())));
 
-            fixture.view.awaitFailure("status.mcp-endpoint-changed");
-            awaitLaunches(controller, launches, 2);
-            assertEquals(2, launches.get());
-        }
-    }
-
-    @Test
-    void sessionWithoutMcpAttachmentDoesNotReconnectOnEndpointDrift() throws Exception {
-        final Fixture fixture = new Fixture();
-        fixture.mcpConnection = Optional.of(testMcpConnection());
-        final java.util.concurrent.atomic.AtomicInteger launches = new java.util.concurrent.atomic.AtomicInteger();
-        try (AcpClient source = inactiveClient();
-                AcpChatController controller = fixture.controller((configuration, listener) -> {
-                    launches.incrementAndGet();
-                    throw new java.io.IOException("no agent in test");
-                })) {
-            controller.connect("custom", temporaryExecutable().toString(), "");
-            fixture.view.awaitFailure("status.executable-start-failed");
-            assertEquals(1, launches.get());
-
-            set(controller, "client", source);
-            set(
-                    controller,
-                    "session",
-                    new AcpSession(
-                            "sess-1",
-                            List.of(),
-                            // No stdio launch on the bound connection and no HTTP MCP
-                            // capability: this session was never MCP-attached.
-                            new AcpClient.AcpCapabilities(true, false, false, false, false, false, false)));
-            set(controller, "mcpConnection", testMcpConnection());
-
-            fixture.pushMcpConnection(Optional.of(new dev.turboism.sdk.mcp.McpHttpConnection(
-                    java.net.URI.create("http://127.0.0.1:49998/mcp"), "2025-06-18", stdioLaunch())));
-
-            awaitSerial(controller);
-            assertEquals(1, launches.get());
-            assertFalse(fixture.view.failures.contains("status.mcp-endpoint-changed"));
+            if (stdioAttached) {
+                fixture.view.awaitFailure("status.mcp-endpoint-changed");
+                awaitLaunches(controller, launches, 2);
+                assertEquals(2, launches.get());
+            } else {
+                awaitSerial(controller);
+                assertEquals(1, launches.get());
+                assertFalse(fixture.view.failures.contains("status.mcp-endpoint-changed"));
+            }
         }
     }
 
@@ -1619,624 +1544,6 @@ final class AcpChatControllerTest {
                 Thread.sleep(1L);
             }
             assertTrue(condition.test(), "controller did not reach the expected state");
-        }
-    }
-
-    @FunctionalInterface
-    private interface CheckedCondition {
-        boolean test() throws Exception;
-    }
-
-    private static final class RecordingView implements AcpChatController.View {
-        private final List<String> failures = new java.util.concurrent.CopyOnWriteArrayList<>();
-        private final List<String> userMessages = new java.util.concurrent.CopyOnWriteArrayList<>();
-        private final List<String> agentMessages = new java.util.concurrent.CopyOnWriteArrayList<>();
-        private final List<String> thinkingMessages = new java.util.concurrent.CopyOnWriteArrayList<>();
-        private final List<List<String>> toolCalls = new java.util.concurrent.CopyOnWriteArrayList<>();
-        private final List<String> configUpdatingIds = new java.util.concurrent.CopyOnWriteArrayList<>();
-        private final java.util.concurrent.atomic.AtomicReference<String> configFailureId =
-                new java.util.concurrent.atomic.AtomicReference<>();
-        private final java.util.concurrent.atomic.AtomicReference<List<AcpConfigOption>> configFailureOptions =
-                new java.util.concurrent.atomic.AtomicReference<>();
-        private final java.util.concurrent.atomic.AtomicBoolean prompting =
-                new java.util.concurrent.atomic.AtomicBoolean();
-        private final List<String> timeline = new java.util.concurrent.CopyOnWriteArrayList<>();
-        private final java.util.concurrent.atomic.AtomicInteger permissionRequests =
-                new java.util.concurrent.atomic.AtomicInteger();
-        private volatile java.util.concurrent.CountDownLatch permissionEntered;
-        private volatile java.util.concurrent.CountDownLatch releasePermission;
-        private volatile AcpListener.PermissionDecision permissionDecision = AcpListener.PermissionDecision.CANCELLED;
-        private volatile AcpClient.McpAttachment lastMcpAttachment;
-
-        private void record(final String event) {
-            timeline.add(event);
-        }
-
-        @Override
-        public void showConnecting(final String agentLabel) {}
-
-        @Override
-        public void showConnected(
-                final AcpClient.AcpAgentInfo agentInfo,
-                final List<AcpConfigOption> options,
-                final boolean durableSessionsAvailable,
-                final AcpClient.McpAttachment mcpAttachment) {
-            lastMcpAttachment = mcpAttachment;
-            record("connected");
-        }
-
-        @Override
-        public void showAuthRequired(final List<AcpAuthMethod> methods) {
-            record("auth-required");
-        }
-
-        @Override
-        public void showConfigOptions(final List<AcpConfigOption> options) {
-            record("config");
-        }
-
-        @Override
-        public void showConfigUpdating(final String optionId) {
-            configUpdatingIds.add(optionId);
-        }
-
-        @Override
-        public void showConfigFailure(final String optionId, final List<AcpConfigOption> confirmedOptions) {
-            configFailureId.set(optionId);
-            configFailureOptions.set(List.copyOf(confirmedOptions));
-        }
-
-        @Override
-        public void showSessions(
-                final List<AcpSessionSummary> sessions,
-                final String activeSessionId,
-                final boolean durableSessionsAvailable) {}
-
-        @Override
-        public void clearTranscript() {
-            record("clear");
-        }
-
-        @Override
-        public void showPrompting() {
-            prompting.set(true);
-        }
-
-        @Override
-        public void showPromptComplete(final String stopReason) {}
-
-        @Override
-        public void showFailure(final String localizationKey) {
-            failures.add(localizationKey);
-        }
-
-        @Override
-        public void showSessionFailure(final String localizationKey) {
-            failures.add(localizationKey);
-        }
-
-        @Override
-        public void showSettingsSaved() {}
-
-        @Override
-        public void appendUser(final String text) {
-            userMessages.add(text);
-        }
-
-        @Override
-        public void appendAgent(final String text) {
-            agentMessages.add(text);
-            record("agent:" + text);
-        }
-
-        @Override
-        public void appendThinking(final String text) {
-            thinkingMessages.add(text);
-            record("thought:" + text);
-        }
-
-        @Override
-        public void appendTool(final String toolCallId, final String title, final String kind, final String status) {
-            toolCalls.add(List.of(toolCallId, title, kind, status));
-            record("tool:" + toolCallId + ":" + title + ":" + kind + ":" + status);
-        }
-
-        @Override
-        public void updateTool(final String toolCallId, final String status, final String content) {
-            record("update:" + toolCallId + ":" + status + ":" + content);
-        }
-
-        @Override
-        public AcpListener.PermissionDecision requestPermission(final AcpListener.PermissionRequest request) {
-            permissionRequests.incrementAndGet();
-            final java.util.concurrent.CountDownLatch entered = permissionEntered;
-            if (entered != null) entered.countDown();
-            final java.util.concurrent.CountDownLatch release = releasePermission;
-            if (release != null) {
-                try {
-                    release.await();
-                } catch (InterruptedException interrupted) {
-                    Thread.currentThread().interrupt();
-                    return AcpListener.PermissionDecision.CANCELLED;
-                }
-            }
-            return permissionDecision;
-        }
-
-        private void awaitFailure(final String expected) throws InterruptedException {
-            for (int attempt = 0; !failures.contains(expected) && attempt < 2000; attempt++) {
-                Thread.sleep(1L);
-            }
-            assertTrue(failures.contains(expected), "missing controller failure " + expected + " in " + failures);
-        }
-
-        private void awaitPrompting() throws InterruptedException {
-            for (int attempt = 0; !prompting.get() && attempt < 2000; attempt++) {
-                Thread.sleep(1L);
-            }
-            assertTrue(prompting.get(), "controller did not enter prompting state");
-        }
-
-        private void awaitAgentMessages() throws InterruptedException {
-            for (int attempt = 0; agentMessages.isEmpty() && attempt < 2000; attempt++) {
-                Thread.sleep(1L);
-            }
-            assertFalse(agentMessages.isEmpty(), "controller did not drain ACP UI updates");
-        }
-
-        private void awaitThinking() throws InterruptedException {
-            for (int attempt = 0; thinkingMessages.isEmpty() && attempt < 2000; attempt++) {
-                Thread.sleep(1L);
-            }
-            assertFalse(thinkingMessages.isEmpty(), "controller did not forward ACP thinking");
-        }
-
-        private void awaitToolCall() throws InterruptedException {
-            for (int attempt = 0; toolCalls.isEmpty() && attempt < 2000; attempt++) {
-                Thread.sleep(1L);
-            }
-            assertFalse(toolCalls.isEmpty(), "controller did not forward ACP tool identity");
-        }
-
-        private void awaitConfigFailure() throws InterruptedException {
-            for (int attempt = 0; configFailureId.get() == null && attempt < 2000; attempt++) {
-                Thread.sleep(1L);
-            }
-            assertTrue(configFailureId.get() != null, "controller did not restore config state");
-        }
-
-        private void awaitTimeline(final String event) throws InterruptedException {
-            for (int attempt = 0; !timeline.contains(event) && attempt < 2000; attempt++) {
-                Thread.sleep(1L);
-            }
-            assertTrue(timeline.contains(event), "controller did not deliver " + event);
-        }
-    }
-
-    private static final class CapturingLogger implements PluginLogger {
-        private final List<String> infos = new java.util.concurrent.CopyOnWriteArrayList<>();
-
-        private void awaitInfo(final String message) throws InterruptedException {
-            final long deadline =
-                    System.nanoTime() + java.time.Duration.ofSeconds(10).toNanos();
-            while (!infos.contains(message) && System.nanoTime() < deadline) {
-                Thread.sleep(1L);
-            }
-            assertTrue(infos.contains(message), "controller did not log " + message + "; infos=" + infos);
-        }
-
-        private final List<String> warnings = new java.util.concurrent.CopyOnWriteArrayList<>();
-        private final List<Throwable> errors = new java.util.concurrent.CopyOnWriteArrayList<>();
-
-        @Override
-        public void debug(final String message) {}
-
-        @Override
-        public void info(final String message) {
-            infos.add(message);
-        }
-
-        @Override
-        public void warn(final String message) {
-            warnings.add(message);
-        }
-
-        @Override
-        public void error(final String message) {
-            errors.add(new AssertionError(message));
-        }
-
-        @Override
-        public void error(final String message, final Throwable throwable) {
-            errors.add(throwable);
-        }
-
-        private boolean hasErrors() {
-            return !errors.isEmpty();
-        }
-    }
-
-    private static final class MemoryConfig implements PluginConfigRegistry {
-        private final Map<String, String> values = new LinkedHashMap<>();
-        private boolean failWrites;
-        private String failKey;
-        private String mutateThenFailKey;
-
-        private String value(final String key) {
-            return values.get(key);
-        }
-
-        @Override
-        public Registration readScope(final String relativePath) {
-            return () -> {};
-        }
-
-        @Override
-        public Registration writeScope(final String relativePath) {
-            return () -> {};
-        }
-
-        @Override
-        public Optional<String> readString(final String relativePath, final String key) {
-            return Optional.ofNullable(values.get(key));
-        }
-
-        @Override
-        public void writeString(final String relativePath, final String key, final String value)
-                throws dev.turboism.sdk.config.PluginConfigException {
-            if (failWrites || key.equals(failKey)) {
-                failKey = null;
-                throw new dev.turboism.sdk.config.PluginConfigException("test write failure");
-            }
-            values.put(key, value);
-            if (key.equals(mutateThenFailKey)) {
-                mutateThenFailKey = null;
-                throw new dev.turboism.sdk.config.PluginConfigException("test post-mutation write failure");
-            }
-        }
-
-        @Override
-        public CompletionStage<Void> registerSchema(final ConfigSchema schema, final List<ConfigMigration> migrations) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        @Override
-        public <T> CompletionStage<ConfigReadResult<T>> read(final ConfigKey<T> key) {
-            throw new UnsupportedOperationException("not used");
-        }
-
-        @Override
-        public <T> CompletionStage<ConfigWriteResult> write(
-                final ConfigKey<T> key, final T value, final long expectedRevision) {
-            throw new UnsupportedOperationException("not used");
-        }
-    }
-
-    private static final class BlockingLoadTransport implements AcpTransport {
-        private final java.io.PipedInputStream clientStdout = new java.io.PipedInputStream();
-        private final java.io.PipedOutputStream serverStdout;
-        private final java.io.PipedInputStream stderr = new java.io.PipedInputStream();
-        private final java.io.PipedOutputStream serverStderr;
-        private final java.util.concurrent.CountDownLatch loadStarted = new java.util.concurrent.CountDownLatch(1);
-        private final java.util.concurrent.CountDownLatch releaseLoad = new java.util.concurrent.CountDownLatch(1);
-        private volatile boolean alive = true;
-
-        private BlockingLoadTransport() throws java.io.IOException {
-            serverStdout = new java.io.PipedOutputStream(clientStdout);
-            serverStderr = new java.io.PipedOutputStream(stderr);
-        }
-
-        @Override
-        public java.io.InputStream stdout() {
-            return clientStdout;
-        }
-
-        @Override
-        public java.io.InputStream stderr() {
-            return stderr;
-        }
-
-        @Override
-        public java.io.OutputStream stdin() {
-            return new java.io.OutputStream() {
-                private final java.io.ByteArrayOutputStream line = new java.io.ByteArrayOutputStream();
-
-                @Override
-                public void write(final int value) throws java.io.IOException {
-                    if (value == '\n') {
-                        handle(line.toString(java.nio.charset.StandardCharsets.UTF_8));
-                        line.reset();
-                    } else {
-                        line.write(value);
-                    }
-                }
-            };
-        }
-
-        @Override
-        public boolean isAlive() {
-            return alive;
-        }
-
-        @Override
-        public void terminate(final Duration grace) {
-            close();
-        }
-
-        @Override
-        public void close() {
-            alive = false;
-            releaseLoad.countDown();
-            try {
-                serverStdout.close();
-            } catch (java.io.IOException ignored) {
-            }
-            try {
-                serverStderr.close();
-            } catch (java.io.IOException ignored) {
-            }
-        }
-
-        private void handle(final String json) throws java.io.IOException {
-            final Map<String, Object> request = object(
-                    dev.turboism.sdk.json.Json.parseObject(json.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-            if (!"session/load".equals(request.get("method"))) return;
-            loadStarted.countDown();
-            try {
-                releaseLoad.await();
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-            }
-        }
-    }
-
-    private static final class ReplayLoadTransport implements AcpTransport {
-        private final java.io.PipedInputStream clientStdout = new java.io.PipedInputStream();
-        private final java.io.PipedOutputStream serverStdout;
-        private final java.io.PipedInputStream stderr = new java.io.PipedInputStream();
-        private final java.io.PipedOutputStream serverStderr;
-        private final String sessionId;
-        private volatile boolean alive = true;
-
-        private ReplayLoadTransport(final String sessionId) throws java.io.IOException {
-            this.sessionId = sessionId;
-            serverStdout = new java.io.PipedOutputStream(clientStdout);
-            serverStderr = new java.io.PipedOutputStream(stderr);
-        }
-
-        @Override
-        public java.io.InputStream stdout() {
-            return clientStdout;
-        }
-
-        @Override
-        public java.io.InputStream stderr() {
-            return stderr;
-        }
-
-        @Override
-        public java.io.OutputStream stdin() {
-            return new java.io.OutputStream() {
-                private final java.io.ByteArrayOutputStream line = new java.io.ByteArrayOutputStream();
-
-                @Override
-                public void write(final int value) throws java.io.IOException {
-                    if (value == '\n') {
-                        handle(line.toString(java.nio.charset.StandardCharsets.UTF_8));
-                        line.reset();
-                    } else {
-                        line.write(value);
-                    }
-                }
-            };
-        }
-
-        @Override
-        public boolean isAlive() {
-            return alive;
-        }
-
-        @Override
-        public void terminate(final Duration grace) {
-            close();
-        }
-
-        @Override
-        public void close() {
-            alive = false;
-            try {
-                serverStdout.close();
-            } catch (java.io.IOException ignored) {
-            }
-            try {
-                serverStderr.close();
-            } catch (java.io.IOException ignored) {
-            }
-        }
-
-        private void handle(final String json) throws java.io.IOException {
-            final Map<String, Object> request = object(
-                    dev.turboism.sdk.json.Json.parseObject(json.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-            if (!"session/load".equals(request.get("method"))) return;
-            final Map<String, Object> update = new LinkedHashMap<>();
-            update.put("jsonrpc", "2.0");
-            update.put("method", "session/update");
-            update.put(
-                    "params",
-                    Map.of(
-                            "sessionId",
-                            sessionId,
-                            "update",
-                            Map.of(
-                                    "sessionUpdate",
-                                    "agent_message_chunk",
-                                    "content",
-                                    Map.of("type", "text", "text", "restored"))));
-            serverStdout.write((dev.turboism.sdk.json.Json.stringify(update) + "\n")
-                    .getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            final Map<String, Object> response = new LinkedHashMap<>();
-            response.put("jsonrpc", "2.0");
-            response.put("id", request.get("id"));
-            response.put("result", Map.of("configOptions", List.of()));
-            serverStdout.write((dev.turboism.sdk.json.Json.stringify(response) + "\n")
-                    .getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            serverStdout.flush();
-        }
-    }
-
-    private static final class PermissionFailingLoadTransport implements AcpTransport {
-        private final java.io.PipedInputStream clientStdout = new java.io.PipedInputStream();
-        private final java.io.PipedOutputStream serverStdout;
-        private final java.io.PipedInputStream stderr = new java.io.PipedInputStream();
-        private final java.io.PipedOutputStream serverStderr;
-        private final java.util.concurrent.atomic.AtomicReference<AcpListener.PermissionDecision> decision =
-                new java.util.concurrent.atomic.AtomicReference<>();
-        private volatile AcpClient source;
-        private volatile AcpListener listener;
-        private volatile boolean alive = true;
-
-        private PermissionFailingLoadTransport() throws java.io.IOException {
-            serverStdout = new java.io.PipedOutputStream(clientStdout);
-            serverStderr = new java.io.PipedOutputStream(stderr);
-        }
-
-        @Override
-        public java.io.InputStream stdout() {
-            return clientStdout;
-        }
-
-        @Override
-        public java.io.InputStream stderr() {
-            return stderr;
-        }
-
-        @Override
-        public java.io.OutputStream stdin() {
-            return new java.io.OutputStream() {
-                private final java.io.ByteArrayOutputStream line = new java.io.ByteArrayOutputStream();
-
-                @Override
-                public void write(final int value) throws java.io.IOException {
-                    if (value == '\n') {
-                        handle(line.toString(java.nio.charset.StandardCharsets.UTF_8));
-                        line.reset();
-                    } else {
-                        line.write(value);
-                    }
-                }
-            };
-        }
-
-        @Override
-        public boolean isAlive() {
-            return alive;
-        }
-
-        @Override
-        public void terminate(final Duration grace) {
-            close();
-        }
-
-        @Override
-        public void close() {
-            alive = false;
-            try {
-                serverStdout.close();
-            } catch (java.io.IOException ignored) {
-            }
-            try {
-                serverStderr.close();
-            } catch (java.io.IOException ignored) {
-            }
-        }
-
-        private void handle(final String json) throws java.io.IOException {
-            final Map<String, Object> request = object(
-                    dev.turboism.sdk.json.Json.parseObject(json.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-            if (!"session/load".equals(request.get("method"))) return;
-            final Map<String, Object> params = object(request.get("params"));
-            final AcpListener.PermissionDecision permission = listener.permission(
-                    source,
-                    (String) params.get("sessionId"),
-                    new AcpListener.PermissionRequest(
-                            "Resume",
-                            "edit",
-                            "call-1",
-                            "{}",
-                            new AcpClient.PermissionOptionSet("allow_once", "allow_always", "reject_once")));
-            decision.set(permission);
-            final Map<String, Object> response = new LinkedHashMap<>();
-            response.put("jsonrpc", "2.0");
-            response.put("id", request.get("id"));
-            response.put("error", Map.of("code", -32000L, "message", "permission cancelled"));
-            serverStdout.write((dev.turboism.sdk.json.Json.stringify(response) + "\n")
-                    .getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            serverStdout.flush();
-        }
-    }
-
-    private static final class CapturingTransport implements AcpTransport {
-        private final java.io.PipedInputStream clientStdout = new java.io.PipedInputStream();
-        private final java.io.PipedOutputStream serverStdout;
-        private final java.io.ByteArrayOutputStream stdin = new java.io.ByteArrayOutputStream();
-        private final java.io.PipedInputStream stderr = new java.io.PipedInputStream();
-        private final java.io.PipedOutputStream serverStderr;
-
-        private CapturingTransport() throws java.io.IOException {
-            serverStdout = new java.io.PipedOutputStream(clientStdout);
-            serverStderr = new java.io.PipedOutputStream(stderr);
-        }
-
-        private boolean hasRequest() {
-            return stdin.size() > 0;
-        }
-
-        private Map<String, Object> request() throws Exception {
-            for (int attempt = 0; stdin.size() == 0 && attempt < 2000; attempt++) {
-                Thread.sleep(1L);
-            }
-            final String line =
-                    stdin.toString(java.nio.charset.StandardCharsets.UTF_8).strip();
-            assertFalse(line.isEmpty(), "ACP request was not written");
-            return object(
-                    dev.turboism.sdk.json.Json.parseObject(line.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-        }
-
-        @Override
-        public java.io.InputStream stdout() {
-            return clientStdout;
-        }
-
-        @Override
-        public java.io.InputStream stderr() {
-            return stderr;
-        }
-
-        @Override
-        public java.io.OutputStream stdin() {
-            return stdin;
-        }
-
-        @Override
-        public boolean isAlive() {
-            return true;
-        }
-
-        @Override
-        public void terminate(final Duration grace) {
-            try {
-                serverStdout.close();
-            } catch (java.io.IOException ignored) {
-            }
-            try {
-                serverStderr.close();
-            } catch (java.io.IOException ignored) {
-            }
-        }
-
-        @Override
-        public void close() {
-            terminate(Duration.ZERO);
         }
     }
 }
