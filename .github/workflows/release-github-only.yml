@@ -72,8 +72,17 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Restore remote-hygiene boundary cache
+        # Same boundary cache as the candidate build; tips are content-addressed
+        # SHAs, so reusing a newer verified boundary for an older candidate SHA
+        # only skips commits already covered by a past clean scan.
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: ${{ runner.temp }}/remote-hygiene-boundary.json
+          key: remote-hygiene-boundary-v1-${{ hashFiles('release-tools/scripts/check_remote_hygiene.py') }}
+
       - name: Check complete public history hygiene
-        run: python3 release-tools/scripts/check_remote_hygiene.py -C release-source --all
+        run: python3 release-tools/scripts/check_remote_hygiene.py -C release-source --all --boundary-file "$RUNNER_TEMP/remote-hygiene-boundary.json"
 
       - name: Download verified candidate payload
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
