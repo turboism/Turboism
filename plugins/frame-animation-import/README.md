@@ -47,6 +47,7 @@ Imports sequence frame animations from sprite sheets or image lists and automati
 <!-- compatibility:begin -->
 **Cubism Editor version support (generated):** all reviewed versions.
 - Part opacity writes only on 5.3.00–5.3.04（[Cubism 5.3.00 added Part offscreen drawing (part opacity and clipping masks)](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
+- Top menu integration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 
