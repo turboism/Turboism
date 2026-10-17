@@ -11,6 +11,7 @@ from an unrelated cwd, and preservation/idempotence of existing hooks.
 Runtime-constructed tokens so no literal signature exists in this source.
 """
 
+import json
 import os
 import subprocess
 import sys
@@ -454,6 +455,138 @@ class ModeTest(unittest.TestCase):
         out = run_checker(repo, "--all")
         self.assertEqual(out.returncode, 1)
         self.assertIn("prompts/x.prompt.md", out.stdout)
+
+    def test_boundary_missing_full_scan_and_write_back(self):
+        repo = fresh_repo(tempfile.mkdtemp(prefix="crh-bd-missing-"))
+        (Path(repo) / "ok.txt").write_text("fine\n")
+        head = commit_all(repo, "initial commit")
+        boundary = os.path.join(repo, "boundary.json")
+        self.assertFalse(os.path.exists(boundary))
+
+        out = run_checker(repo, "--all", "--boundary-file", boundary)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertIn("clean (scanned 1, skipped 0)", out.stdout)
+        self.assertTrue(os.path.exists(boundary))
+
+        with open(boundary, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        self.assertEqual(data["rules_fingerprint"], crh.compute_rules_fingerprint())
+        self.assertEqual(data["tips"], [head])
+
+    def test_boundary_hit_scans_only_new_commits(self):
+        repo = fresh_repo(tempfile.mkdtemp(prefix="crh-bd-hit-"))
+        os.makedirs(os.path.join(repo, "prompts"))
+        (Path(repo) / "prompts" / "x.prompt.md").write_text("leak\n")
+        commit_all(repo, "early leak")
+        (Path(repo) / "prompts" / "x.prompt.md").unlink()
+        (Path(repo) / "ok.txt").write_text("fine\n")
+        base = commit_all(repo, "cleanup")
+
+        boundary = os.path.join(repo, "boundary.json")
+        with open(boundary, "w", encoding="utf-8") as fh:
+            json.dump({
+                "rules_fingerprint": crh.compute_rules_fingerprint(),
+                "tips": [base],
+            }, fh)
+
+        (Path(repo) / "new.txt").write_text("clean\n")
+        new_head = commit_all(repo, "new commit")
+
+        out = run_checker(repo, "--all", "--boundary-file", boundary)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertIn("clean (scanned 1, skipped 2)", out.stdout)
+
+        with open(boundary, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        self.assertEqual(data["rules_fingerprint"], crh.compute_rules_fingerprint())
+        self.assertEqual(data["tips"], sorted([base, new_head]))
+
+    def test_boundary_fingerprint_mismatch_falls_back_to_full_scan(self):
+        repo = fresh_repo(tempfile.mkdtemp(prefix="crh-bd-mismatch-"))
+        os.makedirs(os.path.join(repo, "prompts"))
+        (Path(repo) / "prompts" / "x.prompt.md").write_text("leak\n")
+        commit_all(repo, "early leak")
+        (Path(repo) / "prompts" / "x.prompt.md").unlink()
+        (Path(repo) / "ok.txt").write_text("fine\n")
+        base = commit_all(repo, "cleanup")
+
+        boundary = os.path.join(repo, "boundary.json")
+        with open(boundary, "w", encoding="utf-8") as fh:
+            json.dump({
+                "rules_fingerprint": "outdated_fingerprint_0123456789abcdef",
+                "tips": [base],
+            }, fh)
+
+        out = run_checker(repo, "--all", "--boundary-file", boundary)
+        self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+        self.assertIn("prompts/x.prompt.md", out.stdout)
+
+    def test_boundary_fingerprint_mismatch_clean_rewrites_boundary(self):
+        repo = fresh_repo(tempfile.mkdtemp(prefix="crh-bd-rewrite-"))
+        (Path(repo) / "ok.txt").write_text("fine\n")
+        head = commit_all(repo, "base")
+
+        boundary = os.path.join(repo, "boundary.json")
+        with open(boundary, "w", encoding="utf-8") as fh:
+            json.dump({
+                "rules_fingerprint": "old_fingerprint",
+                "tips": [head],
+            }, fh)
+
+        out = run_checker(repo, "--all", "--boundary-file", boundary)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertIn("clean (scanned 1, skipped 0)", out.stdout)
+
+        with open(boundary, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        self.assertEqual(data["rules_fingerprint"], crh.compute_rules_fingerprint())
+        self.assertEqual(data["tips"], [head])
+
+    def test_boundary_corrupt_falls_back_to_full_scan(self):
+        repo = fresh_repo(tempfile.mkdtemp(prefix="crh-bd-corrupt-"))
+        os.makedirs(os.path.join(repo, "prompts"))
+        (Path(repo) / "prompts" / "x.prompt.md").write_text("leak\n")
+        commit_all(repo, "early leak")
+        (Path(repo) / "prompts" / "x.prompt.md").unlink()
+        (Path(repo) / "ok.txt").write_text("fine\n")
+        commit_all(repo, "cleanup")
+
+        boundary = os.path.join(repo, "boundary.json")
+        with open(boundary, "w", encoding="utf-8") as fh:
+            fh.write("corrupted json content {{{")
+
+        out = run_checker(repo, "--all", "--boundary-file", boundary)
+        self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+        self.assertIn("prompts/x.prompt.md", out.stdout)
+
+    def test_boundary_violation_exit_code_unchanged_and_file_not_updated(self):
+        repo = fresh_repo(tempfile.mkdtemp(prefix="crh-bd-violation-"))
+        (Path(repo) / "ok.txt").write_text("fine\n")
+        base = commit_all(repo, "clean base")
+
+        boundary = os.path.join(repo, "boundary.json")
+        with open(boundary, "w", encoding="utf-8") as fh:
+            json.dump({
+                "rules_fingerprint": crh.compute_rules_fingerprint(),
+                "tips": [base],
+            }, fh)
+        initial_boundary_text = Path(boundary).read_text()
+
+        (Path(repo) / ".env").write_text("SECRET=leaked\n")
+        commit_all(repo, "add secret env")
+
+        out = run_checker(repo, "--all", "--boundary-file", boundary)
+        self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+        self.assertIn(".env: basename:.env", out.stdout)
+        self.assertEqual(Path(boundary).read_text(), initial_boundary_text)
+
+    def test_boundary_file_disallowed_with_non_all_modes(self):
+        repo = fresh_repo(tempfile.mkdtemp(prefix="crh-bd-disallowed-"))
+        (Path(repo) / "ok.txt").write_text("fine\n")
+        commit_all(repo, "base")
+        out = run_checker(repo, "--staged", "--boundary-file", "boundary.json")
+        self.assertEqual(out.returncode, 2)
+        self.assertIn("--boundary-file can only be used with --all", out.stderr)
 
 
 class HookTest(unittest.TestCase):

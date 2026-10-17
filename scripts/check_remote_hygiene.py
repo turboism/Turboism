@@ -28,6 +28,18 @@ Modes (exactly one):
                        invoke this checker and fail closed; refuses to
                        overwrite a pre-existing differing hook
 
+Optional modifiers:
+  --boundary-file PATH optional cache for incremental --all history scanning.
+                       Contains JSON with {rules_fingerprint, tips: [...]}.
+                       rules_fingerprint is the SHA-256 of this checker script.
+                       On match, only new commits from "git rev-list --all --not <tips>"
+                       are scanned, updating boundary tips upon a clean exit.
+                       Missing, corrupt, or fingerprint-mismatched files fall back
+                       to a full scan and rewrite the boundary file.
+                       Known limitation: commits uniquely reachable on a deleted ref
+                       that were never captured in tips may be omitted from incremental
+                       scans (--all without boundary file remains the full-scan escape hatch).
+
 Never prints forbidden file content or secret values. Violation lines are
 '<path>: <rule>' and for secret-value signatures '<path>: value-signature=<rule>'
 (rule name only, never the matched value). Any diagnostic or path is redacted
@@ -37,9 +49,11 @@ Exit codes: 0 clean, 1 violations, 2 error (fail closed). Stdlib only.
 """
 
 import argparse
+import hashlib
+import json
 import os
-import stat
 import re
+import stat
 import subprocess
 import sys
 from pathlib import PurePosixPath
@@ -498,6 +512,116 @@ def resolve_push_base(repo, local_sha, remote_sha):
 
 
 # --------------------------------------------------------------------------
+# boundary file & incremental scan helpers
+# --------------------------------------------------------------------------
+
+def compute_rules_fingerprint():
+    """SHA-256 hex digest of this checker script file."""
+    script_path = os.path.realpath(__file__)
+    with open(script_path, "rb") as fh:
+        return hashlib.sha256(fh.read()).hexdigest()
+
+
+def load_boundary_file(path):
+    """Load boundary JSON. Returns dict if valid, else None (fail-safe fallback)."""
+    if not os.path.isfile(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        if not isinstance(data, dict):
+            return None
+        if not isinstance(data.get("rules_fingerprint"), str):
+            return None
+        tips = data.get("tips")
+        if not isinstance(tips, list):
+            return None
+        for tip in tips:
+            if not isinstance(tip, str):
+                return None
+        return data
+    except Exception:
+        return None
+
+
+def write_boundary_file(path, data):
+    """Write boundary JSON atomically."""
+    dir_name = os.path.dirname(os.path.abspath(path))
+    if dir_name:
+        os.makedirs(dir_name, exist_ok=True)
+    tmp_path = path + ".tmp.%d" % os.getpid()
+    content = json.dumps(data, indent=2, sort_keys=True) + "\n"
+    with open(tmp_path, "w", encoding="utf-8") as fh:
+        fh.write(content)
+    os.replace(tmp_path, path)
+
+
+def get_head_sha(repo):
+    """Return HEAD commit SHA if resolvable, else None."""
+    try:
+        return _git_bytes(repo, ["rev-parse", "HEAD"]).decode("ascii").strip()
+    except subprocess.CalledProcessError:
+        return None
+
+
+def scan_all_history(repo, boundary_file=None):
+    """Scan reachable history, optionally using a boundary file for incremental speedup.
+
+    Returns (violations, scanned_count, skipped_count).
+    If boundary_file is specified and scan is clean, updates the boundary file.
+    """
+    all_commits = set(commit_list(repo, ["--all"]))
+    total_commits = len(all_commits)
+
+    if not boundary_file:
+        commits = sorted(all_commits, key=lambda s: s)
+        violations = scan_commits(repo, commits)
+        return violations, len(commits), 0
+
+    fingerprint = compute_rules_fingerprint()
+    boundary = load_boundary_file(boundary_file)
+
+    is_incremental = False
+    valid_tips = []
+    if boundary is not None and boundary.get("rules_fingerprint") == fingerprint:
+        original_tips = boundary.get("tips", [])
+        valid_tips = [t for t in original_tips if t in all_commits]
+        if valid_tips:
+            is_incremental = True
+
+    if is_incremental:
+        raw_commits = commit_list(repo, ["--all", "--not"] + valid_tips)
+        commits_to_scan = sorted(set(raw_commits), key=lambda s: s)
+    else:
+        commits_to_scan = sorted(all_commits, key=lambda s: s)
+
+    scanned_count = len(commits_to_scan)
+    skipped_count = max(0, total_commits - scanned_count)
+
+    violations = scan_commits(repo, commits_to_scan)
+
+    if not violations:
+        head = get_head_sha(repo)
+        if is_incremental:
+            new_tips = set(valid_tips)
+            if head:
+                new_tips.add(head)
+        else:
+            new_tips = set(commit_list(repo, ["--all", "--no-walk"]))
+            if head:
+                new_tips.add(head)
+            if valid_tips:
+                new_tips.update(valid_tips)
+
+        write_boundary_file(boundary_file, {
+            "rules_fingerprint": fingerprint,
+            "tips": sorted(new_tips),
+        })
+
+    return violations, scanned_count, skipped_count
+
+
+# --------------------------------------------------------------------------
 # hooks
 # --------------------------------------------------------------------------
 
@@ -585,7 +709,9 @@ def run(argv, repo=None):
         description="Fail-closed remote-hygiene checker (stdlib only).")
     parser.add_argument("-C", "--repo", default=repo,
                         help="repository root to scan (default: cwd)")
-    modes = parser.add_mutually_exclusive_group(required=True)
+    parser.add_argument("--boundary-file", metavar="PATH",
+                        help="cache file for incremental --all history scanning")
+    modes = parser.add_mutually_exclusive_group(required=False)
     modes.add_argument("--staged", action="store_true",
                        help="check staged (index) changes")
     modes.add_argument("--worktree", action="store_true",
@@ -599,6 +725,23 @@ def run(argv, repo=None):
     modes.add_argument("--install-hooks", action="store_true",
                        help="write local untracked pre-commit/pre-push hooks")
     args = parser.parse_args(argv)
+
+    if not any([args.staged, args.worktree, args.outgoing, args.outgoing_stdin, args.all, args.install_hooks]):
+        if args.boundary_file:
+            args.all = True
+        else:
+            parser.error(
+                "one of the arguments --staged --worktree --outgoing "
+                "--outgoing-stdin --all --install-hooks is required")
+    elif args.boundary_file and not args.all:
+        parser.error("--boundary-file can only be used with --all")
+
+    boundary_file = args.boundary_file
+    if boundary_file and not os.path.isabs(boundary_file):
+        boundary_file = os.path.normpath(os.path.join(args.repo, boundary_file))
+
+    scanned_count = None
+    skipped_count = None
 
     try:
         if args.install_hooks:
@@ -627,8 +770,8 @@ def run(argv, repo=None):
                     ranges = [base + ".." + local_sha]
                 violations.extend(scan_commits(args.repo, commit_list(args.repo, ranges)))
         elif args.all:
-            violations = scan_commits(
-                args.repo, sorted(set(commit_list(args.repo, ["--all"])), key=lambda s: s))
+            violations, scanned_count, skipped_count = scan_all_history(
+                args.repo, boundary_file)
     except subprocess.CalledProcessError as exc:
         print("remote-hygiene: git error (%s); refusing (fail closed)"
               % redact(exc.stderr or exc.stdout or str(exc)), file=sys.stderr)
@@ -642,7 +785,11 @@ def run(argv, repo=None):
         for path, rule in sorted(set(violations)):
             print("%s: %s" % (redact(path), rule))
         return 1
-    print("remote-hygiene: clean")
+    if args.boundary_file:
+        print("remote-hygiene: clean (scanned %d, skipped %d)"
+              % (scanned_count, skipped_count))
+    else:
+        print("remote-hygiene: clean")
     return 0
 
 
