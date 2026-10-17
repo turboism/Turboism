@@ -36,6 +36,7 @@ class ModelImportPluginTest {
         ActionRegistry.Action action;
         String document = "original";
         int choice = 0;
+        float canvasWidth = 1024, canvasHeight = 1024;
         boolean confirm = false;
         boolean stale = false;
         Runnable onConfirm = () -> {}, onAppearance = () -> {};
@@ -53,7 +54,7 @@ class ModelImportPluginTest {
             if (m.getName().equals("id")) return new ModelId("same-model-id");
             if (m.getName().equals("canvas")) {
                 if (stale) throw new IllegalStateException("stale generation");
-                return proxy(Canvas.class, (x, n, v) -> 1024f);
+                return proxy(Canvas.class, (x, n, v) -> n.getName().equals("widthPixels") ? canvasWidth : canvasHeight);
             }
             if (m.getName().equals("textures"))
                 return proxy(ModelTextures.class, (tx, txn, txa) -> {
@@ -213,6 +214,20 @@ class ModelImportPluginTest {
                 List.of("Turboism", "3D 模型", w.action.label()),
                 List.of(w.menu.menuPath().split("/")));
         assertEquals(w.action.id(), w.menu.actionId());
+    }
+
+    @Test
+    void nonSquareCanvasCanReachSourceChooser() throws Exception {
+        var w = new World();
+        w.canvasWidth = 2400;
+        w.canvasHeight = 1600;
+        w.start();
+        assertEquals(1, w.appearances);
+        assertNull(w.error);
+        w.choose.complete(
+                new UserFileRequestResult(UserFileRequestStatus.CANCELED, Optional.empty(), Optional.empty()));
+        edt(() -> {});
+        assertEquals(0, w.writes.get());
     }
 
     @Test

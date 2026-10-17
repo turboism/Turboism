@@ -27,6 +27,52 @@ final class SurfacePlacementAuthoring {
         return placement;
     }
 
+    /** Map the normalized projection workspace into a document, without changing stored projection banks. */
+    static RotationDeformerForm canvasForm(double width, double height) {
+        if (!Double.isFinite(width) || !Double.isFinite(height) || width <= 0 || height <= 0)
+            throw new IllegalArgumentException("Canvas dimensions must be finite and positive");
+        float scale = (float) (Math.min(width, height) / 1024.0);
+        return new RotationDeformerForm(
+                0, (float) (width / 2 - 512 * scale), (float) (height / 2 - 512 * scale), scale, false, false);
+    }
+
+    static java.util.Set<dev.turboism.sdk.cubism.id.DeformerId> deformerIds(CubismModel model) {
+        var ids = new java.util.HashSet<dev.turboism.sdk.cubism.id.DeformerId>();
+        for (var d : model.deformers().all()) ids.add(d.id());
+        for (var d : model.rotationDeformers().all()) ids.add(d.id());
+        return ids;
+    }
+
+    static void fitCanvas(
+            CubismModel model,
+            java.util.Set<dev.turboism.sdk.cubism.id.DeformerId> existing,
+            java.util.List<dev.turboism.sdk.cubism.id.ArtMeshId> meshIds,
+            String name) {
+        var form = canvasForm(model.canvas().widthPixels(), model.canvas().heightPixels());
+        if (form.equals(new RotationDeformerForm(0, 0, 0, 1, false, false))) return;
+        var roots = new java.util.LinkedHashMap<dev.turboism.sdk.cubism.id.DeformerId, Deformer>();
+        for (var d : model.deformers().all())
+            if (!existing.contains(d.id()) && d.parentDeformerId().isEmpty()) roots.put(d.id(), d);
+        for (var d : model.rotationDeformers().all())
+            if (!existing.contains(d.id()) && d.parentDeformerId().isEmpty()) roots.put(d.id(), d);
+        RotationDeformer placement;
+        if (roots.size() == 1
+                && roots.values().iterator().next() instanceof RotationDeformer rotation
+                && rotation.authoringSnapshot().axes().isEmpty()) {
+            placement = rotation;
+        } else {
+            placement = model.deformers().createRotation(name + " 整体定位", null, -1);
+            for (var d : roots.values()) d.setTargetDeformer(Optional.of(placement.id()));
+            for (var id : meshIds) {
+                var mesh = model.drawables().find(id);
+                if (mesh.parentDeformerId().isEmpty()) mesh.setTargetDeformer(Optional.of(placement.id()));
+            }
+        }
+        placement.replaceForm(form);
+        if (!placement.authoringSnapshot().forms().get(0).value().equals(form))
+            throw new IllegalStateException("Canvas placement readback failed");
+    }
+
     private static Object stored(Deformer deformer) {
         if (deformer instanceof WarpDeformer warp) return warp.authoringSnapshot();
         if (deformer instanceof RotationDeformer rotation) return rotation.authoringSnapshot();

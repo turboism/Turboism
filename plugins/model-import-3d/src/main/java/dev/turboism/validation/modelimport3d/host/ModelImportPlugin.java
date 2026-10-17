@@ -438,8 +438,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     .activeDocument()
                     .orElseThrow(() -> new LocalizedIllegalStateException("error.no-active-document", "请先打开目标模型。"));
             var target = context.cubism().model().active();
-            if (target.canvas().widthPixels() != 1024 || target.canvas().heightPixels() != 1024)
-                throw new LocalizedIllegalArgumentException("error.invalid-canvas-size", "当前导入需要 1024×1024 画布。");
+            SurfacePlacementAuthoring.canvasForm(
+                    target.canvas().widthPixels(), target.canvas().heightPixels());
             if (!target.textures().supportsAppendTextureAtlasPages())
                 throw new LocalizedIllegalStateException("error.texture-atlas-unavailable", "当前环境不支持纹理图集功能。");
             int choice = ui.appearance();
@@ -627,13 +627,21 @@ public final class ModelImportPlugin implements TurboismPlugin {
         var result = transactions.execute(
                 dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("Import 3D " + requestName), () -> {
                     requireTarget(token, documentId, target);
+                    boolean fitCanvas = target.canvas().widthPixels() != 1024
+                            || target.canvas().heightPixels() != 1024;
+                    var existingDeformers = fitCanvas
+                            ? SurfacePlacementAuthoring.deformerIds(target)
+                            : java.util.Set.<dev.turboism.sdk.cubism.id.DeformerId>of();
                     if (finalPrepared.character() != null) {
-                        NativeModelImport.assemble(
+                        var created = NativeModelImport.assemble(
                                 target,
                                 finalPrepared.character(),
                                 atlasPlan,
                                 stage -> context.logger().info("Native import stage: " + stage),
                                 transactions::batchStoredSourceWrites);
+                        if (fitCanvas)
+                            SurfacePlacementAuthoring.fitCanvas(
+                                    target, existingDeformers, created.meshIds(), requestName);
                         requireTarget(token, documentId, target);
                         return null;
                     }
@@ -686,6 +694,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     }
 
                     requireTarget(token, documentId, target);
+                    if (fitCanvas) SurfacePlacementAuthoring.fitCanvas(target, existingDeformers, meshIds, requestName);
                     ModelTextureAtlasAuthoring.apply(target, meshIds, bindingsBySourceId, meshImageBindings, atlasPlan);
                     var group = target.parameterGroups().addGroup(requestName);
                     for (var parameter : target.parameters().all())

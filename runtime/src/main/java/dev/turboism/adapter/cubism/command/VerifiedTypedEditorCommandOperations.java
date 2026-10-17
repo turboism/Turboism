@@ -434,6 +434,10 @@ final class VerifiedTypedEditorCommandOperations {
         final int undoPosBefore = undoPosition(context.editMode);
         try {
             applyCanvasSize(context, request, oldWidth, oldHeight, rebuildInstances);
+            final int actualWidth = (Integer) resolver.invoke(Aliases.CANVAS_PIXEL_WIDTH, context.canvas);
+            final int actualHeight = (Integer) resolver.invoke(Aliases.CANVAS_PIXEL_HEIGHT, context.canvas);
+            if (actualWidth != request.widthPixels() || actualHeight != request.heightPixels())
+                throw new IllegalStateException("Canvas size readback mismatch: " + actualWidth + "x" + actualHeight);
         } catch (RuntimeException | Error failure) {
             try {
                 // Rollback through the native Undo path: close the transaction and undo the partial
