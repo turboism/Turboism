@@ -100,8 +100,17 @@ jobs:
           test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
           test '${{ needs.allocate-build.outputs.run_attempt }}' = "$GITHUB_RUN_ATTEMPT" || { echo '::error::A rebuilt candidate needs a new identity. Re-run ALL jobs, including allocate-build.'; exit 1; }
 
+      - name: Restore remote-hygiene boundary cache
+        # Incremental history scan: the boundary file records verified tips and a
+        # rules fingerprint (sha256 of the checker script). Cache key rotates with
+        # the script, so any rule change falls back to a full scan automatically.
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: ${{ runner.temp }}/remote-hygiene-boundary.json
+          key: remote-hygiene-boundary-v1-${{ hashFiles('scripts/check_remote_hygiene.py') }}
+
       - name: Check complete public history hygiene
-        run: python3 scripts/check_remote_hygiene.py --all
+        run: python3 scripts/check_remote_hygiene.py --all --boundary-file "$RUNNER_TEMP/remote-hygiene-boundary.json"
 
       - name: Resolve and verify release version
         id: version
