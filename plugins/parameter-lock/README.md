@@ -44,7 +44,7 @@ Protects Cubism parameter values from accidental editing, with cross-session per
 ## Requirements and compatibility
 
 - **Turboism API:** `[0.1.0,0.2.0)`.
-- **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`; this plugin exposes each host-facing feature only when its declared services and capabilities are available.
+- **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`, including `5.3.03`; this plugin exposes each host-facing feature only when its declared services and capabilities are available.
 - **Interface mode:** `embedded`.
 - **Plugin dependencies:** None declared.
 
