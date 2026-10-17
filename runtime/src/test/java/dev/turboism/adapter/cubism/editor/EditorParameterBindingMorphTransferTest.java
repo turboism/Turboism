@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.*;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -171,7 +173,7 @@ class EditorParameterBindingMorphTransferTest {
                         "cubism.editor-model.app-controller.complete-pack",
                         Host.class,
                         "completePack",
-                        descriptor(Pack.class)),
+                        descriptor(CompletePack.class)),
                 method(
                         "cubism.editor-model.modeling-document.edit-mode",
                         Document.class,
@@ -210,22 +212,22 @@ class EditorParameterBindingMorphTransferTest {
                         descriptor(void.class)),
                 method(
                         "cubism.editor-model.complete-pack.update-parameter",
-                        Pack.class,
+                        CompletePack.class,
                         "updateParameter",
                         descriptor(void.class, boolean.class)),
                 method(
                         "cubism.editor-model.complete-pack.update-part-palette",
-                        Pack.class,
+                        CompletePack.class,
                         "updatePartPalette",
                         descriptor(void.class, boolean.class)),
                 method(
                         "cubism.editor-model.complete-pack.update-deformer-palette",
-                        Pack.class,
+                        CompletePack.class,
                         "updateDeformerPalette",
                         descriptor(void.class, boolean.class)),
                 method(
                         "cubism.editor-model.complete-pack.repaint-canvas",
-                        Pack.class,
+                        CompletePack.class,
                         "repaintCanvas",
                         descriptor(void.class, boolean.class)),
                 method(
@@ -336,283 +338,6 @@ class EditorParameterBindingMorphTransferTest {
         return type.getName().replace('.', '/');
     }
 
-    public static final class Host {
-        private static final Host INSTANCE = new Host();
-        private static Document current;
-
-        public static Host instance() {
-            return INSTANCE;
-        }
-
-        public Document currentDocument() {
-            return current;
-        }
-
-        public Pack completePack() {
-            return current.pack;
-        }
-    }
-
-    public static final class Document {
-        final ModelSource source;
-        final EditMode editMode = new EditMode();
-        final Pack pack = new Pack();
-        boolean dirty;
-
-        Document(final ModelSource source) {
-            this.source = source;
-        }
-
-        public EditMode editMode() {
-            return editMode;
-        }
-
-        public void markDirty() {
-            dirty = true;
-        }
-    }
-
-    public static final class ModelSource {
-        final ParameterSourceSet sourceSet = new ParameterSourceSet();
-        int updateCount;
-
-        public ParameterSourceSet parameterSourceSet() {
-            return sourceSet;
-        }
-
-        public void updateInstances() {
-            updateCount++;
-        }
-    }
-
-    public static final class ObjectSource {
-        final MorphTargetSet set = new MorphTargetSet();
-        final KeyformGrid keyformGrid = new KeyformGrid();
-
-        public MorphTargetSet morphTargetSet() {
-            return set;
-        }
-
-        public KeyformGrid keyformGrid() {
-            return keyformGrid;
-        }
-    }
-
-    public static final class KeyformGrid {
-        boolean targetBound;
-
-        public Object findBinding(final HostParameterGuid ignored) {
-            return targetBound ? new Object() : null;
-        }
-    }
-
-    public static final class MorphTargetSet {
-        final List<HostMorphTarget> targets = new ArrayList<>();
-
-        public List<HostMorphTarget> morphTargets() {
-            return targets;
-        }
-    }
-
-    public static final class HostMorphTarget {
-        HostParameterGuid parameterGuid;
-        float keyValue;
-
-        HostMorphTarget(final String parameter, final float value) {
-            parameterGuid = new HostParameterGuid(parameter);
-            keyValue = value;
-        }
-
-        public HostParameterGuid parameterGuid() {
-            return parameterGuid;
-        }
-
-        public Float keyValue() {
-            return keyValue;
-        }
-
-        void set(final HostParameterGuid parameter, final float value) {
-            parameterGuid = parameter;
-            keyValue = value;
-        }
-    }
-
-    public static final class MorphTargetUtils {
-        public static final MorphTargetUtils INSTANCE = new MorphTargetUtils();
-
-        public Undo changeParameter(
-                final HostMorphTarget target, final HostParameterGuid parameter, final Float value) {
-            return new ChangeUndo(target, parameter, value);
-        }
-    }
-
-    public static final class ParameterSourceSet {
-        final List<ParameterSource> values = new ArrayList<>();
-
-        public ParameterSource get(final HostParameterGuid guid) {
-            return values.stream()
-                    .filter(source -> source.guid.value.equals(guid.value))
-                    .findFirst()
-                    .orElse(null);
-        }
-    }
-
-    public static final class ParameterSource {
-        final HostParameterId id;
-        final HostParameterGuid guid;
-        final float minimum;
-        final float maximum;
-
-        ParameterSource(final String value, final float minimum, final float maximum) {
-            id = new HostParameterId(value);
-            guid = new HostParameterGuid(value);
-            this.minimum = minimum;
-            this.maximum = maximum;
-        }
-
-        public HostParameterId id() {
-            return id;
-        }
-
-        public HostParameterGuid guid() {
-            return guid;
-        }
-
-        public boolean morphTarget() {
-            return true;
-        }
-
-        public float minimum() {
-            return minimum;
-        }
-
-        public float maximum() {
-            return maximum;
-        }
-    }
-
-    public static final class HostParameterId {
-        final String value;
-
-        HostParameterId(final String value) {
-            this.value = value;
-        }
-
-        public String value() {
-            return value;
-        }
-    }
-
-    public static final class HostParameterGuid {
-        final String value;
-
-        HostParameterGuid(final String value) {
-            this.value = value;
-        }
-    }
-
-    public interface Listener {
-        void changed(Object ignored);
-    }
-
-    public static class Undo {
-        public boolean addListener(final Listener listener) {
-            return true;
-        }
-
-        public void undo() {}
-
-        public void redo() {}
-    }
-
-    public static final class ChangeUndo extends Undo {
-        final HostMorphTarget target;
-        final HostParameterGuid newParameter;
-        final float newValue;
-        HostParameterGuid oldParameter;
-        float oldValue;
-
-        ChangeUndo(final HostMorphTarget target, final HostParameterGuid parameter, final Float value) {
-            this.target = target;
-            newParameter = parameter;
-            newValue = value;
-            redo();
-        }
-
-        @Override
-        public void undo() {
-            target.set(oldParameter, oldValue);
-        }
-
-        @Override
-        public void redo() {
-            oldParameter = target.parameterGuid;
-            oldValue = target.keyValue;
-            target.set(newParameter, newValue);
-        }
-    }
-
-    public static final class GroupUndo extends Undo {
-        final List<Undo> entries = new ArrayList<>();
-
-        @Override
-        public boolean addListener(final Listener listener) {
-            return true;
-        }
-
-        public boolean add(final Undo undo, final boolean significant) {
-            entries.add(undo);
-            return true;
-        }
-
-        @Override
-        public void undo() {
-            for (int index = entries.size() - 1; index >= 0; index--)
-                entries.get(index).undo();
-        }
-
-        @Override
-        public void redo() {
-            entries.forEach(Undo::redo);
-        }
-    }
-
-    public static final class EditMode {
-        final List<GroupUndo> edits = new ArrayList<>();
-        int beginCount;
-        int endCount;
-        boolean cancelled;
-        private GroupUndo current;
-
-        public GroupUndo begin(final String name) {
-            beginCount++;
-            current = new GroupUndo();
-            return current;
-        }
-
-        public void end(final boolean cancel, final Object ignored) {
-            endCount++;
-            cancelled = cancel;
-            if (!cancel && current != null) edits.add(current);
-            current = null;
-        }
-
-        void undo() {
-            final GroupUndo group = edits.remove(edits.size() - 1);
-            group.undo();
-        }
-    }
-
-    public static final class Pack {
-        public void updateParameter(final boolean refresh) {}
-
-        public void updatePartPalette(final boolean refresh) {}
-
-        public void updateDeformerPalette(final boolean refresh) {}
-
-        public void repaintCanvas(final boolean refresh) {}
-    }
-
     private static final class Fixture {
         final Object model = new Object();
         final ModelSource modelSource = new ModelSource();
@@ -629,6 +354,7 @@ class EditorParameterBindingMorphTransferTest {
             document = new Document(modelSource);
             editMode = document.editMode;
             Host.current = document;
+            Host.document = document;
         }
     }
 }
