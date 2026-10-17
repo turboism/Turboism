@@ -39,7 +39,7 @@ class FrameAnimationDialogLayoutTest {
 
     @Test
     void previewPanelRendersWithoutException() {
-        final SpriteSheetPreviewPanel panel = new SpriteSheetPreviewPanel();
+        final SpriteSheetPreviewPanel panel = new SpriteSheetPreviewPanel(FAKE_LOC);
         final BufferedImage img = new BufferedImage(100, 100, BufferedImage.TYPE_INT_ARGB);
         panel.update(img, SpriteSheetConfig.of(2, 2));
         panel.setSize(300, 200);
