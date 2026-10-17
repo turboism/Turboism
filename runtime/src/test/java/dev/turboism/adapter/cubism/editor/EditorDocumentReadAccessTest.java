@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -395,52 +396,42 @@ class EditorDocumentReadAccessTest {
                 reloaded.keyframes().get(0).curveType().orElseThrow());
     }
 
-    @Test
-    void scalesKeyframeTimesAroundOrigin() {
+    @ParameterizedTest
+    @CsvSource({
+        "2.0, 0, 0, 60, 120, 49.0, 72.0, true",
+        "0.5, 20, 10, 25, 40, 22.25, 28.0, false"
+    })
+    void scalesKeyframeTimesAroundGivenOrigin(
+            final double factor,
+            final int origin,
+            final int f0,
+            final int f1,
+            final int f2,
+            final float inHandle,
+            final float outHandle,
+            final boolean checkLinear) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
         final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
 
-        final int scaled = scene1Parameter(model).scaleKeyframeTimes(2.0, 0);
+        final int scaled = scene1Parameter(model).scaleKeyframeTimes(factor, origin);
 
         assertEquals(3, scaled);
         final AnimationAttribute reloaded = scene1Parameter(model);
-        assertEquals(List.of(0, 60, 120), frames(reloaded));
+        assertEquals(List.of(f0, f1, f2), frames(reloaded));
         final var bezierKey = reloaded.keyframes().get(1);
         assertEquals(0.5, bezierKey.value().orElseThrow());
         assertEquals(AnimationCurveType.BEZIER, bezierKey.curveType().orElseThrow());
-        // Handles must scale around the same origin, not translate by the
-        // keyframe delta: 24.5 -> 49, 36 -> 72.
-        assertEquals(49.0F, bezierKey.inHandle().orElseThrow().frame());
+        assertEquals(inHandle, bezierKey.inHandle().orElseThrow().frame());
         assertEquals(0.4, bezierKey.inHandle().orElseThrow().value());
-        assertEquals(72.0F, bezierKey.outHandle().orElseThrow().frame());
+        assertEquals(outHandle, bezierKey.outHandle().orElseThrow().frame());
         assertEquals(0.6, bezierKey.outHandle().orElseThrow().value());
         assertTrue(bezierKey.outHandle().orElseThrow().corner());
-        assertEquals(
-                AnimationCurveType.LINEAR,
-                reloaded.keyframes().get(0).curveType().orElseThrow());
-    }
-
-    @Test
-    void scalesKeyframeTimesAroundNonZeroOrigin() {
-        final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(writeResolver("5.3.02"), "session-a").active();
-
-        final int scaled = scene1Parameter(model).scaleKeyframeTimes(0.5, 20);
-
-        assertEquals(3, scaled);
-        final AnimationAttribute reloaded = scene1Parameter(model);
-        assertEquals(List.of(10, 25, 40), frames(reloaded));
-        final var bezierKey = reloaded.keyframes().get(1);
-        assertEquals(0.5, bezierKey.value().orElseThrow());
-        assertEquals(AnimationCurveType.BEZIER, bezierKey.curveType().orElseThrow());
-        // 20 + (24.5 - 20) * 0.5 = 22.25; 20 + (36 - 20) * 0.5 = 28.
-        assertEquals(22.25F, bezierKey.inHandle().orElseThrow().frame());
-        assertEquals(0.4, bezierKey.inHandle().orElseThrow().value());
-        assertEquals(28.0F, bezierKey.outHandle().orElseThrow().frame());
-        assertEquals(0.6, bezierKey.outHandle().orElseThrow().value());
-        assertTrue(bezierKey.outHandle().orElseThrow().corner());
+        if (checkLinear) {
+            assertEquals(
+                    AnimationCurveType.LINEAR,
+                    reloaded.keyframes().get(0).curveType().orElseThrow());
+        }
     }
 
     @Test
@@ -809,54 +800,39 @@ class EditorDocumentReadAccessTest {
                 IllegalArgumentException.class, () -> parameter.bakeEvaluated(0, 10, 0, AnimationCurveType.LINEAR));
     }
 
-    @Test
-    void playbackFailsClosedWithoutPlaybackCapability() {
+    @ParameterizedTest
+    @ValueSource(strings = {"playback", "sceneEdit", "eval"})
+    void sceneCapabilitiesFailClosedWithoutCapability(final String capability) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
+        final String capabilityId;
+        if ("playback".equals(capability)) {
+            capabilityId = EditorAnimationSceneOperationSelectorContract.PLAYBACK_CAPABILITY_ID;
+        } else if ("sceneEdit".equals(capability)) {
+            capabilityId = EditorAnimationSceneOperationSelectorContract.SCENE_EDIT_CAPABILITY_ID;
+        } else {
+            capabilityId = EditorAnimationSceneOperationSelectorContract.EVAL_CAPABILITY_ID;
+        }
         final var model = new EditorBackedCubismModelAccess(
-                        writeResolverWithout(
-                                "5.3.02", EditorAnimationSceneOperationSelectorContract.PLAYBACK_CAPABILITY_ID),
-                        "session-a")
+                        writeResolverWithout("5.3.02", capabilityId), "session-a")
                 .active();
         final AnimationScene scene = model.animationDocuments().get(0).scenes().get(0);
-
-        assertThrows(UnsupportedOperationException.class, scene::playheadFrame);
-        assertThrows(UnsupportedOperationException.class, () -> scene.seekTo(10));
-    }
-
-    @Test
-    void sceneOperationsFailClosedWithoutSceneEditCapability() {
-        final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-                        writeResolverWithout(
-                                "5.3.02", EditorAnimationSceneOperationSelectorContract.SCENE_EDIT_CAPABILITY_ID),
-                        "session-a")
-                .active();
-        final AnimationScene scene = model.animationDocuments().get(0).scenes().get(0);
-
-        assertThrows(UnsupportedOperationException.class, scene::current);
-        assertThrows(UnsupportedOperationException.class, scene::activate);
-        assertThrows(UnsupportedOperationException.class, scene::defaultCurveType);
-        assertThrows(UnsupportedOperationException.class, () -> scene.setDefaultCurveType(AnimationCurveType.STEP));
-    }
-
-    @Test
-    void evalWritesFailClosedWithoutEvalCapability() {
-        final Fixture fixture = new Fixture();
-        Host.document = fixture.document;
-        final var model = new EditorBackedCubismModelAccess(
-                        writeResolverWithout(
-                                "5.3.02", EditorAnimationSceneOperationSelectorContract.EVAL_CAPABILITY_ID),
-                        "session-a")
-                .active();
-        final AnimationAttribute parameter = scene1Parameter(model);
-
-        assertThrows(
-                UnsupportedOperationException.class, () -> parameter.recordKeyframe(10, AnimationCurveType.LINEAR));
-        assertThrows(
-                UnsupportedOperationException.class,
-                () -> parameter.bakeEvaluated(0, 10, 5, AnimationCurveType.LINEAR));
+        if ("playback".equals(capability)) {
+            assertThrows(UnsupportedOperationException.class, scene::playheadFrame);
+            assertThrows(UnsupportedOperationException.class, () -> scene.seekTo(10));
+        } else if ("sceneEdit".equals(capability)) {
+            assertThrows(UnsupportedOperationException.class, scene::current);
+            assertThrows(UnsupportedOperationException.class, scene::activate);
+            assertThrows(UnsupportedOperationException.class, scene::defaultCurveType);
+            assertThrows(UnsupportedOperationException.class, () -> scene.setDefaultCurveType(AnimationCurveType.STEP));
+        } else {
+            final AnimationAttribute parameter = scene1Parameter(model);
+            assertThrows(
+                    UnsupportedOperationException.class, () -> parameter.recordKeyframe(10, AnimationCurveType.LINEAR));
+            assertThrows(
+                    UnsupportedOperationException.class,
+                    () -> parameter.bakeEvaluated(0, 10, 5, AnimationCurveType.LINEAR));
+        }
     }
 
     private static AnimationAttribute scene1Parameter(final dev.turboism.sdk.cubism.model.CubismModel model) {
