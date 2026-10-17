@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.*;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -166,116 +168,4 @@ class PartOpacity52WriteProbeSkeletonTest {
         }
     }
 
-    public static final class Host {
-        private static final Host INSTANCE = new Host();
-        static Document document;
-
-        public static Host instance() {
-            return INSTANCE;
-        }
-
-        public Document currentDocument() {
-            return document;
-        }
-    }
-
-    public static final class Document {
-        final ModelSource source = new ModelSource();
-        final EditMode editMode = new EditMode();
-        final Model model = new Model();
-        boolean dirty;
-
-        public ModelSource modelSource() {
-            return source;
-        }
-
-        public EditMode editMode() {
-            return editMode;
-        }
-
-        public void markDirty() {
-            dirty = true;
-        }
-    }
-
-    public static final class EditMode {
-        final List<Object> edits = new ArrayList<>();
-
-        public Object begin(final String label) {
-            final Object undo = new Object();
-            edits.add(undo);
-            return undo;
-        }
-
-        public void end(final boolean abort, final Object ignored) {}
-    }
-
-    public static final class ModelSource {
-        final List<PartSource> parts = new ArrayList<>();
-
-        public Id guid() {
-            return new Id("model-a");
-        }
-
-        public Model currentInstance() {
-            return Host.document.model;
-        }
-
-        public List<PartSource> allParts() {
-            return parts;
-        }
-    }
-
-    public static final class Model {
-        final List<Part> parts = new ArrayList<>();
-
-        public List<Part> allParts() {
-            return parts;
-        }
-    }
-
-    public static final class Id {
-        private final String value;
-
-        Id(final String value) {
-            this.value = value;
-        }
-
-        public String value() {
-            return value;
-        }
-    }
-
-    public static final class PartSource {
-        private final Id id;
-
-        PartSource(final String id) {
-            this.id = new Id(id);
-        }
-
-        public Id id() {
-            return id;
-        }
-
-        public PartSource parent() {
-            return null;
-        }
-    }
-
-    public static final class Part {
-        private final PartSource source;
-        float partsOpacity = 1.0F;
-
-        Part(final PartSource source) {
-            this.source = source;
-        }
-
-        public PartSource source() {
-            return source;
-        }
-
-        public float getPartsOpacity() {
-            return partsOpacity;
-        }
-    }
 }
