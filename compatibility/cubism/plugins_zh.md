@@ -19,7 +19,7 @@ Cubism 以 FREE 许可运行时，保存受 FREE 参数数量等限制；使用 
 | `cubism-tab-filter` | 全部审核版本 | — | — |
 | `demo` | 全部审核版本 | — | — |
 | `external-psd-edit` | 全部审核版本 | 导出 PSD 原图 仅 5.2.00–5.3.04（更早版本 Cubism 本身无此功能）<br>替换 PSD 原图 仅 5.2.00–5.3.04（更早版本 Cubism 本身无此功能） | 实机验证通过 5.3.02 |
-| `frame-animation-import` | 全部审核版本 | 部件不透明度写入 仅 5.3.00–5.3.04（[Cubism 5.3.00 新增部件离屏绘制（可设部件不透明度与剪贴蒙版）](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)） | — |
+| `frame-animation-import` | 全部审核版本 | 部件不透明度写入 仅 5.3.00–5.3.04（[Cubism 5.3.00 新增部件离屏绘制（可设部件不透明度与剪贴蒙版）](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）<br>顶部菜单集成 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能） | — |
 | `history-panel` | 全部审核版本 | — | — |
 | `mcp` | 全部审核版本 | 完整功能需 5.1.00 及以上<br>顶部菜单集成 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能）<br>MCP 编辑器命令执行 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能）<br>MCP 编辑器命令清单 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能） | 实机验证通过 5.2.00–5.3.01, 5.3.03–5.3.04<br>确认边界 5.0.00, 5.0.02, 5.0.06–5.1.00, 5.1.03 |
 | `mesh-edit-mirror-axis-enhance` | 全部审核版本 | 完整功能需 5.2.00 及以上<br>网格几何读取 仅 5.2.00–5.3.04（更早版本 Cubism 本身无此功能） | — |
