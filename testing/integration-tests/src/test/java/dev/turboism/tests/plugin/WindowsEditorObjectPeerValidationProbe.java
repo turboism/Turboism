@@ -6,7 +6,6 @@ import dev.turboism.sdk.plugin.PluginContext;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import javax.swing.SwingUtilities;
 
 /**
  * Manual-test-only peer plugin proving a second plugin remains usable after the primary scope closes.
@@ -103,19 +102,24 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
                             && model.rotationDeformers().all().get(0).form() != null);
             final boolean passed = modelUsable && meshUsable && warpUsable && rotationUsable;
             Files.createDirectories(artifact.getParent());
-            Files.writeString( artifact, "status=" + (passed ? "PASS" : "FAIL")
+            Files.writeString(
+                    artifact,
+                    "status=" + (passed ? "PASS" : "FAIL")
                             + "\nphase=peer-after-primary-scope-close" + "\nsecondPluginUsable=" + passed
                             + "\nmodelUsable=" + modelUsable + "\nmeshUsable=" + meshUsable
                             + "\nwarpUsable=" + warpUsable + "\nrotationUsable=" + rotationUsable + "\n",
-                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception exception) {
             context.logger().error("Editor object peer validation failed", exception);
             if (artifact == null) return;
             try {
                 Files.createDirectories(artifact.getParent());
-                Files.writeString( artifact,
+                Files.writeString(
+                        artifact,
                         "status=FAIL\nphase=peer-after-primary-scope-close\nerror=" + exception + "\n",
-                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.TRUNCATE_EXISTING);
             } catch (Exception ignored) {
                 // Manual evidence probe cannot recover when its artifact path is unavailable.
             }
@@ -130,8 +134,12 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
                         onHostThread(() -> context.cubism().model().active());
                 if (onHostThread(() -> !model.drawables().all().isEmpty()
                         && !model.warpDeformers().all().isEmpty()
-                        && !model.rotationDeformers().all().isEmpty())) { return model; }
-            } catch (Exception exception) { lastFailure = exception; }
+                        && !model.rotationDeformers().all().isEmpty())) {
+                    return model;
+                }
+            } catch (Exception exception) {
+                lastFailure = exception;
+            }
             Thread.sleep(100L);
         }
         throw new IllegalStateException("Peer plugin did not observe an active Editor model", lastFailure);
@@ -139,7 +147,10 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
 
     private void writeStage(final Path artifact, final String stage) throws Exception {
         Files.createDirectories(artifact.getParent());
-        Files.writeString( artifact, "status=RUNNING\nphase=" + stage + "\n", StandardOpenOption.CREATE,
+        Files.writeString(
+                artifact,
+                "status=RUNNING\nphase=" + stage + "\n",
+                StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING);
     }
 

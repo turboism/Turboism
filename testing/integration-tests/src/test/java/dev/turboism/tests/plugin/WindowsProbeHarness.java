@@ -66,7 +66,9 @@ public final class WindowsProbeHarness {
 
     // --- EDT / Host-Thread Dispatching ---------------------------------------
 
-    public static <T> T onEdt(final Callable<T> call) throws Exception { return onEdt(call, 5_000L); }
+    public static <T> T onEdt(final Callable<T> call) throws Exception {
+        return onEdt(call, 5_000L);
+    }
 
     public static <T> T onEdt(final Callable<T> call, final long timeoutMillis) throws Exception {
         if (SwingUtilities.isEventDispatchThread()) return call.call();
@@ -78,7 +80,9 @@ public final class WindowsProbeHarness {
                 result.set(call.call());
             } catch (Throwable error) {
                 failure.set(error);
-            } finally { completed.countDown(); }
+            } finally {
+                completed.countDown();
+            }
         });
         if (!completed.await(timeoutMillis, TimeUnit.MILLISECONDS)) {
             throw new IllegalStateException("EDT execution timed out after " + timeoutMillis + "ms");
@@ -94,12 +98,16 @@ public final class WindowsProbeHarness {
     public static void onEdt(final Runnable operation) {
         if (SwingUtilities.isEventDispatchThread()) {
             operation.run();
-        } else { SwingUtilities.invokeLater(operation); }
+        } else {
+            SwingUtilities.invokeLater(operation);
+        }
     }
 
     // --- JSON Serialization & Escaping ---------------------------------------
 
-    public static String json(final String value) { return json(value, 512); }
+    public static String json(final String value) {
+        return json(value, 512);
+    }
 
     public static String json(final String value, final int maxCodePoints) {
         if (value == null) return "";
@@ -120,16 +128,22 @@ public final class WindowsProbeHarness {
         return escaped.toString();
     }
 
-    public static String quoted(final String value) { return "\"" + json(value) + "\""; }
+    public static String quoted(final String value) {
+        return "\"" + json(value) + "\"";
+    }
 
-    public static int identityHash(final Object value) { return value == null ? 0 : System.identityHashCode(value); }
+    public static int identityHash(final Object value) {
+        return value == null ? 0 : System.identityHashCode(value);
+    }
 
     public static String pointJson(final Point point) {
         return point == null ? "null" : "{\"x\":" + point.x + ",\"y\":" + point.y + "}";
     }
 
     public static String rectangleJson(final Rectangle r) {
-        return r == null ? "null" : "{\"x\":" + r.x + ",\"y\":" + r.y + ",\"width\":" + r.width + ",\"height\":" + r.height + "}";
+        return r == null
+                ? "null"
+                : "{\"x\":" + r.x + ",\"y\":" + r.y + ",\"width\":" + r.width + ",\"height\":" + r.height + "}";
     }
 
     // --- File / Artifact I/O -------------------------------------------------
@@ -139,15 +153,20 @@ public final class WindowsProbeHarness {
     }
 
     public static void append(final Path artifact, final String value, final boolean terminal) throws Exception {
-        if (artifact.getParent() != null) { Files.createDirectories(artifact.getParent()); }
-        Files.writeString( artifact, value, StandardCharsets.UTF_8, StandardOpenOption.CREATE,
-                StandardOpenOption.APPEND);
+        if (artifact.getParent() != null) {
+            Files.createDirectories(artifact.getParent());
+        }
+        Files.writeString(
+                artifact, value, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
     }
 
     public static void writeAtomic(final Path target, final String text) throws IOException {
-        if (target.getParent() != null) { Files.createDirectories(target.getParent()); }
+        if (target.getParent() != null) {
+            Files.createDirectories(target.getParent());
+        }
         final Path temp = target.resolveSibling(target.getFileName() + ".tmp");
-        Files.writeString(temp, text, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        Files.writeString(
+                temp, text, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         try {
             Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
         } catch (java.nio.file.AtomicMoveNotSupportedException unsupported) {
@@ -172,8 +191,12 @@ public final class WindowsProbeHarness {
                 fixture, beforeMtime, beforeSize, DEFAULT_SAVE_DEADLINE_MILLIS, DEFAULT_SAVE_POLL_MILLIS);
     }
 
-    public static SaveConfirmation awaitSaveConfirmation( final Path fixture, final FileTime beforeMtime,
-            final long beforeSize, final long deadlineMillis, final long pollMillis)
+    public static SaveConfirmation awaitSaveConfirmation(
+            final Path fixture,
+            final FileTime beforeMtime,
+            final long beforeSize,
+            final long deadlineMillis,
+            final long pollMillis)
             throws Exception {
         Objects.requireNonNull(fixture, "fixture");
         Objects.requireNonNull(beforeMtime, "beforeMtime");
@@ -214,8 +237,13 @@ public final class WindowsProbeHarness {
         for (int depth = 0; current != null && depth < 4; depth++, current = current.getCause()) {
             if (depth > 0) description.append(" <- ");
             final String message = current.getMessage();
-            description.append(current.getClass().getSimpleName()).append(": ")
-                    .append(message == null || message.isBlank() ? current.getClass().getSimpleName() : message);
+            description
+                    .append(current.getClass().getSimpleName())
+                    .append(": ")
+                    .append(
+                            message == null || message.isBlank()
+                                    ? current.getClass().getSimpleName()
+                                    : message);
         }
         return description.toString();
     }
@@ -228,15 +256,21 @@ public final class WindowsProbeHarness {
                 System.gc();
                 Thread.sleep(250L);
             }
-        } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     public static long heapUsedBytes() {
-        return java.lang.management.ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed();
+        return java.lang.management.ManagementFactory.getMemoryMXBean()
+                .getHeapMemoryUsage()
+                .getUsed();
     }
 
     public static long nonHeapUsedBytes() {
-        return java.lang.management.ManagementFactory.getMemoryMXBean().getNonHeapMemoryUsage().getUsed();
+        return java.lang.management.ManagementFactory.getMemoryMXBean()
+                .getNonHeapMemoryUsage()
+                .getUsed();
     }
 
     public static long gcCollectionCount() {
@@ -308,7 +342,9 @@ public final class WindowsProbeHarness {
                         }
                     }
                 }
-            } finally { dispatched.countDown(); }
+            } finally {
+                dispatched.countDown();
+            }
         });
         if (!dispatched.await(500L, TimeUnit.MILLISECONDS)) return false;
         return invoked.get();
@@ -336,7 +372,9 @@ public final class WindowsProbeHarness {
     }
 
     public static void dispatchMouseEvent(final Component target, final int type, final Point point, final long when)
-            throws Exception { dispatchMouseEvent(target, mouse(target, type, point, when)); }
+            throws Exception {
+        dispatchMouseEvent(target, mouse(target, type, point, when));
+    }
 
     public static void dispatchMouseEvent(final Component target, final MouseEvent event) throws Exception {
         SwingUtilities.invokeAndWait(() -> target.dispatchEvent(event));
@@ -347,23 +385,61 @@ public final class WindowsProbeHarness {
     }
 
     public static MouseEvent mouse(final Component source, final int type, final Point point, final long when) {
-        return new MouseEvent( source, type, when, InputEvent.BUTTON1_DOWN_MASK, point.x, point.y, point.x, point.y, 1,
-                false, MouseEvent.BUTTON1);
+        return new MouseEvent(
+                source,
+                type,
+                when,
+                InputEvent.BUTTON1_DOWN_MASK,
+                point.x,
+                point.y,
+                point.x,
+                point.y,
+                1,
+                false,
+                MouseEvent.BUTTON1);
     }
 
     // --- Shared History & Test Doubles --------------------------------------
 
     public static WindowsHistoryManagerValidationProbe.NativeDetail simpleUnavailable() {
-        return new WindowsHistoryManagerValidationProbe.NativeDetail( "SIMPLE", "com.live2d.undo.SimpleUndo", "target",
-                "", "", "", "", -1, 0, List.of(), List.of(), true, false, "history.detail.post-state-unavailable");
+        return new WindowsHistoryManagerValidationProbe.NativeDetail(
+                "SIMPLE",
+                "com.live2d.undo.SimpleUndo",
+                "target",
+                "",
+                "",
+                "",
+                "",
+                -1,
+                0,
+                List.of(),
+                List.of(),
+                true,
+                false,
+                "history.detail.post-state-unavailable");
     }
 
-    public static WindowsHistoryManagerValidationProbe.NativeDetail group( final int observedChildCount,
-            final List<WindowsHistoryManagerValidationProbe.NativeDetail> children, final String degradationCode) {
-        return new WindowsHistoryManagerValidationProbe.NativeDetail( "GROUP", "com.live2d.undo.GroupUndo", "", "", "",
-                "", "", -1, observedChildCount, children.stream()
-                        .map(WindowsHistoryManagerValidationProbe.NativeDetail::entryClass).toList(), children, false,
-                false, degradationCode);
+    public static WindowsHistoryManagerValidationProbe.NativeDetail group(
+            final int observedChildCount,
+            final List<WindowsHistoryManagerValidationProbe.NativeDetail> children,
+            final String degradationCode) {
+        return new WindowsHistoryManagerValidationProbe.NativeDetail(
+                "GROUP",
+                "com.live2d.undo.GroupUndo",
+                "",
+                "",
+                "",
+                "",
+                "",
+                -1,
+                observedChildCount,
+                children.stream()
+                        .map(WindowsHistoryManagerValidationProbe.NativeDetail::entryClass)
+                        .toList(),
+                children,
+                false,
+                false,
+                degradationCode);
     }
 
     public static WindowsHistoryManagerValidationProbe.ManagerSnapshot absentManager(final String name) {
@@ -380,8 +456,21 @@ public final class WindowsProbeHarness {
         final List<WindowsHistoryManagerValidationProbe.Entry> nativeEntries = new ArrayList<>();
         final List<WindowsHistoryManagerValidationProbe.SdkEntry> sdkEntries = new ArrayList<>();
         final WindowsHistoryManagerValidationProbe.NativeDetail detail =
-                new WindowsHistoryManagerValidationProbe.NativeDetail( "PROPERTY", "com.live2d.undo.PropertyUndo",
-                        "target", "value", "0", "1", "", -1, 0, List.of(), List.of(), true, true, "");
+                new WindowsHistoryManagerValidationProbe.NativeDetail(
+                        "PROPERTY",
+                        "com.live2d.undo.PropertyUndo",
+                        "target",
+                        "value",
+                        "0",
+                        "1",
+                        "",
+                        -1,
+                        0,
+                        List.of(),
+                        List.of(),
+                        true,
+                        true,
+                        "");
         for (int index = 0; index < ids.length; index++) {
             nativeEntries.add(new WindowsHistoryManagerValidationProbe.Entry(index, "entry-" + index, true, detail));
             sdkEntries.add(
@@ -389,12 +478,29 @@ public final class WindowsProbeHarness {
         }
         final WindowsHistoryManagerValidationProbe.ManagerSnapshot document =
                 manager("DOCUMENT", nativeEntries, ids.length);
-        return new WindowsHistoryManagerValidationProbe.Snapshot( "2024-01-01T00:00:00Z", "AWT-EventQueue-0", true,
-                "loader@1", "document@1", "ModelingMode", "mode@1", document,
-                manager("CURRENT", nativeEntries, ids.length), manager("MAIN", nativeEntries, ids.length),
+        return new WindowsHistoryManagerValidationProbe.Snapshot(
+                "2024-01-01T00:00:00Z",
+                "AWT-EventQueue-0",
+                true,
+                "loader@1",
+                "document@1",
+                "ModelingMode",
+                "mode@1",
+                document,
+                manager("CURRENT", nativeEntries, ids.length),
+                manager("MAIN", nativeEntries, ids.length),
                 manager("LINKED", nativeEntries, ids.length),
-                new WindowsHistoryManagerValidationProbe.SdkHistorySnapshot( "AVAILABLE", 1L, 1L, ids.length, true,
-                        false, "history-document-1", "history-manager-1", ids.length, sdkEntries));
+                new WindowsHistoryManagerValidationProbe.SdkHistorySnapshot(
+                        "AVAILABLE",
+                        1L,
+                        1L,
+                        ids.length,
+                        true,
+                        false,
+                        "history-document-1",
+                        "history-manager-1",
+                        ids.length,
+                        sdkEntries));
     }
 
     public static WindowsHistoryManagerValidationProbe.Snapshot snapshotWithNativeDetail(
@@ -408,12 +514,29 @@ public final class WindowsProbeHarness {
         }
         final WindowsHistoryManagerValidationProbe.ManagerSnapshot document =
                 manager("DOCUMENT", nativeEntries, ids.length);
-        return new WindowsHistoryManagerValidationProbe.Snapshot( "2024-01-01T00:00:00Z", "AWT-EventQueue-0", true,
-                "loader@1", "document@1", "ModelingMode", "mode@1", document,
-                manager("CURRENT", nativeEntries, ids.length), manager("MAIN", nativeEntries, ids.length),
+        return new WindowsHistoryManagerValidationProbe.Snapshot(
+                "2024-01-01T00:00:00Z",
+                "AWT-EventQueue-0",
+                true,
+                "loader@1",
+                "document@1",
+                "ModelingMode",
+                "mode@1",
+                document,
+                manager("CURRENT", nativeEntries, ids.length),
+                manager("MAIN", nativeEntries, ids.length),
                 manager("LINKED", nativeEntries, ids.length),
-                new WindowsHistoryManagerValidationProbe.SdkHistorySnapshot( "AVAILABLE", 1L, 1L, ids.length, true,
-                        false, "history-document-1", "history-manager-1", ids.length, sdkEntries));
+                new WindowsHistoryManagerValidationProbe.SdkHistorySnapshot(
+                        "AVAILABLE",
+                        1L,
+                        1L,
+                        ids.length,
+                        true,
+                        false,
+                        "history-document-1",
+                        "history-manager-1",
+                        ids.length,
+                        sdkEntries));
     }
 
     public static HistoryRelationChange.Endpoint targetEndpoint(final HistoryTarget target) {
@@ -421,13 +544,20 @@ public final class WindowsProbeHarness {
     }
 
     public static HistoryChange relationChange(final HistoryRelationChange relation) {
-        return new HistoryChange( HistoryChange.Operation.SET, Optional.of(0), Optional.empty(), Optional.empty(),
-                Optional.empty(), new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+        return new HistoryChange(
+                HistoryChange.Operation.SET,
+                Optional.of(0),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
                 Optional.of(relation));
     }
 
-    public static HistoryEntryDetail membershipDetail( final HistoryRelationChange.Endpoint before,
-            final HistoryRelationChange.Endpoint after, final HistoryAction.DetailLevel level) {
+    public static HistoryEntryDetail membershipDetail(
+            final HistoryRelationChange.Endpoint before,
+            final HistoryRelationChange.Endpoint after,
+            final HistoryAction.DetailLevel level) {
         return relationDetail(
                 new HistoryRelationChange(HistoryRelationChange.Kind.PART_MEMBERSHIP, before, after), level);
     }
@@ -435,8 +565,13 @@ public final class WindowsProbeHarness {
     public static HistoryEntryDetail relationDetail(
             final HistoryRelationChange relation, final HistoryAction.DetailLevel level) {
         final HistoryChange change = relationChange(relation);
-        return new HistoryEntryDetail( "membership", level, HistoryOrigin.hostUnattributed(), List.of(childTarget()),
-                List.of(change), Optional.empty(),
+        return new HistoryEntryDetail(
+                "membership",
+                level,
+                HistoryOrigin.hostUnattributed(),
+                List.of(childTarget()),
+                List.of(change),
+                Optional.empty(),
                 level == HistoryAction.DetailLevel.FULL ? Optional.empty() : Optional.of("fixture.partial"));
     }
 
@@ -446,14 +581,27 @@ public final class WindowsProbeHarness {
 
     public static WindowsHistoryManagerValidationProbe.SdkHistorySnapshot sdkHistory(
             final List<WindowsHistoryManagerValidationProbe.SdkEntry> entries, final int position) {
-        return new WindowsHistoryManagerValidationProbe.SdkHistorySnapshot( "AVAILABLE", 7L, 1L, position, position > 0,
-                false, "document-1", "manager-1", entries.size(), List.copyOf(entries));
+        return new WindowsHistoryManagerValidationProbe.SdkHistorySnapshot(
+                "AVAILABLE",
+                7L,
+                1L,
+                position,
+                position > 0,
+                false,
+                "document-1",
+                "manager-1",
+                entries.size(),
+                List.copyOf(entries));
     }
 
     public static WindowsHistoryManagerValidationProbe.SdkEntry sdkEntry(
             final int index, final String entryId, final HistoryEntryDetail detail) {
-        return new WindowsHistoryManagerValidationProbe.SdkEntry( index, entryId, "entry-" + index,
-                WindowsHistoryManagerValidationProbe.sdkDetailJson(detail, 0), detail);
+        return new WindowsHistoryManagerValidationProbe.SdkEntry(
+                index,
+                entryId,
+                "entry-" + index,
+                WindowsHistoryManagerValidationProbe.sdkDetailJson(detail, 0),
+                detail);
     }
 
     public static WindowsHistoryManagerValidationProbe.SdkEntry sdkEntry(
@@ -465,52 +613,80 @@ public final class WindowsProbeHarness {
         final List<Parameter> values = List.of(parameters);
         return new Parameters() {
             @Override
-            public List<Parameter> all() { return values; }
+            public List<Parameter> all() {
+                return values;
+            }
 
             @Override
             public Parameter find(final ParameterId id) {
-                return values.stream().filter(parameter -> parameter.id().equals(id)).findFirst()
+                return values.stream()
+                        .filter(parameter -> parameter.id().equals(id))
+                        .findFirst()
                         .orElseThrow(() -> new java.util.NoSuchElementException(id.value()));
             }
         };
     }
 
-    public static Parameter mockParameter( final String id, final String name, final ParameterType type,
-            final Boolean repeat, final Boolean combined, final float value) {
+    public static Parameter mockParameter(
+            final String id,
+            final String name,
+            final ParameterType type,
+            final Boolean repeat,
+            final Boolean combined,
+            final float value) {
         return new Parameter() {
             @Override
-            public ParameterId id() { return new ParameterId(id); }
+            public ParameterId id() {
+                return new ParameterId(id);
+            }
 
             @Override
-            public Optional<String> name() { return Optional.ofNullable(name); }
+            public Optional<String> name() {
+                return Optional.ofNullable(name);
+            }
 
             @Override
-            public ParameterType type() { return type; }
+            public ParameterType type() {
+                return type;
+            }
 
             @Override
-            public Optional<Boolean> repeat() { return Optional.ofNullable(repeat); }
+            public Optional<Boolean> repeat() {
+                return Optional.ofNullable(repeat);
+            }
 
             @Override
-            public Optional<Boolean> combined() { return Optional.ofNullable(combined); }
+            public Optional<Boolean> combined() {
+                return Optional.ofNullable(combined);
+            }
 
             @Override
-            public float getValue() { return value; }
+            public float getValue() {
+                return value;
+            }
 
             @Override
-            public float getMinimumValue() { return -30.0F; }
+            public float getMinimumValue() {
+                return -30.0F;
+            }
 
             @Override
-            public float getMaximumValue() { return 30.0F; }
+            public float getMaximumValue() {
+                return 30.0F;
+            }
 
             @Override
-            public float getDefaultValue() { return 0.0F; }
+            public float getDefaultValue() {
+                return 0.0F;
+            }
 
             @Override
             public void setValue(final float ignored) {}
         };
     }
 
-    public static dev.turboism.sdk.cubism.CubismFacade fakeCubism( final boolean hostPresent,
+    public static dev.turboism.sdk.cubism.CubismFacade fakeCubism(
+            final boolean hostPresent,
             final Optional<dev.turboism.sdk.cubism.DocumentSnapshot> document,
             final Optional<dev.turboism.sdk.cubism.ModelSnapshot> model) {
         return new dev.turboism.sdk.cubism.CubismFacade() {
@@ -520,16 +696,24 @@ public final class WindowsProbeHarness {
             }
 
             @Override
-            public Optional<dev.turboism.sdk.cubism.ProjectSnapshot> activeProject() { return Optional.empty(); }
+            public Optional<dev.turboism.sdk.cubism.ProjectSnapshot> activeProject() {
+                return Optional.empty();
+            }
 
             @Override
-            public Optional<dev.turboism.sdk.cubism.DocumentSnapshot> activeDocument() { return document; }
+            public Optional<dev.turboism.sdk.cubism.DocumentSnapshot> activeDocument() {
+                return document;
+            }
 
             @Override
-            public Optional<dev.turboism.sdk.cubism.ModelSnapshot> activeModel() { return model; }
+            public Optional<dev.turboism.sdk.cubism.ModelSnapshot> activeModel() {
+                return model;
+            }
 
             @Override
-            public boolean isHostPresent() { return hostPresent; }
+            public boolean isHostPresent() {
+                return hostPresent;
+            }
         };
     }
 
@@ -537,19 +721,29 @@ public final class WindowsProbeHarness {
         final ParameterGroupId groupId = new ParameterGroupId(id);
         return new ParameterGroup() {
             @Override
-            public ParameterGroupId id() { return groupId; }
+            public ParameterGroupId id() {
+                return groupId;
+            }
 
             @Override
-            public Optional<String> name() { return Optional.of(id); }
+            public Optional<String> name() {
+                return Optional.of(id);
+            }
 
             @Override
-            public Optional<ParameterGroupId> parentId() { return Optional.empty(); }
+            public Optional<ParameterGroupId> parentId() {
+                return Optional.empty();
+            }
 
             @Override
-            public List<ParameterGroupId> childGroupIds() { return List.of(); }
+            public List<ParameterGroupId> childGroupIds() {
+                return List.of();
+            }
 
             @Override
-            public List<ParameterId> parameterIds() { return List.of(); }
+            public List<ParameterId> parameterIds() {
+                return List.of();
+            }
 
             @Override
             public ParameterGroupAppearance ui() {

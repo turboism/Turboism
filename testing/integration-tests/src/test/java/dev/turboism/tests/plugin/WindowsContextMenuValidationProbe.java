@@ -5,9 +5,7 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -26,44 +24,71 @@ public final class WindowsContextMenuValidationProbe implements TurboismPlugin {
 
     @Override
     public void enable() throws IOException {
-        for (String actionId : List.of( "context-menu.first", "context-menu.before", "context-menu.anchor",
-                "context-menu.after", "context-menu.deep")) {
+        for (String actionId : List.of(
+                "context-menu.first",
+                "context-menu.before",
+                "context-menu.anchor",
+                "context-menu.after",
+                "context-menu.deep")) {
             context.disposableScope().register(context.actions().register(actionId, action(actionId)));
         }
 
-        contribute( "deformer", ContextMenuRegistry.Location.DEFORMER_TAB,
+        contribute(
+                "deformer",
+                ContextMenuRegistry.Location.DEFORMER_TAB,
                 ContextMenuRegistry.Location.DEFORMER_TAB.supportedKinds());
-        contribute( "parameter", ContextMenuRegistry.Location.PARAMETER_TAB,
+        contribute(
+                "parameter",
+                ContextMenuRegistry.Location.PARAMETER_TAB,
                 ContextMenuRegistry.Location.PARAMETER_TAB.supportedKinds());
         contribute(
                 "part", ContextMenuRegistry.Location.PART_TAB, ContextMenuRegistry.Location.PART_TAB.supportedKinds());
-        contribute( "workspace", ContextMenuRegistry.Location.WORKSPACE_OBJECT,
+        contribute(
+                "workspace",
+                ContextMenuRegistry.Location.WORKSPACE_OBJECT,
                 ContextMenuRegistry.Location.WORKSPACE_OBJECT.supportedKinds());
         record("ENABLED contributions=4");
     }
 
-    private void contribute( final String id, final ContextMenuRegistry.Location location,
+    private void contribute(
+            final String id,
+            final ContextMenuRegistry.Location location,
             final Set<ContextMenuRegistry.ObjectKind> kinds) {
         final ContextMenuRegistry.ContextMenuEntry entry = probeEntry(id);
-        context.disposableScope().register(context.services().find(ContextMenuRegistry.class)
+        context.disposableScope()
+                .register(context.services()
+                        .find(ContextMenuRegistry.class)
                         .orElse(ContextMenuRegistry.unavailable())
                         .contribute(new ContextMenuRegistry.ContextMenuContribution(
                                 "context-menu-validation-" + id, location, kinds, 0, entry)));
     }
 
     static ContextMenuRegistry.ContextMenuEntry probeEntry(final String id) {
-        return ContextMenuRegistry.ContextMenuEntry.submenu( "turboism-validation-" + id, "Turboism Validation " + id,
-                List.of( ContextMenuRegistry.ContextMenuEntry.item("anchor", "Anchor", "context-menu.anchor"),
-                        ContextMenuRegistry.ContextMenuEntry.item( "before", "Before Anchor", "context-menu.before",
+        return ContextMenuRegistry.ContextMenuEntry.submenu(
+                "turboism-validation-" + id,
+                "Turboism Validation " + id,
+                List.of(
+                        ContextMenuRegistry.ContextMenuEntry.item("anchor", "Anchor", "context-menu.anchor"),
+                        ContextMenuRegistry.ContextMenuEntry.item(
+                                "before",
+                                "Before Anchor",
+                                "context-menu.before",
                                 ContextMenuRegistry.Placement.before("Anchor")),
-                        ContextMenuRegistry.ContextMenuEntry.item( "after", "After Anchor", "context-menu.after",
+                        ContextMenuRegistry.ContextMenuEntry.item(
+                                "after",
+                                "After Anchor",
+                                "context-menu.after",
                                 ContextMenuRegistry.Placement.after("Anchor")),
                         ContextMenuRegistry.ContextMenuEntry.item(
                                 "first", "First", "context-menu.first", ContextMenuRegistry.Placement.first()),
                         ContextMenuRegistry.ContextMenuEntry.separator(
                                 "separator", ContextMenuRegistry.Placement.after("After Anchor")),
-                        ContextMenuRegistry.ContextMenuEntry.submenu( "level-two", "Level 2",
-                                List.of(ContextMenuRegistry.ContextMenuEntry.submenu( "level-three", "Level 3",
+                        ContextMenuRegistry.ContextMenuEntry.submenu(
+                                "level-two",
+                                "Level 2",
+                                List.of(ContextMenuRegistry.ContextMenuEntry.submenu(
+                                        "level-three",
+                                        "Level 3",
                                         List.of(ContextMenuRegistry.ContextMenuEntry.item(
                                                 "deep", "Deep Action", "context-menu.deep")))))),
                 ContextMenuRegistry.Placement.first());
@@ -72,19 +97,27 @@ public final class WindowsContextMenuValidationProbe implements TurboismPlugin {
     private ActionRegistry.Action action(final String actionId) {
         return new ActionRegistry.Action() {
             @Override
-            public String id() { return actionId; }
+            public String id() {
+                return actionId;
+            }
 
             @Override
-            public String label() { return actionId; }
+            public String label() {
+                return actionId;
+            }
 
             @Override
             public java.util.function.Consumer<ActionRegistry.ActionContext> handler() {
                 return actionContext -> {
-                    final String selection = actionContext.contextMenuSelection()
-                            .map(value -> value.location() + ":" + value.items()).orElse("missing");
+                    final String selection = actionContext
+                            .contextMenuSelection()
+                            .map(value -> value.location() + ":" + value.items())
+                            .orElse("missing");
                     try {
                         record("ACTION " + actionId + " selection=" + selection);
-                    } catch (IOException failure) { throw new IllegalStateException(failure); }
+                    } catch (IOException failure) {
+                        throw new IllegalStateException(failure);
+                    }
                 };
             }
         };
@@ -95,6 +128,8 @@ public final class WindowsContextMenuValidationProbe implements TurboismPlugin {
             WindowsProbeHarness.append(evidence, Instant.now() + " " + message + System.lineSeparator());
         } catch (IOException e) {
             throw e;
-        } catch (Exception e) { throw new IOException(e); }
+        } catch (Exception e) {
+            throw new IOException(e);
+        }
     }
 }

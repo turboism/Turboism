@@ -20,8 +20,10 @@ final class WindowsContextMenuValidationProbeTest {
         final List<ContextMenuRegistry.ContextMenuEntry> children = entry.children();
         assertEquals(6, children.size());
         assertEquals("anchor", children.get(0).id());
-        assertEquals( ContextMenuRegistry.Placement.before("Anchor"), children.get(1).placement());
-        assertEquals( ContextMenuRegistry.Placement.after("Anchor"), children.get(2).placement());
+        assertEquals(
+                ContextMenuRegistry.Placement.before("Anchor"), children.get(1).placement());
+        assertEquals(
+                ContextMenuRegistry.Placement.after("Anchor"), children.get(2).placement());
         assertEquals(ContextMenuRegistry.Placement.first(), children.get(3).placement());
         assertEquals(ContextMenuRegistry.EntryKind.SEPARATOR, children.get(4).kind());
         assertEquals(ContextMenuRegistry.EntryKind.SUBMENU, children.get(5).kind());
