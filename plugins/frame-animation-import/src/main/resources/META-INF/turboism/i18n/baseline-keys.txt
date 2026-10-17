@@ -22,6 +22,7 @@ dialog.placement.drawOrder
 dialog.placement.flipVertical
 dialog.placement.partName
 dialog.placement.title
+dialog.preview.noImage
 dialog.strategy.bindingMode
 dialog.strategy.crossfade
 dialog.strategy.display
@@ -33,6 +34,7 @@ dialog.tab.images
 dialog.tab.spriteSheet
 dialog.title
 menu.import
+menu.plugins
 plugin.description
 plugin.name
 status.failed

@@ -11,6 +11,7 @@ import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
@@ -30,6 +31,8 @@ public final class FrameAnimationImportPlugin implements CubismPlugin {
     public static final String ACTION_ID = "frameAnimation.import.open";
     public static final String CONTEXT_MENU_PART_ID = "frameAnimation.import.part";
     public static final String CONTEXT_MENU_DEFORMER_ID = "frameAnimation.import.deformer";
+    private static final String MENU_ROOT = "Turboism";
+    private static final int MENU_ORDER = 150;
 
     private FrameAnimationImportService service;
     private PluginContext context;
@@ -60,11 +63,12 @@ public final class FrameAnimationImportPlugin implements CubismPlugin {
             context.disposableScope().register(contribute(CONTEXT_MENU_PART_ID, ContextMenuRegistry.Location.PART_TAB));
             context.disposableScope()
                     .register(contribute(CONTEXT_MENU_DEFORMER_ID, ContextMenuRegistry.Location.DEFORMER_TAB));
+            context.disposableScope().register(contributeTopMenu());
         } catch (RuntimeException failure) {
             closeScopeQuietly();
             throw failure;
         }
-        logger.info("FrameAnimationImportPlugin enabled: registered import action and context menus");
+        logger.info("FrameAnimationImportPlugin enabled: registered import action, context menus, and top-level menu");
     }
 
     @Override
@@ -109,6 +113,12 @@ public final class FrameAnimationImportPlugin implements CubismPlugin {
                         location.supportedKinds(),
                         120,
                         selection -> true));
+    }
+
+    private Registration contributeTopMenu() {
+        final String menuPath =
+                MENU_ROOT + "/" + localization.text("menu.plugins") + "/" + localization.text("menu.import");
+        return context.menus().contribute(MenuRegistry.MenuContribution.of(menuPath, ACTION_ID, MENU_ORDER));
     }
 
     void openDialog() {
