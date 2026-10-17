@@ -64,7 +64,9 @@ mkdir -p "$probe_tmp/$probe_class_dir_rel" "$probe_tmp/META-INF/turboism/i18n" \
   "$probe_tmp/dev/turboism/plugin/psdclipmaskimport"
 find "$test_classes/$probe_class_dir_rel" -maxdepth 1 -type f \
   \( -name 'WindowsPsdClipMaskValidationProbe.class' \
-     -o -name 'WindowsPsdClipMaskValidationProbe$*.class' \) \
+     -o -name 'WindowsPsdClipMaskValidationProbe$*.class' \
+     -o -name 'WindowsProbeHarness.class' \
+     -o -name 'WindowsProbeHarness$*.class' \) \
   -exec cp {} "$probe_tmp/$probe_class_dir_rel/" \;
 # The probe drives the production planner, but plugin classloaders are isolated per
 # jar; ship a probe-local copy of the deterministic planner classes (SDK-only logic)

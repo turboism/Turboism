@@ -32,7 +32,8 @@ for class_name in \
   WindowsHistoryNativeUiIngressProbeTest \
   WindowsHistoryNativeUiHostClose \
   'WindowsHistoryNativeUiHostClose$CloseResult' \
-  'WindowsMeshEditValidationProbe$SelectionAttempt'; do
+  'WindowsMeshEditValidationProbe$SelectionAttempt' \
+  WindowsProbeHarness; do
   printf 'class fixture\n' > "$class_root/$class_name.class"
 done
 
@@ -57,7 +58,8 @@ for entry in \
   'dev/turboism/tests/plugin/WindowsHistorySeedValidationProbe.class' \
   'dev/turboism/tests/plugin/WindowsHistoryManagerValidationProbe.class' \
   'dev/turboism/tests/plugin/WindowsHistoryManagerValidationProbe$Snapshot.class' \
-  'dev/turboism/tests/plugin/WindowsHistoryManagerValidationProbe$NativeDetail.class'; do
+  'dev/turboism/tests/plugin/WindowsHistoryManagerValidationProbe$NativeDetail.class' \
+  'dev/turboism/tests/plugin/WindowsProbeHarness.class'; do
   if ! jar tf "$seed_jar" | grep -Fxq "$entry"; then
     printf 'error: seed package is missing embedded sampler dependency %s\n' "$entry" >&2
     exit 1
@@ -71,7 +73,8 @@ for entry in \
   'dev/turboism/tests/plugin/WindowsHistoryManagerValidationProbe$Snapshot.class' \
   'dev/turboism/tests/plugin/WindowsHistoryNativeUiHostClose.class' \
   'dev/turboism/tests/plugin/WindowsHistoryNativeUiHostClose$CloseResult.class' \
-  'dev/turboism/tests/plugin/WindowsMeshEditValidationProbe$SelectionAttempt.class'; do
+  'dev/turboism/tests/plugin/WindowsMeshEditValidationProbe$SelectionAttempt.class' \
+  'dev/turboism/tests/plugin/WindowsProbeHarness.class'; do
   if ! jar tf "$native_ui_jar" | grep -Fxq "$entry"; then
     printf 'error: native UI probe package is missing %s\n' "$entry" >&2
     exit 1
