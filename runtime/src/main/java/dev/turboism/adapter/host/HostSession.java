@@ -1166,6 +1166,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return closeRequested();
     }
 
+    boolean acceptingCallsForTest() {
+        return dynamic.acceptingCallsForTest();
+    }
+
     private boolean beginTransition(final boolean closing) {
         if (dynamic.isInAdapterCallOnCurrentThread()) {
             if (closing) {

@@ -1581,10 +1581,35 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
      * host accepts the synthetic task-window close event.
      */
     static HostCloseRoute hostCloseRoute(final String hostVersion) {
-        return WindowsHistoryNativeUiHostClose.hostCloseRoute(hostVersion)
-                        == WindowsHistoryNativeUiHostClose.HostCloseRoute.ROBOT_ALT_F4
-                ? HostCloseRoute.ROBOT_ALT_F4
-                : HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
+        if (hostVersion == null) {
+            throw new IllegalArgumentException(
+                    "turboism.validation.hostVersion must be an exact installed version code");
+        }
+        return switch (hostVersion) {
+            case "5000",
+                    "5001",
+                    "5002",
+                    "5003",
+                    "5004",
+                    "5005",
+                    "5006",
+                    "5100",
+                    "5101",
+                    "5102",
+                    "5103",
+                    "5200",
+                    "5201",
+                    "5202",
+                    "5203",
+                    "5300",
+                    "5301",
+                    "5303",
+                    "5304" -> HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
+            case "5302" -> HostCloseRoute.ROBOT_ALT_F4;
+            default ->
+                throw new IllegalArgumentException(
+                        "turboism.validation.hostVersion must be an exact installed version code: " + hostVersion);
+        };
     }
 
     static boolean isOpaqueHexId(final String value) {

@@ -1050,6 +1050,22 @@ final class PaletteLabelStyleTestFixtures {
             return events.stream().filter(e -> e.startsWith("background:")).toList();
         }
 
+        void awaitEvents(final int minCount) {
+            final long deadline =
+                    System.nanoTime() + java.time.Duration.ofSeconds(5).toNanos();
+            while (events.size() < minCount && System.nanoTime() < deadline) {
+                Thread.onSpinWait();
+            }
+        }
+
+        void awaitTextEvents(final int minCount) {
+            final long deadline =
+                    System.nanoTime() + java.time.Duration.ofSeconds(5).toNanos();
+            while (textEvents().size() < minCount && System.nanoTime() < deadline) {
+                Thread.onSpinWait();
+            }
+        }
+
         @Override
         public Registration overrideTextColor(dev.turboism.sdk.ui.appearance.UiColor color) {
             return override("text", color);
