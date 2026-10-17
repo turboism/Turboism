@@ -115,7 +115,9 @@ trap 'rm -rf "${probe_tmp:-}" "${agent_tmp:-}" "${freshness_tmp:-}"' EXIT
 mkdir -p "$probe_tmp/$probe_class_dir_rel" "$probe_tmp/META-INF/turboism/i18n"
 find "$test_classes/$probe_class_dir_rel" -maxdepth 1 -type f \
   \( -name 'WindowsWorkspaceValidationProbe.class' \
-     -o -name 'WindowsWorkspaceValidationProbe$*.class' \) \
+     -o -name 'WindowsWorkspaceValidationProbe$*.class' \
+     -o -name 'WindowsProbeHarness.class' \
+     -o -name 'WindowsProbeHarness$*.class' \) \
   -exec cp {} "$probe_tmp/$probe_class_dir_rel/" \;
 cp "$probe_descriptor" "$probe_tmp/META-INF/turboism/plugin.json"
 # PluginJarContract requires the declared i18n base-name catalog to exist in the jar,

@@ -49,7 +49,9 @@ find "$test_classes/$probe_class_dir_rel" -maxdepth 1 -type f \
   \( -name 'HostDialogAutomationValidationProbe.class' \
      -o -name 'HostDialogAutomationValidationProbe$*.class' \
      -o -name 'WindowsParameterValidationProbe.class' \
-     -o -name 'WindowsParameterValidationProbe$*.class' \) \
+     -o -name 'WindowsParameterValidationProbe$*.class' \
+     -o -name 'WindowsProbeHarness.class' \
+     -o -name 'WindowsProbeHarness$*.class' \) \
   -exec cp {} "$probe_tmp/$probe_class_dir_rel/" \;
 # The probe delegates startup/warning answers to the shared audited responder;
 # ship it inside the probe jar so the plugin classloader resolves it.

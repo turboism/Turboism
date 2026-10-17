@@ -91,7 +91,8 @@ trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/$probe_class_dir" "$tmp/META-INF/turboism/i18n"
 find "$test_classes/$probe_class_dir" -maxdepth 1 -type f \
   \( -name "$seed_class.class" -o -name "$seed_class\$*.class" \
-     -o -name "$probe_class.class" -o -name "$probe_class\$*.class" \) \
+     -o -name "$probe_class.class" -o -name "$probe_class\$*.class" \
+     -o -name 'WindowsProbeHarness.class' -o -name 'WindowsProbeHarness\$*.class' \) \
   -exec cp {} "$tmp/$probe_class_dir/" \;
 cp "$seed_descriptor" "$tmp/META-INF/turboism/plugin.json"
 : > "$tmp/META-INF/turboism/i18n/messages.properties"
@@ -126,7 +127,8 @@ tmp2="$(mktemp -d "$repo_root/build/.history-panel-readonly.XXXXXX")"
 trap 'rm -rf "$tmp" "$tmp2"' EXIT
 mkdir -p "$tmp2/$probe_class_dir" "$tmp2/META-INF/turboism/i18n"
 find "$test_classes/$probe_class_dir" -maxdepth 1 -type f \
-  \( -name "$probe_class.class" -o -name "$probe_class\$*.class" \) \
+  \( -name "$probe_class.class" -o -name "$probe_class\$*.class" \
+     -o -name 'WindowsProbeHarness.class' -o -name 'WindowsProbeHarness\$*.class' \) \
   -exec cp {} "$tmp2/$probe_class_dir/" \;
 cp "$probe_descriptor" "$tmp2/META-INF/turboism/plugin.json"
 : > "$tmp2/META-INF/turboism/i18n/messages.properties"
@@ -181,7 +183,8 @@ find "$test_classes/$probe_class_dir" -maxdepth 1 -type f \
   \( -name "$native_ui_class.class" -o -name "$native_ui_class\$*.class" \
      -o -name "$host_close_class.class" -o -name "$host_close_class\$*.class" \
      -o -name "$probe_class.class" -o -name "$probe_class\$*.class" \
-     -o -name "$mesh_edit_class.class" -o -name "$mesh_edit_class\$*.class" \) \
+     -o -name "$mesh_edit_class.class" -o -name "$mesh_edit_class\$*.class" \
+     -o -name 'WindowsProbeHarness.class' -o -name 'WindowsProbeHarness\$*.class' \) \
   -exec cp {} "$tmp4/$probe_class_dir/" \;
 cp "$native_ui_descriptor" "$tmp4/META-INF/turboism/plugin.json"
 : > "$tmp4/META-INF/turboism/i18n/messages.properties"
