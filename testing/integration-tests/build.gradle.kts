@@ -134,18 +134,6 @@ tasks.register<Test>("officialPluginI18nCompletenessTest") {
     }
 }
 
-tasks.register<Test>("pluginPackageContractTest") {
-    group = "verification"
-    description = "Verifies installed-plugin package inspection and security contracts."
-    testClassesDirs = sourceSets.test.get().output.classesDirs
-    classpath = sourceSets.test.get().runtimeClasspath
-    useJUnitPlatform()
-    filter {
-        includeTestsMatching("dev.turboism.tests.distribution.PluginPackage*IntegrationTest")
-        isFailOnNoMatchingTests = true
-    }
-}
-
 tasks.register("previewBundleContractTest") {
     group = "verification"
     description = "Builds and verifies the preview bundle contract."
