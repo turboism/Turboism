@@ -69,7 +69,7 @@ This official plugin is a **store candidate**, not yet a published store listing
 | `cubism.model.write` | Creates Part containers, ArtMeshes, textures, and parameter bindings. |
 | `cubism.parameter.write` | Creates new animation parameters and writes keyframe values. |
 | `ui.context-menu.contribute` | Adds the frame animation import launcher to Part and Deformer context menus. |
-| `file.read` | Reads user-selected sprite sheet and image sequence files. |
+| `ui.menu.contribute` | Adds the frame animation import launcher to the Turboism top-level menu. |
 | `ui.status.notify` | Reports import outcomes and precondition notifications. |
 
 ## Permissions
@@ -81,6 +81,7 @@ This official plugin is a **store candidate**, not yet a published store listing
 | `turboism.file.read` | `application` | Read selected frame images and sprite sheet files. |
 | `turboism.action.register` | `application` | Register frame animation import action. |
 | `turboism.ui.context-menu.contribute` | `application` | Expose frame animation import in part and deformer context menus. |
+| `turboism.ui.menu.contribute` | `application` | Adds the frame animation import launcher to the Turboism top-level menu. |
 | `turboism.ui.status.notify` | `application` | Notify import outcomes and validation errors. |
 
 ## Privacy and data
