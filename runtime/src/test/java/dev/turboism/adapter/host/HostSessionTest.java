@@ -1121,6 +1121,14 @@ class HostSessionTest {
         fail("thread did not wait for the in-flight registration close");
     }
 
+    static void awaitDeactivated(final HostSession session) throws InterruptedException {
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (session.acceptingCallsForTest() && System.nanoTime() < deadline) {
+            Thread.sleep(1);
+        }
+        assertFalse(session.acceptingCallsForTest(), "session did not deactivate adapters in time");
+    }
+
     private static HostSession nativeHistorySession(final VerifiedMemberResolver resolver) {
         return new HostSession(() -> Optional.of(descriptor("native-history")), ignored -> new HostAdapterConnection() {
             @Override

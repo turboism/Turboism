@@ -404,6 +404,12 @@ final class DynamicRuntimeHostAdapters {
         return adapterCallDepth.get() > 0;
     }
 
+    boolean acceptingCallsForTest() {
+        synchronized (callGate) {
+            return acceptingCalls;
+        }
+    }
+
     private StatusToolbarAdapter.AdapterResult<Registration> track(
             final StatusToolbarAdapter.AdapterResult<Registration> result) {
         if (!result.isAvailable()) {
