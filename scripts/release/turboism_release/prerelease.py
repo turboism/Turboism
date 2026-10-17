@@ -36,19 +36,32 @@ def receipt_from_body(body, expected_channel=None):
     return record
 
 
-def names_for(version):
+def canonical_sets_for(version):
     require(channel_for(version) in ('beta','nightly'), 'Not a prerelease version')
-    primary = [f'TurboismInstaller-{version}-full.exe', f'TurboismInstaller-{version}-thin.exe',
-               f'turboism-{version}-full.zip', f'turboism-{version}-thin.zip',
-               f'turboism-sdk-{version}.jar', f'turboism-event-processor-{version}.jar']
-    return {name for item in primary for name in (item, item+'.sha256')}
+    modern = [f'TurboismInstaller-{version}-full.exe', f'TurboismInstaller-{version}-thin.exe',
+              f'turboism-{version}-full.zip', f'turboism-{version}-thin.zip',
+              f'turboism-sdk-{version}.jar', f'turboism-event-processor-{version}.jar']
+    legacy_core = [f'TurboismInstaller-{version}.exe', f'TurboismInstaller-{version}.jar',
+                   f'turboism-{version}-full.zip', f'turboism-{version}-lite.zip']
+    legacy12 = legacy_core + [f'turboism-sdk-{version}.jar', f'turboism-event-processor-{version}.jar']
+    legacy10 = legacy_core + [f'turboism-sdk-{version}.jar']
+    return [
+        {name for item in modern for name in (item, item+'.sha256')},
+        {name for item in legacy12 for name in (item, item+'.sha256')},
+        {name for item in legacy10 for name in (item, item+'.sha256')},
+        {name for item in legacy_core for name in (item, item+'.sha256')},
+    ]
+
+
+def names_for(version):
+    return canonical_sets_for(version)[0]
 
 
 def missing_assets(raw, expected, tag):
     require(isinstance(raw,dict) and raw.get('tag_name') == tag and raw.get('prerelease') is True
             and type(raw.get('draft')) is bool and type(raw.get('id')) is int and raw['id'] > 0,
             'Invalid prerelease identity')
-    require(set(expected) == names_for(tag[1:]), 'Invalid canonical asset set')
+    require(set(expected) in canonical_sets_for(tag[1:]), 'Invalid canonical asset set')
     require(isinstance(raw.get('assets'),list), 'Invalid remote asset list')
     seen = set()
     for asset in raw['assets']:

@@ -388,6 +388,17 @@ class TransportAndWorkflowTest(unittest.TestCase):
             p.GitHub().upload('v1.2.3', Path('fixture.zip'))
             self.assertNotIn('--clobber', run.call_args.args[0])
 
+    def test_get_retries_transient_failures_and_succeeds(self):
+        from unittest.mock import patch
+        fail_res = subprocess.CompletedProcess([], 1, 'HTTP/2.0 502 Bad Gateway\r\n\r\n{}', 'bad gateway')
+        ok_res = subprocess.CompletedProcess([], 0, 'HTTP/2.0 200 OK\r\nContent-Type: application/json\r\n\r\n{"status":"ahead"}', '')
+        with patch.object(p.subprocess, 'run', side_effect=[fail_res, ok_res]) as mock_run:
+            with patch('time.sleep') as mock_sleep:
+                res = p.GitHub().api('compare/aaa...bbb')
+                self.assertEqual(res, {'status': 'ahead'})
+                self.assertEqual(mock_run.call_count, 2)
+                mock_sleep.assert_called_once_with(1)
+
     def test_protected_promotion_uses_trusted_tooling_and_exact_artifact(self):
         workflow = (ROOT / '.github/workflows/release-github-only.yml').read_text()
         self.assertIn("if: github.ref == 'refs/heads/main'", workflow)

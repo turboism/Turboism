@@ -5,6 +5,8 @@ import hashlib
 import json
 import re
 import subprocess
+import sys
+import time
 from pathlib import Path
 
 from .build_identity import verify_receipt
@@ -337,24 +339,40 @@ def promote(github, source_root, bundle_root, run_id, source_sha, attempt, confi
 class GitHub:
     """Narrow gh transport: confirmed HTTP 404 only, never stderr-as-absence."""
     def api(self, path, *, method="GET", data=None, optional=False):
-        command = ["gh", "api", "--hostname", "github.com", "--include", "--method", method,
-                   f"repos/{REPOSITORY}/{path}"]
-        if data is not None:
-            command += ["--input", "-"]
-        result = subprocess.run(command, input=json.dumps(data) if data is not None else None,
-                                text=True, capture_output=True, timeout=120)
-        response = result.stdout.replace("\r\n", "\n")
-        headers, separator, body = response.partition("\n\n")
-        status = re.match(r"HTTP/\S+ (\d{3})\b", headers)
-        code = int(status.group(1)) if status else None
-        if optional and method == "GET" and code == 404:
-            return None
-        require(result.returncode == 0 and code is not None and 200 <= code < 300 and separator,
-                f"GitHub {method} {path} failed (HTTP {code or 'unknown'})")
-        try:
-            return json.loads(body)
-        except ValueError as failure:
-            raise ReleaseError(f"invalid GitHub response for {path}") from failure
+        max_attempts = 3 if method == "GET" and data is None else 1
+        for attempt in range(1, max_attempts + 1):
+            command = ["gh", "api", "--hostname", "github.com", "--include", "--method", method,
+                       f"repos/{REPOSITORY}/{path}"]
+            if data is not None:
+                command += ["--input", "-"]
+            try:
+                result = subprocess.run(command, input=json.dumps(data) if data is not None else None,
+                                        text=True, capture_output=True, timeout=120)
+                response = result.stdout.replace("\r\n", "\n")
+                headers, separator, body = response.partition("\n\n")
+                status = re.match(r"HTTP/\S+ (\d{3})\b", headers)
+                code = int(status.group(1)) if status else None
+                if optional and method == "GET" and code == 404:
+                    return None
+                is_transient = (code is None) or (code in (429, 500, 502, 503, 504))
+                if not (result.returncode == 0 and code is not None and 200 <= code < 300 and separator):
+                    if is_transient and attempt < max_attempts:
+                        print(f"GitHub {method} {path} transient failure (HTTP {code or 'unknown'}), retrying ({attempt}/{max_attempts})...",
+                              file=sys.stderr, flush=True)
+                        time.sleep(attempt)
+                        continue
+                    require(False, f"GitHub {method} {path} failed (HTTP {code or 'unknown'})")
+                try:
+                    return json.loads(body)
+                except ValueError as failure:
+                    raise ReleaseError(f"invalid GitHub response for {path}") from failure
+            except subprocess.TimeoutExpired:
+                if attempt < max_attempts:
+                    print(f"GitHub {method} {path} timed out, retrying ({attempt}/{max_attempts})...",
+                          file=sys.stderr, flush=True)
+                    time.sleep(attempt)
+                    continue
+                raise
 
     def upload(self, tag, path):
         result = subprocess.run(["gh", "release", "upload", tag, str(path.resolve()),
