@@ -33,6 +33,8 @@ import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
@@ -1146,50 +1148,43 @@ class MappingReviewPipelineTest {
                                 fifo, Set.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE), "FIFO_REJECTED")));
     }
 
-    @Test
-    void candidateReviewArtifactAndLockFifosFailWithoutBlocking() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"candidate", "review", "artifact", "lock"})
+    void candidateReviewArtifactAndLockFifosFailWithoutBlocking(final String target) throws Exception {
         TestWorkspace workspace = workspace();
         Path jar = happyJar();
         GeneratedBundle bundle = workspace.service().generate(request(jar));
         Path approved = approvedReview(bundle, sha256(bundle.candidateBytes()));
 
-        Path candidateFifo = temp.resolve("candidate.fifo");
-        createFifo(candidateFifo);
-        assertTimeoutPreemptively(
-                java.time.Duration.ofSeconds(2),
-                () -> assertCode(
-                        "CANDIDATE_READ_FAILED",
-                        () -> workspace.service().apply(new ApplyRequest(candidateFifo, approved, jar, false))));
+        Path fifo = "lock".equals(target)
+                ? workspace.pack().resolveSibling(".fixture.json.mapping-review.lock")
+                : temp.resolve(target + ".fifo");
+        createFifo(fifo);
 
-        Path reviewFifo = temp.resolve("review.fifo");
-        createFifo(reviewFifo);
-        assertTimeoutPreemptively(
-                java.time.Duration.ofSeconds(2),
-                () -> assertCode(
-                        "REVIEW_READ_FAILED",
-                        () -> workspace
-                                .service()
-                                .apply(new ApplyRequest(bundle.candidatePath(), reviewFifo, jar, false))));
+        final String expectedCode;
+        final ApplyRequest request;
+        switch (target) {
+            case "candidate" -> {
+                expectedCode = "CANDIDATE_READ_FAILED";
+                request = new ApplyRequest(fifo, approved, jar, false);
+            }
+            case "review" -> {
+                expectedCode = "REVIEW_READ_FAILED";
+                request = new ApplyRequest(bundle.candidatePath(), fifo, jar, false);
+            }
+            case "artifact" -> {
+                expectedCode = "ARTIFACT_NOT_REGULAR";
+                request = new ApplyRequest(bundle.candidatePath(), approved, fifo, false);
+            }
+            default -> {
+                expectedCode = "APPLY_LOCK_FAILED";
+                request = new ApplyRequest(bundle.candidatePath(), approved, jar, true);
+            }
+        }
 
-        Path artifactFifo = temp.resolve("artifact.fifo");
-        createFifo(artifactFifo);
         assertTimeoutPreemptively(
                 java.time.Duration.ofSeconds(2),
-                () -> assertCode(
-                        "ARTIFACT_NOT_REGULAR",
-                        () -> workspace
-                                .service()
-                                .apply(new ApplyRequest(bundle.candidatePath(), approved, artifactFifo, false))));
-
-        Path lock = workspace.pack().resolveSibling(".fixture.json.mapping-review.lock");
-        createFifo(lock);
-        assertTimeoutPreemptively(
-                java.time.Duration.ofSeconds(2),
-                () -> assertCode(
-                        "APPLY_LOCK_FAILED",
-                        () -> workspace
-                                .service()
-                                .apply(new ApplyRequest(bundle.candidatePath(), approved, jar, true))));
+                () -> assertCode(expectedCode, () -> workspace.service().apply(request)));
     }
 
     @Test
