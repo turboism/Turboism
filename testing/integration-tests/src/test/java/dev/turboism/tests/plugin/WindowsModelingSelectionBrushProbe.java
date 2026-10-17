@@ -84,24 +84,15 @@ final class WindowsModelingSelectionBrushProbe {
         harness.awaitModelingDocument();
         harness.selectFirstArtMesh(report);
         onEdt(() -> {
-            final ClassLoader loader = showingComponents().stream()
-                    .map(Component::getClass)
-                    .filter(type -> type.getName().startsWith("com.live2d."))
-                    .findFirst()
-                    .orElseThrow()
+            final ClassLoader loader = showingComponents().stream().map(Component::getClass)
+                    .filter(type -> type.getName().startsWith("com.live2d.")).findFirst().orElseThrow()
                     .getClassLoader();
-            app = Class.forName("com.live2d.cubism.CEAppCtrl", false, loader)
-                    .getMethod("access$get_instance$cp")
+            app = Class.forName("com.live2d.cubism.CEAppCtrl", false, loader).getMethod("access$get_instance$cp")
                     .invoke(null);
             document = call(app, "getCurrentDoc");
             view = call(app, "getCurrentViewContext");
-            check(
-                    "ordinaryMode",
-                    call(document, "getCurrentEditMode")
-                            .getClass()
-                            .getSimpleName()
-                            .equals("CModelingEditMode_Main"),
-                    document.toString());
+            check( "ordinaryMode", call(document, "getCurrentEditMode").getClass().getSimpleName()
+                            .equals("CModelingEditMode_Main"), document.toString());
             selector = call(call(document, "getCurrentEditMode"), "getSelector");
             model = call(view, "getModel");
             camera = call(view, "getCameraManager");
@@ -117,9 +108,7 @@ final class WindowsModelingSelectionBrushProbe {
         onEdt(() -> {
             assertToolbarPosition();
             check("toolbarNoBorder", !brushButton.isBorderPainted(), brushButton.toString());
-            check(
-                    "toolbarNoFocusOutline",
-                    !brushButton.isFocusPainted() && !brushButton.isFocusable(),
+            check( "toolbarNoFocusOutline", !brushButton.isFocusPainted() && !brushButton.isFocusable(),
                     brushButton.toString());
             return null;
         });
@@ -155,9 +144,7 @@ final class WindowsModelingSelectionBrushProbe {
                     final float factor = (1f / scale) / number(call(camera, "getCameraScale"));
                     call(camera, "setCameraScale", factor, nativePoint(target));
                     final float effective = number(call(camera, "getCameraScale"));
-                    check(
-                            "scale" + scale + ".actualMagnification",
-                            Math.abs(effective * scale - 1f) < .001f,
+                    check( "scale" + scale + ".actualMagnification", Math.abs(effective * scale - 1f) < .001f,
                             "documentUnitsPerPixel=" + effective);
                     return null;
                 });
@@ -166,22 +153,14 @@ final class WindowsModelingSelectionBrushProbe {
                 activate();
                 final JComponent overlay = awaitOverlay(1);
                 final List<NativePoint> candidates = onEdt(this::nativeCandidates);
-                stroke(
-                        "scale" + scale,
-                        overlay,
-                        candidates,
-                        List.of(targetPath(candidates).get(0)),
-                        0);
+                stroke( "scale" + scale, overlay, candidates, List.of(targetPath(candidates).get(0)), 0);
                 robotEscape("scale" + scale + ".escape");
                 awaitOverlay(0);
             }
             restoreCamera(initialCamera);
             setupObjects(List.of(mesh, warp));
             proveNavigationAndCleanup();
-            check(
-                    "dirtyUnchanged",
-                    dirty.equals(onEdt(this::dirty)),
-                    onEdt(this::dirty).toString());
+            check( "dirtyUnchanged", dirty.equals(onEdt(this::dirty)), onEdt(this::dirty).toString());
             proveMeshEntryCleanup(mesh);
             check("geometryUnchanged", geometry.equals(onEdt(this::authoredGeometry)), "authored point arrays");
             check("parametersUnchanged", parameters.equals(onEdt(this::parameters)), parameters.toString());
@@ -209,8 +188,7 @@ final class WindowsModelingSelectionBrushProbe {
 
     private Object nativePoint(Point point) throws Exception {
         return Class.forName("com.live2d.type.CPoint", false, camera.getClass().getClassLoader())
-                .getConstructor(int.class, int.class)
-                .newInstance(point.x, point.y);
+                .getConstructor(int.class, int.class).newInstance(point.x, point.y);
     }
 
     private Object copyVector(Object vector) throws Exception {
@@ -258,9 +236,7 @@ final class WindowsModelingSelectionBrushProbe {
         final int columns = ((Number) call(warp, "getCol")).intValue();
         final int rows = ((Number) call(warp, "getRow")).intValue();
         final int count = candidatesFor(warp).size();
-        check(
-                "warpControlPointCount",
-                count == (columns + 1) * (rows + 1),
+        check( "warpControlPointCount", count == (columns + 1) * (rows + 1),
                 "count=" + count + " col=" + columns + " row=" + rows);
         return List.of(mesh, warp);
     }
@@ -282,9 +258,7 @@ final class WindowsModelingSelectionBrushProbe {
         });
         final long deadline = System.nanoTime() + 5_000_000_000L;
         while (!expected.equals(onEdt(this::objectIds)) && System.nanoTime() < deadline) Thread.sleep(50);
-        check(
-                "setupObjects",
-                expected.equals(onEdt(this::objectIds)),
+        check( "setupObjects", expected.equals(onEdt(this::objectIds)),
                 "expected=" + expected + " actual=" + onEdt(this::objectIds));
         report.add("modeling.setup.delivery=native-test-only-selector-then-ui-sync");
     }
@@ -304,12 +278,9 @@ final class WindowsModelingSelectionBrushProbe {
         final String geometryBefore = onEdt(this::authoredGeometry);
         final Point center = target.rounded();
         final int extent = 2 * RADIUS;
-        final List<Point> outline = List.of(
-                new Point(center.x - extent, center.y - extent),
-                new Point(center.x + extent, center.y - extent),
-                new Point(center.x + extent, center.y + extent),
-                new Point(center.x - extent, center.y + extent),
-                new Point(center.x - extent, center.y - extent));
+        final List<Point> outline = List.of( new Point(center.x - extent, center.y - extent),
+                new Point(center.x + extent, center.y - extent), new Point(center.x + extent, center.y + extent),
+                new Point(center.x - extent, center.y + extent), new Point(center.x - extent, center.y - extent));
         report.add("modeling.nativeBaseline.target=" + target);
         report.add("modeling.nativeBaseline.candidatesBefore=" + points);
         report.add("modeling.nativeBaseline.objectsBefore=" + onEdt(this::objectIds));
@@ -319,42 +290,31 @@ final class WindowsModelingSelectionBrushProbe {
         report.add("modeling.nativeBaseline.candidatesAfter=" + onEdt(this::nativeCandidates));
         report.add("modeling.nativeBaseline.objectsAfter=" + onEdt(this::objectIds));
         report.add("modeling.nativeBaseline.nativeReleasePoint=" + nativeMousePoint());
-        final String actionTool = onEdt(
-                () -> call(call(view, "getLastActionPack"), "ak").getClass().getSimpleName());
+        final String actionTool = onEdt( () -> call(call(view, "getLastActionPack"), "ak").getClass().getSimpleName());
         check("nativeBaselineActionTool", actionTool.equals("ToolMode_Lasso"), actionTool);
         final Set<String> expected = lassoHits(points, outline);
         check("nativeBaselineSinglePointWitness", expected.size() == 1, expected.toString());
         final Set<String> deliveredExpected = lassoHits(points, delivered);
-        check(
-                "nativeBaselineMatchesDeliveredPath",
-                expected.equals(deliveredExpected),
+        check( "nativeBaselineMatchesDeliveredPath", expected.equals(deliveredExpected),
                 "requested=" + expected + " delivered=" + deliveredExpected);
         final Set<String> selected = onEdt(this::selectedPoints);
         check("nativeBaselineReadsTarget", selected.contains(target.key()), selected.toString());
-        check(
-                "nativeBaselineExactSelection",
-                selected.equals(expected),
+        check( "nativeBaselineExactSelection", selected.equals(expected),
                 "expected=" + expected + " actual=" + selected);
         assertBoundingBox("nativeBaseline", selected);
         final HistorySnapshot after = history();
         nativeHistoryDelta = after.position() - before.position();
-        check(
-                "nativeBaselineHistory",
-                nativeHistoryDelta >= 0 && nativeHistoryDelta <= 1,
+        check( "nativeBaselineHistory", nativeHistoryDelta >= 0 && nativeHistoryDelta <= 1,
                 "before=" + before + " after=" + after);
         nativeHistorySignificant = after.position() > 0
                 && after.entries().get(after.position() - 1).significant();
-        report.add("modeling.nativeBaseline.tool="
-                + onEdt(() -> call(app, "getToolMode").getClass().getName()));
+        report.add("modeling.nativeBaseline.tool=" + onEdt(() -> call(app, "getToolMode").getClass().getName()));
         check("nativeBaselineToolRetained", onEdt(() -> toolMode().equals("ToolMode_Lasso")), onEdt(this::toolMode));
         report.add("modeling.nativeBaseline.historyDelta=" + nativeHistoryDelta);
         report.add("modeling.nativeBaseline.significant=" + nativeHistorySignificant);
         report.add("modeling.nativeBaseline.selection=" + selected);
         check("nativeBaselineGeometry", geometryBefore.equals(onEdt(this::authoredGeometry)), "authored point arrays");
-        check(
-                "nativeBaselineDirty",
-                dirtyBefore.equals(onEdt(this::dirty)),
-                onEdt(this::dirty).toString());
+        check( "nativeBaselineDirty", dirtyBefore.equals(onEdt(this::dirty)), onEdt(this::dirty).toString());
     }
 
     private void runFamily(String name, List<Object> owners, CameraState initialCamera) throws Exception {
@@ -368,19 +328,12 @@ final class WindowsModelingSelectionBrushProbe {
         report.add("modeling." + name + ".displayedPoints=" + points);
         final List<Point> path;
         if (owners.size() == 2) {
-            final NativePoint mesh = points.stream()
-                    .filter(this::inside)
-                    .filter(point -> point.key().contains(":MeshPointRef:"))
-                    .findFirst()
-                    .orElseThrow();
-            final NativePoint warp = points.stream()
-                    .filter(this::inside)
-                    .filter(point -> point.key().contains(":WarpPointRef:"))
-                    .findFirst()
-                    .orElseThrow();
+            final NativePoint mesh = points.stream().filter(this::inside)
+                    .filter(point -> point.key().contains(":MeshPointRef:")).findFirst().orElseThrow();
+            final NativePoint warp = points.stream().filter(this::inside)
+                    .filter(point -> point.key().contains(":WarpPointRef:")).findFirst().orElseThrow();
             path = List.of(mesh.rounded(), warp.rounded());
-            check(
-                    name + ".bothFamiliesHit",
+            check( name + ".bothFamiliesHit",
                     hits(points, path, RADIUS).stream().anyMatch(key -> key.contains(":MeshPointRef:"))
                             && hits(points, path, RADIUS).stream().anyMatch(key -> key.contains(":WarpPointRef:")),
                     path.toString());
@@ -388,13 +341,10 @@ final class WindowsModelingSelectionBrushProbe {
             for (NativePoint point : points)
                 if (point.key().contains(":MeshPointRef:"))
                     meshIndices.add(point.key().substring(point.key().lastIndexOf(':') + 1));
-            check(
-                    name + ".sameLocalIndexWitness",
-                    points.stream()
+            check( name + ".sameLocalIndexWitness", points.stream()
                             .filter(point -> point.key().contains(":WarpPointRef:"))
                             .anyMatch(point -> meshIndices.contains(
-                                    point.key().substring(point.key().lastIndexOf(':') + 1))),
-                    "owner-qualified keys="
+                                    point.key().substring(point.key().lastIndexOf(':') + 1))), "owner-qualified keys="
                             + points.stream().map(NativePoint::key).toList());
         } else path = targetPath(points);
         stroke(name + ".replace", overlay, points, path, 0);
@@ -413,14 +363,9 @@ final class WindowsModelingSelectionBrushProbe {
         final Set<String> afterCancel = onEdt(this::selectedPoints);
         report.add("modeling." + name + ".cancelObjects=" + onEdt(this::objectIds));
         report.add("modeling." + name + ".cancelHistory=" + history());
-        check(
-                name + ".cancelUnchanged",
-                beforeCancel.equals(afterCancel),
+        check( name + ".cancelUnchanged", beforeCancel.equals(afterCancel),
                 "before=" + beforeCancel + " after=" + afterCancel);
-        check(
-                name + ".cancelHistory",
-                sameHistory(historyBeforeCancel, history()),
-                history().toString());
+        check( name + ".cancelHistory", sameHistory(historyBeforeCancel, history()), history().toString());
         check(name + ".buttonCleared", !onEdt(brushButton::isSelected), brushButton.toString());
     }
 
@@ -429,22 +374,14 @@ final class WindowsModelingSelectionBrushProbe {
             final List<NativePoint> visible =
                     candidatesFor(owners.get(0)).stream().filter(this::inside).toList();
             if (visible.isEmpty()) throw new IllegalStateException("fixture owner has no visible camera pivot");
-            final Point pivot = new Point(
-                    (int) Math.round(visible.stream()
-                            .mapToDouble(NativePoint::x)
-                            .average()
-                            .orElseThrow()),
-                    (int) Math.round(visible.stream()
-                            .mapToDouble(NativePoint::y)
-                            .average()
+            final Point pivot = new Point( (int) Math.round(visible.stream().mapToDouble(NativePoint::x).average()
+                            .orElseThrow()), (int) Math.round(visible.stream().mapToDouble(NativePoint::y).average()
                             .orElseThrow()));
             // The setter is relative, and exact versions open the fixture at different fit scales.
             // Normalize to one document unit per pixel so radius-32 witnesses remain separated.
             final float factor = 1f / number(call(camera, "getCameraScale"));
             call(camera, "setCameraScale", factor, nativePoint(pivot));
-            check(
-                    name + ".fixtureScale",
-                    Math.abs(number(call(camera, "getCameraScale")) - 1f) < .001f,
+            check( name + ".fixtureScale", Math.abs(number(call(camera, "getCameraScale")) - 1f) < .001f,
                     "documentUnitsPerPixel=" + call(camera, "getCameraScale"));
             report.add("modeling." + name + ".nativeCameraScale=" + call(camera, "getCameraScale"));
             return null;
@@ -463,9 +400,7 @@ final class WindowsModelingSelectionBrushProbe {
         final List<Point> delivered = robotGesture(overlay, path, modifiers, null, name);
         report.add("modeling." + name + ".dirtyAfterRelease=" + onEdt(this::dirty));
         final Set<String> actual = onEdt(this::selectedPoints);
-        check(
-                name + ".deliveredFootprint",
-                hits.equals(hits(points, delivered, RADIUS)),
+        check( name + ".deliveredFootprint", hits.equals(hits(points, delivered, RADIUS)),
                 "requested=" + path + " delivered=" + delivered);
         check(name + ".nativeReadback", expected.equals(actual), "expected=" + expected + " actual=" + actual);
         check(name + ".objectsRetained", objects.equals(onEdt(this::objectIds)), objects.toString());
@@ -476,26 +411,19 @@ final class WindowsModelingSelectionBrushProbe {
         if (before.equals(expected)) {
             check(name + ".noOpHistory", sameHistory(historyBefore, after), after.toString());
         } else {
-            check(
-                    name + ".nativeHistoryDelta",
-                    delta == nativeHistoryDelta,
+            check( name + ".nativeHistoryDelta", delta == nativeHistoryDelta,
                     "native=" + nativeHistoryDelta + " brush=" + delta);
             if (delta == 1) {
-                check(
-                        name + ".selectionHistoryOnly",
+                check( name + ".selectionHistoryOnly",
                         after.entries().get(after.position() - 1).significant() == nativeHistorySignificant,
                         after.toString());
                 execute(EditorCommand.UNDO);
-                check(
-                        name + ".undo",
-                        before.equals(onEdt(this::selectedPoints)),
+                check( name + ".undo", before.equals(onEdt(this::selectedPoints)),
                         onEdt(this::selectedPoints).toString());
                 assertBoundingBox(name + ".undo", before);
                 assertExclusiveBrush();
                 execute(EditorCommand.REDO);
-                check(
-                        name + ".redo",
-                        expected.equals(onEdt(this::selectedPoints)),
+                check( name + ".redo", expected.equals(onEdt(this::selectedPoints)),
                         onEdt(this::selectedPoints).toString());
                 assertBoundingBox(name + ".redo", expected);
                 assertExclusiveBrush();
@@ -533,9 +461,7 @@ final class WindowsModelingSelectionBrushProbe {
             }
 
             @Override
-            public void mouseReleased(MouseEvent event) {
-                counts[2]++;
-            }
+            public void mouseReleased(MouseEvent event) { counts[2]++; }
         };
         onEdt(() -> {
             target.addMouseListener(receipt);
@@ -557,8 +483,7 @@ final class WindowsModelingSelectionBrushProbe {
             pressed = true;
             robot.waitForIdle();
             final int modifierMask = InputEvent.SHIFT_DOWN_MASK | InputEvent.CTRL_DOWN_MASK;
-            check(
-                    name + ".pressModifiersDelivered",
+            check( name + ".pressModifiersDelivered",
                     onEdt(() -> (pressModifiers[0] & modifierMask) == (modifiers & modifierMask)),
                     "expected=" + modifiers + " actual=" + onEdt(() -> pressModifiers[0]));
             final boolean custom = target != canvas;
@@ -567,8 +492,7 @@ final class WindowsModelingSelectionBrushProbe {
                 final Point from = path.get(i - 1), to = path.get(i);
                 final int steps = Math.max(1, (int) Math.ceil(from.distance(to) / 4));
                 for (int step = 1; step <= steps; step++) {
-                    robot.mouseMove(
-                            origin.x + (int) Math.round(from.x + (to.x - from.x) * (double) step / steps),
+                    robot.mouseMove( origin.x + (int) Math.round(from.x + (to.x - from.x) * (double) step / steps),
                             origin.y + (int) Math.round(from.y + (to.y - from.y) * (double) step / steps));
                     robot.delay(35);
                 }
@@ -576,10 +500,7 @@ final class WindowsModelingSelectionBrushProbe {
             robot.waitForIdle();
             if (custom) {
                 check(name + ".noWriteDuringDrag", before.equals(onEdt(this::selectedPoints)), before.toString());
-                check(
-                        name + ".noHistoryDuringDrag",
-                        sameHistory(historyBefore, history()),
-                        history().toString());
+                check( name + ".noHistoryDuringDrag", sameHistory(historyBefore, history()), history().toString());
             }
             if (cancel != null) cancel.run();
             robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
@@ -587,9 +508,7 @@ final class WindowsModelingSelectionBrushProbe {
             robot.waitForIdle();
             report.add("modeling." + name + ".delivery=java.awt.Robot");
             report.add("modeling." + name + ".receipts=" + Arrays.toString(counts));
-            check(
-                    name + ".pressAndDragDelivered",
-                    onEdt(() -> counts[0] == 1 && (path.size() == 1 || counts[1] > 0)),
+            check( name + ".pressAndDragDelivered", onEdt(() -> counts[0] == 1 && (path.size() == 1 || counts[1] > 0)),
                     Arrays.toString(counts));
             if (cancel == null) check(name + ".releaseDelivered", onEdt(() -> counts[2] == 1), Arrays.toString(counts));
             return onEdt(() -> List.copyOf(delivered));
@@ -632,18 +551,13 @@ final class WindowsModelingSelectionBrushProbe {
             robot.delay(100);
             robot.waitForIdle();
             final Point actual = nativeMousePoint();
-            check(
-                    "nativeBaseline.nativeInputCalibrated",
-                    expected.equals(actual),
+            check( "nativeBaseline.nativeInputCalibrated", expected.equals(actual),
                     "expected=" + expected + " actual=" + actual);
         }
-        check(
-                "nativeBaseline.calibrationPreservesSelection",
+        check( "nativeBaseline.calibrationPreservesSelection",
                 selectionBefore.equals(onEdt(this::selectedPoints)) && objectsBefore.equals(onEdt(this::objectIds)),
                 onEdt(this::selectedPoints).toString());
-        check(
-                "nativeBaseline.calibrationPreservesHistory",
-                sameHistory(historyBefore, history()),
+        check( "nativeBaseline.calibrationPreservesHistory", sameHistory(historyBefore, history()),
                 history().toString());
         return origin;
     }
@@ -660,19 +574,13 @@ final class WindowsModelingSelectionBrushProbe {
         final int[] nativeReceipts = new int[3];
         final MouseAdapter listener = new MouseAdapter() {
             @Override
-            public void mousePressed(MouseEvent event) {
-                nativeReceipts[0]++;
-            }
+            public void mousePressed(MouseEvent event) { nativeReceipts[0]++; }
 
             @Override
-            public void mouseDragged(MouseEvent event) {
-                nativeReceipts[1]++;
-            }
+            public void mouseDragged(MouseEvent event) { nativeReceipts[1]++; }
 
             @Override
-            public void mouseReleased(MouseEvent event) {
-                nativeReceipts[2]++;
-            }
+            public void mouseReleased(MouseEvent event) { nativeReceipts[2]++; }
         };
         onEdt(() -> {
             canvas.addMouseListener(listener);
@@ -684,17 +592,14 @@ final class WindowsModelingSelectionBrushProbe {
         try {
             robot.waitForIdle();
             check("navigationSpacePressed", onEdt(() -> navigationReceipts[0] > keyBefore[0]), "native key receipt");
-            check(
-                    "navigationInputNative",
+            check( "navigationInputNative",
                     !onEdt(() -> overlay.contains(canvas.getWidth() / 2, canvas.getHeight() / 2)),
                     "Space press bypasses brush overlay");
             robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
             try {
                 robot.mouseMove(origin.x + canvas.getWidth() / 2 + 60, origin.y + canvas.getHeight() / 2 + 30);
                 robot.delay(200);
-            } finally {
-                robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
-            }
+            } finally { robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK); }
         } finally {
             robot.keyRelease(KeyEvent.VK_SPACE);
             robot.waitForIdle();
@@ -706,20 +611,15 @@ final class WindowsModelingSelectionBrushProbe {
         }
         robot.waitForIdle();
         check("navigationSpaceReleased", onEdt(() -> navigationReceipts[1] > keyBefore[1]), "native key receipt");
-        check(
-                "navigationMouseNative",
+        check( "navigationMouseNative",
                 onEdt(() -> nativeReceipts[0] == 1 && nativeReceipts[1] > 0 && nativeReceipts[2] == 1),
                 Arrays.toString(nativeReceipts));
-        check(
-                "navigationSelectionUnchanged",
-                selectedBefore.equals(onEdt(this::selectedPoints)),
+        check( "navigationSelectionUnchanged", selectedBefore.equals(onEdt(this::selectedPoints)),
                 selectedBefore.toString());
         check("navigationHistoryUnchanged", sameHistory(historyBefore, history()), "navigation is selection-free");
         final List<NativePoint> panned = onEdt(this::nativeCandidates);
         check("navigationPan", !before.equals(panned), "native projected points changed");
-        check(
-                "navigationBrushRetained",
-                onEdt(() -> brushButton.isSelected() && overlay.getParent() == canvas),
+        check( "navigationBrushRetained", onEdt(() -> brushButton.isSelected() && overlay.getParent() == canvas),
                 "Space release must not toggle the focused toolbar button");
         assertExclusiveBrush();
         stroke("nonzeroPan", overlay, panned, targetPath(panned), 0);
@@ -727,9 +627,7 @@ final class WindowsModelingSelectionBrushProbe {
         awaitOverlay(0);
         for (String nativeTool : List.of("toolGroup_arrow", "toolGroup_lasso", "toolGroup_brushSelection")) {
             activate();
-            switchNativeTool(
-                    nativeTool,
-                    switch (nativeTool) {
+            switchNativeTool( nativeTool, switch (nativeTool) {
                         case "toolGroup_arrow" -> "ToolMode_Arrow";
                         case "toolGroup_lasso" -> "ToolMode_Lasso";
                         default -> "ToolMode_BrushSelection";
@@ -752,9 +650,7 @@ final class WindowsModelingSelectionBrushProbe {
         final HistorySnapshot nativeHistoryAfter = history();
         report.add("modeling.nativeMeshBaseline.dirtyBefore=" + dirtyBefore);
         report.add("modeling.nativeMeshBaseline.dirtyAfter=" + nativeDirtyAfter);
-        check(
-                "nativeMeshBaselineGeometry",
-                geometryBefore.equals(onEdt(this::authoredGeometry)),
+        check( "nativeMeshBaselineGeometry", geometryBefore.equals(onEdt(this::authoredGeometry)),
                 "native mesh round trip");
         final int delta = nativeHistoryAfter.position() - historyBefore.position();
         report.add("modeling.nativeMeshBaseline.historyDelta=" + delta);
@@ -766,60 +662,31 @@ final class WindowsModelingSelectionBrushProbe {
         check("meshTransitionActivationHistoryUnchanged", nativeHistoryAfter.equals(history()), "native history");
         execute(EditorCommand.START_OR_END_MESH_EDITOR);
         awaitOverlay(0);
-        check(
-                "meshEntry",
-                !context.services()
-                        .find(MeshEditService.class)
-                        .orElse(MeshEditService.unavailable())
-                        .snapshot()
-                        .points()
-                        .isEmpty(),
-                context.services()
-                        .find(MeshEditService.class)
-                        .orElse(MeshEditService.unavailable())
-                        .snapshot()
-                        .toString());
+        check( "meshEntry", !context.services().find(MeshEditService.class).orElse(MeshEditService.unavailable())
+                        .snapshot().points().isEmpty(), context.services().find(MeshEditService.class)
+                        .orElse(MeshEditService.unavailable()).snapshot().toString());
         check("ordinaryDisabledInMesh", !onEdt(brushButton::isEnabled), brushButton.toString());
         execute(EditorCommand.START_OR_END_MESH_EDITOR);
-        check(
-                "meshExit",
-                context.services()
-                        .find(MeshEditService.class)
-                        .orElse(MeshEditService.unavailable())
-                        .snapshot()
-                        .points()
-                        .isEmpty(),
-                context.services()
-                        .find(MeshEditService.class)
-                        .orElse(MeshEditService.unavailable())
-                        .snapshot()
-                        .toString());
-        check(
-                "meshExitDirtyMatchesNative",
-                nativeDirtyAfter.equals(onEdt(this::dirty)),
+        check( "meshExit", context.services().find(MeshEditService.class).orElse(MeshEditService.unavailable())
+                        .snapshot().points().isEmpty(), context.services().find(MeshEditService.class)
+                        .orElse(MeshEditService.unavailable()).snapshot().toString());
+        check( "meshExitDirtyMatchesNative", nativeDirtyAfter.equals(onEdt(this::dirty)),
                 onEdt(this::dirty).toString());
         final HistorySnapshot historyAfter = history();
         final var nativeMeshEntry = nativeHistoryAfter.entries().get(nativeHistoryAfter.position() - 1);
         final var customMeshEntry = historyAfter.entries().get(historyAfter.position() - 1);
-        check(
-                "meshExitHistoryMatchesNative",
-                historyAfter.position() == nativeHistoryAfter.position() + 1
+        check( "meshExitHistoryMatchesNative", historyAfter.position() == nativeHistoryAfter.position() + 1
                         && historyAfter.entries().size()
                                 == nativeHistoryAfter.entries().size() + 1
-                        && historyAfter
-                                .entries()
-                                .subList(0, nativeHistoryAfter.entries().size())
+                        && historyAfter.entries().subList(0, nativeHistoryAfter.entries().size())
                                 .equals(nativeHistoryAfter.entries())
                         && nativeMeshEntry.label().equals(customMeshEntry.label())
                         && nativeMeshEntry.significant() == customMeshEntry.significant()
                         && nativeMeshEntry.action().equals(customMeshEntry.action())
                         && nativeMeshEntry.detail().equals(customMeshEntry.detail())
                         && nativeHistoryAfter.canUndo() == historyAfter.canUndo()
-                        && nativeHistoryAfter.canRedo() == historyAfter.canRedo(),
-                historyAfter.toString());
-        check(
-                "meshExitGeometryMatchesNative",
-                geometryBefore.equals(onEdt(this::authoredGeometry)),
+                        && nativeHistoryAfter.canRedo() == historyAfter.canRedo(), historyAfter.toString());
+        check( "meshExitGeometryMatchesNative", geometryBefore.equals(onEdt(this::authoredGeometry)),
                 "authored point arrays after custom-active native mesh round trip");
     }
 
@@ -839,9 +706,7 @@ final class WindowsModelingSelectionBrushProbe {
             check("nativeModelingArrowCleared", !modelingArrow.isSelected(), modelingArrow.toString());
             final Map<?, ?> buttons = (Map<?, ?>) call(call(app, "getMainFrameCtrl"), "getToolGroupToButtonMap");
             for (Object button : buttons.values()) {
-                check(
-                        "nativeHighlightCleared",
-                        !((AbstractButton) call(button, "getJAbstractButton")).isSelected(),
+                check( "nativeHighlightCleared", !((AbstractButton) call(button, "getJAbstractButton")).isSelected(),
                         button.toString());
             }
             return null;
@@ -852,12 +717,10 @@ final class WindowsModelingSelectionBrushProbe {
         final long deadline = System.nanoTime() + 10_000_000_000L;
         while (System.nanoTime() < deadline) {
             final List<AbstractButton> found = onEdt(() -> showingComponents().stream()
-                    .filter(AbstractButton.class::isInstance)
-                    .map(AbstractButton.class::cast)
+                    .filter(AbstractButton.class::isInstance).map(AbstractButton.class::cast)
                     .filter(button -> button.getName() != null
                             && button.getName().startsWith("turboism:modeling:")
-                            && button.getName().contains("selection-brush"))
-                    .toList());
+                            && button.getName().contains("selection-brush")).toList());
             if (found.size() == 1) return found.get(0);
             if (found.size() > 1) throw new IllegalStateException("duplicate ordinary brush buttons");
             Thread.sleep(100);
@@ -871,9 +734,7 @@ final class WindowsModelingSelectionBrushProbe {
         final List<Component> peers = List.of(anchor.getParent().getComponents());
         final int at = peers.indexOf(anchor);
         check("toolbarOrder", peers.indexOf(brushButton) == at + 1, peers.toString());
-        check(
-                "toolbarBeforeDivider",
-                at + 2 < peers.size() && peers.get(at + 2) instanceof JSeparator,
+        check( "toolbarBeforeDivider", at + 2 < peers.size() && peers.get(at + 2) instanceof JSeparator,
                 peers.toString());
     }
 
@@ -882,9 +743,7 @@ final class WindowsModelingSelectionBrushProbe {
         return (AbstractButton) call(frameView.getClass().getField(field).get(frameView), "getJAbstractButton");
     }
 
-    private String toolMode() throws Exception {
-        return call(app, "getToolMode").getClass().getSimpleName();
-    }
+    private String toolMode() throws Exception { return call(app, "getToolMode").getClass().getSimpleName(); }
 
     private void switchNativeTool(String field, String expectedMode) throws Exception {
         final AbstractButton button = onEdt(() -> nativeButton(field));
@@ -892,9 +751,7 @@ final class WindowsModelingSelectionBrushProbe {
         robotClick(button, field);
         final long deadline = System.nanoTime() + 5_000_000_000L;
         while (!expectedMode.equals(onEdt(this::toolMode)) && System.nanoTime() < deadline) Thread.sleep(50);
-        check(
-                field + ".actualToolMode",
-                expectedMode.equals(onEdt(this::toolMode)),
+        check( field + ".actualToolMode", expectedMode.equals(onEdt(this::toolMode)),
                 "expected=" + expectedMode + " actual=" + onEdt(this::toolMode));
         check(field + ".selected", onEdt(button::isSelected), button.toString());
     }
@@ -909,19 +766,13 @@ final class WindowsModelingSelectionBrushProbe {
         final int[] receipts = new int[3];
         final MouseAdapter listener = new MouseAdapter() {
             @Override
-            public void mousePressed(MouseEvent event) {
-                receipts[0]++;
-            }
+            public void mousePressed(MouseEvent event) { receipts[0]++; }
 
             @Override
-            public void mouseReleased(MouseEvent event) {
-                receipts[1]++;
-            }
+            public void mouseReleased(MouseEvent event) { receipts[1]++; }
 
             @Override
-            public void mouseClicked(MouseEvent event) {
-                receipts[2]++;
-            }
+            public void mouseClicked(MouseEvent event) { receipts[2]++; }
         };
         onEdt(() -> {
             button.addMouseListener(listener);
@@ -938,9 +789,7 @@ final class WindowsModelingSelectionBrushProbe {
             robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
             pressed = false;
             robot.waitForIdle();
-            check(
-                    name + ".robotClickDelivered",
-                    onEdt(() -> Arrays.equals(receipts, new int[] {1, 1, 1})),
+            check( name + ".robotClickDelivered", onEdt(() -> Arrays.equals(receipts, new int[] {1, 1, 1})),
                     Arrays.toString(receipts));
             report.add("modeling." + name + ".delivery=java.awt.Robot");
         } finally {
@@ -1008,8 +857,7 @@ final class WindowsModelingSelectionBrushProbe {
     private void assertBoundingBox(String name, Set<String> selected) throws Exception {
         final List<NativePoint> candidates = onEdt(this::nativeCandidates);
         final List<NativePoint> targets = candidates.stream()
-                .filter(point -> selected.size() <= 1 || selected.contains(point.key()))
-                .toList();
+                .filter(point -> selected.size() <= 1 || selected.contains(point.key())).toList();
         final BoundingBoxState actual = onEdt(() -> {
             final Object box = call(selector, "getBoundingBox");
             // Use the native lazy reader; never invalidate or rebuild the cache in this oracle.
@@ -1024,11 +872,8 @@ final class WindowsModelingSelectionBrushProbe {
                 final Object position = call(camera, "documentToComponent", corner);
                 corners.add(new NativePoint("corner", number(call(position, "getX")), number(call(position, "getY"))));
             }
-            return new BoundingBoxState(
-                    Boolean.TRUE.equals(call(box, "isAvailable")),
-                    bounds != null,
-                    Set.copyOf(points),
-                    List.copyOf(corners));
+            return new BoundingBoxState( Boolean.TRUE.equals(call(box, "isAvailable")), bounds != null,
+                    Set.copyOf(points), List.copyOf(corners));
         });
         report.add("modeling." + name + ".boundingBox=" + actual);
         report.add("modeling." + name + ".boundingBoxTargets=" + targets);
@@ -1036,28 +881,20 @@ final class WindowsModelingSelectionBrushProbe {
         // Zero/one selected point falls back to whole-object bounds; a rectangle still
         // requires at least two target points after that native fallback.
         if (targets.size() < 2) {
-            check(
-                    name + ".boundingBoxNoHandlesBelowTwoTargets",
-                    !actual.hasBounds() && actual.points().isEmpty(),
+            check( name + ".boundingBoxNoHandlesBelowTwoTargets", !actual.hasBounds() && actual.points().isEmpty(),
                     actual.toString());
             return;
         }
         final Set<String> expected = new LinkedHashSet<>();
         targets.forEach(point -> expected.add(point.key()));
-        check(
-                name + ".boundingBoxTargets",
-                actual.points().equals(expected),
+        check( name + ".boundingBoxTargets", actual.points().equals(expected),
                 "expected=" + expected + " actual=" + actual.points());
-        check(
-                name + ".boundingBoxAvailable",
-                actual.available() && actual.hasBounds() && actual.corners().size() == 4,
+        check( name + ".boundingBoxAvailable", actual.available() && actual.hasBounds() && actual.corners().size() == 4,
                 actual.toString());
         final double[] bounds = displayBounds(actual.corners());
         final double[] expectedBounds = displayBounds(targets);
         for (int index = 0; index < bounds.length; index++) {
-            check(
-                    name + ".boundingBoxExtent" + index,
-                    Math.abs(bounds[index] - expectedBounds[index]) < 1,
+            check( name + ".boundingBoxExtent" + index, Math.abs(bounds[index] - expectedBounds[index]) < 1,
                     "expected=" + Arrays.toString(expectedBounds) + " actual=" + Arrays.toString(bounds));
         }
     }
@@ -1098,20 +935,13 @@ final class WindowsModelingSelectionBrushProbe {
 
     private List<String> parameters() {
         return context.cubism().model().active().parameters().all().stream()
-                .map(parameter -> parameter.id().value() + ":" + parameter.getValue())
-                .sorted()
-                .toList();
+                .map(parameter -> parameter.id().value() + ":" + parameter.getValue()).sorted().toList();
     }
 
     private List<String> dirty() {
         final List<String> result =
-                context
-                        .services()
-                        .require(dev.turboism.sdk.cubism.backup.EditorAutoBackupService.class)
-                        .statuses()
-                        .stream()
-                        .map(status -> status.documentName() + ":" + status.modifiedAfterSaving())
-                        .sorted()
+                context.services().require(dev.turboism.sdk.cubism.backup.EditorAutoBackupService.class).statuses()
+                        .stream().map(status -> status.documentName() + ":" + status.modifiedAfterSaving()).sorted()
                         .toList();
         if (result.isEmpty()) throw new IllegalStateException("native document dirty-state reader unavailable");
         return result;
@@ -1119,19 +949,15 @@ final class WindowsModelingSelectionBrushProbe {
 
     private HistorySnapshot history() throws Exception {
         final HistorySnapshot snapshot = onEdt(() -> context.cubism().history().snapshot());
-        check(
-                "historyAvailable",
-                snapshot.availability() == HistorySnapshot.Availability.AVAILABLE,
+        check( "historyAvailable", snapshot.availability() == HistorySnapshot.Availability.AVAILABLE,
                 snapshot.toString());
         return snapshot;
     }
 
     private void execute(EditorCommand command) throws Exception {
         report.add("modeling.command." + command.name() + ".dirtyBefore=" + onEdt(this::dirty));
-        final var result = onEdt(() -> context.services()
-                .find(EditorCommandService.class)
-                .orElse(EditorCommandService.unavailable())
-                .execute(command));
+        final var result = onEdt(() -> context.services().find(EditorCommandService.class)
+                .orElse(EditorCommandService.unavailable()).execute(command));
         check("command." + command.name(), result.executed(), result.toString());
         report.add("modeling.command." + command.name() + ".dirtyAfter=" + onEdt(this::dirty));
     }
@@ -1144,10 +970,8 @@ final class WindowsModelingSelectionBrushProbe {
     }
 
     private List<Point> separatedPath(List<NativePoint> points, Point first) {
-        final NativePoint target = points.stream()
-                .filter(this::inside)
-                .filter(point -> first.distance(point.x, point.y) > 2 * RADIUS + 12)
-                .findFirst()
+        final NativePoint target = points.stream().filter(this::inside)
+                .filter(point -> first.distance(point.x, point.y) > 2 * RADIUS + 12).findFirst()
                 .orElseThrow(() -> new IllegalStateException("fixture lacks separated visible points at radius 32"));
         final Point start = target.rounded();
         return List.of(start, new Point(start.x + 10, start.y + 3));
@@ -1215,9 +1039,7 @@ final class WindowsModelingSelectionBrushProbe {
                 && before.canRedo() == after.canRedo();
     }
 
-    private static boolean supported(Object ref) {
-        return pointFamily(ref) != null;
-    }
+    private static boolean supported(Object ref) { return pointFamily(ref) != null; }
 
     private static String pointFamily(Object ref) {
         // Native canvas refs subclass the local point types and have version-specific names.
@@ -1237,9 +1059,7 @@ final class WindowsModelingSelectionBrushProbe {
         return call(call(source, "getId"), "getIdString").toString();
     }
 
-    private static float number(Object value) {
-        return ((Number) value).floatValue();
-    }
+    private static float number(Object value) { return ((Number) value).floatValue(); }
 
     @SuppressWarnings("unchecked")
     private static List<Object> list(Object value) {
@@ -1251,8 +1071,7 @@ final class WindowsModelingSelectionBrushProbe {
         final List<Method> methods = Arrays.stream(target.getClass().getMethods())
                 .filter(method -> method.getName().equals(name) && method.getParameterCount() == arguments.length)
                 .filter(method -> compatible(method.getParameterTypes(), arguments))
-                .filter(method -> !method.isBridge())
-                .toList();
+                .filter(method -> !method.isBridge()).toList();
         if (methods.size() != 1)
             throw new IllegalStateException("ambiguous/unavailable native method " + name + " on " + target.getClass());
         return methods.get(0).invoke(target, arguments);
@@ -1278,13 +1097,9 @@ final class WindowsModelingSelectionBrushProbe {
     }
 
     record NativePoint(String key, float x, float y) {
-        Point rounded() {
-            return new Point(Math.round(x), Math.round(y));
-        }
+        Point rounded() { return new Point(Math.round(x), Math.round(y)); }
     }
 
     @FunctionalInterface
-    private interface CheckedAction {
-        void run() throws Exception;
-    }
+    private interface CheckedAction { void run() throws Exception; }
 }

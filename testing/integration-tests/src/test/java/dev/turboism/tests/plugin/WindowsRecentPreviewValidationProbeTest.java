@@ -36,14 +36,11 @@ class WindowsRecentPreviewValidationProbeTest {
 
     @Test
     void closeRouteMapsSupportedVersionsAndFailsClosed() {
-        assertEquals(
-                WindowsRecentPreviewValidationProbe.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
+        assertEquals( WindowsRecentPreviewValidationProbe.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
                 WindowsRecentPreviewValidationProbe.hostCloseRoute("5203"));
-        assertEquals(
-                WindowsRecentPreviewValidationProbe.HostCloseRoute.ROBOT_ALT_F4,
+        assertEquals( WindowsRecentPreviewValidationProbe.HostCloseRoute.ROBOT_ALT_F4,
                 WindowsRecentPreviewValidationProbe.hostCloseRoute("5302"));
-        assertEquals(
-                WindowsRecentPreviewValidationProbe.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
+        assertEquals( WindowsRecentPreviewValidationProbe.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
                 WindowsRecentPreviewValidationProbe.hostCloseRoute("5100"));
         assertThrows(IllegalArgumentException.class, () -> WindowsRecentPreviewValidationProbe.hostCloseRoute("5400"));
         assertThrows(IllegalArgumentException.class, () -> WindowsRecentPreviewValidationProbe.hostCloseRoute(null));
@@ -76,8 +73,7 @@ class WindowsRecentPreviewValidationProbeTest {
     void scratchNameDerivesASiblingWorkingName() {
         assertEquals("fixture-scratch.cmo3", WindowsRecentPreviewValidationProbe.scratchName("fixture.cmo3"));
         final String taskFixture = "queue-abc4b54fe3484f8796def6c46321b06f.cmo3";
-        assertEquals(
-                "queue-abc4b54fe3484f8796def6c46321b06f-scratch.cmo3",
+        assertEquals( "queue-abc4b54fe3484f8796def6c46321b06f-scratch.cmo3",
                 WindowsRecentPreviewValidationProbe.scratchName(taskFixture));
         assertEquals("noext-scratch", WindowsRecentPreviewValidationProbe.scratchName("noext"));
         assertEquals("fixture-scratch.cmo3", WindowsRecentPreviewValidationProbe.scratchName(null));
@@ -115,11 +111,9 @@ class WindowsRecentPreviewValidationProbeTest {
 
     @Test
     void saveDiagnosticLineIsBooleanOnlyAndPathFree() {
-        assertEquals(
-                "Recent preview save diagnostic savedEvent=false fileModified=true menuPath=menu",
+        assertEquals( "Recent preview save diagnostic savedEvent=false fileModified=true menuPath=menu",
                 WindowsRecentPreviewValidationProbe.saveDiagnostic(false, true, "menu"));
-        assertEquals(
-                "Recent preview save diagnostic savedEvent=true fileModified=false menuPath=ctrls",
+        assertEquals( "Recent preview save diagnostic savedEvent=true fileModified=false menuPath=ctrls",
                 WindowsRecentPreviewValidationProbe.saveDiagnostic(true, false, "ctrls"));
         final String line = WindowsRecentPreviewValidationProbe.saveDiagnostic(false, true, "ctrls");
         assertFalse(WindowsRecentPreviewValidationProbe.containsAbsolutePath(line));
@@ -145,8 +139,7 @@ class WindowsRecentPreviewValidationProbeTest {
 
     @Test
     void dialogIdentityIsClassHashKeyed() {
-        assertEquals(
-                "javax.swing.JDialog@42",
+        assertEquals( "javax.swing.JDialog@42",
                 WindowsRecentPreviewValidationProbe.dialogIdentity("javax.swing.JDialog", 42));
         assertEquals("a@0", WindowsRecentPreviewValidationProbe.dialogIdentity("a", 0));
     }
@@ -176,8 +169,7 @@ class WindowsRecentPreviewValidationProbeTest {
         assertFalse(WindowsRecentPreviewValidationProbe.isSaveMenuItem(new javax.swing.JMenuItem("すべて保存")));
         assertFalse(WindowsRecentPreviewValidationProbe.isSaveMenuItem(new javax.swing.JMenu("保存")));
         final javax.swing.JMenuItem saveAsKey = new javax.swing.JMenuItem("另存为…");
-        saveAsKey.setAccelerator(javax.swing.KeyStroke.getKeyStroke(
-                java.awt.event.KeyEvent.VK_S,
+        saveAsKey.setAccelerator(javax.swing.KeyStroke.getKeyStroke( java.awt.event.KeyEvent.VK_S,
                 java.awt.event.InputEvent.CTRL_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
         assertFalse(WindowsRecentPreviewValidationProbe.isSaveMenuItem(saveAsKey));
         final javax.swing.JMenuItem altKey = new javax.swing.JMenuItem("任意");
@@ -257,9 +249,7 @@ class WindowsRecentPreviewValidationProbeTest {
     void directPngAndThumbnailAreBoundedReadableAndMultiColor() throws Exception {
         final BufferedImage source = new BufferedImage(150, 150, BufferedImage.TYPE_INT_RGB);
         for (int y = 0; y < source.getHeight(); y++) {
-            for (int x = 0; x < source.getWidth(); x++) {
-                source.setRGB(x, y, x < 75 ? 0xFF0000 : 0x0000FF);
-            }
+            for (int x = 0; x < source.getWidth(); x++) { source.setRGB(x, y, x < 75 ? 0xFF0000 : 0x0000FF); }
         }
         final ByteArrayOutputStream png = new ByteArrayOutputStream();
         assertTrue(ImageIO.write(source, "png", png));
@@ -299,9 +289,7 @@ class WindowsRecentPreviewValidationProbeTest {
                 "fixture".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         assertEquals(64, digest.length());
         assertTrue(digest.matches("[0-9a-f]{64}"));
-        assertEquals(
-                digest,
-                WindowsRecentPreviewValidationProbe.sha256Hex(
+        assertEquals( digest, WindowsRecentPreviewValidationProbe.sha256Hex(
                         "fixture".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
     }
 }
