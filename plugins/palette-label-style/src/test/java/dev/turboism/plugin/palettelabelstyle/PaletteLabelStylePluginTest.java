@@ -361,6 +361,7 @@ class PaletteLabelStylePluginTest {
         plugin.enable();
 
         context.storage().awaitOperations(1);
+        context.model().parameter("p1").entry.awaitTextEvents(1);
 
         assertEquals(
                 List.of("text:#E53935"), context.model().parameter("p1").entry.textEvents());
@@ -375,9 +376,11 @@ class PaletteLabelStylePluginTest {
         plugin.init(context);
         plugin.enable();
         context.storage().awaitOperations(1);
+        context.model().parameter("p1").entry.awaitTextEvents(1);
 
         plugin.onModelOpened(null);
         context.storage().awaitOperations(2);
+        context.model().parameter("p1").entry.awaitEvents(3);
 
         assertEquals(
                 List.of("text:#E53935", "text:closed", "text:#E53935"),

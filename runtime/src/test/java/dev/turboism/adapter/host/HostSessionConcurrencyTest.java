@@ -72,6 +72,7 @@ class HostSessionConcurrencyTest {
                 new Thread(() -> HostSessionTest.captureFailure(session::close, closeFailure), "session-close");
         closing.start();
         HostSessionTest.awaitWaiting(closing);
+        HostSessionTest.awaitDeactivated(session);
 
         assertEquals(0, connectionCloses.get());
         assertFalse(session.adapters().projectWorkspace().activeProject().isAvailable());
@@ -146,6 +147,7 @@ class HostSessionConcurrencyTest {
                 new Thread(() -> HostSessionTest.captureFailure(session::refresh, replacementFailure), "replacement");
         replacement.start();
         HostSessionTest.awaitWaiting(replacement);
+        HostSessionTest.awaitDeactivated(session);
         assertEquals(0, oldConnectionCloses.get());
         assertFalse(session.adapters().projectWorkspace().activeProject().isAvailable());
 
