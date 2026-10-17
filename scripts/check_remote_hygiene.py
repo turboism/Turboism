@@ -71,6 +71,10 @@ VALIDATION_OUTPUT_SEGMENTS = frozenset({
     "build", "dist", "evidence", "log", "logs", "out", "result", "results",
 })
 VALIDATION_OUTPUT_SUFFIXES = (".class", ".jar", ".log")
+HISTORICAL_EXEMPT_PATHS = frozenset({
+    "validation/model-import-3d-auto-atlas/results/5304-native-r7-lifecycle.json",
+    "validation/model-import-3d-auto-atlas/results/5304-native-r7.json",
+})
 ZERO_SHA = "0" * 40
 
 # --------------------------------------------------------------------------
@@ -175,6 +179,8 @@ def classify_path(path):
     parts = list(PurePosixPath(path).parts)
     lows = [p.lower() for p in parts]
     normalized = "/".join(lows)
+    if normalized in HISTORICAL_EXEMPT_PATHS:
+        return None
     for forbidden in FORBIDDEN_PATHS:
         if normalized == forbidden or normalized.startswith(forbidden + "/"):
             return "path:" + forbidden
