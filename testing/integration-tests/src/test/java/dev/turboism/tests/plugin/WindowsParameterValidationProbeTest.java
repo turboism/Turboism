@@ -37,9 +37,7 @@ class WindowsParameterValidationProbeTest {
                 parameter("ParamUnknown", null, ParameterType.UNKNOWN, null, null, 0.0F));
 
         final List<WindowsParameterValidationProbe.ParameterRow> rows = WindowsParameterValidationProbe.queryRows(
-                parameters,
-                new WindowsParameterValidationProbe.QuerySpec(
-                        "eye",
+                parameters, new WindowsParameterValidationProbe.QuerySpec( "eye",
                         WindowsParameterValidationProbe.SearchMode.CONTAINS,
                         WindowsParameterValidationProbe.TypeFilter.BLEND_SHAPE,
                         WindowsParameterValidationProbe.BooleanFilter.YES,
@@ -55,19 +53,13 @@ class WindowsParameterValidationProbeTest {
 
     @Test
     void blankTextShowsAllParametersRegardlessOfSearchMode() {
-        final Parameters parameters = parameters(
-                parameter("ParamA", "A", ParameterType.NORMAL, false, false, 0.0F),
+        final Parameters parameters = parameters( parameter("ParamA", "A", ParameterType.NORMAL, false, false, 0.0F),
                 parameter("ParamB", "B", ParameterType.BLEND_SHAPE, true, true, 1.0F));
 
         for (final WindowsParameterValidationProbe.SearchMode mode :
                 WindowsParameterValidationProbe.SearchMode.values()) {
-            assertEquals(
-                    List.of("ParamA", "ParamB"),
-                    ids(WindowsParameterValidationProbe.queryRows(
-                            parameters,
-                            new WindowsParameterValidationProbe.QuerySpec(
-                                    "   ",
-                                    mode,
+            assertEquals( List.of("ParamA", "ParamB"), ids(WindowsParameterValidationProbe.queryRows( parameters,
+                            new WindowsParameterValidationProbe.QuerySpec( "   ", mode,
                                     WindowsParameterValidationProbe.TypeFilter.ANY,
                                     WindowsParameterValidationProbe.BooleanFilter.ANY,
                                     WindowsParameterValidationProbe.BooleanFilter.ANY))));
@@ -77,30 +69,19 @@ class WindowsParameterValidationProbeTest {
     @Test
     void selectionFollowsCubismWhenEnabledAndRetainsWindowSelectionWhenDisabled() {
         final List<WindowsParameterValidationProbe.ParameterRow> rows = WindowsParameterValidationProbe.queryRows(
-                parameters(
-                        parameter("ParamA", "A", ParameterType.NORMAL, false, false, 0.0F),
+                parameters( parameter("ParamA", "A", ParameterType.NORMAL, false, false, 0.0F),
                         parameter("ParamB", "B", ParameterType.BLEND_SHAPE, true, true, 1.0F)),
-                new WindowsParameterValidationProbe.QuerySpec(
-                        "",
-                        WindowsParameterValidationProbe.SearchMode.CONTAINS,
+                new WindowsParameterValidationProbe.QuerySpec( "", WindowsParameterValidationProbe.SearchMode.CONTAINS,
                         WindowsParameterValidationProbe.TypeFilter.ANY,
                         WindowsParameterValidationProbe.BooleanFilter.ANY,
                         WindowsParameterValidationProbe.BooleanFilter.ANY));
 
-        assertEquals(
-                Optional.of(new ParameterId("ParamB")),
-                WindowsParameterValidationProbe.preferredSelection(
+        assertEquals( Optional.of(new ParameterId("ParamB")), WindowsParameterValidationProbe.preferredSelection(
                         rows, Optional.of(new ParameterId("ParamA")), Optional.of(new ParameterId("ParamB")), true));
-        assertEquals(
-                Optional.of(new ParameterId("ParamA")),
-                WindowsParameterValidationProbe.preferredSelection(
+        assertEquals( Optional.of(new ParameterId("ParamA")), WindowsParameterValidationProbe.preferredSelection(
                         rows, Optional.of(new ParameterId("ParamA")), Optional.of(new ParameterId("ParamB")), false));
-        assertEquals(
-                Optional.of(new ParameterId("ParamA")),
-                WindowsParameterValidationProbe.preferredSelection(
-                        rows,
-                        Optional.of(new ParameterId("ParamA")),
-                        Optional.of(new ParameterId("ParamFilteredOut")),
+        assertEquals( Optional.of(new ParameterId("ParamA")), WindowsParameterValidationProbe.preferredSelection( rows,
+                        Optional.of(new ParameterId("ParamA")), Optional.of(new ParameterId("ParamFilteredOut")),
                         true));
     }
 
@@ -110,38 +91,26 @@ class WindowsParameterValidationProbeTest {
         final float[] value = {0.0F};
         final Parameters parameters = new Parameters() {
             @Override
-            public List<Parameter> all() {
-                return List.of();
-            }
+            public List<Parameter> all() { return List.of(); }
 
             @Override
             public Parameter find(final ParameterId id) {
                 finds.incrementAndGet();
                 return new Parameter() {
                     @Override
-                    public ParameterId id() {
-                        return id;
-                    }
+                    public ParameterId id() { return id; }
 
                     @Override
-                    public float getValue() {
-                        return value[0];
-                    }
+                    public float getValue() { return value[0]; }
 
                     @Override
-                    public float getMinimumValue() {
-                        return -1.0F;
-                    }
+                    public float getMinimumValue() { return -1.0F; }
 
                     @Override
-                    public float getMaximumValue() {
-                        return 1.0F;
-                    }
+                    public float getMaximumValue() { return 1.0F; }
 
                     @Override
-                    public float getDefaultValue() {
-                        return 0.0F;
-                    }
+                    public float getDefaultValue() { return 0.0F; }
 
                     @Override
                     public void setValue(final float requested) {
@@ -156,9 +125,7 @@ class WindowsParameterValidationProbeTest {
         assertEquals(
                 -1.0F, WindowsParameterValidationProbe.setParameterValue(parameters, new ParameterId("ParamA"), -5.0F));
         assertEquals(2, finds.get());
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> WindowsParameterValidationProbe.setParameterValue(
+        assertThrows( IllegalArgumentException.class, () -> WindowsParameterValidationProbe.setParameterValue(
                         parameters, new ParameterId("ParamA"), Float.NaN));
         assertEquals(2, finds.get());
     }
@@ -172,65 +139,43 @@ class WindowsParameterValidationProbeTest {
         };
         final Parameters parameters = new Parameters() {
             @Override
-            public List<Parameter> all() {
-                return List.of();
-            }
+            public List<Parameter> all() { return List.of(); }
 
             @Override
             public Parameter find(final ParameterId id) {
                 finds.incrementAndGet();
                 final ParameterDefinition current = authoritative[0];
-                if (!current.id().equals(id)) {
-                    throw new NoSuchElementException(id.value());
-                }
+                if (!current.id().equals(id)) throw new NoSuchElementException(id.value());
                 return new Parameter() {
                     @Override
-                    public ParameterId id() {
-                        return authoritative[0].id();
-                    }
+                    public ParameterId id() { return authoritative[0].id(); }
 
                     @Override
-                    public Optional<String> name() {
-                        return Optional.of(authoritative[0].name());
-                    }
+                    public Optional<String> name() { return Optional.of(authoritative[0].name()); }
 
                     @Override
-                    public ParameterType type() {
-                        return authoritative[0].type();
-                    }
+                    public ParameterType type() { return authoritative[0].type(); }
 
                     @Override
-                    public Optional<Boolean> repeat() {
-                        return Optional.of(authoritative[0].repeat());
-                    }
+                    public Optional<Boolean> repeat() { return Optional.of(authoritative[0].repeat()); }
 
                     @Override
-                    public float getValue() {
-                        return 12.0F;
-                    }
+                    public float getValue() { return 12.0F; }
 
                     @Override
-                    public float getMinimumValue() {
-                        return authoritative[0].minimumValue();
-                    }
+                    public float getMinimumValue() { return authoritative[0].minimumValue(); }
 
                     @Override
-                    public float getMaximumValue() {
-                        return authoritative[0].maximumValue();
-                    }
+                    public float getMaximumValue() { return authoritative[0].maximumValue(); }
 
                     @Override
-                    public float getDefaultValue() {
-                        return authoritative[0].defaultValue();
-                    }
+                    public float getDefaultValue() { return authoritative[0].defaultValue(); }
 
                     @Override
                     public void setValue(final float ignored) {}
 
                     @Override
-                    public void updateDefinition(final ParameterDefinition requested) {
-                        authoritative[0] = requested;
-                    }
+                    public void updateDefinition(final ParameterDefinition requested) { authoritative[0] = requested; }
                 };
             }
         };
@@ -252,9 +197,7 @@ class WindowsParameterValidationProbeTest {
         final ParameterId[] partners = {null, null};
         final Parameters parameters = new Parameters() {
             @Override
-            public List<Parameter> all() {
-                return List.of(parameter(firstId, 0), parameter(secondId, 1));
-            }
+            public List<Parameter> all() { return List.of(parameter(firstId, 0), parameter(secondId, 1)); }
 
             @Override
             public Parameter find(final ParameterId id) {
@@ -267,39 +210,25 @@ class WindowsParameterValidationProbeTest {
             private Parameter parameter(final ParameterId id, final int index) {
                 return new Parameter() {
                     @Override
-                    public ParameterId id() {
-                        return id;
-                    }
+                    public ParameterId id() { return id; }
 
                     @Override
-                    public Optional<Boolean> combined() {
-                        return Optional.of(partners[index] != null && index == 0);
-                    }
+                    public Optional<Boolean> combined() { return Optional.of(partners[index] != null && index == 0); }
 
                     @Override
-                    public Optional<ParameterId> combinedWith() {
-                        return Optional.ofNullable(partners[index]);
-                    }
+                    public Optional<ParameterId> combinedWith() { return Optional.ofNullable(partners[index]); }
 
                     @Override
-                    public float getValue() {
-                        return 0.0F;
-                    }
+                    public float getValue() { return 0.0F; }
 
                     @Override
-                    public float getMinimumValue() {
-                        return -1.0F;
-                    }
+                    public float getMinimumValue() { return -1.0F; }
 
                     @Override
-                    public float getMaximumValue() {
-                        return 1.0F;
-                    }
+                    public float getMaximumValue() { return 1.0F; }
 
                     @Override
-                    public float getDefaultValue() {
-                        return 0.0F;
-                    }
+                    public float getDefaultValue() { return 0.0F; }
 
                     @Override
                     public void setValue(final float ignored) {}
@@ -319,8 +248,7 @@ class WindowsParameterValidationProbeTest {
             }
         };
 
-        assertEquals(
-                Optional.of(secondId),
+        assertEquals( Optional.of(secondId),
                 WindowsParameterValidationProbe.combineParameters(parameters, firstId, secondId));
         assertEquals(Optional.empty(), WindowsParameterValidationProbe.uncombineParameter(parameters, secondId));
         assertEquals(4, finds.get());
@@ -328,24 +256,17 @@ class WindowsParameterValidationProbeTest {
 
     @Test
     void combinedEditorOffersOrderedPartnerChoicesAndUsesTheOnlyChoiceForBlankInput() {
-        final Parameters parameters = parameters(
-                parameter("ParamA", "A", ParameterType.NORMAL, false, false, 0.0F),
+        final Parameters parameters = parameters( parameter("ParamA", "A", ParameterType.NORMAL, false, false, 0.0F),
                 parameter("ParamB", "B", ParameterType.NORMAL, false, false, 0.0F),
                 parameter("ParamC", "C", ParameterType.NORMAL, false, false, 0.0F));
 
-        assertEquals(
-                List.of(new ParameterId("ParamB"), new ParameterId("ParamC")),
+        assertEquals( List.of(new ParameterId("ParamB"), new ParameterId("ParamC")),
                 WindowsParameterValidationProbe.partnerCandidates(parameters, new ParameterId("ParamA")));
-        assertEquals(
-                new ParameterId("ParamB"),
+        assertEquals( new ParameterId("ParamB"),
                 WindowsParameterValidationProbe.resolvePartnerId("   ", List.of(new ParameterId("ParamB"))));
-        assertEquals(
-                new ParameterId("ParamB"),
-                WindowsParameterValidationProbe.resolvePartnerId(
+        assertEquals( new ParameterId("ParamB"), WindowsParameterValidationProbe.resolvePartnerId(
                         "   ", List.of(new ParameterId("ParamB"), new ParameterId("ParamC"))));
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> WindowsParameterValidationProbe.combineParameters(
+        assertThrows( IllegalArgumentException.class, () -> WindowsParameterValidationProbe.combineParameters(
                         parameters, new ParameterId("ParamA"), new ParameterId("ParamA")));
     }
 
@@ -368,14 +289,11 @@ class WindowsParameterValidationProbeTest {
         final UiColor requested = new UiColor(1.0F, 0.0F, 0.0F, 1.0F);
         final ParameterGroup unavailable = parameterGroup("GroupFace", new UiColor[] {requested}, false);
 
-        assertThrows(
-                NullPointerException.class,
+        assertThrows( NullPointerException.class,
                 () -> WindowsParameterValidationProbe.setParameterFolderLabelColor(null, requested));
-        assertThrows(
-                NullPointerException.class,
+        assertThrows( NullPointerException.class,
                 () -> WindowsParameterValidationProbe.setParameterFolderLabelColor(unavailable, null));
-        assertThrows(
-                UnsupportedOperationException.class,
+        assertThrows( UnsupportedOperationException.class,
                 () -> WindowsParameterValidationProbe.setParameterFolderLabelColor(unavailable, requested));
     }
 
@@ -388,8 +306,7 @@ class WindowsParameterValidationProbeTest {
 
         final NativeLabelColor chosen = WindowsParameterValidationProbe.chooseCustomCandidate(before);
 
-        assertFalse(
-                chosen.equals(before.labelColor()),
+        assertFalse( chosen.equals(before.labelColor()),
                 "the chosen Custom request must differ from the semantic before-state");
         assertEquals(new NativeLabelColor.Custom(new UiColor(0.0F, 1.0F, 0.0F, 1.0F)), chosen);
     }
@@ -398,8 +315,7 @@ class WindowsParameterValidationProbeTest {
     void storedBackgroundPropertiesRoundTripEverySemanticKind() {
         final java.util.Properties properties = new java.util.Properties();
         final NativeLabelColor[] samples = {
-            new NativeLabelColor.Default(),
-            new NativeLabelColor.Preset(PresetColor.GRAY),
+            new NativeLabelColor.Default(), new NativeLabelColor.Preset(PresetColor.GRAY),
             new NativeLabelColor.Custom(new UiColor(0.1F, 0.2F, 0.3F, 0.4F))
         };
         final String[] prefixes = {"folder.original", "part.requested", "deformer.original"};
@@ -426,9 +342,7 @@ class WindowsParameterValidationProbeTest {
     void peerPluginStartupBudgetAllowsRealisticExactHostStartup() {
         assertEquals(2400, WindowsEditorObjectPeerValidationProbe.PEER_STARTUP_MAX_ATTEMPTS);
         assertEquals(100L, WindowsEditorObjectPeerValidationProbe.PEER_STARTUP_POLL_MILLIS);
-        assertEquals(
-                240_000L,
-                WindowsEditorObjectPeerValidationProbe.PEER_STARTUP_MAX_ATTEMPTS
+        assertEquals( 240_000L, WindowsEditorObjectPeerValidationProbe.PEER_STARTUP_MAX_ATTEMPTS
                         * WindowsEditorObjectPeerValidationProbe.PEER_STARTUP_POLL_MILLIS);
         assertTrue(WindowsEditorObjectPeerValidationProbe.PEER_STARTUP_MAX_ATTEMPTS
                         * WindowsEditorObjectPeerValidationProbe.PEER_STARTUP_POLL_MILLIS
@@ -458,17 +372,13 @@ class WindowsParameterValidationProbeTest {
     @Test
     void awaitPeerEvidenceReturnsTerminalContentAndTimesOutBounded() throws Exception {
         final java.nio.file.Path peerArtifact = saveTemp.resolve("peer-scope-close.txt");
-        assertEquals(
-                "",
-                WindowsParameterValidationProbe.awaitPeerEvidence(peerArtifact, 5, 10L),
+        assertEquals( "", WindowsParameterValidationProbe.awaitPeerEvidence(peerArtifact, 5, 10L),
                 "a missing peer artifact must time out within the bounded attempts");
         final Thread writer = new Thread(() -> {
             try {
                 Thread.sleep(150L);
                 Files.writeString(peerArtifact, "status=PASS\nsecondPluginUsable=true\n");
-            } catch (Exception failure) {
-                throw new RuntimeException(failure);
-            }
+            } catch (Exception failure) { throw new RuntimeException(failure); }
         });
         writer.start();
         final String evidence = WindowsParameterValidationProbe.awaitPeerEvidence(peerArtifact, 200, 10L);
@@ -485,9 +395,7 @@ class WindowsParameterValidationProbeTest {
             try {
                 Thread.sleep(150L);
                 Files.writeString(request, "primaryScopeClosed=true\n");
-            } catch (Exception failure) {
-                throw new RuntimeException(failure);
-            }
+            } catch (Exception failure) { throw new RuntimeException(failure); }
         });
         writer.start();
         assertTrue(WindowsEditorObjectPeerValidationProbe.awaitMarker(request, 200, 10L));
@@ -540,32 +448,26 @@ class WindowsParameterValidationProbeTest {
 
     @Test
     void automatedHostCloseTreatsMissingConfirmationAsCleanClose() {
-        assertEquals(
-                WindowsParameterValidationProbe.HostCloseDecision.CLEAN_CLOSE,
+        assertEquals( WindowsParameterValidationProbe.HostCloseDecision.CLEAN_CLOSE,
                 WindowsParameterValidationProbe.hostCloseDecision(false, javax.swing.JOptionPane.DEFAULT_OPTION, 0));
     }
 
     @Test
     void automatedHostCloseChoosesDiscardWithoutLocalizedButtonText() {
-        assertEquals(
-                WindowsParameterValidationProbe.HostCloseDecision.DISCARD,
+        assertEquals( WindowsParameterValidationProbe.HostCloseDecision.DISCARD,
                 WindowsParameterValidationProbe.hostCloseDecision(
                         true, javax.swing.JOptionPane.YES_NO_CANCEL_OPTION, 3));
-        assertEquals(
-                WindowsParameterValidationProbe.HostCloseDecision.DISCARD,
+        assertEquals( WindowsParameterValidationProbe.HostCloseDecision.DISCARD,
                 WindowsParameterValidationProbe.hostCloseDecision(true, javax.swing.JOptionPane.DEFAULT_OPTION, 3));
-        assertEquals(
-                WindowsParameterValidationProbe.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
+        assertEquals( WindowsParameterValidationProbe.HostCloseDecision.UNSUPPORTED_CONFIRMATION,
                 WindowsParameterValidationProbe.hostCloseDecision(true, javax.swing.JOptionPane.OK_CANCEL_OPTION, 2));
     }
 
     @Test
     void automatedHostCloseUsesExactHostVersionRoute() {
-        assertEquals(
-                WindowsParameterValidationProbe.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
+        assertEquals( WindowsParameterValidationProbe.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
                 WindowsParameterValidationProbe.hostCloseRoute("5203"));
-        assertEquals(
-                WindowsParameterValidationProbe.HostCloseRoute.ROBOT_ALT_F4,
+        assertEquals( WindowsParameterValidationProbe.HostCloseRoute.ROBOT_ALT_F4,
                 WindowsParameterValidationProbe.hostCloseRoute("5302"));
         assertThrows(IllegalArgumentException.class, () -> WindowsParameterValidationProbe.hostCloseRoute("unknown"));
     }
@@ -579,20 +481,16 @@ class WindowsParameterValidationProbeTest {
             "5000", "5001", "5002", "5003", "5004", "5005", "5006", "5100", "5101", "5102", "5103", "5200", "5201",
             "5202", "5203", "5300", "5301", "5302", "5303", "5304"
         }) {
-            assertEquals(
-                    WindowsHistoryNativeUiHostClose.hostCloseRoute(version)
+            assertEquals( WindowsHistoryNativeUiHostClose.hostCloseRoute(version)
                                     == WindowsHistoryNativeUiHostClose.HostCloseRoute.ROBOT_ALT_F4
                             ? WindowsParameterValidationProbe.HostCloseRoute.ROBOT_ALT_F4
                             : WindowsParameterValidationProbe.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
-                    WindowsParameterValidationProbe.hostCloseRoute(version),
-                    "route for " + version);
-            assertEquals(
-                    WindowsHistoryNativeUiHostClose.hostCloseRoute(version)
+                    WindowsParameterValidationProbe.hostCloseRoute(version), "route for " + version);
+            assertEquals( WindowsHistoryNativeUiHostClose.hostCloseRoute(version)
                                     == WindowsHistoryNativeUiHostClose.HostCloseRoute.ROBOT_ALT_F4
                             ? WindowsRecentPreviewValidationProbe.HostCloseRoute.ROBOT_ALT_F4
                             : WindowsRecentPreviewValidationProbe.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
-                    WindowsRecentPreviewValidationProbe.hostCloseRoute(version),
-                    "recent-preview route for " + version);
+                    WindowsRecentPreviewValidationProbe.hostCloseRoute(version), "recent-preview route for " + version);
         }
         assertThrows(IllegalArgumentException.class, () -> WindowsParameterValidationProbe.hostCloseRoute("5400"));
         assertThrows(IllegalArgumentException.class, () -> WindowsParameterValidationProbe.hostCloseRoute(null));
@@ -603,9 +501,7 @@ class WindowsParameterValidationProbeTest {
         }
         for (final String version : new String[] {
             "5100", "5101", "5102", "5103", "5200", "5201", "5202", "5203", "5300", "5301", "5302", "5303", "5304"
-        }) {
-            assertEquals("g", WindowsParameterValidationProbe.stopAutoBackupMethodName(version), version);
-        }
+        }) { assertEquals("g", WindowsParameterValidationProbe.stopAutoBackupMethodName(version), version); }
         assertThrows(
                 IllegalArgumentException.class, () -> WindowsParameterValidationProbe.stopAutoBackupMethodName("5400"));
         assertThrows(
@@ -614,8 +510,7 @@ class WindowsParameterValidationProbeTest {
 
     @Test
     void automatedHostCloseRequiresAVisibleDisplayableNonDialogWindow() {
-        assertThrows(
-                IllegalStateException.class,
+        assertThrows( IllegalStateException.class,
                 () -> WindowsParameterValidationProbe.selectHostWindow(new java.awt.Window[0]));
     }
 
@@ -661,9 +556,7 @@ class WindowsParameterValidationProbeTest {
     java.nio.file.Path saveTemp;
 
     @org.junit.jupiter.api.AfterEach
-    void clearFixtureProperty() {
-        System.clearProperty("turboism.validation.fixture");
-    }
+    void clearFixtureProperty() { System.clearProperty("turboism.validation.fixture"); }
 
     @Test
     void saveConfirmationDetectsACommittedFixtureWrite() throws Exception {
@@ -676,9 +569,7 @@ class WindowsParameterValidationProbeTest {
             try {
                 Thread.sleep(1_200L);
                 Files.writeString(fixture, "after-save-content");
-            } catch (Exception failure) {
-                throw new RuntimeException(failure);
-            }
+            } catch (Exception failure) { throw new RuntimeException(failure); }
         });
         writer.start();
 
@@ -707,13 +598,8 @@ class WindowsParameterValidationProbeTest {
 
     @Test
     void saveConfirmationRejectsMissingFixturePaths() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> WindowsParameterValidationProbe.awaitSaveConfirmation(
-                        saveTemp.resolve("missing.cmo3"),
-                        java.nio.file.attribute.FileTime.fromMillis(0L),
-                        0L,
-                        100L,
+        assertThrows( IllegalArgumentException.class, () -> WindowsParameterValidationProbe.awaitSaveConfirmation(
+                        saveTemp.resolve("missing.cmo3"), java.nio.file.attribute.FileTime.fromMillis(0L), 0L, 100L,
                         10L));
         System.clearProperty("turboism.validation.fixture");
         assertThrows(IllegalArgumentException.class, () -> WindowsParameterValidationProbe.fixturePath());
@@ -724,24 +610,20 @@ class WindowsParameterValidationProbeTest {
     @Test
     void storedBackgroundParsingFailsClosedOnMalformedProperties() {
         final java.util.Properties properties = new java.util.Properties();
-        assertThrows(
-                IllegalArgumentException.class,
+        assertThrows( IllegalArgumentException.class,
                 () -> WindowsParameterValidationProbe.parseStoredBackground(properties, "missing"));
         properties.setProperty("bad.type", "rainbow");
-        assertThrows(
-                IllegalArgumentException.class,
+        assertThrows( IllegalArgumentException.class,
                 () -> WindowsParameterValidationProbe.parseStoredBackground(properties, "bad"));
         properties.setProperty("bad2.type", "custom");
         properties.setProperty("bad2.red", "not-a-number");
         properties.setProperty("bad2.green", "0");
         properties.setProperty("bad2.blue", "0");
         properties.setProperty("bad2.alpha", "1");
-        assertThrows(
-                IllegalArgumentException.class,
+        assertThrows( IllegalArgumentException.class,
                 () -> WindowsParameterValidationProbe.parseStoredBackground(properties, "bad2"));
         properties.setProperty("bad3.type", "preset");
-        assertThrows(
-                IllegalArgumentException.class,
+        assertThrows( IllegalArgumentException.class,
                 () -> WindowsParameterValidationProbe.parseStoredBackground(properties, "bad3"));
     }
 
@@ -749,11 +631,9 @@ class WindowsParameterValidationProbeTest {
     void matrixRejectsSameSemanticRequestBeforeAnyWrite() {
         final NativeLabelColor request = new NativeLabelColor.Custom(new UiColor(0.1F, 0.2F, 0.3F, 0.4F));
 
-        assertThrows(
-                IllegalStateException.class,
+        assertThrows( IllegalStateException.class,
                 () -> WindowsParameterValidationProbe.requireDistinctBackgroundRequest(request, request));
-        assertThrows(
-                IllegalStateException.class,
+        assertThrows( IllegalStateException.class,
                 () -> WindowsParameterValidationProbe.requireDistinctBackgroundRequest(
                         new NativeLabelColor.Default(), new NativeLabelColor.Default()));
         WindowsParameterValidationProbe.requireDistinctBackgroundRequest(request, new NativeLabelColor.Default());
@@ -766,54 +646,34 @@ class WindowsParameterValidationProbeTest {
         final boolean[] locked = {false};
         final CubismModel model = new CubismModel() {
             @Override
-            public ModelId id() {
-                return new ModelId("model-a");
-            }
+            public ModelId id() { return new ModelId("model-a"); }
 
             @Override
-            public boolean defaultKeyformLocked() {
-                return locked[0];
-            }
+            public boolean defaultKeyformLocked() { return locked[0]; }
 
             @Override
-            public void setDefaultKeyformLocked(final boolean value) {
-                locked[0] = value;
-            }
+            public void setDefaultKeyformLocked(final boolean value) { locked[0] = value; }
 
             @Override
-            public Parameters parameters() {
-                throw unsupported();
-            }
+            public Parameters parameters() { throw unsupported(); }
 
             @Override
-            public dev.turboism.sdk.cubism.model.ParameterGroups parameterGroups() {
-                throw unsupported();
-            }
+            public dev.turboism.sdk.cubism.model.ParameterGroups parameterGroups() { throw unsupported(); }
 
             @Override
-            public dev.turboism.sdk.cubism.model.Parts parts() {
-                throw unsupported();
-            }
+            public dev.turboism.sdk.cubism.model.Parts parts() { throw unsupported(); }
 
             @Override
-            public dev.turboism.sdk.cubism.model.Drawables drawables() {
-                throw unsupported();
-            }
+            public dev.turboism.sdk.cubism.model.Drawables drawables() { throw unsupported(); }
 
             @Override
-            public dev.turboism.sdk.cubism.model.Deformers deformers() {
-                throw unsupported();
-            }
+            public dev.turboism.sdk.cubism.model.Deformers deformers() { throw unsupported(); }
 
             @Override
-            public dev.turboism.sdk.cubism.model.Glues glues() {
-                throw unsupported();
-            }
+            public dev.turboism.sdk.cubism.model.Glues glues() { throw unsupported(); }
 
             @Override
-            public void update() {
-                throw unsupported();
-            }
+            public void update() { throw unsupported(); }
         };
 
         assertEquals(true, WindowsParameterValidationProbe.setDefaultKeyformLock(model, true));
@@ -825,25 +685,19 @@ class WindowsParameterValidationProbeTest {
         final IllegalStateException failure =
                 new IllegalStateException("Combined update failed", new IllegalAccessException("fixture"));
 
-        assertEquals(
-                "IllegalStateException: Combined update failed" + " <- IllegalAccessException: fixture",
+        assertEquals( "IllegalStateException: Combined update failed" + " <- IllegalAccessException: fixture",
                 WindowsParameterValidationProbe.failureDescription(failure));
     }
 
     @Test
     void definitionInputRejectsMalformedNumbersAndUnknownTypeBeforeMutation() {
-        assertEquals(
-                new ParameterDefinition(
+        assertEquals( new ParameterDefinition(
                         new ParameterId("ParamA"), "Angle A", -30.0F, 0.0F, 30.0F, ParameterType.NORMAL, false),
                 WindowsParameterValidationProbe.parseDefinition(
                         " ParamA ", " Angle A ", " -30 ", " 0 ", " 30 ", ParameterType.NORMAL, false));
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> WindowsParameterValidationProbe.parseDefinition(
+        assertThrows( IllegalArgumentException.class, () -> WindowsParameterValidationProbe.parseDefinition(
                         "ParamA", "Angle A", "bad", "0", "30", ParameterType.NORMAL, false));
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> WindowsParameterValidationProbe.parseDefinition(
+        assertThrows( IllegalArgumentException.class, () -> WindowsParameterValidationProbe.parseDefinition(
                         "ParamA", "Angle A", "-30", "0", "30", ParameterType.UNKNOWN, false));
     }
 
@@ -864,22 +718,15 @@ class WindowsParameterValidationProbeTest {
                 parameter("ParamEyeROpen", "Eye Open", ParameterType.BLEND_SHAPE, true, true, 0.7F),
                 parameter("ParamUnknown", null, ParameterType.UNKNOWN, null, null, 0.0F));
 
-        assertEquals(
-                List.of("ParamEyeLOpen", "ParamEyeROpen"),
-                ids(WindowsParameterValidationProbe.queryRows(
-                        parameters,
-                        new WindowsParameterValidationProbe.QuerySpec(
-                                "Eye Open",
+        assertEquals( List.of("ParamEyeLOpen", "ParamEyeROpen"), ids(WindowsParameterValidationProbe.queryRows(
+                        parameters, new WindowsParameterValidationProbe.QuerySpec( "Eye Open",
                                 WindowsParameterValidationProbe.SearchMode.EXACT_NAME,
                                 WindowsParameterValidationProbe.TypeFilter.ANY,
                                 WindowsParameterValidationProbe.BooleanFilter.ANY,
                                 WindowsParameterValidationProbe.BooleanFilter.ANY))));
         final List<WindowsParameterValidationProbe.ParameterRow> unknownRows =
-                WindowsParameterValidationProbe.queryRows(
-                        parameters,
-                        new WindowsParameterValidationProbe.QuerySpec(
-                                "",
-                                WindowsParameterValidationProbe.SearchMode.CONTAINS,
+                WindowsParameterValidationProbe.queryRows( parameters, new WindowsParameterValidationProbe.QuerySpec(
+                                "", WindowsParameterValidationProbe.SearchMode.CONTAINS,
                                 WindowsParameterValidationProbe.TypeFilter.ANY,
                                 WindowsParameterValidationProbe.BooleanFilter.UNKNOWN,
                                 WindowsParameterValidationProbe.BooleanFilter.UNKNOWN));
@@ -888,63 +735,10 @@ class WindowsParameterValidationProbeTest {
         assertEquals("ParamUnknown", unknownRows.get(0).displayName());
     }
 
-    private static UnsupportedOperationException unsupported() {
-        return new UnsupportedOperationException();
-    }
+    private static UnsupportedOperationException unsupported() { return new UnsupportedOperationException(); }
 
     private static ParameterGroup parameterGroup(final String id, final UiColor[] color, final boolean available) {
-        final ParameterGroupId groupId = new ParameterGroupId(id);
-        return new ParameterGroup() {
-            @Override
-            public ParameterGroupId id() {
-                return groupId;
-            }
-
-            @Override
-            public Optional<String> name() {
-                return Optional.of(id);
-            }
-
-            @Override
-            public Optional<ParameterGroupId> parentId() {
-                return Optional.empty();
-            }
-
-            @Override
-            public List<ParameterGroupId> childGroupIds() {
-                return List.of();
-            }
-
-            @Override
-            public List<ParameterId> parameterIds() {
-                return List.of();
-            }
-
-            @Override
-            public ParameterGroupAppearance ui() {
-                if (!available) return ParameterGroupAppearance.unavailable();
-                return new ParameterGroupAppearance() {
-                    @Override
-                    public Optional<dev.turboism.sdk.ui.appearance.PaletteEntry> parameterPaletteEntry() {
-                        return Optional.empty();
-                    }
-
-                    @Override
-                    public Optional<NativeLabelColorState> nativeLabelColor() {
-                        return Optional.of(new NativeLabelColorState(
-                                new NativeLabelColor.Custom(color[0]), Optional.of(color[0])));
-                    }
-
-                    @Override
-                    public void setNativeLabelColor(final NativeLabelColor value) {
-                        if (!(value instanceof NativeLabelColor.Custom custom)) {
-                            throw new IllegalArgumentException("test fixture expects Custom");
-                        }
-                        color[0] = custom.color();
-                    }
-                };
-            }
-        };
+        return WindowsProbeHarness.mockParameterGroup(id, color, available);
     }
 
     private static List<String> ids(final List<WindowsParameterValidationProbe.ParameterRow> rows) {
@@ -952,78 +746,11 @@ class WindowsParameterValidationProbeTest {
     }
 
     private static Parameters parameters(final Parameter... parameters) {
-        final List<Parameter> values = List.of(parameters);
-        return new Parameters() {
-            @Override
-            public List<Parameter> all() {
-                return values;
-            }
-
-            @Override
-            public Parameter find(final ParameterId id) {
-                return values.stream()
-                        .filter(parameter -> parameter.id().equals(id))
-                        .findFirst()
-                        .orElseThrow(() -> new NoSuchElementException(id.value()));
-            }
-        };
+        return WindowsProbeHarness.mockParameters(parameters);
     }
 
-    private static Parameter parameter(
-            final String id,
-            final String name,
-            final ParameterType type,
-            final Boolean repeat,
-            final Boolean combined,
-            final float value) {
-        return new Parameter() {
-            @Override
-            public ParameterId id() {
-                return new ParameterId(id);
-            }
-
-            @Override
-            public Optional<String> name() {
-                return Optional.ofNullable(name);
-            }
-
-            @Override
-            public ParameterType type() {
-                return type;
-            }
-
-            @Override
-            public Optional<Boolean> repeat() {
-                return Optional.ofNullable(repeat);
-            }
-
-            @Override
-            public Optional<Boolean> combined() {
-                return Optional.ofNullable(combined);
-            }
-
-            @Override
-            public float getValue() {
-                return value;
-            }
-
-            @Override
-            public float getMinimumValue() {
-                return -30.0F;
-            }
-
-            @Override
-            public float getMaximumValue() {
-                return 30.0F;
-            }
-
-            @Override
-            public float getDefaultValue() {
-                return 0.0F;
-            }
-
-            @Override
-            public void setValue(final float ignored) {}
-        };
+    private static Parameter parameter( final String id, final String name, final ParameterType type,
+            final Boolean repeat, final Boolean combined, final float value) {
+        return WindowsProbeHarness.mockParameter(id, name, type, repeat, combined, value);
     }
 }

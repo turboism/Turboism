@@ -29,9 +29,7 @@ public final class WindowsMeshMirrorAxisValidationProbe implements CubismPlugin 
     public void init(final PluginContext context) {
         this.context = context;
         final String configured = System.getProperty("turboism.meshMirrorProbe.output");
-        if (configured != null && !configured.isBlank()) {
-            outputDir = Path.of(configured);
-        }
+        if (configured != null && !configured.isBlank()) { outputDir = Path.of(configured); }
     }
 
     @Override
@@ -75,37 +73,18 @@ public final class WindowsMeshMirrorAxisValidationProbe implements CubismPlugin 
         if (outputDir == null) return;
         try {
             Files.createDirectories(outputDir);
-            final float initial = context.services()
-                    .find(MeshMirrorAxisService.class)
-                    .orElse(MeshMirrorAxisService.unavailable())
-                    .currentAngleDegrees();
-            context.services()
-                    .find(MeshMirrorAxisService.class)
-                    .orElse(MeshMirrorAxisService.unavailable())
-                    .setCurrentAngleDegrees(45.0f);
-            final float afterSet = context.services()
-                    .find(MeshMirrorAxisService.class)
-                    .orElse(MeshMirrorAxisService.unavailable())
-                    .currentAngleDegrees();
-            context.services()
-                    .find(MeshMirrorAxisService.class)
-                    .orElse(MeshMirrorAxisService.unavailable())
-                    .setCurrentAngleDegrees(0.0f);
-            final float afterRestore = context.services()
-                    .find(MeshMirrorAxisService.class)
-                    .orElse(MeshMirrorAxisService.unavailable())
-                    .currentAngleDegrees();
-            final String report = "status=SDK_ROUNDTRIP_DONE\n"
-                    + "time=" + Instant.now() + "\n"
+            final var service = context.services().find(MeshMirrorAxisService.class)
+                    .orElse(MeshMirrorAxisService.unavailable());
+            final float initial = service.currentAngleDegrees();
+            service.setCurrentAngleDegrees(45.0f);
+            final float afterSet = service.currentAngleDegrees();
+            service.setCurrentAngleDegrees(0.0f);
+            final float afterRestore = service.currentAngleDegrees();
+            final String report = "status=SDK_ROUNDTRIP_DONE\n" + "time=" + Instant.now() + "\n"
                     + roundtripReport(initial, afterSet, afterRestore);
-            Files.writeString(
-                    outputDir.resolve("mirror-axis-roundtrip.txt"),
-                    report,
-                    StandardOpenOption.CREATE,
+            Files.writeString( outputDir.resolve("mirror-axis-roundtrip.txt"), report, StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
-        } catch (Exception failure) {
-            context.logger().error("Mesh mirror-axis probe roundtrip failed", failure);
-        }
+        } catch (Exception failure) { context.logger().error("Mesh mirror-axis probe roundtrip failed", failure); }
     }
 
     static boolean roundtripPassed(final float afterSet, final float afterRestore) {
@@ -113,8 +92,7 @@ public final class WindowsMeshMirrorAxisValidationProbe implements CubismPlugin 
     }
 
     static String roundtripReport(final float initial, final float afterSet, final float afterRestore) {
-        return "initialAngleDegrees=" + initial + "\n"
-                + "afterSet45Degrees=" + afterSet + "\n"
+        return "initialAngleDegrees=" + initial + "\n" + "afterSet45Degrees=" + afterSet + "\n"
                 + "afterRestore0Degrees=" + afterRestore + "\n"
                 + "roundtripPassed=" + roundtripPassed(afterSet, afterRestore) + "\n";
     }
@@ -123,32 +101,15 @@ public final class WindowsMeshMirrorAxisValidationProbe implements CubismPlugin 
         if (outputDir == null) return;
         try {
             Files.createDirectories(outputDir);
-            final StringBuilder report = new StringBuilder()
-                    .append("status=")
-                    .append(status)
-                    .append('\n')
-                    .append("time=")
-                    .append(Instant.now())
-                    .append('\n')
-                    .append("angleDegrees=")
-                    .append(context.services()
-                            .find(MeshMirrorAxisService.class)
-                            .orElse(MeshMirrorAxisService.unavailable())
-                            .currentAngleDegrees())
-                    .append('\n')
-                    .append("meshes=")
-                    .append(context.cubismRead().meshes().size())
-                    .append('\n')
-                    .append("deformers=")
-                    .append(context.cubismRead().deformers().size())
-                    .append('\n');
-            Files.writeString(
-                    outputDir.resolve("mirror-axis-state.txt"),
-                    report.toString(),
-                    StandardOpenOption.CREATE,
+            final var service = context.services().find(MeshMirrorAxisService.class)
+                    .orElse(MeshMirrorAxisService.unavailable());
+            final StringBuilder report = new StringBuilder().append("status=").append(status).append('\n')
+                    .append("time=").append(Instant.now()).append('\n')
+                    .append("angleDegrees=").append(service.currentAngleDegrees()).append('\n')
+                    .append("meshes=").append(context.cubismRead().meshes().size()).append('\n')
+                    .append("deformers=").append(context.cubismRead().deformers().size()).append('\n');
+            Files.writeString( outputDir.resolve("mirror-axis-state.txt"), report.toString(), StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
-        } catch (Exception failure) {
-            context.logger().error("Mesh mirror-axis probe state dump failed", failure);
-        }
+        } catch (Exception failure) { context.logger().error("Mesh mirror-axis probe state dump failed", failure); }
     }
 }
