@@ -39,78 +39,49 @@ class WindowsWorkspaceValidationProbeTest {
 
     @Test
     void parserAcceptsEveryBoundedOperation() {
-        assertEquals(
-                new Command(1, "status", Optional.empty()),
+        assertEquals( new Command(1, "status", Optional.empty()),
                 WindowsWorkspaceValidationProbe.parseCommandContent(1, "status", "status\n"));
-        assertEquals(
-                new Command(2, "current", Optional.empty()),
+        assertEquals( new Command(2, "current", Optional.empty()),
                 WindowsWorkspaceValidationProbe.parseCommandContent(2, "current", "current"));
-        assertEquals(
-                new Command(3, "readiness", Optional.empty()),
+        assertEquals( new Command(3, "readiness", Optional.empty()),
                 WindowsWorkspaceValidationProbe.parseCommandContent(3, "readiness", "readiness\n"));
-        assertEquals(
-                new Command(4, "update-default", Optional.empty()),
+        assertEquals( new Command(4, "update-default", Optional.empty()),
                 WindowsWorkspaceValidationProbe.parseCommandContent(4, "update-default", "update-default\n"));
-        assertEquals(
-                new Command(5, "reset-default", Optional.empty()),
+        assertEquals( new Command(5, "reset-default", Optional.empty()),
                 WindowsWorkspaceValidationProbe.parseCommandContent(5, "reset-default", "reset-default"));
-        assertEquals(
-                new Command(6, "switch", Optional.of("modeling")),
+        assertEquals( new Command(6, "switch", Optional.of("modeling")),
                 WindowsWorkspaceValidationProbe.parseCommandContent(6, "switch", "switch\nmodeling\n"));
     }
 
     @Test
     void parserRejectsUnknownMalformedAndOversizedCommands() {
-        assertThrows(
-                ProtocolException.class,
+        assertThrows( ProtocolException.class,
                 () -> WindowsWorkspaceValidationProbe.parseCommandContent(1, "explode", "explode"));
-        assertThrows(
-                ProtocolException.class,
+        assertThrows( ProtocolException.class,
                 () -> WindowsWorkspaceValidationProbe.parseCommandContent(1, "switch", "switch"));
-        assertThrows(
-                ProtocolException.class,
+        assertThrows( ProtocolException.class,
                 () -> WindowsWorkspaceValidationProbe.parseCommandContent(1, "switch", "switch\n  \n"));
-        assertThrows(
-                ProtocolException.class,
+        assertThrows( ProtocolException.class,
                 () -> WindowsWorkspaceValidationProbe.parseCommandContent(1, "status", "status\nunexpected"));
-        assertThrows(
-                ProtocolException.class,
+        assertThrows( ProtocolException.class,
                 () -> WindowsWorkspaceValidationProbe.parseCommandContent(1, "current", "current\ncurrent\ncurrent"));
-        assertThrows(
-                ProtocolException.class,
+        assertThrows( ProtocolException.class,
                 () -> WindowsWorkspaceValidationProbe.parseCommandContent(1, "switch", "switch\n" + "x".repeat(600)));
         final String oversized = "status\n" + "x".repeat(WindowsWorkspaceValidationProbe.MAX_COMMAND_BYTES);
-        assertThrows(
-                ProtocolException.class,
+        assertThrows( ProtocolException.class,
                 () -> WindowsWorkspaceValidationProbe.parseCommandContent(1, "status", oversized));
     }
 
     @Test
     void commandFileNamePatternRejectsMalformedNames() {
-        assertTrue(WindowsWorkspaceValidationProbe.COMMAND_FILE_NAME
-                .matcher("1-status.cmd")
-                .matches());
-        assertTrue(WindowsWorkspaceValidationProbe.COMMAND_FILE_NAME
-                .matcher("7-switch-1.cmd")
-                .matches());
-        assertFalse(WindowsWorkspaceValidationProbe.COMMAND_FILE_NAME
-                .matcher("status.cmd")
-                .matches());
-        assertFalse(WindowsWorkspaceValidationProbe.COMMAND_FILE_NAME
-                .matcher("1-STATUS.cmd")
-                .matches());
-        assertFalse(WindowsWorkspaceValidationProbe.COMMAND_FILE_NAME
-                .matcher("1-status.txt")
-                .matches());
-        assertFalse(WindowsWorkspaceValidationProbe.COMMAND_FILE_NAME
-                .matcher("1-status.cmd.extra")
-                .matches());
-        assertFalse(WindowsWorkspaceValidationProbe.COMMAND_FILE_NAME
-                .matcher("1234567-status.cmd")
-                .matches());
-        assertFalse(WindowsWorkspaceValidationProbe.COMMAND_FILE_NAME
-                .matcher("0-status.cmd")
-                .matches());
+        assertTrue(WindowsWorkspaceValidationProbe.COMMAND_FILE_NAME.matcher("1-status.cmd").matches());
+        assertTrue(WindowsWorkspaceValidationProbe.COMMAND_FILE_NAME.matcher("7-switch-1.cmd").matches());
+        assertFalse(WindowsWorkspaceValidationProbe.COMMAND_FILE_NAME.matcher("status.cmd").matches());
+        assertFalse(WindowsWorkspaceValidationProbe.COMMAND_FILE_NAME.matcher("1-STATUS.cmd").matches());
+        assertFalse(WindowsWorkspaceValidationProbe.COMMAND_FILE_NAME.matcher("1-status.txt").matches());
+        assertFalse(WindowsWorkspaceValidationProbe.COMMAND_FILE_NAME.matcher("1-status.cmd.extra").matches());
+        assertFalse(WindowsWorkspaceValidationProbe.COMMAND_FILE_NAME.matcher("1234567-status.cmd").matches());
+        assertFalse(WindowsWorkspaceValidationProbe.COMMAND_FILE_NAME.matcher("0-status.cmd").matches());
     }
 
     @Test
@@ -122,11 +93,8 @@ class WindowsWorkspaceValidationProbeTest {
         assertLine(status, "status.diagnosticCode=workspace.unavailable");
         assertLine(status, "status.availableCount=0");
 
-        final CommandResult switched = WindowsWorkspaceValidationProbe.executeCommand(
-                WorkspaceService.unavailable(),
-                NO_HOST,
-                new Command(2, "switch", Optional.of("modeling")),
-                PERMISSIONS);
+        final CommandResult switched = WindowsWorkspaceValidationProbe.executeCommand( WorkspaceService.unavailable(),
+                NO_HOST, new Command(2, "switch", Optional.of("modeling")), PERMISSIONS);
         assertEquals("OK", switched.status());
         assertLine(switched, "outcome=UNAVAILABLE");
         assertLine(switched, "result.diagnosticCode=workspace.unavailable");
@@ -164,20 +132,15 @@ class WindowsWorkspaceValidationProbeTest {
 
     @Test
     void executorRecordsTypedAvailableResultFieldsAndCallerThread() {
-        final WorkspaceStatus available = new WorkspaceStatus(
-                WorkspaceStatus.Availability.AVAILABLE,
-                Optional.of(new WorkspaceInfo(new WorkspaceId("modeling"), "Modeling")),
-                List.of(
+        final WorkspaceStatus available = new WorkspaceStatus( WorkspaceStatus.Availability.AVAILABLE,
+                Optional.of(new WorkspaceInfo(new WorkspaceId("modeling"), "Modeling")), List.of(
                         new WorkspaceInfo(new WorkspaceId("modeling"), "Modeling"),
-                        new WorkspaceInfo(new WorkspaceId("animation"), "Animation")),
-                Optional.empty());
+                        new WorkspaceInfo(new WorkspaceId("animation"), "Animation")), Optional.empty());
         final WorkspaceOperationResult changed =
                 new WorkspaceOperationResult(WorkspaceOperationResult.Outcome.CHANGED, available, Optional.empty());
         final WorkspaceService service = new WorkspaceService() {
             @Override
-            public CompletionStage<WorkspaceStatus> current() {
-                return CompletableFuture.completedFuture(available);
-            }
+            public CompletionStage<WorkspaceStatus> current() { return CompletableFuture.completedFuture(available); }
 
             @Override
             public CompletionStage<WorkspaceOperationResult> switchTo(final WorkspaceId workspaceId) {
@@ -218,24 +181,16 @@ class WindowsWorkspaceValidationProbeTest {
     void executorRecordsUnexpectedFailuresWithoutHostAccess() {
         final WorkspaceService broken = new WorkspaceService() {
             @Override
-            public CompletionStage<WorkspaceStatus> current() {
-                throw new IllegalStateException("host gone");
-            }
+            public CompletionStage<WorkspaceStatus> current() { throw new IllegalStateException("host gone"); }
 
             @Override
-            public CompletionStage<WorkspaceOperationResult> switchTo(final WorkspaceId workspaceId) {
-                return null;
-            }
+            public CompletionStage<WorkspaceOperationResult> switchTo(final WorkspaceId workspaceId) { return null; }
 
             @Override
-            public CompletionStage<WorkspaceOperationResult> updateDefault() {
-                return null;
-            }
+            public CompletionStage<WorkspaceOperationResult> updateDefault() { return null; }
 
             @Override
-            public CompletionStage<WorkspaceOperationResult> resetToDefault() {
-                return null;
-            }
+            public CompletionStage<WorkspaceOperationResult> resetToDefault() { return null; }
         };
         final CommandResult result = WindowsWorkspaceValidationProbe.executeCommand(
                 broken, NO_HOST, new Command(1, "status", Optional.empty()), PERMISSIONS);
@@ -245,14 +200,8 @@ class WindowsWorkspaceValidationProbeTest {
 
     @Test
     void readinessRecordsEncodedDocumentAndModelIdentity() {
-        final CubismFacade host = fakeCubism(
-                true,
-                Optional.of(new DocumentSnapshot(
-                        "doc-123",
-                        "测试 混合模式.cmo3",
-                        "fixture.cmo3",
-                        Optional.empty(),
-                        Optional.of(new ModelSnapshot(
+        final CubismFacade host = fakeCubism( true, Optional.of(new DocumentSnapshot( "doc-123", "测试 混合模式.cmo3",
+                        "fixture.cmo3", Optional.empty(), Optional.of(new ModelSnapshot(
                                 "model-1", "Model One", List.of(), List.of(), List.of(), List.of())))),
                 Optional.of(new ModelSnapshot("model-1", "Model One", List.of(), List.of(), List.of(), List.of())));
         final CommandResult result = WindowsWorkspaceValidationProbe.executeCommand(
@@ -266,8 +215,7 @@ class WindowsWorkspaceValidationProbeTest {
         assertLine(result, "activeModelPresent=true");
         assertLine(result, "activeModelId=" + WindowsWorkspaceValidationProbe.encodeValue("model-1"));
         assertLine(result, "activeModelName=" + WindowsWorkspaceValidationProbe.encodeValue("Model One"));
-        assertFalse(
-                result.lines().stream().anyMatch(line -> line.contains("测试")),
+        assertFalse( result.lines().stream().anyMatch(line -> line.contains("测试")),
                 "host-derived names must be Base64-encoded, never raw");
     }
 
@@ -285,29 +233,19 @@ class WindowsWorkspaceValidationProbeTest {
     void readinessSurfacesHostFailuresAsCommandErrorNotMaskedUnavailable() {
         final CubismFacade broken = new CubismFacade() {
             @Override
-            public CubismRuntimeSnapshot runtime() {
-                throw new UnsupportedOperationException();
-            }
+            public CubismRuntimeSnapshot runtime() { throw new UnsupportedOperationException(); }
 
             @Override
-            public Optional<ProjectSnapshot> activeProject() {
-                return Optional.empty();
-            }
+            public Optional<ProjectSnapshot> activeProject() { return Optional.empty(); }
 
             @Override
-            public Optional<DocumentSnapshot> activeDocument() {
-                throw new IllegalStateException("mapping failure");
-            }
+            public Optional<DocumentSnapshot> activeDocument() { throw new IllegalStateException("mapping failure"); }
 
             @Override
-            public Optional<ModelSnapshot> activeModel() {
-                throw new IllegalStateException("mapping failure");
-            }
+            public Optional<ModelSnapshot> activeModel() { throw new IllegalStateException("mapping failure"); }
 
             @Override
-            public boolean isHostPresent() {
-                return true;
-            }
+            public boolean isHostPresent() { return true; }
         };
         final CommandResult result = WindowsWorkspaceValidationProbe.executeCommand(
                 WorkspaceService.unavailable(), broken, new Command(1, "readiness", Optional.empty()), PERMISSIONS);
@@ -317,49 +255,36 @@ class WindowsWorkspaceValidationProbeTest {
 
     @Test
     void hostileNewlinesAndOversizeValuesAreEncodedOrRedacted() {
-        final WorkspaceStatus hostile = new WorkspaceStatus(
-                WorkspaceStatus.Availability.AVAILABLE,
+        final WorkspaceStatus hostile = new WorkspaceStatus( WorkspaceStatus.Availability.AVAILABLE,
                 Optional.of(new WorkspaceInfo(new WorkspaceId("evil\nstatus=INJECTED\nid"), "name=forged\nline=1")),
-                List.of(),
-                Optional.of("diag\nnext=forged"));
+                List.of(), Optional.of("diag\nnext=forged"));
         final WorkspaceService service = new WorkspaceService() {
             @Override
-            public CompletionStage<WorkspaceStatus> current() {
-                return CompletableFuture.completedFuture(hostile);
-            }
+            public CompletionStage<WorkspaceStatus> current() { return CompletableFuture.completedFuture(hostile); }
 
             @Override
-            public CompletionStage<WorkspaceOperationResult> switchTo(final WorkspaceId workspaceId) {
-                return null;
-            }
+            public CompletionStage<WorkspaceOperationResult> switchTo(final WorkspaceId workspaceId) { return null; }
 
             @Override
-            public CompletionStage<WorkspaceOperationResult> updateDefault() {
-                return null;
-            }
+            public CompletionStage<WorkspaceOperationResult> updateDefault() { return null; }
 
             @Override
-            public CompletionStage<WorkspaceOperationResult> resetToDefault() {
-                return null;
-            }
+            public CompletionStage<WorkspaceOperationResult> resetToDefault() { return null; }
         };
         final CommandResult result = WindowsWorkspaceValidationProbe.executeCommand(
                 service, NO_HOST, new Command(1, "status", Optional.empty()), PERMISSIONS);
         assertEquals("OK", result.status());
         assertLine(
                 result, "status.currentId=" + WindowsWorkspaceValidationProbe.encodeValue("evil\nstatus=INJECTED\nid"));
-        assertFalse(
-                result.lines().stream().anyMatch(line -> line.equals("status=INJECTED")),
+        assertFalse( result.lines().stream().anyMatch(line -> line.equals("status=INJECTED")),
                 "host-derived values must never inject key=value lines");
-        assertTrue(
-                result.lines().stream().allMatch(line -> !line.contains("\n") && !line.contains("\r")),
+        assertTrue( result.lines().stream().allMatch(line -> !line.contains("\n") && !line.contains("\r")),
                 "evidence lines must never contain raw newlines");
 
         final String oversized = "x".repeat(WindowsWorkspaceValidationProbe.MAX_ENCODED_VALUE_BYTES + 1);
         assertEquals(
                 WindowsWorkspaceValidationProbe.REDACTED_VALUE, WindowsWorkspaceValidationProbe.encodeValue(oversized));
-        assertTrue(
-                Base64.getDecoder().decode(WindowsWorkspaceValidationProbe.encodeValue("ok id")).length > 0,
+        assertTrue( Base64.getDecoder().decode(WindowsWorkspaceValidationProbe.encodeValue("ok id")).length > 0,
                 "encodeValue must remain reversibly decodable below the ceiling");
     }
 
@@ -368,9 +293,7 @@ class WindowsWorkspaceValidationProbeTest {
         final Path commands = root.resolve(WindowsWorkspaceValidationProbe.COMMANDS_DIR);
         Files.createDirectories(commands);
         Files.writeString(commands.resolve("1-status.cmd"), "status", StandardCharsets.UTF_8);
-        Files.writeString(
-                root.resolve(WindowsWorkspaceValidationProbe.PROTOCOL_STATE_FILE),
-                "not-a-number",
+        Files.writeString( root.resolve(WindowsWorkspaceValidationProbe.PROTOCOL_STATE_FILE), "not-a-number",
                 StandardCharsets.UTF_8);
 
         final long next = WindowsWorkspaceValidationProbe.processPending(
@@ -444,9 +367,7 @@ class WindowsWorkspaceValidationProbeTest {
         final Path commands = root.resolve(WindowsWorkspaceValidationProbe.COMMANDS_DIR);
         Files.createDirectories(commands);
         Files.writeString(commands.resolve("1-status.cmd"), "status", StandardCharsets.UTF_8);
-        assertEquals(
-                1L,
-                WindowsWorkspaceValidationProbe.processPending(
+        assertEquals( 1L, WindowsWorkspaceValidationProbe.processPending(
                         root, 0L, WorkspaceService.unavailable(), NO_HOST, PERMISSIONS));
 
         // An operator restores an older watermark while the plugin still remembers 1.
@@ -470,8 +391,7 @@ class WindowsWorkspaceValidationProbeTest {
         final long next = WindowsWorkspaceValidationProbe.processPending(
                 root, 0L, WorkspaceService.unavailable(), NO_HOST, PERMISSIONS);
         assertEquals(-1L, next, "an unresolved claim must fail the whole scan closed");
-        assertTrue(
-                Files.exists(commands.resolve("1-status.cmd")),
+        assertTrue( Files.exists(commands.resolve("1-status.cmd")),
                 "pending commands must stay pending while a claim is unresolved");
         assertEvidenceContains(root, "INFLIGHT_UNRESOLVED");
     }
@@ -489,15 +409,12 @@ class WindowsWorkspaceValidationProbeTest {
         // directory does not match the accepted-result pattern, so the scan-start consistency
         // checks pass and the failure happens after the claim.
         Files.createDirectory(results.resolve("000001-status.txt.tmp"));
-        assertThrows(
-                IOException.class,
-                () -> WindowsWorkspaceValidationProbe.processPending(
+        assertThrows( IOException.class, () -> WindowsWorkspaceValidationProbe.processPending(
                         root, 0L, WorkspaceService.unavailable(), NO_HOST, PERMISSIONS));
         assertTrue(
                 Files.exists(inflight.resolve("1-status.cmd")), "the claim must survive a failed result publication");
         assertFalse(Files.exists(commands.resolve("1-status.cmd")), "the command must not remain re-executable");
-        assertFalse(
-                Files.exists(root.resolve(WindowsWorkspaceValidationProbe.PROTOCOL_STATE_FILE)),
+        assertFalse( Files.exists(root.resolve(WindowsWorkspaceValidationProbe.PROTOCOL_STATE_FILE)),
                 "the watermark must not advance when publication failed");
 
         // The next scan fails closed instead of re-executing the uncertain command.
@@ -511,12 +428,9 @@ class WindowsWorkspaceValidationProbeTest {
         Files.delete(results.resolve("000001-status.txt.tmp"));
         Files.writeString(commands.resolve("2-status.cmd"), "status", StandardCharsets.UTF_8);
         Files.createDirectory(root.resolve(WindowsWorkspaceValidationProbe.PROTOCOL_STATE_FILE));
-        assertThrows(
-                IOException.class,
-                () -> WindowsWorkspaceValidationProbe.processPending(
+        assertThrows( IOException.class, () -> WindowsWorkspaceValidationProbe.processPending(
                         root, 0L, WorkspaceService.unavailable(), NO_HOST, PERMISSIONS));
-        assertTrue(
-                Files.exists(inflight.resolve("2-status.cmd")),
+        assertTrue( Files.exists(inflight.resolve("2-status.cmd")),
                 "the claim must survive a failed watermark publication");
     }
 
@@ -531,8 +445,7 @@ class WindowsWorkspaceValidationProbeTest {
         final long next = WindowsWorkspaceValidationProbe.processPending(
                 root, 0L, WorkspaceService.unavailable(), NO_HOST, PERMISSIONS);
         assertEquals(1L, next);
-        assertTrue(
-                Files.exists(commands.resolve(".2-switch.abc123.tmp")),
+        assertTrue( Files.exists(commands.resolve(".2-switch.abc123.tmp")),
                 "non-.cmd temp files must be ignored and left in place");
         assertFalse(Files.exists(commands.resolve("1-status.cmd")));
         assertTrue(Files.exists(
@@ -549,9 +462,7 @@ class WindowsWorkspaceValidationProbeTest {
         Files.writeString(commands.resolve("not-a-command.cmd"), "status", StandardCharsets.UTF_8);
         Files.writeString(commands.resolve("2-current.cmd"), "current", StandardCharsets.UTF_8);
         final Path oversized = commands.resolve("4-current.cmd");
-        Files.writeString(
-                oversized,
-                "status\n" + "x".repeat(WindowsWorkspaceValidationProbe.MAX_COMMAND_BYTES + 1),
+        Files.writeString( oversized, "status\n" + "x".repeat(WindowsWorkspaceValidationProbe.MAX_COMMAND_BYTES + 1),
                 StandardCharsets.UTF_8);
         Files.writeString(commands.resolve("5-update-default.cmd"), "explode", StandardCharsets.UTF_8);
 
@@ -559,9 +470,7 @@ class WindowsWorkspaceValidationProbeTest {
                 root, 0L, WorkspaceService.unavailable(), NO_HOST, PERMISSIONS);
 
         assertEquals(3L, next, "sequence must advance only past accepted commands");
-        assertEquals(
-                3L,
-                WindowsWorkspaceValidationProbe.processPending(
+        assertEquals( 3L, WindowsWorkspaceValidationProbe.processPending(
                         root, next, WorkspaceService.unavailable(), NO_HOST, PERMISSIONS),
                 "reprocessing the same root must stay idempotent");
         final Path results = root.resolve(WindowsWorkspaceValidationProbe.RESULTS_DIR);
@@ -613,32 +522,7 @@ class WindowsWorkspaceValidationProbeTest {
 
     private static CubismFacade fakeCubism(
             final boolean hostPresent, final Optional<DocumentSnapshot> document, final Optional<ModelSnapshot> model) {
-        return new CubismFacade() {
-            @Override
-            public CubismRuntimeSnapshot runtime() {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public Optional<ProjectSnapshot> activeProject() {
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<DocumentSnapshot> activeDocument() {
-                return document;
-            }
-
-            @Override
-            public Optional<ModelSnapshot> activeModel() {
-                return model;
-            }
-
-            @Override
-            public boolean isHostPresent() {
-                return hostPresent;
-            }
-        };
+        return WindowsProbeHarness.fakeCubism(hostPresent, document, model);
     }
 
     private static void assertLine(final CommandResult result, final String expected) {
