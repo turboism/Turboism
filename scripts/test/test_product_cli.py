@@ -32,3 +32,36 @@ class ProductCliTest(unittest.TestCase):
             p=Path(d)/'agent.jar'
             with zipfile.ZipFile(p,'w') as z:z.writestr('META-INF/turboism/framework-version.properties','version=1.2.3\n')
             self.assertIsNone(self.cli.read_jar_info(p)['buildNumber'])
+
+    def test_product_build_preflight_writes_github_output_and_skips_when_unchanged(self):
+        import os
+        from unittest.mock import patch
+        pb_path = ROOT / 'scripts/release/product-build.py'
+        spec = importlib.util.spec_from_file_location('tested_product_build', pb_path)
+        pb = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(pb)
+
+        sha = 'a' * 40
+        fake_plan = {'should_build': False, 'reason': 'already_published',
+                     'base_version': '0.44.1', 'source_sha': sha, 'previous_source': sha}
+        with tempfile.NamedTemporaryFile('w+', delete=False) as output_file:
+            output_path = output_file.name
+        try:
+            env = {
+                'GITHUB_ACTIONS': 'true',
+                'GITHUB_REPOSITORY': 'turboism/Turboism',
+                'GITHUB_REF': 'refs/heads/main',
+                'GITHUB_SHA': sha,
+                'GITHUB_OUTPUT': output_path,
+            }
+            with patch.dict(os.environ, env):
+                with patch.object(pb, 'check_source'):
+                    with patch.object(pb.nightly, 'plan', return_value=fake_plan):
+                        ret = pb.main(['preflight', '--source', sha, '--channel', 'nightly', '--version', ''])
+            self.assertEqual(ret, 0)
+            content = Path(output_path).read_text()
+            self.assertIn('should_build=false\n', content)
+            self.assertIn('channel=nightly\n', content)
+            self.assertIn('version=0.44.1\n', content)
+        finally:
+            Path(output_path).unlink(missing_ok=True)
