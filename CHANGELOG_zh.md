@@ -137,6 +137,10 @@ Turboism 的所有重要变更都记录在本文件中。
   新增钩子只需要一行清单加一个 contributor 类，而不必修改 agent。已验证/失败关闭准入、
   原子记录提取、mesh-mirror premain/bind 生命周期以及 `installation=`/`cleanup=` 报告行
   均保持不变。
+- Windows 安装器现在默认勾选官方 Cubism BAT 集成，与 legacy 的自动启动行为一致：默认
+  备份并修改所选 `CubismEditor5.bat` 启动器，使现有 Cubism 快捷方式、文件关联和其他
+  入口无需经过托管启动器即可加载 Turboism。该选项仍可在启动选项页取消勾选，保持哈希
+  保护与幂等，并在卸载时恢复。静默安装同样应用；仅集成步骤通过 UAC 提权。
 
 ### 修复
 
