@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.*;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -164,160 +166,6 @@ class EditorModelProfileAccessTest {
         return "()" + type(type);
     }
 
-    public static final class Host {
-        private static final Host INSTANCE = new Host();
-        static Document document;
-
-        public static Host instance() {
-            return INSTANCE;
-        }
-
-        public Document currentDocument() {
-            return document;
-        }
-
-        public CompletePack completePack() {
-            return document.pack;
-        }
-    }
-
-    public static final class Document {
-        final ModelSource source = new ModelSource();
-        final EditMode editMode = new EditMode();
-        final CompletePack pack = new CompletePack();
-        boolean dirty;
-
-        public ModelSource modelSource() {
-            return source;
-        }
-
-        public EditMode editMode() {
-            return editMode;
-        }
-
-        public void markDirty() {
-            dirty = true;
-        }
-    }
-
-    public static final class ModelSource {
-        String name = "original";
-        final ModelInfo info = new ModelInfo();
-        final ImageCanvas canvas = new ImageCanvas();
-        int updateCount;
-
-        public String name() {
-            return name;
-        }
-
-        public void setName(final String name) {
-            this.name = name;
-        }
-
-        public ModelInfo modelInfo() {
-            return info;
-        }
-
-        public ImageCanvas canvas() {
-            return canvas;
-        }
-
-        public void updateInstances() {
-            updateCount++;
-        }
-    }
-
-    public static final class ModelInfo {
-        final Point origin = new Point(4, 5);
-
-        public Point origin() {
-            return origin;
-        }
-
-        public float pixelsPerUnit() {
-            return 10.0F;
-        }
-    }
-
-    public static final class Point {
-        final int x;
-        final int y;
-
-        Point(final int x, final int y) {
-            this.x = x;
-            this.y = y;
-        }
-
-        public int x() {
-            return x;
-        }
-
-        public int y() {
-            return y;
-        }
-    }
-
-    public static final class ImageCanvas {
-        public int width() {
-            return 1024;
-        }
-
-        public int height() {
-            return 768;
-        }
-    }
-
-    public static final class EditMode {
-        final List<Undo> edits = new ArrayList<>();
-        boolean aborted;
-
-        public GroupUndo begin(final String name) {
-            return new GroupUndo(edits);
-        }
-
-        public void end(final boolean abort, final Object ignored) {
-            aborted = abort;
-        }
-    }
-
-    public static final class GroupUndo extends Undo {
-        final List<Undo> edits;
-
-        GroupUndo(final List<Undo> edits) {
-            this.edits = edits;
-        }
-
-        public boolean add(final Undo undo, final boolean significant) {
-            edits.add(undo);
-            return true;
-        }
-    }
-
-    public static class Undo {
-        public Undo() {}
-
-        public Undo(final String name, final Object target, final Object copyParam) {}
-
-        public boolean addListener(final Listener listener) {
-            return true;
-        }
-    }
-
-    @FunctionalInterface
-    public interface Listener {
-        void changed(Object ignored);
-    }
-
-    public static final class CompletePack {
-        int repaintCount;
-
-        public void updateParts(final boolean immediate) {}
-
-        public void repaint(final boolean immediate) {
-            repaintCount++;
-        }
-    }
-
     private static final class Fixture {
         final ModelSource source = new ModelSource();
         final Object model = new Object();
@@ -325,7 +173,8 @@ class EditorModelProfileAccessTest {
         final EditMode editMode;
 
         Fixture() {
-            document = new Document();
+            source.name = "original";
+            document = new Document(source);
             editMode = document.editMode;
         }
     }
