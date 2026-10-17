@@ -919,77 +919,77 @@ class EditorTextureReplacementDiagnosticTest {
     }
 
     private static NativeFixture largeNativeFixture() {
-        final EditorTextureRelationsAccessTest.HostId oldId = new EditorTextureRelationsAccessTest.HostId("old");
-        final EditorTextureRelationsAccessTest.HostId incomingId =
-                new EditorTextureRelationsAccessTest.HostId("incoming");
-        final EditorTextureRelationsAccessTest.LayeredImage old = new EditorTextureRelationsAccessTest.LayeredImage(
+        final EditorTextureRelationsTestFixtures.HostId oldId = new EditorTextureRelationsTestFixtures.HostId("old");
+        final EditorTextureRelationsTestFixtures.HostId incomingId =
+                new EditorTextureRelationsTestFixtures.HostId("incoming");
+        final EditorTextureRelationsTestFixtures.LayeredImage old = new EditorTextureRelationsTestFixtures.LayeredImage(
                 oldId,
                 "Old",
                 100,
                 100,
                 new File("/old.psd"),
-                new EditorTextureRelationsAccessTest.PsdDocument(),
+                new EditorTextureRelationsTestFixtures.PsdDocument(),
                 List.of());
-        final EditorTextureRelationsAccessTest.LayeredImage incoming =
-                new EditorTextureRelationsAccessTest.LayeredImage(
+        final EditorTextureRelationsTestFixtures.LayeredImage incoming =
+                new EditorTextureRelationsTestFixtures.LayeredImage(
                         incomingId,
                         "Incoming",
                         100,
                         100,
                         new File("/incoming.psd"),
-                        new EditorTextureRelationsAccessTest.PsdDocument(),
+                        new EditorTextureRelationsTestFixtures.PsdDocument(),
                         List.of());
-        final List<EditorTextureRelationsAccessTest.ModelImage> modelImages = new ArrayList<>();
-        final List<EditorTextureRelationsAccessTest.HostModelImageGroup> groups = new ArrayList<>();
+        final List<EditorTextureRelationsTestFixtures.ModelImage> modelImages = new ArrayList<>();
+        final List<EditorTextureRelationsTestFixtures.HostModelImageGroup> groups = new ArrayList<>();
         for (int imageIndex = 0; imageIndex < 33; imageIndex++) {
             final boolean target = imageIndex == 0;
-            final List<EditorTextureRelationsAccessTest.HostId> linked =
+            final List<EditorTextureRelationsTestFixtures.HostId> linked =
                     target ? List.of(oldId) : longIds("linked-" + imageIndex + '-', 32);
-            final Map<EditorTextureRelationsAccessTest.HostId, List<EditorTextureRelationsAccessTest.LayerInput>>
+            final Map<EditorTextureRelationsTestFixtures.HostId, List<EditorTextureRelationsTestFixtures.LayerInput>>
                     selectorKeys = new LinkedHashMap<>();
             for (int keyIndex = 0; keyIndex < 32; keyIndex++) {
                 selectorKeys.put(
-                        new EditorTextureRelationsAccessTest.HostId(
+                        new EditorTextureRelationsTestFixtures.HostId(
                                 longValue("selector-" + imageIndex + '-', keyIndex)),
                         List.of());
             }
-            final EditorTextureRelationsAccessTest.ModelImage image = new EditorTextureRelationsAccessTest.ModelImage(
-                    new EditorTextureRelationsAccessTest.HostId(target ? "target-model" : "filler-model-" + imageIndex),
+            final EditorTextureRelationsTestFixtures.ModelImage image = new EditorTextureRelationsTestFixtures.ModelImage(
+                    new EditorTextureRelationsTestFixtures.HostId(target ? "target-model" : "filler-model-" + imageIndex),
                     target ? "Target" : "Filler",
                     100,
                     100,
                     linked,
-                    new EditorTextureRelationsAccessTest.FilterEnv(
+                    new EditorTextureRelationsTestFixtures.FilterEnv(
                             true,
-                            new EditorTextureRelationsAccessTest.SelectorMap(selectorKeys),
+                            new EditorTextureRelationsTestFixtures.SelectorMap(selectorKeys),
                             true,
                             target ? oldId : linked.get(0)));
             modelImages.add(image);
-            groups.add(new EditorTextureRelationsAccessTest.HostModelImageGroup(
+            groups.add(new EditorTextureRelationsTestFixtures.HostModelImageGroup(
                     target ? "Target group" : "Filler group " + imageIndex,
                     "memo",
                     List.of(image),
                     target ? List.of(oldId, incomingId) : linked));
         }
-        final EditorTextureRelationsAccessTest.TextureManager manager =
-                new EditorTextureRelationsAccessTest.TextureManager(
+        final EditorTextureRelationsTestFixtures.TextureManager manager =
+                new EditorTextureRelationsTestFixtures.TextureManager(
                         List.of(
-                                new EditorTextureRelationsAccessTest.Wrapper(old, "import", "modified", true),
-                                new EditorTextureRelationsAccessTest.Wrapper(incoming, null, null, true)),
+                                new EditorTextureRelationsTestFixtures.Wrapper(old, "import", "modified", true),
+                                new EditorTextureRelationsTestFixtures.Wrapper(incoming, null, null, true)),
                         groups,
                         modelImages,
                         List.of(),
                         groups);
-        final EditorTextureRelationsAccessTest.ModelSource source =
-                new EditorTextureRelationsAccessTest.ModelSource(manager, List.of());
-        final EditorTextureRelationsAccessTest.Model model = new EditorTextureRelationsAccessTest.Model(List.of());
+        final EditorTextureRelationsTestFixtures.ModelSource source =
+                new EditorTextureRelationsTestFixtures.ModelSource(manager, List.of());
+        final EditorTextureRelationsTestFixtures.Model model = new EditorTextureRelationsTestFixtures.Model(List.of());
         return new NativeFixture(source, model, resolver(true));
     }
 
-    private static List<EditorTextureRelationsAccessTest.HostId> longIds(final String prefix, final int count) {
-        final List<EditorTextureRelationsAccessTest.HostId> values = new ArrayList<>();
+    private static List<EditorTextureRelationsTestFixtures.HostId> longIds(final String prefix, final int count) {
+        final List<EditorTextureRelationsTestFixtures.HostId> values = new ArrayList<>();
         for (int index = 0; index < count; index++) {
-            values.add(new EditorTextureRelationsAccessTest.HostId(longValue(prefix, index)));
+            values.add(new EditorTextureRelationsTestFixtures.HostId(longValue(prefix, index)));
         }
         return values;
     }
@@ -999,53 +999,53 @@ class EditorTextureReplacementDiagnosticTest {
     }
 
     private static NativeFixture nativeFixture(final boolean emptySelectorMap) {
-        final EditorTextureRelationsAccessTest.HostId oldId = new EditorTextureRelationsAccessTest.HostId("old");
-        final EditorTextureRelationsAccessTest.HostId incomingId =
-                new EditorTextureRelationsAccessTest.HostId("incoming");
-        final EditorTextureRelationsAccessTest.LayeredImage old = new EditorTextureRelationsAccessTest.LayeredImage(
+        final EditorTextureRelationsTestFixtures.HostId oldId = new EditorTextureRelationsTestFixtures.HostId("old");
+        final EditorTextureRelationsTestFixtures.HostId incomingId =
+                new EditorTextureRelationsTestFixtures.HostId("incoming");
+        final EditorTextureRelationsTestFixtures.LayeredImage old = new EditorTextureRelationsTestFixtures.LayeredImage(
                 oldId,
                 "Old",
                 100,
                 100,
                 new File("/old.psd"),
-                new EditorTextureRelationsAccessTest.PsdDocument(),
+                new EditorTextureRelationsTestFixtures.PsdDocument(),
                 List.of());
-        final EditorTextureRelationsAccessTest.LayeredImage incoming =
-                new EditorTextureRelationsAccessTest.LayeredImage(
+        final EditorTextureRelationsTestFixtures.LayeredImage incoming =
+                new EditorTextureRelationsTestFixtures.LayeredImage(
                         incomingId,
                         "Incoming",
                         100,
                         100,
                         new File("/incoming.psd"),
-                        new EditorTextureRelationsAccessTest.PsdDocument(),
+                        new EditorTextureRelationsTestFixtures.PsdDocument(),
                         List.of());
-        final EditorTextureRelationsAccessTest.ModelImage modelImage = new EditorTextureRelationsAccessTest.ModelImage(
-                new EditorTextureRelationsAccessTest.HostId("model-a"),
+        final EditorTextureRelationsTestFixtures.ModelImage modelImage = new EditorTextureRelationsTestFixtures.ModelImage(
+                new EditorTextureRelationsTestFixtures.HostId("model-a"),
                 "Image",
                 100,
                 100,
                 List.of(oldId),
-                new EditorTextureRelationsAccessTest.FilterEnv(
+                new EditorTextureRelationsTestFixtures.FilterEnv(
                         true,
-                        new EditorTextureRelationsAccessTest.SelectorMap(
+                        new EditorTextureRelationsTestFixtures.SelectorMap(
                                 emptySelectorMap ? Map.of() : Map.of(oldId, List.of())),
                         true,
                         oldId));
-        final EditorTextureRelationsAccessTest.HostModelImageGroup group =
-                new EditorTextureRelationsAccessTest.HostModelImageGroup(
+        final EditorTextureRelationsTestFixtures.HostModelImageGroup group =
+                new EditorTextureRelationsTestFixtures.HostModelImageGroup(
                         "Group A", "memo", List.of(modelImage), List.of(oldId, incomingId));
-        final EditorTextureRelationsAccessTest.TextureManager manager =
-                new EditorTextureRelationsAccessTest.TextureManager(
+        final EditorTextureRelationsTestFixtures.TextureManager manager =
+                new EditorTextureRelationsTestFixtures.TextureManager(
                         List.of(
-                                new EditorTextureRelationsAccessTest.Wrapper(old, "import", "modified", true),
-                                new EditorTextureRelationsAccessTest.Wrapper(incoming, null, null, true)),
+                                new EditorTextureRelationsTestFixtures.Wrapper(old, "import", "modified", true),
+                                new EditorTextureRelationsTestFixtures.Wrapper(incoming, null, null, true)),
                         List.of(group),
                         List.of(modelImage),
                         List.of(),
                         List.of(group));
-        final EditorTextureRelationsAccessTest.ModelSource source =
-                new EditorTextureRelationsAccessTest.ModelSource(manager, List.of());
-        final EditorTextureRelationsAccessTest.Model model = new EditorTextureRelationsAccessTest.Model(List.of());
+        final EditorTextureRelationsTestFixtures.ModelSource source =
+                new EditorTextureRelationsTestFixtures.ModelSource(manager, List.of());
+        final EditorTextureRelationsTestFixtures.Model model = new EditorTextureRelationsTestFixtures.Model(List.of());
         return new NativeFixture(source, model, resolver(true));
     }
 
@@ -1057,133 +1057,133 @@ class EditorTextureReplacementDiagnosticTest {
         putMethod(
                 selectors,
                 "cubism.editor-model.model-source.texture-manager",
-                EditorTextureRelationsAccessTest.ModelSource.class,
+                EditorTextureRelationsTestFixtures.ModelSource.class,
                 "textureManager",
-                desc(EditorTextureRelationsAccessTest.TextureManager.class));
+                desc(EditorTextureRelationsTestFixtures.TextureManager.class));
         putMethod(
                 selectors,
                 "cubism.editor-model.texture-manager.raw-images",
-                EditorTextureRelationsAccessTest.TextureManager.class,
+                EditorTextureRelationsTestFixtures.TextureManager.class,
                 "rawImages",
                 "()Ljava/util/List;");
         putMethod(
                 selectors,
                 "cubism.editor-model.texture-manager.all-model-images",
-                EditorTextureRelationsAccessTest.TextureManager.class,
+                EditorTextureRelationsTestFixtures.TextureManager.class,
                 "allModelImages",
                 "()Ljava/util/List;");
         putMethod(
                 selectors,
                 "cubism.editor-model.texture-manager.model-image-groups",
-                EditorTextureRelationsAccessTest.TextureManager.class,
+                EditorTextureRelationsTestFixtures.TextureManager.class,
                 "modelImageGroups",
                 "()Ljava/util/List;");
         putMethod(
                 selectors,
                 "cubism.editor-model.layered-image-wrapper.image",
-                EditorTextureRelationsAccessTest.Wrapper.class,
+                EditorTextureRelationsTestFixtures.Wrapper.class,
                 "image",
-                desc(EditorTextureRelationsAccessTest.LayeredImage.class));
+                desc(EditorTextureRelationsTestFixtures.LayeredImage.class));
         putMethod(
                 selectors,
                 "cubism.editor-model.layered-image-wrapper.replaced",
-                EditorTextureRelationsAccessTest.Wrapper.class,
+                EditorTextureRelationsTestFixtures.Wrapper.class,
                 "isReplaced",
                 "()Z");
         putClass(
                 selectors,
                 "cubism.editor-model.layered-image.class",
-                EditorTextureRelationsAccessTest.LayeredImage.class);
+                EditorTextureRelationsTestFixtures.LayeredImage.class);
         putMethod(
                 selectors,
                 "cubism.editor-model.layered-image.guid",
-                EditorTextureRelationsAccessTest.LayeredImage.class,
+                EditorTextureRelationsTestFixtures.LayeredImage.class,
                 "getGuid",
-                desc(EditorTextureRelationsAccessTest.HostId.class));
-        putClass(selectors, "cubism.editor-model.model-image.class", EditorTextureRelationsAccessTest.ModelImage.class);
+                desc(EditorTextureRelationsTestFixtures.HostId.class));
+        putClass(selectors, "cubism.editor-model.model-image.class", EditorTextureRelationsTestFixtures.ModelImage.class);
         putMethod(
                 selectors,
                 "cubism.editor-model.model-image.guid",
-                EditorTextureRelationsAccessTest.ModelImage.class,
+                EditorTextureRelationsTestFixtures.ModelImage.class,
                 "getGuid",
-                desc(EditorTextureRelationsAccessTest.HostId.class));
+                desc(EditorTextureRelationsTestFixtures.HostId.class));
         putMethod(
                 selectors,
                 "cubism.editor-model.model-image.linked-raw-image-guids",
-                EditorTextureRelationsAccessTest.ModelImage.class,
+                EditorTextureRelationsTestFixtures.ModelImage.class,
                 "getLinkedRawImageGuids",
                 "()Ljava/util/List;");
         putMethod(
                 selectors,
                 "cubism.editor-model.model-image.input-filter-env",
-                EditorTextureRelationsAccessTest.ModelImage.class,
+                EditorTextureRelationsTestFixtures.ModelImage.class,
                 "getInputFilterEnv",
-                desc(EditorTextureRelationsAccessTest.FilterEnv.class));
+                desc(EditorTextureRelationsTestFixtures.FilterEnv.class));
         putClass(
                 selectors,
                 "cubism.editor-model.model-image-filter-env.class",
-                EditorTextureRelationsAccessTest.FilterEnv.class);
+                EditorTextureRelationsTestFixtures.FilterEnv.class);
         putMethod(
                 selectors,
                 "cubism.editor-model.model-image-filter-env.has-layer-input-data",
-                EditorTextureRelationsAccessTest.FilterEnv.class,
+                EditorTextureRelationsTestFixtures.FilterEnv.class,
                 "getHasLayerInputData",
                 "()Z");
         putMethod(
                 selectors,
                 "cubism.editor-model.model-image-filter-env.layer-input-data",
-                EditorTextureRelationsAccessTest.FilterEnv.class,
+                EditorTextureRelationsTestFixtures.FilterEnv.class,
                 "getLayerInputData",
-                desc(EditorTextureRelationsAccessTest.SelectorMap.class));
+                desc(EditorTextureRelationsTestFixtures.SelectorMap.class));
         putMethod(
                 selectors,
                 "cubism.editor-model.model-image-filter-env.has-current-image-guid",
-                EditorTextureRelationsAccessTest.FilterEnv.class,
+                EditorTextureRelationsTestFixtures.FilterEnv.class,
                 "getHasCurrentImageGuid",
                 "()Z");
         putMethod(
                 selectors,
                 "cubism.editor-model.model-image-filter-env.current-image-guid",
-                EditorTextureRelationsAccessTest.FilterEnv.class,
+                EditorTextureRelationsTestFixtures.FilterEnv.class,
                 "getCurrentImageGuid",
-                desc(EditorTextureRelationsAccessTest.HostId.class));
+                desc(EditorTextureRelationsTestFixtures.HostId.class));
         putClass(
                 selectors,
                 "cubism.editor-model.layer-selector-map.class",
-                EditorTextureRelationsAccessTest.SelectorMap.class);
+                EditorTextureRelationsTestFixtures.SelectorMap.class);
         putMethod(
                 selectors,
                 "cubism.editor-model.layer-selector-map.image-to-layer-input",
-                EditorTextureRelationsAccessTest.SelectorMap.class,
+                EditorTextureRelationsTestFixtures.SelectorMap.class,
                 "getImageToLayerInput",
                 "()Ljava/util/Map;");
         putClass(
                 selectors,
                 "cubism.editor-model.model-image-group.class",
-                EditorTextureRelationsAccessTest.HostModelImageGroup.class);
+                EditorTextureRelationsTestFixtures.HostModelImageGroup.class);
         putMethod(
                 selectors,
                 "cubism.editor-model.model-image-group.group-name",
-                EditorTextureRelationsAccessTest.HostModelImageGroup.class,
+                EditorTextureRelationsTestFixtures.HostModelImageGroup.class,
                 "getGroupName",
                 "()Ljava/lang/String;");
         putMethod(
                 selectors,
                 "cubism.editor-model.model-image-group.model-images",
-                EditorTextureRelationsAccessTest.HostModelImageGroup.class,
+                EditorTextureRelationsTestFixtures.HostModelImageGroup.class,
                 "getModelImages",
                 "()Ljava/util/List;");
         putMethod(
                 selectors,
                 "cubism.editor-model.model-image-group.linked-raw-image-guids",
-                EditorTextureRelationsAccessTest.HostModelImageGroup.class,
+                EditorTextureRelationsTestFixtures.HostModelImageGroup.class,
                 "getLinkedRawImageGuids",
                 "()Ljava/util/List;");
-        putClass(selectors, "cubism.editor-model.guid.class", EditorTextureRelationsAccessTest.HostId.class);
+        putClass(selectors, "cubism.editor-model.guid.class", EditorTextureRelationsTestFixtures.HostId.class);
         putMethod(
                 selectors,
                 "cubism.editor-model.guid.value",
-                EditorTextureRelationsAccessTest.HostId.class,
+                EditorTextureRelationsTestFixtures.HostId.class,
                 "value",
                 "()Ljava/lang/String;");
         final Set<String> capabilities = authorized
@@ -1194,7 +1194,7 @@ class EditorTextureReplacementDiagnosticTest {
                 EditorTextureRelationsSelectorContract.ADAPTER_SLICE_ID,
                 capabilities,
                 new ArrayList<>(selectors.values()),
-                EditorTextureRelationsAccessTest.class.getClassLoader());
+                EditorTextureRelationsTestFixtures.class.getClassLoader());
     }
 
     private static void putClass(final Map<String, StaticSelector> selectors, final String alias, final Class<?> type) {
@@ -1220,8 +1220,8 @@ class EditorTextureReplacementDiagnosticTest {
     }
 
     private record NativeFixture(
-            EditorTextureRelationsAccessTest.ModelSource source,
-            EditorTextureRelationsAccessTest.Model model,
+            EditorTextureRelationsTestFixtures.ModelSource source,
+            EditorTextureRelationsTestFixtures.Model model,
             VerifiedMemberResolver resolver) {}
 
     private CallSiteFixture callSiteFixture() throws Exception {

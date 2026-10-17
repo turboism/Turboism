@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.*;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -151,71 +153,6 @@ class EditorModelEditLevelAccessTest {
 
     private static String desc(final Class<?> type) {
         return "()L" + internal(type) + ";";
-    }
-
-    record Id(String value) {}
-
-    static final class Model {}
-
-    static final class ModelSource {
-        private final Id guid;
-        private final Model model = new Model();
-
-        ModelSource(final String id) {
-            guid = new Id(id);
-        }
-
-        public Id guid() {
-            return guid;
-        }
-
-        public Model currentInstance() {
-            return model;
-        }
-    }
-
-    static final class Document {
-        private final ModelSource source;
-
-        Document(final ModelSource source) {
-            this.source = source;
-        }
-
-        public ModelSource modelSource() {
-            return source;
-        }
-    }
-
-    static final class Host {
-        private static final Host INSTANCE = new Host();
-        static Document currentDocument;
-        static int editLevel = 1;
-        static int commandCalls;
-        static volatile boolean readOnEdt;
-        static volatile boolean writeOnEdt;
-
-        public static Host instance() {
-            return INSTANCE;
-        }
-
-        public Document currentDocument() {
-            return currentDocument;
-        }
-
-        public int editLevel() {
-            readOnEdt = SwingUtilities.isEventDispatchThread();
-            return editLevel;
-        }
-
-        public void commandSetEditLevel(final int level) {
-            writeOnEdt = SwingUtilities.isEventDispatchThread();
-            editLevel = level;
-            commandCalls++;
-        }
-
-        static void install(final Fixture fixture) {
-            currentDocument = fixture.document;
-        }
     }
 
     static final class Fixture {
