@@ -5,10 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.cubism.CubismFacade;
-import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
-import dev.turboism.sdk.cubism.DocumentSnapshot;
-import dev.turboism.sdk.cubism.ModelSnapshot;
-import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
@@ -65,8 +61,12 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
 
     @AfterEach
     void tearDown() {
-        if (scheduler != null) { scheduler.shutdown(); }
-        if (testExecutor != null) { testExecutor.shutdownNow(); }
+        if (scheduler != null) {
+            scheduler.shutdown();
+        }
+        if (testExecutor != null) {
+            testExecutor.shutdownNow();
+        }
     }
 
     @Test
@@ -84,7 +84,8 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
         Files.createDirectories(commands);
         Files.writeString(commands.resolve("1-status.cmd"), "status", StandardCharsets.UTF_8);
         scheduler.runOnce().get(5, TimeUnit.SECONDS);
-        assertTrue( Files.exists(stateDir.resolve("results").resolve("000001-status.txt")),
+        assertTrue(
+                Files.exists(stateDir.resolve("results").resolve("000001-status.txt")),
                 "the scheduled scan must process the pending command");
         assertFalse(Files.exists(commands.resolve("1-status.cmd")));
 
@@ -93,7 +94,8 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
         assertTrue(handle.cancel(), "cancel must be accepted and synchronous");
         scheduler.runOnce().get(5, TimeUnit.SECONDS);
         assertTrue(Files.exists(commands.resolve("2-status.cmd")), "no probe polling may survive disable");
-        assertFalse( Files.exists(stateDir.resolve("results").resolve("000002-status.txt")),
+        assertFalse(
+                Files.exists(stateDir.resolve("results").resolve("000002-status.txt")),
                 "no result may be published after disable");
 
         scope.close();
@@ -146,7 +148,8 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
         // No subsequent scan may execute after disable returned.
         Files.writeString(commands.resolve("2-status.cmd"), "status", StandardCharsets.UTF_8);
         scheduler.runOnce().get(5, TimeUnit.SECONDS);
-        assertTrue( Files.exists(commands.resolve("2-status.cmd")),
+        assertTrue(
+                Files.exists(commands.resolve("2-status.cmd")),
                 "a scan starting after disable must observe the disabled flag before any service/I/O");
         assertFalse(Files.exists(stateDir.resolve("results").resolve("000002-status.txt")));
         scope.close();
@@ -164,7 +167,9 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
         private final AtomicReference<FixedDelayTaskRequest> captured = new AtomicReference<>();
 
         @Override
-        public TaskSubmission submit(final PluginTaskRequest request) { throw new UnsupportedOperationException(); }
+        public TaskSubmission submit(final PluginTaskRequest request) {
+            throw new UnsupportedOperationException();
+        }
 
         @Override
         public TaskSubmission scheduleWithFixedDelay(final FixedDelayTaskRequest request) {
@@ -175,10 +180,14 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
                 private volatile boolean cancelled;
 
                 @Override
-                public TaskId id() { return request.id(); }
+                public TaskId id() {
+                    return request.id();
+                }
 
                 @Override
-                public TaskProgress progress() { return new TaskProgress(0, Optional.empty()); }
+                public TaskProgress progress() {
+                    return new TaskProgress(0, Optional.empty());
+                }
 
                 @Override
                 public boolean cancel() {
@@ -193,7 +202,9 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
                 }
 
                 @Override
-                public void close() { cancelled = true; }
+                public void close() {
+                    cancelled = true;
+                }
             };
             handles.add(handle);
             return new TaskSubmission(TaskSubmissionStatus.ACCEPTED, handle, Optional.empty());
@@ -207,7 +218,9 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
                 try {
                     request.action().run(new CancellationToken() {
                         @Override
-                        public boolean isCancellationRequested() { return false; }
+                        public boolean isCancellationRequested() {
+                            return false;
+                        }
 
                         @Override
                         public void checkCanceled() {
@@ -220,9 +233,13 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
             });
         }
 
-        List<TaskHandle> handles() { return handles; }
+        List<TaskHandle> handles() {
+            return handles;
+        }
 
-        void shutdown() { executor.shutdownNow(); }
+        void shutdown() {
+            executor.shutdownNow();
+        }
     }
 
     /** Blocks in current() until the test releases it, proving a scan is in flight. */
@@ -236,7 +253,9 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
             entered.countDown();
             try {
                 release.await();
-            } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
             return CompletableFuture.completedFuture(new WorkspaceStatus(
                     WorkspaceStatus.Availability.UNAVAILABLE, Optional.empty(), List.of(), Optional.of("blocked")));
         }
@@ -247,10 +266,14 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
         }
 
         @Override
-        public CompletionStage<WorkspaceOperationResult> updateDefault() { throw new UnsupportedOperationException(); }
+        public CompletionStage<WorkspaceOperationResult> updateDefault() {
+            throw new UnsupportedOperationException();
+        }
 
         @Override
-        public CompletionStage<WorkspaceOperationResult> resetToDefault() { throw new UnsupportedOperationException(); }
+        public CompletionStage<WorkspaceOperationResult> resetToDefault() {
+            throw new UnsupportedOperationException();
+        }
     }
 
     /** Minimal context: temp stateDir, controllable scheduler, injectable workspace, no host. */
@@ -261,17 +284,26 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
         private final DisposableScope scope;
         private final WorkspaceService workspace;
 
-        FakePluginContext( final Path stateDir, final PluginTaskScheduler tasks, final DisposableScope scope,
+        FakePluginContext(
+                final Path stateDir,
+                final PluginTaskScheduler tasks,
+                final DisposableScope scope,
                 final WorkspaceService workspace) {
             this.paths = new PluginPaths() {
                 @Override
-                public Path dataDir() { return stateDir; }
+                public Path dataDir() {
+                    return stateDir;
+                }
 
                 @Override
-                public Path stateDir() { return stateDir; }
+                public Path stateDir() {
+                    return stateDir;
+                }
 
                 @Override
-                public Path cacheDir() { return stateDir.resolve("cache"); }
+                public Path cacheDir() {
+                    return stateDir.resolve("cache");
+                }
             };
             this.tasks = tasks;
             this.scope = scope;
@@ -279,7 +311,9 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
         }
 
         @Override
-        public PluginDescriptor descriptor() { throw new UnsupportedOperationException(); }
+        public PluginDescriptor descriptor() {
+            throw new UnsupportedOperationException();
+        }
 
         @Override
         public PluginLogger logger() {
@@ -302,15 +336,21 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
         }
 
         @Override
-        public PluginPaths paths() { return paths; }
+        public PluginPaths paths() {
+            return paths;
+        }
 
         @Override
-        public PluginTaskScheduler tasks() { return tasks; }
+        public PluginTaskScheduler tasks() {
+            return tasks;
+        }
 
         @Override
         public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
-            return dev.turboism.sdk.plugin.PluginServices.builder().install(WorkspaceService.class, workspace)
-                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this)).build();
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .install(WorkspaceService.class, workspace)
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
 
         @Override
@@ -319,32 +359,48 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
         }
 
         @Override
-        public List<PluginPermission> permissions() { return List.of(); }
+        public List<PluginPermission> permissions() {
+            return List.of();
+        }
 
         @Override
-        public EventBus eventBus() { throw new UnsupportedOperationException(); }
+        public EventBus eventBus() {
+            throw new UnsupportedOperationException();
+        }
 
         @Override
-        public dev.turboism.sdk.action.ActionRegistry actions() { throw new UnsupportedOperationException(); }
+        public dev.turboism.sdk.action.ActionRegistry actions() {
+            throw new UnsupportedOperationException();
+        }
 
         @Override
-        public MenuRegistry menus() { throw new UnsupportedOperationException(); }
+        public MenuRegistry menus() {
+            throw new UnsupportedOperationException();
+        }
 
         @Override
-        public UiScheduler uiScheduler() { return new FakeDirectUiScheduler(); }
+        public UiScheduler uiScheduler() {
+            return new FakeDirectUiScheduler();
+        }
 
         @Override
         public DiagnosticReport diagnostics() {
             return new DiagnosticReport() {
                 @Override
-                public Instant createdAt() { return Instant.EPOCH; }
+                public Instant createdAt() {
+                    return Instant.EPOCH;
+                }
 
                 @Override
-                public List<Problem> problems() { return List.of(); }
+                public List<Problem> problems() {
+                    return List.of();
+                }
             };
         }
 
         @Override
-        public DisposableScope disposableScope() { return scope; }
+        public DisposableScope disposableScope() {
+            return scope;
+        }
     }
 }

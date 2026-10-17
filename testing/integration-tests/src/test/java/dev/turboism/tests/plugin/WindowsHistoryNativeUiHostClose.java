@@ -19,9 +19,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 import javax.swing.AbstractButton;
 import javax.swing.JButton;
@@ -55,15 +53,52 @@ final class WindowsHistoryNativeUiHostClose {
     private static final String CHINESE_SAVE_CONFIRMATION_SUFFIX = "的文件吗?";
 
     /** Exact normalized labels only; phrases such as {@code Do not discard} are not included. */
-    private static final Set<String> DISCARD_LABELS = Set.of( "no", "non", "dontsave", "donotsave", "nosave", "notsave",
-            "discard", "否", "不保存", "不要保存", "不儲存", "不要儲存", "不存檔", "不要存檔", "放弃", "放棄", "舍弃", "捨棄", "いいえ", "保存しない",
-            "セーブしない", "아니요", "저장안함", "버리기", "破棄");
+    private static final Set<String> DISCARD_LABELS = Set.of(
+            "no",
+            "non",
+            "dontsave",
+            "donotsave",
+            "nosave",
+            "notsave",
+            "discard",
+            "否",
+            "不保存",
+            "不要保存",
+            "不儲存",
+            "不要儲存",
+            "不存檔",
+            "不要存檔",
+            "放弃",
+            "放棄",
+            "舍弃",
+            "捨棄",
+            "いいえ",
+            "保存しない",
+            "セーブしない",
+            "아니요",
+            "저장안함",
+            "버리기",
+            "破棄");
 
     /** Explicit save/unsaved prompt phrases, matched separately from the fixture name. */
-    private static final Set<String> SAVE_PROMPT_PHRASES = Set.of( "save changes", "save the changes",
-            "unsaved changes", "do you want to save", "would you like to save", "save changes before closing",
-            "save before closing", "保存更改", "保存修改", "未保存的更改", "是否保存", "変更を保存", "未保存の変更", "保存しますか", "변경 사항을 저장",
-            "변경사항을 저장", "저장하시겠습니까");
+    private static final Set<String> SAVE_PROMPT_PHRASES = Set.of(
+            "save changes",
+            "save the changes",
+            "unsaved changes",
+            "do you want to save",
+            "would you like to save",
+            "save changes before closing",
+            "save before closing",
+            "保存更改",
+            "保存修改",
+            "未保存的更改",
+            "是否保存",
+            "変更を保存",
+            "未保存の変更",
+            "保存しますか",
+            "변경 사항을 저장",
+            "변경사항을 저장",
+            "저장하시겠습니까");
 
     /** Negative prompt text is not a positive save-confirmation identity. */
     private static final Set<String> NEGATIVE_PROMPT_MARKERS = Set.of(
@@ -73,17 +108,22 @@ final class WindowsHistoryNativeUiHostClose {
 
     /** The host gesture that is known to work for one exact Cubism version family. */
     enum HostCloseRoute {
-        SYNTHETIC_WINDOW_CLOSING, ROBOT_ALT_F4
+        SYNTHETIC_WINDOW_CLOSING,
+        ROBOT_ALT_F4
     }
 
     /** Why an unsaved confirmation was or was not acted on. */
     enum HostCloseDecision {
-        CLEAN_CLOSE, DISCARD, UNSUPPORTED_CONFIRMATION
+        CLEAN_CLOSE,
+        DISCARD,
+        UNSUPPORTED_CONFIRMATION
     }
 
     /** The observable result of a close request; failures throw with diagnostics. */
     enum CloseStatus {
-        SKIPPED, CLEAN_CLOSE, DISCARDED
+        SKIPPED,
+        CLEAN_CLOSE,
+        DISCARDED
     }
 
     record CloseResult(CloseStatus status, String reason) {
@@ -115,8 +155,14 @@ final class WindowsHistoryNativeUiHostClose {
     }
 
     /** Immutable button evidence; Swing widgets are never needed by the pure selector. */
-    record ButtonSnapshot( String className, String text, String actionCommand, String name, String accessibleName,
-            boolean visible, boolean enabled) {
+    record ButtonSnapshot(
+            String className,
+            String text,
+            String actionCommand,
+            String name,
+            String accessibleName,
+            boolean visible,
+            boolean enabled) {
         String description() {
             return "{class=" + diagnostic(className) + ", text=" + diagnostic(text)
                     + ", action=" + diagnostic(actionCommand) + ", name=" + diagnostic(name)
@@ -126,8 +172,13 @@ final class WindowsHistoryNativeUiHostClose {
     }
 
     /** Immutable EDT snapshot used to identify and safely classify one host confirmation. */
-    record CloseDialogSnapshot( String dialogClassName, String dialogTitle, String messageText,
-            boolean optionPanePresent, int optionType, List<ButtonSnapshot> buttons) {
+    record CloseDialogSnapshot(
+            String dialogClassName,
+            String dialogTitle,
+            String messageText,
+            boolean optionPanePresent,
+            int optionType,
+            List<ButtonSnapshot> buttons) {
         CloseDialogSnapshot {
             dialogClassName = dialogClassName == null ? "" : dialogClassName;
             dialogTitle = dialogTitle == null ? "" : dialogTitle;
@@ -149,15 +200,28 @@ final class WindowsHistoryNativeUiHostClose {
      * <p>The native UI catalog uses 5302. MCP additionally uses the reviewed 5203 and 5303
      * synthetic close routes. Unknown versions remain unavailable.</p>
      */
-    static CloseEligibility eligibility( final boolean automate, final boolean probeRunning,
-            final boolean terminalSummaryWritten, final String runId, final String hostVersion) {
-        return eligibility( automate, probeRunning, terminalSummaryWritten, runId, hostVersion,
+    static CloseEligibility eligibility(
+            final boolean automate,
+            final boolean probeRunning,
+            final boolean terminalSummaryWritten,
+            final String runId,
+            final String hostVersion) {
+        return eligibility(
+                automate,
+                probeRunning,
+                terminalSummaryWritten,
+                runId,
+                hostVersion,
                 System.getProperty(FIXTURE_NAME_PROPERTY));
     }
 
     /** Pure gate variant with the runner-provided fixture name supplied explicitly for tests. */
-    static CloseEligibility eligibility( final boolean automate, final boolean probeRunning,
-            final boolean terminalSummaryWritten, final String runId, final String hostVersion,
+    static CloseEligibility eligibility(
+            final boolean automate,
+            final boolean probeRunning,
+            final boolean terminalSummaryWritten,
+            final String runId,
+            final String hostVersion,
             final String fixtureName) {
         if (!automate) return skipped("automation-disabled");
         if (!probeRunning) return skipped("probe-not-running");
@@ -173,14 +237,23 @@ final class WindowsHistoryNativeUiHostClose {
     }
 
     /** Alias for callers that only need the boolean gate. */
-    static boolean isEligible( final boolean automate, final boolean probeRunning, final boolean terminalSummaryWritten,
-            final String runId, final String hostVersion) {
-        return eligibility(automate, probeRunning, terminalSummaryWritten, runId, hostVersion).eligible();
+    static boolean isEligible(
+            final boolean automate,
+            final boolean probeRunning,
+            final boolean terminalSummaryWritten,
+            final String runId,
+            final String hostVersion) {
+        return eligibility(automate, probeRunning, terminalSummaryWritten, runId, hostVersion)
+                .eligible();
     }
 
     /** Requests a normal UI close only after every precondition has passed. */
-    static CloseResult closeIfEligible( final boolean automate, final boolean probeRunning,
-            final boolean terminalSummaryWritten, final String runId, final String hostVersion)
+    static CloseResult closeIfEligible(
+            final boolean automate,
+            final boolean probeRunning,
+            final boolean terminalSummaryWritten,
+            final String runId,
+            final String hostVersion)
             throws Exception {
         final String fixtureName = System.getProperty(FIXTURE_NAME_PROPERTY);
         final CloseEligibility gate =
@@ -194,7 +267,9 @@ final class WindowsHistoryNativeUiHostClose {
         final DialogScan preexisting = visibleDialogs(target);
         if (!preexisting.owned().isEmpty() || !preexisting.foreign().isEmpty()) {
             throw new IllegalStateException("Cannot start host close while a modal is already visible: owned="
-                    + preexisting.owned().stream().map(CloseDialogState::description).toList()
+                    + preexisting.owned().stream()
+                            .map(CloseDialogState::description)
+                            .toList()
                     + " foreign=" + preexisting.foreign());
         }
         triggerClose(target, gate.route());
@@ -240,7 +315,9 @@ final class WindowsHistoryNativeUiHostClose {
         for (int index = 0; index < candidates.size(); index++) {
             final HostWindowCandidate candidate = Objects.requireNonNull(candidates.get(index), "candidate");
             if (matchesFixtureText(candidate.windowTitle(), fixtureName)
-                    || matchesFixtureText(candidate.windowName(), fixtureName)) { matches.add(index); }
+                    || matchesFixtureText(candidate.windowName(), fixtureName)) {
+                matches.add(index);
+            }
         }
         if (matches.size() != 1) {
             throw new IllegalStateException("Expected exactly one visible Cubism/model window for fixture "
@@ -268,8 +345,25 @@ final class WindowsHistoryNativeUiHostClose {
                     "turboism.validation.hostVersion must be an exact installed version code");
         }
         return switch (hostVersion) {
-            case "5000", "5001", "5002", "5003", "5004", "5005", "5006", "5100", "5101", "5102", "5103", "5200", "5201",
-                    "5202", "5203", "5300", "5301", "5303", "5304" -> HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
+            case "5000",
+                    "5001",
+                    "5002",
+                    "5003",
+                    "5004",
+                    "5005",
+                    "5006",
+                    "5100",
+                    "5101",
+                    "5102",
+                    "5103",
+                    "5200",
+                    "5201",
+                    "5202",
+                    "5203",
+                    "5300",
+                    "5301",
+                    "5303",
+                    "5304" -> HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
             case "5302" -> HostCloseRoute.ROBOT_ALT_F4;
             default ->
                 throw new IllegalArgumentException(
@@ -295,7 +389,8 @@ final class WindowsHistoryNativeUiHostClose {
         final String promptText = snapshot.dialogTitle() + " " + snapshot.messageText();
         if (!(matchesObservedChineseSavePrompt(snapshot, fixtureName)
                         || (containsFixtureName(promptText, fixtureName) && hasKnownSavePrompt(promptText)))
-                || !supportedConfirmationShape( snapshot.optionType(), snapshot.buttons().size())) {
+                || !supportedConfirmationShape(
+                        snapshot.optionType(), snapshot.buttons().size())) {
             return HostCloseDecision.UNSUPPORTED_CONFIRMATION;
         }
         return selectDiscardButton(snapshot.buttons()) >= 0
@@ -309,7 +404,9 @@ final class WindowsHistoryNativeUiHostClose {
         final List<Integer> matches = new ArrayList<>();
         for (int index = 0; index < buttons.size(); index++) {
             final ButtonSnapshot button = Objects.requireNonNull(buttons.get(index), "button");
-            if (button.visible() && button.enabled() && isDiscardAction(button)) { matches.add(index); }
+            if (button.visible() && button.enabled() && isDiscardAction(button)) {
+                matches.add(index);
+            }
         }
         return matches.size() == 1 ? matches.get(0) : -1;
     }
@@ -344,7 +441,9 @@ final class WindowsHistoryNativeUiHostClose {
             }
             if (scan.owned().size() > 1) {
                 throw new IllegalStateException("More than one host-owned modal is visible; close is ambiguous: "
-                        + scan.owned().stream().map(CloseDialogState::description).toList());
+                        + scan.owned().stream()
+                                .map(CloseDialogState::description)
+                                .toList());
             }
             if (scan.owned().size() == 1) {
                 if (discarded) {
@@ -364,8 +463,8 @@ final class WindowsHistoryNativeUiHostClose {
         }
 
         if (hostWindowClosed(hostWindow)) return discarded ? HostCloseDecision.DISCARD : HostCloseDecision.CLEAN_CLOSE;
-        throw new IllegalStateException("Host window remained open after the bounded close wait"
-                + " discarded=" + discarded + (observed == null ? "" : " lastDialog=" + observed.description()));
+        throw new IllegalStateException("Host window remained open after the bounded close wait" + " discarded="
+                + discarded + (observed == null ? "" : " lastDialog=" + observed.description()));
     }
 
     private static void triggerClose(final Window target, final HostCloseRoute route) throws Exception {
@@ -377,14 +476,18 @@ final class WindowsHistoryNativeUiHostClose {
         // Cubism 5.2 can enter its modal save loop synchronously from WINDOW_CLOSING. Queue the
         // event without waiting for dispatchEvent to return; the worker below observes the modal.
         SwingUtilities.invokeLater(() -> {
-            if (isLiveHostWindow(target)) { target.dispatchEvent(new WindowEvent(target, WindowEvent.WINDOW_CLOSING)); }
+            if (isLiveHostWindow(target)) {
+                target.dispatchEvent(new WindowEvent(target, WindowEvent.WINDOW_CLOSING));
+            }
         });
     }
 
     private static void focusHostWindow(final Window target) throws Exception {
         onHostThread(() -> {
             if (!isLiveHostWindow(target)) throw new IllegalStateException("selected host window is no longer live");
-            if (target instanceof Frame frame) { frame.setState(Frame.NORMAL); }
+            if (target instanceof Frame frame) {
+                frame.setState(Frame.NORMAL);
+            }
             target.toFront();
             target.requestFocus();
             return null;
@@ -407,7 +510,9 @@ final class WindowsHistoryNativeUiHostClose {
         } finally {
             try {
                 robot.keyRelease(KeyEvent.VK_F4);
-            } finally { robot.keyRelease(KeyEvent.VK_ALT); }
+            } finally {
+                robot.keyRelease(KeyEvent.VK_ALT);
+            }
         }
     }
 
@@ -441,7 +546,8 @@ final class WindowsHistoryNativeUiHostClose {
     static CloseDialogSnapshot snapshotCloseDialogForTest(final Component dialogRoot, final String dialogTitle)
             throws Exception {
         Objects.requireNonNull(dialogRoot, "dialogRoot");
-        return onHostThread( () -> snapshotCloseDialog(dialogRoot, dialogRoot.getClass().getName(), dialogTitle));
+        return onHostThread(
+                () -> snapshotCloseDialog(dialogRoot, dialogRoot.getClass().getName(), dialogTitle));
     }
 
     private static HostCloseDecision clickDiscardButton(
@@ -481,9 +587,15 @@ final class WindowsHistoryNativeUiHostClose {
         }
         final JOptionPane optionPane = findOptionPane(dialogRoot);
         final List<JButton> buttons = visibleOptionPaneButtons(optionPane);
-        return new CloseDialogSnapshot( dialogClassName, dialogTitle, messageText(optionPane), optionPane != null,
-                optionPane == null ? JOptionPane.DEFAULT_OPTION : optionPane.getOptionType(), buttons.stream()
-                        .map(WindowsHistoryNativeUiHostClose::snapshotButton).toList());
+        return new CloseDialogSnapshot(
+                dialogClassName,
+                dialogTitle,
+                messageText(optionPane),
+                optionPane != null,
+                optionPane == null ? JOptionPane.DEFAULT_OPTION : optionPane.getOptionType(),
+                buttons.stream()
+                        .map(WindowsHistoryNativeUiHostClose::snapshotButton)
+                        .toList());
     }
 
     private static DialogScan visibleDialogs(final Window hostWindow) throws Exception {
@@ -495,10 +607,14 @@ final class WindowsHistoryNativeUiHostClose {
             for (final Window window : Window.getWindows()) {
                 if (!(window instanceof Dialog dialog)
                         || !dialog.isVisible()
-                        || (!dialog.isModal() && (window != active || isHomeNewsWindow(dialog)))) { continue; }
+                        || (!dialog.isModal() && (window != active || isHomeNewsWindow(dialog)))) {
+                    continue;
+                }
                 if (isOwnedBy(window, hostWindow)) {
                     owned.add(snapshotCloseDialog(dialog));
-                } else { foreign.add(windowDescription(window)); }
+                } else {
+                    foreign.add(windowDescription(window));
+                }
             }
             return new DialogScan(List.copyOf(owned), List.copyOf(foreign));
         });
@@ -565,9 +681,13 @@ final class WindowsHistoryNativeUiHostClose {
     }
 
     private static void collectOptionPanes(final Component component, final List<JOptionPane> optionPanes) {
-        if (component instanceof JOptionPane optionPane) { optionPanes.add(optionPane); }
+        if (component instanceof JOptionPane optionPane) {
+            optionPanes.add(optionPane);
+        }
         if (component instanceof Container container) {
-            for (final Component child : container.getComponents()) { collectOptionPanes(child, optionPanes); }
+            for (final Component child : container.getComponents()) {
+                collectOptionPanes(child, optionPanes);
+            }
         }
     }
 
@@ -589,7 +709,9 @@ final class WindowsHistoryNativeUiHostClose {
             return;
         }
         if (value instanceof JLabel label) {
-            if (label.getText() != null && !label.getText().isBlank()) { values.add(label.getText()); }
+            if (label.getText() != null && !label.getText().isBlank()) {
+                values.add(label.getText());
+            }
             return;
         }
         if (value instanceof JTextComponent textComponent) {
@@ -597,7 +719,9 @@ final class WindowsHistoryNativeUiHostClose {
             return;
         }
         if (value instanceof Container container) {
-            for (final Component child : container.getComponents()) { collectMessageText(child, values); }
+            for (final Component child : container.getComponents()) {
+                collectMessageText(child, values);
+            }
             return;
         }
     }
@@ -605,7 +729,9 @@ final class WindowsHistoryNativeUiHostClose {
     private static List<JButton> visibleButtons(final Component component) {
         final List<JButton> buttons = new ArrayList<>();
         collectButtons(component, buttons);
-        return buttons.stream().filter(button -> button.isVisible() && button.isEnabled()).toList();
+        return buttons.stream()
+                .filter(button -> button.isVisible() && button.isEnabled())
+                .toList();
     }
 
     private static List<JButton> visibleOptionPaneButtons(final JOptionPane optionPane) {
@@ -615,14 +741,21 @@ final class WindowsHistoryNativeUiHostClose {
     private static void collectButtons(final Component component, final List<JButton> buttons) {
         if (component instanceof JButton button) buttons.add(button);
         if (component instanceof Container container) {
-            for (final Component child : container.getComponents()) { collectButtons(child, buttons); }
+            for (final Component child : container.getComponents()) {
+                collectButtons(child, buttons);
+            }
         }
     }
 
     private static ButtonSnapshot snapshotButton(final JButton button) {
         final var context = button.getAccessibleContext();
-        return new ButtonSnapshot( button.getClass().getName(), button.getText(), button.getActionCommand(),
-                button.getName(), context == null ? null : context.getAccessibleName(), button.isVisible(),
+        return new ButtonSnapshot(
+                button.getClass().getName(),
+                button.getText(),
+                button.getActionCommand(),
+                button.getName(),
+                context == null ? null : context.getAccessibleName(),
+                button.isVisible(),
                 button.isEnabled());
     }
 
@@ -720,12 +853,17 @@ final class WindowsHistoryNativeUiHostClose {
     }
 
     private static String normalizeWords(final String value) {
-        return Normalizer.normalize(Objects.toString(value, ""), Normalizer.Form.NFKC).toLowerCase(Locale.ROOT)
-                .replace('&', ' ').replace('’', '\'').replaceAll("[^\\p{L}\\p{N}]+", " ").strip();
+        return Normalizer.normalize(Objects.toString(value, ""), Normalizer.Form.NFKC)
+                .toLowerCase(Locale.ROOT)
+                .replace('&', ' ')
+                .replace('’', '\'')
+                .replaceAll("[^\\p{L}\\p{N}]+", " ")
+                .strip();
     }
 
     private static String normalizeCompact(final String value) {
-        return Normalizer.normalize(Objects.toString(value, ""), Normalizer.Form.NFKC).toLowerCase(Locale.ROOT)
+        return Normalizer.normalize(Objects.toString(value, ""), Normalizer.Form.NFKC)
+                .toLowerCase(Locale.ROOT)
                 .replaceAll("[^\\p{L}\\p{N}]", "");
     }
 
@@ -754,7 +892,9 @@ final class WindowsHistoryNativeUiHostClose {
                 || lowerFixture.startsWith(lowerRunId + "_");
     }
 
-    private static CloseEligibility skipped(final String reason) { return new CloseEligibility(false, null, reason); }
+    private static CloseEligibility skipped(final String reason) {
+        return new CloseEligibility(false, null, reason);
+    }
 
     private static String diagnostic(final String value) {
         if (value == null) return "";
@@ -767,7 +907,9 @@ final class WindowsHistoryNativeUiHostClose {
     }
 
     private record CloseDialogState(Dialog dialog, CloseDialogSnapshot snapshot) {
-        String description() { return snapshot.description(); }
+        String description() {
+            return snapshot.description();
+        }
     }
 
     private record DialogScan(List<CloseDialogState> owned, List<String> foreign) {
