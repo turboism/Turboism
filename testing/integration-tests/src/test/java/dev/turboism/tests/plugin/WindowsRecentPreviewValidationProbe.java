@@ -109,8 +109,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             Set.of("recent", "recent files", "open recent", "最近使用したファイル", "最近的文件", "最近使用的文件", "최근 파일");
 
     enum HostCloseRoute {
-        SYNTHETIC_WINDOW_CLOSING,
-        ROBOT_ALT_F4
+        SYNTHETIC_WINDOW_CLOSING, ROBOT_ALT_F4
     }
 
     private PluginContext context;
@@ -155,14 +154,10 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     }
 
     @Override
-    public void disable() {
-        interruptValidation();
-    }
+    public void disable() { interruptValidation(); }
 
     @Override
-    public void shutdown() {
-        interruptValidation();
-    }
+    public void shutdown() { interruptValidation(); }
 
     @Override
     public void onModelSaved(final ProjectContentSnapshot model) {
@@ -176,9 +171,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         final String expected = expectedSavedContentId;
         final boolean matched =
                 expected != null ? expected.equals(model.contentId()) : matchesFixtureName(model.name(), workingName);
-        if (matched) {
-            savedContentName.compareAndSet(null, model.name());
-        }
+        if (matched) { savedContentName.compareAndSet(null, model.name()); }
     }
 
     private void interruptValidation() {
@@ -211,15 +204,11 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             if (cause instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
                 context.logger().info("Recent preview validation interrupted; no result published");
-            } else {
-                publishFailure(cause != null ? cause : wrapped);
-            }
+            } else { publishFailure(cause != null ? cause : wrapped); }
         } catch (Exception failure) {
             publishFailure(failure);
         } finally {
-            if (resultPublished && Boolean.getBoolean("turboism.validation.exitOnComplete")) {
-                requestHostClose();
-            }
+            if (resultPublished && Boolean.getBoolean("turboism.validation.exitOnComplete")) { requestHostClose(); }
         }
     }
 
@@ -241,8 +230,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
      */
     private void openScratchDocument() throws Exception {
         phase = "scratch-open";
-        final String launchPath = awaitRecentEntry(fixtureName)
-                .path()
+        final String launchPath = awaitRecentEntry(fixtureName).path()
                 .orElseThrow(() -> new IllegalStateException("recent file summary carries no path"));
         final Path fixture = Path.of(launchPath);
         final Path scratchDirectory = context.paths().stateDir().resolve(SCRATCH_DIRECTORY);
@@ -278,9 +266,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         try {
             return Boolean.TRUE.equals(onEdt(() -> ownedFile(currentDocument(), expected)
                     && context.cubism().activeModel().isPresent()));
-        } catch (Exception busy) {
-            return false;
-        }
+        } catch (Exception busy) { return false; }
     }
 
     private void awaitOwnedDocument(final Path expected, final String stage) throws Exception {
@@ -299,23 +285,19 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
      * persistence flow relies on).
      */
     private void closeOwnedDocument(final Path expected) throws Exception {
-        onEdt(
-                () -> {
+        onEdt( () -> {
                     final Object document = currentDocument();
                     if (!ownedFile(document, expected)) {
                         throw new IllegalStateException("refusing to close a different active document");
                     }
                     final Object closed = invoke(
-                            document.getClass().getMethod("closeFile", boolean.class, boolean.class),
-                            document,
-                            false,
+                            document.getClass().getMethod("closeFile", boolean.class, boolean.class), document, false,
                             false);
                     if (!Boolean.TRUE.equals(closed)) {
                         throw new IllegalStateException("native task document close failed");
                     }
                     return null;
-                },
-                DOCUMENT_CLOSE_DEADLINE_MILLIS);
+                }, DOCUMENT_CLOSE_DEADLINE_MILLIS);
         final long deadline = System.nanoTime() + DOCUMENT_CLOSE_DEADLINE_MILLIS * 1_000_000L;
         while (System.nanoTime() < deadline) {
             if (noActiveDocument()) return;
@@ -327,25 +309,18 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private boolean noActiveDocument() {
         try {
             return Boolean.TRUE.equals(onEdt(() -> currentDocument() == null));
-        } catch (Exception busy) {
-            return false;
-        }
+        } catch (Exception busy) { return false; }
     }
 
     private void commandOpen(final Path scratch) throws Exception {
-        onEdt(
-                () -> {
+        onEdt( () -> {
                     if (currentDocument() != null) {
                         throw new IllegalStateException("cannot open while another document is active");
                     }
-                    invoke(
-                            hostApp().getClass().getMethod("command_open", File.class, boolean.class),
-                            hostApp(),
-                            scratch.toFile(),
-                            false);
+                    invoke( hostApp().getClass().getMethod("command_open", File.class, boolean.class), hostApp(),
+                            scratch.toFile(), false);
                     return null;
-                },
-                DOCUMENT_OPEN_DEADLINE_MILLIS);
+                }, DOCUMENT_OPEN_DEADLINE_MILLIS);
         awaitOwnedDocument(scratch, "scratch");
     }
 
@@ -367,9 +342,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                 loaders.add(loader);
             }
             loaders.add(ClassLoader.getSystemClassLoader());
-            for (Frame frame : Frame.getFrames()) {
-                loaders.add(frame.getClass().getClassLoader());
-            }
+            for (Frame frame : Frame.getFrames()) { loaders.add(frame.getClass().getClassLoader()); }
             Class<?> appClass = null;
             for (ClassLoader loader : loaders) {
                 if (loader == null) continue;
@@ -380,9 +353,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                     // Try another already-present host loader.
                 }
             }
-            if (appClass == null) {
-                throw new IllegalStateException("exact host application class is unavailable");
-            }
+            if (appClass == null) throw new IllegalStateException("exact host application class is unavailable");
             try {
                 app = invoke(appClass.getMethod("access$get_instance$cp"), null);
             } catch (NoSuchMethodException missingAccessor) {
@@ -390,9 +361,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                 instance.setAccessible(true);
                 app = instance.get(null);
             }
-            if (app == null) {
-                throw new IllegalStateException("exact host application instance is unavailable");
-            }
+            if (app == null) throw new IllegalStateException("exact host application instance is unavailable");
             hostApp = app;
         }
         return app;
@@ -401,15 +370,11 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     /** The same owned-file identity check as McpTexturePersistenceProbe.requireFile. */
     private static boolean ownedFile(final Object document, final Path expected) throws Exception {
         if (document == null
-                || !MODELING_DOCUMENT_CLASS.equals(document.getClass().getName())) {
-            return false;
-        }
+                || !MODELING_DOCUMENT_CLASS.equals(document.getClass().getName())) { return false; }
         final Object file = invoke(document.getClass().getMethod("getFile"), document);
         try {
             return file instanceof File && Files.isSameFile(((File) file).toPath(), expected);
-        } catch (java.io.IOException unreadable) {
-            return false;
-        }
+        } catch (java.io.IOException unreadable) { return false; }
     }
 
     /** Reflection invoke that unwraps the real cause, matching the mcp probe. */
@@ -429,16 +394,11 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private void validateRecentList() throws Exception {
         phase = "recent-list";
         final RecentFileSummary working = awaitRecentEntry(workingName);
-        recentCount = context.services()
-                .find(RecentFileService.class)
-                .orElse(RecentFileService.unavailable())
-                .list()
+        recentCount = context.services().find(RecentFileService.class).orElse(RecentFileService.unavailable()).list()
                 .size();
         final String idValue = working.id().value();
         idOpaque = isOpaqueHexId(idValue);
-        if (!idOpaque) {
-            throw new IllegalStateException("recent file id is not opaque 64-lowercase-hex");
-        }
+        if (!idOpaque) throw new IllegalStateException("recent file id is not opaque 64-lowercase-hex");
         final String path =
                 working.path().orElseThrow(() -> new IllegalStateException("recent file summary carries no path"));
         pathAbsolute = isAbsolutePath(path);
@@ -447,8 +407,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             throw new IllegalStateException("recent file path is not absolute or does not end with the working name");
         }
         recentId.set(working.id());
-        context.logger()
-                .info("Recent preview recent-list displayName=" + working.displayName()
+        context.logger().info("Recent preview recent-list displayName=" + working.displayName()
                         + " idOpaque=" + idOpaque + " pathAbsolute=" + pathAbsolute
                         + " pathEndsWithWorking=" + pathEndsWithWorking + " recentCount=" + recentCount);
     }
@@ -456,14 +415,10 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private RecentFileSummary awaitRecentEntry(final String displayName) throws Exception {
         final long deadline = System.nanoTime() + RECENT_LIST_DEADLINE_MILLIS * 1_000_000L;
         while (System.nanoTime() < deadline) {
-            final List<RecentFileSummary> files = context.services()
-                    .find(RecentFileService.class)
-                    .orElse(RecentFileService.unavailable())
-                    .list();
+            final List<RecentFileSummary> files = context.services().find(RecentFileService.class)
+                    .orElse(RecentFileService.unavailable()).list();
             for (RecentFileSummary file : files) {
-                if (displayName.equals(file.displayName())) {
-                    return file;
-                }
+                if (displayName.equals(file.displayName())) return file;
             }
             Thread.sleep(POLL_MILLIS);
         }
@@ -476,13 +431,10 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         phase = "direct-capture";
         final ScreenshotCaptureResult capture;
         try {
-            capture = await(
-                    context.services()
-                            .find(ScreenshotCaptureService.class)
+            capture = await( context.services().find(ScreenshotCaptureService.class)
                             .orElse(ScreenshotCaptureService.unavailable())
                             .capture(new ScreenshotCaptureRequest(id, TARGET_SIZE, TARGET_SIZE)),
-                    CAPTURE_DEADLINE_MILLIS,
-                    TimeUnit.MILLISECONDS);
+                    CAPTURE_DEADLINE_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Exception failure) {
             logDirectCaptureDiagnostics(failure);
             throw failure;
@@ -507,8 +459,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         final BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(png));
         directPngColors = distinctSampledColors(decoded);
         directPngSha256 = sha256Hex(png);
-        context.logger()
-                .info("Recent preview direct capture width=" + directCaptureWidth
+        context.logger().info("Recent preview direct capture width=" + directCaptureWidth
                         + " height=" + directCaptureHeight + " colors=" + directPngColors
                         + " pngSha256=" + directPngSha256);
     }
@@ -522,24 +473,17 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             final List<String> windows = onEdt(() -> {
                 final List<String> entries = new java.util.ArrayList<>();
                 for (Window window : Window.getWindows()) {
-                    entries.add(window.getClass().getName()
-                            + " bounds=" + window.getX() + "," + window.getY()
-                            + " " + window.getWidth() + "x" + window.getHeight()
-                            + " showing=" + window.isShowing()
-                            + " active=" + window.isActive()
-                            + " focused=" + window.isFocused());
+                    entries.add(window.getClass().getName() + " bounds=" + window.getX() + "," + window.getY()
+                            + " " + window.getWidth() + "x" + window.getHeight() + " showing=" + window.isShowing()
+                            + " active=" + window.isActive() + " focused=" + window.isFocused());
                 }
                 return entries;
             });
-            context.logger()
-                    .error("Recent preview direct capture FAILED exceptionClass="
+            context.logger().error("Recent preview direct capture FAILED exceptionClass="
                             + failure.getClass().getName() + " windows=" + windows);
         } catch (Exception diagnosticFailure) {
-            context.logger()
-                    .error("Recent preview direct capture FAILED exceptionClass="
-                            + failure.getClass().getName()
-                            + " windowEnumerationFailed="
-                            + diagnosticFailure.getClass().getName());
+            context.logger().error("Recent preview direct capture FAILED exceptionClass=" + failure.getClass().getName()
+                            + " windowEnumerationFailed=" + diagnosticFailure.getClass().getName());
         }
     }
 
@@ -561,10 +505,8 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         });
         recoverSaveFocus(target);
         ensureWorkingDocumentActive(target);
-        expectedSavedContentId = context.cubism()
-                .activeDocument()
-                .flatMap(dev.turboism.sdk.cubism.DocumentSnapshot::contentId)
-                .orElse(null);
+        expectedSavedContentId = context.cubism().activeDocument()
+                .flatMap(dev.turboism.sdk.cubism.DocumentSnapshot::contentId).orElse(null);
         dirtyDocumentForSave();
         final String savePath = triggerMenuSave(working, baselineModifiedMillis, baselineSize);
         final long deadline = System.nanoTime() + SAVED_EVENT_DEADLINE_MILLIS * 1_000_000L;
@@ -583,8 +525,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         final String failurePhase = saveFailurePhase(savedEventMatched, fileModified);
         if (failurePhase != null) {
             phase = failurePhase;
-            throw new IllegalStateException(
-                    "save-event".equals(failurePhase)
+            throw new IllegalStateException( "save-event".equals(failurePhase)
                             ? "working file was saved but ModelFileHooks.onModelSaved did not fire"
                             : "typed ModelFileHooks.onModelSaved was not observed and the working file was not modified");
         }
@@ -613,9 +554,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             if (active || !snapshot[1]) break;
             Thread.sleep(SAVE_FOCUS_POLL_INTERVAL_MILLIS);
         }
-        if (!active) {
-            clickAt(robot, onEdt(() -> centerOf(target)));
-        }
+        if (!active) { clickAt(robot, onEdt(() -> centerOf(target))); }
         final boolean[] outcome = onEdt(() -> saveFocusSnapshot(target));
         context.logger()
                 .info("Recent preview save focus active=" + outcome[0] + " progressDialogVisible=" + outcome[1]);
@@ -643,9 +582,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private void dirtyDocumentForSave() {
         try {
             final dev.turboism.sdk.cubism.model.Parameter parameter =
-                    context.cubism().model().active().parameters().all().stream()
-                            .findFirst()
-                            .orElse(null);
+                    context.cubism().model().active().parameters().all().stream().findFirst().orElse(null);
             if (parameter == null) {
                 context.logger().info("Recent preview save dirtyWrite=skipped reason=no-parameter");
                 return;
@@ -653,8 +590,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             parameter.setValue(parameter.getValue() + 0.001f);
             context.logger().info("Recent preview save dirtyWrite=ok");
         } catch (Exception failure) {
-            context.logger()
-                    .info("Recent preview save dirtyWrite=failed reason="
+            context.logger().info("Recent preview save dirtyWrite=failed reason="
                             + failure.getClass().getSimpleName() + ":" + String.valueOf(failure.getMessage()));
         }
     }
@@ -667,18 +603,13 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
      */
     private boolean activeDocumentIsWorking() {
         try {
-            return context.cubism()
-                    .activeDocument()
-                    .map(document -> {
+            return context.cubism().activeDocument().map(document -> {
                         final String relativePath = document.relativePath();
                         final int slash = relativePath.lastIndexOf('/');
                         final String leaf = slash >= 0 ? relativePath.substring(slash + 1) : relativePath;
                         return workingName.equals(leaf);
-                    })
-                    .orElse(false);
-        } catch (RuntimeException unavailable) {
-            return false;
-        }
+                    }).orElse(false);
+        } catch (RuntimeException unavailable) { return false; }
     }
 
     /**
@@ -692,9 +623,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         if (activeDocumentIsWorking()) return;
         context.logger().info("Recent preview save active-document=mismatch; activating working via recent menu");
         final Robot robot = new Robot();
-        if (!ensureFileMenuOpen(robot, host)) {
-            openFileMenu(robot, host);
-        }
+        if (!ensureFileMenuOpen(robot, host)) { openFileMenu(robot, host); }
         final Point recent = awaitMenuPoint(robot, this::recentMenuPoint, SUBMENU_DEADLINE_MILLIS);
         moveTo(robot, recent);
         final JMenu recentMenu = onEdt(this::showingRecentMenu);
@@ -783,8 +712,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                 robot.delay((int) MENU_OPEN_RETRY_GAP_MILLIS);
             }
         }
-        context.logger()
-                .info("Recent preview save menuOpened=" + menuOpened + " attempts=" + attempts + " menuPoint="
+        context.logger().info("Recent preview save menuOpened=" + menuOpened + " attempts=" + attempts + " menuPoint="
                         + (clickedMenu ? "found" : "missing"));
         if (!menuOpened) {
             pressCtrlSBackground();
@@ -833,9 +761,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private Boolean saveMenuItemEnabled() {
         for (Window window : Window.getWindows()) {
             final JMenuItem item = findSaveMenuItem(window);
-            if (item != null && item.isShowing()) {
-                return item.isEnabled();
-            }
+            if (item != null && item.isShowing()) return item.isEnabled();
         }
         return null;
     }
@@ -848,25 +774,17 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private String executeSdkSave() {
         try {
             final dev.turboism.sdk.cubism.command.EditorCommandService service = context.services()
-                    .find(dev.turboism.sdk.cubism.command.EditorCommandService.class)
-                    .orElse(null);
-            if (service == null || !service.isAvailable()) {
-                return "unavailable";
-            }
-            return String.valueOf(service.execute(dev.turboism.sdk.cubism.command.EditorCommand.SAVE)
-                    .status());
-        } catch (RuntimeException failure) {
-            return failure.getClass().getSimpleName();
-        }
+                    .find(dev.turboism.sdk.cubism.command.EditorCommandService.class).orElse(null);
+            if (service == null || !service.isAvailable()) return "unavailable";
+            return String.valueOf(service.execute(dev.turboism.sdk.cubism.command.EditorCommand.SAVE).status());
+        } catch (RuntimeException failure) { return failure.getClass().getSimpleName(); }
     }
 
     /** Screen center of the showing File-menu save item, or null when absent. */
     private Point saveMenuItemPoint() {
         for (Window window : Window.getWindows()) {
             final JMenuItem item = findSaveMenuItem(window);
-            if (item != null && item.isShowing()) {
-                return centerOf(item);
-            }
+            if (item != null && item.isShowing()) return centerOf(item);
         }
         return null;
     }
@@ -933,17 +851,13 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         if (bar == null) return false;
         for (int index = 0; index < bar.getMenuCount(); index++) {
             final JMenu menu = bar.getMenu(index);
-            if (menu != null && FILE_LABELS.contains(normalizeLabel(menu.getText()))) {
-                return menu.isPopupMenuVisible();
-            }
+            if (menu != null && FILE_LABELS.contains(normalizeLabel(menu.getText()))) return menu.isPopupMenuVisible();
         }
         return false;
     }
 
     private static JMenuItem findSaveMenuItem(final Component root) {
-        if (root instanceof JMenuItem item && item.isShowing() && isSaveMenuItem(item)) {
-            return item;
-        }
+        if (root instanceof JMenuItem item && item.isShowing() && isSaveMenuItem(item)) return item;
         for (Component child : menuChildren(root)) {
             final JMenuItem found = findSaveMenuItem(child);
             if (found != null) return found;
@@ -992,9 +906,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     /** Any Swing popup window currently showing — the menu is open. */
     static boolean anyPopupShowing() {
         for (Window window : Window.getWindows()) {
-            if (isPopupWindow(window.isShowing(), window.getClass().getName())) {
-                return true;
-            }
+            if (isPopupWindow(window.isShowing(), window.getClass().getName())) return true;
         }
         return false;
     }
@@ -1006,9 +918,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
      */
     private String menuItemDescriptors() {
         final List<String> descriptors = new java.util.ArrayList<>();
-        for (Window window : Window.getWindows()) {
-            collectMenuItemDescriptors(window, descriptors);
-        }
+        for (Window window : Window.getWindows()) { collectMenuItemDescriptors(window, descriptors); }
         if (descriptors.size() > 60) {
             return descriptors.subList(0, 60).toString() + " ...(" + (descriptors.size() - 60) + " more)";
         }
@@ -1020,12 +930,9 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             final KeyStroke accelerator = item.getAccelerator();
             out.add("[text=" + Objects.toString(item.getText(), "")
                     + " accel=" + (accelerator == null ? "none" : accelerator.toString())
-                    + " enabled=" + item.isEnabled()
-                    + " class=" + item.getClass().getSimpleName() + "]");
+                    + " enabled=" + item.isEnabled() + " class=" + item.getClass().getSimpleName() + "]");
         }
-        for (Component child : menuChildren(root)) {
-            collectMenuItemDescriptors(child, out);
-        }
+        for (Component child : menuChildren(root)) { collectMenuItemDescriptors(child, out); }
     }
 
     // --- phase (d): production plugin cache -------------------------------------
@@ -1033,10 +940,8 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private void validateProductionCache(final RecentFileId id) throws Exception {
         phase = "production-cache";
         final String key = sha256Hex(id.value().getBytes(StandardCharsets.UTF_8));
-        final Path cacheRoot = Path.of(System.getProperty("turboism.home"))
-                .resolve("cache")
-                .resolve(PRODUCTION_PLUGIN_ID)
-                .resolve("recent-preview");
+        final Path cacheRoot = Path.of(System.getProperty("turboism.home")).resolve("cache")
+                .resolve(PRODUCTION_PLUGIN_ID).resolve("recent-preview");
         final Path pngPath = cacheRoot.resolve("images").resolve(key + ".png");
         final Path indexPath = cacheRoot.resolve("index").resolve(key + ".entry");
         final long deadline = System.nanoTime() + CACHE_DEADLINE_MILLIS * 1_000_000L;
@@ -1044,12 +949,8 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             if (Files.isRegularFile(pngPath) && Files.isRegularFile(indexPath)) break;
             Thread.sleep(POLL_MILLIS);
         }
-        if (!Files.isRegularFile(pngPath)) {
-            throw new IllegalStateException("production cache PNG was not written");
-        }
-        if (!Files.isRegularFile(indexPath)) {
-            throw new IllegalStateException("production cache index was not written");
-        }
+        if (!Files.isRegularFile(pngPath)) throw new IllegalStateException("production cache PNG was not written");
+        if (!Files.isRegularFile(indexPath)) throw new IllegalStateException("production cache index was not written");
         final byte[] png = Files.readAllBytes(pngPath);
         if (!isBoundedPng(png, TARGET_SIZE)) {
             throw new IllegalStateException("production cache PNG is not readable or bounded");
@@ -1064,8 +965,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         productionThumbnail = ImageIO.read(new ByteArrayInputStream(png));
         productionCachePng = true;
         productionIndex = true;
-        context.logger()
-                .info("Recent preview production cache png=" + productionCachePng + " index=" + productionIndex
+        context.logger().info("Recent preview production cache png=" + productionCachePng + " index=" + productionIndex
                         + " key=" + key);
     }
 
@@ -1115,15 +1015,12 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
      * the themed thumbnail popup inside the deadline.
      */
     private void awaitRecentItemPopup(final Robot robot, final Window host) throws Exception {
-        if (!ensureFileMenuOpen(robot, host)) {
-            openFileMenu(robot, host);
-        }
+        if (!ensureFileMenuOpen(robot, host)) { openFileMenu(robot, host); }
         final Point recent;
         try {
             recent = awaitMenuPoint(robot, this::recentMenuPoint, SUBMENU_DEADLINE_MILLIS);
         } catch (IllegalStateException missing) {
-            context.logger()
-                    .info("Recent preview popup menu items: " + onEdt(this::menuItemDescriptors) + " windows="
+            context.logger().info("Recent preview popup menu items: " + onEdt(this::menuItemDescriptors) + " windows="
                             + onEdt(this::windowDiagnostics));
             throw missing;
         }
@@ -1145,14 +1042,12 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         try {
             item = awaitMenuPoint(robot, this::workingItemPoint, ITEM_DEADLINE_MILLIS);
         } catch (IllegalStateException missing) {
-            context.logger()
-                    .info("Recent preview popup menu items: " + onEdt(this::menuItemDescriptors) + " windows="
+            context.logger().info("Recent preview popup menu items: " + onEdt(this::menuItemDescriptors) + " windows="
                             + onEdt(this::windowDiagnostics));
             throw missing;
         }
         moveTo(robot, item);
-        context.logger()
-                .info("Recent preview popup selectedPath="
+        context.logger().info("Recent preview popup selectedPath="
                         + onEdt(WindowsRecentPreviewValidationProbe::selectedPathDepth));
 
         final long deadline = System.nanoTime() + POPUP_DEADLINE_MILLIS * 1_000_000L;
@@ -1170,12 +1065,8 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             }
             Thread.sleep(POLL_MILLIS);
         }
-        if (escalations > 0) {
-            context.logger().info("Recent preview popup escalation attempts=" + escalations);
-        }
-        if (!popupThumbnail) {
-            throw new IllegalStateException("themed hover popup with image content was not observed");
-        }
+        if (escalations > 0) { context.logger().info("Recent preview popup escalation attempts=" + escalations); }
+        if (!popupThumbnail) throw new IllegalStateException("themed hover popup with image content was not observed");
         pressEscape(robot);
         context.logger().info("Recent preview popup thumbnail=" + popupThumbnail);
     }
@@ -1231,9 +1122,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             if (window instanceof java.awt.Dialog
                     || !window.isDisplayable()
                     || !window.isVisible()
-                    || !hasFileMenu(window)) {
-                continue;
-            }
+                    || !hasFileMenu(window)) { continue; }
             final long area = (long) window.getWidth() * window.getHeight();
             if (area > largestArea) {
                 target = window;
@@ -1249,9 +1138,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         if (bar == null) return false;
         for (int index = 0; index < bar.getMenuCount(); index++) {
             final JMenu menu = bar.getMenu(index);
-            if (menu != null && FILE_LABELS.contains(normalizeLabel(menu.getText()))) {
-                return true;
-            }
+            if (menu != null && FILE_LABELS.contains(normalizeLabel(menu.getText()))) return true;
         }
         return false;
     }
@@ -1271,12 +1158,9 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             if (window instanceof Frame frame && frame.getTitle() != null) {
                 titleMatch = String.valueOf(frame.getTitle().contains(stem));
             }
-            entries.add(window.getClass().getSimpleName()
-                    + " " + window.getWidth() + "x" + window.getHeight()
-                    + " showing=" + window.isShowing()
-                    + " active=" + window.isActive()
-                    + " focused=" + window.isFocused()
-                    + " fileMenu=" + hasFileMenu(window)
+            entries.add(window.getClass().getSimpleName() + " " + window.getWidth() + "x" + window.getHeight()
+                    + " showing=" + window.isShowing() + " active=" + window.isActive()
+                    + " focused=" + window.isFocused() + " fileMenu=" + hasFileMenu(window)
                     + " titleMatch=" + titleMatch);
         }
         return entries.toString();
@@ -1323,9 +1207,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         if (bar == null) return null;
         for (int index = 0; index < bar.getMenuCount(); index++) {
             final JMenu menu = bar.getMenu(index);
-            if (menu != null && FILE_LABELS.contains(normalizeLabel(menu.getText()))) {
-                return centerOf(menu);
-            }
+            if (menu != null && FILE_LABELS.contains(normalizeLabel(menu.getText()))) return centerOf(menu);
         }
         return null;
     }
@@ -1333,9 +1215,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private Point recentMenuPoint() {
         for (Window window : Window.getWindows()) {
             final JMenu menu = findMenuByLabel(window, RECENT_LABELS);
-            if (menu != null && menu.isShowing()) {
-                return centerOf(menu);
-            }
+            if (menu != null && menu.isShowing()) return centerOf(menu);
         }
         return null;
     }
@@ -1343,9 +1223,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private Point workingItemPoint() {
         for (Window window : Window.getWindows()) {
             final JMenuItem item = findMenuItemFor(window, workingName);
-            if (item != null && item.isShowing()) {
-                return centerOf(item);
-            }
+            if (item != null && item.isShowing()) return centerOf(item);
         }
         return null;
     }
@@ -1354,9 +1232,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         if (root instanceof JMenuItem item && item.isShowing()) {
             final String text = Objects.toString(item.getText(), "");
             final String command = Objects.toString(item.getActionCommand(), "");
-            if (matchesFixtureText(text, workingName) || matchesFixtureText(command, workingName)) {
-                return item;
-            }
+            if (matchesFixtureText(text, workingName) || matchesFixtureText(command, workingName)) return item;
         }
         for (Component child : menuChildren(root)) {
             final JMenuItem found = findMenuItemFor(child, workingName);
@@ -1374,9 +1250,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         if (root instanceof JMenuItem item && !(root instanceof JMenu)) {
             final String text = Objects.toString(item.getText(), "");
             final String command = Objects.toString(item.getActionCommand(), "");
-            if (matchesFixtureText(text, workingName) || matchesFixtureText(command, workingName)) {
-                return item;
-            }
+            if (matchesFixtureText(text, workingName) || matchesFixtureText(command, workingName)) return item;
         }
         for (Component child : menuChildren(root)) {
             final JMenuItem found = findMenuItemInModel(child, workingName);
@@ -1396,9 +1270,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private JMenu showingRecentMenu() {
         for (Window window : Window.getWindows()) {
             final JMenu menu = findMenuByLabel(window, RECENT_LABELS);
-            if (menu != null && menu.isShowing()) {
-                return menu;
-            }
+            if (menu != null && menu.isShowing()) return menu;
         }
         return null;
     }
@@ -1414,9 +1286,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     }
 
     private static JMenu findMenuByLabel(final Component root, final Set<String> labels) {
-        if (root instanceof JMenu menu && labels.contains(normalizeLabel(menu.getText()))) {
-            return menu;
-        }
+        if (root instanceof JMenu menu && labels.contains(normalizeLabel(menu.getText()))) return menu;
         for (Component child : menuChildren(root)) {
             final JMenu found = findMenuByLabel(child, labels);
             if (found != null) return found;
@@ -1450,31 +1320,21 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                     path.add(0, item);
                     Component parent = item.getParent();
                     while (parent != null) {
-                        if (parent instanceof MenuElement element) {
-                            path.add(0, element);
-                        }
+                        if (parent instanceof MenuElement element) { path.add(0, element); }
                         parent = parent instanceof javax.swing.JPopupMenu popup
                                 ? popup.getInvoker()
                                 : parent.getParent();
                     }
                     MenuSelectionManager.defaultManager().setSelectedPath(path.toArray(new MenuElement[0]));
                     item.getModel().setArmed(true);
-                    item.dispatchEvent(new java.awt.event.MouseEvent(
-                            item,
-                            java.awt.event.MouseEvent.MOUSE_ENTERED,
-                            System.currentTimeMillis(),
-                            0,
-                            0,
-                            0,
-                            0,
-                            false));
+                    item.dispatchEvent(new java.awt.event.MouseEvent( item, java.awt.event.MouseEvent.MOUSE_ENTERED,
+                            System.currentTimeMillis(), 0, 0, 0, 0, false));
                     return true;
                 }
                 return false;
             }));
         } catch (Exception failure) {
-            context.logger()
-                    .info("Recent preview popup selection escalation failed="
+            context.logger().info("Recent preview popup selection escalation failed="
                             + failure.getClass().getSimpleName());
             return true;
         }
@@ -1492,9 +1352,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                 && POPUP_IMAGE_LABEL.equals(label.getName())
                 && label.getIcon() != null
                 && validThumbnailIcon(label.getIcon())
-                && thumbnailContentMatches(iconImage(label.getIcon()))) {
-            return true;
-        }
+                && thumbnailContentMatches(iconImage(label.getIcon()))) { return true; }
         if (root instanceof Container container) {
             for (Component child : container.getComponents()) {
                 if (findPopupImage(child)) return true;
@@ -1567,9 +1425,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             }
             context.logger().info("Recent preview host close confirmed=false");
         } catch (Exception failure) {
-            context.logger()
-                    .error("Recent preview automated host close failed: "
-                            + failure.getClass().getName());
+            context.logger().error("Recent preview automated host close failed: " + failure.getClass().getName());
         }
     }
 
@@ -1601,29 +1457,22 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             resultPublished = true;
             context.logger().info("RECENT_PREVIEW_HOST_RESULT status=" + status);
         } catch (Exception writeFailure) {
-            context.logger()
-                    .error("RECENT_PREVIEW_HOST_RESULT status=FAIL"
-                            + " failureClass=" + writeFailure.getClass().getName()
-                            + " phase=" + phase);
+            context.logger().error("RECENT_PREVIEW_HOST_RESULT status=FAIL"
+                            + " failureClass=" + writeFailure.getClass().getName() + " phase=" + phase);
         }
     }
 
     private void publishFailure(final Throwable failure) {
         try {
-            writeUtf8(
-                    new StoragePath(StorageRoot.STATE, "result.properties"),
+            writeUtf8( new StoragePath(StorageRoot.STATE, "result.properties"),
                     failureResult(failure.getClass().getName(), phase));
             resultPublished = true;
         } catch (Exception writeFailure) {
-            context.logger()
-                    .error("RECENT_PREVIEW_HOST_RESULT status=FAIL"
-                            + " failureClass=" + writeFailure.getClass().getName()
-                            + " phase=" + phase);
+            context.logger().error("RECENT_PREVIEW_HOST_RESULT status=FAIL"
+                            + " failureClass=" + writeFailure.getClass().getName() + " phase=" + phase);
         }
-        context.logger()
-                .error("RECENT_PREVIEW_HOST_RESULT status=FAIL"
-                        + " failureClass=" + failure.getClass().getName()
-                        + " failurePhase=" + phase);
+        context.logger().error("RECENT_PREVIEW_HOST_RESULT status=FAIL"
+                        + " failureClass=" + failure.getClass().getName() + " failurePhase=" + phase);
     }
 
     // --- pure helpers (unit-tested) ---------------------------------------------------
@@ -1634,44 +1483,15 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
      * host accepts the synthetic task-window close event.
      */
     static HostCloseRoute hostCloseRoute(final String hostVersion) {
-        if (hostVersion == null) {
-            throw new IllegalArgumentException(
-                    "turboism.validation.hostVersion must be an exact installed version code");
-        }
-        return switch (hostVersion) {
-            case "5000",
-                    "5001",
-                    "5002",
-                    "5003",
-                    "5004",
-                    "5005",
-                    "5006",
-                    "5100",
-                    "5101",
-                    "5102",
-                    "5103",
-                    "5200",
-                    "5201",
-                    "5202",
-                    "5203",
-                    "5300",
-                    "5301",
-                    "5303",
-                    "5304" -> HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
-            case "5302" -> HostCloseRoute.ROBOT_ALT_F4;
-            default ->
-                throw new IllegalArgumentException(
-                        "turboism.validation.hostVersion must be an exact installed version code: " + hostVersion);
-        };
+        return WindowsHistoryNativeUiHostClose.hostCloseRoute(hostVersion) == WindowsHistoryNativeUiHostClose.HostCloseRoute.ROBOT_ALT_F4
+                ? HostCloseRoute.ROBOT_ALT_F4 : HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
     }
 
     static boolean isOpaqueHexId(final String value) {
         if (value == null || value.length() != 64) return false;
         for (int index = 0; index < value.length(); index++) {
             final char current = value.charAt(index);
-            if (!((current >= '0' && current <= '9') || (current >= 'a' && current <= 'f'))) {
-                return false;
-            }
+            if (!((current >= '0' && current <= '9') || (current >= 'a' && current <= 'f'))) return false;
         }
         return true;
     }
@@ -1688,9 +1508,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         return value.endsWith(suffix) || value.endsWith("/" + suffix) || value.endsWith("\\" + suffix);
     }
 
-    static boolean matchesFixtureName(final String modelName) {
-        return matchesFixtureName(modelName, "fixture.cmo3");
-    }
+    static boolean matchesFixtureName(final String modelName) { return matchesFixtureName(modelName, "fixture.cmo3"); }
 
     static boolean matchesFixtureName(final String modelName, final String fixtureName) {
         final String fixture = fixtureName == null || fixtureName.isBlank() ? "fixture.cmo3" : fixtureName;
@@ -1718,18 +1536,14 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                     && decoded.getWidth() <= maxDimension
                     && decoded.getHeight() >= 1
                     && decoded.getHeight() <= maxDimension;
-        } catch (Exception ignored) {
-            return false;
-        }
+        } catch (Exception ignored) { return false; }
     }
 
     static int distinctSampledColors(final BufferedImage image) {
         final int step = Math.max(1, Math.min(image.getWidth(), image.getHeight()) / 32);
         final Set<Integer> colors = new HashSet<>();
         for (int y = 0; y < image.getHeight(); y += step) {
-            for (int x = 0; x < image.getWidth(); x += step) {
-                colors.add(image.getRGB(x, y) & 0xFFFFFF);
-            }
+            for (int x = 0; x < image.getWidth(); x += step) { colors.add(image.getRGB(x, y) & 0xFFFFFF); }
         }
         colors.add(image.getRGB(0, 0) & 0xFFFFFF);
         colors.add(image.getRGB(image.getWidth() - 1, 0) & 0xFFFFFF);
@@ -1784,8 +1598,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
 
     /** Boolean/menuPath-only diagnostic line; never carries paths. */
     static String saveDiagnostic(final boolean savedEvent, final boolean fileModified, final String menuPath) {
-        return "Recent preview save diagnostic savedEvent=" + savedEvent
-                + " fileModified=" + fileModified
+        return "Recent preview save diagnostic savedEvent=" + savedEvent + " fileModified=" + fileModified
                 + " menuPath=" + menuPath;
     }
 
@@ -1845,9 +1658,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             final BasicFileAttributes attributes = Files.readAttributes(path, BasicFileAttributes.class);
             return attributes.lastModifiedTime().toMillis() > baselineModifiedMillis
                     || attributes.size() != baselineSize;
-        } catch (Exception unreadable) {
-            return false;
-        }
+        } catch (Exception unreadable) { return false; }
     }
 
     static boolean containsAbsolutePath(final String value) {
@@ -1864,16 +1675,13 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
             final StringBuilder hex = new StringBuilder(64);
             for (byte item : digest) hex.append(String.format(Locale.ROOT, "%02x", item));
             return hex.toString();
-        } catch (java.security.NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException(impossible);
-        }
+        } catch (java.security.NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
     }
 
     // --- robot / EDT plumbing ----------------------------------------------------------
 
     private void pressCtrlSBackground() {
-        final Thread robotThread = new Thread(
-                () -> {
+        final Thread robotThread = new Thread( () -> {
                     try {
                         Thread.sleep(400L);
                         final Robot robot = new Robot();
@@ -1887,8 +1695,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
                     } catch (Exception ignored) {
                         // Save failure surfaces as the Saved-event wait timeout.
                     }
-                },
-                "turboism-recent-preview-robot");
+                }, "turboism-recent-preview-robot");
         robotThread.setDaemon(true);
         robotThread.start();
     }
@@ -1934,31 +1741,11 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     }
 
     private static String normalizeLabel(final String value) {
-        return java.util.Objects.toString(value, "")
-                .trim()
-                .toLowerCase(Locale.ROOT)
-                .replace("…", "")
+        return java.util.Objects.toString(value, "").trim().toLowerCase(Locale.ROOT).replace("…", "")
                 .replace("...", "");
     }
 
-    static Window selectHostWindow(final Window[] windows) {
-        Window target = null;
-        long largestArea = -1L;
-        for (final Window window : windows) {
-            if (window instanceof java.awt.Dialog || !window.isDisplayable() || !window.isVisible()) {
-                continue;
-            }
-            final long area = (long) window.getWidth() * window.getHeight();
-            if (area > largestArea) {
-                target = window;
-                largestArea = area;
-            }
-        }
-        if (target == null) {
-            throw new IllegalStateException("No visible, displayable non-dialog host window found.");
-        }
-        return target;
-    }
+    static Window selectHostWindow(final Window[] windows) { return WindowsProbeHarness.selectHostWindow(windows); }
 
     private void writeUtf8(final StoragePath path, final String content) throws Exception {
         writeBytes(path, content.getBytes(StandardCharsets.UTF_8));
@@ -1985,29 +1772,10 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         }
     }
 
-    private static <T> T onEdt(final Callable<T> call) throws Exception {
-        return onEdt(call, 5_000L);
-    }
+    private static <T> T onEdt(final Callable<T> call) throws Exception { return WindowsProbeHarness.onEdt(call); }
 
     private static <T> T onEdt(final Callable<T> call, final long timeoutMillis) throws Exception {
-        if (SwingUtilities.isEventDispatchThread()) return call.call();
-        final AtomicReference<T> result = new AtomicReference<>();
-        final AtomicReference<Exception> failure = new AtomicReference<>();
-        final CountDownLatch completed = new CountDownLatch(1);
-        SwingUtilities.invokeLater(() -> {
-            try {
-                result.set(call.call());
-            } catch (Exception exception) {
-                failure.set(exception);
-            } finally {
-                completed.countDown();
-            }
-        });
-        if (!completed.await(timeoutMillis, TimeUnit.MILLISECONDS)) {
-            throw new IllegalStateException("Cubism EDT did not accept the probe within " + timeoutMillis + " ms.");
-        }
-        if (failure.get() != null) throw failure.get();
-        return result.get();
+        return WindowsProbeHarness.onEdt(call, timeoutMillis);
     }
 
     private static BufferedImage iconImage(final javax.swing.Icon icon) {
@@ -2016,9 +1784,7 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         final Graphics2D graphics = image.createGraphics();
         try {
             icon.paintIcon(null, graphics, 0, 0);
-        } finally {
-            graphics.dispose();
-        }
+        } finally { graphics.dispose(); }
         return image;
     }
 }

@@ -72,9 +72,7 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
     /** Bounded wait for the primary plugin's close-request marker; false on timeout. */
     static boolean awaitMarker(final Path request, final int maxAttempts, final long pollMillis) throws Exception {
         for (int attempt = 0; attempt < maxAttempts; attempt++) {
-            if (Files.exists(request)) {
-                return true;
-            }
+            if (Files.exists(request)) return true;
             Thread.sleep(pollMillis);
         }
         return false;
@@ -105,27 +103,19 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
                             && model.rotationDeformers().all().get(0).form() != null);
             final boolean passed = modelUsable && meshUsable && warpUsable && rotationUsable;
             Files.createDirectories(artifact.getParent());
-            Files.writeString(
-                    artifact,
-                    "status=" + (passed ? "PASS" : "FAIL")
-                            + "\nphase=peer-after-primary-scope-close"
-                            + "\nsecondPluginUsable=" + passed
-                            + "\nmodelUsable=" + modelUsable
-                            + "\nmeshUsable=" + meshUsable
-                            + "\nwarpUsable=" + warpUsable
-                            + "\nrotationUsable=" + rotationUsable + "\n",
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.TRUNCATE_EXISTING);
+            Files.writeString( artifact, "status=" + (passed ? "PASS" : "FAIL")
+                            + "\nphase=peer-after-primary-scope-close" + "\nsecondPluginUsable=" + passed
+                            + "\nmodelUsable=" + modelUsable + "\nmeshUsable=" + meshUsable
+                            + "\nwarpUsable=" + warpUsable + "\nrotationUsable=" + rotationUsable + "\n",
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception exception) {
             context.logger().error("Editor object peer validation failed", exception);
             if (artifact == null) return;
             try {
                 Files.createDirectories(artifact.getParent());
-                Files.writeString(
-                        artifact,
+                Files.writeString( artifact,
                         "status=FAIL\nphase=peer-after-primary-scope-close\nerror=" + exception + "\n",
-                        StandardOpenOption.CREATE,
-                        StandardOpenOption.TRUNCATE_EXISTING);
+                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             } catch (Exception ignored) {
                 // Manual evidence probe cannot recover when its artifact path is unavailable.
             }
@@ -140,12 +130,8 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
                         onHostThread(() -> context.cubism().model().active());
                 if (onHostThread(() -> !model.drawables().all().isEmpty()
                         && !model.warpDeformers().all().isEmpty()
-                        && !model.rotationDeformers().all().isEmpty())) {
-                    return model;
-                }
-            } catch (Exception exception) {
-                lastFailure = exception;
-            }
+                        && !model.rotationDeformers().all().isEmpty())) { return model; }
+            } catch (Exception exception) { lastFailure = exception; }
             Thread.sleep(100L);
         }
         throw new IllegalStateException("Peer plugin did not observe an active Editor model", lastFailure);
@@ -153,27 +139,11 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
 
     private void writeStage(final Path artifact, final String stage) throws Exception {
         Files.createDirectories(artifact.getParent());
-        Files.writeString(
-                artifact,
-                "status=RUNNING\nphase=" + stage + "\n",
-                StandardOpenOption.CREATE,
+        Files.writeString( artifact, "status=RUNNING\nphase=" + stage + "\n", StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING);
     }
 
     private <T> T onHostThread(final java.util.concurrent.Callable<T> operation) throws Exception {
-        if (SwingUtilities.isEventDispatchThread()) return operation.call();
-        final java.util.concurrent.atomic.AtomicReference<T> result =
-                new java.util.concurrent.atomic.AtomicReference<>();
-        final java.util.concurrent.atomic.AtomicReference<Exception> failure =
-                new java.util.concurrent.atomic.AtomicReference<>();
-        SwingUtilities.invokeAndWait(() -> {
-            try {
-                result.set(operation.call());
-            } catch (Exception exception) {
-                failure.set(exception);
-            }
-        });
-        if (failure.get() != null) throw failure.get();
-        return result.get();
+        return WindowsProbeHarness.onEdt(operation);
     }
 }
