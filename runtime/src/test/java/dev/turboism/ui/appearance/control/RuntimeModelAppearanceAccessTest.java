@@ -41,6 +41,49 @@ import org.junit.jupiter.api.Test;
 class RuntimeModelAppearanceAccessTest {
 
     @Test
+    void leadingActionChecksPermissionScopeAndRegistrationLifetime() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
+        final var checks = new java.util.ArrayList<String>();
+        final var access = fixture.access(
+                "plugin-a",
+                1L,
+                coordinator,
+                NativeLabelColorAuthoring.unavailable(),
+                (permission, operation) -> checks.add(permission));
+        final var entry = access.parameter("model-a", "ParamA", 3L)
+                .parameterPaletteEntry()
+                .orElseThrow();
+        final var calls = new java.util.concurrent.atomic.AtomicInteger();
+        final var action = new dev.turboism.sdk.ui.appearance.PaletteRowAction(
+                new dev.turboism.sdk.ui.resource.UiIconRef(dev.turboism.sdk.ui.resource.CubismIcon.LOCK),
+                dev.turboism.sdk.ui.appearance.PaletteRowAction.State.LOCKED,
+                "lock",
+                calls::incrementAndGet);
+        final var registration = entry.overrideLeadingAction(action);
+        final var guarded = coordinator
+                .resolveLeadingAction(4L, PaletteAppearanceCoordinator.Palette.PARAMETER, "ParamA")
+                .orElseThrow();
+        guarded.onClick().run();
+        assertEquals(1, calls.get());
+        assertTrue(checks.contains(PermissionIds.TURBOISM_UI_APPEARANCE_MODIFY));
+        registration.close();
+        assertTrue(coordinator
+                .resolveLeadingAction(4L, PaletteAppearanceCoordinator.Palette.PARAMETER, "ParamA")
+                .isEmpty());
+        assertThrows(IllegalStateException.class, guarded.onClick()::run);
+        entry.overrideLeadingAction(action);
+        final var stale = coordinator
+                .resolveLeadingAction(4L, PaletteAppearanceCoordinator.Palette.PARAMETER, "ParamA")
+                .orElseThrow();
+        fixture.replace("content-b", "model-a", 8L); // copied document retains the same serialized model GUID
+        assertThrows(IllegalStateException.class, stale.onClick()::run);
+        assertEquals(1, calls.get());
+        access.close();
+        assertEquals(0, coordinator.size());
+    }
+
+    @Test
     void fivePalettePropertiesResolveIndependently() {
         final Fixture fixture = new Fixture("content-a", "model-a", 7L);
         final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();

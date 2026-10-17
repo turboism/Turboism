@@ -20,6 +20,25 @@ import org.junit.jupiter.api.Test;
 class PaletteToolbarContributionProviderTest {
 
     @Test
+    void preservesNativeIconReferenceThroughProviderNormalization() {
+        final var reference = new dev.turboism.sdk.ui.resource.UiIconRef(dev.turboism.sdk.ui.resource.CubismIcon.LOCK);
+        final var host = new RecordingHost();
+        final var provider = new PaletteToolbarContributionProvider(
+                admission(3, EditorModelVerificationManifest.RECORD_5_3_02), host, (plugin, action) -> {});
+        final var value = new PaletteToolbarRegistry.PaletteToolbarContribution(
+                "lock", "toggle", "Lock", "", "PARAMETER", "end", 0, reference);
+        final var registration = provider.apply(
+                3,
+                List.of(new EditorUiContribution<>(
+                        new EditorUiContributionIdentity("test.plugin", EditorUiFamily.PALETTE_TOOLBAR, "lock"),
+                        0,
+                        value)));
+        assertEquals(reference, host.buttons.get(0).descriptor().nativeIcon());
+        assertEquals("", host.buttons.get(0).descriptor().iconResourcePath());
+        registration.close();
+    }
+
+    @Test
     void routesActionsForEverySupportedPaletteAndCleansIdempotently() {
         final RecordingHost host = new RecordingHost();
         final List<String> actions = new ArrayList<>();

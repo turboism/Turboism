@@ -290,6 +290,72 @@ def _editor_variants() -> dict:
             descriptor="()Lcom/live2d/type/CArrayList;",
         )
         add(
+            "cubism.editor-model.parameter-operation.row-layout",
+            f"cubism.mapping.v{tag}.editor_model.method.parameter_row_layout",
+            ownerInternalName=f"{_PARAM_OP}/{op}",
+            memberName="b",
+            descriptor="()Lcom/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox;",
+        )
+        add(
+            "cubism.editor-model.parameter-row-container.children",
+            f"cubism.mapping.v{tag}.editor_model.method.parameter_row_children",
+            ownerInternalName="com/live2d/ui/container/CContainer",
+            memberName="getChildren",
+            descriptor="()Ljava/util/List;",
+        )
+        add(
+            "cubism.editor-model.parameter-group-row.layout",
+            f"cubism.mapping.v{tag}.editor_model.method.parameter_group_row_layout",
+            ownerInternalName="com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget",
+            memberName="getRowLayout",
+            descriptor="()Lcom/live2d/cubism/view/palette/parameter/ui/RowLayoutVBox;",
+        )
+        add(
+            'cubism.editor-model.parameter-single-row.slider',
+            f"cubism.mapping.v{tag}.editor_model.method.parameter_single_row_slider",
+            ownerInternalName='com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget',
+            memberName='getSliderFloat',
+            descriptor='()Lcom/live2d/ui/control/CSlidableFloat;',
+            requiredAccessFlags=1,
+            forbiddenAccessFlags=8,
+        )
+        add(
+            'cubism.editor-model.parameter-single-row.paint',
+            f"cubism.mapping.v{tag}.editor_model.field.parameter_single_row_paint",
+            ownerInternalName='com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget',
+            memberName='paintComp',
+            descriptor='Lcom/live2d/ui/control/CCustomPaintComponent;',
+            requiredAccessFlags=2,
+            forbiddenAccessFlags=8,
+        )
+        add(
+            'cubism.editor-model.parameter-double-row.slider',
+            f"cubism.mapping.v{tag}.editor_model.method.parameter_double_row_slider",
+            ownerInternalName='com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget',
+            memberName='getSliderFloat',
+            descriptor='()Lcom/live2d/ui/control/CSlidableFloat;',
+            requiredAccessFlags=1,
+            forbiddenAccessFlags=8,
+        )
+        add(
+            'cubism.editor-model.parameter-double-row.paint',
+            f"cubism.mapping.v{tag}.editor_model.field.parameter_double_row_paint",
+            ownerInternalName='com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget',
+            memberName='paintComp',
+            descriptor='Lcom/live2d/ui/control/CCustomPaintComponent;',
+            requiredAccessFlags=2,
+            forbiddenAccessFlags=8,
+        )
+        add(
+            'cubism.editor-model.parameter-double-row.secondary-slider',
+            f"cubism.mapping.v{tag}.editor_model.method.parameter_double_row_secondary_slider",
+            ownerInternalName='com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget',
+            memberName='getSliderFloatSec',
+            descriptor='()Lcom/live2d/ui/control/CSlidableFloat;',
+            requiredAccessFlags=1,
+            forbiddenAccessFlags=8,
+        )
+        add(
             "cubism.editor-model.parameter-operation.set-value",
             f"cubism.mapping.v{tag}.editor_model.method.parameter_set_value",
             ownerInternalName=f"{_PARAM_OP}/{op}",

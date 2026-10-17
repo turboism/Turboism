@@ -39,6 +39,37 @@ import org.junit.jupiter.api.Test;
 /** Focused tests for the palette filter host operations: pure logic and Swing attachment. */
 class PaletteFilterHostOperationsTest {
 
+    @Test
+    void toolbarUsesNativeEnabledAndDisabledIconsAndReleasesDisconnectedOwner() {
+        onEdt(() -> {
+            final var host = new PaletteFilterHostOperations();
+            final var reference =
+                    new dev.turboism.sdk.ui.resource.UiIconRef(dev.turboism.sdk.ui.resource.CubismIcon.LOCK);
+            final var normal = new javax.swing.ImageIcon(
+                    new java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB));
+            final var disabled = new javax.swing.ImageIcon(
+                    new java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB));
+            host.bindNativeIconResolver((requested, isDisabled) -> {
+                assertEquals(reference, requested);
+                return java.util.Optional.of(isDisabled ? disabled : normal);
+            });
+            final var descriptor = new PaletteToolbarContributionDescriptor(
+                    "test.plugin", "lock", "toggle", "Lock", "", "PARAMETER", "end", 1, reference);
+            final var presses = new java.util.concurrent.atomic.AtomicInteger();
+            final var contribution =
+                    new PaletteToolbarHostOperations.ButtonContribution(descriptor, presses::incrementAndGet);
+            final JButton button = PaletteToolbarSupport.createToolbarButton(host, contribution);
+            assertSame(normal, button.getIcon());
+            assertSame(disabled, button.getDisabledIcon());
+            button.doClick();
+            assertEquals(1, presses.get());
+            host.clearNativeIconResolver();
+            final JButton unavailable = PaletteToolbarSupport.createToolbarButton(host, contribution);
+            assertNull(unavailable.getIcon());
+            assertEquals("Lock", unavailable.getText());
+        });
+    }
+
     // ------------------------------------------------------------- filter box
 
     @Test

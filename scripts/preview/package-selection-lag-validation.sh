@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Assembles the task-local selection-lag diagnostic bundle:
-# turboism-agent.jar, representative production plugin jars (parameter,
-# context-menu), the probe JAR, a README, and SHA256SUMS. Nothing here is part
+# turboism-agent.jar, the parameter plugin JAR, the probe JAR, a README, and
+# SHA256SUMS. Nothing here is part
 # of the production preview bundle or product build.
 #
 # Note: there is no core plugin jar to stage here. The framework shell lives
@@ -17,7 +17,7 @@ worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scri
 # Rebuild every shipped artifact before copying so a stale jar can never be
 # packaged next to a newer agent (same reason as package-windows-mcp-validation.sh).
 TURBOISM_WORKTREE_ID="$worktree_id" "$repo_root/gradlew" --console=plain \
-  previewBundle :plugins:parameter:jar :plugins:context-menu:jar :sdk:jar
+  previewBundle :plugins:parameter:jar :sdk:jar
 TURBOISM_WORKTREE_ID="$worktree_id" bash "$repo_root/validation/selection-lag-probe/build.sh"
 
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/selection-lag-validation}"
@@ -25,7 +25,6 @@ preview_root="$repo_root/build/preview/$worktree_id"
 
 plugin_specs=(
   "parameter:parameter"
-  "context-menu:context-menu"
 )
 
 if [ ! -f "$preview_root/turboism-agent.jar" ]; then
@@ -68,7 +67,6 @@ cp "$repo_root/validation/selection-lag-probe/README.md" "$bundle_root/README.md
   sha256sum \
     turboism-agent.jar \
     plugins/parameter.jar \
-    plugins/context-menu.jar \
     plugins/selection-lag-probe.jar \
     README.md > SHA256SUMS.txt
 )

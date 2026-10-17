@@ -907,6 +907,14 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 }
 
                 @Override
+                public Optional<javax.swing.Icon> resolveUiIcon(
+                        final dev.turboism.sdk.ui.resource.UiIconRef reference, final boolean disabled) {
+                    return installedResourceOwner == null
+                            ? Optional.empty()
+                            : installedResourceOwner.resolve(reference, disabled);
+                }
+
+                @Override
                 public RuntimeHostAdapters adapters() {
                     return installedAdapters;
                 }

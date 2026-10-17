@@ -48,8 +48,8 @@ the frozen acceptance conditions, including the R2 repairs:
       Python `encoding="utf-8"`). macOS additionally checks that the
       installed uninstall.command is a regular non-symlink executable file.
   8.  The plugin payload matches the sole release-plugin allowlist
-      `packaging/release-plugins.txt` exactly (the frozen 24 approved
-      projects; runtime-owned core is never a payload plugin), and the seven
+      `packaging/release-plugins.txt` exactly (the frozen 26 approved
+      projects; runtime-owned core is never a payload plugin), and the four
       excluded public modules' IDs/JARs are absent from the payload, packs, and
       selection surface — the shared manifest is the regression oracle.
   9.  Windows x64 Full installs the complete release roster without any
@@ -224,18 +224,20 @@ def assert_automated_eula_gate(jar):
 
 
 # Frozen release-plugin allowlist — sole authority is packaging/release-plugins.txt.
-# This exact 24-project list plus the seven excluded public module names is the regression
+# This exact 26-project list plus the four excluded public module names is the regression
 # oracle; the id/name for every listed module comes from its committed
 # plugin.json descriptor at verification time (see load_plugin_metadata), so
 # production drift from the shared manifest or the source descriptors fails.
 MANIFEST_EXPECTED = [
     ":plugins:acp",
+    ":plugins:atlas-dalsoo-polygon",
     ":plugins:atlas-maxrects-bssf",
     ":plugins:boundingbox-warp-mirror",
     ":plugins:clipmask-viewer",
     ":plugins:command-palette",
     ":plugins:cubism-tab-filter",
     ":plugins:external-psd-edit",
+    ":plugins:frame-animation-import",
     ":plugins:history-panel",
     ":plugins:mcp",
     ":plugins:mesh-edit-mirror-axis-enhance",
@@ -254,18 +256,15 @@ MANIFEST_EXPECTED = [
     ":plugins:warp-deformer-alt-symmetry",
     ":plugins:webdav-backup",
 ]
-# The seven public-exclusion modules: absent from the manifest and therefore
+# The four public-exclusion modules: absent from the manifest and therefore
 # from every release payload, pack, section, and selection surface. Their
 # committed ids are read from each module's plugin.json descriptor at
 # verification time, never derived from module names.
 EXCLUDED_PUBLIC_MODULES = (
-    "bounding-box",
-    "context-menu",
     "demo",
     "parameter",
+    "parameter-lock",
     "project-inspector",
-    "project-panel",
-    "psd-import",
 )
 # Renamed algorithm identity: module/JAR atlas-maxrects-bssf carries the
 # MaxRects-BSSF display name and the historical texture-atlas compatibility id.
@@ -1673,7 +1672,7 @@ def main():
 
     # Shared-manifest + committed-descriptor regression oracle: the staged
     # payload must equal the allowlisted plugin modules (core excluded) and
-    # never carry one of the eight excluded public modules or their committed
+    # never carry one of the four excluded public modules or their committed
     # ids; every included payload module's id/name is compared exactly to its
     # committed plugin.json descriptor (see assert_plugin_identity).
     manifest_modules = load_release_manifest(args.manifest)

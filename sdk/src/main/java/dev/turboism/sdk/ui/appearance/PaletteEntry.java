@@ -35,6 +35,16 @@ public interface PaletteEntry {
      */
     Registration overrideBackgroundColor(UiColor color);
 
+    /**
+     * Installs a leading icon action on this parameter or parameter-group row.
+     * The action is scoped to the live model and plugin; closing the registration restores
+     * the original native label. Other palettes may reject this operation.
+     */
+    default Registration overrideLeadingAction(final PaletteRowAction action) {
+        java.util.Objects.requireNonNull(action, "action");
+        throw new UnsupportedOperationException("Palette row actions are unavailable");
+    }
+
     /** Framework-resolved transient overrides, independent of renderer state. */
     PaletteEntryState resolved();
 

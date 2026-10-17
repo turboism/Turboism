@@ -379,6 +379,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                     descriptor.verificationEvidence().projectWorkspace();
             sceneTableHost.connect(sceneEvidence.verifiedArtifact(), sceneEvidence.hostClassLoader());
             dynamic.connect(candidateAdapters);
+            paletteSurfaceCoordinator.bindNativeIconResolver(candidate::resolveUiIcon);
+            paletteAppearanceCoordinator.bindNativeIconResolver(candidate::resolveUiIcon);
             dynamicModelAccess.connect(candidate.modelAccess());
             dynamicCoreRuntime.connect(candidate.coreRuntimeInfo());
             dynamicAppearance.connect(candidate.appearanceProvider());
@@ -393,8 +395,16 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             workspaceLayoutCoordinator = candidate.workspaceLayoutCoordinator();
             try {
                 paletteSurfaceCoordinator.bindParameterRowsResolver(candidate.editorModelResolver());
+                paletteAppearanceCoordinator.bindParameterEditorSource(
+                        new dev.turboism.ui.appearance.control.VerifiedParameterEditingSource(
+                                candidate.editorModelResolver()));
+                paletteAppearanceCoordinator.bindParameterRowSource(
+                        new dev.turboism.ui.appearance.control.VerifiedParameterRowSource(
+                                candidate.editorModelResolver()));
             } catch (IllegalStateException unavailable) {
                 paletteSurfaceCoordinator.clearParameterRowsResolver();
+                paletteAppearanceCoordinator.clearParameterRowSource();
+                paletteAppearanceCoordinator.clearParameterEditorSource();
             }
             objectContextMenuHandler = candidate.objectContextMenuHandler(editorUiGeneration);
             parameterPointMenuHandler = candidate.parameterPointMenuHandler(editorUiGeneration);
@@ -986,6 +996,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         meshToolCoordinator.endSession();
         activeConnectionKey = null;
         paletteSurfaceCoordinator.clearParameterRowsResolver();
+        paletteSurfaceCoordinator.clearNativeIconResolver();
+        paletteAppearanceCoordinator.clearNativeIconResolver();
+        paletteAppearanceCoordinator.clearParameterRowSource();
+        paletteAppearanceCoordinator.clearParameterEditorSource();
         if (activeConnection != null && activeConnection.workspaceProvider() != null) {
             workspaceCoordinator.disconnect(activeConnection.workspaceProvider());
         }

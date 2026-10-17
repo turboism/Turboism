@@ -10,6 +10,58 @@ import org.junit.jupiter.api.Test;
 
 class ParameterControlAppearanceProviderTest {
     @Test
+    void rowActionsSeparateParametersAndGroupsAndRestoreOnScopeSwitchAndRemoval() throws Exception {
+        final var coordinator = new PaletteAppearanceCoordinator();
+        final var scope = scope(5);
+        coordinator.reconcile(scope);
+        final var icon = new javax.swing.ImageIcon(new java.awt.image.BufferedImage(16, 16, 2));
+        coordinator.bindNativeIconResolver((ref, disabled) -> java.util.Optional.of(icon));
+        final var provider = new ParameterControlAppearanceProvider(5, coordinator);
+        final var parameter = new JLabel("Parameter");
+        final var group = new JLabel("Group");
+        final var originalGroupIcon = new javax.swing.ImageIcon(new java.awt.image.BufferedImage(8, 8, 2));
+        group.setIcon(originalGroupIcon);
+        final var ref = new dev.turboism.sdk.ui.resource.UiIconRef(dev.turboism.sdk.ui.resource.CubismIcon.LOCK);
+        final var registration = coordinator.register(
+                "plugin",
+                1,
+                scope,
+                PaletteAppearanceCoordinator.Palette.PARAMETER,
+                "Shared",
+                PaletteAppearanceCoordinator.Property.LEADING_ACTION,
+                new dev.turboism.sdk.ui.appearance.PaletteRowAction(
+                        ref, dev.turboism.sdk.ui.appearance.PaletteRowAction.State.LOCKED, "lock", () -> {}));
+        coordinator.register(
+                "plugin",
+                1,
+                scope,
+                PaletteAppearanceCoordinator.Palette.PARAMETER_GROUP,
+                "Shared",
+                PaletteAppearanceCoordinator.Property.LEADING_ACTION,
+                new dev.turboism.sdk.ui.appearance.PaletteRowAction(
+                        ref, dev.turboism.sdk.ui.appearance.PaletteRowAction.State.MIXED, "mixed", () -> {}));
+        javax.swing.SwingUtilities.invokeAndWait(() -> {
+            provider.bind(ParameterControlAppearanceProvider.Kind.PARAMETER, "Shared", parameter);
+            provider.bind(ParameterControlAppearanceProvider.Kind.FOLDER, "Shared", group);
+        });
+        assertEquals(
+                dev.turboism.sdk.ui.appearance.PaletteRowAction.State.LOCKED,
+                parameter.getClientProperty(NativeRowActionTracker.MARKER));
+        assertEquals(
+                dev.turboism.sdk.ui.appearance.PaletteRowAction.State.MIXED,
+                group.getClientProperty(NativeRowActionTracker.MARKER));
+        registration.close();
+        javax.swing.SwingUtilities.invokeAndWait(() -> {});
+        assertEquals(null, parameter.getIcon());
+        coordinator.reconcile(new PaletteAppearanceCoordinator.Scope("other", 2, "other", 2, 5, 2));
+        javax.swing.SwingUtilities.invokeAndWait(() -> {});
+        assertEquals(originalGroupIcon, group.getIcon());
+        assertEquals(null, group.getClientProperty(NativeRowActionTracker.MARKER));
+        javax.swing.SwingUtilities.invokeAndWait(provider::close);
+        coordinator.close();
+    }
+
+    @Test
     void registrationCloseImmediatelyRestoresBoundLongLivedLabel() throws Exception {
         final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
         final PaletteAppearanceCoordinator.Scope scope = scope(5);
