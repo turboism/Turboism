@@ -1,15 +1,14 @@
 package dev.turboism.adapter.cubism.editor;
 
+import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.*;
 
 import dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
-import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
 import dev.turboism.adapter.cubism.model.RuntimeModelObjectService;
 import dev.turboism.mapping.verification.StaticSelector;
@@ -17,7 +16,6 @@ import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
-import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectHierarchyEditSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
@@ -27,10 +25,8 @@ import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.history.HistoryAction;
 import dev.turboism.sdk.cubism.history.HistoryChange;
-import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistoryRelationChange;
-import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
@@ -43,11 +39,9 @@ import dev.turboism.sdk.cubism.model.RotationDeformerForm;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -1331,23 +1325,32 @@ class EditorObjectHierarchyEditAccessTest {
         assertEquals(1, fixture.editMode.edits.size());
         assertEquals(1, fixture.document.undoManager.entries().size());
         assertEquals(1, isArtMesh ? fixture.meshSource.setTargetCalls : fixture.warpSource.setTargetCalls);
-        assertEquals(isArtMesh ? fixture.rotationSource.guid : fixture.warpTargetSource.guid,
+        assertEquals(
+                isArtMesh ? fixture.rotationSource.guid : fixture.warpTargetSource.guid,
                 isArtMesh ? fixture.meshSource.targetDeformerGuid : fixture.warpSource.targetDeformerGuid);
         final HistoryEntryDetail detail = lastHistoryDetail(resolver);
         assertEquals(1, detail.changes().size());
         final HistoryRelationChange relation =
                 detail.changes().get(0).relation().orElseThrow();
         assertEquals(HistoryRelationChange.Kind.DEFORMER_PARENT, relation.kind());
-        assertRelationTarget(relation.before(), isArtMesh ? "WARP_DEFORMER" : "ROTATION_DEFORMER",
-                isArtMesh ? "WarpA" : "RotationA", isArtMesh ? "WarpA" : "RotationA");
-        assertRelationTarget(relation.after(), isArtMesh ? "ROTATION_DEFORMER" : "WARP_DEFORMER",
-                isArtMesh ? "RotationA" : "WarpB", isArtMesh ? "RotationA" : "WarpB");
+        assertRelationTarget(
+                relation.before(),
+                isArtMesh ? "WARP_DEFORMER" : "ROTATION_DEFORMER",
+                isArtMesh ? "WarpA" : "RotationA",
+                isArtMesh ? "WarpA" : "RotationA");
+        assertRelationTarget(
+                relation.after(),
+                isArtMesh ? "ROTATION_DEFORMER" : "WARP_DEFORMER",
+                isArtMesh ? "RotationA" : "WarpB",
+                isArtMesh ? "RotationA" : "WarpB");
 
         fixture.editMode.edits.get(0).undo();
-        assertEquals(isArtMesh ? fixture.warpSource.guid : fixture.rotationSource.guid,
+        assertEquals(
+                isArtMesh ? fixture.warpSource.guid : fixture.rotationSource.guid,
                 isArtMesh ? fixture.meshSource.targetDeformerGuid : fixture.warpSource.targetDeformerGuid);
         fixture.editMode.edits.get(0).redo();
-        assertEquals(isArtMesh ? fixture.rotationSource.guid : fixture.warpTargetSource.guid,
+        assertEquals(
+                isArtMesh ? fixture.rotationSource.guid : fixture.warpTargetSource.guid,
                 isArtMesh ? fixture.meshSource.targetDeformerGuid : fixture.warpSource.targetDeformerGuid);
     }
 
@@ -1625,7 +1628,8 @@ class EditorObjectHierarchyEditAccessTest {
     @ParameterizedTest
     @CsvSource({
         "5.0.00, WARP", "5.0.06, WARP", "5.1.03, WARP", "5.2.00, WARP", "5.2.03, WARP", "5.3.00, WARP", "5.3.04, WARP",
-        "5.0.00, ROTATION", "5.0.06, ROTATION", "5.1.03, ROTATION", "5.2.00, ROTATION", "5.2.03, ROTATION", "5.3.00, ROTATION", "5.3.04, ROTATION"
+        "5.0.00, ROTATION", "5.0.06, ROTATION", "5.1.03, ROTATION", "5.2.00, ROTATION", "5.2.03, ROTATION",
+                "5.3.00, ROTATION", "5.3.04, ROTATION"
     })
     void deformerCreatesJoinOneAmbientRootTransaction(final String cubismVersion, final String kind) {
         final var scoped = ScopedFixture.onEdt(cubismVersion);
@@ -1649,9 +1653,23 @@ class EditorObjectHierarchyEditAccessTest {
             } else {
                 final RotationDeformerForm form = new RotationDeformerForm(0F, 512F, 512F, 1F, false, false);
                 scoped.access.createRotationSource(
-                        "model", scoped.fixture.source, scoped.fixture.source.model, "ROTATION_A", null, false, -1, form);
+                        "model",
+                        scoped.fixture.source,
+                        scoped.fixture.source.model,
+                        "ROTATION_A",
+                        null,
+                        false,
+                        -1,
+                        form);
                 scoped.access.createRotationSource(
-                        "model", scoped.fixture.source, scoped.fixture.source.model, "ROTATION_B", null, false, -1, form);
+                        "model",
+                        scoped.fixture.source,
+                        scoped.fixture.source.model,
+                        "ROTATION_B",
+                        null,
+                        false,
+                        -1,
+                        form);
             }
             return null;
         });

@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
 import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.*;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -167,5 +166,4 @@ class PartOpacity52WriteProbeSkeletonTest {
             document.model.parts.add(new Part(document.source.parts.get(0)));
         }
     }
-
 }

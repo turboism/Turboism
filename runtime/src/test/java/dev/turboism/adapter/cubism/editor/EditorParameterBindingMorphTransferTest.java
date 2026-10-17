@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
 import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.*;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -14,7 +13,6 @@ import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
 import dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
