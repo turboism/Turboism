@@ -59,6 +59,18 @@ class VerifiedTypedEditorCommandAdapterTest {
     }
 
     @Test
+    void canvasSettingRejectsSilentHostFailureAndRestoresOriginalDimensions() {
+        FakeHost host = new FakeHost();
+        host.ignoreCanvasWidthWrite = true;
+        var adapter = new VerifiedEditorCommandAdapter(host.resolver("5.3.04"));
+        assertEquals(
+                EditorCommandResult.Status.FAILED,
+                adapter.execute(new EditorCanvasSettingsRequest(2400, 1600)).status());
+        assertEquals(1000, host.canvas.width);
+        assertEquals(1000, host.canvas.height);
+    }
+
+    @Test
     void canvasSettingRebuildsInstancesOnEveryReviewedGeneration() {
         for (String version : dev.turboism.mapping.verification.ReviewedHostArtifacts.reviewedCubismVersions()) {
             FakeHost host = new FakeHost();
@@ -719,6 +731,7 @@ class VerifiedTypedEditorCommandAdapterTest {
 
     /** Fake exact-version host mirroring every selector member the typed operations use. */
     static final class FakeHost {
+        boolean ignoreCanvasWidthWrite;
         final FakeApp app = new FakeApp();
         final FakeModelingView view = new FakeModelingView();
         final FakeModelingDocument document = new FakeModelingDocument();
@@ -1394,6 +1407,7 @@ class VerifiedTypedEditorCommandAdapterTest {
             }
 
             public void setPixelWidth(int w) {
+                if (ignoreCanvasWidthWrite) return;
                 width = w;
                 if (FakeHost.failOnSetWidth) {
                     FakeHost.failOnSetWidth = false;
