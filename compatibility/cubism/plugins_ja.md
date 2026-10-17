@@ -19,7 +19,7 @@ Cubism を FREE ライセンスで実行すると、保存は FREE のパラメ�
 | `cubism-tab-filter` | 全レビュー済みバージョン | — | — |
 | `demo` | 全レビュー済みバージョン | — | — |
 | `external-psd-edit` | 全レビュー済みバージョン | PSD 原画像のエクスポート のみ 5.2.00–5.3.04（それ以前の Cubism バージョンには機能自体がない）<br>PSD 原画像の置き換え のみ 5.2.00–5.3.04（それ以前の Cubism バージョンには機能自体がない） | 実機検証済み 5.3.02 |
-| `frame-animation-import` | 全レビュー済みバージョン | パーツ不透明度書き込み のみ 5.3.00–5.3.04（[Cubism 5.3.00 でPart offscreen drawing (part opacity and clipping masks)を追加](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)） | — |
+| `frame-animation-import` | 全レビュー済みバージョン | パーツ不透明度書き込み のみ 5.3.00–5.3.04（[Cubism 5.3.00 でPart offscreen drawing (part opacity and clipping masks)を追加](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）<br>トップメニュー統合 対象外 5.0.00–5.0.06（それ以前の Cubism バージョンには機能自体がない） | — |
 | `history-panel` | 全レビュー済みバージョン | — | — |
 | `mcp` | 全レビュー済みバージョン | 全機能は 5.1.00 以降が必要<br>トップメニュー統合 対象外 5.0.00–5.0.06（それ以前の Cubism バージョンには機能自体がない）<br>MCP Editor コマンド実行 対象外 5.0.00–5.0.06（それ以前の Cubism バージョンには機能自体がない）<br>MCP Editor コマンド一覧 対象外 5.0.00–5.0.06（それ以前の Cubism バージョンには機能自体がない） | 実機検証済み 5.2.00–5.3.01, 5.3.03–5.3.04<br>確認済み境界 5.0.00, 5.0.02, 5.0.06–5.1.00, 5.1.03 |
 | `mesh-edit-mirror-axis-enhance` | 全レビュー済みバージョン | 全機能は 5.2.00 以降が必要<br>メッシュジオメトリ読み取り のみ 5.2.00–5.3.04（それ以前の Cubism バージョンには機能自体がない） | — |
