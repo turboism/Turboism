@@ -47,7 +47,9 @@ private val sdkBaselineAnchors = listOf(
     SdkBaselineAnchor(17, "2b049ce16863ac93584eddcbfbf7f7cfce140951",
         "Reconstructs the reviewed v17 widened-availability SDK from its pinned Git commit."),
     SdkBaselineAnchor(18, "ff08fc44da131f8b6e3043f5c86fb133b89bccb3",
-        "Reconstructs the reviewed v18 texture-atlas-append SDK from its pinned Git commit.")
+        "Reconstructs the reviewed v18 texture-atlas-append SDK from its pinned Git commit."),
+    SdkBaselineAnchor(19, "4d4a7d0fa65629278fe1f1b594e214e93b82ec31",
+        "Reconstructs the reviewed v19 humanoid-viewer extensions SDK from its pinned Git commit.")
 )
 
 private fun sdkExactBaseline(version: Int) =
