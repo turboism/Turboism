@@ -33,6 +33,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import java.util.concurrent.Callable;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -128,49 +130,45 @@ class ProtectedExportOrchestratorTest {
         orchestrator.close();
     }
 
-    @Test
-    void rejectsWhenStagedMocKeepsOriginalDrawableIds() throws Exception {
-        final Fixture fixture = new Fixture();
-        // The staged moc3 reports identities that were never planned — nothing
-        // may publish.
-        fixture.host.exportKeepsOriginalDrawableIds = true;
-        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
-
-        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertNotNull(report.failureKey());
-        assertTrue(report.failureKey().startsWith(ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
-        assertFalse(report.published());
-        assertFalse(Files.exists(fixture.realPick.toPath().getParent().resolve("model.moc3")));
-        orchestrator.close();
+    @FunctionalInterface
+    private interface FixtureCustomizer {
+        void accept(Fixture fixture) throws Exception;
     }
 
-    @Test
-    void rejectsWhenStagedMocRetainsDeformers() throws Exception {
-        final Fixture fixture = new Fixture();
-        fixture.host.exportLeavesDeformer = true;
-        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+    private static class ExportExecution {
+        final Fixture fixture;
+        final ProtectedExportOrchestrator.Report report;
 
-        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertNotNull(report.failureKey());
-        assertTrue(report.failureKey().startsWith(ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
-        assertFalse(report.published());
-        orchestrator.close();
+        ExportExecution(Fixture fixture, ProtectedExportOrchestrator.Report report) {
+            this.fixture = fixture;
+            this.report = report;
+        }
     }
 
-    @Test
-    void rejectsWhenStagedMocParameterIdsDiverge() throws Exception {
+    private ExportExecution runExport(FixtureCustomizer customizer) throws Exception {
         final Fixture fixture = new Fixture();
-        fixture.host.exportAddsParameter = true;
+        customizer.accept(fixture);
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
-
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertNotNull(report.failureKey());
-        assertTrue(report.failureKey().startsWith(ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
-        assertFalse(report.published());
         orchestrator.close();
+        return new ExportExecution(fixture, report);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"drawableIds", "deformers", "parameterIds"})
+    void rejectsWhenStagedMocDiverges(final String divergenceType) throws Exception {
+        final ExportExecution exec = runExport(fixture -> {
+            if ("drawableIds".equals(divergenceType)) fixture.host.exportKeepsOriginalDrawableIds = true;
+            else if ("deformers".equals(divergenceType)) fixture.host.exportLeavesDeformer = true;
+            else if ("parameterIds".equals(divergenceType)) fixture.host.exportAddsParameter = true;
+        });
+        assertNotNull(exec.report.failureKey());
+        assertTrue(exec.report.failureKey().startsWith(ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
+        assertFalse(exec.report.published());
+        if ("drawableIds".equals(divergenceType)) {
+            assertFalse(Files.exists(exec.fixture.realPick.toPath().getParent().resolve("model.moc3")));
+        }
     }
 
     @Test
@@ -352,47 +350,16 @@ class ProtectedExportOrchestratorTest {
         orchestrator.close();
     }
 
-    @Test
-    void rejectsWhenPluginBindingUnavailable() throws Exception {
-        final Fixture fixture = new Fixture();
-        // Plugin already unloaded at decide time: the session arms, then the first
-        // boundary check refuses — no copy is ever created.
-        fixture.bindingLive.set(false);
-        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
-
-        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(ProtectedExportOrchestrator.NOT_ADMITTED_KEY, report.failureKey());
-        assertFalse(report.published());
-        orchestrator.close();
-    }
-
-    @Test
-    void rejectsStaleHostGenerationMidRun() throws Exception {
-        final Fixture fixture = new Fixture();
-        // The host epoch advances while the copy binds; the next boundary must refuse.
-        fixture.host.generationBumpsOnBind = true;
-        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
-
-        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(ProtectedExportOrchestrator.NOT_ADMITTED_KEY, report.failureKey());
-        assertFalse(report.published());
-        orchestrator.close();
-    }
-
-    @Test
-    void rejectsWhenPluginBindingDiesMidRun() throws Exception {
-        final Fixture fixture = new Fixture();
-        // The binding check runs at every mutation boundary; flip it once bound.
-        fixture.host.bindingDiesOnBind = true;
-        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
-
-        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(ProtectedExportOrchestrator.NOT_ADMITTED_KEY, report.failureKey());
-        assertFalse(report.published());
-        orchestrator.close();
+    @ParameterizedTest
+    @ValueSource(strings = {"bindingUnavailable", "staleGeneration", "bindingDies"})
+    void rejectsWhenPluginBindingOrHostGenerationFailsMidRun(final String failureKind) throws Exception {
+        final ExportExecution exec = runExport(fixture -> {
+            if ("bindingUnavailable".equals(failureKind)) fixture.bindingLive.set(false);
+            else if ("staleGeneration".equals(failureKind)) fixture.host.generationBumpsOnBind = true;
+            else if ("bindingDies".equals(failureKind)) fixture.host.bindingDiesOnBind = true;
+        });
+        assertEquals(ProtectedExportOrchestrator.NOT_ADMITTED_KEY, exec.report.failureKey());
+        assertFalse(exec.report.published());
     }
 
     @Test
@@ -410,57 +377,26 @@ class ProtectedExportOrchestratorTest {
     // Copy binding and flattening
     // ------------------------------------------------------------------
 
-    @Test
-    void rejectsWhenCopyNeverBinds() throws Exception {
-        final Fixture fixture = new Fixture();
-        fixture.host.bindCopyDoc = false;
-        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
-
-        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(ProtectedExportOrchestrator.BIND_FAILED_KEY, report.failureKey());
-        assertFalse(report.published());
-        orchestrator.close();
+    @ParameterizedTest
+    @ValueSource(strings = {"neverBinds", "docChanges"})
+    void rejectsWhenCopyFailsToBind(final String scenario) throws Exception {
+        final ExportExecution exec = runExport(fixture -> {
+            if ("neverBinds".equals(scenario)) fixture.host.bindCopyDoc = false;
+            else if ("docChanges".equals(scenario)) fixture.host.originalRemovedOnBind = true;
+        });
+        assertEquals(ProtectedExportOrchestrator.BIND_FAILED_KEY, exec.report.failureKey());
+        assertFalse(exec.report.published());
     }
 
-    @Test
-    void rejectsWhenDocumentChangesBeforePreflight() throws Exception {
-        final Fixture fixture = new Fixture();
-        // The original leaves the project while the copy binds.
-        fixture.host.originalRemovedOnBind = true;
-        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
-
-        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(ProtectedExportOrchestrator.BIND_FAILED_KEY, report.failureKey());
-        assertFalse(report.published());
-        orchestrator.close();
-    }
-
-    @Test
-    void rejectsWhenDeformerDisappearsBeforeApply() throws Exception {
-        final Fixture fixture = new Fixture();
-        fixture.host.vanishDeformerAfterBindCensus = true;
-        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
-
-        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(ProtectedExportOrchestrator.FLATTEN_FAILED_KEY, report.failureKey());
-        assertFalse(report.published());
-        orchestrator.close();
-    }
-
-    @Test
-    void rejectsWhenDeformerSurvivesApply() throws Exception {
-        final Fixture fixture = new Fixture();
-        fixture.host.applyRemovesDeformer = false;
-        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
-
-        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(ProtectedExportOrchestrator.FLATTEN_FAILED_KEY, report.failureKey());
-        assertFalse(report.published());
-        orchestrator.close();
+    @ParameterizedTest
+    @ValueSource(strings = {"vanishes", "survives"})
+    void rejectsWhenDeformerMutationFailsBeforeOrAfterApply(final String scenario) throws Exception {
+        final ExportExecution exec = runExport(fixture -> {
+            if ("vanishes".equals(scenario)) fixture.host.vanishDeformerAfterBindCensus = true;
+            else if ("survives".equals(scenario)) fixture.host.applyRemovesDeformer = false;
+        });
+        assertEquals(ProtectedExportOrchestrator.FLATTEN_FAILED_KEY, exec.report.failureKey());
+        assertFalse(exec.report.published());
     }
 
     @Test
@@ -757,43 +693,24 @@ class ProtectedExportOrchestratorTest {
         orchestrator.close();
     }
 
-    @Test
-    void rejectsWhenStagedPhysicsIdsDiverge() throws Exception {
-        final Fixture fixture = new Fixture();
-        // The exporter silently drops one physics setting: the staged
-        // physics3.json no longer matches the census set — reject.
-        fixture.host.original.model.physicsSettings.add(physicsSetting("phys-1-guid", "hairPhys", "hair"));
-        fixture.host.original.model.physicsSettings.add(physicsSetting("phys-2-guid", "skirtPhys", "skirt"));
-        fixture.host.exportDropsPhysicsSetting = true;
-        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
-
-        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertNotNull(report.failureKey());
+    @ParameterizedTest
+    @ValueSource(strings = {"physics3-ids", "physics3-content"})
+    void rejectsWhenStagedPhysicsDiverges(final String divergenceType) throws Exception {
+        final boolean isIds = "physics3-ids".equals(divergenceType);
+        final ExportExecution exec = runExport(fixture -> {
+            fixture.host.original.model.physicsSettings.add(physicsSetting("phys-1-guid", "hairPhys", "hair"));
+            if (isIds) {
+                fixture.host.original.model.physicsSettings.add(physicsSetting("phys-2-guid", "skirtPhys", "skirt"));
+                fixture.host.exportDropsPhysicsSetting = true;
+            } else {
+                fixture.host.exportMutatesPhysicsContent = true;
+            }
+        });
+        assertNotNull(exec.report.failureKey());
         assertTrue(
-                report.failureKey().contains("physics3-ids"),
-                "expected physics3-ids rejection, got " + report.failureKey());
-        assertFalse(report.published());
-        orchestrator.close();
-    }
-
-    @Test
-    void rejectsWhenStagedPhysicsContentDrifts() throws Exception {
-        final Fixture fixture = new Fixture();
-        // A staged physics3.json whose serialized values no longer match the
-        // pinned census signature is a content rejection, not publishable.
-        fixture.host.original.model.physicsSettings.add(physicsSetting("phys-1-guid", "hairPhys", "hair"));
-        fixture.host.exportMutatesPhysicsContent = true;
-        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
-
-        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertNotNull(report.failureKey());
-        assertTrue(
-                report.failureKey().contains("physics3-content"),
-                "expected physics3-content rejection, got " + report.failureKey());
-        assertFalse(report.published());
-        orchestrator.close();
+                exec.report.failureKey().contains(divergenceType),
+                "expected " + divergenceType + " rejection, got " + exec.report.failureKey());
+        assertFalse(exec.report.published());
     }
 
     @Test
@@ -922,30 +839,15 @@ class ProtectedExportOrchestratorTest {
         orchestrator.close();
     }
 
-    @Test
-    void rejectsWhenWorkerWritesNothingToStaging() throws Exception {
-        final Fixture fixture = new Fixture();
-        fixture.host.exportWritesFiles = false;
-        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
-
-        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertTrue(report.failureKey().startsWith(ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
-        assertFalse(report.published());
-        orchestrator.close();
-    }
-
-    @Test
-    void rejectsWhenStagedMocFailsToLoad() throws Exception {
-        final Fixture fixture = new Fixture();
-        fixture.mocLoads = false;
-        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
-
-        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertTrue(report.failureKey().startsWith(ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
-        assertFalse(report.published());
-        orchestrator.close();
+    @ParameterizedTest
+    @ValueSource(strings = {"writesNothing", "failsToLoad"})
+    void rejectsWhenWorkerFailsValidation(final String failureKind) throws Exception {
+        final ExportExecution exec = runExport(fixture -> {
+            if ("writesNothing".equals(failureKind)) fixture.host.exportWritesFiles = false;
+            else if ("failsToLoad".equals(failureKind)) fixture.mocLoads = false;
+        });
+        assertTrue(exec.report.failureKey().startsWith(ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
+        assertFalse(exec.report.published());
     }
 
     @Test
@@ -1252,69 +1154,22 @@ class ProtectedExportOrchestratorTest {
         orchestrator.close();
     }
 
-    @Test
-    void refusesPublishWhenPluginUnloadedDuringNativeExport() throws Exception {
-        final Fixture fixture = new Fixture();
-        // The plugin binding dies while the native modal flow runs — the
-        // completion already fired, so this is exactly the probe scenario.
-        fixture.host.revokeBindingOnNativeExport = true;
-        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
-
-        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(ProtectedExportOrchestrator.REVOKED_KEY, report.failureKey());
-        assertFalse(report.published());
-        assertTrue(
-                fixture.destinationFiles().isEmpty(),
-                "revoked session must not publish: " + fixture.destinationFiles());
-        assertTrue(report.originalRestored());
-        assertTrue(report.cleanedUp(), "cleanup errors: " + report.cleanupErrors());
-        orchestrator.close();
-    }
-
-    @Test
-    void refusesPublishWhenHostGenerationChangesDuringNativeExport() throws Exception {
-        final Fixture fixture = new Fixture();
-        fixture.host.bumpGenerationOnNativeExport = true;
-        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
-
-        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(ProtectedExportOrchestrator.REVOKED_KEY, report.failureKey());
-        assertFalse(report.published());
-        assertTrue(fixture.destinationFiles().isEmpty());
-        orchestrator.close();
-    }
-
-    @Test
-    void refusesPublishWhenOriginalDocumentClosesDuringNativeExport() throws Exception {
-        final Fixture fixture = new Fixture();
-        fixture.host.removeOriginalOnNativeExport = true;
-        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
-
-        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(ProtectedExportOrchestrator.REVOKED_KEY, report.failureKey());
-        assertFalse(report.published());
-        assertTrue(fixture.destinationFiles().isEmpty());
-        // Teardown reopens the original file — restoration still proves out.
-        assertTrue(report.originalRestored());
-        assertTrue(report.cleanedUp(), "cleanup errors: " + report.cleanupErrors());
-        orchestrator.close();
-    }
-
-    @Test
-    void refusesPublishWhenCopyDocumentClosesDuringNativeExport() throws Exception {
-        final Fixture fixture = new Fixture();
-        fixture.host.removeCopyOnNativeExport = true;
-        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
-        assertTrue(orchestrator.requestExport(fixture.outerDialog));
-
-        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(ProtectedExportOrchestrator.REVOKED_KEY, report.failureKey());
-        assertFalse(report.published());
-        assertTrue(fixture.destinationFiles().isEmpty());
-        orchestrator.close();
+    @ParameterizedTest
+    @ValueSource(strings = {"pluginUnloaded", "generationChanged", "originalClosed", "copyClosed"})
+    void refusesPublishWhenSessionRevokedDuringNativeExport(final String revocationCause) throws Exception {
+        final ExportExecution exec = runExport(fixture -> {
+            if ("pluginUnloaded".equals(revocationCause)) fixture.host.revokeBindingOnNativeExport = true;
+            else if ("generationChanged".equals(revocationCause)) fixture.host.bumpGenerationOnNativeExport = true;
+            else if ("originalClosed".equals(revocationCause)) fixture.host.removeOriginalOnNativeExport = true;
+            else if ("copyClosed".equals(revocationCause)) fixture.host.removeCopyOnNativeExport = true;
+        });
+        assertEquals(ProtectedExportOrchestrator.REVOKED_KEY, exec.report.failureKey());
+        assertFalse(exec.report.published());
+        assertTrue(exec.fixture.destinationFiles().isEmpty());
+        if ("pluginUnloaded".equals(revocationCause) || "originalClosed".equals(revocationCause)) {
+            assertTrue(exec.report.originalRestored());
+            assertTrue(exec.report.cleanedUp(), "cleanup errors: " + exec.report.cleanupErrors());
+        }
     }
 
     @Test
