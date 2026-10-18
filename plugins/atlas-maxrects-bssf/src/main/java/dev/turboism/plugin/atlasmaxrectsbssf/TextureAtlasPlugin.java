@@ -8,9 +8,10 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlanner;
-import dev.turboism.sdk.plugin.AbstractTurboismPlugin;
 import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.sdk.plugin.TurboismPlugin;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Registers the MaxRects-BSSF packing algorithm with the runtime-owned texture-atlas
@@ -18,11 +19,12 @@ import java.util.List;
  * entry, and plan application; this plugin only contributes planners and its own
  * layout-mode configuration.
  */
-public final class TextureAtlasPlugin extends AbstractTurboismPlugin {
+public final class TextureAtlasPlugin implements TurboismPlugin {
 
     static final String ALGORITHM_MAXRECTS = "maxrects";
     static final String ALGORITHM_NATIVE = "native";
 
+    private PluginContext context;
     private boolean enabled;
     private final TextureAtlasSettingsBinding settings;
 
@@ -36,13 +38,7 @@ public final class TextureAtlasPlugin extends AbstractTurboismPlugin {
 
     @Override
     public void init(final PluginContext context) {
-        try {
-            super.init(context);
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Texture Atlas plugin initialization failed", e);
-        }
+        this.context = Objects.requireNonNull(context, "context");
         if (!settings.init(context.config()).toCompletableFuture().join()) {
             throw new IllegalStateException("Texture Atlas configuration schema registration failed.");
         }
@@ -51,13 +47,7 @@ public final class TextureAtlasPlugin extends AbstractTurboismPlugin {
 
     @Override
     public void enable() {
-        try {
-            super.enable();
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Texture Atlas plugin must be initialized before enable.", e);
-        }
+        requireContext();
         if (!settings.enable().toCompletableFuture().join()) {
             throw new IllegalStateException("Texture Atlas configuration could not be loaded.");
         }
@@ -72,13 +62,13 @@ public final class TextureAtlasPlugin extends AbstractTurboismPlugin {
     private void registerAlgorithms() {
         try {
             final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry registry =
-                    context().cubism().textureAtlasAlgorithms();
+                    context.cubism().textureAtlasAlgorithms();
             // The facade binds the registration to this plugin's disposable scope and
             // waits for in-flight dispatches during teardown, so no explicit scope tie
             // (or close) is required here.
             registry.register(new TextureAtlasLayoutAlgorithm(
                     ALGORITHM_MAXRECTS,
-                    context().localization().text("texture-atlas.algorithm.maxrects"),
+                    context.localization().text("texture-atlas.algorithm.maxrects"),
                     true,
                     new TextureAtlasLayoutPlanner() {
                         @Override
@@ -105,7 +95,7 @@ public final class TextureAtlasPlugin extends AbstractTurboismPlugin {
         } catch (ThreadDeath | VirtualMachineError fatal) {
             throw fatal;
         } catch (Throwable failure) {
-            context().logger().warn("Texture Atlas algorithm registration failed safely: " + failure);
+            context.logger().warn("Texture Atlas algorithm registration failed safely: " + failure);
         }
     }
 
@@ -122,15 +112,14 @@ public final class TextureAtlasPlugin extends AbstractTurboismPlugin {
             return;
         }
         try {
-            final var registry = context().cubism().textureAtlasAlgorithms();
+            final var registry = context.cubism().textureAtlasAlgorithms();
             if (registry.selectIfUnset(legacy)) {
-                context()
-                        .logger()
+                context.logger()
                         .info("Texture Atlas migrated the persisted layout selection to runtime state: "
                                 + legacy.algorithmId());
             }
         } catch (RuntimeException failure) {
-            context().logger().warn("Texture Atlas legacy selection migration skipped safely: " + failure);
+            context.logger().warn("Texture Atlas legacy selection migration skipped safely: " + failure);
         }
     }
 
@@ -140,7 +129,9 @@ public final class TextureAtlasPlugin extends AbstractTurboismPlugin {
      */
     private boolean parallelPreference() {
         try {
-            return context().cubism().textureAtlasAlgorithms().selection().parallel();
+            final PluginContext current = context;
+            return current != null
+                    && current.cubism().textureAtlasAlgorithms().selection().parallel();
         } catch (RuntimeException failure) {
             return false;
         }
@@ -150,26 +141,13 @@ public final class TextureAtlasPlugin extends AbstractTurboismPlugin {
     public void disable() {
         enabled = false;
         settings.disable();
-        try {
-            super.disable();
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Texture Atlas plugin disable failed", e);
-        }
     }
 
     @Override
     public void shutdown() {
         enabled = false;
         settings.shutdown();
-        try {
-            super.shutdown();
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Texture Atlas plugin shutdown failed", e);
-        }
+        context = null;
     }
 
     boolean isEnabled() {
@@ -186,7 +164,9 @@ public final class TextureAtlasPlugin extends AbstractTurboismPlugin {
         return settings.update(value).toCompletableFuture().join();
     }
 
-    private PluginContext requireContext() {
-        return context();
+    private void requireContext() {
+        if (context == null) {
+            throw new IllegalStateException("Texture Atlas plugin must be initialized before enable.");
+        }
     }
 }
