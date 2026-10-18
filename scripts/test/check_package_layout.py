@@ -6,6 +6,11 @@ import re
 import sys
 from pathlib import Path
 
+_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+from turboism_dev.paths import repo_root
+
 FORBIDDEN_DIRECTORIES = (
     "sdk/src/main/java/dev/turboism/sdk/cubism/callback",
     "sdk/src/main/java/dev/turboism/sdk/cubism/write",
@@ -62,7 +67,7 @@ LINE_COMMENT = re.compile(r"//[^\r\n]*")
 
 
 def main() -> int:
-    root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
+    root = repo_root(sys.argv[1] if len(sys.argv) > 1 else None)
     failures: list[str] = []
 
     for relative in FORBIDDEN_DIRECTORIES:

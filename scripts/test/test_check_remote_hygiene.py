@@ -19,8 +19,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import check_remote_hygiene as crh  # noqa: E402
+_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+import check_remote_hygiene as crh
 
 GIT = ["git"]
 CHECKER = [sys.executable, str(Path(crh.__file__))]

@@ -64,10 +64,14 @@ import re
 import sys
 from pathlib import Path
 
+from turboism_dev.json_io import read_json
+from turboism_dev.paths import repo_root
+from turboism_dev.versions import cubism_version_key
+
 GENERATOR_VERSION = 1
 MATRIX_FORMAT = "turboism.compatibility-matrix/v1"
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = repo_root()
 
 VERIFICATION_DIR = Path("compatibility/cubism/verification")
 FAMILIES_DIR = Path("scripts/verification-sources/families")
@@ -1372,9 +1376,8 @@ DEV_STRINGS = {
 }
 
 
-def version_key(version: str) -> tuple[int, int, int]:
-    major, minor, patch = version.split(".")
-    return int(major), int(minor), int(patch)
+def version_key(version: str) -> tuple[int, ...]:
+    return cubism_version_key(version)
 
 
 def sort_versions(versions) -> list[str]:
@@ -1430,7 +1433,7 @@ def load_families(root: Path) -> tuple[dict[str, list[str]], dict[str, str]]:
     families: dict[str, list[str]] = {}
     record_family: dict[str, str] = {}
     for path in sorted((root / FAMILIES_DIR).glob("*.json")):
-        doc = json.loads(path.read_text(encoding="utf-8"))
+        doc = read_json(path)
         family = doc.get("family")
         if not family or family == "compatibility-catalog":
             continue
@@ -1446,7 +1449,7 @@ def load_capabilities(root: Path) -> dict[str, dict]:
     caps: dict[str, dict] = {}
     _, record_family = load_families(root)
     for path in sorted((root / VERIFICATION_DIR).glob("*.json")):
-        doc = json.loads(path.read_text(encoding="utf-8"))
+        doc = read_json(path)
         version = doc.get("cubismVersion")
         status = doc.get("status")
         family = record_family.get(path.name)
@@ -1693,7 +1696,7 @@ def load_class_pins(root: Path) -> dict[str, dict]:
     pins_dir = root / CLASS_PINS_DIR
     if pins_dir.is_dir():
         for path in sorted(pins_dir.glob("*.json")):
-            doc = json.loads(path.read_text(encoding="utf-8"))
+            doc = read_json(path)
             versions = sorted(
                 (k for k in doc if VERSION_RE.match(k)), key=version_key
             )
@@ -1811,7 +1814,7 @@ def load_campaign(root: Path, reviewed: list[str]) -> dict[str, dict[str, dict]]
             return None
         return by_digits.get(re.sub(r"\D", "", str(raw)))
 
-    doc = json.loads(path.read_text(encoding="utf-8"))
+    doc = read_json(path)
     latest: dict[str, dict[str, dict]] = {}
     for job in doc.get("jobs", []):
         if job.get("status") != "FINAL":
@@ -1860,7 +1863,7 @@ def load_monotonicity_exceptions(root: Path) -> list[dict]:
     path = root / MONOTONICITY_EXCEPTIONS
     if not path.is_file():
         return []
-    doc = json.loads(path.read_text(encoding="utf-8"))
+    doc = read_json(path)
     entries = []
     for entry in doc.get("exceptions", []):
         entries.append(
@@ -1885,7 +1888,7 @@ def load_version_boundaries(root: Path) -> dict[str, set[str]]:
     path = root / VERSION_BOUNDARIES
     if not path.is_file():
         return {}
-    doc = json.loads(path.read_text(encoding="utf-8"))
+    doc = read_json(path)
     return {
         entry["id"]: set(entry.get("absentOn", []))
         for entry in doc.get("boundaries", [])
@@ -1897,7 +1900,7 @@ def _load_boundary_entries(root: Path) -> list[dict]:
     if not path.is_file():
         return []
     entries = []
-    for entry in json.loads(path.read_text(encoding="utf-8")).get(
+    for entry in read_json(path).get(
         "boundaries", []
     ):
         item = {
@@ -1916,7 +1919,7 @@ def load_official_timeline(root: Path) -> list[dict]:
     if not path.is_file():
         return []
     try:
-        doc = json.loads(path.read_text(encoding="utf-8"))
+        doc = read_json(path)
         return doc.get("features", [])
     except Exception:
         return []
