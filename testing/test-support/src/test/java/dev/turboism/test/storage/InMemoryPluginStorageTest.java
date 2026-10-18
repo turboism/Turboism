@@ -94,4 +94,17 @@ class InMemoryPluginStorageTest {
         assertTrue(delResult.changed());
         org.junit.jupiter.api.Assertions.assertNull(storage.content(src));
     }
+
+    @Test
+    void awaitedOperationImpliesItsEffectIsVisible() throws Exception {
+        for (int round = 0; round < 200; round++) {
+            final InMemoryPluginStorage fresh = new InMemoryPluginStorage();
+            final StoragePath path = new StoragePath(StorageRoot.DATA, "race.txt");
+            final Thread writer = new Thread(() -> fresh.writeUtf8Atomic(path, "done"));
+            writer.start();
+            fresh.awaitOperations(1);
+            assertEquals("done", fresh.content(path), "write must be visible once its operation is recorded");
+            writer.join();
+        }
+    }
 }

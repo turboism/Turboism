@@ -64,7 +64,7 @@ public class InMemoryPluginStorage implements PluginStorage {
         return seed(new StoragePath(StorageRoot.DATA, relativePath), content);
     }
 
-    public String content(final StoragePath path) {
+    public synchronized String content(final StoragePath path) {
         final byte[] bytes = findBytes(path);
         return bytes != null ? new String(bytes, StandardCharsets.UTF_8) : null;
     }
@@ -73,7 +73,7 @@ public class InMemoryPluginStorage implements PluginStorage {
         return content(new StoragePath(StorageRoot.DATA, relativePath));
     }
 
-    public byte[] bytes(final StoragePath path) {
+    public synchronized byte[] bytes(final StoragePath path) {
         final byte[] bytes = findBytes(path);
         return bytes != null ? bytes.clone() : null;
     }
@@ -125,7 +125,11 @@ public class InMemoryPluginStorage implements PluginStorage {
 
     public void awaitOperations(final int count) {
         Await.condition(
-                "storage operations reached " + count + "; saw " + operations.size(), () -> operations.size() >= count);
+                "storage operations reached " + count + "; saw " + operations.size(), () -> operationCount() >= count);
+    }
+
+    private synchronized int operationCount() {
+        return operations.size();
     }
 
     private byte[] findBytes(final StoragePath path) {
@@ -201,7 +205,8 @@ public class InMemoryPluginStorage implements PluginStorage {
     }
 
     @Override
-    public CompletionStage<StorageWriteResult> writeUtf8Atomic(final StoragePath path, final String content) {
+    public synchronized CompletionStage<StorageWriteResult> writeUtf8Atomic(
+            final StoragePath path, final String content) {
         lastWritePath = path;
         operations.add("writeUtf8:" + path.relativePath());
         if (failWrite) {
@@ -215,7 +220,8 @@ public class InMemoryPluginStorage implements PluginStorage {
     }
 
     @Override
-    public CompletionStage<StorageWriteResult> writeBytesAtomic(final StoragePath path, final byte[] content) {
+    public synchronized CompletionStage<StorageWriteResult> writeBytesAtomic(
+            final StoragePath path, final byte[] content) {
         lastWritePath = path;
         operations.add("writeBytes:" + path.relativePath());
         if (failWrite) {
@@ -249,7 +255,7 @@ public class InMemoryPluginStorage implements PluginStorage {
     }
 
     @Override
-    public CompletionStage<StorageMutationResult> copy(
+    public synchronized CompletionStage<StorageMutationResult> copy(
             final StoragePath source, final StoragePath target, final boolean replaceExisting) {
         operations.add("copy:" + source.relativePath() + "->" + target.relativePath());
         final byte[] src = findBytes(source);
@@ -267,7 +273,7 @@ public class InMemoryPluginStorage implements PluginStorage {
     }
 
     @Override
-    public CompletionStage<StorageMutationResult> moveAtomic(
+    public synchronized CompletionStage<StorageMutationResult> moveAtomic(
             final StoragePath source, final StoragePath target, final boolean replaceExisting) {
         operations.add("move:" + source.relativePath() + "->" + target.relativePath());
         if (source.root() != target.root()) {
@@ -292,7 +298,7 @@ public class InMemoryPluginStorage implements PluginStorage {
     }
 
     @Override
-    public CompletionStage<StorageMutationResult> delete(final StoragePath path, final boolean recursive) {
+    public synchronized CompletionStage<StorageMutationResult> delete(final StoragePath path, final boolean recursive) {
         operations.add("delete:" + path.relativePath());
         final byte[] removed = files.remove(path);
         boolean anyRemoved = removed != null;
