@@ -29,7 +29,9 @@ import stat
 import sys
 from typing import Any, Iterable
 
-import _bootstrap  # noqa: F401
+_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
 from turboism_dev.json_io import dump_json
 from turboism_dev.paths import repo_root as find_repo_root
 

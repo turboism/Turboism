@@ -44,12 +44,15 @@ import hashlib
 import json
 import pickle
 import re
+import sys
 import zipfile
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import _bootstrap  # noqa: F401
+_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
 from turboism_dev.json_io import write_json
 from turboism_dev.paths import repo_root
 from turboism_dev.versions import cubism_version_key
