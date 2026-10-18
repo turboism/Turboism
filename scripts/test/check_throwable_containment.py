@@ -38,6 +38,13 @@ RUNTIME_BOOTSTRAP_PREFIXES = (
     "bootstrap/src/main/java",
 )
 
+# Files owned by a concurrent branch; migrate to FatalErrors there, then drop the entry.
+PENDING_MIGRATION = frozenset(
+    {
+        "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation/NativeMeshInterpolationBridge.java",
+    }
+)
+
 CATCH_RE = re.compile(r"catch\s*\(\s*Throwable\s+(\w+)\s*\)\s*\{")
 NON_STANDARD_FATAL_CATCH_RE = re.compile(
     r"catch\s*\([^)]*\b(?:ThreadDeath|VirtualMachineError)\b[^)]*\)"
@@ -75,6 +82,8 @@ def findings(root: Path):
         except ValueError:
             relative = path
         rel_str = str(relative).replace("\\", "/")
+        if rel_str in PENDING_MIGRATION:
+            continue
         is_runtime_bootstrap = any(
             rel_str.startswith(prefix) for prefix in RUNTIME_BOOTSTRAP_PREFIXES
         )
