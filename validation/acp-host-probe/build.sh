@@ -21,6 +21,8 @@ trap 'rm -rf "$out"' EXIT
 
 helper_root="testing/integration-tests/src/test/java/dev/turboism/tests/plugin"
 javac --release 17 -cp "$sdk_jar" -d "$out" \
+  "$helper_root/WindowsProbeHarness.java" \
+  "$helper_root/WindowsHistoryManagerValidationProbe.java" \
   "$helper_root/WindowsHistoryNativeUiHostClose.java" \
   "$helper_root/McpValidationHostClose.java" \
   "$src/dev/turboism/validation/acp/AcpHostValidationPlugin.java"

@@ -21,6 +21,30 @@ import org.junit.jupiter.api.Test;
 final class AcpChatWindowTest {
 
     @Test
+    void sessionDatesUseLocalDateAndTimeAndHandleMissingMetadata() {
+        assertEquals(
+                "2026-08-25 18:00",
+                AcpChatWindow.sessionDateTime("2026-08-25T10:00:00Z", java.time.ZoneId.of("Asia/Shanghai")));
+        assertEquals("", AcpChatWindow.sessionDateTime("active", java.time.ZoneId.of("UTC")));
+        assertEquals("", AcpChatWindow.sessionDateTime("", java.time.ZoneId.of("UTC")));
+        assertEquals("invalid", AcpChatWindow.sessionDateTime("invalid", java.time.ZoneId.of("UTC")));
+    }
+
+    @Test
+    void sessionRendererKeepsTitleAndDateOnSeparateLinesAndDoesNotInterpretHtml() {
+        final AcpChatWindow.SessionRenderer renderer = new AcpChatWindow.SessionRenderer();
+        final javax.swing.JList<AcpChatWindow.SessionItem> list = new javax.swing.JList<>();
+        renderer.getListCellRendererComponent(
+                list, new AcpChatWindow.SessionItem("opaque", "<html>标题", "2026-08-25 18:00"), 0, true, false);
+        final javax.swing.JLabel title = (javax.swing.JLabel) renderer.getComponent(0);
+        final javax.swing.JLabel date = (javax.swing.JLabel) renderer.getComponent(1);
+        assertEquals("<html>标题", title.getText());
+        assertEquals(Boolean.TRUE, title.getClientProperty("html.disable"));
+        assertEquals("2026-08-25 18:00", date.getText());
+        assertEquals(list.getSelectionForeground(), title.getForeground());
+    }
+
+    @Test
     void enterSendsWhileShiftAndControlEnterInsertNewlines() {
         final JTextArea input = new JTextArea();
         final AtomicInteger submissions = new AtomicInteger();
