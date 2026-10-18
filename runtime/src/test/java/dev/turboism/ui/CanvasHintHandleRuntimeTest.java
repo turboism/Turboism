@@ -12,6 +12,8 @@ import dev.turboism.sdk.ui.CanvasHintHandle;
 import dev.turboism.sdk.ui.CanvasHintNotification;
 import dev.turboism.sdk.ui.CanvasHintPosition;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.test.concurrent.Await;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -156,15 +158,8 @@ class CanvasHintHandleRuntimeTest {
                 "the newest hint registration must be dismissed once the handle is closed");
     }
 
-    private static void awaitTrue(final java.util.function.BooleanSupplier condition, final String description)
-            throws InterruptedException {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-        while (!condition.getAsBoolean()) {
-            if (System.nanoTime() > deadline) {
-                throw new AssertionError("timed out waiting for: " + description);
-            }
-            Thread.sleep(1);
-        }
+    private static void awaitTrue(final java.util.function.BooleanSupplier condition, final String description) {
+        Await.condition("timed out waiting for: " + description, condition, Duration.ofSeconds(5));
     }
 
     private static RuntimeUiHostCapabilityService service(

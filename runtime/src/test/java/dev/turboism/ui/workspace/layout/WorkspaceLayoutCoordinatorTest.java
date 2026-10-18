@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutSnapshot;
+import dev.turboism.test.concurrent.Await;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -278,17 +280,14 @@ class WorkspaceLayoutCoordinatorTest {
     }
 
     private static void awaitState(
-            final AtomicReference<Thread> threadRef, final Thread.State expected, final String description)
-            throws InterruptedException {
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-        Thread thread = null;
-        while (thread == null || thread.getState() != expected) {
-            thread = threadRef.get();
-            if (System.nanoTime() > deadline) {
-                throw new AssertionError("timed out waiting for " + description);
-            }
-            Thread.sleep(5);
-        }
+            final AtomicReference<Thread> threadRef, final Thread.State expected, final String description) {
+        Await.condition(
+                description,
+                () -> {
+                    final Thread thread = threadRef.get();
+                    return thread != null && thread.getState() == expected;
+                },
+                Duration.ofSeconds(5));
     }
 
     private static final class ReentrantProvider implements WorkspaceLayoutHostProvider {

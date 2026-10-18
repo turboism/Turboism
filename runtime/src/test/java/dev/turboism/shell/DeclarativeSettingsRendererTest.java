@@ -17,6 +17,7 @@ import dev.turboism.sdk.ui.settings.SettingsContribution;
 import dev.turboism.sdk.ui.settings.SettingsControl;
 import dev.turboism.sdk.ui.settings.SettingsSnapshot;
 import dev.turboism.sdk.ui.settings.SettingsTab;
+import dev.turboism.test.concurrent.Await;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.GridBagConstraints;
@@ -536,22 +537,34 @@ class DeclarativeSettingsRendererTest {
                     throw new AssertionError(failure);
                 }
             });
-            final long windowDeadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(3);
-            final boolean[] windowFocused = {false};
-            while (!windowFocused[0] && System.nanoTime() < windowDeadline) {
-                SwingUtilities.invokeAndWait(() -> windowFocused[0] = dialog[0].isFocused());
-                if (!windowFocused[0]) Thread.sleep(20L);
-            }
+            Await.condition(
+                    "window activation must finish before testing control focus",
+                    () -> {
+                        final boolean[] focused = {false};
+                        try {
+                            SwingUtilities.invokeAndWait(() -> focused[0] = dialog[0].isFocused());
+                        } catch (Exception exception) {
+                            throw new RuntimeException(exception);
+                        }
+                        return focused[0];
+                    },
+                    java.time.Duration.ofSeconds(3));
             SwingUtilities.invokeAndWait(() -> {
                 assertTrue(dialog[0].isFocused(), "window activation must finish before testing control focus");
                 assertTrue(last[0].requestFocusInWindow());
             });
-            final long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(3);
-            final boolean[] focused = {false};
-            while (!focused[0] && System.nanoTime() < deadline) {
-                SwingUtilities.invokeAndWait(() -> focused[0] = last[0].isFocusOwner());
-                if (!focused[0]) Thread.sleep(20L);
-            }
+            Await.condition(
+                    "offscreen setting receives real focus",
+                    () -> {
+                        final boolean[] focused = {false};
+                        try {
+                            SwingUtilities.invokeAndWait(() -> focused[0] = last[0].isFocusOwner());
+                        } catch (Exception exception) {
+                            throw new RuntimeException(exception);
+                        }
+                        return focused[0];
+                    },
+                    java.time.Duration.ofSeconds(3));
             SwingUtilities.invokeAndWait(() -> {
                 assertTrue(last[0].isFocusOwner(), "offscreen setting receives real focus");
                 Rectangle bounds = SwingUtilities.convertRectangle(

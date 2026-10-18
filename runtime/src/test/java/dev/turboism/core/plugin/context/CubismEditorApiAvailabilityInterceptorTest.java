@@ -9,15 +9,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.CubismEditorApiUnavailableException;
+import dev.turboism.test.concurrent.Await;
 import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Proxy;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
@@ -441,12 +442,14 @@ class CubismEditorApiAvailabilityInterceptorTest {
         assertSame(live, interceptor.wrapForTesting(delegate, Example.class));
     }
 
-    private static void assertCollected(final List<WeakReference<?>> references) throws Exception {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-        while (references.stream().anyMatch(reference -> !reference.refersTo(null)) && System.nanoTime() < deadline) {
-            System.gc();
-            Thread.sleep(10);
-        }
+    private static void assertCollected(final List<WeakReference<?>> references) {
+        Await.condition(
+                "references collected",
+                () -> {
+                    System.gc();
+                    return references.stream().allMatch(reference -> reference.refersTo(null));
+                },
+                Duration.ofSeconds(5));
         assertTrue(
                 references.stream().allMatch(reference -> reference.refersTo(null)),
                 "the live interceptor must not retain discarded proxies or delegates");

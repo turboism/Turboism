@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.test.concurrent.Await;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -116,6 +117,7 @@ class LafReadinessRepairTest {
             final Future<Boolean> poll = workers.submit(() -> repair.waitForFlatLaf(5_000L));
             // While the EDT is held, an EDT-dispatched poll cannot observe the
             // installed look-and-feel; a direct UIManager read would return at once.
+            // Intentionally assert nothing happens: while EDT is held, poll cannot complete.
             Thread.sleep(400L);
             assertFalse(poll.isDone(), "readiness polling must run UIManager reads on the EDT");
             hold.release();
@@ -152,16 +154,12 @@ class LafReadinessRepairTest {
      * the readiness poll (TIMED_WAITING with {@code Thread.sleep} on the
      * {@code waitForFlatLaf} stack). No latency threshold is asserted.
      */
-    private static boolean awaitPollingSleep(final Thread worker, final long timeoutMillis)
-            throws InterruptedException {
-        final long deadline = System.currentTimeMillis() + timeoutMillis;
-        while (System.currentTimeMillis() < deadline) {
-            if (worker.getState() == Thread.State.TIMED_WAITING && isPollingSleep(worker.getStackTrace())) {
-                return true;
-            }
-            Thread.sleep(5L);
-        }
-        return false;
+    private static boolean awaitPollingSleep(final Thread worker, final long timeoutMillis) {
+        Await.condition(
+                "polling sleep observed",
+                () -> worker.getState() == Thread.State.TIMED_WAITING && isPollingSleep(worker.getStackTrace()),
+                java.time.Duration.ofMillis(timeoutMillis));
+        return true;
     }
 
     private static boolean isPollingSleep(final StackTraceElement[] stack) {

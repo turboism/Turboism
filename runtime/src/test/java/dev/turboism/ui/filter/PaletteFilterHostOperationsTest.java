@@ -6,12 +6,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
+import dev.turboism.test.concurrent.Await;
 import dev.turboism.ui.toolbar.PaletteToolbarContributionDescriptor;
 import dev.turboism.ui.toolbar.PaletteToolbarHostOperations;
 import java.awt.BorderLayout;
@@ -23,7 +23,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.JButton;
 import javax.swing.JComponent;
@@ -622,16 +621,18 @@ class PaletteFilterHostOperationsTest {
     }
 
     /** Polls while pumping the EDT (Swing timers and the prewarm apply run on it). */
-    private static void awaitUntil(final java.util.function.BooleanSupplier condition) throws Exception {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-        while (System.nanoTime() < deadline) {
-            SwingUtilities.invokeAndWait(() -> {});
-            if (condition.getAsBoolean()) {
-                return;
-            }
-            Thread.sleep(50);
-        }
-        fail("condition not met within 5s");
+    private static void awaitUntil(final java.util.function.BooleanSupplier condition) {
+        Await.condition(
+                "condition not met within 5s",
+                () -> {
+                    try {
+                        SwingUtilities.invokeAndWait(() -> {});
+                    } catch (Exception exception) {
+                        throw new RuntimeException(exception);
+                    }
+                    return condition.getAsBoolean();
+                },
+                java.time.Duration.ofSeconds(5));
     }
 
     @Test

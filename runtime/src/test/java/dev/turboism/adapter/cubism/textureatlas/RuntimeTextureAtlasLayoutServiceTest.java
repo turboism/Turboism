@@ -15,7 +15,9 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPlacement;
 import dev.turboism.sdk.permission.PluginPermission;
+import dev.turboism.test.concurrent.Await;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -266,7 +268,10 @@ class RuntimeTextureAtlasLayoutServiceTest {
         one.start();
         assertTrue(provider.entered.await(5, TimeUnit.SECONDS));
         two.start();
-        Thread.sleep(100);
+        Await.condition(
+                "thread two blocked waiting for coordinator lock",
+                () -> two.getState() == Thread.State.BLOCKED,
+                Duration.ofSeconds(5));
         assertEquals(1, provider.active.get());
         assertEquals(1, provider.maxActive.get());
         provider.release.countDown();

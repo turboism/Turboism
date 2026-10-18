@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.test.concurrent.Await;
 import java.awt.Color;
 import java.nio.file.Path;
 import java.util.concurrent.CountDownLatch;
@@ -56,6 +57,7 @@ class EarlyThemeAppearanceBootstrapTest {
             final Future<Boolean> poll = workers.submit(bootstrap::waitForFlatLaf);
             // While the EDT is held, an EDT-dispatched poll cannot observe the
             // installed look-and-feel; a direct UIManager read would return at once.
+            // Intentionally assert nothing happens: while EDT is held, poll cannot complete.
             Thread.sleep(400L);
             assertFalse(poll.isDone(), "look-and-feel polling must run UIManager reads on the EDT");
             hold.release();
@@ -70,6 +72,7 @@ class EarlyThemeAppearanceBootstrapTest {
         try (EdtHold hold = new EdtHold()) {
             final Future<?> capture =
                     workers.submit(() -> SwingFlatLafHostOperations.captureNativeOffCanvasBackground());
+            // Intentionally assert nothing happens: while EDT is held, capture cannot complete.
             Thread.sleep(400L);
             assertFalse(capture.isDone(), "off-canvas capture must run UIManager access on the EDT");
             hold.release();
@@ -136,16 +139,12 @@ class EarlyThemeAppearanceBootstrapTest {
      * the early-theme poll (TIMED_WAITING with {@code Thread.sleep} on the
      * {@code waitForFlatLaf} stack). No latency threshold is asserted.
      */
-    private static boolean awaitPollingSleep(final Thread worker, final long timeoutMillis)
-            throws InterruptedException {
-        final long deadline = System.currentTimeMillis() + timeoutMillis;
-        while (System.currentTimeMillis() < deadline) {
-            if (worker.getState() == Thread.State.TIMED_WAITING && isPollingSleep(worker.getStackTrace())) {
-                return true;
-            }
-            Thread.sleep(5L);
-        }
-        return false;
+    private static boolean awaitPollingSleep(final Thread worker, final long timeoutMillis) {
+        Await.condition(
+                "polling sleep observed",
+                () -> worker.getState() == Thread.State.TIMED_WAITING && isPollingSleep(worker.getStackTrace()),
+                java.time.Duration.ofMillis(timeoutMillis));
+        return true;
     }
 
     private static boolean isPollingSleep(final StackTraceElement[] stack) {

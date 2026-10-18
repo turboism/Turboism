@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.test.concurrent.Await;
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -213,15 +215,11 @@ class IdempotentRegistrationTest {
         }
     }
 
-    private static void awaitWaiting(final Thread thread) throws InterruptedException {
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-        while (System.nanoTime() < deadline) {
-            if (thread.getState() == Thread.State.WAITING || thread.getState() == Thread.State.TIMED_WAITING) {
-                return;
-            }
-            Thread.sleep(1);
-        }
-        fail("waiter did not wait");
+    private static void awaitWaiting(final Thread thread) {
+        Await.condition(
+                "waiter did not wait",
+                () -> thread.getState() == Thread.State.WAITING || thread.getState() == Thread.State.TIMED_WAITING,
+                Duration.ofSeconds(5));
     }
 
     private static void join(final Thread thread) {
