@@ -170,7 +170,8 @@ class ParameterLockPluginTest {
         // Switch to Model B: PARAM_ANGLE_X on Model B is NOT locked, mutation allowed!
         context.activeModel = modelB;
         plugin.onModelOpened(null);
-        Await.condition(() -> modelB.findParam("PARAM_BODY_ANGLE_Z").paletteEntry.currentAction != null);
+        Await.condition(() -> plugin.lockState().hasLoaded(modelB.id().value())
+                && modelB.findParam("PARAM_BODY_ANGLE_Z").paletteEntry.currentAction != null);
         assertEquals(75.0f, plugin.beforeSetParameterValue(paramB, 75.0f));
 
         // Verify Model A lock did not leak to Model B
@@ -206,7 +207,8 @@ class ParameterLockPluginTest {
         plugin.enable();
 
         // Wait for preload/storage load
-        Await.condition(() -> plugin.isParameterLocked(modelA.id().value(), "PARAM_ANGLE_X"));
+        Await.condition(() -> plugin.lockState().hasLoaded(modelA.id().value())
+                && plugin.isParameterLocked(modelA.id().value(), "PARAM_ANGLE_X"));
 
         // Active lock restored from storage, mutation blocked again!
         assertEquals(12.0f, plugin.beforeSetParameterValue(param, 88.0f));
@@ -227,7 +229,9 @@ class ParameterLockPluginTest {
             plugin2.enable();
 
             // Wait for async load
-            Await.condition(() -> plugin2.isParameterLocked(guid, "PARAM_ANGLE_X"));
+            Await.condition(() -> plugin2.lockState().hasLoaded(guid)
+                    && plugin2.isParameterLocked(guid, "PARAM_ANGLE_X")
+                    && plugin2.isParameterLocked(guid, "PARAM_ANGLE_Y"));
 
             assertTrue(plugin2.isParameterLocked(guid, "PARAM_ANGLE_X"));
             assertTrue(plugin2.isParameterLocked(guid, "PARAM_ANGLE_Y"));
@@ -251,7 +255,7 @@ class ParameterLockPluginTest {
         // Re-enable to trigger filtered preload
         plugin.disable();
         plugin.enable();
-        Await.condition(() -> plugin.isParameterLocked(guid, "PARAM_ANGLE_X"));
+        Await.condition(() -> plugin.lockState().hasLoaded(guid) && plugin.isParameterLocked(guid, "PARAM_ANGLE_X"));
 
         assertTrue(plugin.isParameterLocked(guid, "PARAM_ANGLE_X"));
         // PARAM_NONEXISTENT was filtered out and safely ignored
@@ -374,7 +378,7 @@ class ParameterLockPluginTest {
 
         // Trigger load
         plugin.onModelOpened(null);
-        Await.condition(() -> plugin.isParameterLocked(guid, "PARAM_B"));
+        Await.condition(() -> plugin.lockState().hasLoaded(guid) && plugin.isParameterLocked(guid, "PARAM_B"));
 
         // Now trigger save
         final ParameterLockData merged =
@@ -415,7 +419,7 @@ class ParameterLockPluginTest {
 
         // Now load finishes
         plugin.onModelOpened(null);
-        Await.condition(() -> plugin.isParameterLocked(guid, "PARAM_C"));
+        Await.condition(() -> plugin.lockState().hasLoaded(guid) && plugin.isParameterLocked(guid, "PARAM_C"));
 
         // PARAM_B must NOT be re-locked (tombstone preserved)! PARAM_C must be locked!
         assertFalse(plugin.isParameterLocked(guid, "PARAM_B"));
@@ -712,7 +716,12 @@ class ParameterLockPluginTest {
         final FakeParameter p1 = persistModel.findParam("PARAM_P1");
         final FakeParameter p2 = persistModel.findParam("PARAM_P2");
 
-        Await.condition(() -> plugin.isParameterLocked(guid, "PARAM_P1") && p1.paletteEntry.currentAction != null);
+        Await.condition(() -> plugin.isParameterLocked(guid, "PARAM_P1")
+                && p1.paletteEntry.currentAction != null
+                && p1.paletteEntry.currentAction.state() == PaletteRowAction.State.LOCKED
+                && p2.paletteEntry.currentAction != null
+                && group.paletteEntry.currentAction != null
+                && group.paletteEntry.currentAction.state() == PaletteRowAction.State.MIXED);
 
         assertTrue(plugin.isParameterLocked(guid, "PARAM_P1"));
         assertFalse(plugin.isParameterLocked(guid, "PARAM_P2"));
@@ -743,7 +752,7 @@ class ParameterLockPluginTest {
 
         // Re-enable restores decorations
         plugin.enable();
-        Await.condition(() -> paramX.paletteEntry.currentAction != null);
+        Await.condition(() -> paramX.paletteEntry.currentAction != null && !paramX.paletteEntry.closed);
         assertNotNull(paramX.paletteEntry.currentAction);
         assertFalse(paramX.paletteEntry.closed);
     }
@@ -757,7 +766,8 @@ class ParameterLockPluginTest {
         // Switch tab to Model B
         context.activeModel = modelB;
         plugin.checkActivation();
-        Await.condition(() -> modelB.findParam("PARAM_BODY_ANGLE_Z").paletteEntry.currentAction != null);
+        Await.condition(() -> modelB.findParam("PARAM_BODY_ANGLE_Z").paletteEntry.currentAction != null
+                && modelA.findParam("PARAM_ANGLE_X").paletteEntry.currentAction == null);
 
         // Model A's old decorations closed
         assertNull(modelA.findParam("PARAM_ANGLE_X").paletteEntry.currentAction);
@@ -767,7 +777,8 @@ class ParameterLockPluginTest {
         // Switch back to Model A
         context.activeModel = modelA;
         plugin.checkActivation();
-        Await.condition(() -> modelA.findParam("PARAM_ANGLE_X").paletteEntry.currentAction != null);
+        Await.condition(() -> modelA.findParam("PARAM_ANGLE_X").paletteEntry.currentAction != null
+                && modelB.findParam("PARAM_BODY_ANGLE_Z").paletteEntry.currentAction == null);
 
         assertNull(modelB.findParam("PARAM_BODY_ANGLE_Z").paletteEntry.currentAction);
         assertNotNull(modelA.findParam("PARAM_ANGLE_X").paletteEntry.currentAction);
@@ -809,7 +820,8 @@ class ParameterLockPluginTest {
                 Optional.empty());
         context.activeModel = copy2;
         plugin.checkActivation();
-        Await.condition(() -> copy2.findParam("PARAM_X").paletteEntry.currentAction != null);
+        Await.condition(() -> copy2.findParam("PARAM_X").paletteEntry.currentAction != null
+                && copy1.findParam("PARAM_X").paletteEntry.currentAction == null);
 
         assertNull(copy1.findParam("PARAM_X").paletteEntry.currentAction);
         assertNotNull(copy2.findParam("PARAM_X").paletteEntry.currentAction);
