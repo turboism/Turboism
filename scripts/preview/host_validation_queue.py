@@ -15,18 +15,13 @@ from pathlib import Path
 import pwd
 import sqlite3
 import stat
-import sys
 import time
 from typing import Any, Iterator
 import uuid
-
-_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
-if _SCRIPTS_DIR not in sys.path:
-    sys.path.insert(0, _SCRIPTS_DIR)
-from turboism_dev.json_io import read_json
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import multiprocessing
 import select
@@ -1072,7 +1067,8 @@ def task_resources(task_spec: str) -> list[str] | None:
     not a catalogue task (fail-closed serial scheduling)."""
     name = task_spec.split(":", 1)[0].split("@", 1)[0]
     try:
-        data = read_json(Path(__file__).resolve().with_name("host-validation-tasks.json"))
+        data = json.loads((Path(__file__).resolve().with_name("host-validation-tasks.json"))
+                          .read_text(encoding="utf-8"))
         resources = data["tasks"][name]["resources"]
     except (OSError, ValueError, KeyError, TypeError):
         return None

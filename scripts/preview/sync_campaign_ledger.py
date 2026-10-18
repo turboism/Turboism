@@ -22,16 +22,10 @@ import sys
 import tempfile
 from typing import Any
 
-_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
-if _SCRIPTS_DIR not in sys.path:
-    sys.path.insert(0, _SCRIPTS_DIR)
-from turboism_dev.json_io import dump_json, read_json
-from turboism_dev.paths import repo_root
-
 import host_validation_queue as queue
 import host_validation_triage as triage
 
-LEDGER = repo_root() / "validation" / "cubism-version-matrix" / "campaign-jobs.json"
+LEDGER = Path(__file__).resolve().parents[2] / "validation" / "cubism-version-matrix" / "campaign-jobs.json"
 SCOPE = "cov3 queue-synced terminal evidence"
 FINAL_STATES = frozenset({"succeeded", "failed", "timed_out", "blocked"})
 
@@ -42,8 +36,8 @@ class LedgerError(RuntimeError):
 
 def load_ledger(path: Path) -> dict[str, Any]:
     try:
-        data = read_json(path)
-    except (OSError, Exception) as failure:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as failure:
         raise LedgerError(f"cannot read ledger {path}: {failure}") from failure
     if not isinstance(data.get("jobs"), list):
         raise LedgerError(f"ledger {path} has no jobs array")
@@ -51,7 +45,7 @@ def load_ledger(path: Path) -> dict[str, Any]:
 
 
 def write_ledger(path: Path, data: dict[str, Any]) -> None:
-    text = dump_json(data, indent=1, ensure_ascii=False)
+    text = json.dumps(data, indent=1, ensure_ascii=False) + "\n"
     with tempfile.NamedTemporaryFile("w", dir=path.parent, delete=False,
                                      encoding="utf-8") as stream:
         stream.write(text)

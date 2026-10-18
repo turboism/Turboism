@@ -51,12 +51,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
-if _SCRIPTS_DIR not in sys.path:
-    sys.path.insert(0, _SCRIPTS_DIR)
-from turboism_dev.paths import repo_root
-
-ROOT = repo_root()
+ROOT = Path(__file__).resolve().parents[2]
 VERIFICATION_DIR = ROOT / "compatibility" / "cubism" / "verification"
 CLUSTERS_PATH = ROOT / "compatibility" / "cubism" / "clusters.json"
 CAMPAIGN_JOBS_PATH = ROOT / "validation" / "cubism-version-matrix" / "campaign-jobs.json"
