@@ -15,19 +15,11 @@ import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.failure.RuntimeFailureSink;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
-import dev.turboism.recentfile.RuntimeRecentFileService;
-import dev.turboism.recentpreview.RuntimeRecentPreviewContributionService;
-import dev.turboism.screenshot.RuntimeScreenshotCaptureService;
-import dev.turboism.sdk.action.ActionCatalogService;
 import dev.turboism.sdk.action.ActionRegistry;
-import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 import dev.turboism.sdk.cubism.mesh.MeshToolRegistry;
-import dev.turboism.sdk.cubism.recentfile.RecentFileService;
-import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
-import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
@@ -48,21 +40,14 @@ import dev.turboism.sdk.plugin.PluginServiceDirectory;
 import dev.turboism.sdk.script.ScriptService;
 import dev.turboism.sdk.storage.PluginStorage;
 import dev.turboism.sdk.task.PluginTaskScheduler;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
-import dev.turboism.sdk.ui.resource.UiResourceService;
-import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
-import dev.turboism.ui.RuntimeUiHostCapabilityService;
 import dev.turboism.ui.UiHostStateSource;
-import dev.turboism.ui.action.RuntimeActionCatalogService;
-import dev.turboism.ui.appearance.RuntimeAppearanceService;
 import dev.turboism.ui.context.RuntimeContextMenuRegistry;
-import dev.turboism.ui.dialog.RuntimeHostDialogAutomationService;
 import dev.turboism.ui.filter.RuntimePaletteFilterRegistry;
 import dev.turboism.ui.menu.RuntimeMenuRegistry;
 import dev.turboism.ui.toolbar.RuntimeMainToolbarRegistry;
@@ -84,15 +69,8 @@ public final class CorePluginContext implements PluginContext {
 
     private final Dependencies dependencies;
     private final CubismContextServices cubismServices;
-    private final MainToolbarRegistry mainToolbarRegistry;
-    private final PaletteToolbarRegistry paletteToolbarRegistry;
-    private final PaletteFilterRegistry paletteFilterRegistry;
-    private final ContextMenuRegistry contextMenuRegistry;
     private final PluginConfigRegistry pluginConfigRegistry;
-    private final UiHostCapabilityService uiHostCapabilityService;
-    private final UiResourceService uiResourceService;
-    private final dev.turboism.sdk.ui.dialog.HostDialogAutomationService hostDialogAutomationService;
-    private final AppearanceService appearanceService;
+    private final UiCapabilityBundle uiCapabilities;
     private final PluginLocalization localization;
     private final PluginTaskScheduler taskScheduler;
     private final PluginStorage pluginStorage;
@@ -103,17 +81,10 @@ public final class CorePluginContext implements PluginContext {
     private final UserFileAccessService userFileAccessService;
     private final AsyncHostReadService asyncHostReadService;
     private final MeshCapabilityBundle meshCapabilities;
-    private final dev.turboism.sdk.ui.workspace.WorkspaceService workspaceService;
-    private final dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService workspaceLayoutService;
     private final dev.turboism.adapter.cubism.backup.AutoBackupCoordinator backupCoordinator;
     private final CubismEditorApiAvailabilityInterceptor editorApiAvailability;
 
-    private final SceneTableService sceneTableService;
     private final dev.turboism.sdk.runtime.CubismLogService cubismLogService;
-    private final ActionCatalogService actionCatalogService;
-    private final RecentFileService recentFileService;
-    private final ScreenshotCaptureService screenshotCaptureService;
-    private final RecentPreviewContributionService recentPreviewContributionService;
     private dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
 
     private volatile dev.turboism.sdk.performance.PerformanceProbeService performanceStatsService;
@@ -404,7 +375,6 @@ public final class CorePluginContext implements PluginContext {
                                 : HostSessionSnapshotSource.forSession(
                                         hostAccess.adapters().projectWorkspace(), hostAccess::currentHostSelection));
         final RuntimeHostAdapters adapters = env.hostAdapters();
-        this.uiResourceService = adapters.uiResources();
         final CubismServicesFactory servicesFactory = env.servicesFactory();
         this.editorApiAvailability = new CubismEditorApiAvailabilityInterceptor(
                 servicesFactory instanceof DefaultCubismServicesFactory defaultFactory
@@ -425,134 +395,17 @@ public final class CorePluginContext implements PluginContext {
                         instanceof dev.turboism.adapter.cubism.backup.AutoBackupCoordinator coordinator
                 ? coordinator
                 : null;
-        this.mainToolbarRegistry = this.dependencies.mainToolbar();
-        this.paletteToolbarRegistry = this.dependencies.paletteToolbar();
-        this.paletteFilterRegistry = this.dependencies.paletteFilter();
-        this.contextMenuRegistry = this.dependencies.contextMenu();
         this.pluginConfigRegistry = this.dependencies.config();
         this.localization = env.localization();
-        bindContributionLocalization(
-                this.mainToolbarRegistry, this.paletteToolbarRegistry, this.paletteFilterRegistry, this.localization);
         this.taskScheduler = env.taskScheduler();
         this.pluginStorage = env.pluginStorage();
         this.userFileAccessService = env.userFileAccessService();
         this.asyncHostReadService = env.asyncHostReadService();
         this.meshCapabilities = MeshCapabilityBundle.create(hostAccess, this.dependencies);
-        this.sceneTableService = hostAccess == null ? SceneTableService.unavailable() : hostAccess.sceneTable();
+        this.uiCapabilities = UiCapabilityBundle.create(
+                hostAccess, adapters, this.dependencies, this.localization, this.editorApiAvailability);
         this.cubismLogService =
                 hostAccess == null ? dev.turboism.sdk.runtime.CubismLogService.unavailable() : hostAccess.cubismLog();
-        if (hostAccess == null) {
-            this.appearanceService = AppearanceService.unavailable();
-        } else {
-            final String pluginId = this.dependencies.descriptor().id();
-            final long pluginGeneration = 0L;
-            final RuntimeAppearanceService appearance = new RuntimeAppearanceService(
-                    pluginId,
-                    pluginGeneration,
-                    PermissionChecker.from(new CubismPermissionGate(
-                            pluginId,
-                            this.dependencies.permissions(),
-                            this.dependencies.cubismAuditSink(),
-                            this.dependencies.clock())),
-                    hostAccess.appearanceCoordinator());
-            this.appearanceService = appearance;
-            this.dependencies
-                    .disposableScope()
-                    .register(() -> hostAccess.appearanceCoordinator().restore(pluginId, pluginGeneration));
-        }
-        final PermissionChecker uiPermissionChecker = PermissionChecker.from(new CubismPermissionGate(
-                this.dependencies.descriptor().id(),
-                this.dependencies.permissions(),
-                this.dependencies.cubismAuditSink(),
-                this.dependencies.clock()));
-        this.recentFileService = hostAccess == null
-                ? RecentFileService.unavailable()
-                : new RuntimeRecentFileService(adapters.recentFiles(), uiPermissionChecker);
-        this.screenshotCaptureService = hostAccess == null
-                ? ScreenshotCaptureService.unavailable()
-                : new RuntimeScreenshotCaptureService(adapters.screenshots(), uiPermissionChecker);
-        this.recentPreviewContributionService = hostAccess == null
-                ? RecentPreviewContributionService.unavailable()
-                : new RuntimeRecentPreviewContributionService(adapters.recentPreviews(), uiPermissionChecker);
-        this.hostDialogAutomationService = new RuntimeHostDialogAutomationService(uiPermissionChecker);
-        final dev.turboism.sdk.ui.workspace.WorkspaceService workspace = hostAccess == null
-                ? dev.turboism.sdk.ui.workspace.WorkspaceService.unavailable()
-                : new dev.turboism.ui.workspace.RuntimeWorkspaceService(
-                        uiPermissionChecker, hostAccess.workspaceCoordinator());
-        this.workspaceService =
-                editorApiAvailability.wrapForTesting(workspace, dev.turboism.sdk.ui.workspace.WorkspaceService.class);
-        if (workspace instanceof dev.turboism.ui.workspace.RuntimeWorkspaceService runtimeWorkspace) {
-            this.dependencies.disposableScope().register(runtimeWorkspace);
-        }
-        final dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator layoutCoordinator =
-                hostAccess == null ? null : hostAccess.workspaceLayoutCoordinator();
-        this.workspaceLayoutService = hostAccess == null || layoutCoordinator == null
-                ? dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService.unavailable()
-                : new dev.turboism.ui.workspace.layout.RuntimeWorkspaceLayoutService(
-                        uiPermissionChecker, layoutCoordinator);
-        if (layoutCoordinator != null) {
-            this.dependencies
-                    .disposableScope()
-                    .register((dev.turboism.ui.workspace.layout.RuntimeWorkspaceLayoutService)
-                            this.workspaceLayoutService);
-        }
-        this.uiHostCapabilityService = hostAccess == null
-                ? new RuntimeUiHostCapabilityService(
-                        uiPermissionChecker,
-                        this.dependencies.descriptor().id(),
-                        this.dependencies.uiHostStateSource(),
-                        this.dependencies.disposableScope(),
-                        adapters.statusToolbar(),
-                        adapters.uiSurface(),
-                        this.localization,
-                        dev.turboism.ui.settings.ProcessSettingsContributions.forHost(hostAccess),
-                        this.dependencies.logger())
-                : new RuntimeUiHostCapabilityService(
-                        uiPermissionChecker,
-                        this.dependencies.descriptor().id(),
-                        this.dependencies.uiHostStateSource(),
-                        this.dependencies.disposableScope(),
-                        adapters.statusToolbar(),
-                        adapters.uiSurface(),
-                        this.localization,
-                        dev.turboism.ui.settings.ProcessSettingsContributions.forHost(hostAccess),
-                        hostAccess.editorUiContributions(),
-                        hostAccess.embeddedPanelActivation(),
-                        (contributionId, callback) -> this.dependencies
-                                .runtimeScheduler()
-                                .dispatch(
-                                        new dev.turboism.core.runtime.PluginTask(
-                                                "ui.overlay-button.click",
-                                                this.dependencies.descriptor().id(),
-                                                contributionId,
-                                                "none"),
-                                        callback),
-                        this.dependencies.logger());
-        if (hostAccess != null) {
-            UiContributionContextBinder.bind(
-                    this.dependencies.menus(),
-                    this.mainToolbarRegistry,
-                    this.paletteToolbarRegistry,
-                    this.paletteFilterRegistry,
-                    this.contextMenuRegistry,
-                    hostAccess.editorUiContributions());
-            this.dependencies
-                    .disposableScope()
-                    .register(hostAccess
-                            .editorUiActionRouter()
-                            .register(this.dependencies.descriptor().id(), this.dependencies.actions()));
-        }
-        this.actionCatalogService = hostAccess == null
-                ? ActionCatalogService.unavailable()
-                : new RuntimeActionCatalogService(
-                        this.dependencies.descriptor().id(),
-                        hostAccess.editorUiActionRouter(),
-                        new CubismPermissionGate(
-                                this.dependencies.descriptor().id(),
-                                this.dependencies.permissions(),
-                                this.dependencies.cubismAuditSink(),
-                                this.dependencies.clock()),
-                        this.dependencies.logger());
         this.runtimeSettings = env.runtimeSettings();
         this.fileChooserHistory = env.fileChooserHistory() == null
                 ? null
@@ -594,13 +447,6 @@ public final class CorePluginContext implements PluginContext {
         serviceDirectory.install(
                 PluginService.USER_FILES, () -> userFileAccessService, UserFileAccessService::unavailable);
         cubismServices.registerServices(serviceDirectory);
-        serviceDirectory.install(PluginService.RECENT_FILES, () -> recentFileService, RecentFileService::unavailable);
-        serviceDirectory.install(
-                PluginService.SCREENSHOTS, () -> screenshotCaptureService, ScreenshotCaptureService::unavailable);
-        serviceDirectory.install(
-                PluginService.RECENT_PREVIEWS,
-                () -> recentPreviewContributionService,
-                RecentPreviewContributionService::unavailable);
         serviceDirectory.install(
                 PluginService.FILE_CHOOSER_HISTORY,
                 () -> fileChooserHistory,
@@ -610,29 +456,7 @@ public final class CorePluginContext implements PluginContext {
                 () -> exportSettingsContributionService,
                 ExportSettingsContributionService::unavailable);
         meshCapabilities.registerServices(serviceDirectory);
-        serviceDirectory.install(
-                PluginService.ACTION_CATALOG, () -> actionCatalogService, ActionCatalogService::unavailable);
-        serviceDirectory.install(
-                PluginService.MAIN_TOOLBAR, () -> mainToolbarRegistry, MainToolbarRegistry::unavailable);
-        serviceDirectory.install(
-                PluginService.PALETTE_TOOLBAR, () -> paletteToolbarRegistry, PaletteToolbarRegistry::unavailable);
-        serviceDirectory.install(
-                PluginService.PALETTE_FILTER, () -> paletteFilterRegistry, PaletteFilterRegistry::unavailable);
-        serviceDirectory.install(PluginService.SCENE_TABLE, () -> sceneTableService, SceneTableService::unavailable);
-        serviceDirectory.installWhenPresent(PluginService.UI_HOST, () -> uiHostCapabilityService);
-        serviceDirectory.install(PluginService.UI_RESOURCES, () -> uiResourceService, UiResourceService::unavailable);
-        serviceDirectory.installWhenPresent(PluginService.HOST_DIALOGS, () -> hostDialogAutomationService);
-        serviceDirectory.install(PluginService.APPEARANCE, () -> appearanceService, AppearanceService::unavailable);
-        serviceDirectory.install(
-                PluginService.WORKSPACE,
-                () -> workspaceService,
-                dev.turboism.sdk.ui.workspace.WorkspaceService::unavailable);
-        serviceDirectory.install(
-                PluginService.WORKSPACE_LAYOUT,
-                () -> workspaceLayoutService,
-                dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService::unavailable);
-        serviceDirectory.install(
-                PluginService.CONTEXT_MENU, () -> contextMenuRegistry, ContextMenuRegistry::unavailable);
+        uiCapabilities.registerServices(serviceDirectory);
         serviceDirectory.install(PluginService.CONFIG, () -> pluginConfigRegistry, PluginConfigRegistry::unavailable);
         serviceDirectory.install(
                 PluginService.CUBISM_LOG,
@@ -645,34 +469,6 @@ public final class CorePluginContext implements PluginContext {
         serviceDirectory.install(
                 PluginService.MCP_CONNECTIONS, () -> mcpConnectionService, McpConnectionService::unavailable);
         serviceDirectory.installAlways(PluginService.PERFORMANCE_STATS, this::performanceProbeService);
-    }
-
-    private static void bindContributionLocalization(
-            final MainToolbarRegistry mainToolbar,
-            final PaletteToolbarRegistry paletteToolbar,
-            final PaletteFilterRegistry paletteFilter,
-            final PluginLocalization localization) {
-        if (mainToolbar instanceof RuntimeMainToolbarRegistry runtimeMainToolbar) {
-            if (localization == null) {
-                runtimeMainToolbar.lockWithoutLocalization();
-            } else {
-                runtimeMainToolbar.bindLocalization(localization);
-            }
-        }
-        if (paletteToolbar instanceof RuntimePaletteToolbarRegistry runtimePaletteToolbar) {
-            if (localization == null) {
-                runtimePaletteToolbar.lockWithoutLocalization();
-            } else {
-                runtimePaletteToolbar.bindLocalization(localization);
-            }
-        }
-        if (paletteFilter instanceof RuntimePaletteFilterRegistry runtimePaletteFilter) {
-            if (localization == null) {
-                runtimePaletteFilter.lockWithoutLocalization();
-            } else {
-                runtimePaletteFilter.bindLocalization(localization);
-            }
-        }
     }
 
     @Override
