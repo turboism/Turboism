@@ -4,9 +4,13 @@
 from __future__ import annotations
 
 import copy
+import sys
+from pathlib import Path
 from typing import Any, Callable
 
-import _bootstrap  # noqa: F401
+_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
 from turboism_dev.paths import repo_root
 
 ROOT = repo_root()

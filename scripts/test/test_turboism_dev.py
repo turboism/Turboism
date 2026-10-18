@@ -98,5 +98,29 @@ class TestTurboismDevVersions(unittest.TestCase):
         self.assertRegex(ver, r"^\d+\.\d+\.\d+$")
 
 
+class TestImportMechanism(unittest.TestCase):
+    """Entry points put scripts/ on sys.path themselves; no shared _bootstrap module."""
+
+    def test_no_bootstrap_modules(self) -> None:
+        self.assertEqual([], sorted(SCRIPTS_DIR.rglob("_bootstrap.py")))
+
+    def test_scripts_package_exposes_scripts_dir(self) -> None:
+        import subprocess
+
+        code = (
+            "import sys, scripts; "
+            "from turboism_dev.paths import REPO_ROOT; "
+            "print(sys.path[0])"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            cwd=SCRIPTS_DIR.parent,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        self.assertEqual(str(SCRIPTS_DIR), result.stdout.strip())
+
+
 if __name__ == "__main__":
     unittest.main()

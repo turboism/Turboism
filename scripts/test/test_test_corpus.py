@@ -16,12 +16,15 @@ import gzip
 import hashlib
 import json
 import shutil
+import sys
 import tarfile
 import tempfile
 import unittest
 from pathlib import Path
 
-import _bootstrap  # noqa: F401
+_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
 import test_corpus
 
 
