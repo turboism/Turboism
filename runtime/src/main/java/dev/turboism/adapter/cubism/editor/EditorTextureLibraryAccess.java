@@ -260,6 +260,8 @@ final class EditorTextureLibraryAccess {
         Objects.requireNonNull(id, "id");
         modelGuard.requireCurrent(identity, model);
         if (legacyRawImageRemoval()) {
+            // Match the 5.3 handler's false branch: clear this raw image's layer inputs,
+            // then remove only its raw-image entry. Never invoke the 5.2 dialog or layer purge.
             final List<Object> prepared = prepareRawImageRemoval5203(source, id);
             envelope("Turboism: Remove Raw Image", source, edit -> {
                 for (Object undoable : prepared) {
@@ -325,6 +327,9 @@ final class EditorTextureLibraryAccess {
                             "texture:" + label,
                             label,
                             (edit, transactionLabel) -> {
+                                // Construct-and-redo: the operation applies against the supplied edit and
+                                // returns the undoable; register it on the ambient root exactly as the
+                                // standalone envelope does.
                                 final Object undoable = operation.apply(edit);
                                 if (undoable != edit) registerAppliedUndo(edit, undoable);
                                 final Object listener = resolver.createFunctionalProxy(UNDO_LISTENER_CLASS, ignored -> {
@@ -349,6 +354,8 @@ final class EditorTextureLibraryAccess {
         boolean completed = false;
         try {
             final Object undoable = operation.apply(edit);
+            // Prepared 5.2 edits already belong to the root. Other native factories forceRedo
+            // before returning; compensate them if the root refuses registration.
             if (undoable != edit) registerAppliedUndo(edit, undoable);
             final Object listener = resolver.createFunctionalProxy(UNDO_LISTENER_CLASS, ignored -> {
                 resolver.invoke(UPDATE_INSTANCES, source);
