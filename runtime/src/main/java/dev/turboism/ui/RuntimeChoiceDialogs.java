@@ -1,5 +1,6 @@
 package dev.turboism.ui;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.ui.ChoiceDialogAction;
 import dev.turboism.sdk.ui.ChoiceDialogOption;
 import dev.turboism.sdk.ui.ChoiceDialogRequest;
@@ -309,7 +310,8 @@ final class RuntimeChoiceDialogs {
                 }
                 try {
                     java.awt.Desktop.getDesktop().browse(new java.net.URI(url));
-                } catch (Exception ignored) {
+                } catch (Throwable ignored) {
+                    FatalErrors.rethrowIfFatal(ignored);
                     // Browsing is best-effort; a missing browser must not fail the dialog.
                 }
             }

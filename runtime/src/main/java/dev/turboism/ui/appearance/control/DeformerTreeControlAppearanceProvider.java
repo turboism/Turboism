@@ -1,5 +1,6 @@
 package dev.turboism.ui.appearance.control;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.awt.Component;
 import java.util.Objects;
 
@@ -57,7 +58,8 @@ public final class DeformerTreeControlAppearanceProvider implements AutoCloseabl
     public void close() {
         try {
             changeSubscription.close();
-        } catch (Exception ignored) {
+        } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Listener removal is best-effort; restoration remains mandatory.
         }
         restore();

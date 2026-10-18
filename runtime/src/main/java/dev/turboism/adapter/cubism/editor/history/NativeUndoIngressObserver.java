@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor.history;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.lang.ref.WeakReference;
 import java.util.List;
@@ -234,9 +235,8 @@ public final class NativeUndoIngressObserver implements AutoCloseable {
         if (current == null) return;
         try {
             resolver.invoke(LISTENER_REMOVE_ALIAS, manager, current);
-        } catch (VirtualMachineError fatal) {
-            throw fatal;
-        } catch (RuntimeException removalFailure) {
+        } catch (Throwable removalFailure) {
+            FatalErrors.rethrowIfFatal(removalFailure);
             callbackFailures.increment();
         }
     }
@@ -255,9 +255,8 @@ public final class NativeUndoIngressObserver implements AutoCloseable {
             notifications.increment();
             pending.set(true);
             onNotification.run();
-        } catch (VirtualMachineError fatal) {
-            throw fatal;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             callbackFailures.increment();
         }
     }
