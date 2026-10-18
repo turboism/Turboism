@@ -4,75 +4,67 @@ import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.mcp.McpConnectionService;
 import dev.turboism.sdk.mcp.McpHttpConnection;
 import dev.turboism.sdk.menu.MenuRegistry;
+import dev.turboism.sdk.plugin.AbstractTurboismPlugin;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.plugin.TurboismPlugin;
 import java.awt.GraphicsEnvironment;
-import java.util.Objects;
 import javax.swing.SwingUtilities;
 
 /** Plugin lifecycle owner of the loopback MCP transport and its local connection window. */
-public final class McpPlugin implements TurboismPlugin {
+public final class McpPlugin extends AbstractTurboismPlugin {
 
     static final String CONNECTION_ACTION_ID = "turboism.mcp.connection.open";
     private static final int MENU_ORDER = 30;
 
-    private PluginContext context;
     private McpHttpServer server;
     private McpConnectionWindow window;
-    private Registration connectionPublication;
-    private Registration actionRegistration;
-    private Registration menuRegistration;
 
     @Override
-    public synchronized void init(final PluginContext context) {
-        if (this.context != null) {
-            throw new IllegalStateException("Turboism MCP plugin is already initialized");
-        }
-        this.context = Objects.requireNonNull(context, "context");
+    public synchronized void init(final PluginContext context) throws Exception {
+        super.init(context);
         context.disposableScope().register(this::disposeWindow);
     }
 
     @Override
     public synchronized void enable() throws Exception {
+        super.enable();
         if (server != null) return;
-        if (context == null) {
-            throw new IllegalStateException("Turboism MCP plugin was not initialized");
-        }
-        final McpHttpServer started = McpHttpServer.start(context);
+        final McpHttpServer started = McpHttpServer.start(context());
         Registration publication = null;
         Registration action = null;
         Registration menu = null;
         try {
-            publication = context.services()
+            publication = context()
+                    .services()
                     .require(McpConnectionService.class)
                     .publish(new McpHttpConnection(
                             started.endpoint(),
                             McpProtocol.VERSION,
                             started.stdioLaunch().orElse(null)));
-            action = context.actions().register(CONNECTION_ACTION_ID, connectionAction());
-            menu = context.menus().contribute(connectionMenu());
-            connectionPublication = publication;
-            actionRegistration = action;
-            menuRegistration = menu;
+            action = context().actions().register(CONNECTION_ACTION_ID, connectionAction());
+            menu = context().menus().contribute(connectionMenu());
+            disposalScope().register(publication);
+            disposalScope().register(action);
+            disposalScope().register(menu);
             server = started;
         } catch (RuntimeException | Error failure) {
-            close(menu, action, publication);
+            super.disable();
             started.close();
             throw failure;
         }
-        context.logger().info("MCP connection metadata published");
+        context().logger().info("MCP connection metadata published");
     }
 
     @Override
-    public synchronized void disable() {
+    public synchronized void disable() throws Exception {
         stop();
+        super.disable();
     }
 
     @Override
-    public synchronized void shutdown() {
+    public synchronized void shutdown() throws Exception {
         stop();
-        context = null;
+        super.shutdown();
     }
 
     synchronized McpHttpServer serverForTests() {
@@ -88,7 +80,7 @@ public final class McpPlugin implements TurboismPlugin {
 
             @Override
             public String label() {
-                return context.localization().text("menu.connection", "MCP Connection");
+                return context().localization().text("menu.connection", "MCP Connection");
             }
 
             @Override
@@ -102,7 +94,7 @@ public final class McpPlugin implements TurboismPlugin {
         return new MenuRegistry.MenuContribution() {
             @Override
             public String menuPath() {
-                return "Turboism/" + context.localization().text("menu.connection", "MCP Connection");
+                return "Turboism/" + context().localization().text("menu.connection", "MCP Connection");
             }
 
             @Override
@@ -119,15 +111,21 @@ public final class McpPlugin implements TurboismPlugin {
 
     private void showConnectionWindow() {
         if (GraphicsEnvironment.isHeadless()) {
-            context.logger().warn("MCP connection window cannot open because the JVM is headless");
+            context().logger().warn("MCP connection window cannot open because the JVM is headless");
             return;
         }
         SwingUtilities.invokeLater(() -> {
             final McpConnectionWindow current;
             synchronized (this) {
-                if (server == null || context == null) return;
+                if (server == null) return;
+                final PluginContext ctx;
+                try {
+                    ctx = context();
+                } catch (IllegalStateException e) {
+                    return;
+                }
                 if (window == null) {
-                    window = new McpConnectionWindow(context.localization(), context.logger());
+                    window = new McpConnectionWindow(ctx.localization(), ctx.logger());
                     window.bind(this::connectionSnapshot);
                 }
                 current = window;
@@ -146,15 +144,8 @@ public final class McpPlugin implements TurboismPlugin {
     }
 
     private void stop() {
-        final Registration publication = connectionPublication;
-        final Registration action = actionRegistration;
-        final Registration menu = menuRegistration;
-        connectionPublication = null;
-        actionRegistration = null;
-        menuRegistration = null;
         final McpHttpServer current = server;
         server = null;
-        close(menu, action, publication);
         if (current != null) current.close();
         disposeWindow();
     }
@@ -168,11 +159,5 @@ public final class McpPlugin implements TurboismPlugin {
         if (current == null) return;
         if (SwingUtilities.isEventDispatchThread()) current.dispose();
         else SwingUtilities.invokeLater(current::dispose);
-    }
-
-    private static void close(final Registration... registrations) {
-        for (Registration registration : registrations) {
-            if (registration != null) registration.close();
-        }
     }
 }
