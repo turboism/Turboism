@@ -333,12 +333,14 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
                     return null;
                 }
                 captured.put(type, fingerprinter.apply(bytes.clone()));
-            } catch (Throwable failure) {
+            } catch (RuntimeException | LinkageError invalid) {
                 failed = true;
+            } catch (Error failure) {
                 if (FatalErrors.isFatal(failure)) {
-                    fatal = (Error) failure;
+                    failed = true;
+                    fatal = failure;
                 }
-                FatalErrors.rethrowIfFatal(failure);
+                throw failure;
             }
             return null;
         }

@@ -1,7 +1,6 @@
 package dev.turboism.pluginmanagement;
 
 import dev.turboism.core.descriptor.PluginDescriptorParser;
-import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.i18n.LocalizationDiagnosticSink;
 import dev.turboism.i18n.RuntimePluginLocalization;
 import dev.turboism.internal.core.CorePluginManagement;
@@ -102,9 +101,7 @@ record PluginArchiveMetadata(
             if (loader != null) {
                 try {
                     loader.close();
-                } catch (Throwable ignored) {
-                    FatalErrors.rethrowIfFatal(ignored);
-                    // Closing ephemeral archive URLClassLoader is best-effort.
+                } catch (Exception ignored) {
                 }
             }
         }

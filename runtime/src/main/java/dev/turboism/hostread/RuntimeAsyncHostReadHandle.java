@@ -1,6 +1,5 @@
 package dev.turboism.hostread;
 
-import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.hostread.AsyncHostReadError;
 import dev.turboism.sdk.hostread.AsyncHostReadErrorCode;
 import dev.turboism.sdk.hostread.AsyncHostReadHandle;
@@ -154,9 +153,7 @@ final class RuntimeAsyncHostReadHandle implements AsyncHostReadHandle {
     private void closeDeadline() {
         try {
             deadlineCancellation.close();
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            // Deadline cancellation timer close is best-effort on terminal settlement.
+        } catch (Exception ignored) {
         }
     }
 
