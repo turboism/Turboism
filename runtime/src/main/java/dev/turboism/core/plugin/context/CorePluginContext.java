@@ -2,10 +2,6 @@ package dev.turboism.core.plugin.context;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
-import dev.turboism.adapter.cubism.mesh.AuthorizedMeshEditUiService;
-import dev.turboism.adapter.cubism.mesh.AuthorizedMeshMirrorAxisService;
-import dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService;
-import dev.turboism.adapter.cubism.mesh.RuntimeMeshMirrorAxisService;
 import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.adapter.host.HostSessionSnapshotSource;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
@@ -28,8 +24,6 @@ import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
-import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
-import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
 import dev.turboism.sdk.cubism.mesh.MeshToolRegistry;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
@@ -108,15 +102,7 @@ public final class CorePluginContext implements PluginContext {
             ExportSettingsContributionService.unavailable();
     private final UserFileAccessService userFileAccessService;
     private final AsyncHostReadService asyncHostReadService;
-    private final MeshMirrorAxisService meshMirrorAxisService;
-    private final MeshEditUiService meshEditUiService;
-    private final dev.turboism.sdk.cubism.mesh.MeshEditService meshEditService;
-    private final dev.turboism.sdk.cubism.mesh.MeshEditParticipation meshEditParticipationService;
-    private final dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts meshMirrorCounterpartsService;
-    private final dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility meshMirrorToolEligibilityService;
-    private final dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation meshMirrorMoveParticipationService;
-    private final dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation warpAltMirrorParticipationService;
-    private final dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry viewContextMenuRegistry;
+    private final MeshCapabilityBundle meshCapabilities;
     private final dev.turboism.sdk.ui.workspace.WorkspaceService workspaceService;
     private final dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService workspaceLayoutService;
     private final dev.turboism.adapter.cubism.backup.AutoBackupCoordinator backupCoordinator;
@@ -451,46 +437,7 @@ public final class CorePluginContext implements PluginContext {
         this.pluginStorage = env.pluginStorage();
         this.userFileAccessService = env.userFileAccessService();
         this.asyncHostReadService = env.asyncHostReadService();
-        final RuntimeMeshMirrorAxisService sharedMeshMirrorAxis =
-                hostAccess == null ? new RuntimeMeshMirrorAxisService() : hostAccess.meshMirrorAxisService();
-        final RuntimeMeshEditUiService sharedMeshEditUi =
-                hostAccess == null ? new RuntimeMeshEditUiService() : hostAccess.meshEditUiService();
-        final PermissionChecker meshPermissionChecker = PermissionChecker.from(new CubismPermissionGate(
-                this.dependencies.descriptor().id(),
-                this.dependencies.permissions(),
-                this.dependencies.cubismAuditSink(),
-                this.dependencies.clock()));
-        this.meshMirrorAxisService = new AuthorizedMeshMirrorAxisService(sharedMeshMirrorAxis, meshPermissionChecker);
-        this.meshEditUiService = new AuthorizedMeshEditUiService(
-                sharedMeshEditUi, meshPermissionChecker, this.dependencies.disposableScope());
-        this.meshEditService = new dev.turboism.adapter.cubism.mesh.AuthorizedMeshEditService(
-                new dev.turboism.adapter.cubism.mesh.RuntimeMeshEditService(), meshPermissionChecker);
-        this.meshEditParticipationService = new dev.turboism.adapter.cubism.mesh.AuthorizedMeshEditParticipation(
-                dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.participation(),
-                meshPermissionChecker,
-                this.dependencies.disposableScope());
-        this.meshMirrorCounterpartsService = new dev.turboism.adapter.cubism.mesh.AuthorizedMeshMirrorCounterparts(
-                dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.counterparts(),
-                meshPermissionChecker,
-                this.dependencies.disposableScope());
-        this.meshMirrorToolEligibilityService =
-                new dev.turboism.adapter.cubism.mesh.AuthorizedMeshMirrorToolEligibility(
-                        dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.toolEligibility(),
-                        meshPermissionChecker,
-                        this.dependencies.disposableScope());
-        this.meshMirrorMoveParticipationService =
-                new dev.turboism.adapter.cubism.mesh.AuthorizedMeshMirrorMoveParticipation(
-                        dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.moveParticipation(),
-                        meshPermissionChecker,
-                        this.dependencies.disposableScope());
-        this.warpAltMirrorParticipationService =
-                new dev.turboism.adapter.cubism.warpalt.AuthorizedWarpAltMirrorParticipation(
-                        dev.turboism.adapter.cubism.warpalt.NativeWarpAltMirrorBridge.moveParticipation(),
-                        meshPermissionChecker,
-                        this.dependencies.disposableScope());
-        this.viewContextMenuRegistry = new dev.turboism.adapter.cubism.warpalt.AuthorizedViewContextMenuRegistry(
-                dev.turboism.adapter.cubism.warpalt.RuntimeViewContextMenuRegistry.getInstance(),
-                meshPermissionChecker);
+        this.meshCapabilities = MeshCapabilityBundle.create(hostAccess, this.dependencies);
         this.sceneTableService = hostAccess == null ? SceneTableService.unavailable() : hostAccess.sceneTable();
         this.cubismLogService =
                 hostAccess == null ? dev.turboism.sdk.runtime.CubismLogService.unavailable() : hostAccess.cubismLog();
@@ -662,19 +609,7 @@ public final class CorePluginContext implements PluginContext {
                 PluginService.EXPORT_SETTINGS,
                 () -> exportSettingsContributionService,
                 ExportSettingsContributionService::unavailable);
-        serviceDirectory.installWhenPresent(PluginService.MESH_MIRROR_AXIS, () -> meshMirrorAxisService);
-        serviceDirectory.installWhenPresent(PluginService.MESH_EDIT, () -> meshEditService);
-        serviceDirectory.installWhenPresent(PluginService.MESH_EDIT_PARTICIPATION, () -> meshEditParticipationService);
-        serviceDirectory.installWhenPresent(
-                PluginService.MESH_MIRROR_COUNTERPARTS, () -> meshMirrorCounterpartsService);
-        serviceDirectory.installWhenPresent(
-                PluginService.MESH_MIRROR_TOOL_ELIGIBILITY, () -> meshMirrorToolEligibilityService);
-        serviceDirectory.installWhenPresent(
-                PluginService.MESH_MIRROR_MOVE_PARTICIPATION, () -> meshMirrorMoveParticipationService);
-        serviceDirectory.installWhenPresent(
-                PluginService.WARP_ALT_MIRROR_PARTICIPATION, () -> warpAltMirrorParticipationService);
-        serviceDirectory.installWhenPresent(PluginService.VIEW_CONTEXT_MENU, () -> viewContextMenuRegistry);
-        serviceDirectory.installWhenPresent(PluginService.MESH_EDIT_UI, () -> meshEditUiService);
+        meshCapabilities.registerServices(serviceDirectory);
         serviceDirectory.install(
                 PluginService.ACTION_CATALOG, () -> actionCatalogService, ActionCatalogService::unavailable);
         serviceDirectory.install(
