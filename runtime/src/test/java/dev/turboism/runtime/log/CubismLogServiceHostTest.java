@@ -100,6 +100,7 @@ class CubismLogServiceHostTest {
         final int deliveredBeforeClose = events.size();
         host.close();
         host.publish(CubismLogService.LogLevel.ERROR, "late", 4L);
+        // Intentionally assert nothing happens: late log event published after close must not deliver within 100ms.
         Thread.sleep(100L);
         assertEquals(deliveredBeforeClose, events.size());
         scheduler.shutdown();

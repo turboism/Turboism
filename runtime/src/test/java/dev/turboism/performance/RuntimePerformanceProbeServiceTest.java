@@ -13,6 +13,7 @@ import dev.turboism.sdk.performance.PerformanceSnapshot;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.test.concurrent.Await;
 import dev.turboism.ui.panel.ChartDataRegistry;
 import java.time.Clock;
 import java.time.Duration;
@@ -445,13 +446,7 @@ class RuntimePerformanceProbeServiceTest {
         Thread.sleep(100L);
     }
 
-    private static void await(final java.util.function.BooleanSupplier condition) throws InterruptedException {
-        final long deadline = System.currentTimeMillis() + 5_000L;
-        while (System.currentTimeMillis() < deadline && !condition.getAsBoolean()) {
-            Thread.sleep(20L);
-        }
-        if (!condition.getAsBoolean()) {
-            throw new AssertionError("condition not reached within 5s");
-        }
+    private static void await(final java.util.function.BooleanSupplier condition) {
+        Await.condition("condition not reached within 5s", condition, Duration.ofSeconds(5));
     }
 }

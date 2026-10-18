@@ -32,6 +32,7 @@ import dev.turboism.sdk.ui.appearance.PaletteEntry;
 import dev.turboism.sdk.ui.workspace.WorkspaceId;
 import dev.turboism.sdk.ui.workspace.WorkspaceOperationResult;
 import dev.turboism.sdk.ui.workspace.WorkspaceStatus;
+import dev.turboism.test.concurrent.Await;
 import dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
 import dev.turboism.ui.workspace.WorkspaceHostProvider;
@@ -1109,24 +1110,21 @@ class HostSessionTest {
         }
     }
 
-    static void awaitWaiting(final Thread thread) throws InterruptedException {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-        while (System.nanoTime() < deadline) {
-            final Thread.State state = thread.getState();
-            if (state == Thread.State.WAITING || state == Thread.State.TIMED_WAITING) {
-                return;
-            }
-            Thread.sleep(1);
-        }
-        fail("thread did not wait for the in-flight registration close");
+    static void awaitWaiting(final Thread thread) {
+        Await.condition(
+                "thread did not wait for the in-flight registration close",
+                () -> {
+                    final Thread.State state = thread.getState();
+                    return state == Thread.State.WAITING || state == Thread.State.TIMED_WAITING;
+                },
+                java.time.Duration.ofSeconds(5));
     }
 
-    static void awaitDeactivated(final HostSession session) throws InterruptedException {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-        while (session.acceptingCallsForTest() && System.nanoTime() < deadline) {
-            Thread.sleep(1);
-        }
-        assertFalse(session.acceptingCallsForTest(), "session did not deactivate adapters in time");
+    static void awaitDeactivated(final HostSession session) {
+        Await.condition(
+                "session did not deactivate adapters in time",
+                () -> !session.acceptingCallsForTest(),
+                java.time.Duration.ofSeconds(10));
     }
 
     private static HostSession nativeHistorySession(final VerifiedMemberResolver resolver) {

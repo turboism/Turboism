@@ -126,15 +126,19 @@ class ChartComponentTest {
                             + ")");
             final int[] text = blocks.get(0); // {minY, maxY, minX, maxX}
             final int[] plot = blocks.get(1);
-            final int fontHeight = component.getFontMetrics(FONT).getHeight();
+            final java.awt.FontMetrics metrics = component.getFontMetrics(FONT);
+            final int fontHeight = metrics.getHeight();
             assertTrue(text[1] - text[0] + 1 <= fontHeight + 2, "the top block must be a single text line, not a plot");
             assertTrue(
                     text[2] <= 40,
                     "the value text must be left-aligned near the plot edge (minX=" + text[2]
                             + "; a centered value would start near x=150)");
+            final int bandInset = 2;
+            final int valueBaseline = bandInset + metrics.getAscent();
             assertTrue(
-                    text[0] <= 6,
-                    "the value band must start near the component top, not 18px down (minY=" + text[0] + ")");
+                    text[0] >= bandInset && text[0] <= valueBaseline,
+                    "the value band must start near the component top, not 18px down (minY=" + text[0] + ", baseline="
+                            + valueBaseline + ")");
             assertTrue(
                     plot[0] - text[1] >= 2,
                     "at least one empty row must separate the value text from the max-reaching plot");
@@ -237,9 +241,14 @@ class ChartComponentTest {
                     "zero samples must paint exactly one placeholder block, " + "nothing else (blocks="
                             + describe(blocks) + ")");
             final int[] text = blocks.get(0);
-            final int fontHeight = component.getFontMetrics(FONT).getHeight();
+            final java.awt.FontMetrics metrics = component.getFontMetrics(FONT);
+            final int fontHeight = metrics.getHeight();
             assertTrue(text[1] - text[0] + 1 <= fontHeight + 2, "the placeholder must be a single text line");
-            assertTrue(text[0] <= 6, "the placeholder must sit in the top band (minY=" + text[0] + ")");
+            final int bandInset = 2;
+            final int valueBaseline = bandInset + metrics.getAscent();
+            assertTrue(
+                    text[0] >= bandInset && text[0] <= valueBaseline,
+                    "the placeholder must sit in the top band (minY=" + text[0] + ", baseline=" + valueBaseline + ")");
             assertTrue(text[2] <= 40, "the placeholder must be left-aligned (minX=" + text[2] + ")");
         } finally {
             ChartDataRegistry.unpublish(chartId);

@@ -16,6 +16,7 @@ import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.FloatSequence;
 import dev.turboism.sdk.cubism.model.IntSequence;
+import dev.turboism.test.concurrent.Await;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -310,12 +311,8 @@ class LocalPluginRuntimeEditorObjectHookScopeIntegrationTest {
             }
         }
 
-        static boolean await(final String phase, final long timeoutMillis) throws InterruptedException {
-            final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
-            while (System.nanoTime() < deadline) {
-                if (is(phase)) return true;
-                Thread.sleep(10L);
-            }
+        static boolean await(final String phase, final long timeoutMillis) {
+            Await.condition("phase reached: " + phase, () -> is(phase), java.time.Duration.ofMillis(timeoutMillis));
             return is(phase);
         }
 
