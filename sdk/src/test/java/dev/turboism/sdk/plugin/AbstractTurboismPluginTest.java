@@ -49,7 +49,7 @@ class AbstractTurboismPluginTest {
     }
 
     @Test
-    void initSetsContextAndPreparesScope() throws Exception {
+    void initSetsContextAndPreparesScope() {
         final TestPlugin plugin = new TestPlugin();
         final PluginContext context = dummyContext();
         plugin.init(context);
@@ -65,7 +65,7 @@ class AbstractTurboismPluginTest {
     }
 
     @Test
-    void initTwiceThrowsIllegalStateException() throws Exception {
+    void initTwiceThrowsIllegalStateException() {
         final TestPlugin plugin = new TestPlugin();
         final PluginContext context = dummyContext();
         plugin.init(context);
