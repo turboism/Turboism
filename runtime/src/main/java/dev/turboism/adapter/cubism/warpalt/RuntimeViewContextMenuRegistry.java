@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.warpalt;
 
+import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.resource.UiRasterImage;
@@ -164,7 +165,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         if (factory == null) {
             throw new IllegalStateException("strip button factory not found");
         }
-        factory.setAccessible(true);
+        ReflectAccess.open(factory);
 
         final Object iconSet =
                 iconSetFor(rasterImage(contribution.stateIcons().getOrDefault(state, iconImage)), hostLoader);
@@ -258,7 +259,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
         try {
             final Class<?> registry = Class.forName("com.live2d.ui.FlatLaF$bi", false, hostLoader);
             final Field instance = registry.getDeclaredField("a");
-            instance.setAccessible(true);
+            ReflectAccess.open(instance);
             final Object resolved = registry.getMethod("a", String.class, boolean.class)
                     .invoke(instance.get(null), "CubismCommon.gl.iconButton." + key, false);
             if (resolved instanceof Color color) {
@@ -342,7 +343,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     private static void insertIntoGroup(final Object stripInstance, final Object button)
             throws ReflectiveOperationException {
         final Field groupField = stripInstance.getClass().getDeclaredField("H");
-        groupField.setAccessible(true);
+        ReflectAccess.open(groupField);
         final Object group = groupField.get(stripInstance);
         if (!(group instanceof List<?> list)) {
             throw new IllegalStateException("strip group H is not a list");
@@ -360,7 +361,7 @@ public final class RuntimeViewContextMenuRegistry implements ViewContextMenuRegi
     private static void removeFromGroup(final Object stripInstance, final Object button)
             throws ReflectiveOperationException {
         final Field groupField = stripInstance.getClass().getDeclaredField("H");
-        groupField.setAccessible(true);
+        ReflectAccess.open(groupField);
         final Object group = groupField.get(stripInstance);
         if (group instanceof List<?> list) {
             list.remove(button);

@@ -544,9 +544,8 @@ public final class ProjectLifecycleHookRegistry {
     private static void invoke(final PluginLogger logger, final String phase, final Runnable invocation) {
         try {
             invocation.run();
-        } catch (ThreadDeath | VirtualMachineError fatal) {
-            throw fatal;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             try {
                 logger.error("Cubism project-file hook failed safely: " + phase, failure);
             } catch (Throwable ignored) {
