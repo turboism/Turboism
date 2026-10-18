@@ -1,5 +1,5 @@
 plugins {
-    `java-library`
+    id("turboism.java-conventions")
 }
 
 dependencies {

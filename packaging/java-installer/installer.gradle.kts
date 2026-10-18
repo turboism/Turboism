@@ -345,25 +345,28 @@ val stageInstallerPayload by tasks.registering {
 // Installer listener (install + uninstall side) compiled against izpack-api
 // ---------------------------------------------------------------------------
 
+val libs = rootProject.extensions.getByType<VersionCatalogsExtension>().named("libs")
+val izpackVersion = libs.findVersion("izpack").get().requiredVersion
+
 val installerListenerSourceSet = extensions.getByType(SourceSetContainer::class.java).create("installerListener") {
     java.srcDir(file("packaging/java-installer/listener-src"))
 }
-dependencies.add("installerListenerCompileOnly", "org.codehaus.izpack:izpack-api:5.2.6")
+dependencies.add("installerListenerCompileOnly", "org.codehaus.izpack:izpack-api:$izpackVersion")
 // Custom GUI/console/automation panel siblings are compiled against the
 // installer and console APIs already embedded by the IzPack installer runtime.
 // Keep both compile-only edges non-transitive: izpack-api is declared above,
 // and no implementation dependency belongs in the listener compile classpath.
 dependencies.add(
-    "installerListenerCompileOnly", "org.codehaus.izpack:izpack-installer:5.2.6"
+    "installerListenerCompileOnly", "org.codehaus.izpack:izpack-installer:$izpackVersion"
 ) { isTransitive = false }
 dependencies.add(
-    "installerListenerCompileOnly", "org.codehaus.izpack:izpack-gui:5.2.6"
+    "installerListenerCompileOnly", "org.codehaus.izpack:izpack-gui:$izpackVersion"
 ) { isTransitive = false }
 dependencies.add(
-    "installerListenerCompileOnly", "org.codehaus.izpack:izpack-util:5.2.6"
+    "installerListenerCompileOnly", "org.codehaus.izpack:izpack-util:$izpackVersion"
 ) { isTransitive = false }
 // Pinned IzPack toolchain (frozen spec: org.izpack.gradle:3.2.3 + izpack-ant:5.2.6)
-dependencies.add("izpack", "org.codehaus.izpack:izpack-ant:5.2.6")
+dependencies.add("izpack", "org.codehaus.izpack:izpack-ant:$izpackVersion")
 
 val installerListenerJarTask = tasks.register<Jar>("installerListenerJar") {
     group = "packaging"
@@ -387,17 +390,17 @@ val installerRegressionSourceSet = extensions.getByType(SourceSetContainer::clas
     java.srcDir(file("packaging/java-installer/listener-src"))
     java.srcDir(file("packaging/java-installer/regression-src"))
 }
-dependencies.add("installerRegressionCompileOnly", "org.codehaus.izpack:izpack-api:5.2.6")
+dependencies.add("installerRegressionCompileOnly", "org.codehaus.izpack:izpack-api:$izpackVersion")
 dependencies.add(
-    "installerRegressionCompileOnly", "org.codehaus.izpack:izpack-installer:5.2.6"
+    "installerRegressionCompileOnly", "org.codehaus.izpack:izpack-installer:$izpackVersion"
 ) { isTransitive = false }
 dependencies.add(
-    "installerRegressionCompileOnly", "org.codehaus.izpack:izpack-gui:5.2.6"
+    "installerRegressionCompileOnly", "org.codehaus.izpack:izpack-gui:$izpackVersion"
 ) { isTransitive = false }
 dependencies.add(
-    "installerRegressionCompileOnly", "org.codehaus.izpack:izpack-util:5.2.6"
+    "installerRegressionCompileOnly", "org.codehaus.izpack:izpack-util:$izpackVersion"
 ) { isTransitive = false }
-dependencies.add("installerRegressionCompileOnly", "org.codehaus.izpack:izpack-tools:5.2.6")
+dependencies.add("installerRegressionCompileOnly", "org.codehaus.izpack:izpack-tools:$izpackVersion")
 
 val installerRegressionJarTask = tasks.register<Jar>("installerRegressionJar") {
     group = "packaging"
