@@ -3,6 +3,7 @@ import org.gradle.api.tasks.Sync
 import org.gradle.jvm.tasks.Jar
 
 plugins {
+    id("turboism.java-conventions")
     application
 }
 
@@ -37,11 +38,11 @@ graalTarget.orNull?.takeIf { it in supportedGraalTargets }?.let {
     logger.info("Graal host target is $it" + if (it == detectedGraalTarget) " (detected)" else " (override)")
 }
 
-val graalVersion = "25.2.4"
+val graalVersion = libs.versions.graal.get()
 val jacksonDependencies = listOf(
-    "com.fasterxml.jackson.core:jackson-databind:2.18.9",
-    "com.fasterxml.jackson.core:jackson-core:2.18.9",
-    "com.fasterxml.jackson.core:jackson-annotations:2.18.9"
+    libs.jackson.databind,
+    libs.jackson.core,
+    libs.jackson.annotations
 )
 dependencies {
     implementation(project(":sdk"))
@@ -50,7 +51,7 @@ dependencies {
     // Keep GraalVM/Truffle out of the Cubism process. The host loads Polyglot
     // reflectively so Turboism remains Java 17 ABI-compatible while this
     // dedicated process is launched with the matching GraalVM 25.2.4 runtime.
-    runtimeOnly("org.graalvm.polyglot:polyglot:$graalVersion")
+    runtimeOnly(libs.graal.polyglot)
     graalTarget.orNull?.takeIf { it in supportedGraalTargets }
         ?.let { runtimeOnly("org.graalvm.polyglot:js-isolate-$it-community:$graalVersion") }
 

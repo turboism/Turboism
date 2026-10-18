@@ -1,11 +1,14 @@
-plugins { `java-library` }
-dependencies { compileOnly(project(":sdk")); testImplementation(project(":sdk")) }
+plugins {
+    id("turboism.plugin-conventions")
+}
 
 // Compile the canonical SDK-only importer; no copied engine and no HostProbe classes.
-val engine = listOf("StrictJson", "GlbSurfaceReader", "EmbeddedBaseColorTexture", "ClosedConvexSurfaceProof", "PlanarQuadProof", "SurfacePatchPlan", "SurfaceEquivalentSlotPlan", "SurfaceEditableTopologyPlan", "SurfaceDerivedPlanePlan", "SurfaceDerivedTexturePlan",
+val engine = listOf(
+    "StrictJson", "GlbSurfaceReader", "EmbeddedBaseColorTexture", "ClosedConvexSurfaceProof", "PlanarQuadProof", "SurfacePatchPlan", "SurfaceEquivalentSlotPlan", "SurfaceEditableTopologyPlan", "SurfaceDerivedPlanePlan", "SurfaceDerivedTexturePlan",
     "SurfaceProjection", "SurfaceVertexPlan", "SurfaceNativeSourceWindingPlan", "SurfaceVertexAuthoring", "SurfaceAutoCamera", "SurfaceSourceSplit", "SurfaceBspPlan", "SurfaceBspMerge", "SurfaceFixedIndexPlan", "SurfaceKeyPlan", "SurfaceKeyformBake", "SurfaceWarpKeyformBake", "SurfaceWarpSpatialFit", "SurfaceQuadChartDiscovery", "SurfaceWarpChartPlan", "SurfaceWarpImagePlan", "SurfaceWarpAuthoring", "SurfaceRotationAuthoring", "SurfacePlacementAuthoring", "SurfaceWarpImportCandidate", "SurfaceWarpLayerPlan", "SurfaceWarpLayerAuthoring", "SurfaceImportPlan",
     "SurfaceImportGeometry", "SurfaceBaseColorPlan", "SurfaceImportAppearance", "ParallelSheetOrderPlan",
-    "SurfaceSheetOrderBake", "SurfaceImport")
+    "SurfaceSheetOrderBake", "SurfaceImport"
+)
 sourceSets.main {
     java.srcDir(rootProject.file("validation/model-import-3d-host-probe/input-src"))
     java.srcDir(rootProject.file("validation/model-import-3d-host-probe/native-src"))

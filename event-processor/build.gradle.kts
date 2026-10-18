@@ -1,7 +1,7 @@
 import org.gradle.jvm.tasks.Jar
 
 plugins {
-    `java-library`
+    id("turboism.java-conventions")
     `maven-publish`
 }
 
