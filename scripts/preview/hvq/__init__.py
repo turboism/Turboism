@@ -5,10 +5,6 @@ for preview host validation.
 """
 from __future__ import annotations
 
-import sys
-
-sys.dont_write_bytecode = True
-
 from .common import (  # noqa: E402
     ACTIVE,
     ADMINISTRATIVE,
