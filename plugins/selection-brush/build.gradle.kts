@@ -2,12 +2,7 @@ import org.gradle.jvm.tasks.Jar
 import java.util.jar.JarFile
 
 plugins {
-    `java-library`
-}
-
-dependencies {
-    compileOnly(project(":sdk"))
-    testImplementation(project(":sdk"))
+    id("turboism.plugin-conventions")
 }
 
 val verifySelectionBrushJar by tasks.registering {

@@ -1,11 +1,7 @@
-plugins {
-    `java-library`
-}
+import org.gradle.language.jvm.tasks.ProcessResources
 
-dependencies {
-    compileOnly(project(":sdk"))
-    annotationProcessor(project(":event-processor"))
-    testImplementation(project(":sdk"))
+plugins {
+    id("turboism.plugin-conventions")
 }
 
 /*
