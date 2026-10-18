@@ -29,7 +29,7 @@ Opens an Agent conversation window and a Settings window. Drives a user-installe
 ## Requirements and compatibility
 
 - Turboism SDK API range `[0.1.0,0.2.0)`.
-- A user-installed ACP v1 compatible agent executable, reachable from PATH or configured as a custom command in **Agent Settings**.
+- A user-installed ACP v1 compatible agent executable, reachable from PATH or configured as a custom command in **Manage agents…**.
 - The bundled `dev.turboism.plugin.mcp` plugin provides the Turboism MCP server when MCP tool access is wanted.
 - Requires an installed Cubism Editor host; the plugin does not run inside the standalone preview.
 
@@ -41,15 +41,22 @@ Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 ## Install and enable
 
 - The plugin is bundled with Turboism and is enabled by default.
-- Open **Agent Settings** to pick an agent or enter a custom command.
+- Pick an Agent in the composer; use **Manage agents…** for custom commands.
 
 ## How to use
 
-1. Click the ACP Agent icon on the main toolbar, or open the Agent window from the Turboism menu.
-2. Pick an agent in **Agent Settings**, or type a custom command and save.
-3. Press **Connect**. When the agent requires authentication, press **Sign in…** and complete the advertised method.
-4. Type prompts in the conversation field. The agent may call Turboism MCP tools; permission prompts appear as dialogs inside the window.
-5. Use the session options tab to switch provider, model, or mode when the agent advertises config options.
+1. Open Agent from the main toolbar's conversation/terminal icon or the Turboism menu.
+2. Choose an Agent in the composer; choosing one connects it. Use **Manage agents…** in that menu for executable detection, login/logout, custom commands, or reconnecting.
+3. Use the composer selectors for the model, reasoning effort, permissions, and supported modes.
+4. Use **+** to select files or images, or paste clipboard images/files with Ctrl/Cmd+V. Plain text paste and copy/cut keep their normal behavior. Review or remove attachment chips before sending; attachment-only prompts are supported.
+5. The gear opens a compact Settings window containing only the initial instruction prompt and its Save button.
+
+### Images and files
+
+- ACP image blocks, image resources, and tool-returned images render as thumbnails. Standalone Markdown image references to local paths (absolute or relative to the ACP session directory) and `file:` URIs also render as previews. Remote URLs are not fetched automatically; unreadable/unsupported image references remain text.
+- Up to 8 attachments and 4 MiB total per prompt. Image previews are limited to 20 million source pixels and scaled to fit 560×320. File reads and image decoding run in background workers.
+- Sending follows the Agent's ACP `promptCapabilities`: images use image content blocks when supported; embedded files use resource blocks when `embeddedContext` is supported. Otherwise selected disk files use local resource links. Clipboard images require image or embedded-resource support; rejection keeps the draft so the user can change the Agent or attachments.
+- Selected content is sent to the locally launched Agent process. Its provider may process attachments remotely under that Agent's configuration. Attachments are not persisted in plugin settings.
 
 ### MCP attachment
 
@@ -91,7 +98,7 @@ Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 
 ## Troubleshooting
 
-- **Connect fails with "Executable not found"**: set a custom command in **Agent Settings**, or install one of the detected agents so it is on PATH.
+- **Connect fails with "Executable not found"**: set a custom command in **Manage agents…**, or install one of the detected agents so it is on PATH.
 - **"The agent requires sign-in"**: press **Sign in…** and complete the agent's authentication method, then reconnect.
 - **Cubism tools unavailable in the session**: the Agent transcript reports whether MCP attached writable (stdio bridge), read-only (HTTP), or not at all. Check that the `dev.turboism.plugin.mcp` plugin is enabled and started.
 - **Session could not be loaded**: the stored durable session may be stale; the plugin automatically falls back to a new session.
@@ -100,3 +107,22 @@ Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 
 - Report issues through the Turboism support channels.
 - Distributed under the same license as Turboism.
+
+## Composer controls
+
+- The Agent selector uses the selected agent's own icon; custom agents use a terminal fallback.
+- Model, reasoning effort, and permissions use text selectors without icons. Their available values come from ACP `configOptions`.
+- Fast mode (lightning) and plan mode (checklist) use icon-only controls, with the current value in the tooltip and accessible label. Only controls advertised by the connected agent are shown; support can differ by agent, adapter version, model, or session. Missing controls do not imply an installation error. Other session modes retain text selectors.
+- Thinking and consecutive tool/command activity use text disclosure rows without decorative icons.
+
+## UI inspiration and credits
+
+Parts of this plugin's chat UI are inspired by [Paseo](https://github.com/getpaseo/paseo): the compact composer, Agent identity icons, capability-dependent mode controls, and collapsible thinking/tool activity. The Swing implementation is maintained by Turboism.
+
+Agent icon sources, upstream revisions, modifications, and licenses are documented in [Agent icon acknowledgements](src/main/resources/META-INF/licenses/agent-icons.md). Paseo's license and third-party notice and Lobe Icons' MIT license are bundled with the plugin. Agent names and logos belong to their respective owners; this plugin is not affiliated with or endorsed by Paseo or those providers.
+
+### Initial instructions and references
+
+The initial prompt field uses a role description as placeholder text; it is not saved as a user edit. Every request includes the bundled [modeling reference context](src/main/resources/context/modeling-reference.md): a short modeling workflow summary and verified Live2D official tutorial/manual and Turboism documentation links. This is an offline summary and index, not a full website snapshot. User-authored initial instructions are appended after the fixed context.
+
+Functional icons use Lucide v0.468.0 consistently; provider marks retain their own branding. Draft images use cropped thumbnail cards. File cards show a middle-truncated filename, a file-type label, and the complete filename in the removal tooltip.
