@@ -4,6 +4,7 @@ import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.AbstractTurboismPlugin;
+import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
@@ -107,19 +108,17 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
             settings = enabledSettings;
             enabled = true;
         } catch (RuntimeException | Error failure) {
-            try {
-                super.disable();
+            try (DisposableScope rollback = new DisposableScope()) {
+                if (enabledSettings != null) rollback.register(enabledSettings);
+                rollback.register(super::disable);
+                rollback.register(() -> {
+                    throw failure;
+                });
+            } catch (RuntimeException rollbackFailure) {
+                throw rollbackFailure;
             } catch (Exception rollbackFailure) {
-                failure.addSuppressed(rollbackFailure);
+                throw new IllegalStateException("Turboism ACP startup rollback failed", rollbackFailure);
             }
-            if (enabledSettings != null) {
-                try {
-                    enabledSettings.close();
-                } catch (RuntimeException closeFailure) {
-                    failure.addSuppressed(closeFailure);
-                }
-            }
-            throw failure;
         }
         context().logger().info("Turboism ACP enabled");
     }
@@ -135,42 +134,34 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
             settings = null;
             controller = null;
         }
-        try {
-            super.disable();
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Turboism ACP disposal failed", e);
-        } finally {
-            try {
-                if (currentController != null) currentController.close();
-            } finally {
-                try {
-                    disposeFrames();
-                } finally {
-                    if (currentSettings != null) currentSettings.close();
-                }
-            }
+        // Reuse the SDK's reverse-order cleanup and fatal-error priority rules.
+        try (DisposableScope cleanup = new DisposableScope()) {
+            if (currentSettings != null) cleanup.register(currentSettings);
+            cleanup.register(this::disposeFrames);
+            if (currentController != null) cleanup.register(currentController);
+            cleanup.register(super::disable);
+        } catch (RuntimeException failure) {
+            throw failure;
+        } catch (Exception failure) {
+            throw new IllegalStateException("Turboism ACP disposal failed", failure);
         }
     }
 
     @Override
     public void shutdown() {
-        try {
-            disable();
-        } finally {
-            try {
-                super.shutdown();
-            } catch (RuntimeException e) {
-                throw e;
-            } catch (Exception e) {
-                throw new IllegalStateException("Turboism ACP shutdown failed", e);
-            } finally {
+        try (DisposableScope cleanup = new DisposableScope()) {
+            cleanup.register(() -> {
                 synchronized (this) {
                     localization = null;
                     settings = null;
                 }
-            }
+            });
+            cleanup.register(super::shutdown);
+            cleanup.register(this::disable);
+        } catch (RuntimeException failure) {
+            throw failure;
+        } catch (Exception failure) {
+            throw new IllegalStateException("Turboism ACP shutdown failed", failure);
         }
     }
 

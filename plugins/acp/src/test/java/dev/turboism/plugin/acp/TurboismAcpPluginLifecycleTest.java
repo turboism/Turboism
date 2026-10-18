@@ -2,7 +2,9 @@ package dev.turboism.plugin.acp;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.config.ConfigKey;
@@ -212,6 +214,31 @@ final class TurboismAcpPluginLifecycleTest {
         assertEquals(
                 List.of("close-toolbar", "close-menu", "close-action-settings", "close-action-agent"), closeEvents);
         plugin.shutdown();
+    }
+
+    @Test
+    void shutdownKeepsFatalFailurePrimaryWhenSettingsCleanupAlsoFails() {
+        final ScopeAwareConfig config = new ScopeAwareConfig();
+        config.readCloseFailure = new IllegalStateException("settings close failed");
+        final AtomicInteger actions = new AtomicInteger();
+        final AtomicInteger menus = new AtomicInteger();
+        final AtomicInteger toolbar = new AtomicInteger();
+        final TurboismAcpPlugin plugin = new TurboismAcpPlugin();
+        plugin.init(context(config, new DisposableScope(), actions, menus, toolbar));
+        plugin.enable();
+        final VirtualMachineError fatal = new VirtualMachineError("fatal registration cleanup") {};
+        plugin.disposalScope().register(() -> {
+            throw fatal;
+        });
+
+        assertSame(fatal, assertThrows(VirtualMachineError.class, plugin::shutdown));
+        assertTrue(java.util.Arrays.asList(fatal.getSuppressed()).contains(config.readCloseFailure));
+        assertThrows(IllegalStateException.class, plugin::context);
+        assertEquals(0, actions.get());
+        assertEquals(0, menus.get());
+        assertEquals(0, toolbar.get());
+        assertEquals(0, config.activeReadScopes());
+        assertEquals(0, config.activeWriteScopes());
     }
 
     private static PluginContext context(
@@ -449,10 +476,15 @@ final class TurboismAcpPluginLifecycleTest {
         private final Map<String, String> values = new LinkedHashMap<>();
         private final AtomicInteger readScopes = new AtomicInteger();
         private final AtomicInteger writeScopes = new AtomicInteger();
+        private RuntimeException readCloseFailure;
 
         @Override
         public Registration readScope(final String relativePath) {
-            return registration(readScopes);
+            final Registration scope = registration(readScopes);
+            return () -> {
+                scope.close();
+                if (readCloseFailure != null) throw readCloseFailure;
+            };
         }
 
         @Override
