@@ -316,12 +316,6 @@ public class PaletteFilterHostOperations
                 detach(states.get(kind));
             }
         });
-        PaletteTreeFilter.shutdownTreeFilterExecutor();
-    }
-
-    /** Shuts down the deformer tree filter daemon executor upon runtime close. */
-    public static void shutdownTreeFilterExecutor() {
-        PaletteTreeFilter.shutdownTreeFilterExecutor();
     }
 
     /** Structured attach status for diagnostics (kind -> outcome description). */
