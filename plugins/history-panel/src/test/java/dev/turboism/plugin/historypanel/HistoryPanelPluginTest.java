@@ -102,7 +102,7 @@ class HistoryPanelPluginTest {
         private final List<Integer> movePositions = new ArrayList<>();
 
         RecordingContext() {
-            super(FakePluginContext.builder());
+            super(FakePluginContext.builder().localization(passThroughLocalization()));
         }
 
         @Override

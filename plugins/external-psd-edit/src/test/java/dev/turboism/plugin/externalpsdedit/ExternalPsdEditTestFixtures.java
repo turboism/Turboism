@@ -614,7 +614,7 @@ final class ExternalPsdEditTestFixtures {
         final RecordingTaskScheduler taskScheduler = new RecordingTaskScheduler();
 
         RecordingPluginContext(final PluginLogger logger) {
-            super(FakePluginContext.builder());
+            super(FakePluginContext.builder().localization(passThroughLocalization()));
             this.logger = logger;
         }
 
