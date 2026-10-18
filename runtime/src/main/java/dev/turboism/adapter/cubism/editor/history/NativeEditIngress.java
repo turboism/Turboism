@@ -155,9 +155,8 @@ public final class NativeEditIngress implements AutoCloseable {
                 case UNDO -> publish(CubismOperation.UNDO, CubismOperationOrigin.UNDO, event.label());
                 case REDO -> publish(CubismOperation.REDO, CubismOperationOrigin.REDO, event.label());
             }
-        } catch (VirtualMachineError fatal) {
-            throw fatal;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             failures.increment();
         }
     }

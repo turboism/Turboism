@@ -1,5 +1,6 @@
 package dev.turboism.shell;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.internal.core.CorePluginManagement.OperationResult;
 import dev.turboism.pluginmanagement.PluginCatalog;
@@ -55,6 +56,7 @@ import javax.swing.table.TableRowSorter;
  */
 final class PluginMarketWindow {
 
+    private static final System.Logger LOGGER = System.getLogger(PluginMarketWindow.class.getName());
     private static final String MARKET_BASE_URL = "https://turboism.dev/plugins/";
 
     private final PluginLocalization i18n;
@@ -552,7 +554,9 @@ final class PluginMarketWindow {
             if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
                 Desktop.getDesktop().browse(URI.create(url));
             }
-        } catch (Exception ignored) {
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            LOGGER.log(System.Logger.Level.DEBUG, "Failed to open URL: " + url, failure);
         }
     }
 

@@ -148,11 +148,9 @@ public final class NativeEditIngressSession implements AutoCloseable {
     private void postRebind() {
         try {
             eventThread.accept(this::runRebind);
-        } catch (VirtualMachineError fatal) {
-            cancelQueuedRebind();
-            throw fatal;
         } catch (Throwable refused) {
             cancelQueuedRebind();
+            FatalErrors.rethrowIfFatal(refused);
         }
     }
 
@@ -327,9 +325,8 @@ public final class NativeEditIngressSession implements AutoCloseable {
             synchronized (bindLock) {
                 drainCount++;
             }
-        } catch (VirtualMachineError fatal) {
-            throw fatal;
-        } catch (RuntimeException ignored) {
+        } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // A drain failure must not escape onto the host event thread.
         }
     }
@@ -347,9 +344,8 @@ public final class NativeEditIngressSession implements AutoCloseable {
         }
         try {
             eventThread.accept(this::drain);
-        } catch (VirtualMachineError fatal) {
-            throw fatal;
         } catch (Throwable refused) {
+            FatalErrors.rethrowIfFatal(refused);
             // The host listener loop has no exception isolation.
             drainScheduled.set(false);
         }
