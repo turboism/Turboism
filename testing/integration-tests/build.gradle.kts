@@ -161,16 +161,24 @@ val updateVerificationPins by tasks.registering {
     val manifestFile = file("src/test/resources/dev/turboism/tests/mapping/verification-record-pins.json")
     inputs.dir(recordsDir)
     outputs.file(manifestFile)
+    // Deliberately opt-in: no test or resource-processing task depends on this updater.
     doLast {
         val digest = MessageDigest.getInstance("SHA-256")
-        val files = recordsDir.listFiles { f -> f.isFile && f.name.endsWith(".json") }
-            ?.sortedBy { it.name } ?: emptyList()
+        val files = requireNotNull(recordsDir.listFiles { f -> f.isFile && f.name.endsWith(".json") }) {
+            "Verification record directory is unavailable"
+        }.sortedBy { it.name }
+        require(files.isNotEmpty()) { "Refusing to emit an empty verification pin manifest" }
         val entries = files.joinToString(",\n") { file ->
             val sha = HexFormat.of().formatHex(digest.digest(file.readBytes()))
             "  \"compatibility/cubism/verification/${file.name}\": \"$sha\""
         }
         manifestFile.parentFile.mkdirs()
         manifestFile.writeText("{\n$entries\n}\n", Charsets.UTF_8)
-        logger.lifecycle("Updated {} pins in {}", files.size, manifestFile)
+        logger.lifecycle("Updated {} verification record pins", files.size)
     }
+}
+
+// Ordering only, not dependsOn: ordinary tests must never refresh their own expected pins.
+tasks.named<ProcessResources>("processTestResources") {
+    mustRunAfter(updateVerificationPins)
 }
