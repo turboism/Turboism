@@ -44,6 +44,9 @@ import sys
 import tempfile
 from pathlib import Path
 
+import _bootstrap  # noqa: F401
+from turboism_dev.paths import repo_root
+
 PRODUCTION_ROOTS = (
     "sdk/src/main/java",
     "runtime/src/main/java",
@@ -514,7 +517,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    root = Path(args.root).resolve()
+    root = repo_root(args.root)
     selected = [rule.strip() for rule in args.rules.split(",") if rule.strip()]
     unknown = [rule for rule in selected if rule not in CHECKS]
     if unknown:

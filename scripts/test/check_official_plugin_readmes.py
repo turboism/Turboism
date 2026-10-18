@@ -3,12 +3,15 @@
 
 from __future__ import annotations
 
-import json
 import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+import _bootstrap  # noqa: F401
+from turboism_dev.json_io import read_json
+from turboism_dev.paths import repo_root
+
+ROOT = repo_root()
 PLUGINS = ROOT / "plugins"
 RELEASE_PLUGINS = ROOT / "packaging/release-plugins.txt"
 DESCRIPTOR = Path("src/main/resources/META-INF/turboism/plugin.json")
@@ -172,7 +175,7 @@ def validate_readme(
 
 
 def validate_module(module: Path) -> list[tuple[str, str]]:
-    descriptor = json.loads((module / DESCRIPTOR).read_text(encoding="utf-8"))
+    descriptor = read_json(module / DESCRIPTOR)
     release_module_names = {
         project.strip().removeprefix(":plugins:")
         for project in RELEASE_PLUGINS.read_text(encoding="utf-8").splitlines()

@@ -23,6 +23,9 @@ import re
 import sys
 from pathlib import Path
 
+import _bootstrap  # noqa: F401
+from turboism_dev.paths import repo_root
+
 PRODUCTION_ROOTS = (
     "sdk/src/main/java",
     "core-contract/src/main/java",
@@ -88,7 +91,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    violations = findings(Path(args.root).resolve())
+    violations = findings(repo_root(args.root))
     for violation in violations:
         print(violation)
     if violations and not args.report:

@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT / "scripts"))
+import _bootstrap  # noqa: F401
+from turboism_dev.paths import repo_root
+
+REPO_ROOT = repo_root()
 
 from plugin_event_metadata import (
     EventMetadataError,

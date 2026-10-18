@@ -4,14 +4,14 @@
 from __future__ import annotations
 
 import copy
-import sys
-from pathlib import Path
 from typing import Any, Callable
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "scripts"))
+import _bootstrap  # noqa: F401
+from turboism_dev.paths import repo_root
 
-from cubism_core_api import (  # noqa: E402
+ROOT = repo_root()
+
+from cubism_core_api import (
     InventoryError,
     canonical_json,
     decode_json,
