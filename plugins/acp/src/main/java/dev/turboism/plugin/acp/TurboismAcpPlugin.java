@@ -3,9 +3,9 @@ package dev.turboism.plugin.acp;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
+import dev.turboism.sdk.plugin.AbstractTurboismPlugin;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import java.awt.GraphicsEnvironment;
 import java.lang.reflect.InvocationTargetException;
@@ -20,7 +20,7 @@ import javax.swing.SwingUtilities;
  * typed tools. Agent installation, provider configuration, and credentials stay with each
  * external agent — this plugin never bundles runtimes or stores secrets.</p>
  */
-public final class TurboismAcpPlugin implements TurboismPlugin {
+public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
 
     static final String OPEN_ACTION_ID = "turboism-acp.open";
     static final String SETTINGS_ACTION_ID = "turboism-acp.settings.open";
@@ -33,15 +33,10 @@ public final class TurboismAcpPlugin implements TurboismPlugin {
     private static final int SETTINGS_MENU_ORDER = 42;
 
     private final Runnable beforeWindowConstruction;
-    private PluginContext context;
     private PluginLocalization localization;
     private AcpPluginSettings settings;
     private AcpChatWindow window;
     private AcpChatController controller;
-    private Registration agentActionRegistration;
-    private Registration settingsActionRegistration;
-    private Registration settingsMenuRegistration;
-    private Registration toolbarRegistration;
     private volatile boolean enabled;
 
     /** Creates the production plugin entrypoint. */
@@ -54,11 +49,8 @@ public final class TurboismAcpPlugin implements TurboismPlugin {
     }
 
     @Override
-    public synchronized void init(final PluginContext context) {
-        if (this.context != null) {
-            throw new IllegalStateException("Turboism ACP is already initialized");
-        }
-        this.context = Objects.requireNonNull(context, "context");
+    public synchronized void init(final PluginContext context) throws Exception {
+        super.init(context);
         localization = context.localization();
         context.disposableScope().register(this::disposeUi);
         context.logger().info("Turboism ACP initialized");
@@ -66,20 +58,22 @@ public final class TurboismAcpPlugin implements TurboismPlugin {
 
     @Override
     public synchronized void enable() {
-        if (context == null) {
-            throw new IllegalStateException("Turboism ACP must be initialized before enable");
+        try {
+            super.enable();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Turboism ACP must be initialized before enable", e);
         }
         if (enabled) return;
-        Registration agentAction = null;
-        Registration settingsAction = null;
-        Registration settingsMenu = null;
-        Registration toolbar = null;
         AcpPluginSettings enabledSettings = null;
         try {
-            enabledSettings = new AcpPluginSettings(context.config(), context.logger());
-            agentAction = action(OPEN_ACTION_ID, "action.open-agent", this::openAgentWindow);
-            settingsAction = action(SETTINGS_ACTION_ID, "action.open-settings", this::openSettingsWindow);
-            settingsMenu = context.menus().contribute(new MenuRegistry.MenuContribution() {
+            enabledSettings =
+                    new AcpPluginSettings(context().config(), context().logger());
+            final Registration agentAction = action(OPEN_ACTION_ID, "action.open-agent", this::openAgentWindow);
+            final Registration settingsAction =
+                    action(SETTINGS_ACTION_ID, "action.open-settings", this::openSettingsWindow);
+            final Registration settingsMenu = context().menus().contribute(new MenuRegistry.MenuContribution() {
                 @Override
                 public String menuPath() {
                     return "Turboism/" + localization.text("menu.acp-settings");
@@ -95,7 +89,8 @@ public final class TurboismAcpPlugin implements TurboismPlugin {
                     return SETTINGS_MENU_ORDER;
                 }
             });
-            toolbar = context.services()
+            final Registration toolbar = context()
+                    .services()
                     .require(MainToolbarRegistry.class)
                     .contributeButton(new MainToolbarRegistry.MainToolbarButtonContribution(
                             TOOLBAR_CONTRIBUTION_ID,
@@ -111,44 +106,41 @@ public final class TurboismAcpPlugin implements TurboismPlugin {
                                     java.util.Optional.empty()),
                             MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
                             TOOLBAR_ORDER));
+            disposalScope().register(agentAction);
+            disposalScope().register(settingsAction);
+            disposalScope().register(settingsMenu);
+            disposalScope().register(toolbar);
             settings = enabledSettings;
-            agentActionRegistration = agentAction;
-            settingsActionRegistration = settingsAction;
-            settingsMenuRegistration = settingsMenu;
-            toolbarRegistration = toolbar;
             enabled = true;
         } catch (RuntimeException | Error failure) {
-            close(toolbar, settingsMenu, settingsAction, agentAction);
+            try {
+                super.disable();
+            } catch (Exception ignored) {
+            }
             if (enabledSettings != null) enabledSettings.close();
             throw failure;
         }
-        context.logger().info("Turboism ACP enabled");
+        context().logger().info("Turboism ACP enabled");
     }
 
     @Override
     public void disable() {
-        final Registration agentAction;
-        final Registration settingsAction;
-        final Registration settingsMenu;
-        final Registration toolbar;
         final AcpChatController currentController;
         final AcpPluginSettings currentSettings;
         synchronized (this) {
             enabled = false;
-            agentAction = agentActionRegistration;
-            settingsAction = settingsActionRegistration;
-            settingsMenu = settingsMenuRegistration;
-            toolbar = toolbarRegistration;
             currentController = controller;
             currentSettings = settings;
-            agentActionRegistration = null;
-            settingsActionRegistration = null;
-            settingsMenuRegistration = null;
-            toolbarRegistration = null;
             settings = null;
             controller = null;
         }
-        close(toolbar, settingsMenu, settingsAction, agentAction);
+        try {
+            super.disable();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Turboism ACP disposal failed", e);
+        }
         if (currentController != null) currentController.close();
         disposeFrames();
         if (currentSettings != null) currentSettings.close();
@@ -157,15 +149,21 @@ public final class TurboismAcpPlugin implements TurboismPlugin {
     @Override
     public void shutdown() {
         disable();
+        try {
+            super.shutdown();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Turboism ACP shutdown failed", e);
+        }
         synchronized (this) {
-            context = null;
             localization = null;
             settings = null;
         }
     }
 
     private Registration action(final String id, final String labelKey, final Runnable handler) {
-        return context.actions().register(id, new ActionRegistry.Action() {
+        return context().actions().register(id, new ActionRegistry.Action() {
             @Override
             public String id() {
                 return id;
@@ -194,7 +192,7 @@ public final class TurboismAcpPlugin implements TurboismPlugin {
     private void openWindow(final WindowTarget target) {
         if (!enabled) return;
         if (GraphicsEnvironment.isHeadless()) {
-            context.logger().warn("Turboism ACP cannot open because the JVM is headless");
+            context().logger().warn("Turboism ACP cannot open because the JVM is headless");
             return;
         }
         SwingUtilities.invokeLater(() -> showWindow(target));
@@ -213,7 +211,7 @@ public final class TurboismAcpPlugin implements TurboismPlugin {
                         currentSettings.agentId(),
                         currentSettings.customCommand(),
                         currentSettings.initialPrompt().orElse(""));
-                final AcpChatController next = new AcpChatController(context, currentSettings, created);
+                final AcpChatController next = new AcpChatController(context(), currentSettings, created);
                 created.bind(
                         () -> next.connect(created.agentId(), created.customCommand(), created.initialPrompt()),
                         next::sendPrompt,
@@ -289,19 +287,14 @@ public final class TurboismAcpPlugin implements TurboismPlugin {
             else SwingUtilities.invokeAndWait(dispose);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
-            if (context != null) context.logger().warn("Turboism ACP window disposal was interrupted");
-        } catch (InvocationTargetException | RuntimeException failure) {
-            if (context != null) context.logger().warn("Turboism ACP window disposal failed");
-        }
-    }
-
-    private static void close(final Registration... registrations) {
-        for (Registration registration : registrations) {
-            if (registration == null) continue;
             try {
-                registration.close();
-            } catch (RuntimeException failure) {
-                // Unregistering is best-effort; plugin teardown must finish.
+                context().logger().warn("Turboism ACP window disposal was interrupted");
+            } catch (IllegalStateException ignored) {
+            }
+        } catch (InvocationTargetException | RuntimeException failure) {
+            try {
+                context().logger().warn("Turboism ACP window disposal failed");
+            } catch (IllegalStateException ignored) {
             }
         }
     }
