@@ -6,9 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
+import _bootstrap  # noqa: F401
+from turboism_dev.paths import repo_root
 
 from turboism_release.candidate import build_candidate
 from turboism_release.contracts import ReleaseError, read_document, write_document
@@ -17,7 +16,7 @@ from turboism_release.planner import make_plan, read_json_source
 from turboism_release.remote import github_release, updates_release, verified_catalog
 
 
-DEFAULT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_ROOT = repo_root()
 DEFAULT_BUILD = Path("build/release-orchestrator")
 
 

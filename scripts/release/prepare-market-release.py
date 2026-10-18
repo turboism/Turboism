@@ -63,9 +63,8 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-SCRIPTS_DIR = Path(__file__).resolve().parents[1]
-if str(SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS_DIR))
+import _bootstrap  # noqa: F401
+from turboism_dev.versions import framework_version
 
 from plugin_event_metadata import (
     EventMetadataError,
@@ -631,17 +630,14 @@ def base_framework_version(raw_version: str) -> str:
 
 def read_repo_framework_version(repo_root: Path) -> str:
     """Read turboismFrameworkVersion from gradle/common-java.gradle.kts, falling back to 0.1.0."""
-    common_gradle = repo_root / "gradle/common-java.gradle.kts"
-    if not common_gradle.is_file():
-        return "0.1.0"
     try:
-        text = common_gradle.read_text(encoding="utf-8")
-    except OSError as failure:
+        ver = framework_version(repo_root)
+        return base_framework_version(ver)
+    except Exception as failure:
+        common_gradle = repo_root / "gradle/common-java.gradle.kts"
+        if not common_gradle.is_file():
+            return "0.1.0"
         raise MarketError(f"{common_gradle}: cannot read framework version: {failure}") from failure
-    match = re.search(r'turboismFrameworkVersion"\]\s*=\s*"([^"]+)"', text)
-    if match is None:
-        raise MarketError(f"{common_gradle}: turboismFrameworkVersion declaration not found")
-    return base_framework_version(match.group(1))
 
 
 def resolve_next_plugin_version(
