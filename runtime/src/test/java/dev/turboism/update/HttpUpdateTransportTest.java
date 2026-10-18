@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpServer;
+import dev.turboism.test.concurrent.Await;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -53,12 +54,8 @@ final class HttpUpdateTransportTest {
     }
 
     /** Waits briefly for an asynchronous teardown flag set off the caller thread. */
-    private static boolean awaitTrue(final AtomicBoolean flag) throws InterruptedException {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
-        while (System.nanoTime() < deadline) {
-            if (flag.get()) return true;
-            Thread.sleep(5L);
-        }
+    private static boolean awaitTrue(final AtomicBoolean flag) {
+        Await.condition("flag set to true", flag::get, Duration.ofSeconds(2));
         return flag.get();
     }
 
@@ -429,13 +426,11 @@ final class HttpUpdateTransportTest {
         @Override
         public int read(final byte[] buffer, final int offset, final int length) throws IOException {
             readStarted.countDown();
-            while (!isClosed && !Thread.currentThread().isInterrupted()) {
-                try {
-                    Thread.sleep(10L);
-                } catch (InterruptedException interrupted) {
-                    Thread.currentThread().interrupt();
-                    throw new IOException("interrupted", interrupted);
-                }
+            try {
+                closed.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IOException("interrupted", interrupted);
             }
             throw new IOException("closed");
         }

@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.test.concurrent.Await;
 import dev.turboism.ui.host.EditorUiFamily;
 import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
 import java.lang.reflect.InvocationTargetException;
@@ -277,15 +278,8 @@ class EditorUiContributionAuthorityTest {
                 new EditorUiContributionIdentity(pluginId, EditorUiFamily.PANEL, id), order, pluginId + ":" + id);
     }
 
-    private static void awaitTrue(final java.util.function.BooleanSupplier condition, final String description)
-            throws InterruptedException {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-        while (!condition.getAsBoolean()) {
-            if (System.nanoTime() > deadline) {
-                throw new AssertionError("timed out waiting for: " + description);
-            }
-            Thread.sleep(1);
-        }
+    private static void awaitTrue(final java.util.function.BooleanSupplier condition, final String description) {
+        Await.condition(description, condition, java.time.Duration.ofSeconds(5));
     }
 
     /**

@@ -10,6 +10,7 @@ import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.test.concurrent.Await;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,7 +18,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import javax.tools.JavaCompiler;
@@ -196,6 +196,7 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
                 // plugin's own condition clears, then hits the lease fence before enable().
                 System.setProperty(RELEASE, "1");
                 assertTrue(awaitMarker(RESUMED, 5), "the blocked worker must resume");
+                // Intentionally assert nothing happens: enable() of a timed-out generation must never run within 300ms.
                 Thread.sleep(300);
                 assertEquals(
                         null, System.getProperty(LATE_ENABLE), "enable() of a timed-out generation must never run");
@@ -277,6 +278,7 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
                 // Several retention intervals pass: the failed closer must never be re-invoked
                 // (a second DisposableScope.close() would be an empty success) and the
                 // generation stays retained because scope disposal is unproven.
+                // Intentionally assert nothing happens: failed one-shot scope cleanup must not be retried.
                 Thread.sleep(300);
                 assertEquals(
                         "1",
@@ -305,14 +307,8 @@ class PreviewPluginLifecycleIsolationIntegrationTest {
         }
     }
 
-    private static boolean awaitMarker(final String key, final long seconds) throws InterruptedException {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(seconds);
-        while (System.getProperty(key) == null) {
-            if (System.nanoTime() > deadline) {
-                return false;
-            }
-            Thread.sleep(20);
-        }
+    private static boolean awaitMarker(final String key, final long seconds) {
+        Await.condition("marker set: " + key, () -> System.getProperty(key) != null, Duration.ofSeconds(seconds));
         return true;
     }
 
