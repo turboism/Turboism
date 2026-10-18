@@ -166,15 +166,4 @@ public abstract class AbstractTurboismPlugin implements TurboismPlugin {
             return disposalScope;
         }
     }
-
-    /**
-     * Alias for {@link #disposalScope()}.
-     *
-     * @return the owned disposal scope, never {@code null}
-     * @throws IllegalStateException when called before {@link #init(PluginContext)}
-     *     or after {@link #shutdown()}
-     */
-    public final DisposableScope disposableScope() {
-        return disposalScope();
-    }
 }
