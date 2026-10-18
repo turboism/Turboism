@@ -63,21 +63,21 @@ public class InMemoryPluginStorage implements PluginStorage {
         return seed(new StoragePath(StorageRoot.DATA, relativePath), content);
     }
 
-    public Optional<String> content(final StoragePath path) {
+    public String content(final StoragePath path) {
         final byte[] bytes = findBytes(path);
-        return Optional.ofNullable(bytes).map(b -> new String(b, StandardCharsets.UTF_8));
+        return bytes != null ? new String(bytes, StandardCharsets.UTF_8) : null;
     }
 
-    public Optional<String> content(final String relativePath) {
+    public String content(final String relativePath) {
         return content(new StoragePath(StorageRoot.DATA, relativePath));
     }
 
-    public Optional<byte[]> bytes(final StoragePath path) {
+    public byte[] bytes(final StoragePath path) {
         final byte[] bytes = findBytes(path);
-        return Optional.ofNullable(bytes).map(byte[]::clone);
+        return bytes != null ? bytes.clone() : null;
     }
 
-    public Optional<byte[]> bytes(final String relativePath) {
+    public byte[] bytes(final String relativePath) {
         return bytes(new StoragePath(StorageRoot.DATA, relativePath));
     }
 

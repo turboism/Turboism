@@ -12,7 +12,6 @@ import dev.turboism.sdk.storage.StorageReadResult;
 import dev.turboism.sdk.storage.StorageRoot;
 import dev.turboism.sdk.storage.StorageWriteResult;
 import java.nio.charset.StandardCharsets;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -38,7 +37,7 @@ class InMemoryPluginStorageTest {
                 storage.readUtf8(path, 1024).toCompletableFuture().get();
         assertEquals("hello world", read.value().orElseThrow());
         assertFalse(read.truncated());
-        assertEquals(Optional.of("hello world"), storage.content(path));
+        assertEquals("hello world", storage.content(path));
     }
 
     @Test
@@ -64,10 +63,8 @@ class InMemoryPluginStorageTest {
     @Test
     void seedAndContentConvenienceMethods() {
         storage.seed("sample.json", "{\"k\":\"v\"}");
-        assertEquals("{\"k\":\"v\"}", storage.content("sample.json").orElseThrow());
-        assertArrayEquals(
-                "{\"k\":\"v\"}".getBytes(StandardCharsets.UTF_8),
-                storage.bytes("sample.json").orElseThrow());
+        assertEquals("{\"k\":\"v\"}", storage.content("sample.json"));
+        assertArrayEquals("{\"k\":\"v\"}".getBytes(StandardCharsets.UTF_8), storage.bytes("sample.json"));
     }
 
     @Test
@@ -90,11 +87,11 @@ class InMemoryPluginStorageTest {
         final StorageMutationResult copyResult =
                 storage.copy(src, dst, false).toCompletableFuture().get();
         assertTrue(copyResult.changed());
-        assertEquals("content", storage.content(dst).orElseThrow());
+        assertEquals("content", storage.content(dst));
 
         final StorageMutationResult delResult =
                 storage.delete(src, false).toCompletableFuture().get();
         assertTrue(delResult.changed());
-        assertTrue(storage.content(src).isEmpty());
+        org.junit.jupiter.api.Assertions.assertNull(storage.content(src));
     }
 }
