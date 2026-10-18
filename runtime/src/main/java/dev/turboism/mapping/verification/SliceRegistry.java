@@ -37,9 +37,7 @@ public final class SliceRegistry {
     public static final SliceDescriptor EDITOR_MODEL = new SliceDescriptor(
             EditorModelVerificationManifest.ADAPTER_SLICE_ID,
             EditorModelVerificationManifest::forArtifact,
-            artifact -> ReviewedHostArtifacts.CUBISM_5_3_03.equals(artifact)
-                    ? VerifiedEditorModelResolverFactory.cubism5303RuntimeScope()
-                    : null);
+            VerifiedEditorModelResolverFactory::runtimeScopeFor);
 
     /** Embedded panel slice descriptor. */
     public static final SliceDescriptor EMBEDDED_PANEL = new SliceDescriptor(
