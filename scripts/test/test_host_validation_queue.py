@@ -23,6 +23,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "preview"))
 import host_validation_queue as queue
+import hvq.worker
 import host_validation_disposition as disposition
 import host_validation_retention as retention
 import host_validation as cli
@@ -119,7 +120,8 @@ class FinalVerdictRecoveryTest(StoreFixture, unittest.TestCase):
     def test_operator_recovery_uses_same_complete_final_verdict(self):
         job, directory, _ = self.final_fixture()
         self.store.quarantine(job["job_id"], "simulated outcome write failure")
-        with mock.patch.object(queue, "external_sessions", return_value=[]):
+        with mock.patch.object(hvq.worker, "external_sessions", return_value=[]), \
+                mock.patch.object(queue, "external_sessions", return_value=[]):
             self.assertTrue(queue.recover(self.store, job["job_id"])["safe"])
             self.assertTrue(queue.recover(self.store, job["job_id"], "Reviewed durable final proof")["safe"])
         self.assertEqual("idle", self.store.host()["state"])
@@ -133,7 +135,8 @@ class FinalVerdictRecoveryTest(StoreFixture, unittest.TestCase):
             queue.durable_outcome(self.store, job)  # Auto path stays fail-closed.
         queue.Worker(self.store, IsolatedBackend()).reconcile()
         self.assertEqual("quarantined", self.store.jobs(job["job_id"])[0]["state"])
-        with mock.patch.object(queue, "external_sessions", return_value=[]):
+        with mock.patch.object(hvq.worker, "external_sessions", return_value=[]), \
+                mock.patch.object(queue, "external_sessions", return_value=[]):
             self.assertTrue(queue.recover(self.store, job["job_id"])["safe"])
             report = queue.recover(self.store, job["job_id"], "Kernel containment proven; verdict lost")
         self.assertTrue(report["safe"])
@@ -315,7 +318,8 @@ class QueueStoreTest(StoreFixture, unittest.TestCase):
         directory.mkdir()
         evidence = {**self.evidence(job), "terminalState": "succeeded", "normalExit": False}
         queue.atomic_json(directory / "outcome.json", evidence)
-        with mock.patch.object(queue, "external_sessions", return_value=[]):
+        with mock.patch.object(hvq.worker, "external_sessions", return_value=[]), \
+                mock.patch.object(queue, "external_sessions", return_value=[]):
             self.assertFalse(queue.recover(self.store, job["job_id"])["safe"])
             self.assertFalse(queue.recover(self.store, job["job_id"], "reviewed")["safe"])
             self.assertEqual("quarantined", self.store.host()["state"])
@@ -441,6 +445,8 @@ class PreparedStoreTest(unittest.TestCase):
                      "archive-cubism-host-evidence.sh", "host_validation.py", "host_validation_queue.py",
                      "host_validation_containment.py", "host_validation_evidence.py"):
             (self.preview / name).write_text("# test fixture, never executed\n")
+        (self.preview / "hvq").mkdir()
+        (self.preview / "hvq/__init__.py").write_text("# test fixture, never executed\n")
         subprocess.run(["git", "init", "-q", str(self.source)], check=True)
         subprocess.run(["git", "add", "."], cwd=self.source, check=True)
         subprocess.run(["git", "-c", "user.name=Queue Test", "-c", "user.email=test@example.invalid",
@@ -469,6 +475,20 @@ class PreparedStoreTest(unittest.TestCase):
         with self.assertRaisesRegex(queue.QueueError, "missing canonical runner/helper"):
             self.prepared.capture(self.request, self.source, "test:5302")
         self.assertEqual([], self.store.jobs())
+
+    def test_missing_hvq_package_rejected_before_submission(self) -> None:
+        import shutil
+        shutil.rmtree(self.preview / "hvq")
+        with self.assertRaisesRegex(queue.QueueError, "missing canonical runner/helper: hvq"):
+            self.prepared.capture(self.request, self.source, "test:5302")
+        self.assertEqual([], self.store.jobs())
+
+    def test_snapshot_includes_hvq_package(self) -> None:
+        (self.preview / "hvq/submodule.py").write_text("# submodule fixture\n")
+        prepared = self.prepared.capture(self.request, self.source, "test:5302")
+        snapshot_hvq = self.store.root / "prepared" / prepared["digest"] / "tool/scripts/preview/hvq"
+        self.assertTrue((snapshot_hvq / "__init__.py").is_file())
+        self.assertTrue((snapshot_hvq / "submodule.py").is_file())
 
     def test_repeated_capture_is_idempotent(self) -> None:
         first = self.prepared.capture(self.request, self.source, "test:5302")
@@ -1047,8 +1067,10 @@ class PreparedStoreTest(unittest.TestCase):
                      "host_validation_static_gates.py",
                      "host_validation_containment.py", "host_validation_evidence.py"):
             queue.copy_verified(tools / name, self.preview / name)
-        if (tools / "hvq").is_dir():
-            queue.copy_verified(tools / "hvq", self.preview / "hvq")
+        hvq_preview = self.preview / "hvq"
+        hvq_preview.mkdir(parents=True, exist_ok=True)
+        for py_file in sorted((tools / "hvq").glob("*.py")):
+            queue.copy_verified(py_file, hvq_preview / py_file.name)
         # The enqueue path now runs the bundle-linkage gate, which parses the
         # declared jars; the synthetic agent/aux input must be a real zip.
         import zipfile
@@ -1085,7 +1107,8 @@ class PreparedStoreTest(unittest.TestCase):
         injection.mkdir()
         (injection / "sitecustomize.py").write_text(
             "from pathlib import Path\nimport host_validation_queue as q\n"
-            f"q.account_root = lambda: Path({str(self.store.root)!r})\n")
+            "import hvq.common\nimport hvq.store\n"
+            f"hvq.common.account_root = hvq.store.account_root = q.account_root = lambda: Path({str(self.store.root)!r})\n")
         client_env = {key: value for key, value in env.items() if not key.startswith("TURBOISM_QUEUE_")}
         client_env["PYTHONPATH"] = os.pathsep.join((str(injection), str(self.preview)))
         # This isolated interpreter resolves the account root to its tiny test queue;
@@ -1297,10 +1320,14 @@ class AdmissionTest(StoreFixture, unittest.TestCase):
         environment.update({"TURBOISM_QUEUE_JOB_ID": job["job_id"],
             "TURBOISM_QUEUE_ATTEMPT_ID": job["attempt_id"], "TURBOISM_QUEUE_RUN_ID": job["run_id"],
             "TURBOISM_QUEUE_ADMISSION_FD": str(fd), "TURBOISM_QUEUE_SUPERVISOR_PID": str(os.getpid())})
-        code = "import sys; from pathlib import Path; sys.path.insert(0,sys.argv[1]); import host_validation_queue as q; q.account_root=lambda:Path(sys.argv[2]); "
+        code = (
+            "import sys; from pathlib import Path; sys.path.insert(0,sys.argv[1]); "
+            "import host_validation_queue as q, hvq.common as c, hvq.runner as r; "
+            "c.account_root = r.account_root = q.account_root = lambda: Path(sys.argv[2]); "
+        )
         if scope_verified:
             # Isolate queue/FD/ancestry rules. Kernel containment has its own tests.
-            code += "q.verify_containment_membership=lambda store,job: {'testOnly':True}; "
+            code += "r.verify_containment_membership = q.verify_containment_membership = lambda store,job: {'testOnly':True}; "
         code += "print(q.canonical_json(q.validate_admission()))"
         return subprocess.run([sys.executable, "-c", code, str(Path(queue.__file__).parent), str(self.root)],
             pass_fds=(fd,) if inherit else (), env=environment, text=True, capture_output=True)

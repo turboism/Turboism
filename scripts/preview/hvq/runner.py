@@ -9,13 +9,12 @@ import socket
 import time
 from typing import TYPE_CHECKING, Any
 
+from . import common
 from .common import (
     SCHEMA,
     FileLock,
     NoHostSideEffects,
     QueueError,
-    _delegate,
-    account_root,
     atomic_json,
     canonical_json,
     identity_alive,
@@ -36,7 +35,7 @@ class RunnerBackend:
         return external_sessions(owned_markers)
 
     def run(self, store: Store, job: dict[str, Any], admission_fd: int) -> dict[str, Any]:
-        if store.root != account_root():
+        if store.root != common.account_root():
             raise QueueError("production backend cannot run in a test queue")
         directory = private_directory(store.root / "jobs" / job["job_id"])
         evidence_dir = directory / "evidence"
@@ -176,7 +175,7 @@ def supervised_attempt(root: Path, job: dict[str, Any], backend: Any, admission_
         os.close(admission_fd)
 
 
-def _default_verify_containment_membership(store: Store, job: dict[str, Any]) -> dict[str, Any]:
+def verify_containment_membership(store: Store, job: dict[str, Any]) -> dict[str, Any]:
     metadata = json.loads((store.root / "jobs" / job["job_id"] / "containment.json").read_text())
     expected = {"jobId": job["job_id"], "attemptId": job["attempt_id"],
                 "runId": job["run_id"], "preparedDigest": job["digest"]}
@@ -197,18 +196,13 @@ def _default_verify_containment_membership(store: Store, job: dict[str, Any]) ->
     return metadata
 
 
-def verify_containment_membership(store: Store, job: dict[str, Any]) -> dict[str, Any]:
-    target = _delegate("verify_containment_membership", verify_containment_membership, _default_verify_containment_membership)
-    return target(store, job)
-
-
 def validate_admission() -> dict[str, Any]:
     """Runner's mandatory gate. Environment labels alone never authorize launch."""
     required = ("TURBOISM_QUEUE_JOB_ID", "TURBOISM_QUEUE_ATTEMPT_ID", "TURBOISM_QUEUE_RUN_ID",
                 "TURBOISM_QUEUE_ADMISSION_FD", "TURBOISM_QUEUE_SUPERVISOR_PID")
     if any(not os.environ.get(key) for key in required):
         raise QueueError("missing worker admission labels")
-    root = account_root()
+    root = common.account_root()
     if not (root / "queue.sqlite3").is_file():
         raise QueueError("no local queue admission exists")
     store = Store()

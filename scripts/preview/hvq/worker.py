@@ -21,12 +21,11 @@ from .common import (
     FileLock,
     QueueBusy,
     QueueError,
-    _entry_constant,
     atomic_json,
     identity_alive,
     process_identity,
 )
-from .display import terminate_process, terminate_xvfb, wake
+from .display import external_sessions, terminate_process, terminate_xvfb, wake
 from .runner import (
     RunnerBackend,
     durable_outcome,
@@ -202,7 +201,7 @@ class Worker:
     def spawn(self, job: dict[str, Any], gate: FileLock, worker_fd: int) -> dict[str, Any]:
         """Start the supervised attempt child without blocking on its run."""
         _, _, protocol = self.store._job_profile(job["prepared_id"])
-        if protocol >= _entry_constant("QUEUE_PROTOCOL", QUEUE_PROTOCOL):
+        if protocol >= QUEUE_PROTOCOL:
             # Per-execution admission proof; never share one fd across children.
             admission = FileLock(self.store.root / f"admission-{job['job_id']}.lock")
             admission.acquire()
@@ -295,7 +294,6 @@ def recover(store: Store, job_id: str, reason: str | None = None) -> dict[str, A
         runner_identity_path = directory / "runner-identity.json"
         if runner_identity_path.exists() and identity_alive(json.loads(runner_identity_path.read_text())):
             raise QueueError("recorded runner is still active")
-        from .display import external_sessions
         if external_sessions(store.active_run_ids()):
             raise QueueError("host contains active external/unknown Cubism sessions")
         evidence = durable_outcome(store, job, allow_containment_recovery=True)

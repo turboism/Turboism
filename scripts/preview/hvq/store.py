@@ -12,13 +12,14 @@ import time
 from typing import Any, Iterator
 import uuid
 
+from . import common
+from . import display
 from .common import (
     ACTIVE,
     ADMINISTRATIVE,
     CLAIM_SCAN_LIMIT,
     GLOBAL_RESOURCES,
     KNOWN_RESOURCES,
-    QUEUE_PROTOCOL,
     READ_ONLY_CONNECT_TIMEOUT_SECONDS,
     SCHEMA,
     TERMINAL,
@@ -26,8 +27,6 @@ from .common import (
     _READ_LOCK_MESSAGES,
     _READ_LOCK_RESULT_CODES,
     QueueError,
-    _entry_constant,
-    account_root,
     canonical_json,
     identity_alive,
     private_directory,
@@ -37,8 +36,8 @@ from .common import (
 
 class Store:
     def __init__(self, root: Path | None = None):
-        self.production = root is None or root.absolute() == account_root()
-        self.root = private_directory(account_root() if root is None else root)
+        self.production = root is None or root.absolute() == common.account_root()
+        self.root = private_directory(common.account_root() if root is None else root)
         for child in ("prepared", "jobs", "staging"):
             private_directory(self.root / child)
         self.database = self.root / "queue.sqlite3"
@@ -287,7 +286,7 @@ class Store:
                     if skipped >= CLAIM_SCAN_LIMIT:
                         break
                     version, resources, protocol = self._job_profile(job["prepared_id"])
-                    parallel = (protocol >= _entry_constant("QUEUE_PROTOCOL", QUEUE_PROTOCOL) and version is not None
+                    parallel = (protocol >= common.QUEUE_PROTOCOL and version is not None
                                 and resources is not None
                                 and not set(resources) - KNOWN_RESOURCES)
                     if not parallel:
@@ -329,29 +328,28 @@ class Store:
     def _allocate_display(self, db: sqlite3.Connection, job_id: str,
                           used: set[str], spawned: list[str]) -> str | None:
         """Reserve a private Xvfb display inside the claim transaction."""
-        from .display import display_in_use, spawn_xvfb, xvfb_available
-        if not xvfb_available():
+        if not display.xvfb_available():
             self._deferred(db, job_id, "display-pool-unavailable", reason="no Xvfb binary")
             return None
-        display = None
+        display_name = None
         for number in XVFB_DISPLAYS:
             candidate = f":{number}"
-            if candidate in used or display_in_use(number):
+            if candidate in used or display.display_in_use(number):
                 continue
-            display = candidate
+            display_name = candidate
             break
-        if display is None:
+        if display_name is None:
             self._deferred(db, job_id, "display-pool-unavailable", reason="no free display slot")
             return None
-        process = spawn_xvfb(display)
+        process = display.spawn_xvfb(display_name)
         if process is None or process.poll() is not None:
             self._deferred(db, job_id, "display-pool-unavailable",
-                           reason=f"Xvfb failed to start on {display}")
+                           reason=f"Xvfb failed to start on {display_name}")
             return None
         self.xvfb_processes[job_id] = process
         spawned.append(job_id)
-        used.add(display)
-        return display
+        used.add(display_name)
+        return display_name
 
     def _begin_claim(self, db: sqlite3.Connection, job: Any, *,
                      version: str | None = None, resources: list[str] | None = None,
