@@ -104,6 +104,8 @@ def seed(root: Path, relative: str, body: str) -> None:
 def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
+        # repo_root() anchors on this marker; without it the checker would scan the real repo.
+        seed(root, "gradle/common-java.gradle.kts", "")
         seed(root, "runtime/src/main/java/dev/turboism/sample/Guarded.java", GUARDED_HELPER)
         seed(root, "sdk/src/main/java/dev/turboism/sample/Clause.java", GUARDED_CLAUSE)
         seed(root, "runtime/src/main/java/dev/turboism/sample/Exempt.java", EXEMPT)
