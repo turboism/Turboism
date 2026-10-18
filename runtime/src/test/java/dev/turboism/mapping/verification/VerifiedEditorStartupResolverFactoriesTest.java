@@ -34,27 +34,33 @@ class VerifiedEditorStartupResolverFactoriesTest {
         try (URLClassLoader loader = loader(artifact)) {
             assertThrows(
                     IllegalArgumentException.class,
-                    () -> new VerifiedProjectWorkspaceResolverFactory()
+                    () -> SliceRegistry.PROJECT_WORKSPACE
+                            .resolverFactory()
                             .create(record("5.2.03", "project-workspace"), artifact, loader));
             assertThrows(
                     IllegalArgumentException.class,
-                    () -> new VerifiedEditorModelResolverFactory()
+                    () -> SliceRegistry.EDITOR_MODEL
+                            .resolverFactory()
                             .create(record("5.2.03", "editor-model"), artifact, loader));
             assertThrows(
                     IllegalArgumentException.class,
-                    () -> new VerifiedMainToolbarResolverFactory()
+                    () -> SliceRegistry.MAIN_TOOLBAR
+                            .resolverFactory()
                             .create(record("5.2.03", "ui-main-toolbar"), artifact, loader));
             assertThrows(
                     IllegalArgumentException.class,
-                    () -> new VerifiedEmbeddedPanelResolverFactory()
+                    () -> SliceRegistry.EMBEDDED_PANEL
+                            .resolverFactory()
                             .create(record("5.2.03", "ui-embedded-panel"), artifact, loader));
             assertThrows(
                     IllegalArgumentException.class,
-                    () -> new VerifiedTopMenuResolverFactory()
+                    () -> SliceRegistry.TOP_MENU
+                            .resolverFactory()
                             .create(record("5.2.03", "ui-top-menu"), artifact, loader));
             assertThrows(
                     IllegalArgumentException.class,
-                    () -> new VerifiedBoundingBoxOverlayButtonResolverFactory()
+                    () -> SliceRegistry.BOUNDING_BOX_OVERLAY_BUTTON
+                            .resolverFactory()
                             .create(record("5.2.03", "ui-bounding-box-overlay"), artifact, loader));
         }
     }
@@ -64,22 +70,26 @@ class VerifiedEditorStartupResolverFactoriesTest {
         try (URLClassLoader loader = loader(artifact)) {
             assertEquals(
                     exactVersion,
-                    new VerifiedProjectWorkspaceResolverFactory()
+                    SliceRegistry.PROJECT_WORKSPACE
+                            .resolverFactory()
                             .create(record(profile, "project-workspace"), artifact, loader)
                             .cubismVersion());
             assertEquals(
                     exactVersion,
-                    new VerifiedEditorModelResolverFactory()
+                    SliceRegistry.EDITOR_MODEL
+                            .resolverFactory()
                             .create(record(profile, "editor-model"), artifact, loader)
                             .cubismVersion());
             assertEquals(
                     exactVersion,
-                    new VerifiedMainToolbarResolverFactory()
+                    SliceRegistry.MAIN_TOOLBAR
+                            .resolverFactory()
                             .create(record(profile, "ui-main-toolbar"), artifact, loader)
                             .cubismVersion());
             assertEquals(
                     profile.equals("5.2.03") ? "5.2.03" : exactVersion,
-                    new VerifiedEmbeddedPanelResolverFactory()
+                    SliceRegistry.EMBEDDED_PANEL
+                            .resolverFactory()
                             .create(record(profile, "ui-embedded-panel"), artifact, loader)
                             .cubismVersion());
             final StaticVerificationReport topMenuReport =
@@ -90,7 +100,8 @@ class VerifiedEditorStartupResolverFactoriesTest {
                     () -> topMenuReport.results().toString());
             assertEquals(
                     profile.equals("5.2.03") ? "5.2.03" : exactVersion,
-                    new VerifiedTopMenuResolverFactory()
+                    SliceRegistry.TOP_MENU
+                            .resolverFactory()
                             .create(record(profile, "ui-top-menu"), artifact, loader)
                             .cubismVersion());
             final StaticVerificationReport overlayReport =
@@ -101,7 +112,8 @@ class VerifiedEditorStartupResolverFactoriesTest {
                     () -> overlayReport.results().toString());
             assertEquals(
                     profile.equals("5.2.03") ? "5.2.03" : exactVersion,
-                    new VerifiedBoundingBoxOverlayButtonResolverFactory()
+                    SliceRegistry.BOUNDING_BOX_OVERLAY_BUTTON
+                            .resolverFactory()
                             .create(record(profile, "ui-bounding-box-overlay"), artifact, loader)
                             .cubismVersion());
         }

@@ -11,11 +11,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
-class VerifiedCorePublicApiResolverFactoryTest {
+class CorePublicApiAdmissionTest {
 
     private static final Path PROJECT_ROOT = EditorSelectorContractTestPaths.projectRoot();
     private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.resolveLegacyEvidence();
-    private final VerifiedCorePublicApiResolverFactory factory = new VerifiedCorePublicApiResolverFactory();
+    private final SliceResolverFactory factory = SliceRegistry.CORE_PUBLIC_API.resolverFactory();
 
     @Test
     void exactLegacyHostResolvesTheOwnedMocSliceThroughStartupValidation() {
@@ -125,7 +125,7 @@ class VerifiedCorePublicApiResolverFactoryTest {
         // The 5.3.00/5.3.01/5.3.03 Core jars are byte-identical to 5.3.02's and
         // resolve to the shared 5.3.02 profile instead of a distinct one.
         for (final String version : java.util.List.of("5.3.00", "5.3.01", "5.3.03")) {
-            assertEquals("5.3.02", factory.profileForArtifact(coreArtifact(version)));
+            assertEquals("5.3.02", SliceRegistry.corePublicApiProfileForArtifact(coreArtifact(version)));
         }
     }
 
@@ -137,7 +137,8 @@ class VerifiedCorePublicApiResolverFactoryTest {
         Path artifact = coreArtifact("5.3.02");
         try (URLClassLoader loader = loader(artifact)) {
             assertThrows(
-                    IllegalArgumentException.class, () -> factory.create("5.2.03", record("5.2.03"), artifact, loader));
+                    IllegalArgumentException.class,
+                    () -> SliceRegistry.corePublicApiForProfile("5.2.03").create(record("5.2.03"), artifact, loader));
         }
     }
 
@@ -150,7 +151,8 @@ class VerifiedCorePublicApiResolverFactoryTest {
         try (URLClassLoader wrongLoader = loader(coreArtifact("5.2.03"))) {
             assertThrows(
                     IllegalArgumentException.class,
-                    () -> factory.create("5.3.02", record("5.3.02"), reviewed, wrongLoader));
+                    () -> SliceRegistry.corePublicApiForProfile("5.3.02")
+                            .create(record("5.3.02"), reviewed, wrongLoader));
         }
     }
 
@@ -160,10 +162,12 @@ class VerifiedCorePublicApiResolverFactoryTest {
         try (URLClassLoader loader = loader(artifact);
                 URLClassLoader oldLoader = loader(coreArtifact("5.3.02"))) {
             assertThrows(
-                    IllegalArgumentException.class, () -> factory.create("5.3.02", record("5.3.02"), artifact, loader));
+                    IllegalArgumentException.class,
+                    () -> SliceRegistry.corePublicApiForProfile("5.3.02").create(record("5.3.02"), artifact, loader));
             assertThrows(
                     IllegalArgumentException.class,
-                    () -> factory.create("5.3.04", record("5.3.04"), artifact, oldLoader));
+                    () -> SliceRegistry.corePublicApiForProfile("5.3.04")
+                            .create(record("5.3.04"), artifact, oldLoader));
         }
     }
 
@@ -174,19 +178,20 @@ class VerifiedCorePublicApiResolverFactoryTest {
                 "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         assertThrows(
                 IllegalArgumentException.class,
-                () -> factory.create(
-                        "5.4",
-                        Path.of("missing-record"),
-                        Path.of("missing-artifact"),
-                        ClassLoader.getPlatformClassLoader()));
+                () -> SliceRegistry.corePublicApiForProfile("5.4")
+                        .create(
+                                Path.of("missing-record"),
+                                Path.of("missing-artifact"),
+                                ClassLoader.getPlatformClassLoader()));
     }
 
     private void assertAdmitted(final String profile, final String exactVersion) throws Exception {
         Path artifact = coreArtifact(profile);
         assertTrue(Files.isRegularFile(artifact), "missing local Core evidence artifact " + artifact);
-        assertEquals(profile, factory.profileForArtifact(artifact));
+        assertEquals(profile, SliceRegistry.corePublicApiProfileForArtifact(artifact));
         try (URLClassLoader loader = loader(artifact)) {
-            VerifiedMemberResolver resolver = factory.create(profile, record(profile), artifact, loader);
+            VerifiedMemberResolver resolver =
+                    SliceRegistry.corePublicApiForProfile(profile).create(record(profile), artifact, loader);
             assertEquals(exactVersion, resolver.cubismVersion());
             assertTrue(resolver.isExactCubismVersion(exactVersion));
             assertTrue(resolver.authorizes(

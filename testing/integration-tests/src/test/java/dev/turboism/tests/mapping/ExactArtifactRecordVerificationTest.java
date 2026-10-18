@@ -3,14 +3,8 @@ package dev.turboism.tests.mapping;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import dev.turboism.mapping.verification.VerifiedBoundingBoxOverlayButtonResolverFactory;
-import dev.turboism.mapping.verification.VerifiedEditorModelResolverFactory;
-import dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory;
-import dev.turboism.mapping.verification.VerifiedMainToolbarResolverFactory;
+import dev.turboism.mapping.verification.SliceRegistry;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.mapping.verification.VerifiedProjectWorkspaceResolverFactory;
-import dev.turboism.mapping.verification.VerifiedTopMenuResolverFactory;
-import dev.turboism.mapping.verification.VerifiedWorkspaceControlResolverFactory;
 import dev.turboism.ui.overlay.BoundingBoxOverlayButtonUpdateTransformer;
 import java.io.IOException;
 import java.net.URL;
@@ -56,71 +50,113 @@ class ExactArtifactRecordVerificationTest {
                     List.of(
                             new Slice(
                                     "cubism-5.2.03-project-workspace.json",
-                                    (r, a, l) -> new VerifiedProjectWorkspaceResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.PROJECT_WORKSPACE
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.2.03-editor-model.json",
-                                    (r, a, l) -> new VerifiedEditorModelResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.EDITOR_MODEL
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.2.03-ui-main-toolbar.json",
-                                    (r, a, l) -> new VerifiedMainToolbarResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.MAIN_TOOLBAR
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.2.03-ui-embedded-panel.json",
-                                    (r, a, l) -> new VerifiedEmbeddedPanelResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.EMBEDDED_PANEL
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.2.03-ui-top-menu.json",
-                                    (r, a, l) -> new VerifiedTopMenuResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.TOP_MENU
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.2.03-ui-bounding-box-overlay.json",
-                                    (r, a, l) -> new VerifiedBoundingBoxOverlayButtonResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.BOUNDING_BOX_OVERLAY_BUTTON
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.2.03-workspace-control.json",
-                                    (r, a, l) -> new VerifiedWorkspaceControlResolverFactory().create(r, a, l))),
+                                    (r, a, l) -> SliceRegistry.WORKSPACE_CONTROL
+                                            .resolverFactory()
+                                            .create(r, a, l))),
             "5.3.02",
                     List.of(
                             new Slice(
                                     "cubism-5.3.02-project-workspace.json",
-                                    (r, a, l) -> new VerifiedProjectWorkspaceResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.PROJECT_WORKSPACE
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.3.02-editor-model.json",
-                                    (r, a, l) -> new VerifiedEditorModelResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.EDITOR_MODEL
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.3.02-ui-main-toolbar.json",
-                                    (r, a, l) -> new VerifiedMainToolbarResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.MAIN_TOOLBAR
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.3.02-ui-embedded-panel.json",
-                                    (r, a, l) -> new VerifiedEmbeddedPanelResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.EMBEDDED_PANEL
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.3.02-ui-top-menu.json",
-                                    (r, a, l) -> new VerifiedTopMenuResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.TOP_MENU
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.3.02-ui-bounding-box-overlay.json",
-                                    (r, a, l) -> new VerifiedBoundingBoxOverlayButtonResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.BOUNDING_BOX_OVERLAY_BUTTON
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.3.02-workspace-control.json",
-                                    (r, a, l) -> new VerifiedWorkspaceControlResolverFactory().create(r, a, l))),
+                                    (r, a, l) -> SliceRegistry.WORKSPACE_CONTROL
+                                            .resolverFactory()
+                                            .create(r, a, l))),
             "5.3.03",
                     List.of(
                             new Slice(
                                     "cubism-5.3.03-project-workspace.json",
-                                    (r, a, l) -> new VerifiedProjectWorkspaceResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.PROJECT_WORKSPACE
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.3.03-editor-model.json",
-                                    (r, a, l) -> new VerifiedEditorModelResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.EDITOR_MODEL
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.3.03-ui-main-toolbar.json",
-                                    (r, a, l) -> new VerifiedMainToolbarResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.MAIN_TOOLBAR
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.3.03-ui-embedded-panel.json",
-                                    (r, a, l) -> new VerifiedEmbeddedPanelResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.EMBEDDED_PANEL
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.3.03-ui-top-menu.json",
-                                    (r, a, l) -> new VerifiedTopMenuResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.TOP_MENU
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.3.03-ui-bounding-box-overlay.json",
-                                    (r, a, l) -> new VerifiedBoundingBoxOverlayButtonResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.BOUNDING_BOX_OVERLAY_BUTTON
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.3.03-workspace-control.json",
-                                    (r, a, l) -> new VerifiedWorkspaceControlResolverFactory().create(r, a, l))));
+                                    (r, a, l) -> SliceRegistry.WORKSPACE_CONTROL
+                                            .resolverFactory()
+                                            .create(r, a, l))));
 
     @Test
     void everyPackagedProductionRecordVerifiesAgainstTheExactArtifact() throws Exception {

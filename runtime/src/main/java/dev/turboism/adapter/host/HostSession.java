@@ -181,23 +181,29 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 new dev.turboism.adapter.VerifiedRuntimeHostAdaptersFactory(
                         Objects.requireNonNull(effectiveLocale, "effectiveLocale"),
                         dev.turboism.preview.RecentPreviewDiagnostics::emit)::create,
-                slice -> new dev.turboism.mapping.verification.VerifiedEditorModelResolverFactory()
+                slice -> dev.turboism.mapping.verification.SliceRegistry.EDITOR_MODEL
+                        .resolverFactory()
                         .create(slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()),
                 VerifiedHostAdapterConnector::productionEditorAccess,
-                slice -> new dev.turboism.mapping.verification.VerifiedMainToolbarResolverFactory()
+                slice -> dev.turboism.mapping.verification.SliceRegistry.MAIN_TOOLBAR
+                        .resolverFactory()
                         .create(slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()),
-                slice -> new dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory()
+                slice -> dev.turboism.mapping.verification.SliceRegistry.EMBEDDED_PANEL
+                        .resolverFactory()
                         .create(slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()),
-                slice -> new dev.turboism.mapping.verification.VerifiedBoundingBoxOverlayButtonResolverFactory()
+                slice -> dev.turboism.mapping.verification.SliceRegistry.BOUNDING_BOX_OVERLAY_BUTTON
+                        .resolverFactory()
                         .create(slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()),
                 editorUiPluginResources,
                 editorUiActionRouter,
                 embeddedPanelActivation,
-                slice -> new dev.turboism.mapping.verification.VerifiedTopMenuResolverFactory()
+                slice -> dev.turboism.mapping.verification.SliceRegistry.TOP_MENU
+                        .resolverFactory()
                         .create(slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()),
                 dockMaintenance,
                 VerifiedHostAdapterConnector.productionAppearanceProviderFactory(),
-                slice -> new dev.turboism.mapping.verification.VerifiedWorkspaceControlResolverFactory()
+                slice -> dev.turboism.mapping.verification.SliceRegistry.WORKSPACE_CONTROL
+                        .resolverFactory()
                         .create(slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()),
                 VerifiedHostAdapterConnector.productionCoreBackendFactory(),
                 Objects.requireNonNull(effectiveLocale, "effectiveLocale"),
