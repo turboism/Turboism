@@ -692,5 +692,3 @@ def propagate_main(argv: list[str]) -> int:
         "    testing/integration-tests/.../StaticVerificationRecordRepositoryTest.java"
     )
     return 0 if check.returncode == 0 and sync.returncode == 0 else 1
-
-

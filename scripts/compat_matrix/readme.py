@@ -76,5 +76,3 @@ def update_readme(
     if next_heading == -1:
         return text.rstrip() + "\n\n" + block + "\n"
     return text[:next_heading].rstrip() + "\n\n" + block + "\n" + text[next_heading:]
-
-

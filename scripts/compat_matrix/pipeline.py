@@ -56,5 +56,3 @@ def render_all(root: Path) -> dict[str, str]:
             root, release_plugins_path, matrix["plugins"]
         )
     return outputs
-
-
