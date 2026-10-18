@@ -41,14 +41,17 @@ public final class McpPlugin extends AbstractTurboismPlugin {
                             started.endpoint(),
                             McpProtocol.VERSION,
                             started.stdioLaunch().orElse(null)));
-            action = context().actions().register(CONNECTION_ACTION_ID, connectionAction());
-            menu = context().menus().contribute(connectionMenu());
             disposalScope().register(publication);
+            action = context().actions().register(CONNECTION_ACTION_ID, connectionAction());
             disposalScope().register(action);
+            menu = context().menus().contribute(connectionMenu());
             disposalScope().register(menu);
             server = started;
         } catch (RuntimeException | Error failure) {
-            super.disable();
+            try {
+                super.disable();
+            } catch (Exception ignored) {
+            }
             started.close();
             throw failure;
         }
@@ -58,7 +61,6 @@ public final class McpPlugin extends AbstractTurboismPlugin {
     @Override
     public synchronized void disable() throws Exception {
         stop();
-        super.disable();
     }
 
     @Override
@@ -144,6 +146,13 @@ public final class McpPlugin extends AbstractTurboismPlugin {
     }
 
     private void stop() {
+        try {
+            super.disable();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("MCP registrations teardown failed", e);
+        }
         final McpHttpServer current = server;
         server = null;
         if (current != null) current.close();
