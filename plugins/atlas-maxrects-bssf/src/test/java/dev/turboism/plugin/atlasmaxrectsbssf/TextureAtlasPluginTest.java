@@ -283,7 +283,7 @@ class TextureAtlasPluginTest {
         private final InMemoryConfigRegistry config = new InMemoryConfigRegistry();
 
         ShellPluginContext() {
-            super(FakePluginContext.builder());
+            super(FakePluginContext.builder().localization(passThroughLocalization()));
         }
 
         @Override
