@@ -1,3 +1,6 @@
+import java.security.MessageDigest
+import java.util.HexFormat
+
 plugins {
     `java-library`
 }
@@ -149,4 +152,25 @@ tasks.register<org.gradle.api.tasks.Exec>("hostValidationScriptContractTest") {
         rootProject.file("scripts/preview/host-locale-validation-contract.sh")
     )
     commandLine("bash", "scripts/preview/host-locale-validation-contract.sh")
+}
+
+val updateVerificationPins by tasks.registering {
+    group = "verification"
+    description = "Regenerates verification-record-pins.json from the records under compatibility/cubism/verification/."
+    val recordsDir = rootProject.file("compatibility/cubism/verification")
+    val manifestFile = file("src/test/resources/dev/turboism/tests/mapping/verification-record-pins.json")
+    inputs.dir(recordsDir)
+    outputs.file(manifestFile)
+    doLast {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val files = recordsDir.listFiles { f -> f.isFile && f.name.endsWith(".json") }
+            ?.sortedBy { it.name } ?: emptyList()
+        val entries = files.joinToString(",\n") { file ->
+            val sha = HexFormat.of().formatHex(digest.digest(file.readBytes()))
+            "  \"compatibility/cubism/verification/${file.name}\": \"$sha\""
+        }
+        manifestFile.parentFile.mkdirs()
+        manifestFile.writeText("{\n$entries\n}\n", Charsets.UTF_8)
+        logger.lifecycle("Updated {} pins in {}", files.size, manifestFile)
+    }
 }
