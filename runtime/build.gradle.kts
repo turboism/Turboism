@@ -1,7 +1,7 @@
 import org.gradle.language.jvm.tasks.ProcessResources
 
 plugins {
-    `java-library`
+    id("turboism.java-conventions")
 }
 
 val generatedCoreCatalogRoot = layout.buildDirectory.dir(
@@ -449,15 +449,15 @@ dependencies {
     implementation(project(":core-contract"))
 
     // JSON parsing implementation stays in runtime, not in SDK
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.9")
-    implementation("com.fasterxml.jackson.core:jackson-core:2.18.9")
-    implementation("com.fasterxml.jackson.core:jackson-annotations:2.18.9")
+    implementation(libs.jackson.databind)
+    implementation(libs.jackson.core)
+    implementation(libs.jackson.annotations)
 
     // Runtime-only bytecode metadata scanning for the local draft mapping review pipeline.
     implementation("org.ow2.asm:asm:9.7.1")
 
-    implementation("io.github.resilience4j:resilience4j-bulkhead:2.1.0")
-    implementation("io.github.resilience4j:resilience4j-timelimiter:2.1.0")
-    implementation("io.github.resilience4j:resilience4j-circuitbreaker:2.1.0")
+    implementation(libs.resilience4j.bulkhead)
+    implementation(libs.resilience4j.timelimiter)
+    implementation(libs.resilience4j.circuitbreaker)
 
 }

@@ -128,8 +128,9 @@ def static_check(root: Path) -> None:
         for start, end, body in blocks:
             repository_sites.append((rel, "repositories block"))
             normalized = re.sub(r"\s+", "", body)
-            if rel == "build.gradle.kts" and normalized == "mavenCentral()" and not root_repo_ok:
-                root_repo_ok = True
+            if rel in ("build.gradle.kts", "buildSrc/build.gradle.kts") and normalized == "mavenCentral()":
+                if rel == "build.gradle.kts":
+                    root_repo_ok = True
             else:
                 fail(f"repository calls are forbidden outside the existing root repositories {{ mavenCentral() }}; found {rel}")
             calls = [m for m in calls if not (start <= m.start() < end)]
@@ -158,7 +159,7 @@ def static_check(root: Path) -> None:
     elif files_with_asm != ["runtime/build.gradle.kts"]:
         fail("ASM may occur only once in runtime/build.gradle.kts; found in "
              + ", ".join(all_asm_occurrences))
-    if not root_repo_ok or repository_sites != [("build.gradle.kts", "repositories block")]:
+    if not root_repo_ok or not set(repository_sites).issubset({("build.gradle.kts", "repositories block"), ("buildSrc/build.gradle.kts", "repositories block")}):
         fail("repository policy requires exactly the existing root repositories { mavenCentral() }")
 
 

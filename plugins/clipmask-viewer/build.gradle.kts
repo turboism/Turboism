@@ -1,36 +1,5 @@
-import java.util.zip.ZipFile
-
 plugins {
-    `java-library`
+    id("turboism.plugin-conventions")
 }
 
-dependencies {
-    compileOnly(project(":sdk"))
-    annotationProcessor(project(":event-processor"))
-    testImplementation(project(":sdk"))
-    testImplementation(project(":testing:test-support"))
-}
-
-val verifyGeneratedSubscriberCatalog by tasks.registering {
-    dependsOn(tasks.named("jar"))
-    doLast {
-        val jarFile = tasks.named<Jar>("jar").get().archiveFile.get().asFile
-        ZipFile(jarFile).use { archive ->
-            check(archive.getEntry(
-                "META-INF/services/dev.turboism.sdk.event.GeneratedSubscriberCatalog"
-            ) != null) {
-                "Clip Mask Viewer JAR is missing generated subscriber service metadata"
-            }
-            check(archive.getEntry(
-                "dev/turboism/plugin/clipmaskviewer/" +
-                    "ClipMaskViewerPlugin__TurboismSubscriberCatalog.class"
-            ) != null) {
-                "Clip Mask Viewer JAR is missing its generated subscriber catalog"
-            }
-        }
-    }
-}
-
-tasks.named("check") {
-    dependsOn(verifyGeneratedSubscriberCatalog)
-}
+turboismPlugin.verifySubscriberCatalog("dev.turboism.plugin.clipmaskviewer.ClipMaskViewerPlugin__TurboismSubscriberCatalog")
