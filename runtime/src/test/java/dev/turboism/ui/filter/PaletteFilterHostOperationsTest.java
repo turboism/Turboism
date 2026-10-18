@@ -953,4 +953,18 @@ class PaletteFilterHostOperationsTest {
         }
         return result.get();
     }
+
+    @Test
+    void treeFilterExecutorLifecycleSupportsShutdownAndRecreation() {
+        PaletteFilterHostOperations.shutdownTreeFilterExecutor();
+        final java.util.concurrent.atomic.AtomicBoolean ran = new java.util.concurrent.atomic.AtomicBoolean();
+        PaletteTreeFilter.TREE_FILTER_EXECUTOR.execute(() -> ran.set(true));
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> {
+            for (int i = 0; i < 50 && !ran.get(); i++) {
+                Thread.sleep(20);
+            }
+        });
+        assertTrue(ran.get());
+        PaletteFilterHostOperations.shutdownTreeFilterExecutor();
+    }
 }

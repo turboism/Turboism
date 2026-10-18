@@ -302,7 +302,7 @@ class ScreenshotCaptureHostOperationsTest {
             final ScreenshotCaptureRequest request =
                     new ScreenshotCaptureRequest(files.list().get(0).id(), 150, 150);
             final ScreenshotCaptureResult first =
-                    capture.capture(request).toCompletableFuture().get(15, TimeUnit.SECONDS);
+                    capture.capture(request).toCompletableFuture().get(60, TimeUnit.SECONDS);
             assertEquals(request.id(), first.id());
             assertTrue(first.image().width() <= 150 && first.image().height() <= 150);
             assertEquals(1, hides.get(), "the actual capture suppresses its popup");

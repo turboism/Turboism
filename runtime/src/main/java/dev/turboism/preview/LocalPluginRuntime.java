@@ -532,7 +532,10 @@ public final class LocalPluginRuntime implements AutoCloseable {
                     editorObjectLifecycle::close,
                     partLifecycle::close,
                     parameterLifecycle::close,
-                    this::closeHostReadLane);
+                    this::closeHostReadLane,
+                    dev.turboism.adapter.cubism.PreviewCaptureHostOperations::shutdownPostProcessExecutor,
+                    dev.turboism.ui.filter.PaletteFilterHostOperations::shutdownTreeFilterExecutor,
+                    dev.turboism.core.runtime.sidecar.ProcessSidecarDispatcher::shutdownDefaultDispatchExecutor);
         }
         cleanup.close();
     }
