@@ -19,12 +19,14 @@ Usage:
 
 import argparse
 import hashlib
-import json
 import re
 import sys
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+import _bootstrap  # noqa: F401
+from turboism_dev.json_io import read_json
+from turboism_dev.paths import repo_root
+
+ROOT = repo_root()
 LOCALES = ("zh", "ja", "ko")
 ENGLISH = ROOT / "CHANGELOG.md"
 NOTES_DIR = ROOT / "release-notes"
@@ -47,7 +49,7 @@ def sections(text):
 
 def load_notes(version):
     path = NOTES_DIR / f"{version}.json"
-    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+    return read_json(path) if path.exists() else None
 
 
 def render(lang, check=False, fail_on_drift=False):

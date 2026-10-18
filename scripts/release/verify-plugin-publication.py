@@ -17,9 +17,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
+import _bootstrap  # noqa: F401
 
 from turboism_release.contracts import ReleaseError, read_document
 
