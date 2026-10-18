@@ -1,11 +1,9 @@
 package dev.turboism.plugin.tabfilter;
 
+import dev.turboism.sdk.plugin.AbstractTurboismPlugin;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
-import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -13,51 +11,67 @@ import java.util.List;
  * tabs. The framework owns host attachment and row filtering; this plugin only
  * declares which palette tabs receive a filter box and their placeholders.
  */
-public final class TabFilterPlugin implements TurboismPlugin {
+public final class TabFilterPlugin extends AbstractTurboismPlugin {
 
-    private PluginContext context;
     private PluginLogger logger;
-    private List<Registration> registrations = List.of();
 
     @Override
     public void init(final PluginContext context) {
-        this.context = java.util.Objects.requireNonNull(context, "context");
+        try {
+            super.init(context);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Tab filter initialization failed", e);
+        }
         this.logger = context.logger();
         logger.info("TabFilterPlugin initialized");
     }
 
     @Override
     public void enable() {
-        if (context == null) {
-            throw new IllegalStateException("TabFilterPlugin must be initialized before enable.");
+        try {
+            super.enable();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Tab filter enable failed", e);
         }
         final PaletteFilterRegistry registry =
-                context.services().find(PaletteFilterRegistry.class).orElse(null);
+                context().services().find(PaletteFilterRegistry.class).orElse(null);
         if (registry == null || !registry.isAvailable()) {
             logger.warn("tab-filter: palette filter registry is unavailable; filter boxes are not installed");
             return;
         }
-        final List<Registration> enrolled = new ArrayList<>(4);
-        for (PaletteFilterRegistry.PaletteFilterContribution contribution : contributions()) {
-            enrolled.add(registry.contribute(contribution));
+        final List<PaletteFilterRegistry.PaletteFilterContribution> contributions = contributions();
+        for (PaletteFilterRegistry.PaletteFilterContribution contribution : contributions) {
+            disposalScope().register(registry.contribute(contribution));
         }
-        registrations = List.copyOf(enrolled);
         logger.info(
-                "TabFilterPlugin enabled: palette filter boxes enrolled for " + registrations.size() + " palette tabs");
+                "TabFilterPlugin enabled: palette filter boxes enrolled for " + contributions.size() + " palette tabs");
     }
 
     @Override
     public void disable() {
-        for (Registration registration : registrations) {
-            registration.close();
+        try {
+            super.disable();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Tab filter disposal failed", e);
         }
-        registrations = List.of();
         logger.info("TabFilterPlugin disabled");
     }
 
     @Override
     public void shutdown() {
-        disable();
+        try {
+            super.shutdown();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Tab filter shutdown failed", e);
+        }
         logger.info("TabFilterPlugin shutdown");
     }
 
