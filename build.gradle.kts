@@ -112,22 +112,8 @@ tasks.register<JavaExec>("mappingReview") {
 }
 
 apply(from = "gradle/common-java.gradle.kts")
+subprojects.forEach { evaluationDependsOn(it.path) }
 apply(from = "gradle/module-boundaries.gradle.kts")
-
-/*
- * Formatting is machine-owned: palantir-java-format via Spotless on every
- * subproject's Java sources. `spotlessApply` rewrites in place;
- * `spotlessCheck` gates commits inside checkCompletedCommit.
- */
-subprojects {
-    plugins.apply("com.diffplug.spotless")
-    extensions.configure<com.diffplug.gradle.spotless.SpotlessExtension>("spotless") {
-        java {
-            target("src/**/*.java")
-            palantirJavaFormat(libs.versions.palantirJavaFormat.get())
-        }
-    }
-}
 apply(from = "gradle/asm-admission.gradle.kts")
 apply(from = "gradle/runtime-verification.gradle.kts")
 apply(from = "gradle/sdk-api.gradle.kts")

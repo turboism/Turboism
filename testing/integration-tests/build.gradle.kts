@@ -1,5 +1,5 @@
 plugins {
-    `java-library`
+    id("turboism.java-conventions")
 }
 
 // The audited native startup responder is validation tooling shared as source;
