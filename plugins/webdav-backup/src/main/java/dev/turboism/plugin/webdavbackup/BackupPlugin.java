@@ -86,13 +86,7 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
 
     @Override
     public void init(final PluginContext context) {
-        try {
-            super.init(context);
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("WebDAV backup plugin init failed", e);
-        }
+        super.init(context);
         binding.init(context.config()).whenComplete((result, failure) -> {
             if (result == ConfigBindingResult.APPLIED) {
                 context.logger().info("WebDAV backup sync binding initialized");
@@ -111,13 +105,7 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
 
     @Override
     public void enable() {
-        try {
-            super.enable();
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("WebDAV backup plugin enable failed", e);
-        }
+        super.enable();
         try {
             startWorkers();
             binding.enable();
@@ -139,33 +127,30 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
         stopScanner();
         cancelTargetRetry();
         cleanupPendingTempArtifacts();
-        Throwable failure = null;
         try {
             super.disable();
-        } catch (Throwable t) {
-            failure = t;
-        }
-        try {
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("WebDAV backup plugin disable failed", e);
+        } finally {
             shutdownWorkers();
-        } catch (Throwable t) {
-            if (failure == null) failure = t;
-            else failure.addSuppressed(t);
         }
-        if (failure instanceof RuntimeException re) throw re;
-        if (failure instanceof Error err) throw err;
-        if (failure != null) throw new IllegalStateException("WebDAV backup plugin disable failed", failure);
     }
 
     @Override
     public void shutdown() {
-        disable();
-        binding.shutdown();
         try {
-            super.shutdown();
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("WebDAV backup plugin shutdown failed", e);
+            disable();
+            binding.shutdown();
+        } finally {
+            try {
+                super.shutdown();
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new IllegalStateException("WebDAV backup plugin shutdown failed", e);
+            }
         }
     }
 
