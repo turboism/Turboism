@@ -71,8 +71,10 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
             enabledSettings =
                     new AcpPluginSettings(context().config(), context().logger());
             final Registration agentAction = action(OPEN_ACTION_ID, "action.open-agent", this::openAgentWindow);
+            disposalScope().register(agentAction);
             final Registration settingsAction =
                     action(SETTINGS_ACTION_ID, "action.open-settings", this::openSettingsWindow);
+            disposalScope().register(settingsAction);
             final Registration settingsMenu = context().menus().contribute(new MenuRegistry.MenuContribution() {
                 @Override
                 public String menuPath() {
@@ -89,6 +91,7 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
                     return SETTINGS_MENU_ORDER;
                 }
             });
+            disposalScope().register(settingsMenu);
             final Registration toolbar = context()
                     .services()
                     .require(MainToolbarRegistry.class)
@@ -106,9 +109,6 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
                                     java.util.Optional.empty()),
                             MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
                             TOOLBAR_ORDER));
-            disposalScope().register(agentAction);
-            disposalScope().register(settingsAction);
-            disposalScope().register(settingsMenu);
             disposalScope().register(toolbar);
             settings = enabledSettings;
             enabled = true;
@@ -134,16 +134,37 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
             settings = null;
             controller = null;
         }
+        Throwable failure = null;
         try {
             super.disable();
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Turboism ACP disposal failed", e);
+        } catch (Throwable t) {
+            failure = t;
         }
-        if (currentController != null) currentController.close();
-        disposeFrames();
-        if (currentSettings != null) currentSettings.close();
+        if (currentController != null) {
+            try {
+                currentController.close();
+            } catch (Throwable t) {
+                if (failure == null) failure = t;
+                else failure.addSuppressed(t);
+            }
+        }
+        try {
+            disposeFrames();
+        } catch (Throwable t) {
+            if (failure == null) failure = t;
+            else failure.addSuppressed(t);
+        }
+        if (currentSettings != null) {
+            try {
+                currentSettings.close();
+            } catch (Throwable t) {
+                if (failure == null) failure = t;
+                else failure.addSuppressed(t);
+            }
+        }
+        if (failure instanceof RuntimeException re) throw re;
+        if (failure instanceof Error err) throw err;
+        if (failure != null) throw new IllegalStateException("Turboism ACP disposal failed", failure);
     }
 
     @Override
