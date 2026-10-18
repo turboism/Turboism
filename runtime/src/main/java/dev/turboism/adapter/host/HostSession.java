@@ -933,10 +933,6 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         outcome = outcome.combine(runCoordinator(embeddedPanelActivation::close));
         outcome = outcome.combine(runCoordinator(editorUiContributions::close));
         outcome = outcome.combine(runCoordinator(editorUiLifecycle::close));
-        outcome = outcome.combine(
-                runCoordinator(dev.turboism.adapter.cubism.PreviewCaptureHostOperations::shutdownPostProcessExecutor));
-        outcome = outcome.combine(
-                runCoordinator(dev.turboism.ui.filter.PaletteFilterHostOperations::shutdownTreeFilterExecutor));
         for (final AutoCloseable step : coordinatorCleanupStepsForTest) {
             outcome = outcome.combine(runCoordinator(step));
         }
