@@ -3,33 +3,19 @@ package dev.turboism.plugin.atlasdalsoo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.sdk.config.ConfigKey;
-import dev.turboism.sdk.config.ConfigMigration;
-import dev.turboism.sdk.config.ConfigReadResult;
-import dev.turboism.sdk.config.ConfigSchema;
-import dev.turboism.sdk.config.ConfigValue;
-import dev.turboism.sdk.config.ConfigValueSource;
-import dev.turboism.sdk.config.ConfigWriteResult;
-import dev.turboism.sdk.config.PluginConfigException;
-import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasItemLayoutPolicy;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutBackend;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutQuality;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode;
-import dev.turboism.sdk.plugin.Registration;
-import java.util.HashMap;
-import java.util.List;
+import dev.turboism.test.config.InMemoryConfigRegistry;
 import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import org.junit.jupiter.api.Test;
 
 class PolygonLayoutSettingsBindingTest {
 
     @Test
     void defaultsLoadCleanly() {
-        final var registry = new FakeRegistry();
+        final var registry = new InMemoryConfigRegistry();
         final var binding = new PolygonLayoutSettingsBinding();
         assertTrue(binding.init(registry).toCompletableFuture().join());
         assertTrue(binding.enable().toCompletableFuture().join());
@@ -43,7 +29,7 @@ class PolygonLayoutSettingsBindingTest {
 
     @Test
     void updatePersistsAndSurvivesReload() {
-        final var registry = new FakeRegistry();
+        final var registry = new InMemoryConfigRegistry();
         var binding = new PolygonLayoutSettingsBinding();
         binding.init(registry).toCompletableFuture().join();
         binding.enable().toCompletableFuture().join();
@@ -117,58 +103,5 @@ class PolygonLayoutSettingsBindingTest {
             assertEquals(entry.getValue().a(), policy.preserveAngle(), entry.getKey() + " angle");
             assertEquals(entry.getValue().s(), policy.preserveScale(), entry.getKey() + " scale");
         }
-    }
-
-    /** Minimal in-memory registry honouring revision-chained writes. */
-    private static final class FakeRegistry implements PluginConfigRegistry {
-        private final Map<ConfigKey<?>, Object> values = new HashMap<>();
-        private ConfigSchema schema;
-        private long revision;
-
-        @Override
-        public CompletionStage<Void> registerSchema(final ConfigSchema schema, final List<ConfigMigration> migrations) {
-            this.schema = schema;
-            return CompletableFuture.completedFuture(null);
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public <T> CompletionStage<ConfigReadResult<T>> read(final ConfigKey<T> key) {
-            final boolean stored = values.containsKey(key);
-            final T current = stored ? (T) values.get(key) : key.defaultValue();
-            final ConfigValueSource source = stored ? ConfigValueSource.STORED : ConfigValueSource.DEFAULT_MISSING;
-            return CompletableFuture.completedFuture(
-                    new ConfigReadResult<>(new ConfigValue<>(current, source, revision), Optional.empty()));
-        }
-
-        @Override
-        public <T> CompletionStage<ConfigWriteResult> write(
-                final ConfigKey<T> key, final T value, final long expectedRevision) {
-            if (expectedRevision != revision) {
-                return CompletableFuture.completedFuture(new ConfigWriteResult(false, revision, Optional.empty()));
-            }
-            values.put(key, value);
-            revision++;
-            return CompletableFuture.completedFuture(new ConfigWriteResult(true, revision, Optional.empty()));
-        }
-
-        @Override
-        public Registration readScope(final String relativePath) {
-            return () -> {};
-        }
-
-        @Override
-        public Registration writeScope(final String relativePath) {
-            return () -> {};
-        }
-
-        @Override
-        public Optional<String> readString(final String relativePath, final String key) {
-            return Optional.empty();
-        }
-
-        @Override
-        public void writeString(final String relativePath, final String key, final String value)
-                throws PluginConfigException {}
     }
 }

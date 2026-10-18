@@ -24,34 +24,17 @@ import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Parts;
-import dev.turboism.sdk.diagnostics.DiagnosticReport;
-import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.i18n.PluginLocalization;
-import dev.turboism.sdk.menu.MenuRegistry;
-import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.PluginDescriptor;
-import dev.turboism.sdk.plugin.PluginLogger;
-import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
-import dev.turboism.sdk.ui.DialogRequest;
-import dev.turboism.sdk.ui.EmbeddedPanelContribution;
-import dev.turboism.sdk.ui.FileChooserRequest;
-import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
-import dev.turboism.sdk.ui.UiScheduler;
-import dev.turboism.sdk.ui.ViewportSnapshot;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
-import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
-import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
-import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.test.plugin.FakePluginContext;
+import dev.turboism.test.ui.RecordingUiHost;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -205,7 +188,7 @@ class ParameterBatchTransferPluginTest {
                 new ParameterBatchTransferPlugin(new ParameterBatchTransferService());
     }
 
-    private static final class RecordingContext implements PluginContext {
+    private static final class RecordingContext extends FakePluginContext {
         private final RecordingActions actions;
         private final RecordingContextMenus contextMenus;
         private final RecordingUiHost uiHost;
@@ -218,6 +201,7 @@ class ParameterBatchTransferPluginTest {
                 final RecordingUiHost uiHost,
                 final RecordingCubism cubism,
                 final DisposableScope scope) {
+            super(FakePluginContext.builder());
             this.actions = actions;
             this.contextMenus = contextMenus;
             this.uiHost = uiHost;
@@ -226,38 +210,8 @@ class ParameterBatchTransferPluginTest {
         }
 
         @Override
-        public PluginDescriptor descriptor() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public PluginLogger logger() {
-            return new PluginLogger() {
-                @Override
-                public void debug(String message) {}
-
-                @Override
-                public void info(String message) {}
-
-                @Override
-                public void warn(String message) {}
-
-                @Override
-                public void error(String message) {}
-
-                @Override
-                public void error(String message, Throwable throwable) {}
-            };
-        }
-
-        @Override
-        public PluginPaths paths() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public dev.turboism.sdk.config.PluginConfigRegistry config() {
-            throw new UnsupportedOperationException();
+        public RecordingUiHost uiHost() {
+            return uiHost;
         }
 
         @Override
@@ -266,62 +220,17 @@ class ParameterBatchTransferPluginTest {
         }
 
         @Override
-        public List<PluginPermission> permissions() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public EventBus eventBus() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public ActionRegistry actions() {
+        public RecordingActions actions() {
             return actions;
         }
 
-        @Override
-        public MenuRegistry menus() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public UiScheduler uiScheduler() {
-            throw new UnsupportedOperationException();
-        }
-
-        public ContextMenuRegistry contextMenu() {
+        public RecordingContextMenus contextMenus() {
             return contextMenus;
         }
 
         @Override
         public PluginLocalization localization() {
-            return new PluginLocalization() {
-                @Override
-                public Locale locale() {
-                    return Locale.ROOT;
-                }
-
-                @Override
-                public String text(String key) {
-                    return key;
-                }
-
-                @Override
-                public String format(String key, Object... arguments) {
-                    return key;
-                }
-
-                @Override
-                public boolean contains(String key) {
-                    return true;
-                }
-            };
-        }
-
-        @Override
-        public DiagnosticReport diagnostics() {
-            throw new UnsupportedOperationException();
+            return passThroughLocalization();
         }
 
         @Override
@@ -329,14 +238,10 @@ class ParameterBatchTransferPluginTest {
             return scope;
         }
 
-        public UiHostCapabilityService uiHost() {
-            return uiHost;
-        }
-
         @Override
         public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
             return dev.turboism.sdk.plugin.PluginServices.builder()
-                    .supply(dev.turboism.sdk.ui.context.ContextMenuRegistry.class, () -> this.contextMenu())
+                    .supply(dev.turboism.sdk.ui.context.ContextMenuRegistry.class, () -> this.contextMenus())
                     .supply(dev.turboism.sdk.ui.UiHostCapabilityService.class, () -> this.uiHost())
                     .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
                     .build();
@@ -382,71 +287,6 @@ class ParameterBatchTransferPluginTest {
                     .filter(value -> value.id().equals(id))
                     .findFirst()
                     .orElseThrow();
-        }
-    }
-
-    private static final class RecordingUiHost implements UiHostCapabilityService {
-        final List<StatusNotification> notifications = new ArrayList<>();
-
-        @Override
-        public Registration notifyStatus(final StatusNotification notification) {
-            notifications.add(notification);
-            return () -> {};
-        }
-
-        @Override
-        public Registration contributeOverlay(OverlayContribution contribution) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Registration contributeBoundingBoxOverlayButton(BoundingBoxOverlayButton contribution) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public ContextSourceSnapshot contextSource() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public ViewportSnapshot viewport() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Registration openDialog(DialogRequest request) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public boolean confirmDialog(DialogRequest request) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Optional<String> requestFile(FileChooserRequest request) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Registration contributeContextMenu(ContextMenuRegistry.ContextMenuContribution contribution) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Registration contributeMainToolbar(MainToolbarRegistry.MainToolbarContribution contribution) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Registration contributePaletteToolbar(PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
-            throw new UnsupportedOperationException();
         }
     }
 
