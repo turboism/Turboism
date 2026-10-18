@@ -30,8 +30,9 @@ import java.util.concurrent.CountDownLatch;
  */
 public class InMemoryPluginStorage implements PluginStorage {
 
-    private final Map<StoragePath, byte[]> files = new ConcurrentHashMap<>();
+    public final Map<StoragePath, byte[]> files = new ConcurrentHashMap<>();
     private final List<String> operations = new CopyOnWriteArrayList<>();
+    public volatile StoragePath lastWritePath;
 
     private volatile CompletableFuture<Void> readGate = CompletableFuture.completedFuture(null);
     private volatile CountDownLatch readStarted = new CountDownLatch(0);
@@ -201,6 +202,7 @@ public class InMemoryPluginStorage implements PluginStorage {
 
     @Override
     public CompletionStage<StorageWriteResult> writeUtf8Atomic(final StoragePath path, final String content) {
+        lastWritePath = path;
         operations.add("writeUtf8:" + path.relativePath());
         if (failWrite) {
             final StorageError error = writeError != null
@@ -214,6 +216,7 @@ public class InMemoryPluginStorage implements PluginStorage {
 
     @Override
     public CompletionStage<StorageWriteResult> writeBytesAtomic(final StoragePath path, final byte[] content) {
+        lastWritePath = path;
         operations.add("writeBytes:" + path.relativePath());
         if (failWrite) {
             final StorageError error = writeError != null
