@@ -31,14 +31,14 @@ public class InMemoryConfigRegistry implements PluginConfigRegistry {
 
     private static final Pattern IDENTIFIER = Pattern.compile("[a-z0-9][a-z0-9._-]{0,127}");
 
-    private final Map<ConfigKey<?>, Object> values = new ConcurrentHashMap<>();
-    private final Map<String, Map<String, String>> scopedStrings = new ConcurrentHashMap<>();
-    private final AtomicLong revision = new AtomicLong(0);
+    public final Map<ConfigKey<?>, Object> values = new ConcurrentHashMap<>();
+    public final Map<String, Map<String, String>> scopedStrings = new ConcurrentHashMap<>();
+    public final AtomicLong revision = new AtomicLong(0);
 
-    private volatile ConfigSchema schema;
-    private volatile List<ConfigMigration> migrations = List.of();
-    private volatile ConfigSchemaEditor editor;
-    private volatile String failWriteStringKey;
+    public volatile ConfigSchema schema;
+    public volatile List<ConfigMigration> migrations = List.of();
+    public volatile ConfigSchemaEditor editor;
+    public volatile String failWriteStringKey;
 
     public ConfigSchema lastSchema() {
         return schema;
