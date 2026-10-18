@@ -104,6 +104,16 @@ class TestImportMechanism(unittest.TestCase):
     def test_no_bootstrap_modules(self) -> None:
         self.assertEqual([], sorted(SCRIPTS_DIR.rglob("_bootstrap.py")))
 
+    def test_preview_scripts_stay_self_contained(self) -> None:
+        # The host-validation queue snapshots only scripts/preview/ into a task
+        # tree and runs it there, so those scripts cannot import turboism_dev.
+        offenders = [
+            path.name
+            for path in sorted((SCRIPTS_DIR / "preview").glob("*.py"))
+            if "turboism_dev" in path.read_text(encoding="utf-8")
+        ]
+        self.assertEqual([], offenders)
+
     def test_scripts_package_exposes_scripts_dir(self) -> None:
         import subprocess
 

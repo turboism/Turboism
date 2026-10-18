@@ -25,11 +25,6 @@ import time
 import uuid
 from typing import Any
 
-_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
-if _SCRIPTS_DIR not in sys.path:
-    sys.path.insert(0, _SCRIPTS_DIR)
-from turboism_dev.paths import repo_root
-
 import host_validation_queue as queue
 
 FORMAT = "turboism.host-validation.tasks"
@@ -186,7 +181,7 @@ def load_manifest(path: Path, environment: dict[str, str] | None = None) -> Mani
     if not resources:
         raise SchedulerError("manifest must declare resources")
 
-    root = repo_root()
+    root = Path(__file__).resolve().parents[2]
     task_values = require_dict(data.get("tasks"), "tasks")
     tasks: dict[str, Task] = {}
     for name, value in sorted(task_values.items()):
@@ -487,7 +482,7 @@ def main(argv: list[str] | None = None) -> int:
             # Dispatched before Store() so inspection never initializes the queue.
             import host_validation_disposition as disposition
             return disposition.cli(args)
-        root = repo_root()
+        root = Path(__file__).resolve().parents[2]
         if args.command in {"list", "plan", "prepare", "run"}:
             environment = dict(parse_local_env(Path(os.environ.get("TURBOISM_ENV_FILE", root / ".env"))))
             environment.update(os.environ)
