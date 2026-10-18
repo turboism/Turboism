@@ -20,12 +20,7 @@ import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PluginPermission;
-import dev.turboism.sdk.plugin.DisposableScope;
-import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.PluginDescriptor;
-import dev.turboism.sdk.plugin.PluginLogger;
-import dev.turboism.sdk.plugin.PluginPaths;
-import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.plugin.FakePluginContext;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -94,48 +89,14 @@ class TextureAtlasStatisticsPluginTest {
         }
     }
 
-    private static final class ShellPluginContext implements PluginContext {
+    private static final class ShellPluginContext extends FakePluginContext {
         private final TextureAtlasEditorSession session;
         private final TextureAtlasEditorUi ui;
 
         private ShellPluginContext(final TextureAtlasEditorSession session, final TextureAtlasEditorUi ui) {
+            super(FakePluginContext.builder());
             this.session = session;
             this.ui = ui;
-        }
-
-        @Override
-        public PluginDescriptor descriptor() {
-            throw unused();
-        }
-
-        @Override
-        public PluginLogger logger() {
-            return new PluginLogger() {
-                @Override
-                public void debug(String message) {}
-
-                @Override
-                public void info(String message) {}
-
-                @Override
-                public void warn(String message) {}
-
-                @Override
-                public void error(String message) {}
-
-                @Override
-                public void error(String message, Throwable throwable) {}
-            };
-        }
-
-        @Override
-        public PluginPaths paths() {
-            throw unused();
-        }
-
-        @Override
-        public PluginConfigRegistry config() {
-            throw unused();
         }
 
         @Override
@@ -185,62 +146,7 @@ class TextureAtlasStatisticsPluginTest {
 
         @Override
         public PluginLocalization localization() {
-            return new PluginLocalization() {
-                @Override
-                public java.util.Locale locale() {
-                    return java.util.Locale.ENGLISH;
-                }
-
-                @Override
-                public String text(String key) {
-                    return key;
-                }
-
-                @Override
-                public String format(String key, Object... arguments) {
-                    return key;
-                }
-
-                @Override
-                public boolean contains(String key) {
-                    return true;
-                }
-            };
-        }
-
-        @Override
-        public List<PluginPermission> permissions() {
-            return List.of();
-        }
-
-        @Override
-        public EventBus eventBus() {
-            throw unused();
-        }
-
-        @Override
-        public ActionRegistry actions() {
-            throw unused();
-        }
-
-        @Override
-        public MenuRegistry menus() {
-            throw unused();
-        }
-
-        @Override
-        public UiScheduler uiScheduler() {
-            throw unused();
-        }
-
-        @Override
-        public DiagnosticReport diagnostics() {
-            throw unused();
-        }
-
-        @Override
-        public DisposableScope disposableScope() {
-            throw unused();
+            return passThroughLocalization();
         }
 
         private static UnsupportedOperationException unused() {
