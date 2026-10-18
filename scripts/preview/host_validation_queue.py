@@ -18,6 +18,9 @@ import stat
 import time
 from typing import Any, Iterator
 import uuid
+
+import _bootstrap  # noqa: F401
+from turboism_dev.json_io import read_json
 import re
 import shutil
 import subprocess
@@ -1067,8 +1070,7 @@ def task_resources(task_spec: str) -> list[str] | None:
     not a catalogue task (fail-closed serial scheduling)."""
     name = task_spec.split(":", 1)[0].split("@", 1)[0]
     try:
-        data = json.loads((Path(__file__).resolve().with_name("host-validation-tasks.json"))
-                          .read_text(encoding="utf-8"))
+        data = read_json(Path(__file__).resolve().with_name("host-validation-tasks.json"))
         resources = data["tasks"][name]["resources"]
     except (OSError, ValueError, KeyError, TypeError):
         return None

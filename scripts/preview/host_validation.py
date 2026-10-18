@@ -25,6 +25,9 @@ import time
 import uuid
 from typing import Any
 
+import _bootstrap  # noqa: F401
+from turboism_dev.paths import repo_root
+
 import host_validation_queue as queue
 
 FORMAT = "turboism.host-validation.tasks"
@@ -181,7 +184,7 @@ def load_manifest(path: Path, environment: dict[str, str] | None = None) -> Mani
     if not resources:
         raise SchedulerError("manifest must declare resources")
 
-    root = Path(__file__).resolve().parents[2]
+    root = repo_root()
     task_values = require_dict(data.get("tasks"), "tasks")
     tasks: dict[str, Task] = {}
     for name, value in sorted(task_values.items()):
@@ -482,7 +485,7 @@ def main(argv: list[str] | None = None) -> int:
             # Dispatched before Store() so inspection never initializes the queue.
             import host_validation_disposition as disposition
             return disposition.cli(args)
-        root = Path(__file__).resolve().parents[2]
+        root = repo_root()
         if args.command in {"list", "plan", "prepare", "run"}:
             environment = dict(parse_local_env(Path(os.environ.get("TURBOISM_ENV_FILE", root / ".env"))))
             environment.update(os.environ)
