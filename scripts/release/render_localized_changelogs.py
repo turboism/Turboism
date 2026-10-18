@@ -13,8 +13,8 @@ so history predating the scheme is preserved exactly.
 
 Usage:
     render_localized_changelogs.py                        # rewrite localized changelogs
-    render_localized_changelogs.py --check                # verify committed files match
-    render_localized_changelogs.py --check --fail-on-drift  # fail closed on englishSha256 drift
+    render_localized_changelogs.py --check                # verify committed files match (fails on drift)
+    render_localized_changelogs.py --check --fail-on-drift  # accepted alias for backward compatibility
 """
 
 import argparse
@@ -55,7 +55,7 @@ def load_notes(version):
     return read_json(path) if path.exists() else None
 
 
-def render(lang, check=False, fail_on_drift=False):
+def render(lang, check=False, fail_on_drift=True):
     target = ROOT / f"CHANGELOG_{lang}.md"
     committed = target.read_text(encoding="utf-8")
     committed_header, committed_sections = sections(committed)
@@ -111,12 +111,12 @@ def render(lang, check=False, fail_on_drift=False):
             print(f"drift: {target.name} does not match the release-notes JSON; "
                   "run scripts/release/render_localized_changelogs.py", file=sys.stderr)
             failed = True
-        if fail_on_drift and has_drift:
+        if has_drift:
             print(f"drift: English section drifted from release-notes anchor for {target.name}",
                   file=sys.stderr)
             failed = True
         return 1 if failed else 0
-    if fail_on_drift and has_drift:
+    if has_drift:
         print(f"drift: English section drifted from release-notes anchor for {target.name}",
               file=sys.stderr)
         return 1
@@ -132,9 +132,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--check", action="store_true",
-                        help="verify committed localized changelogs instead of rewriting")
+                        help="verify committed localized changelogs instead of rewriting (fails on drift)")
     parser.add_argument("--fail-on-drift", "--strict", dest="fail_on_drift", action="store_true",
-                        help="fail closed (non-zero) on englishSha256 drift (default: warn only)")
+                        help="accepted alias; drift check fails closed by default")
     args = parser.parse_args()
     status = 0
     for lang in LOCALES:
