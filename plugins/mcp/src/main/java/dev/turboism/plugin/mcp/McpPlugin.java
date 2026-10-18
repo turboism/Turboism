@@ -8,6 +8,7 @@ import dev.turboism.sdk.plugin.AbstractTurboismPlugin;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 import java.awt.GraphicsEnvironment;
+import java.io.IOException;
 import javax.swing.SwingUtilities;
 
 /** Plugin lifecycle owner of the loopback MCP transport and its local connection window. */
@@ -20,16 +21,21 @@ public final class McpPlugin extends AbstractTurboismPlugin {
     private McpConnectionWindow window;
 
     @Override
-    public synchronized void init(final PluginContext context) throws Exception {
+    public synchronized void init(final PluginContext context) {
         super.init(context);
         context.disposableScope().register(this::disposeWindow);
     }
 
     @Override
-    public synchronized void enable() throws Exception {
+    public synchronized void enable() {
         super.enable();
         if (server != null) return;
-        final McpHttpServer started = McpHttpServer.start(context());
+        final McpHttpServer started;
+        try {
+            started = McpHttpServer.start(context());
+        } catch (IOException e) {
+            throw new IllegalStateException("MCP server startup failed", e);
+        }
         Registration publication = null;
         Registration action = null;
         Registration menu = null;
@@ -50,9 +56,14 @@ public final class McpPlugin extends AbstractTurboismPlugin {
         } catch (RuntimeException | Error failure) {
             try {
                 super.disable();
-            } catch (Exception ignored) {
+            } catch (Exception rollbackFailure) {
+                failure.addSuppressed(rollbackFailure);
             }
-            started.close();
+            try {
+                started.close();
+            } catch (RuntimeException closeFailure) {
+                failure.addSuppressed(closeFailure);
+            }
             throw failure;
         }
         context().logger().info("MCP connection metadata published");
@@ -65,8 +76,11 @@ public final class McpPlugin extends AbstractTurboismPlugin {
 
     @Override
     public synchronized void shutdown() throws Exception {
-        stop();
-        super.shutdown();
+        try {
+            stop();
+        } finally {
+            super.shutdown();
+        }
     }
 
     synchronized McpHttpServer serverForTests() {
@@ -145,18 +159,18 @@ public final class McpPlugin extends AbstractTurboismPlugin {
                 current.endpoint(), current.stdioClientConfig(), current.connectionHistory());
     }
 
-    private void stop() {
+    private void stop() throws Exception {
         try {
             super.disable();
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("MCP registrations teardown failed", e);
+        } finally {
+            try {
+                final McpHttpServer current = server;
+                server = null;
+                if (current != null) current.close();
+            } finally {
+                disposeWindow();
+            }
         }
-        final McpHttpServer current = server;
-        server = null;
-        if (current != null) current.close();
-        disposeWindow();
     }
 
     private void disposeWindow() {
