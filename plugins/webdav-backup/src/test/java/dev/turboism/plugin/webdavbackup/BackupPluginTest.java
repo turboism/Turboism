@@ -221,7 +221,8 @@ final class BackupPluginTest {
                 context.awaitLog("WEBDAV_TRIGGER_MODE mode=AUTO_BACKUP_SYNC", Duration.ofSeconds(2)),
                 "the trigger mode must be logged");
         context.bus.publish(completedEvent());
-        Thread.sleep(300L);
+        // publish() dispatches synchronously and an upload is submitted before the handler returns
+        assertTrue(context.submittedTaskKinds.isEmpty(), "AUTO_BACKUP_SYNC must not submit an upload task");
         assertFalse(
                 context.hasLog("WEBDAV_SYNC_UPLOAD"),
                 "AUTO_BACKUP_SYNC must not react to BackupCompletedEvent (the scanner owns it)");
