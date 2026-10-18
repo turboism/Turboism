@@ -11,7 +11,7 @@
 # carries the exact task fixture path, and it revalidates the JVM start tick
 # and window ownership before every resize burst. It never signals or cleans
 # any process.
-set -u
+set -euo pipefail
 export DISPLAY=${DISPLAY:-:0}
 
 FPS_CUBISM_JAR_TOKEN="Live2D_Cubism.jar"
