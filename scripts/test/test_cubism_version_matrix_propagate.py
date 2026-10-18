@@ -4,14 +4,22 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+from pathlib import Path
 import struct
+import sys
 import tempfile
 import unittest
 import zipfile
-from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
+DEV_DIR = ROOT / "scripts/dev"
+if str(DEV_DIR) not in sys.path:
+    sys.path.insert(0, str(DEV_DIR))
+SCRIPTS_DIR = ROOT / "scripts"
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
 SPEC = importlib.util.spec_from_file_location(
     "cubism_version_matrix", ROOT / "scripts/dev/cubism_version_matrix.py"
 )
@@ -183,14 +191,21 @@ class PropagationTest(unittest.TestCase):
         self.packs = self.root / "packs"
         self.verification.mkdir()
         self.packs.mkdir()
-        patcher = patch.multiple(
-            MATRIX,
-            REF_DIR=self.ref,
-            VERIFICATION_DIR=self.verification,
-            PACK_DIR=self.packs,
-        )
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        import cubism_matrix.artifacts as artifacts_module
+        import cubism_matrix.constants as constants_module
+        import cubism_matrix.derive as derive_module
+        import cubism_matrix.propagate as propagate_module
+
+        for mod in (propagate_module, artifacts_module, derive_module, constants_module, MATRIX):
+            for name, val in (
+                ("REF_DIR", self.ref),
+                ("VERIFICATION_DIR", self.verification),
+                ("PACK_DIR", self.packs),
+            ):
+                if hasattr(mod, name):
+                    p = patch.object(mod, name, val)
+                    p.start()
+                    self.addCleanup(p.stop)
         write_jar(
             self.ref / "9.0.00",
             {"com/acme/App": APP_CLASS, "com/acme/Widget": WIDGET},
