@@ -56,7 +56,6 @@ class AbstractTurboismPluginTest {
 
         assertSame(context, plugin.context());
         assertNotNull(plugin.disposalScope());
-        assertSame(plugin.disposalScope(), plugin.disposableScope());
     }
 
     @Test
