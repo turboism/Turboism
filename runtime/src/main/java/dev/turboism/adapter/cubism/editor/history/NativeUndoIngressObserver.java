@@ -235,8 +235,7 @@ public final class NativeUndoIngressObserver implements AutoCloseable {
         if (current == null) return;
         try {
             resolver.invoke(LISTENER_REMOVE_ALIAS, manager, current);
-        } catch (Throwable removalFailure) {
-            FatalErrors.rethrowIfFatal(removalFailure);
+        } catch (RuntimeException removalFailure) {
             callbackFailures.increment();
         }
     }

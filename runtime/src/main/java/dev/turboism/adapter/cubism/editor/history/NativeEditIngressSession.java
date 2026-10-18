@@ -325,8 +325,7 @@ public final class NativeEditIngressSession implements AutoCloseable {
             synchronized (bindLock) {
                 drainCount++;
             }
-        } catch (Throwable ignored) {
-            FatalErrors.rethrowIfFatal(ignored);
+        } catch (RuntimeException ignored) {
             // A drain failure must not escape onto the host event thread.
         }
     }

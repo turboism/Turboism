@@ -210,8 +210,9 @@ public final class NativeMeshInterpolationBridge {
                         (java.util.function.Consumer<Object>) site.getTarget().invokeExact();
                 DIRECT_UPDATE_BINDINGS.incrementAndGet();
                 return bound;
+            } catch (VirtualMachineError | ThreadDeath fatal) {
+                throw fatal;
             } catch (Throwable unsupported) {
-                dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(unsupported);
                 return null;
             }
         }

@@ -1,6 +1,5 @@
 package dev.turboism.ui.appearance.control;
 
-import dev.turboism.core.runtime.work.FatalErrors;
 import java.awt.Component;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -140,9 +139,7 @@ public final class ParameterControlAppearanceProvider implements AutoCloseable {
         hostGeneration = 0;
         try {
             changeSubscription.close();
-        } catch (Throwable ignored) {
-            FatalErrors.rethrowIfFatal(ignored);
-            // Listener removal is best-effort; restoration remains mandatory.
+        } catch (Exception ignored) {
         }
         final Runnable action = () -> {
             styles.restoreAll();
