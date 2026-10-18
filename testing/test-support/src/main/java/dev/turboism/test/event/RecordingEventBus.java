@@ -41,4 +41,8 @@ public class RecordingEventBus implements EventBus {
     public List<TurboismEvent> publishedEvents() {
         return List.copyOf(publishedEvents);
     }
+
+    public List<TurboismEvent> published() {
+        return publishedEvents();
+    }
 }
