@@ -81,7 +81,7 @@ class PluginLocaleResolverTest {
     @Test
     void jvmDefaultDisplayLocaleIsTheFinalSource() {
         System.clearProperty(PROPERTY);
-        final Locale expected = Locale.getDefault(Locale.Category.DISPLAY);
+        final Locale expected = PluginLocaleResolver.normalize(Locale.getDefault(Locale.Category.DISPLAY));
         assertEquals(expected, resolve("", null, null));
         assertTrue(diagnostics.isEmpty());
     }

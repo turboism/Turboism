@@ -211,16 +211,86 @@ final class PaletteTreeFilter {
     /** Debounce window for deformer-tree filter keystrokes (continuous typing rebuilds once). */
     static final int FILTER_DEBOUNCE_MS = 200;
 
+    private static volatile java.util.concurrent.ExecutorService treeFilterDelegate = newTreeFilterExecutor();
+
+    private static java.util.concurrent.ExecutorService newTreeFilterExecutor() {
+        return java.util.concurrent.Executors.newSingleThreadExecutor(runnable -> {
+            final Thread thread = new Thread(runnable, "turboism-palette-tree-filter");
+            thread.setDaemon(true);
+            return thread;
+        });
+    }
+
+    static synchronized java.util.concurrent.ExecutorService executor() {
+        if (treeFilterDelegate == null || treeFilterDelegate.isShutdown()) {
+            treeFilterDelegate = newTreeFilterExecutor();
+        }
+        return treeFilterDelegate;
+    }
+
+    /**
+     * Shuts down the deformer tree filter daemon executor upon host-session / runtime close.
+     * Subsequent filter operations recreate the daemon executor on demand.
+     */
+    static synchronized void shutdownTreeFilterExecutor() {
+        if (treeFilterDelegate != null) {
+            treeFilterDelegate.shutdownNow();
+            treeFilterDelegate = null;
+        }
+    }
+
     /**
      * Daemon executor that pre-warms the filtered tree model caches off the EDT; the EDT only
      * installs the model and expands rows once the (read-only) reflection traversal is done.
      */
     static final java.util.concurrent.ExecutorService TREE_FILTER_EXECUTOR =
-            java.util.concurrent.Executors.newSingleThreadExecutor(runnable -> {
-                final Thread thread = new Thread(runnable, "turboism-palette-tree-filter");
-                thread.setDaemon(true);
-                return thread;
-            });
+            new java.util.concurrent.AbstractExecutorService() {
+                @Override
+                public void shutdown() {
+                    shutdownTreeFilterExecutor();
+                }
+
+                @Override
+                public java.util.List<Runnable> shutdownNow() {
+                    synchronized (PaletteTreeFilter.class) {
+                        if (treeFilterDelegate != null) {
+                            final java.util.List<Runnable> pending = treeFilterDelegate.shutdownNow();
+                            treeFilterDelegate = null;
+                            return pending;
+                        }
+                        return java.util.List.of();
+                    }
+                }
+
+                @Override
+                public boolean isShutdown() {
+                    synchronized (PaletteTreeFilter.class) {
+                        return treeFilterDelegate == null || treeFilterDelegate.isShutdown();
+                    }
+                }
+
+                @Override
+                public boolean isTerminated() {
+                    synchronized (PaletteTreeFilter.class) {
+                        return treeFilterDelegate == null || treeFilterDelegate.isTerminated();
+                    }
+                }
+
+                @Override
+                public boolean awaitTermination(long timeout, java.util.concurrent.TimeUnit unit)
+                        throws InterruptedException {
+                    final java.util.concurrent.ExecutorService delegate;
+                    synchronized (PaletteTreeFilter.class) {
+                        delegate = treeFilterDelegate;
+                    }
+                    return delegate == null || delegate.awaitTermination(timeout, unit);
+                }
+
+                @Override
+                public void execute(Runnable command) {
+                    executor().execute(command);
+                }
+            };
 
     /**
      * Debounced deformer-tree filter application (last change wins within the debounce window).
