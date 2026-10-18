@@ -149,7 +149,10 @@ public class FakePluginContext implements PluginContext {
 
             @Override
             public String format(final String key, final Object... arguments) {
-                return key;
+                if (arguments == null || arguments.length == 0) {
+                    return key;
+                }
+                return key + " " + java.util.Arrays.toString(arguments);
             }
 
             @Override
