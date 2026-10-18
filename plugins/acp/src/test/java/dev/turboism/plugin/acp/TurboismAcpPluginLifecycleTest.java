@@ -2,6 +2,7 @@ package dev.turboism.plugin.acp;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.config.ConfigKey;
@@ -17,6 +18,7 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -178,6 +180,40 @@ final class TurboismAcpPluginLifecycleTest {
         assertEquals(0, toolbar.get());
     }
 
+    @Test
+    void toolbarFailureDuringEnableRollsBackActionsAndMenusAndSettings() throws Exception {
+        final ScopeAwareConfig config = new ScopeAwareConfig();
+        final DisposableScope runtimeScope = new DisposableScope();
+        final AtomicInteger actions = new AtomicInteger();
+        final AtomicInteger menus = new AtomicInteger();
+        final TurboismAcpPlugin plugin = new TurboismAcpPlugin();
+        final PluginContext context = contextWithFailingToolbar(config, runtimeScope, actions, menus);
+        plugin.init(context);
+
+        assertThrows(IllegalStateException.class, plugin::enable);
+        assertEquals(0, actions.get(), "actions must be rolled back on enable failure");
+        assertEquals(0, menus.get(), "menus must be rolled back on enable failure");
+        assertEquals(0, config.activeReadScopes(), "config scopes must be closed on enable failure");
+        assertEquals(0, config.activeWriteScopes());
+    }
+
+    @Test
+    void disableClosesRegistrationsInReverseOrder() throws Exception {
+        final ScopeAwareConfig config = new ScopeAwareConfig();
+        final DisposableScope runtimeScope = new DisposableScope();
+        final List<String> closeEvents = new ArrayList<>();
+        final TurboismAcpPlugin plugin = new TurboismAcpPlugin();
+        final PluginContext context = contextWithOrderRecording(config, runtimeScope, closeEvents);
+        plugin.init(context);
+        plugin.enable();
+
+        plugin.disable();
+
+        assertEquals(
+                List.of("close-toolbar", "close-menu", "close-action-settings", "close-action-agent"), closeEvents);
+        plugin.shutdown();
+    }
+
     private static PluginContext context(
             final ScopeAwareConfig config,
             final DisposableScope scope,
@@ -276,6 +312,89 @@ final class TurboismAcpPluginLifecycleTest {
                                 .build();
                     default ->
                         throw new UnsupportedOperationException("unused PluginContext method: " + method.getName());
+                });
+    }
+
+    private static PluginContext contextWithFailingToolbar(
+            final ScopeAwareConfig config,
+            final DisposableScope scope,
+            final AtomicInteger actions,
+            final AtomicInteger menus) {
+        final PluginContext base = context(config, scope, actions, menus, new AtomicInteger());
+        final MainToolbarRegistry failingToolbar = new MainToolbarRegistry() {
+            @Override
+            public Registration contribute(final MainToolbarContribution contribution) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Registration contributeButton(final MainToolbarButtonContribution contribution) {
+                throw new IllegalStateException("fixture toolbar failure");
+            }
+        };
+        return (PluginContext) java.lang.reflect.Proxy.newProxyInstance(
+                PluginContext.class.getClassLoader(),
+                new Class<?>[] {PluginContext.class},
+                (proxy, method, arguments) -> switch (method.getName()) {
+                    case "services" ->
+                        dev.turboism.sdk.plugin.PluginServices.builder()
+                                .install(dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.class, failingToolbar)
+                                .fallback(base.services())
+                                .build();
+                    default -> method.invoke(base, arguments);
+                });
+    }
+
+    private static PluginContext contextWithOrderRecording(
+            final ScopeAwareConfig config, final DisposableScope scope, final List<String> closeEvents) {
+        final ActionRegistry actionRegistry = (id, action) -> {
+            final String label =
+                    TurboismAcpPlugin.SETTINGS_ACTION_ID.equals(id) ? "close-action-settings" : "close-action-agent";
+            final AtomicBoolean closed = new AtomicBoolean();
+            return () -> {
+                if (closed.compareAndSet(false, true)) {
+                    closeEvents.add(label);
+                }
+            };
+        };
+        final MenuRegistry menuRegistry = contribution -> {
+            final AtomicBoolean closed = new AtomicBoolean();
+            return () -> {
+                if (closed.compareAndSet(false, true)) {
+                    closeEvents.add("close-menu");
+                }
+            };
+        };
+        final MainToolbarRegistry toolbarRegistry = new MainToolbarRegistry() {
+            @Override
+            public Registration contribute(final MainToolbarContribution contribution) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Registration contributeButton(final MainToolbarButtonContribution contribution) {
+                final AtomicBoolean closed = new AtomicBoolean();
+                return () -> {
+                    if (closed.compareAndSet(false, true)) {
+                        closeEvents.add("close-toolbar");
+                    }
+                };
+            }
+        };
+        final PluginContext base =
+                context(config, scope, new AtomicInteger(), new AtomicInteger(), new AtomicInteger());
+        return (PluginContext) java.lang.reflect.Proxy.newProxyInstance(
+                PluginContext.class.getClassLoader(),
+                new Class<?>[] {PluginContext.class},
+                (proxy, method, arguments) -> switch (method.getName()) {
+                    case "actions" -> actionRegistry;
+                    case "menus" -> menuRegistry;
+                    case "services" ->
+                        dev.turboism.sdk.plugin.PluginServices.builder()
+                                .install(dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.class, toolbarRegistry)
+                                .fallback(base.services())
+                                .build();
+                    default -> method.invoke(base, arguments);
                 });
     }
 
