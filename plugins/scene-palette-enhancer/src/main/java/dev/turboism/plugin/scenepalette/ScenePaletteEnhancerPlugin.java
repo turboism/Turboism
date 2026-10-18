@@ -1,43 +1,54 @@
 package dev.turboism.plugin.scenepalette;
 
 import dev.turboism.sdk.event.SubscribeEvent;
+import dev.turboism.sdk.plugin.AbstractTurboismPlugin;
 import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.table.SceneTableHeaderClickEvent;
 import dev.turboism.sdk.ui.table.SceneTableItemOrderEvent;
 import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.sdk.ui.table.SceneTableSnapshotEvent;
-import java.util.Objects;
 
 /** Scene palette sorting and manual-order workflow. */
-public final class ScenePaletteEnhancerPlugin implements TurboismPlugin {
+public final class ScenePaletteEnhancerPlugin extends AbstractTurboismPlugin {
 
-    private PluginContext context;
     private SceneTableSorter sorter;
     private ManualOrderStore store;
 
     @Override
     public void init(final PluginContext context) {
-        this.context = Objects.requireNonNull(context, "context");
+        try {
+            super.init(context);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Scene Palette Enhancer initialization failed", e);
+        }
     }
 
     @Override
     public void enable() {
-        if (context == null) {
-            throw new IllegalStateException("Scene Palette Enhancer must be initialized before enable.");
+        try {
+            super.enable();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Scene Palette Enhancer must be initialized before enable.", e);
         }
         disable();
         // Reuse one store across disable/enable cycles so a queued write from a previous
         // enable cannot be overtaken by, and then overwrite, a newer write after re-enable.
         if (store == null) {
-            if (context.storage().isAvailable()) {
-                store = ManualOrderStore.storage(context.storage(), context.logger());
+            if (context().storage().isAvailable()) {
+                store = ManualOrderStore.storage(context().storage(), context().logger());
             } else {
                 store = ManualOrderStore.unavailable();
-                context.logger().info("Scene manual order storage is unavailable; persistence is disabled.");
+                context().logger().info("Scene manual order storage is unavailable; persistence is disabled.");
             }
         }
-        sorter = new SceneTableSorter(context.services().require(SceneTableService.class), store, context.logger());
+        sorter = new SceneTableSorter(
+                context().services().require(SceneTableService.class),
+                store,
+                context().logger());
     }
 
     /** Forwards a scene-table header click to the active palette sorter. */
@@ -70,12 +81,25 @@ public final class ScenePaletteEnhancerPlugin implements TurboismPlugin {
             sorter.close();
             sorter = null;
         }
+        try {
+            super.disable();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Scene Palette Enhancer disable failed", e);
+        }
     }
 
     @Override
     public void shutdown() {
         disable();
-        context = null;
         store = null;
+        try {
+            super.shutdown();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Scene Palette Enhancer shutdown failed", e);
+        }
     }
 }
