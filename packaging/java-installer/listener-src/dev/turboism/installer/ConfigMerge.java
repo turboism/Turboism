@@ -79,7 +79,7 @@ final class ConfigMerge {
     private static final int MAX_SHORTCUTS = 512;
     private static final int MAX_STATE_FIELD_LENGTH = 4096;
     private static final Pattern MANAGED_SHORTCUT = Pattern.compile(
-            "^Turboism Cubism 5\\.[23](?:\\.\\d+)? \\[[\\p{L}\\p{Nd}._ \\-]{1,48}-[0-9A-F]{12}\\](?: - D3D)?\\.lnk$",
+            "^(?:Turboism_Cubism_5\\.[0-9]+(?:\\.[0-9]+)*_[\\p{L}\\p{Nd}._-]{1,48}-[0-9A-F]{12}(?:-D3D)?|Turboism Cubism 5\\.[0-9]+(?:\\.[0-9]+)* \\[[\\p{L}\\p{Nd}._ \\-]{1,48}-[0-9A-F]{12}\\](?: - D3D)?)\\.lnk$",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern CONFINED_BACKUP = Pattern.compile(
             "(?i)^installer[\\\\/]shortcut-backups[\\\\/][0-9a-f]{64}\\.lnk$");
