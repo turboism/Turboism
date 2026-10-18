@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.mesh;
 
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.host.EdtDispatch;
@@ -216,7 +217,7 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
                 if (method.getParameterCount() == 2
                         && method.getName().equals("createWidgetMirrorEditForMeshEdit$createComp")
                         && Modifier.isStatic(method.getModifiers())) {
-                    method.setAccessible(true);
+                    ReflectAccess.open(method);
                     return method.invoke(null, label, row);
                 }
             }
@@ -336,7 +337,7 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         if (!Modifier.isStatic(finalize.getModifiers()) || finalize.getReturnType() != void.class) {
             return false;
         }
-        finalize.setAccessible(true);
+        ReflectAccess.open(finalize);
         finalize.invoke(null, foldingPane, mount);
         return true;
     }
@@ -372,7 +373,7 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         while (type != null) {
             try {
                 final Field field = type.getDeclaredField(name);
-                field.setAccessible(true);
+                ReflectAccess.open(field);
                 return field.get(target);
             } catch (NoSuchFieldException ignored) {
                 type = type.getSuperclass();

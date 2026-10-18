@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.warpalt;
 
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -638,7 +639,7 @@ public final class NativeWarpAltMirrorBridge {
         } catch (IllegalAccessException accessFailure) {
             // Host event/action classes are package-private; the method itself is
             // public but the declaring class is not accessible without override.
-            method.setAccessible(true);
+            ReflectAccess.open(method);
             return method.invoke(target, args);
         }
     }
@@ -863,7 +864,7 @@ public final class NativeWarpAltMirrorBridge {
             }
             final boolean vertical = axis == 1;
             final Field selectionField = action.getClass().getDeclaredField("b");
-            selectionField.setAccessible(true);
+            ReflectAccess.open(selectionField);
             final Object selection = selectionField.get(action);
             if (selection == null) {
                 greenSkip("NO_SELECTION");
@@ -1042,7 +1043,7 @@ public final class NativeWarpAltMirrorBridge {
         @SuppressWarnings({"unchecked", "rawtypes"})
         final Object kindConstant = java.lang.Enum.valueOf((Class) kindType, counterType);
         final Field flagField = refClass.getDeclaredField("f");
-        flagField.setAccessible(true);
+        ReflectAccess.open(flagField);
         final boolean flag = flagField.getBoolean(ref);
         for (final Constructor<?> ctor : refClass.getConstructors()) {
             final Class<?>[] params = ctor.getParameterTypes();
@@ -1053,7 +1054,7 @@ public final class NativeWarpAltMirrorBridge {
                     && params[4] == int.class
                     && params[5].isAssignableFrom(kindType)
                     && params[6] == boolean.class) {
-                ctor.setAccessible(true);
+                ReflectAccess.open(ctor);
                 return ctor.newInstance(
                         grid,
                         invoke(ref, "getPos", new Class<?>[0]),
@@ -1074,7 +1075,7 @@ public final class NativeWarpAltMirrorBridge {
     private static Object bezierLocalSpace(final ClassLoader loader) throws ReflectiveOperationException {
         final Class<?> spaceType = Class.forName("com.live2d.doc.selection.d", false, loader);
         final Field companionField = spaceType.getDeclaredField("b");
-        companionField.setAccessible(true);
+        ReflectAccess.open(companionField);
         final Object companion = companionField.get(null);
         if (companion == null) {
             return null;
@@ -1108,7 +1109,7 @@ public final class NativeWarpAltMirrorBridge {
         final ClassLoader loader = grid.getClass().getClassLoader();
         final Class<?> engineType = Class.forName("com.live2d.cubism.doc.model.deformer.warp.k", false, loader);
         final Field engineField = engineType.getDeclaredField("a");
-        engineField.setAccessible(true);
+        ReflectAccess.open(engineField);
         final Object engine = engineField.get(null);
         if (engine == null) {
             greenSkip("NO_ENGINE");
@@ -1166,7 +1167,7 @@ public final class NativeWarpAltMirrorBridge {
                     && params[3].isArray()
                     && params[5] == int.class
                     && params[6] == int.class) {
-                method.setAccessible(true);
+                ReflectAccess.open(method);
                 method.invoke(engine, fx, fy, true, points, pt, col, row);
                 return;
             }
@@ -1193,7 +1194,7 @@ public final class NativeWarpAltMirrorBridge {
                     && params[2] == int.class
                     && params[4] == int.class
                     && params[5] == int.class) {
-                method.setAccessible(true);
+                ReflectAccess.open(method);
                 method.invoke(engine, points, col, row, transform, dimension, smoothLevel);
                 return;
             }
@@ -1208,7 +1209,7 @@ public final class NativeWarpAltMirrorBridge {
     private static Object currentWarpEditType(final ClassLoader loader) throws ReflectiveOperationException {
         final Class<?> settingsType = Class.forName("com.live2d.cubism.setting.AppSetting", false, loader);
         final Field instanceField = settingsType.getDeclaredField("INSTANCE");
-        instanceField.setAccessible(true);
+        ReflectAccess.open(instanceField);
         final Object settings = instanceField.get(null);
         final Object deformer = settings == null ? null : invoke(settings, "getDeformer", new Class<?>[0]);
         final Object warp = deformer == null ? null : invoke(deformer, "getWarpDeformer", new Class<?>[0]);
@@ -1223,7 +1224,7 @@ public final class NativeWarpAltMirrorBridge {
         final Class<?> transformType =
                 Class.forName("com.live2d.doc.selection.ITransformBetweenLocalAndCanvas", false, loader);
         final Field companionField = transformType.getDeclaredField("Companion");
-        companionField.setAccessible(true);
+        ReflectAccess.open(companionField);
         final Object companion = companionField.get(null);
         return companion == null ? null : companion.getClass().getMethod("a").invoke(companion);
     }
