@@ -14,9 +14,10 @@ import java.util.List;
 public final class TabFilterPlugin extends AbstractTurboismPlugin {
 
     private PluginLogger logger;
+    private boolean enabled;
 
     @Override
-    public void init(final PluginContext context) {
+    public synchronized void init(final PluginContext context) {
         try {
             super.init(context);
         } catch (RuntimeException e) {
@@ -29,13 +30,16 @@ public final class TabFilterPlugin extends AbstractTurboismPlugin {
     }
 
     @Override
-    public void enable() {
+    public synchronized void enable() {
         try {
             super.enable();
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
             throw new IllegalStateException("Tab filter enable failed", e);
+        }
+        if (enabled) {
+            return;
         }
         final PaletteFilterRegistry registry =
                 context().services().find(PaletteFilterRegistry.class).orElse(null);
@@ -44,15 +48,28 @@ public final class TabFilterPlugin extends AbstractTurboismPlugin {
             return;
         }
         final List<PaletteFilterRegistry.PaletteFilterContribution> contributions = contributions();
-        for (PaletteFilterRegistry.PaletteFilterContribution contribution : contributions) {
-            disposalScope().register(registry.contribute(contribution));
+        try {
+            for (PaletteFilterRegistry.PaletteFilterContribution contribution : contributions) {
+                disposalScope().register(registry.contribute(contribution));
+            }
+            enabled = true;
+        } catch (RuntimeException | Error failure) {
+            try {
+                super.disable();
+            } catch (Exception ignored) {
+            }
+            throw failure;
         }
         logger.info(
                 "TabFilterPlugin enabled: palette filter boxes enrolled for " + contributions.size() + " palette tabs");
     }
 
     @Override
-    public void disable() {
+    public synchronized void disable() {
+        if (!enabled) {
+            return;
+        }
+        enabled = false;
         try {
             super.disable();
         } catch (RuntimeException e) {
@@ -64,7 +81,8 @@ public final class TabFilterPlugin extends AbstractTurboismPlugin {
     }
 
     @Override
-    public void shutdown() {
+    public synchronized void shutdown() {
+        disable();
         try {
             super.shutdown();
         } catch (RuntimeException e) {

@@ -42,6 +42,54 @@ class TabFilterPluginTest {
         assertEquals(4, context.closedRegistrations);
     }
 
+    @Test
+    void repeatedEnableIsIdempotentAndDoesNotDuplicateRegistrations() {
+        RecordingPluginContext context = new RecordingPluginContext();
+        TabFilterPlugin plugin = new TabFilterPlugin();
+
+        plugin.init(context);
+        plugin.enable();
+        plugin.enable();
+
+        assertEquals(4, context.paletteFilterContributions().size());
+        assertEquals(0, context.closedRegistrations);
+
+        plugin.disable();
+        assertEquals(4, context.closedRegistrations);
+    }
+
+    @Test
+    void partialEnableFailureRollsBackEarlierRegistrations() {
+        RecordingPluginContext context = new RecordingPluginContext();
+        context.paletteFilter.failOnThirdContribution = true;
+        TabFilterPlugin plugin = new TabFilterPlugin();
+
+        plugin.init(context);
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, plugin::enable);
+
+        assertTrue(context.paletteFilterContributions().isEmpty(), "earlier contributions must be rolled back");
+        assertEquals(
+                2, context.closedRegistrations, "the 2 successful contributions before the failure must be closed");
+    }
+
+    @Test
+    void reEnableAfterDisableReRegistersCleanly() {
+        RecordingPluginContext context = new RecordingPluginContext();
+        TabFilterPlugin plugin = new TabFilterPlugin();
+
+        plugin.init(context);
+        plugin.enable();
+        plugin.disable();
+        assertEquals(0, context.paletteFilterContributions().size());
+
+        plugin.enable();
+        assertEquals(4, context.paletteFilterContributions().size());
+
+        plugin.shutdown();
+        assertEquals(0, context.paletteFilterContributions().size());
+        assertEquals(8, context.closedRegistrations);
+    }
+
     private static PaletteFilterRegistry.PaletteFilterContribution contribution(
             String id, String paletteId, String placeholderKey) {
         return new PaletteFilterRegistry.PaletteFilterContribution(id, paletteId, placeholderKey, 10);
@@ -67,9 +115,13 @@ class TabFilterPluginTest {
 
         private final class RecordingPaletteFilterRegistry implements PaletteFilterRegistry {
             private final List<PaletteFilterContribution> contributions = new java.util.ArrayList<>();
+            boolean failOnThirdContribution;
 
             @Override
             public Registration contribute(final PaletteFilterContribution contribution) {
+                if (failOnThirdContribution && contributions.size() == 2) {
+                    throw new IllegalStateException("fixture failure on 3rd contribution");
+                }
                 contributions.add(contribution);
                 return () -> {
                     contributions.remove(contribution);
