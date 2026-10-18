@@ -13,6 +13,8 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
+from turboism_dev.versions import cubism_version_key
+
 STRICT_VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
 EVENT_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,127}$")
 PLUGIN_ID = EVENT_ID
@@ -246,4 +248,5 @@ def _text(value: dict, key: str, where: str, pattern: re.Pattern) -> str:
 def _version_tuple(value: str) -> tuple[int, int, int]:
     if not STRICT_VERSION.fullmatch(value):
         raise EventMetadataError(f"invalid strict version {value!r}")
-    return tuple(int(part) for part in value.split("."))
+    key = cubism_version_key(value)
+    return key[0], key[1], key[2]

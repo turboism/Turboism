@@ -23,6 +23,11 @@ import re
 import sys
 from pathlib import Path
 
+_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+from turboism_dev.paths import repo_root
+
 PRODUCTION_ROOTS = (
     "sdk/src/main/java",
     "core-contract/src/main/java",
@@ -88,7 +93,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    violations = findings(Path(args.root).resolve())
+    violations = findings(repo_root(args.root))
     for violation in violations:
         print(violation)
     if violations and not args.report:
