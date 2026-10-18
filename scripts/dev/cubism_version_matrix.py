@@ -70,7 +70,7 @@ from cubism_matrix import (
     VERIFICATION_DIR,
     VERIFIED_AT,
     _editor_variants,
-    artifact_facts as _artifact_facts,
+    artifact_facts,
     candidate_constant,
     contract_constants,
     cubism_ref_dir,
@@ -86,16 +86,16 @@ from cubism_matrix import (
     family_of,
     load_family_packs,
     load_source_pack,
-    load_source_records as _load_source_records,
+    load_source_records,
     load_symbol_resolver,
-    manifest_hashes as _manifest_hashes,
+    manifest_hashes,
     matrix_cell,
     merge_record,
     pack_name_for,
     parse_class,
     plan_version_propagation,
     print_matrix,
-    propagate_family as _propagate_family,
+    propagate_family,
     propagate_main,
     propagated_pack,
     propagated_record,
@@ -114,6 +114,7 @@ from cubism_matrix import (
     verify_propagated,
     verify_selector,
     verified_aliases,
+    version_key,
     vtag,
     wire,
     wire_arm_style_manifest,
@@ -121,7 +122,7 @@ from cubism_matrix import (
     wire_bootstrap,
     wire_bounding_box,
     wire_catalog_json,
-    wire_editor_model as _wire_editor_model,
+    wire_editor_model,
     wire_family_manifests,
     wire_host_validation,
     wire_index_md,
@@ -201,6 +202,7 @@ __all__ = [
     "verify_propagated",
     "verify_selector",
     "verified_aliases",
+    "version_key",
     "vtag",
     "wire",
     "wire_arm_style_manifest",
@@ -217,50 +219,6 @@ __all__ = [
     "wire_slice_catalog",
     "write_document",
 ]
-
-
-def artifact_facts(
-    version: str,
-    jar_name: str = "Live2D_Cubism.jar",
-    ref_dir: Path | None = None,
-) -> dict:
-    return _artifact_facts(version, jar_name=jar_name, ref_dir=ref_dir if ref_dir is not None else REF_DIR)
-
-
-def manifest_hashes(ref_dir: Path | None = None) -> dict[str, str]:
-    return _manifest_hashes(ref_dir=ref_dir if ref_dir is not None else REF_DIR)
-
-
-def load_source_records(
-    verification_dir: Path | None = None,
-) -> dict[str, list[tuple[str, dict]]]:
-    return _load_source_records(verification_dir=verification_dir if verification_dir is not None else VERIFICATION_DIR)
-
-
-def wire_editor_model(versions: list[str], template_dir: Path | None = None) -> None:
-    return _wire_editor_model(versions, template_dir=template_dir if template_dir is not None else TEMPLATE_DIR)
-
-
-def propagate_family(
-    family: str,
-    from_version: str,
-    targets: list[str],
-    write: bool,
-    resolver=None,
-    ref_dir: Path | None = None,
-    verification_dir: Path | None = None,
-    pack_dir: Path | None = None,
-) -> dict:
-    return _propagate_family(
-        family,
-        from_version,
-        targets,
-        write,
-        resolver=resolver,
-        ref_dir=ref_dir if ref_dir is not None else REF_DIR,
-        verification_dir=verification_dir if verification_dir is not None else VERIFICATION_DIR,
-        pack_dir=pack_dir if pack_dir is not None else PACK_DIR,
-    )
 
 
 def main() -> int:

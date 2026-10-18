@@ -227,13 +227,12 @@ def required_aliases(
         and cubism_version in inst["ONION_SKIN_ABSENT_VERSIONS"]
     ):
         aliases -= set(inst["ONION_SKIN_ALIASES"])
-    psd = constants.get("EditorRawImagePsdSelectorContract")
+    psd = constants["EditorRawImagePsdSelectorContract"]
     if (
-        psd
-        and capability == psd.get("CAPABILITY_ID")
-        and cubism_version in psd.get("TRANSPARENCY_SHAPES_ABSENT_VERSIONS", ())
+        capability == psd["CAPABILITY_ID"]
+        and cubism_version in psd["TRANSPARENCY_SHAPES_ABSENT_VERSIONS"]
     ):
-        aliases -= set(psd.get("TRANSPARENCY_SHAPES_ALIASES", ()))
+        aliases -= set(psd["TRANSPARENCY_SHAPES_ALIASES"])
     session = constants["EditorEditSessionSelectorContract"]
     if capability.startswith("cubism.editor-model.edit."):
         aliases.update(session["SESSION_ADMISSION_REQUIRED_ALIASES"])

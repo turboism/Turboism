@@ -40,6 +40,7 @@ from .constants import (
     VERIFIED_AT,
     _editor_variants,
     cubism_ref_dir,
+    version_key,
 )
 from .contracts import (
     contract_constants,

@@ -24,11 +24,11 @@ from .constants import (
     GENERATE,
     MAPPING_ID_VERSION,
     MEMBER_VARIANTS,
+    PACK_DIR,
+    REF_DIR,
     ROOT,
     SELECTOR_IDENTITY,
-    get_pack_dir,
-    get_ref_dir,
-    get_verification_dir,
+    VERIFICATION_DIR,
 )
 from .wire import vcompact, vtag
 
@@ -163,6 +163,8 @@ def propagated_record(
     Editor-model selector mappingIds keep their reviewed-generation tag
     (provenance); other slices re-tag to the target version, matching the
     convention of the manually propagated ui-main-toolbar records."""
+    if ref_dir is None:
+        ref_dir = REF_DIR
     retag = source["adapterSliceId"] != EDITOR_MODEL_SLICE
     selectors = [
         (
@@ -313,16 +315,19 @@ def propagate_family(
     Per-target outcomes: self, no-artifact, blocked (pending list),
     no-source-pack, conflict-artifact-drift, unchanged, merged, written.
     Nothing is written unless ``write`` and the whole selector set verifies."""
-    ref_base = ref_dir if ref_dir is not None else get_ref_dir()
-    verif_base = verification_dir if verification_dir is not None else get_verification_dir()
-    pack_base = pack_dir if pack_dir is not None else get_pack_dir()
-    sources = (load_source_records(verif_base)).get(family) or []
+    if ref_dir is None:
+        ref_dir = REF_DIR
+    if verification_dir is None:
+        verification_dir = VERIFICATION_DIR
+    if pack_dir is None:
+        pack_dir = PACK_DIR
+    sources = (load_source_records(verification_dir)).get(family) or []
     source = next((doc for version, doc in sources if version == from_version), None)
     if source is None:
         raise SystemExit(f"no record cubism-{from_version}-{family}.json")
     jar_name = source["artifact"]["name"]
-    source_pack = load_source_pack(from_version, family, pack_dir=pack_base)
-    candidates = dict(load_family_packs(family, pack_dir=pack_base))
+    source_pack = load_source_pack(from_version, family, pack_dir=pack_dir)
+    candidates = dict(load_family_packs(family, pack_dir=pack_dir))
     if source_pack is not None:
         candidates = {from_version: source_pack, **candidates}
     results = []
@@ -338,7 +343,7 @@ def propagate_family(
             "failures": [],
             "conflicts": [],
         }
-        jar_path = ref_base / version / jar_name
+        jar_path = ref_dir / version / jar_name
         if not jar_path.is_file():
             entry["outcome"] = "no-artifact"
             results.append(entry)
@@ -353,19 +358,19 @@ def propagate_family(
             entry["outcome"] = "blocked"
             results.append(entry)
             continue
-        record_path = verif_base / f"cubism-{version}-{family}.json"
-        pack_path = pack_base / f"cubism-{version}-{pack_name_for(family)}.json"
+        record_path = verification_dir / f"cubism-{version}-{family}.json"
+        pack_path = pack_dir / f"cubism-{version}-{pack_name_for(family)}.json"
         existing = (
             json.loads(record_path.read_text()) if record_path.is_file() else None
         )
-        propagated = propagated_record(source, resolved, version, family, ref_dir=ref_base)
+        propagated = propagated_record(source, resolved, version, family, ref_dir=ref_dir)
         if existing is not None:
-            if existing.get("artifact") != artifact_facts(version, jar_name, ref_dir=ref_base):
+            if existing.get("artifact") != artifact_facts(version, jar_name, ref_dir=ref_dir):
                 entry["conflicts"].append(
                     {
                         "kind": "artifact-drift",
                         "existing": existing.get("artifact"),
-                        "measured": artifact_facts(version, jar_name, ref_dir=ref_base),
+                        "measured": artifact_facts(version, jar_name, ref_dir=ref_dir),
                     }
                 )
                 entry["outcome"] = "conflict"
@@ -448,7 +453,7 @@ def matrix_cell(
     propagatable: no record; some source record verifies in full.
     blocked: no record; every source has unresolved failures.
     conflict: a committed record has selectors that no longer verify."""
-    record_path = get_verification_dir() / f"cubism-{version}-{family}.json"
+    record_path = VERIFICATION_DIR / f"cubism-{version}-{family}.json"
     if record_path.is_file():
         record = json.loads(record_path.read_text())
         jar = jar_for(record["artifact"]["name"])
@@ -519,7 +524,7 @@ def propagation_matrix(resolver=None) -> dict:
 
         def jar_for(name: str, version=version, jars=jars):
             if name not in jars:
-                path = get_ref_dir() / version / name
+                path = REF_DIR / version / name
                 jars[name] = JarIndex(path) if path.is_file() else None
             return jars[name]
 

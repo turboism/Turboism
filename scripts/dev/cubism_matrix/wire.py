@@ -13,12 +13,9 @@ from .constants import (
     FAMILY_JSON,
     REVIEWED,
     ROOT,
-    get_template_dir,
-    get_verification_dir,
+    TEMPLATE_DIR,
+    VERIFICATION_DIR,
 )
-
-def template_dir() -> Path:
-    return get_template_dir()
 
 def vtag(version: str) -> str:
     return version_tag(version)
@@ -31,7 +28,7 @@ def vcompact(version: str) -> str:
 def emitted_records() -> dict[str, dict[str, str]]:
     """{family: {version: record filename}} for every on-disk record."""
     out: dict[str, dict[str, str]] = {}
-    for path in sorted(get_verification_dir().glob("cubism-*.json")):
+    for path in sorted(VERIFICATION_DIR.glob("cubism-*.json")):
         match = re.match(r"cubism-(\d+\.\d+\.\d+)-(.+)\.json", path.name)
         if match:
             out.setdefault(match.group(2), {})[match.group(1)] = path.name
@@ -40,7 +37,7 @@ def emitted_records() -> dict[str, dict[str, str]]:
 
 def emitted_record(family: str, version: str) -> dict:
     return json.loads(
-        (get_verification_dir() / f"cubism-{version}-{family}.json").read_text()
+        (VERIFICATION_DIR / f"cubism-{version}-{family}.json").read_text()
     )
 
 
@@ -96,7 +93,7 @@ def candidate_constant(slice_id: str, version: str, record_name: str) -> str:
 
 
 def wire_slice_catalog(records: dict[str, dict[str, str]]) -> None:
-    path = template_dir() / "selector/CubismSliceCatalog.java"
+    path = TEMPLATE_DIR / "selector/CubismSliceCatalog.java"
     text = path.read_text()
     start = text.index("    private static final Candidate C_")
     end = text.index("    private static final Map<String, Candidate[]> BY_SLICE")
@@ -150,7 +147,7 @@ def wire_record_style_manifest(
     """Rebuild the CUBISM_VERSION/RECORD/RECORDS region of Record-style
     manifests (clipmask, status-bar, project-workspace, top-menu,
     embedded-panel, main-toolbar) plus ``reviewedCubismVersions``."""
-    path = template_dir() / template
+    path = TEMPLATE_DIR / template
     text = path.read_text()
     # Rebuild the constant region: it spans the first CUBISM_VERSION const
     # through the RECORDS list terminator.
@@ -208,7 +205,7 @@ def wire_arm_style_manifest(
 ) -> None:
     """Workspace-control / control-appearance style: per-version
     ``manifest(...)`` arms inside ``forArtifact``."""
-    path = template_dir() / template
+    path = TEMPLATE_DIR / template
     text = path.read_text()
     start = text.index(
         "    static PinnedVerifiedResolverWorkflow.Manifest forArtifact("
@@ -263,7 +260,7 @@ def wire_arm_style_manifest(
 
 
 def wire_autobackup(versions: list[str]) -> None:
-    path = template_dir() / "AutoBackupVerificationManifest.java"
+    path = TEMPLATE_DIR / "AutoBackupVerificationManifest.java"
     text = path.read_text()
     # constants region: from first VERIFICATION_ID const to the last ARTIFACT_SHA256 line before the javadoc
     start = text.index("    public static final String VERIFICATION_ID_")
@@ -372,8 +369,9 @@ def wire_editor_model(
     versions: list[str],
     template_dir: Path | None = None,
 ) -> None:
-    base = template_dir if template_dir is not None else get_template_dir()
-    path = base / "EditorModelVerificationManifest.java"
+    if template_dir is None:
+        template_dir = TEMPLATE_DIR
+    path = template_dir / "EditorModelVerificationManifest.java"
     text = path.read_text()
     for key in ("em-consts", "em-sets", "em-arms"):
         text = _strip_marked(text, key)
@@ -463,7 +461,7 @@ def wire_editor_model(
 
 
 def wire_protected_export(versions: list[str]) -> None:
-    path = template_dir() / "ProtectedExportVerificationManifest.java"
+    path = TEMPLATE_DIR / "ProtectedExportVerificationManifest.java"
     text = path.read_text()
     for key in ("pe-consts", "pe-arms"):
         text = _strip_marked(text, key)
@@ -533,7 +531,7 @@ def wire_protected_export(versions: list[str]) -> None:
 
 
 def wire_bounding_box(versions: list[str]) -> None:
-    path = template_dir() / "BoundingBoxOverlayButtonVerificationManifest.java"
+    path = TEMPLATE_DIR / "BoundingBoxOverlayButtonVerificationManifest.java"
     text = path.read_text()
     for key in ("bb-sha", "bb-cases", "bb-admission", "bb-vid"):
         text = _strip_marked(text, key)
@@ -640,7 +638,7 @@ def wire_host_validation() -> None:
     export_versions = [
         vcompact(v)
         for v in ALL_VERSIONS
-        if (get_verification_dir() / f"cubism-{v}-protected-export.json").is_file()
+        if (VERIFICATION_DIR / f"cubism-{v}-protected-export.json").is_file()
     ]
     for task in document.get("tasks", {}).values():
         description = task.get("description", "")
