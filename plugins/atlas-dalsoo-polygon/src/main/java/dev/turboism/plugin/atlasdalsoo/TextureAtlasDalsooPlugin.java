@@ -5,9 +5,10 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode;
-import dev.turboism.sdk.plugin.AbstractTurboismPlugin;
 import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.sdk.plugin.TurboismPlugin;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.function.BooleanSupplier;
 
 /**
@@ -20,7 +21,7 @@ import java.util.function.BooleanSupplier;
  * {@code dalsoo} algorithm still works through the rectangle dialog path with
  * bounding-box outlines, which is reported honestly as a degraded mode.</p>
  */
-public final class TextureAtlasDalsooPlugin extends AbstractTurboismPlugin {
+public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
 
     static final String NATIVE_AUTO_LAYOUT_CALLBACK_KEY = "dev.turboism.texture-atlas.auto-layout.callback";
     static final String DIALOG_ALGORITHM_KEY = "dev.turboism.texture-atlas.dialog.algorithm";
@@ -34,6 +35,7 @@ public final class TextureAtlasDalsooPlugin extends AbstractTurboismPlugin {
     static final String DIALOG_KERNEL_KEY = "dev.turboism.texture-atlas.dialog.kernel";
     static final String ALGORITHM_DALSOO = "dalsoo";
 
+    private PluginContext context;
     private boolean enabled;
     private final PolygonLayoutSettingsBinding settings = new PolygonLayoutSettingsBinding();
     private final BooleanSupplier nativeAutoLayoutCallback = this::applyFromNativeEntry;
@@ -42,13 +44,7 @@ public final class TextureAtlasDalsooPlugin extends AbstractTurboismPlugin {
 
     @Override
     public void init(final PluginContext context) {
-        try {
-            super.init(context);
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Atlas Dalsoo plugin initialization failed", e);
-        }
+        this.context = Objects.requireNonNull(context, "context");
         if (!settings.init(context.config()).toCompletableFuture().join()) {
             throw new IllegalStateException("Atlas Dalsoo configuration schema registration failed.");
         }
@@ -57,13 +53,7 @@ public final class TextureAtlasDalsooPlugin extends AbstractTurboismPlugin {
 
     @Override
     public void enable() {
-        try {
-            super.enable();
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Atlas Dalsoo plugin must be initialized before enable.", e);
-        }
+        requireContext();
         if (!settings.enable().toCompletableFuture().join()) {
             throw new IllegalStateException("Atlas Dalsoo configuration could not be loaded.");
         }
@@ -72,34 +62,33 @@ public final class TextureAtlasDalsooPlugin extends AbstractTurboismPlugin {
         composeServices();
         System.getProperties().putIfAbsent(NATIVE_AUTO_LAYOUT_CALLBACK_KEY, nativeAutoLayoutCallback);
         publishDialogState();
-        context().logger().info("Atlas Dalsoo polygon packing enabled");
+        context.logger().info("Atlas Dalsoo polygon packing enabled");
     }
 
     private void registerAlgorithm() {
         try {
             final TextureAtlasLayoutAlgorithmRegistry registry =
-                    context().cubism().textureAtlasAlgorithms();
-            context()
-                    .disposableScope()
+                    context.cubism().textureAtlasAlgorithms();
+            context.disposableScope()
                     .register(registry.register(new TextureAtlasLayoutAlgorithm(
                             ALGORITHM_DALSOO,
-                            context().localization().text("texture-atlas.algorithm.dalsoo"),
+                            context.localization().text("texture-atlas.algorithm.dalsoo"),
                             true,
                             true,
                             new RectPathPolygonPlanner(() -> settings.confirmed()))));
         } catch (ThreadDeath | VirtualMachineError fatal) {
             throw fatal;
         } catch (Throwable failure) {
-            context().logger().warn("Atlas Dalsoo algorithm registration failed safely: " + failure);
+            context.logger().warn("Atlas Dalsoo algorithm registration failed safely: " + failure);
         }
     }
 
     private void composeServices() {
         polygonService = new TextureAtlasPolygonAutoLayoutService(
-                context().cubism().textureAtlasPolygonLayouts(),
+                context.cubism().textureAtlasPolygonLayouts(),
                 () -> settings.confirmed(),
-                message -> context().logger().info(message));
-        rectDelegate = new RectAutoLayoutDelegate(context().cubism().textureAtlasLayouts());
+                message -> context.logger().info(message));
+        rectDelegate = new RectAutoLayoutDelegate(context.cubism().textureAtlasLayouts());
     }
 
     private boolean applyFromNativeEntry() {
@@ -110,22 +99,19 @@ public final class TextureAtlasDalsooPlugin extends AbstractTurboismPlugin {
                 syncDialogState();
                 final TextureAtlasLayoutApplyResult result = polygonService.applyAutomaticLayout(parallel);
                 if (result.status().isPresent()) {
-                    context()
-                            .logger()
+                    context.logger()
                             .info("Atlas Dalsoo automatic-layout status="
                                     + result.status().orElseThrow());
                     return true;
                 }
-                context()
-                        .logger()
+                context.logger()
                         .warn("Atlas Dalsoo automatic-layout failureCode="
                                 + result.failureCode().orElseThrow());
                 return false;
             }
             // another algorithm selected through the shared dialog: run its rect
             // planner if one is registered, else delegate to the host
-            final var planner = context()
-                    .cubism()
+            final var planner = context.cubism()
                     .textureAtlasAlgorithms()
                     .find(algorithm)
                     .map(TextureAtlasLayoutAlgorithm::planner)
@@ -135,9 +121,8 @@ public final class TextureAtlasDalsooPlugin extends AbstractTurboismPlugin {
             }
             return rectDelegate.applyAutomaticLayout(planner, parallel).status().isPresent();
         } catch (RuntimeException | Error failure) {
-            final PluginContext current = currentContext();
-            if (current != null) {
-                current.logger().error("Atlas Dalsoo native automatic-layout entry failed safely.", failure);
+            if (context != null) {
+                context.logger().error("Atlas Dalsoo native automatic-layout entry failed safely.", failure);
             }
             return false;
         }
@@ -190,10 +175,9 @@ public final class TextureAtlasDalsooPlugin extends AbstractTurboismPlugin {
                 confirmed.itemPolicies());
         // join so the layout below observes the merged policy
         settings.update(merged).toCompletableFuture().join();
-        final PluginContext current = currentContext();
-        if (current != null && current.localization().contains("texture-atlas.dalsoo.policy")) {
-            current.logger()
-                    .info(current.localization()
+        if (context != null && context.localization().contains("texture-atlas.dalsoo.policy")) {
+            context.logger()
+                    .info(context.localization()
                             .format(
                                     "texture-atlas.dalsoo.policy",
                                     merged.rotation().name(),
@@ -256,13 +240,6 @@ public final class TextureAtlasDalsooPlugin extends AbstractTurboismPlugin {
         removeNativeCallback();
         enabled = false;
         settings.disable();
-        try {
-            super.disable();
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Atlas Dalsoo plugin disable failed", e);
-        }
     }
 
     @Override
@@ -270,15 +247,9 @@ public final class TextureAtlasDalsooPlugin extends AbstractTurboismPlugin {
         removeNativeCallback();
         enabled = false;
         settings.shutdown();
+        context = null;
         polygonService = null;
         rectDelegate = null;
-        try {
-            super.shutdown();
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Atlas Dalsoo plugin shutdown failed", e);
-        }
     }
 
     private void removeNativeCallback() {
@@ -292,15 +263,9 @@ public final class TextureAtlasDalsooPlugin extends AbstractTurboismPlugin {
         return enabled;
     }
 
-    private PluginContext currentContext() {
-        try {
-            return context();
-        } catch (IllegalStateException e) {
-            return null;
+    private void requireContext() {
+        if (context == null) {
+            throw new IllegalStateException("Atlas Dalsoo plugin must be initialized before enable.");
         }
-    }
-
-    private PluginContext requireContext() {
-        return context();
     }
 }
