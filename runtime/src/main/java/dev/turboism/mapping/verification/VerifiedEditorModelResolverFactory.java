@@ -136,6 +136,10 @@ public final class VerifiedEditorModelResolverFactory implements SliceResolverFa
         return SliceRegistry.EDITOR_MODEL.resolverFactory().create(reviewedRecord, verifiedArtifact, hostClassLoader);
     }
 
+    static PinnedVerifiedResolverWorkflow.RuntimeScope runtimeScopeFor(final HostArtifactDigest artifact) {
+        return ReviewedHostArtifacts.CUBISM_5_3_03.equals(artifact) ? cubism5303RuntimeScope() : null;
+    }
+
     static PinnedVerifiedResolverWorkflow.RuntimeScope cubism5303RuntimeScope() {
         final String mode = System.getProperty("turboism.editorObjectValidation.mode");
         final String runId = System.getProperty("turboism.validation.runId");
