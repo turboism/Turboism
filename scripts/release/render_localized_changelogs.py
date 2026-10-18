@@ -137,9 +137,6 @@ def main():
     for lang in LOCALES:
         status |= render(lang, check=args.check, fail_on_drift=args.fail_on_drift)
     return status
-    for lang in LOCALES:
-        status |= render(lang, check=args.check)
-    return status
 
 
 if __name__ == "__main__":
