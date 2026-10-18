@@ -1775,7 +1775,7 @@
   },
   {
    "kind": "file",
-   "path": "runtime/src/main/java/dev/turboism/mapping/verification/VerifiedEditorModelResolverFactory.java",
+   "path": "runtime/src/main/java/dev/turboism/mapping/verification/EditorModelRuntimeScope.java",
    "versions": [
     "5.3.03"
    ],

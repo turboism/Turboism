@@ -1,14 +1,12 @@
 package dev.turboism.mapping.verification;
 
-import java.io.IOException;
-import java.nio.file.Path;
 import java.util.Objects;
 import java.util.function.Function;
 
 /**
  * Descriptor binding an adapter slice to its verified manifest lookup.
  */
-public final class SliceDescriptor implements SliceResolverFactory {
+public final class SliceDescriptor {
 
     private final String sliceId;
     private final Function<HostArtifactDigest, PinnedVerifiedResolverWorkflow.Manifest> manifestLookup;
@@ -55,22 +53,5 @@ public final class SliceDescriptor implements SliceResolverFactory {
 
     PinnedVerifiedResolverWorkflow.RuntimeScope runtimeScopeFor(final HostArtifactDigest artifact) {
         return runtimeScopeLookup.apply(artifact);
-    }
-
-    @Override
-    public VerifiedMemberResolver create(
-            final Path reviewedRecord, final Path verifiedArtifact, final ClassLoader hostClassLoader)
-            throws IOException {
-        return factory.create(reviewedRecord, verifiedArtifact, hostClassLoader);
-    }
-
-    @Override
-    public VerifiedMemberResolver createCompatible(
-            final Path reviewedRecord,
-            final Path hostArtifact,
-            final ClassLoader hostClassLoader,
-            final SliceContract contract)
-            throws IOException {
-        return factory.createCompatible(reviewedRecord, hostArtifact, hostClassLoader, contract);
     }
 }

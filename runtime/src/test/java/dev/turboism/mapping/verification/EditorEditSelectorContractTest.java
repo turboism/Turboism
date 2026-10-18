@@ -340,7 +340,8 @@ final class EditorEditSelectorContractTest {
                 continue;
             }
             final Path artifact = LEGACY_EVIDENCE.resolve(version.artifactDir()).resolve("jars/Live2D_Cubism.jar");
-            final VerifiedMemberResolver resolver = new VerifiedEditorModelResolverFactory()
+            final VerifiedMemberResolver resolver = SliceRegistry.EDITOR_MODEL
+                    .resolverFactory()
                     .create(
                             PROJECT_ROOT.resolve("compatibility/cubism/verification/" + version.recordName()),
                             artifact,

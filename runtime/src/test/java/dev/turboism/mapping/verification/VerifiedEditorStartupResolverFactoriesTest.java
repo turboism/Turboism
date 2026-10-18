@@ -39,7 +39,8 @@ class VerifiedEditorStartupResolverFactoriesTest {
                             .create(record("5.2.03", "project-workspace"), artifact, loader));
             assertThrows(
                     IllegalArgumentException.class,
-                    () -> new VerifiedEditorModelResolverFactory()
+                    () -> SliceRegistry.EDITOR_MODEL
+                            .resolverFactory()
                             .create(record("5.2.03", "editor-model"), artifact, loader));
             assertThrows(
                     IllegalArgumentException.class,
@@ -75,7 +76,8 @@ class VerifiedEditorStartupResolverFactoriesTest {
                             .cubismVersion());
             assertEquals(
                     exactVersion,
-                    new VerifiedEditorModelResolverFactory()
+                    SliceRegistry.EDITOR_MODEL
+                            .resolverFactory()
                             .create(record(profile, "editor-model"), artifact, loader)
                             .cubismVersion());
             assertEquals(
