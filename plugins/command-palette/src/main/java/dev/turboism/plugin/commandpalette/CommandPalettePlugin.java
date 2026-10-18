@@ -104,7 +104,7 @@ public final class CommandPalettePlugin implements TurboismPlugin {
         CommandPaletteDialog dialog = palette.get();
         if (dialog == null) {
             dialog = new CommandPaletteDialog(
-                    context, () -> localization.text("palette.hint", "Type a command name or id…"));
+                    context, () -> localization.text("palette.hint", "Search commands, Enter to run"));
             if (!palette.compareAndSet(null, dialog)) {
                 dialog.dispose();
                 dialog = palette.get();
