@@ -11,6 +11,7 @@ import dev.turboism.sdk.storage.StorageMutationResult;
 import dev.turboism.sdk.storage.StoragePath;
 import dev.turboism.sdk.storage.StorageRoot;
 import dev.turboism.sdk.storage.StorageWriteResult;
+import dev.turboism.test.concurrent.Await;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -323,8 +324,14 @@ class ConfinedStorageBackendMutationLockTest {
         }
     }
 
-    private static void assertBlocked(final Thread thread, final String message) throws Exception {
-        Thread.sleep(100L);
+    private static void assertBlocked(final Thread thread, final String message) {
+        Await.condition(
+                message,
+                () -> thread.isAlive()
+                        && (thread.getState() == Thread.State.BLOCKED
+                                || thread.getState() == Thread.State.WAITING
+                                || thread.getState() == Thread.State.TIMED_WAITING),
+                java.time.Duration.ofSeconds(2));
         assertTrue(thread.isAlive(), message);
     }
 

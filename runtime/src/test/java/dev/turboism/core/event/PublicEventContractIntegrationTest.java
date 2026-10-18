@@ -12,6 +12,7 @@ import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.preview.LocalPluginRuntime;
 import dev.turboism.preview.PreviewLog;
+import dev.turboism.test.concurrent.Await;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -28,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import javax.tools.JavaCompiler;
@@ -203,16 +203,10 @@ class PublicEventContractIntegrationTest {
         }
     }
 
-    private static Object await(final Properties properties, final String key) throws InterruptedException {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
-        Object value;
-        while ((value = properties.get(key)) == null) {
-            if (System.nanoTime() > deadline) {
-                throw new AssertionError("timed out waiting for " + key);
-            }
-            Thread.sleep(10L);
-        }
-        return value;
+    private static Object await(final Properties properties, final String key) {
+        Await.condition(
+                "timed out waiting for " + key, () -> properties.get(key) != null, java.time.Duration.ofSeconds(30));
+        return properties.get(key);
     }
 
     /** How the consumer plugin binds its subscription to the contract type. */
