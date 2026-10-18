@@ -5,6 +5,7 @@ import dev.turboism.sdk.mcp.McpConnectionService;
 import dev.turboism.sdk.mcp.McpHttpConnection;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.AbstractTurboismPlugin;
+import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 import java.awt.GraphicsEnvironment;
@@ -54,17 +55,17 @@ public final class McpPlugin extends AbstractTurboismPlugin {
             disposalScope().register(menu);
             server = started;
         } catch (RuntimeException | Error failure) {
-            try {
-                super.disable();
+            try (DisposableScope rollback = new DisposableScope()) {
+                rollback.register(started);
+                rollback.register(super::disable);
+                rollback.register(() -> {
+                    throw failure;
+                });
+            } catch (RuntimeException rollbackFailure) {
+                throw rollbackFailure;
             } catch (Exception rollbackFailure) {
-                failure.addSuppressed(rollbackFailure);
+                throw new IllegalStateException("MCP startup rollback failed", rollbackFailure);
             }
-            try {
-                started.close();
-            } catch (RuntimeException closeFailure) {
-                failure.addSuppressed(closeFailure);
-            }
-            throw failure;
         }
         context().logger().info("MCP connection metadata published");
     }
@@ -76,10 +77,9 @@ public final class McpPlugin extends AbstractTurboismPlugin {
 
     @Override
     public synchronized void shutdown() throws Exception {
-        try {
-            stop();
-        } finally {
-            super.shutdown();
+        try (DisposableScope cleanup = new DisposableScope()) {
+            cleanup.register(super::shutdown);
+            cleanup.register(this::stop);
         }
     }
 
@@ -160,16 +160,14 @@ public final class McpPlugin extends AbstractTurboismPlugin {
     }
 
     private void stop() throws Exception {
-        try {
-            super.disable();
-        } finally {
-            try {
+        try (DisposableScope cleanup = new DisposableScope()) {
+            cleanup.register(this::disposeWindow);
+            cleanup.register(() -> {
                 final McpHttpServer current = server;
                 server = null;
                 if (current != null) current.close();
-            } finally {
-                disposeWindow();
-            }
+            });
+            cleanup.register(super::disable);
         }
     }
 

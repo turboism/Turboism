@@ -15,6 +15,7 @@ import dev.turboism.sdk.cubism.hook.ModelFileHooks;
 import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.AbstractTurboismPlugin;
+import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
@@ -113,8 +114,16 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
             registerMenuAndAction();
             enabled = true;
         } catch (RuntimeException | Error failure) {
-            disable();
-            throw failure;
+            try (DisposableScope rollback = new DisposableScope()) {
+                rollback.register(this::disable);
+                rollback.register(() -> {
+                    throw failure;
+                });
+            } catch (RuntimeException rollbackFailure) {
+                throw rollbackFailure;
+            } catch (Exception rollbackFailure) {
+                throw new IllegalStateException("WebDAV backup startup rollback failed", rollbackFailure);
+            }
         }
     }
 
@@ -127,30 +136,26 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
         stopScanner();
         cancelTargetRetry();
         cleanupPendingTempArtifacts();
-        try {
-            super.disable();
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("WebDAV backup plugin disable failed", e);
-        } finally {
-            shutdownWorkers();
+        try (DisposableScope cleanup = new DisposableScope()) {
+            cleanup.register(this::shutdownWorkers);
+            cleanup.register(super::disable);
+        } catch (RuntimeException failure) {
+            throw failure;
+        } catch (Exception failure) {
+            throw new IllegalStateException("WebDAV backup plugin disable failed", failure);
         }
     }
 
     @Override
     public void shutdown() {
-        try {
-            disable();
-            binding.shutdown();
-        } finally {
-            try {
-                super.shutdown();
-            } catch (RuntimeException e) {
-                throw e;
-            } catch (Exception e) {
-                throw new IllegalStateException("WebDAV backup plugin shutdown failed", e);
-            }
+        try (DisposableScope cleanup = new DisposableScope()) {
+            cleanup.register(super::shutdown);
+            cleanup.register(binding::shutdown);
+            cleanup.register(this::disable);
+        } catch (RuntimeException failure) {
+            throw failure;
+        } catch (Exception failure) {
+            throw new IllegalStateException("WebDAV backup plugin shutdown failed", failure);
         }
     }
 
