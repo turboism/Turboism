@@ -9,7 +9,7 @@
 #   <out>/<scope>.properties cgroupInode, first/last sample epochs, final peak
 #
 # usage: atlas-metrics-watch.sh OUT_DIR   (run in background)
-set -u
+set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 out=${1:-"$root/build/atlas-perf-metrics"}
 slices="/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice"
@@ -42,7 +42,7 @@ while [ -f "$sentinel" ]; do
     [ "${seen[$scope]}" = "1" ] || continue
     [ -d "$slices/$scope.scope" ] && continue
     seen[$scope]=done
-    last=$(tail -n 1 "$out/$scope.csv" 2>/dev/null | cut -d, -f3)
+    last=$(tail -n 1 "$out/$scope.csv" 2>/dev/null | cut -d, -f3) || last=""
     printf 'lastEpochMs=%s\nfinalPeakBytes=%s\n' "$(date +%s%3N)" "${last:--1}" >> "$out/$scope.properties"
     echo "scope ended: $scope finalPeak=$last" >&2
   done

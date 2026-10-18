@@ -11,7 +11,7 @@
 # carries the exact task fixture path, and it revalidates the JVM start tick
 # and window ownership before every resize burst. It never signals or cleans
 # any process.
-set -u
+set -euo pipefail
 export DISPLAY=${DISPLAY:-:0}
 
 FPS_CUBISM_JAR_TOKEN="Live2D_Cubism.jar"
@@ -69,7 +69,8 @@ fps_resize_main() {
   [ -n "$pid" ] || { echo "FPS_DRIVER_NO_JVM selector=$selector"; return 0; }
   echo "FPS_DRIVER_JVM pid=$pid"
   local start_ticks_before
-  start_ticks_before=$(awk '{print $22}' "/proc/$pid/stat")
+  start_ticks_before=$(awk '{print $22}' "/proc/$pid/stat") \
+    || { echo "FPS_DRIVER_STOP reason=pid-gone resizes=0"; return 0; }
 
   # 2. Wait for the visible project-titled window of that exact JVM. Large
   #    fixtures can take several minutes to open under Proton, so the window

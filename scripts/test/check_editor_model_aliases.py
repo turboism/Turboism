@@ -17,6 +17,12 @@ import re
 import sys
 from pathlib import Path
 
+_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+from turboism_dev.json_io import read_json
+from turboism_dev.paths import repo_root
+
 IMPLEMENTATION_ROOT = "runtime/src/main/java"
 BASE_RECORDS = (
     "compatibility/cubism/verification/cubism-5.2.03-editor-model.json",
@@ -100,7 +106,7 @@ def aliases_in_record(root: Path, relative: str) -> set[str]:
     path = root / relative
     if not path.exists():
         return set()
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data = read_json(path)
     return {
         selector["alias"]
         for selector in data["selectors"]
@@ -116,7 +122,7 @@ def capability_ids(root: Path) -> set[str]:
         path = root / relative
         if not path.exists():
             continue
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = read_json(path)
         for identifier in data.get("capabilityIds", []):
             ids.add(str(identifier))
     return ids
@@ -162,7 +168,7 @@ def main() -> int:
     parser.add_argument("--report", action="store_true", help="print both comparison directions")
     args = parser.parse_args()
 
-    root = Path(args.root).resolve()
+    root = repo_root(args.root)
     implementation = implementation_aliases(root)
     try:
         union, per_record = record_aliases(root)

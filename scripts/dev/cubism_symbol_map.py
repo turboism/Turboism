@@ -50,10 +50,16 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+from turboism_dev.json_io import write_json
+from turboism_dev.paths import repo_root
+from turboism_dev.versions import cubism_version_key
+
 import cubism_reachability_clusters as rc  # noqa: E402  (cp/bytecode primitives)
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = repo_root()
 LIVE2D_PREFIX = "com/live2d/"
 # Parsed models and pair maps cache under build/ (gitignored): /tmp proved
 # lossy — it is a tmpfs here and a reboot wiped hours of map computation.
@@ -898,7 +904,7 @@ def _available_versions(ref: Path | None = None) -> list[str]:
     ref = ref or cubism_ref_dir()
     return sorted(
         (d.name for d in ref.iterdir() if d.is_dir() and list(d.glob("Live2D*.jar"))),
-        key=lambda v: tuple(int(x) for x in v.split(".")),
+        key=cubism_version_key,
     )
 
 
@@ -1019,8 +1025,7 @@ def main() -> int:
             "unresolvedClasses": sorted(pm.unresolved),
         }
         path = Path(args.emit)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(out, indent=1))
+        write_json(path, out, indent=1)
         print(
             f"emitted {path}: {len(pm.classes)} classes, {len(pm.members)} members, "
             f"{len(pm.unresolved)} unresolved"
