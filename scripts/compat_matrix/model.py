@@ -605,5 +605,3 @@ def build_matrix(root: Path) -> dict:
         "versionBoundaries": boundary_entries,
         "officialTimeline": timeline,
     }
-
-

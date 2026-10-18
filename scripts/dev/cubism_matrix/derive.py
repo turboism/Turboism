@@ -705,5 +705,3 @@ def derive_profile(version: str, packs: list[str]) -> dict:
     )
     profile["cubismVersion"] = version
     return profile
-
-

@@ -45,5 +45,3 @@ def render_market_plugins(
         "plugins": entries,
     }
     return json.dumps(document, ensure_ascii=False, indent=2) + "\n"
-
-
