@@ -65,6 +65,7 @@ public class RecordingUiHost implements UiHostCapabilityService {
     public final List<HorizontalToolbarContribution> horizontalToolbarContributions = new CopyOnWriteArrayList<>();
     public final List<EmbeddedPanelId> activatedPanels = new CopyOnWriteArrayList<>();
     public final List<StoragePath> openedDirectories = new CopyOnWriteArrayList<>();
+    public final List<FileChooserRequest> fileRequests = new CopyOnWriteArrayList<>();
 
     public volatile Optional<String> chosenFile = Optional.empty();
     public volatile boolean confirmResult = true;
@@ -81,6 +82,10 @@ public class RecordingUiHost implements UiHostCapabilityService {
     private volatile Locale locale = Locale.getDefault();
 
     public RecordingUiHost() {}
+
+    public RecordingUiHost(final Optional<String> chosenFile) {
+        this(chosenFile, true);
+    }
 
     public RecordingUiHost(final Optional<String> chosenFile, final boolean confirmResult) {
         this.chosenFile = Objects.requireNonNull(chosenFile, "chosenFile");
@@ -121,6 +126,10 @@ public class RecordingUiHost implements UiHostCapabilityService {
 
     public Optional<String> chosenFile() {
         return chosenFile;
+    }
+
+    public List<FileChooserRequest> fileRequests() {
+        return List.copyOf(fileRequests);
     }
 
     public FileChooserRequest lastFileChooserRequest() {
@@ -300,6 +309,7 @@ public class RecordingUiHost implements UiHostCapabilityService {
     @Override
     public Optional<String> requestFile(final FileChooserRequest request) {
         this.lastFileChooserRequest = Objects.requireNonNull(request, "request");
+        fileRequests.add(request);
         return chosenFile;
     }
 
