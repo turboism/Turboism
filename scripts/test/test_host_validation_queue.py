@@ -1047,6 +1047,8 @@ class PreparedStoreTest(unittest.TestCase):
                      "host_validation_static_gates.py",
                      "host_validation_containment.py", "host_validation_evidence.py"):
             queue.copy_verified(tools / name, self.preview / name)
+        if (tools / "hvq").is_dir():
+            queue.copy_verified(tools / "hvq", self.preview / "hvq")
         # The enqueue path now runs the bundle-linkage gate, which parses the
         # declared jars; the synthetic agent/aux input must be a real zip.
         import zipfile
