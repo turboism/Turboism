@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 """Render the original Selection Brush artwork. Requires Python 3 and Pillow.
 
-The six 32px states follow the native mesh toolbar's neutral palette and
-pressed/selected contrast. The default glyph has a transparent background and
-no frame. The artwork is drawn here, without using host assets.
+The six 32px states retain the toolbar's neutral palette and pressed/selected
+contrast, with a Turboism corner signature to identify the plugin tool.
+The default glyph has a transparent background and no frame.
+The artwork is drawn here, without using host assets.
 Run from any directory; only this plugin's six PNG resources are overwritten.
 """
 
 from pathlib import Path
+import sys
 
 from PIL import Image, ImageDraw
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts/artwork"))
+from plugin_icon_badge import with_plugin_badge
 
 
 SIZE = 32
@@ -94,7 +99,8 @@ def main():
     mask = glyph_mask()
     for suffix, background, frame, foreground in STATES:
         path = OUTPUT / f"selection-brush{suffix}.png"
-        render(background, frame, foreground, mask).save(path, optimize=True)
+        image = render(background, frame, foreground, mask)
+        with_plugin_badge(image, disabled="disabled" in suffix).save(path, optimize=True)
         print(path.relative_to(OUTPUT.parent))
 
 

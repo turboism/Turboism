@@ -244,17 +244,16 @@ public final class MainToolbarHomeEntryService {
     /**
      * Applies the toolbar button's icon choice to every plugin-owned window.
      *
-     * <p>The assets live on this plugin's classpath, which the SDK classloader
-     * behind {@link TurboismWindowFactory} cannot see, so the image is decoded
-     * here through this plugin's loader and handed to the factory as a
-     * process-wide override. Branding is best-effort: a missing or corrupt
+     * <p>The assets live on the shell's classpath, so the image is resolved
+     * relative to this class (including when loaded through Boot-Class-Path)
+     * and handed to {@link TurboismWindowFactory} as a process-wide override.
+     * Branding is best-effort: a missing or corrupt
      * asset leaves the bundled default icon in place.</p>
      */
     private void installWindowIcon(final boolean textIcon) {
         try {
             final String path = textIcon ? ICON_RESOURCE_PATH : INSTALLER_ICON_RESOURCE_PATH;
-            final ClassLoader loader = MainToolbarHomeEntryService.class.getClassLoader();
-            final URL url = loader == null ? null : loader.getResource(path);
+            final URL url = MainToolbarHomeEntryService.class.getResource("/" + path);
             if (url == null) {
                 return;
             }
