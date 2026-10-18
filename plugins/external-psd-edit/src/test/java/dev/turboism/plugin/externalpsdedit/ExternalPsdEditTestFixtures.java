@@ -1,6 +1,5 @@
 package dev.turboism.plugin.externalpsdedit;
 
-import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
@@ -27,17 +26,9 @@ import dev.turboism.sdk.cubism.psd.PsdExportResult;
 import dev.turboism.sdk.cubism.psd.PsdFileOperationResult;
 import dev.turboism.sdk.cubism.psd.PsdFileRevision;
 import dev.turboism.sdk.cubism.psd.PsdReplaceResult;
-import dev.turboism.sdk.diagnostics.DiagnosticReport;
-import dev.turboism.sdk.event.EventBus;
-import dev.turboism.sdk.i18n.PluginLocalization;
-import dev.turboism.sdk.menu.MenuRegistry;
-import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.CancellationToken;
 import dev.turboism.sdk.plugin.DisposableScope;
-import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
-import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.task.FixedDelayTaskRequest;
 import dev.turboism.sdk.task.PluginTaskRequest;
@@ -52,19 +43,13 @@ import dev.turboism.sdk.task.TaskRunOutcome;
 import dev.turboism.sdk.task.TaskRunOutcomeStatus;
 import dev.turboism.sdk.task.TaskSubmission;
 import dev.turboism.sdk.task.TaskSubmissionStatus;
-import dev.turboism.sdk.ui.DialogRequest;
-import dev.turboism.sdk.ui.EmbeddedPanelContribution;
-import dev.turboism.sdk.ui.FileChooserRequest;
-import dev.turboism.sdk.ui.OverlayContribution;
-import dev.turboism.sdk.ui.StatusNotification;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
-import dev.turboism.sdk.ui.UiScheduler;
-import dev.turboism.sdk.ui.ViewportSnapshot;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
-import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
-import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
-import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.test.action.RecordingActionRegistry;
+import dev.turboism.test.plugin.FakePluginContext;
+import dev.turboism.test.plugin.RecordingPluginLogger;
+import dev.turboism.test.ui.RecordingContextMenuRegistry;
+import dev.turboism.test.ui.RecordingUiHost;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -619,7 +604,7 @@ final class ExternalPsdEditTestFixtures {
         }
     }
 
-    static final class RecordingPluginContext implements PluginContext {
+    static final class RecordingPluginContext extends FakePluginContext {
         final DisposableScope disposableScope = new DisposableScope();
         final RecordingActionRegistry actions = new RecordingActionRegistry();
         final RecordingContextMenuRegistry contextMenu = new RecordingContextMenuRegistry();
@@ -629,12 +614,8 @@ final class ExternalPsdEditTestFixtures {
         final RecordingTaskScheduler taskScheduler = new RecordingTaskScheduler();
 
         RecordingPluginContext(final PluginLogger logger) {
+            super(FakePluginContext.builder());
             this.logger = logger;
-        }
-
-        @Override
-        public PluginDescriptor descriptor() {
-            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -643,48 +624,8 @@ final class ExternalPsdEditTestFixtures {
         }
 
         @Override
-        public PluginPaths paths() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public PluginLocalization localization() {
-            return new PluginLocalization() {
-                @Override
-                public java.util.Locale locale() {
-                    return java.util.Locale.ENGLISH;
-                }
-
-                @Override
-                public String text(final String key) {
-                    return key;
-                }
-
-                @Override
-                public String format(final String key, final Object... arguments) {
-                    return key + " " + java.util.Arrays.toString(arguments);
-                }
-
-                @Override
-                public boolean contains(final String key) {
-                    return true;
-                }
-            };
-        }
-
-        @Override
         public FixedCubismFacade cubism() {
             return cubism;
-        }
-
-        @Override
-        public List<PluginPermission> permissions() {
-            return List.of();
-        }
-
-        @Override
-        public EventBus eventBus() {
-            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -693,22 +634,8 @@ final class ExternalPsdEditTestFixtures {
         }
 
         @Override
-        public MenuRegistry menus() {
-            return contribution -> () -> {};
-        }
-
         public RecordingContextMenuRegistry contextMenu() {
             return contextMenu;
-        }
-
-        @Override
-        public UiScheduler uiScheduler() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public DiagnosticReport diagnostics() {
-            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -716,6 +643,7 @@ final class ExternalPsdEditTestFixtures {
             return disposableScope;
         }
 
+        @Override
         public RecordingUiHost uiHost() {
             return uiHost;
         }
@@ -918,173 +846,5 @@ final class ExternalPsdEditTestFixtures {
         return new TaskOutcome(id, TaskOutcomeStatus.REJECTED, 0, Optional.empty(), Optional.of(detail));
     }
 
-    static final class RecordingActionRegistry implements ActionRegistry {
-        final List<Action> actions = new ArrayList<>();
-
-        List<Action> actions() {
-            return actions;
-        }
-
-        @Override
-        public Registration register(final String id, final Action action) {
-            actions.add(action);
-            return () -> actions.remove(action);
-        }
-
-        void execute(final String id) {
-            execute(id, new ActionContext() {});
-        }
-
-        void execute(final String id, final ContextMenuSelection selection) {
-            execute(id, new ActionContext() {
-                @Override
-                public Optional<ContextMenuSelection> contextMenuSelection() {
-                    return Optional.of(selection);
-                }
-            });
-        }
-
-        void execute(final String id, final ActionContext context) {
-            actions.stream()
-                    .filter(a -> a.id().equals(id))
-                    .findFirst()
-                    .orElseThrow()
-                    .handler()
-                    .accept(context);
-        }
-    }
-
-    static final class RecordingContextMenuRegistry implements ContextMenuRegistry {
-        final List<ContextMenuContribution> contributions = new ArrayList<>();
-
-        List<ContextMenuContribution> contributions() {
-            return List.copyOf(contributions);
-        }
-
-        @Override
-        public Registration contribute(final ContextMenuContribution contribution) {
-            contributions.add(contribution);
-            return () -> contributions.remove(contribution);
-        }
-    }
-
-    static final class RecordingUiHost implements UiHostCapabilityService {
-        final List<StatusNotification> notifications = new ArrayList<>();
-        boolean confirmResult = true;
-        RuntimeException confirmFailure;
-        DialogRequest lastConfirmRequest;
-
-        List<StatusNotification> notifications() {
-            return notifications;
-        }
-
-        DialogRequest lastConfirmRequest() {
-            return lastConfirmRequest;
-        }
-
-        @Override
-        public Registration contributeOverlay(OverlayContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration contributeBoundingBoxOverlayButton(
-                dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public ContextSourceSnapshot contextSource() {
-            throw unsupported();
-        }
-
-        @Override
-        public ViewportSnapshot viewport() {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration openDialog(DialogRequest request) {
-            throw unsupported();
-        }
-
-        @Override
-        public boolean confirmDialog(final DialogRequest request) {
-            lastConfirmRequest = request;
-            if (confirmFailure != null) {
-                throw confirmFailure;
-            }
-            return confirmResult;
-        }
-
-        @Override
-        public Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Optional<String> requestFile(FileChooserRequest request) {
-            return Optional.empty();
-        }
-
-        @Override
-        public Registration notifyStatus(final StatusNotification notification) {
-            notifications.add(notification);
-            return () -> notifications.remove(notification);
-        }
-
-        @Override
-        public Registration contributeContextMenu(ContextMenuRegistry.ContextMenuContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration contributeMainToolbar(MainToolbarRegistry.MainToolbarContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration contributePaletteToolbar(PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
-            throw unsupported();
-        }
-
-        static UnsupportedOperationException unsupported() {
-            return new UnsupportedOperationException("not used");
-        }
-    }
-
-    static final class TestPluginLogger implements PluginLogger {
-        final List<String> messages = new ArrayList<>();
-        final List<Throwable> failures = new ArrayList<>();
-
-        @Override
-        public void debug(final String message) {
-            messages.add("DEBUG: " + message);
-        }
-
-        @Override
-        public void info(final String message) {
-            messages.add("INFO: " + message);
-        }
-
-        @Override
-        public void warn(final String message) {
-            messages.add("WARN: " + message);
-        }
-
-        @Override
-        public void error(final String message) {
-            messages.add("ERROR: " + message);
-        }
-
-        @Override
-        public void error(final String message, final Throwable throwable) {
-            failures.add(throwable);
-            messages.add("ERROR: " + message + ": " + throwable.getMessage());
-        }
-
-        List<String> messages() {
-            return List.copyOf(messages);
-        }
-    }
+    static final class TestPluginLogger extends RecordingPluginLogger {}
 }

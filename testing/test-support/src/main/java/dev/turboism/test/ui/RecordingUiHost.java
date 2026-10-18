@@ -47,28 +47,28 @@ public class RecordingUiHost implements UiHostCapabilityService {
         }
     }
 
-    private final List<StatusNotification> notifications = new CopyOnWriteArrayList<>();
-    private final List<DialogRequest> dialogs = new CopyOnWriteArrayList<>();
-    private final List<EmbeddedPanelContribution> embeddedPanels = new CopyOnWriteArrayList<>();
-    private final List<CollapsibleSectionContribution> collapsibleSections = new CopyOnWriteArrayList<>();
-    private final List<ColorPickerCall> colorPickers = new CopyOnWriteArrayList<>();
-    private final List<ColorPickerResultListener> colorPickerListeners = new CopyOnWriteArrayList<>();
-    private final List<OverlayContribution> overlays = new CopyOnWriteArrayList<>();
-    private final List<BoundingBoxOverlayButton> boundingBoxButtons = new CopyOnWriteArrayList<>();
-    private final List<ContextMenuRegistry.ContextMenuContribution> contextMenuContributions =
+    public final List<StatusNotification> notifications = new CopyOnWriteArrayList<>();
+    public final List<DialogRequest> dialogs = new CopyOnWriteArrayList<>();
+    public final List<EmbeddedPanelContribution> embeddedPanels = new CopyOnWriteArrayList<>();
+    public final List<CollapsibleSectionContribution> collapsibleSections = new CopyOnWriteArrayList<>();
+    public final List<ColorPickerCall> colorPickers = new CopyOnWriteArrayList<>();
+    public final List<ColorPickerResultListener> colorPickerListeners = new CopyOnWriteArrayList<>();
+    public final List<OverlayContribution> overlays = new CopyOnWriteArrayList<>();
+    public final List<BoundingBoxOverlayButton> boundingBoxButtons = new CopyOnWriteArrayList<>();
+    public final List<ContextMenuRegistry.ContextMenuContribution> contextMenuContributions =
             new CopyOnWriteArrayList<>();
-    private final List<MainToolbarRegistry.MainToolbarContribution> mainToolbarContributions =
+    public final List<MainToolbarRegistry.MainToolbarContribution> mainToolbarContributions =
             new CopyOnWriteArrayList<>();
-    private final List<PaletteToolbarRegistry.PaletteToolbarContribution> paletteToolbarContributions =
+    public final List<PaletteToolbarRegistry.PaletteToolbarContribution> paletteToolbarContributions =
             new CopyOnWriteArrayList<>();
-    private final List<VerticalToolbarContribution> verticalToolbarContributions = new CopyOnWriteArrayList<>();
-    private final List<HorizontalToolbarContribution> horizontalToolbarContributions = new CopyOnWriteArrayList<>();
-    private final List<EmbeddedPanelId> activatedPanels = new CopyOnWriteArrayList<>();
-    private final List<StoragePath> openedDirectories = new CopyOnWriteArrayList<>();
+    public final List<VerticalToolbarContribution> verticalToolbarContributions = new CopyOnWriteArrayList<>();
+    public final List<HorizontalToolbarContribution> horizontalToolbarContributions = new CopyOnWriteArrayList<>();
+    public final List<EmbeddedPanelId> activatedPanels = new CopyOnWriteArrayList<>();
+    public final List<StoragePath> openedDirectories = new CopyOnWriteArrayList<>();
 
-    private volatile Optional<String> chosenFile = Optional.empty();
-    private volatile boolean confirmResult = true;
-    private volatile RuntimeException confirmFailure;
+    public volatile Optional<String> chosenFile = Optional.empty();
+    public volatile boolean confirmResult = true;
+    public volatile RuntimeException confirmFailure;
     private volatile DialogRequest lastConfirmRequest;
     private volatile FileChooserRequest lastFileChooserRequest;
     private volatile ChoiceDialogRequest lastChoiceRequest;

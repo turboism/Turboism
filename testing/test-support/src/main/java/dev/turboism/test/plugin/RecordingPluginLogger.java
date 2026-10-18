@@ -18,6 +18,7 @@ public class RecordingPluginLogger implements PluginLogger {
     }
 
     private final List<LogRecord> records = new CopyOnWriteArrayList<>();
+    public final List<Throwable> failures = new CopyOnWriteArrayList<>();
 
     @Override
     public void debug(final String message) {
@@ -41,11 +42,18 @@ public class RecordingPluginLogger implements PluginLogger {
 
     @Override
     public void error(final String message, final Throwable throwable) {
+        if (throwable != null) {
+            failures.add(throwable);
+        }
         records.add(new LogRecord("ERROR", message, throwable));
     }
 
     public List<LogRecord> records() {
         return List.copyOf(records);
+    }
+
+    public List<Throwable> failures() {
+        return List.copyOf(failures);
     }
 
     public List<String> messages() {
