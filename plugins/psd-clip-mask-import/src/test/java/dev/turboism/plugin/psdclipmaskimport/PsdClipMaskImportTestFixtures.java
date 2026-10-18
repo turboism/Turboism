@@ -1,6 +1,5 @@
 package dev.turboism.plugin.psdclipmaskimport;
 
-import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
@@ -19,30 +18,9 @@ import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.FloatSequence;
 import dev.turboism.sdk.cubism.model.IntSequence;
-import dev.turboism.sdk.diagnostics.DiagnosticReport;
-import dev.turboism.sdk.event.EventBus;
-import dev.turboism.sdk.menu.MenuRegistry;
-import dev.turboism.sdk.permission.PluginPermission;
-import dev.turboism.sdk.plugin.DisposableScope;
-import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.PluginDescriptor;
-import dev.turboism.sdk.plugin.PluginLogger;
-import dev.turboism.sdk.plugin.PluginPaths;
-import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
-import dev.turboism.sdk.ui.CollapsibleSectionContribution;
 import dev.turboism.sdk.ui.DialogRequest;
-import dev.turboism.sdk.ui.EmbeddedPanelContribution;
-import dev.turboism.sdk.ui.FileChooserRequest;
-import dev.turboism.sdk.ui.OverlayContribution;
-import dev.turboism.sdk.ui.StatusNotification;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
-import dev.turboism.sdk.ui.UiScheduler;
-import dev.turboism.sdk.ui.ViewportSnapshot;
-import dev.turboism.sdk.ui.context.ContextMenuRegistry;
-import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
-import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
-import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.test.plugin.FakePluginContext;
+import dev.turboism.test.ui.RecordingUiHost;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -346,45 +324,19 @@ final class PsdClipMaskImportTestFixtures {
         };
     }
 
-    static final class RecordingPluginContext implements PluginContext {
-
-        @Override
-        public dev.turboism.sdk.i18n.PluginLocalization localization() {
-            return new FakeLocalization();
-        }
+    static final class RecordingPluginContext extends FakePluginContext {
 
         String activeDocumentId = "document-1";
         String activeDocumentModelId = "model-a";
         boolean documentHasModel = true;
 
-        @Override
-        public PluginDescriptor descriptor() {
-            return new TestPluginDescriptor();
+        RecordingPluginContext() {
+            super(FakePluginContext.builder().descriptor(new TestPluginDescriptor()));
         }
 
         @Override
-        public PluginLogger logger() {
-            return new PluginLogger() {
-                @Override
-                public void debug(String message) {}
-
-                @Override
-                public void info(String message) {}
-
-                @Override
-                public void warn(String message) {}
-
-                @Override
-                public void error(String message) {}
-
-                @Override
-                public void error(String message, Throwable throwable) {}
-            };
-        }
-
-        @Override
-        public PluginPaths paths() {
-            throw new UnsupportedOperationException();
+        public dev.turboism.sdk.i18n.PluginLocalization localization() {
+            return new FakeLocalization();
         }
 
         @Override
@@ -435,118 +387,24 @@ final class PsdClipMaskImportTestFixtures {
                 }
             };
         }
-
-        @Override
-        public List<PluginPermission> permissions() {
-            return List.of();
-        }
-
-        @Override
-        public EventBus eventBus() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public ActionRegistry actions() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public MenuRegistry menus() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public UiScheduler uiScheduler() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public DiagnosticReport diagnostics() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public DisposableScope disposableScope() {
-            throw new UnsupportedOperationException();
-        }
     }
 
-    static final class RecordingUiHost implements UiHostCapabilityService {
-        final List<StatusNotification> notifications = new ArrayList<>();
-        boolean confirmResult = true;
+    static final class RecordingUiHost extends dev.turboism.test.ui.RecordingUiHost {
         Runnable onConfirm = () -> {};
-        DialogRequest lastPreview;
+        public DialogRequest lastPreview;
 
-        @Override
-        public Registration contributeOverlay(final OverlayContribution contribution) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Registration contributeBoundingBoxOverlayButton(final BoundingBoxOverlayButton contribution) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public ContextSourceSnapshot contextSource() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public ViewportSnapshot viewport() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Registration openDialog(final DialogRequest request) {
-            throw new UnsupportedOperationException();
+        DialogRequest lastPreview() {
+            return lastPreview;
         }
 
         @Override
         public boolean confirmDialog(final DialogRequest request) {
-            lastPreview = request;
-            if (confirmResult) {
+            this.lastPreview = request;
+            final boolean result = super.confirmDialog(request);
+            if (result && onConfirm != null) {
                 onConfirm.run();
             }
-            return confirmResult;
-        }
-
-        @Override
-        public Registration contributeEmbeddedPanel(final EmbeddedPanelContribution contribution) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Registration contributeCollapsibleSection(final CollapsibleSectionContribution contribution) {
-            return () -> {};
-        }
-
-        @Override
-        public Optional<String> requestFile(final FileChooserRequest request) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Registration notifyStatus(final StatusNotification notification) {
-            notifications.add(notification);
-            return () -> {};
-        }
-
-        @Override
-        public Registration contributeContextMenu(final ContextMenuRegistry.ContextMenuContribution contribution) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Registration contributeMainToolbar(final MainToolbarRegistry.MainToolbarContribution contribution) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Registration contributePaletteToolbar(
-                final PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
-            throw new UnsupportedOperationException();
+            return result;
         }
     }
 
