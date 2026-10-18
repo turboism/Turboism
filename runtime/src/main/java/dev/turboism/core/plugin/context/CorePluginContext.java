@@ -646,15 +646,7 @@ public final class CorePluginContext implements PluginContext {
         serviceDirectory.install(PluginService.SCRIPTS, () -> scriptService, ScriptService::unavailable);
         serviceDirectory.install(
                 PluginService.USER_FILES, () -> userFileAccessService, UserFileAccessService::unavailable);
-        serviceDirectory.installWhenPresent(PluginService.SELECTION_QUERY, cubismServices::selectionQueryService);
-        serviceDirectory.installWhenPresent(
-                PluginService.MODEL_HIERARCHY_QUERY, cubismServices::modelHierarchyQueryService);
-        serviceDirectory.installWhenPresent(PluginService.CUBISM_READ, cubismServices::cubismReadCapabilityService);
-        serviceDirectory.install(
-                PluginService.MODEL_OBJECTS,
-                cubismServices::modelObjectService,
-                dev.turboism.sdk.cubism.model.ModelObjectService::unavailable);
-        serviceDirectory.installWhenPresent(PluginService.CUBISM_CLIP_MASKS, cubismServices::cubismClipMaskService);
+        cubismServices.registerServices(serviceDirectory);
         serviceDirectory.install(PluginService.RECENT_FILES, () -> recentFileService, RecentFileService::unavailable);
         serviceDirectory.install(
                 PluginService.SCREENSHOTS, () -> screenshotCaptureService, ScreenshotCaptureService::unavailable);
@@ -662,10 +654,6 @@ public final class CorePluginContext implements PluginContext {
                 PluginService.RECENT_PREVIEWS,
                 () -> recentPreviewContributionService,
                 RecentPreviewContributionService::unavailable);
-        serviceDirectory.install(
-                PluginService.PHYSICS_EDITOR,
-                cubismServices::physicsEditorService,
-                dev.turboism.sdk.cubism.physics.PhysicsEditorService::unavailable);
         serviceDirectory.install(
                 PluginService.FILE_CHOOSER_HISTORY,
                 () -> fileChooserHistory,
@@ -688,15 +676,7 @@ public final class CorePluginContext implements PluginContext {
         serviceDirectory.installWhenPresent(PluginService.VIEW_CONTEXT_MENU, () -> viewContextMenuRegistry);
         serviceDirectory.installWhenPresent(PluginService.MESH_EDIT_UI, () -> meshEditUiService);
         serviceDirectory.install(
-                PluginService.EDITOR_COMMANDS,
-                cubismServices::editorCommandService,
-                dev.turboism.sdk.cubism.command.EditorCommandService::unavailable);
-        serviceDirectory.install(
                 PluginService.ACTION_CATALOG, () -> actionCatalogService, ActionCatalogService::unavailable);
-        serviceDirectory.install(
-                PluginService.BACKUP,
-                cubismServices::backupService,
-                dev.turboism.sdk.cubism.backup.EditorAutoBackupService::unavailable);
         serviceDirectory.install(
                 PluginService.MAIN_TOOLBAR, () -> mainToolbarRegistry, MainToolbarRegistry::unavailable);
         serviceDirectory.install(
