@@ -17,20 +17,9 @@ import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
-import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
-import dev.turboism.sdk.ui.DialogRequest;
-import dev.turboism.sdk.ui.EmbeddedPanelContribution;
-import dev.turboism.sdk.ui.FileChooserRequest;
-import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
-import dev.turboism.sdk.ui.ViewportSnapshot;
-import dev.turboism.sdk.ui.context.ContextMenuRegistry;
-import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
-import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
-import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
-import java.util.ArrayList;
+import dev.turboism.test.ui.RecordingUiHost;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -136,81 +125,6 @@ class MeshInspectorServiceTest {
 
         @Override
         public Optional<ThemeStatusSnapshot> themeStatus() {
-            throw unsupported();
-        }
-
-        private static UnsupportedOperationException unsupported() {
-            return new UnsupportedOperationException("not used");
-        }
-    }
-
-    private static final class RecordingUiHost implements UiHostCapabilityService {
-        private final List<StatusNotification> notifications = new ArrayList<>();
-
-        List<StatusNotification> notifications() {
-            return notifications;
-        }
-
-        @Override
-        public Registration contributeOverlay(OverlayContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration contributeBoundingBoxOverlayButton(
-                final dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public ContextSourceSnapshot contextSource() {
-            return new ContextSourceSnapshot(
-                    "ctx-1", "workspace", Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-        }
-
-        @Override
-        public ViewportSnapshot viewport() {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration openDialog(DialogRequest request) {
-            throw unsupported();
-        }
-
-        @Override
-        public boolean confirmDialog(DialogRequest request) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Optional<String> requestFile(FileChooserRequest request) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration notifyStatus(StatusNotification notification) {
-            notifications.add(notification);
-            return () -> notifications.remove(notification);
-        }
-
-        @Override
-        public Registration contributeContextMenu(ContextMenuRegistry.ContextMenuContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration contributeMainToolbar(MainToolbarRegistry.MainToolbarContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration contributePaletteToolbar(PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
             throw unsupported();
         }
 

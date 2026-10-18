@@ -7,26 +7,16 @@ import dev.turboism.plugin.uitheme.domain.ThemeBase;
 import dev.turboism.plugin.uitheme.domain.ThemeIcons;
 import dev.turboism.plugin.uitheme.domain.ThemePackageData;
 import dev.turboism.plugin.uitheme.domain.ThemePackageMetadata;
-import dev.turboism.sdk.storage.PluginStorage;
-import dev.turboism.sdk.storage.StorageEntry;
-import dev.turboism.sdk.storage.StorageError;
-import dev.turboism.sdk.storage.StorageListResult;
-import dev.turboism.sdk.storage.StorageMutationResult;
-import dev.turboism.sdk.storage.StoragePath;
-import dev.turboism.sdk.storage.StorageReadResult;
-import dev.turboism.sdk.storage.StorageWriteResult;
-import java.util.LinkedHashMap;
+import dev.turboism.test.storage.InMemoryPluginStorage;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import org.junit.jupiter.api.Test;
 
 final class ThemePackageRepositoryTest {
 
     @Test
     void savingAndLoadingAThemeUsesBoundedAtomicPluginStorage() {
-        MemoryPluginStorage storage = new MemoryPluginStorage();
+        InMemoryPluginStorage storage = new InMemoryPluginStorage();
         ThemePackageRepository repository = new ThemePackageRepository(storage);
 
         ThemePackageRepository.SaveResult saved = repository.save(theme("user.aurora"), false);
@@ -40,7 +30,7 @@ final class ThemePackageRepositoryTest {
 
     @Test
     void savingAnExistingThemeWithoutReplacementReportsConflictAndPreservesIt() {
-        MemoryPluginStorage storage = new MemoryPluginStorage();
+        InMemoryPluginStorage storage = new InMemoryPluginStorage();
         ThemePackageRepository repository = new ThemePackageRepository(storage);
         repository.save(theme("user.aurora"), false);
 
@@ -52,7 +42,7 @@ final class ThemePackageRepositoryTest {
 
     @Test
     void listsValidArchivesAndDeletesOnePackage() {
-        MemoryPluginStorage storage = new MemoryPluginStorage();
+        InMemoryPluginStorage storage = new InMemoryPluginStorage();
         ThemePackageRepository repository = new ThemePackageRepository(storage);
         repository.save(theme("user.aurora"), false);
         repository.save(theme("user.dusk"), false);
@@ -94,76 +84,5 @@ final class ThemePackageRepositoryTest {
                 Map.of(),
                 "",
                 "");
-    }
-
-    private static final class MemoryPluginStorage implements PluginStorage {
-        private final Map<StoragePath, byte[]> files = new LinkedHashMap<>();
-        private StoragePath lastWritePath;
-
-        @Override
-        public CompletionStage<StorageReadResult<String>> readUtf8(StoragePath path, int maxBytes) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public CompletionStage<StorageReadResult<byte[]>> readBytes(StoragePath path, int maxBytes) {
-            byte[] value = files.get(path);
-            if (value == null) {
-                return CompletableFuture.completedFuture(new StorageReadResult<>(
-                        Optional.empty(),
-                        Optional.of(new StorageError(
-                                dev.turboism.sdk.storage.StorageErrorCode.NOT_FOUND, "not found", path)),
-                        false));
-            }
-            return CompletableFuture.completedFuture(
-                    new StorageReadResult<>(Optional.of(value), Optional.empty(), false));
-        }
-
-        @Override
-        public CompletionStage<StorageWriteResult> writeUtf8Atomic(StoragePath path, String content) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public CompletionStage<StorageWriteResult> writeBytesAtomic(StoragePath path, byte[] content) {
-            lastWritePath = path;
-            files.put(path, content.clone());
-            return CompletableFuture.completedFuture(new StorageWriteResult(true, Optional.empty()));
-        }
-
-        @Override
-        public CompletionStage<StorageListResult> list(StoragePath directory, int maxEntries) {
-            return CompletableFuture.completedFuture(new StorageListResult(
-                    files.keySet().stream()
-                            .filter(path -> path.relativePath().startsWith(directory.relativePath() + "/"))
-                            .map(path -> new StorageEntry(
-                                    path, dev.turboism.sdk.storage.StorageEntryType.FILE, files.get(path).length))
-                            .toList(),
-                    Optional.empty(),
-                    false));
-        }
-
-        @Override
-        public CompletionStage<StorageMutationResult> copy(
-                StoragePath source, StoragePath target, boolean replaceExisting) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public CompletionStage<StorageMutationResult> moveAtomic(
-                StoragePath source, StoragePath target, boolean replaceExisting) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public CompletionStage<StorageMutationResult> delete(StoragePath path, boolean recursive) {
-            boolean removed = files.remove(path) != null;
-            return CompletableFuture.completedFuture(new StorageMutationResult(
-                    removed,
-                    removed
-                            ? Optional.empty()
-                            : Optional.of(new StorageError(
-                                    dev.turboism.sdk.storage.StorageErrorCode.NOT_FOUND, "not found", path))));
-        }
     }
 }

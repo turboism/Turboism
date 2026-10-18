@@ -12,14 +12,12 @@ import dev.turboism.sdk.cubism.history.HistoryEntryId;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.plugin.DisposableScope;
-import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
-import dev.turboism.sdk.ui.HorizontalToolbarContribution;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
-import dev.turboism.sdk.ui.VerticalToolbarContribution;
+import dev.turboism.test.action.RecordingActionRegistry;
+import dev.turboism.test.plugin.FakePluginContext;
+import dev.turboism.test.ui.RecordingUiHost;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -95,7 +93,7 @@ class HistoryPanelPluginTest {
         assertEquals(List.of(0), context.movePositions, "stale binding must not move by old index");
     }
 
-    private static final class RecordingContext implements PluginContext {
+    private static final class RecordingContext extends FakePluginContext {
 
         private final RecordingUiHost uiHost = new RecordingUiHost();
         private final DisposableScope scope = new DisposableScope();
@@ -103,8 +101,23 @@ class HistoryPanelPluginTest {
         private HistorySnapshot historySnapshot = HistorySnapshot.unavailable();
         private final List<Integer> movePositions = new ArrayList<>();
 
+        RecordingContext() {
+            super(FakePluginContext.builder().localization(passThroughLocalization()));
+        }
+
+        @Override
         public RecordingUiHost uiHost() {
             return uiHost;
+        }
+
+        @Override
+        public RecordingActionRegistry actions() {
+            return actionRegistry;
+        }
+
+        @Override
+        public DisposableScope disposableScope() {
+            return scope;
         }
 
         @Override
@@ -171,231 +184,11 @@ class HistoryPanelPluginTest {
         }
 
         @Override
-        public dev.turboism.sdk.diagnostics.DiagnosticReport diagnostics() {
-            return null;
-        }
-
-        @Override
-        public RecordingActionRegistry actions() {
-            return actionRegistry;
-        }
-
-        @Override
-        public dev.turboism.sdk.i18n.PluginLocalization localization() {
-            return new dev.turboism.sdk.i18n.PluginLocalization() {
-                @Override
-                public java.util.Locale locale() {
-                    return java.util.Locale.ENGLISH;
-                }
-
-                @Override
-                public String text(final String key) {
-                    return key;
-                }
-
-                @Override
-                public String format(final String key, final Object... arguments) {
-                    final StringBuilder builder = new StringBuilder(key);
-                    for (final Object argument : arguments) {
-                        builder.append(' ').append(argument);
-                    }
-                    return builder.toString();
-                }
-
-                @Override
-                public boolean contains(final String key) {
-                    return true;
-                }
-            };
-        }
-
-        @Override
-        public dev.turboism.sdk.plugin.PluginDescriptor descriptor() {
-            return null;
-        }
-
-        @Override
-        public dev.turboism.sdk.plugin.PluginPaths paths() {
-            return null;
-        }
-
-        @Override
-        public java.util.List<dev.turboism.sdk.permission.PluginPermission> permissions() {
-            return java.util.List.of();
-        }
-
-        @Override
-        public dev.turboism.sdk.event.EventBus eventBus() {
-            return null;
-        }
-
-        @Override
-        public dev.turboism.sdk.menu.MenuRegistry menus() {
-            return null;
-        }
-
-        @Override
-        public DisposableScope disposableScope() {
-            return scope;
-        }
-
-        @Override
-        public PluginLogger logger() {
-            return new PluginLogger() {
-                @Override
-                public void debug(final String message) {}
-
-                @Override
-                public void info(final String message) {}
-
-                @Override
-                public void warn(final String message) {}
-
-                @Override
-                public void error(final String message) {}
-
-                @Override
-                public void error(final String message, final Throwable throwable) {}
-            };
-        }
-
-        @Override
         public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
             return dev.turboism.sdk.plugin.PluginServices.builder()
                     .supply(dev.turboism.sdk.ui.UiHostCapabilityService.class, () -> this.uiHost())
                     .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
                     .build();
-        }
-    }
-
-    private static final class RecordingActionRegistry implements dev.turboism.sdk.action.ActionRegistry {
-
-        private final List<dev.turboism.sdk.action.ActionRegistry.Action> actions = new ArrayList<>();
-
-        private void execute(final String id) {
-            actions.stream()
-                    .filter(action -> action.id().equals(id))
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException("unknown action " + id))
-                    .handler()
-                    .accept(null);
-        }
-
-        @Override
-        public Registration register(final String id, final dev.turboism.sdk.action.ActionRegistry.Action action) {
-            actions.add(action);
-            return () -> actions.remove(action);
-        }
-    }
-
-    private static final class RecordingUiHost implements UiHostCapabilityService {
-
-        private final List<EmbeddedPanelContribution> panels = new ArrayList<>();
-        private final List<VerticalToolbarContribution> verticalToolbars = new ArrayList<>();
-        private final List<HorizontalToolbarContribution> horizontalToolbars = new ArrayList<>();
-
-        List<EmbeddedPanelContribution> panels() {
-            return List.copyOf(panels);
-        }
-
-        List<VerticalToolbarContribution> verticalToolbars() {
-            return List.copyOf(verticalToolbars);
-        }
-
-        List<HorizontalToolbarContribution> horizontalToolbars() {
-            return List.copyOf(horizontalToolbars);
-        }
-
-        @Override
-        public Registration contributeEmbeddedPanel(final EmbeddedPanelContribution contribution) {
-            panels.add(contribution);
-            return () -> panels.remove(contribution);
-        }
-
-        @Override
-        public Registration contributeVerticalToolbar(final VerticalToolbarContribution contribution) {
-            verticalToolbars.add(contribution);
-            return () -> verticalToolbars.remove(contribution);
-        }
-
-        @Override
-        public Registration contributeHorizontalToolbar(final HorizontalToolbarContribution contribution) {
-            horizontalToolbars.add(contribution);
-            return () -> horizontalToolbars.remove(contribution);
-        }
-
-        private final List<String> floatingActivations = new ArrayList<>();
-
-        List<String> floatingActivations() {
-            return List.copyOf(floatingActivations);
-        }
-
-        @Override
-        public void activateEmbeddedPanelFloating(final dev.turboism.sdk.ui.EmbeddedPanelId panelId) {
-            floatingActivations.add(panelId.value());
-        }
-
-        @Override
-        public Registration contributeOverlay(final dev.turboism.sdk.ui.OverlayContribution contribution) {
-            return noOp();
-        }
-
-        @Override
-        public Registration contributeBoundingBoxOverlayButton(
-                final dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution) {
-            return noOp();
-        }
-
-        @Override
-        public dev.turboism.sdk.ui.context.ContextSourceSnapshot contextSource() {
-            return null;
-        }
-
-        @Override
-        public dev.turboism.sdk.ui.ViewportSnapshot viewport() {
-            return null;
-        }
-
-        @Override
-        public Registration openDialog(final dev.turboism.sdk.ui.DialogRequest request) {
-            return noOp();
-        }
-
-        @Override
-        public boolean confirmDialog(final dev.turboism.sdk.ui.DialogRequest request) {
-            return false;
-        }
-
-        @Override
-        public Optional<String> requestFile(final dev.turboism.sdk.ui.FileChooserRequest request) {
-            return Optional.empty();
-        }
-
-        @Override
-        public Registration notifyStatus(final dev.turboism.sdk.ui.StatusNotification notification) {
-            return noOp();
-        }
-
-        @Override
-        public Registration contributeContextMenu(
-                final dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution contribution) {
-            return noOp();
-        }
-
-        @Override
-        public Registration contributeMainToolbar(
-                final dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.MainToolbarContribution contribution) {
-            return noOp();
-        }
-
-        @Override
-        public Registration contributePaletteToolbar(
-                final dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
-            return noOp();
-        }
-
-        private static Registration noOp() {
-            return () -> {};
         }
     }
 }

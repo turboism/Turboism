@@ -3,33 +3,20 @@ package dev.turboism.plugin.frameanimation;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import dev.turboism.sdk.action.ActionRegistry;
-import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.PluginDescriptor;
-import dev.turboism.sdk.plugin.PluginLogger;
-import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.PluginServiceDirectory;
 import dev.turboism.sdk.plugin.PluginServices;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
-import dev.turboism.sdk.ui.DialogRequest;
-import dev.turboism.sdk.ui.EmbeddedPanelContribution;
-import dev.turboism.sdk.ui.FileChooserRequest;
-import dev.turboism.sdk.ui.OverlayContribution;
-import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
-import dev.turboism.sdk.ui.ViewportSnapshot;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
-import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
-import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
-import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.test.plugin.FakePluginContext;
+import dev.turboism.test.ui.RecordingUiHost;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.ResourceBundle;
 import org.junit.jupiter.api.Test;
 
@@ -70,7 +57,7 @@ class FrameAnimationImportPluginTest {
         final PluginContext context = new TestContext(actions, contextMenus, menus, uiHost, scope);
     }
 
-    private static final class TestContext implements PluginContext {
+    private static final class TestContext extends FakePluginContext {
         final RecordingActions actions;
         final RecordingContextMenus contextMenus;
         final RecordingMenus menus;
@@ -83,6 +70,7 @@ class FrameAnimationImportPluginTest {
                 final RecordingMenus menus,
                 final RecordingUiHost uiHost,
                 final DisposableScope scope) {
+            super(FakePluginContext.builder());
             this.actions = actions;
             this.contextMenus = contextMenus;
             this.menus = menus;
@@ -91,63 +79,13 @@ class FrameAnimationImportPluginTest {
         }
 
         @Override
-        public PluginDescriptor descriptor() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public PluginPaths paths() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public dev.turboism.sdk.config.PluginConfigRegistry config() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public List<dev.turboism.sdk.permission.PluginPermission> permissions() {
-            return List.of();
-        }
-
-        @Override
-        public dev.turboism.sdk.event.EventBus eventBus() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public MenuRegistry menus() {
             return menus;
         }
 
         @Override
-        public dev.turboism.sdk.ui.UiScheduler uiScheduler() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public dev.turboism.sdk.diagnostics.DiagnosticReport diagnostics() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public PluginLogger logger() {
-            return new PluginLogger() {
-                @Override
-                public void debug(final String message) {}
-
-                @Override
-                public void info(final String message) {}
-
-                @Override
-                public void warn(final String message) {}
-
-                @Override
-                public void error(final String message) {}
-
-                @Override
-                public void error(final String message, final Throwable throwable) {}
-            };
+        public DisposableScope disposableScope() {
+            return scope;
         }
 
         @Override
@@ -184,22 +122,12 @@ class FrameAnimationImportPluginTest {
         }
 
         @Override
-        public CubismFacade cubism() {
-            return null;
-        }
-
-        @Override
         public PluginServiceDirectory services() {
             return PluginServices.builder()
                     .supply(ContextMenuRegistry.class, () -> contextMenus)
                     .supply(UiHostCapabilityService.class, () -> uiHost)
                     .fallback(PluginServices.of(this))
                     .build();
-        }
-
-        @Override
-        public DisposableScope disposableScope() {
-            return scope;
         }
     }
 
@@ -238,72 +166,6 @@ class FrameAnimationImportPluginTest {
 
         public List<ContextMenuContribution> contributionsFor(final Location location) {
             return contributions.stream().filter(c -> c.location() == location).toList();
-        }
-    }
-
-    private static final class RecordingUiHost implements UiHostCapabilityService {
-        final List<StatusNotification> notifications = new ArrayList<>();
-
-        @Override
-        public Registration notifyStatus(final StatusNotification notification) {
-            notifications.add(notification);
-            return () -> {};
-        }
-
-        @Override
-        public Registration contributeOverlay(final OverlayContribution contribution) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Registration contributeBoundingBoxOverlayButton(final BoundingBoxOverlayButton contribution) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public ContextSourceSnapshot contextSource() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public ViewportSnapshot viewport() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Registration openDialog(final DialogRequest request) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public boolean confirmDialog(final DialogRequest request) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Registration contributeEmbeddedPanel(final EmbeddedPanelContribution contribution) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Optional<String> requestFile(final FileChooserRequest request) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Registration contributeContextMenu(final ContextMenuRegistry.ContextMenuContribution contribution) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Registration contributeMainToolbar(final MainToolbarRegistry.MainToolbarContribution contribution) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Registration contributePaletteToolbar(
-                final PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
-            throw new UnsupportedOperationException();
         }
     }
 }

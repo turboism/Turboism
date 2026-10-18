@@ -37,13 +37,7 @@ import dev.turboism.sdk.plugin.PluginServiceDirectory;
 import dev.turboism.sdk.plugin.PluginServices;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.storage.PluginStorage;
-import dev.turboism.sdk.storage.StorageError;
-import dev.turboism.sdk.storage.StorageErrorCode;
-import dev.turboism.sdk.storage.StorageListResult;
-import dev.turboism.sdk.storage.StorageMutationResult;
 import dev.turboism.sdk.storage.StoragePath;
-import dev.turboism.sdk.storage.StorageReadResult;
-import dev.turboism.sdk.storage.StorageWriteResult;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.appearance.NativeLabelColor;
 import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
@@ -64,6 +58,8 @@ import dev.turboism.sdk.ui.resource.UiIconRef;
 import dev.turboism.sdk.ui.resource.UiResourceService;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution;
+import dev.turboism.test.concurrent.Await;
+import dev.turboism.test.storage.InMemoryPluginStorage;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -75,8 +71,6 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -99,7 +93,7 @@ class ParameterLockPluginTest {
         plugin = new ParameterLockPlugin();
         plugin.init(context);
         plugin.enable();
-        Thread.sleep(150);
+        Await.condition(plugin::isFullyDecorated);
     }
 
     @AfterEach
@@ -176,7 +170,8 @@ class ParameterLockPluginTest {
         // Switch to Model B: PARAM_ANGLE_X on Model B is NOT locked, mutation allowed!
         context.activeModel = modelB;
         plugin.onModelOpened(null);
-        Thread.sleep(150);
+        Await.condition(() -> plugin.lockState().hasLoaded(modelB.id().value())
+                && modelB.findParam("PARAM_BODY_ANGLE_Z").paletteEntry.currentAction != null);
         assertEquals(75.0f, plugin.beforeSetParameterValue(paramB, 75.0f));
 
         // Verify Model A lock did not leak to Model B
@@ -206,13 +201,14 @@ class ParameterLockPluginTest {
         // Verify file in storage is preserved!
         final StoragePath storagePath =
                 ParameterLockStorage.storagePathFor(modelA.id().value());
-        assertTrue(context.storage.files.containsKey(storagePath.relativePath()));
+        assertNotNull(context.storage.content(storagePath));
 
         // Re-enable plugin
         plugin.enable();
 
         // Wait for preload/storage load
-        Thread.sleep(150);
+        Await.condition(() -> plugin.lockState().hasLoaded(modelA.id().value())
+                && plugin.isParameterLocked(modelA.id().value(), "PARAM_ANGLE_X"));
 
         // Active lock restored from storage, mutation blocked again!
         assertEquals(12.0f, plugin.beforeSetParameterValue(param, 88.0f));
@@ -233,7 +229,9 @@ class ParameterLockPluginTest {
             plugin2.enable();
 
             // Wait for async load
-            Thread.sleep(150);
+            Await.condition(() -> plugin2.lockState().hasLoaded(guid)
+                    && plugin2.isParameterLocked(guid, "PARAM_ANGLE_X")
+                    && plugin2.isParameterLocked(guid, "PARAM_ANGLE_Y"));
 
             assertTrue(plugin2.isParameterLocked(guid, "PARAM_ANGLE_X"));
             assertTrue(plugin2.isParameterLocked(guid, "PARAM_ANGLE_Y"));
@@ -257,7 +255,7 @@ class ParameterLockPluginTest {
         // Re-enable to trigger filtered preload
         plugin.disable();
         plugin.enable();
-        Thread.sleep(150);
+        Await.condition(() -> plugin.lockState().hasLoaded(guid) && plugin.isParameterLocked(guid, "PARAM_ANGLE_X"));
 
         assertTrue(plugin.isParameterLocked(guid, "PARAM_ANGLE_X"));
         // PARAM_NONEXISTENT was filtered out and safely ignored
@@ -371,7 +369,7 @@ class ParameterLockPluginTest {
 
         // Pre-populate disk storage with PARAM_B
         final ParameterLockData diskData = ParameterLockData.of(guid, Set.of("PARAM_B"));
-        context.storage.files.put(path.relativePath(), Json.stringify(diskData.toMap()));
+        context.storage.seed(path, Json.stringify(diskData.toMap()));
 
         // User switches to this model
         context.activeModel = modelMerge;
@@ -380,7 +378,7 @@ class ParameterLockPluginTest {
 
         // Trigger load
         plugin.onModelOpened(null);
-        Thread.sleep(150);
+        Await.condition(() -> plugin.lockState().hasLoaded(guid) && plugin.isParameterLocked(guid, "PARAM_B"));
 
         // Now trigger save
         final ParameterLockData merged =
@@ -405,7 +403,7 @@ class ParameterLockPluginTest {
 
         // Pre-populate disk storage with PARAM_B and PARAM_C
         final ParameterLockData diskData = ParameterLockData.of(guid, Set.of("PARAM_B", "PARAM_C"));
-        context.storage.files.put(path.relativePath(), Json.stringify(diskData.toMap()));
+        context.storage.seed(path, Json.stringify(diskData.toMap()));
 
         context.activeModel = modelTomb;
         // User explicitly triggers the unlock action for PARAM_B before load completes
@@ -421,7 +419,7 @@ class ParameterLockPluginTest {
 
         // Now load finishes
         plugin.onModelOpened(null);
-        Thread.sleep(150);
+        Await.condition(() -> plugin.lockState().hasLoaded(guid) && plugin.isParameterLocked(guid, "PARAM_C"));
 
         // PARAM_B must NOT be re-locked (tombstone preserved)! PARAM_C must be locked!
         assertFalse(plugin.isParameterLocked(guid, "PARAM_B"));
@@ -439,15 +437,15 @@ class ParameterLockPluginTest {
         final String guid = modelB.id().value();
         context.activeModel = modelB;
         final StoragePath path = ParameterLockStorage.storagePathFor(guid);
-        context.storage.files.put(
-                path.relativePath(),
+        context.storage.seed(
+                path,
                 Json.stringify(
                         ParameterLockData.of(guid, Set.of("PARAM_ANGLE_X")).toMap()));
         final CompletableFuture<Void> gate = new CompletableFuture<>();
-        context.storage.readGate = gate;
-        context.storage.readStarted = new java.util.concurrent.CountDownLatch(1);
+        context.storage.setReadGate(gate);
+        context.storage.setReadStarted(new java.util.concurrent.CountDownLatch(1));
         invokeSelected(ParameterLockPlugin.ACTION_LOCK_SELECTED, "PARAM_BODY_ANGLE_Z");
-        assertTrue(context.storage.readStarted.await(2, TimeUnit.SECONDS));
+        assertTrue(context.storage.readStarted().await(2, TimeUnit.SECONDS));
         plugin.disable();
         plugin.enable();
         gate.complete(null);
@@ -468,18 +466,18 @@ class ParameterLockPluginTest {
         final String guid = modelB.id().value();
         context.activeModel = modelB;
         final StoragePath path = ParameterLockStorage.storagePathFor(guid);
-        context.storage.files.put(
-                path.relativePath(),
+        context.storage.seed(
+                path,
                 Json.stringify(ParameterLockData.of(guid, Set.of("PARAM_ANGLE_X", "PARAM_BODY_ANGLE_Z"))
                         .toMap()));
         final CompletableFuture<Void> gate = new CompletableFuture<>();
-        context.storage.readGate = gate;
-        context.storage.readStarted = new java.util.concurrent.CountDownLatch(1);
+        context.storage.setReadGate(gate);
+        context.storage.setReadStarted(new java.util.concurrent.CountDownLatch(1));
         invokeSelected(ParameterLockPlugin.ACTION_UNLOCK_SELECTED, "PARAM_BODY_ANGLE_Z");
-        assertTrue(context.storage.readStarted.await(2, TimeUnit.SECONDS));
+        assertTrue(context.storage.readStarted().await(2, TimeUnit.SECONDS));
         gate.complete(null);
         awaitCondition(() -> {
-            final String json = context.storage.files.get(path.relativePath());
+            final String json = context.storage.content(path);
             return json != null
                     && ParameterLockData.fromMap(Json.parseObject(json))
                             .lockedParameterIds()
@@ -495,8 +493,7 @@ class ParameterLockPluginTest {
         context.activeModel = modelB;
         invokeSelected(ParameterLockPlugin.ACTION_LOCK_SELECTED, "PARAM_BODY_ANGLE_Z");
         plugin.shutdown();
-        final String json = context.storage.files.get(
-                ParameterLockStorage.storagePathFor(guid).relativePath());
+        final String json = context.storage.content(ParameterLockStorage.storagePathFor(guid));
         assertNotNull(json);
         assertEquals(
                 Set.of("PARAM_BODY_ANGLE_Z"),
@@ -508,18 +505,18 @@ class ParameterLockPluginTest {
         final String guid = modelB.id().value();
         context.activeModel = modelB;
         final StoragePath path = ParameterLockStorage.storagePathFor(guid);
-        context.storage.files.put(
-                path.relativePath(),
+        context.storage.seed(
+                path,
                 Json.stringify(
                         ParameterLockData.of(guid, Set.of("PARAM_ANGLE_X")).toMap()));
         final CompletableFuture<Void> gate = new CompletableFuture<>();
-        context.storage.readGate = gate;
-        context.storage.readStarted = new java.util.concurrent.CountDownLatch(1);
+        context.storage.setReadGate(gate);
+        context.storage.setReadStarted(new java.util.concurrent.CountDownLatch(1));
         invokeSelected(ParameterLockPlugin.ACTION_TOGGLE_SELECTED, "PARAM_ANGLE_X");
-        assertTrue(context.storage.readStarted.await(2, TimeUnit.SECONDS));
+        assertTrue(context.storage.readStarted().await(2, TimeUnit.SECONDS));
         gate.complete(null);
         awaitCondition(() -> {
-            final String json = context.storage.files.get(path.relativePath());
+            final String json = context.storage.content(path);
             return json != null
                     && ParameterLockData.fromMap(Json.parseObject(json))
                             .lockedParameterIds()
@@ -710,15 +707,21 @@ class ParameterLockPluginTest {
         // Pre-populate storage with PARAM_P1 locked
         final ParameterLockData diskData = ParameterLockData.of(guid, Set.of("PARAM_P1"));
         final StoragePath storagePath = ParameterLockStorage.storagePathFor(guid);
-        context.storage.files.put(storagePath.relativePath(), Json.stringify(diskData.toMap()));
+        context.storage.seed(storagePath, Json.stringify(diskData.toMap()));
 
         // Switch to this model and reload
         context.activeModel = persistModel;
         plugin.onModelOpened(null);
-        Thread.sleep(150);
 
         final FakeParameter p1 = persistModel.findParam("PARAM_P1");
         final FakeParameter p2 = persistModel.findParam("PARAM_P2");
+
+        Await.condition(() -> plugin.isParameterLocked(guid, "PARAM_P1")
+                && p1.paletteEntry.currentAction != null
+                && p1.paletteEntry.currentAction.state() == PaletteRowAction.State.LOCKED
+                && p2.paletteEntry.currentAction != null
+                && group.paletteEntry.currentAction != null
+                && group.paletteEntry.currentAction.state() == PaletteRowAction.State.MIXED);
 
         assertTrue(plugin.isParameterLocked(guid, "PARAM_P1"));
         assertFalse(plugin.isParameterLocked(guid, "PARAM_P2"));
@@ -749,7 +752,7 @@ class ParameterLockPluginTest {
 
         // Re-enable restores decorations
         plugin.enable();
-        Thread.sleep(150);
+        Await.condition(() -> paramX.paletteEntry.currentAction != null && !paramX.paletteEntry.closed);
         assertNotNull(paramX.paletteEntry.currentAction);
         assertFalse(paramX.paletteEntry.closed);
     }
@@ -763,7 +766,8 @@ class ParameterLockPluginTest {
         // Switch tab to Model B
         context.activeModel = modelB;
         plugin.checkActivation();
-        Thread.sleep(100);
+        Await.condition(() -> modelB.findParam("PARAM_BODY_ANGLE_Z").paletteEntry.currentAction != null
+                && modelA.findParam("PARAM_ANGLE_X").paletteEntry.currentAction == null);
 
         // Model A's old decorations closed
         assertNull(modelA.findParam("PARAM_ANGLE_X").paletteEntry.currentAction);
@@ -773,7 +777,8 @@ class ParameterLockPluginTest {
         // Switch back to Model A
         context.activeModel = modelA;
         plugin.checkActivation();
-        Thread.sleep(100);
+        Await.condition(() -> modelA.findParam("PARAM_ANGLE_X").paletteEntry.currentAction != null
+                && modelB.findParam("PARAM_BODY_ANGLE_Z").paletteEntry.currentAction == null);
 
         assertNull(modelB.findParam("PARAM_BODY_ANGLE_Z").paletteEntry.currentAction);
         assertNotNull(modelA.findParam("PARAM_ANGLE_X").paletteEntry.currentAction);
@@ -796,7 +801,7 @@ class ParameterLockPluginTest {
                 Optional.empty());
         context.activeModel = copy1;
         plugin.checkActivation();
-        Thread.sleep(100);
+        Await.condition(() -> copy1.findParam("PARAM_X").paletteEntry.currentAction != null);
 
         assertNotNull(copy1.findParam("PARAM_X").paletteEntry.currentAction);
         final var key1 = plugin.currentActivationKey();
@@ -815,7 +820,8 @@ class ParameterLockPluginTest {
                 Optional.empty());
         context.activeModel = copy2;
         plugin.checkActivation();
-        Thread.sleep(100);
+        Await.condition(() -> copy2.findParam("PARAM_X").paletteEntry.currentAction != null
+                && copy1.findParam("PARAM_X").paletteEntry.currentAction == null);
 
         assertNull(copy1.findParam("PARAM_X").paletteEntry.currentAction);
         assertNotNull(copy2.findParam("PARAM_X").paletteEntry.currentAction);
@@ -946,14 +952,12 @@ class ParameterLockPluginTest {
         context.actionRegistry.actions.get(action).handler().accept(new FakeActionContext(selection));
     }
 
-    private static void awaitCondition(final java.util.function.BooleanSupplier condition) throws Exception {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
-        while (!condition.getAsBoolean() && System.nanoTime() < deadline) Thread.sleep(5);
-        assertTrue(condition.getAsBoolean());
+    private static void awaitCondition(final java.util.function.BooleanSupplier condition) {
+        Await.condition(condition);
     }
 
     static final class FakePluginContext implements PluginContext {
-        final FakeStorage storage = new FakeStorage();
+        final InMemoryPluginStorage storage = new InMemoryPluginStorage();
         final FakeActionRegistry actionRegistry = new FakeActionRegistry();
         final FakeContextMenuRegistry contextMenuRegistry = new FakeContextMenuRegistry();
         final FakePaletteToolbarRegistry paletteToolbarRegistry = new FakePaletteToolbarRegistry();
@@ -1529,65 +1533,6 @@ class ParameterLockPluginTest {
         @Override
         public Optional<ContextMenuSelection> contextMenuSelection() {
             return Optional.ofNullable(selection);
-        }
-    }
-
-    static final class FakeStorage implements PluginStorage {
-        final Map<String, String> files = new ConcurrentHashMap<>();
-
-        volatile CompletableFuture<Void> readGate = CompletableFuture.completedFuture(null);
-        volatile java.util.concurrent.CountDownLatch readStarted = new java.util.concurrent.CountDownLatch(0);
-
-        @Override
-        public CompletionStage<StorageReadResult<String>> readUtf8(final StoragePath path, final int maxBytes) {
-            final String content = files.get(path.relativePath());
-            readStarted.countDown();
-            final StorageReadResult<String> result = content == null
-                    ? new StorageReadResult<>(
-                            Optional.empty(),
-                            Optional.of(new StorageError(StorageErrorCode.NOT_FOUND, "not found", path)),
-                            false)
-                    : new StorageReadResult<>(Optional.of(content), Optional.empty(), false);
-            return readGate.thenApply(ignored -> result);
-        }
-
-        @Override
-        public CompletionStage<StorageWriteResult> writeUtf8Atomic(final StoragePath path, final String content) {
-            files.put(path.relativePath(), content);
-            return CompletableFuture.completedFuture(new StorageWriteResult(true, Optional.empty()));
-        }
-
-        @Override
-        public CompletionStage<StorageReadResult<byte[]>> readBytes(final StoragePath path, final int maxBytes) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public CompletionStage<StorageWriteResult> writeBytesAtomic(final StoragePath path, final byte[] content) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public CompletionStage<StorageListResult> list(final StoragePath directory, final int maxEntries) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public CompletionStage<StorageMutationResult> copy(
-                final StoragePath source, final StoragePath target, final boolean replaceExisting) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public CompletionStage<StorageMutationResult> moveAtomic(
-                final StoragePath source, final StoragePath target, final boolean replaceExisting) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public CompletionStage<StorageMutationResult> delete(final StoragePath path, final boolean recursive) {
-            files.remove(path.relativePath());
-            return CompletableFuture.completedFuture(new StorageMutationResult(true, Optional.empty()));
         }
     }
 

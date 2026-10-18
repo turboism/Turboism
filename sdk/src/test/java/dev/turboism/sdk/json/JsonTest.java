@@ -127,6 +127,42 @@ final class JsonTest {
         assertThrows(IllegalArgumentException.class, () -> Json.stringify((List<?>) nest(70)));
     }
 
+    @Test
+    void sanitizeReturnsSameInstanceWhenNothingNeedsRewriting() {
+        final Map<String, Object> clean = Map.of(
+                "ok", true, "name", "plain text", "items", List.of(1, 2.5, "x"), "nested", Map.of("emoji", "😀"));
+        org.junit.jupiter.api.Assertions.assertSame(clean, Json.sanitize(clean));
+    }
+
+    @Test
+    void sanitizeReplacesUnpairedSurrogatesAndNonFiniteNumbers() {
+        final String high = "a" + (char) 0xD800 + "b";
+        final String low = "a" + (char) 0xDC00 + "b";
+        final String pair = "a😀b";
+
+        assertEquals("a\uFFFDb", Json.sanitize(high));
+        assertEquals("a\uFFFDb", Json.sanitize(low));
+        org.junit.jupiter.api.Assertions.assertSame(pair, Json.sanitize(pair), "valid surrogate pairs are untouched");
+
+        org.junit.jupiter.api.Assertions.assertNull(Json.sanitize(Float.NaN));
+        org.junit.jupiter.api.Assertions.assertNull(Json.sanitize(Double.POSITIVE_INFINITY));
+        org.junit.jupiter.api.Assertions.assertNull(Json.sanitize(Double.NEGATIVE_INFINITY));
+        assertEquals(1.5, Json.sanitize(1.5));
+
+        final String bad = "x" + (char) 0xD800;
+        final Map<String, Object> dirty =
+                Map.of(bad, List.of("clean", bad, Map.of("deep", bad)), "other", List.of(1, bad));
+        final Map<String, Object> safe = Json.sanitize(dirty);
+        assertEquals(
+                Map.of(
+                        "x\uFFFD",
+                        List.of("clean", "x\uFFFD", Map.of("deep", "x\uFFFD")),
+                        "other",
+                        List.of(1, "x\uFFFD")),
+                safe);
+        assertTrue(dirty.containsKey(bad), "input map must not be mutated");
+    }
+
     private static Object nest(final int depth) {
         Object value = "x";
         for (int index = 0; index < depth; index++) {

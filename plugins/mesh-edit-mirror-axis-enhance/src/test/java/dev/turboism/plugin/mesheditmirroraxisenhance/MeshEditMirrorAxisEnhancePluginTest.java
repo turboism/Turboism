@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
-import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.DeformerSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelObjectSnapshot;
@@ -23,31 +22,16 @@ import dev.turboism.sdk.cubism.mesh.MeshEditTool;
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
-import dev.turboism.sdk.diagnostics.DiagnosticReport;
-import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.i18n.PluginLocalization;
-import dev.turboism.sdk.menu.MenuRegistry;
-import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
-import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
-import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
-import dev.turboism.sdk.ui.DialogRequest;
-import dev.turboism.sdk.ui.EmbeddedPanelContribution;
-import dev.turboism.sdk.ui.FileChooserRequest;
-import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
-import dev.turboism.sdk.ui.UiScheduler;
-import dev.turboism.sdk.ui.ViewportSnapshot;
-import dev.turboism.sdk.ui.context.ContextMenuRegistry;
-import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
-import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
-import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
-import java.util.ArrayList;
+import dev.turboism.test.action.RecordingActionRegistry;
+import dev.turboism.test.plugin.FakePluginContext;
+import dev.turboism.test.plugin.RecordingPluginLogger;
+import dev.turboism.test.ui.RecordingUiHost;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -190,7 +174,7 @@ class MeshEditMirrorAxisEnhancePluginTest {
         assertNotNull(on, "an enabled mirror axis must consult the counterpart service");
     }
 
-    private static final class RecordingPluginContext implements PluginContext {
+    private static final class RecordingPluginContext extends FakePluginContext {
         private final DisposableScope disposableScope = new DisposableScope();
         private final RecordingActionRegistry actions = new RecordingActionRegistry();
         private final RecordingUiHost uiHost = new RecordingUiHost();
@@ -199,29 +183,15 @@ class MeshEditMirrorAxisEnhancePluginTest {
         private final RecordingMeshEditUiService meshEditUi = new RecordingMeshEditUiService();
 
         RecordingPluginContext(PluginLogger logger) {
+            super(FakePluginContext.builder());
             this.logger = logger;
         }
 
         private final PluginLocalization localization = new FakeLocalization();
 
         @Override
-        public PluginDescriptor descriptor() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public PluginLogger logger() {
             return logger;
-        }
-
-        @Override
-        public PluginPaths paths() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public CubismFacade cubism() {
-            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -271,33 +241,8 @@ class MeshEditMirrorAxisEnhancePluginTest {
         }
 
         @Override
-        public List<PluginPermission> permissions() {
-            return List.of();
-        }
-
-        @Override
-        public EventBus eventBus() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public RecordingActionRegistry actions() {
             return actions;
-        }
-
-        @Override
-        public MenuRegistry menus() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public UiScheduler uiScheduler() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public DiagnosticReport diagnostics() {
-            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -310,6 +255,7 @@ class MeshEditMirrorAxisEnhancePluginTest {
             return localization;
         }
 
+        @Override
         public RecordingUiHost uiHost() {
             return uiHost;
         }
@@ -485,130 +431,5 @@ class MeshEditMirrorAxisEnhancePluginTest {
         }
     }
 
-    private static final class RecordingActionRegistry implements ActionRegistry {
-        private final List<Action> actions = new ArrayList<>();
-
-        List<Action> actions() {
-            return actions;
-        }
-
-        @Override
-        public Registration register(String id, Action action) {
-            actions.add(action);
-            return () -> actions.remove(action);
-        }
-
-        void execute(String id) {
-            actions.stream()
-                    .filter(a -> a.id().equals(id))
-                    .findFirst()
-                    .orElseThrow()
-                    .handler()
-                    .accept(new ActionContext() {});
-        }
-    }
-
-    private static final class RecordingUiHost implements UiHostCapabilityService {
-        private final List<StatusNotification> notifications = new ArrayList<>();
-
-        List<StatusNotification> notifications() {
-            return notifications;
-        }
-
-        @Override
-        public Registration contributeOverlay(OverlayContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration contributeBoundingBoxOverlayButton(
-                final dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public ContextSourceSnapshot contextSource() {
-            return new ContextSourceSnapshot(
-                    "ctx-1", "workspace", Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-        }
-
-        @Override
-        public ViewportSnapshot viewport() {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration openDialog(DialogRequest request) {
-            throw unsupported();
-        }
-
-        @Override
-        public boolean confirmDialog(DialogRequest request) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Optional<String> requestFile(FileChooserRequest request) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration notifyStatus(StatusNotification notification) {
-            notifications.add(notification);
-            return () -> notifications.remove(notification);
-        }
-
-        @Override
-        public Registration contributeContextMenu(ContextMenuRegistry.ContextMenuContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration contributeMainToolbar(MainToolbarRegistry.MainToolbarContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration contributePaletteToolbar(PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
-            throw unsupported();
-        }
-
-        private static UnsupportedOperationException unsupported() {
-            return new UnsupportedOperationException("not used");
-        }
-    }
-
-    private static final class TestPluginLogger implements PluginLogger {
-        private final List<String> messages = new ArrayList<>();
-
-        @Override
-        public void debug(String message) {
-            messages.add("DEBUG: " + message);
-        }
-
-        @Override
-        public void info(String message) {
-            messages.add("INFO: " + message);
-        }
-
-        @Override
-        public void warn(String message) {
-            messages.add("WARN: " + message);
-        }
-
-        @Override
-        public void error(String message) {
-            messages.add("ERROR: " + message);
-        }
-
-        @Override
-        public void error(String message, Throwable throwable) {
-            messages.add("ERROR: " + message + ": " + throwable.getMessage());
-        }
-    }
+    private static final class TestPluginLogger extends RecordingPluginLogger {}
 }
