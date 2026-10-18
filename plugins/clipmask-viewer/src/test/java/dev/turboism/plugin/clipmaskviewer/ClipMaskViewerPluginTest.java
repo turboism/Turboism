@@ -27,21 +27,10 @@ import dev.turboism.sdk.task.TaskRunOutcome;
 import dev.turboism.sdk.task.TaskRunOutcomeStatus;
 import dev.turboism.sdk.task.TaskSubmission;
 import dev.turboism.sdk.task.TaskSubmissionStatus;
-import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
 import dev.turboism.sdk.ui.CollapsibleSectionContribution;
-import dev.turboism.sdk.ui.DialogRequest;
-import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
-import dev.turboism.sdk.ui.FileChooserRequest;
-import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.PanelView;
-import dev.turboism.sdk.ui.StatusNotification;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
-import dev.turboism.sdk.ui.ViewportSnapshot;
-import dev.turboism.sdk.ui.context.ContextMenuRegistry;
-import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
-import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
-import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.test.ui.RecordingUiHost;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.util.ArrayDeque;
@@ -494,92 +483,6 @@ class ClipMaskViewerPluginTest {
                     contributions.remove(contribution);
                 }
             };
-        }
-    }
-
-    private static final class RecordingUiHost implements UiHostCapabilityService {
-        private final List<CollapsibleSectionContribution> sections = new ArrayList<>();
-        private final List<StatusNotification> notifications = new ArrayList<>();
-
-        @Override
-        public Registration contributeCollapsibleSection(final CollapsibleSectionContribution contribution) {
-            sections.add(contribution);
-            return new Registration() {
-                @Override
-                public void close() {
-                    sections.remove(contribution);
-                }
-            };
-        }
-
-        @Override
-        public Registration notifyStatus(final StatusNotification notification) {
-            notifications.add(notification);
-            return new Registration() {
-                @Override
-                public void close() {
-                    notifications.remove(notification);
-                }
-            };
-        }
-
-        @Override
-        public Registration contributeOverlay(OverlayContribution c) {
-            throw unavailable();
-        }
-
-        @Override
-        public Registration contributeBoundingBoxOverlayButton(BoundingBoxOverlayButton c) {
-            throw unavailable();
-        }
-
-        @Override
-        public ContextSourceSnapshot contextSource() {
-            throw unavailable();
-        }
-
-        @Override
-        public ViewportSnapshot viewport() {
-            throw unavailable();
-        }
-
-        @Override
-        public Registration openDialog(DialogRequest r) {
-            throw unavailable();
-        }
-
-        @Override
-        public boolean confirmDialog(DialogRequest r) {
-            throw unavailable();
-        }
-
-        @Override
-        public Registration contributeEmbeddedPanel(EmbeddedPanelContribution c) {
-            throw unavailable();
-        }
-
-        @Override
-        public java.util.Optional<String> requestFile(FileChooserRequest r) {
-            throw unavailable();
-        }
-
-        @Override
-        public Registration contributeContextMenu(ContextMenuRegistry.ContextMenuContribution c) {
-            throw unavailable();
-        }
-
-        @Override
-        public Registration contributeMainToolbar(MainToolbarRegistry.MainToolbarContribution c) {
-            throw unavailable();
-        }
-
-        @Override
-        public Registration contributePaletteToolbar(PaletteToolbarRegistry.PaletteToolbarContribution c) {
-            throw unavailable();
-        }
-
-        private UnsupportedOperationException unavailable() {
-            return new UnsupportedOperationException("unused in test");
         }
     }
 

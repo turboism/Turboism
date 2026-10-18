@@ -5,23 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.action.ActionCatalogService;
 import dev.turboism.sdk.action.ActionDescriptor;
-import dev.turboism.sdk.action.ActionRegistry;
-import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
 import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.command.EditorFileCommandRequest;
 import dev.turboism.sdk.cubism.command.EditorParameterizedRequest;
-import dev.turboism.sdk.diagnostics.DiagnosticReport;
-import dev.turboism.sdk.event.EventBus;
-import dev.turboism.sdk.menu.MenuRegistry;
-import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
-import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.PluginDescriptor;
-import dev.turboism.sdk.plugin.PluginLogger;
-import dev.turboism.sdk.plugin.PluginPaths;
-import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.plugin.FakePluginContext;
+import dev.turboism.test.plugin.FakePluginDescriptor;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -94,12 +85,13 @@ class CommandCatalogTest {
         assertTrue(CommandCatalog.actions(denied).isEmpty());
     }
 
-    private static final class StubContext implements PluginContext {
+    private static final class StubContext extends FakePluginContext {
         private final EditorCommandService commands;
         private final ActionCatalogService catalog;
         private final DisposableScope scope = new DisposableScope();
 
         StubContext(final Set<EditorCommand> availableCommands, final List<ActionDescriptor> actionDescriptors) {
+            super(FakePluginContext.builder());
             commands = new EditorCommandService() {
                 @Override
                 public Set<EditorCommand> available() {
@@ -135,83 +127,8 @@ class CommandCatalogTest {
         }
 
         @Override
-        public PluginDescriptor descriptor() {
-            return new PluginDescriptor() {
-                @Override
-                public String id() {
-                    return SELF;
-                }
-
-                @Override
-                public String name() {
-                    return "Command Palette";
-                }
-
-                @Override
-                public String version() {
-                    return "0.1.0";
-                }
-
-                @Override
-                public String description() {
-                    return "test";
-                }
-
-                @Override
-                public List<String> entrypoints() {
-                    return List.of();
-                }
-
-                @Override
-                public String turboismApi() {
-                    return "[0.1.0,0.2.0)";
-                }
-
-                @Override
-                public List<Author> authors() {
-                    return List.of();
-                }
-
-                @Override
-                public String license() {
-                    return "test";
-                }
-
-                @Override
-                public Optional<String> website() {
-                    return Optional.empty();
-                }
-
-                @Override
-                public List<String> resources() {
-                    return List.of();
-                }
-
-                @Override
-                public I18n i18n() {
-                    return null;
-                }
-
-                @Override
-                public List<DependencyRef> dependencies() {
-                    return List.of();
-                }
-
-                @Override
-                public List<PermissionRef> permissions() {
-                    return List.of();
-                }
-
-                @Override
-                public List<String> capabilities() {
-                    return List.of();
-                }
-
-                @Override
-                public Environment environment() {
-                    return null;
-                }
-            };
+        public dev.turboism.sdk.plugin.PluginDescriptor descriptor() {
+            return FakePluginDescriptor.testDescriptor(SELF);
         }
 
         public EditorCommandService editorCommands() {
@@ -220,66 +137,6 @@ class CommandCatalogTest {
 
         public ActionCatalogService actionCatalog() {
             return catalog;
-        }
-
-        @Override
-        public PluginLogger logger() {
-            return new PluginLogger() {
-                @Override
-                public void debug(final String message) {}
-
-                @Override
-                public void info(final String message) {}
-
-                @Override
-                public void warn(final String message) {}
-
-                @Override
-                public void error(final String message) {}
-
-                @Override
-                public void error(final String message, final Throwable error) {}
-            };
-        }
-
-        @Override
-        public PluginPaths paths() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public CubismFacade cubism() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public EventBus eventBus() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public ActionRegistry actions() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public MenuRegistry menus() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public UiScheduler uiScheduler() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public DiagnosticReport diagnostics() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public List<PluginPermission> permissions() {
-            return List.of();
         }
 
         @Override

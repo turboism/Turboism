@@ -3,21 +3,10 @@ package dev.turboism.plugin.tabfilter;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceService;
-import dev.turboism.sdk.cubism.CubismFacade;
-import dev.turboism.sdk.diagnostics.DiagnosticReport;
-import dev.turboism.sdk.event.EventBus;
-import dev.turboism.sdk.menu.MenuRegistry;
-import dev.turboism.sdk.permission.PluginPermission;
-import dev.turboism.sdk.plugin.DisposableScope;
-import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.PluginDescriptor;
-import dev.turboism.sdk.plugin.PluginLogger;
-import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
+import dev.turboism.test.plugin.FakePluginContext;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -59,7 +48,7 @@ class TabFilterPluginTest {
     }
 
     /** Minimal plugin context recording palette filter contributions. */
-    private static final class RecordingPluginContext implements PluginContext {
+    private static final class RecordingPluginContext extends FakePluginContext {
 
         private final RecordingPaletteFilterRegistry paletteFilter = new RecordingPaletteFilterRegistry();
         private int closedRegistrations;
@@ -70,80 +59,6 @@ class TabFilterPluginTest {
 
         public PaletteFilterRegistry paletteFilter() {
             return paletteFilter;
-        }
-
-        @Override
-        public PluginDescriptor descriptor() {
-            return null;
-        }
-
-        @Override
-        public PluginLogger logger() {
-            return new PluginLogger() {
-                @Override
-                public void debug(String message) {}
-
-                @Override
-                public void info(String message) {}
-
-                @Override
-                public void warn(String message) {}
-
-                @Override
-                public void error(String message) {}
-
-                @Override
-                public void error(String message, Throwable throwable) {}
-            };
-        }
-
-        @Override
-        public PluginPaths paths() {
-            return null;
-        }
-
-        @Override
-        public CubismFacade cubism() {
-            return null;
-        }
-
-        @Override
-        public List<PluginPermission> permissions() {
-            return List.of();
-        }
-
-        @Override
-        public EventBus eventBus() {
-            return null;
-        }
-
-        @Override
-        public ActionRegistry actions() {
-            return null;
-        }
-
-        @Override
-        public MenuRegistry menus() {
-            return null;
-        }
-
-        public UiHostCapabilityService uiHost() {
-            return null;
-        }
-
-        @Override
-        public dev.turboism.sdk.ui.UiScheduler uiScheduler() {
-            return null;
-        }
-
-        @Override
-        public DisposableScope disposableScope() {
-            return new DisposableScope();
-        }
-
-        @Override
-        public DiagnosticReport diagnostics() {
-            return null;
         }
 
         public AppearanceService appearance() {
@@ -166,7 +81,7 @@ class TabFilterPluginTest {
         @Override
         public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
             return dev.turboism.sdk.plugin.PluginServices.builder()
-                    .supply(dev.turboism.sdk.ui.filter.PaletteFilterRegistry.class, () -> this.paletteFilter())
+                    .supply(dev.turboism.sdk.ui.filter.PaletteFilterRegistry.class, this::paletteFilter)
                     .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
                     .build();
         }
