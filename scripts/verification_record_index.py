@@ -22,12 +22,14 @@ Usage: verification_record_index.py [repo-root] [--check | --render]
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+from turboism_dev.json_io import read_json
+from turboism_dev.paths import repo_root
+
+ROOT = repo_root()
 VERIFICATION_DIR = Path("compatibility/cubism/verification")
 BOOTSTRAP_BUILD = Path("bootstrap/build.gradle.kts")
 MANIFEST_ROOT = Path("runtime/src/main/java/dev/turboism/mapping/verification")
@@ -68,8 +70,8 @@ def record_ids(root: Path) -> dict[str, str]:
     for name in on_disk_records(root):
         path = root / VERIFICATION_DIR / name
         try:
-            document = json.loads(_read(path))
-        except json.JSONDecodeError as exc:
+            document = read_json(path)
+        except Exception as exc:
             raise IndexError_(f"{name}: invalid JSON: {exc}") from exc
         verification_id = document.get("verificationId")
         if not isinstance(verification_id, str) or not verification_id:

@@ -556,7 +556,7 @@ public final class CubismHostCompatibilityResolver {
             }
             final String coreProfile;
             try {
-                coreProfile = VerifiedCorePublicApiResolverFactory.profileForArtifact(coreJar);
+                coreProfile = SliceRegistry.corePublicApiProfileForArtifact(coreJar);
             } catch (IOException | RuntimeException failure) {
                 return null;
             }

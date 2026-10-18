@@ -13,31 +13,12 @@ import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
-import dev.turboism.sdk.diagnostics.DiagnosticReport;
-import dev.turboism.sdk.event.EventBus;
-import dev.turboism.sdk.menu.MenuRegistry;
-import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
-import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.PluginDescriptor;
-import dev.turboism.sdk.plugin.PluginLogger;
-import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
 import dev.turboism.sdk.ui.CollapsibleSectionContribution;
-import dev.turboism.sdk.ui.DialogRequest;
-import dev.turboism.sdk.ui.EmbeddedPanelContribution;
-import dev.turboism.sdk.ui.FileChooserRequest;
-import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.PanelView;
-import dev.turboism.sdk.ui.StatusNotification;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
-import dev.turboism.sdk.ui.UiScheduler;
-import dev.turboism.sdk.ui.ViewportSnapshot;
-import dev.turboism.sdk.ui.context.ContextMenuRegistry;
-import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
-import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
-import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.test.plugin.FakePluginContext;
+import dev.turboism.test.ui.RecordingUiHost;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -153,7 +134,7 @@ final class PsdClipMaskImportPluginTest {
         plugin.shutdown();
     }
 
-    private static final class RecordingPluginContext implements PluginContext {
+    private static final class RecordingPluginContext extends FakePluginContext {
 
         @Override
         public dev.turboism.sdk.i18n.PluginLocalization localization() {
@@ -170,6 +151,10 @@ final class PsdClipMaskImportPluginTest {
         boolean failPanelContribution;
         boolean blockModelRead;
 
+        RecordingPluginContext() {
+            super(FakePluginContext.builder().descriptor(new TestPluginDescriptor()));
+        }
+
         List<ActionRegistry.Action> registeredActions() {
             return actions;
         }
@@ -179,33 +164,19 @@ final class PsdClipMaskImportPluginTest {
         }
 
         @Override
-        public PluginDescriptor descriptor() {
-            return new TestPluginDescriptor();
+        public DisposableScope disposableScope() {
+            return scope;
         }
 
         @Override
-        public PluginLogger logger() {
-            return new PluginLogger() {
+        public ActionRegistry actions() {
+            return new ActionRegistry() {
                 @Override
-                public void debug(String message) {}
-
-                @Override
-                public void info(String message) {}
-
-                @Override
-                public void warn(String message) {}
-
-                @Override
-                public void error(String message) {}
-
-                @Override
-                public void error(String message, Throwable throwable) {}
+                public Registration register(final String id, final Action action) {
+                    actions.add(action);
+                    return () -> actions.remove(action);
+                }
             };
-        }
-
-        @Override
-        public PluginPaths paths() {
-            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -256,118 +227,15 @@ final class PsdClipMaskImportPluginTest {
         }
 
         @Override
-        public List<PluginPermission> permissions() {
-            return List.of();
-        }
-
-        @Override
-        public EventBus eventBus() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public ActionRegistry actions() {
-            return new ActionRegistry() {
-                @Override
-                public Registration register(final String id, final Action action) {
-                    actions.add(action);
-                    return () -> actions.remove(action);
-                }
-            };
-        }
-
-        @Override
-        public MenuRegistry menus() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public UiScheduler uiScheduler() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public DiagnosticReport diagnostics() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public DisposableScope disposableScope() {
-            return scope;
-        }
-
-        public UiHostCapabilityService uiHost() {
-            return new UiHostCapabilityService() {
-                @Override
-                public Registration contributeOverlay(final OverlayContribution contribution) {
-                    throw new UnsupportedOperationException();
-                }
-
-                @Override
-                public Registration contributeBoundingBoxOverlayButton(final BoundingBoxOverlayButton contribution) {
-                    throw new UnsupportedOperationException();
-                }
-
-                @Override
-                public ContextSourceSnapshot contextSource() {
-                    throw new UnsupportedOperationException();
-                }
-
-                @Override
-                public ViewportSnapshot viewport() {
-                    throw new UnsupportedOperationException();
-                }
-
-                @Override
-                public Registration openDialog(final DialogRequest request) {
-                    throw new UnsupportedOperationException();
-                }
-
-                @Override
-                public boolean confirmDialog(final DialogRequest request) {
-                    throw new UnsupportedOperationException();
-                }
-
-                @Override
-                public Registration contributeEmbeddedPanel(final EmbeddedPanelContribution contribution) {
-                    throw new UnsupportedOperationException();
-                }
-
+        public RecordingUiHost uiHost() {
+            return new RecordingUiHost() {
                 @Override
                 public Registration contributeCollapsibleSection(final CollapsibleSectionContribution contribution) {
                     if (failPanelContribution) {
                         throw new IllegalStateException("panel contribution unavailable");
                     }
-                    sections.add(contribution);
-                    return () -> sections.remove(contribution);
-                }
-
-                @Override
-                public Optional<String> requestFile(final FileChooserRequest request) {
-                    throw new UnsupportedOperationException();
-                }
-
-                @Override
-                public Registration notifyStatus(final StatusNotification notification) {
-                    return () -> {};
-                }
-
-                @Override
-                public Registration contributeContextMenu(
-                        final ContextMenuRegistry.ContextMenuContribution contribution) {
-                    throw new UnsupportedOperationException();
-                }
-
-                @Override
-                public Registration contributeMainToolbar(
-                        final MainToolbarRegistry.MainToolbarContribution contribution) {
-                    throw new UnsupportedOperationException();
-                }
-
-                @Override
-                public Registration contributePaletteToolbar(
-                        final PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
-                    throw new UnsupportedOperationException();
+                    RecordingPluginContext.this.sections.add(contribution);
+                    return () -> RecordingPluginContext.this.sections.remove(contribution);
                 }
             };
         }
@@ -375,7 +243,7 @@ final class PsdClipMaskImportPluginTest {
         @Override
         public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
             return dev.turboism.sdk.plugin.PluginServices.builder()
-                    .supply(dev.turboism.sdk.ui.UiHostCapabilityService.class, () -> this.uiHost())
+                    .supply(dev.turboism.sdk.ui.UiHostCapabilityService.class, this::uiHost)
                     .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
                     .build();
         }

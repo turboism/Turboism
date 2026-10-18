@@ -37,12 +37,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+from turboism_dev.json_io import read_json, write_json
+from turboism_dev.paths import repo_root
+
+ROOT = repo_root()
 
 SDK_MAIN = Path("sdk/src/main/java")
 SCOPE = "dev.turboism.sdk.cubism"
@@ -258,7 +260,7 @@ def load_baseline(root: Path) -> list[str]:
         raise AnnotationCheckError(
             f"{BASELINE}: baseline missing; create it with --update"
         )
-    document = json.loads(path.read_text(encoding="utf-8"))
+    document = read_json(path)
     if document.get("format") != BASELINE_FORMAT:
         raise AnnotationCheckError(f"{BASELINE}: unexpected format {document.get('format')!r}")
     entries = document.get("unannotatedTypes")
@@ -285,10 +287,7 @@ def write_baseline(root: Path, unannotated: list[str]) -> None:
         "unannotatedTypes": sorted(unannotated),
     }
     path = root / BASELINE
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
+    write_json(path, document, ensure_ascii=False, indent=2)
 
 
 def run(root: Path, update: bool) -> int:

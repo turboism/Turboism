@@ -24,7 +24,8 @@ class EditorInspectorDrawableSelectorContractTest {
         assumeTrue(
                 LEGACY_EVIDENCE != null,
                 "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
-        final var resolver = new VerifiedEditorModelResolverFactory()
+        final var resolver = SliceRegistry.EDITOR_MODEL
+                .resolverFactory()
                 .create(
                         PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
                         LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar"),
@@ -46,7 +47,8 @@ class EditorInspectorDrawableSelectorContractTest {
                 LEGACY_EVIDENCE != null,
                 "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.2/jars/Live2D_Cubism.jar");
-        final var resolver = new VerifiedEditorModelResolverFactory()
+        final var resolver = SliceRegistry.EDITOR_MODEL
+                .resolverFactory()
                 .create(
                         PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.2.03-editor-model.json"),
                         artifact,
@@ -78,7 +80,8 @@ class EditorInspectorDrawableSelectorContractTest {
     private static void assertInstanceBindings(final String evidenceDirectory, final String recordName)
             throws Exception {
         final Path artifact = LEGACY_EVIDENCE.resolve(evidenceDirectory + "/jars/Live2D_Cubism.jar");
-        final var resolver = new VerifiedEditorModelResolverFactory()
+        final var resolver = SliceRegistry.EDITOR_MODEL
+                .resolverFactory()
                 .create(
                         PROJECT_ROOT.resolve("compatibility/cubism/verification/" + recordName),
                         artifact,

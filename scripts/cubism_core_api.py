@@ -21,6 +21,8 @@ import zipfile
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
+from turboism_dev.versions import cubism_version_key
+
 FORMAT = "turboism.cubism-core.public-api"
 SCHEMA_VERSION = 1
 STATUS = "OBSERVED"
@@ -661,7 +663,7 @@ def extract_inventory(
 
 
 def _version_key(version: str) -> tuple[int, ...]:
-    return tuple(int(component) for component in version.split("."))
+    return cubism_version_key(version)
 
 
 def _member_identity(member: dict[str, Any]) -> tuple[str, str, str]:

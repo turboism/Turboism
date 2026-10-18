@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 /**
- * Shared contract implemented by every {@code Verified*ResolverFactory} so the
+ * Shared contract for verified resolver construction so the
  * adapter connector can dispatch exact and compatibility-bound slices through
  * one seam.
  *

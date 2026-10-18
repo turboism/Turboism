@@ -1008,7 +1008,8 @@ public final class PreviewRuntime implements AutoCloseable {
         }
         try {
             final dev.turboism.mapping.verification.VerifiedMemberResolver resolver =
-                    new dev.turboism.mapping.verification.VerifiedProtectedExportResolverFactory()
+                    dev.turboism.mapping.verification.SliceRegistry.PROTECTED_EXPORT
+                            .resolverFactory()
                             .create(
                                     protectedExportVerificationRecord.orElseThrow(),
                                     normalizedHostArtifact,

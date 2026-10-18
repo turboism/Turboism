@@ -17,17 +17,17 @@ final class SemanticHistory5303ValidationScopeTest {
 
     @Test
     void exact5303ValidationCandidateRequiresTheCompoundRunnerIdentity() {
-        assertTrue(VerifiedEditorModelResolverFactory.admitsSemanticHistoryValidation(
+        assertTrue(EditorModelRuntimeScope.admitsSemanticHistoryValidation(
                 "EXACT_5303_SEMANTIC_HISTORY_CANDIDATE", "semantic-history-5303", "semantic-history-5303-r1"));
-        assertFalse(VerifiedEditorModelResolverFactory.admitsSemanticHistoryValidation(
+        assertFalse(EditorModelRuntimeScope.admitsSemanticHistoryValidation(
                 null, "semantic-history-5303", "semantic-history-5303-r1"));
-        assertFalse(VerifiedEditorModelResolverFactory.admitsSemanticHistoryValidation(
+        assertFalse(EditorModelRuntimeScope.admitsSemanticHistoryValidation(
                 "EXACT_5303_SEMANTIC_HISTORY_CANDIDATE", "edit-level-write-5303", "semantic-history-5303-r1"));
-        assertFalse(VerifiedEditorModelResolverFactory.admitsSemanticHistoryValidation(
+        assertFalse(EditorModelRuntimeScope.admitsSemanticHistoryValidation(
                 "EXACT_5303_EDIT_LEVEL_WRITE_CANDIDATE", "semantic-history-5303", "semantic-history-5303-r1"));
-        assertFalse(VerifiedEditorModelResolverFactory.admitsSemanticHistoryValidation(
+        assertFalse(EditorModelRuntimeScope.admitsSemanticHistoryValidation(
                 "EXACT_5303_SEMANTIC_HISTORY_CANDIDATE", "semantic-history-5303", ""));
-        assertFalse(VerifiedEditorModelResolverFactory.admitsSemanticHistoryValidation(
+        assertFalse(EditorModelRuntimeScope.admitsSemanticHistoryValidation(
                 "EXACT_5303_SEMANTIC_HISTORY_CANDIDATE", "semantic-history-5303", null));
     }
 

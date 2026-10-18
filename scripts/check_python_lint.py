@@ -12,10 +12,11 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
-from pathlib import Path
 from typing import NoReturn
 
-ROOT = Path(__file__).resolve().parents[1]
+from turboism_dev.paths import repo_root
+
+ROOT = repo_root()
 PINNED_RUFF = "0.16.9"
 
 
