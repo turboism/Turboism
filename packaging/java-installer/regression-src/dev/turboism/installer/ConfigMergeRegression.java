@@ -950,6 +950,7 @@ public final class ConfigMergeRegression {
         Files.createDirectories(home);
         Files.createDirectories(cubismRoot);
         Path managed = shortcutDir.resolve("Turboism Cubism 5.2 [fixture-A1B2C3D4E5F6].lnk");
+        Path modernManaged = shortcutDir.resolve("Turboism_Cubism_5.0.00_Live2D_Cubism_5.0.00-A1B2C3D4E5F6.lnk");
         Path unrelated = shortcutDir.resolve("Turboism Configurator.lnk");
         Path outside = outsideDir.resolve("Turboism Cubism 5.2 [outside-A1B2C3D4E5F6].lnk");
         Path takeover = shortcutDir.resolve("Cubism Official.lnk");
@@ -958,16 +959,20 @@ public final class ConfigMergeRegression {
         byte[] originalBytes = "original-shortcut-bytes".getBytes(StandardCharsets.UTF_8);
         byte[] managedBytes = "turboism-managed-shortcut-bytes".getBytes(StandardCharsets.UTF_8);
         Files.writeString(managed, "managed", StandardCharsets.UTF_8);
+        Files.writeString(modernManaged, "modern-managed", StandardCharsets.UTF_8);
         Files.writeString(unrelated, "unrelated", StandardCharsets.UTF_8);
         Files.writeString(outside, "outside", StandardCharsets.UTF_8);
         Files.writeString(cubismRoot.resolve("sentinel.txt"), "unchanged", StandardCharsets.UTF_8);
         try {
             String valid = "{\"format\":\"turboism.cubism.installation-state\",\"schemaVersion\":1,"
-                    + "\"launchMode\":\"independent\",\"installations\":[{\"root\":\"" + cubismRoot + "\",\"version\":\"5.2\",\"selected\":true}],"
-                    + "\"managedShortcuts\":[\"" + managed + "\"],\"managedShortcutHashes\":[{\"path\":\"" + managed + "\",\"sha256\":\"" + sha256(managed) + "\"}]}";
+                    + "\"launchMode\":\"independent\",\"installations\":[{\"root\":\"" + cubismRoot + "\",\"version\":\"5.0.00\",\"selected\":true}],"
+                    + "\"managedShortcuts\":[\"" + managed + "\",\"" + modernManaged + "\"],"
+                    + "\"managedShortcutHashes\":[{\"path\":\"" + managed + "\",\"sha256\":\"" + sha256(managed) + "\"},"
+                    + "{\"path\":\"" + modernManaged + "\",\"sha256\":\"" + sha256(modernManaged) + "\"}]}";
             Files.writeString(home.resolve(ConfigMerge.INSTALLATION_STATE_FILE), valid, StandardCharsets.UTF_8);
             check("managed state cleanup removes owned shortcut", ConfigMerge.cleanupManagedState(home, shortcutDir));
             check("managed shortcut removed", !Files.exists(managed));
+            check("modern managed shortcut removed", !Files.exists(modernManaged));
             check("unrelated shortcut preserved", Files.exists(unrelated));
             check("outside shortcut preserved", Files.exists(outside));
             check("valid managed state removed", !Files.exists(home.resolve(ConfigMerge.INSTALLATION_STATE_FILE)));

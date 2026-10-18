@@ -763,8 +763,8 @@ function Test-CubismManagedShortcutPath {
         $full = [System.IO.Path]::GetFullPath($Path)
         $prefix = $directoryPath + [System.IO.Path]::DirectorySeparatorChar
         $name = [System.IO.Path]::GetFileName($full)
-        $nameOk = $name -match '(?i)^Turboism_Cubism_5\.[23](?:\.\d+)?_[\p{L}\p{Nd}._-]{1,48}-[0-9A-F]{12}(?:-D3D)?\.lnk$' -or
-            $name -match '(?i)^Turboism Cubism 5\.[23](?:\.\d+)? \[[\p{L}\p{Nd}._ \-]{1,48}-[0-9A-F]{12}\](?: - D3D)?\.lnk$'
+        $nameOk = $name -match '(?i)^Turboism_Cubism_5\.[0-9]+(?:\.[0-9]+)*_[\p{L}\p{Nd}._-]{1,48}-[0-9A-F]{12}(?:-D3D)?\.lnk$' -or
+            $name -match '(?i)^Turboism Cubism 5\.[0-9]+(?:\.[0-9]+)* \[[\p{L}\p{Nd}._ \-]{1,48}-[0-9A-F]{12}\](?: - D3D)?\.lnk$'
         return $full.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) -and
             [System.IO.Path]::GetDirectoryName($full).TrimEnd('\', '/') -ieq $directoryPath -and $nameOk
     }

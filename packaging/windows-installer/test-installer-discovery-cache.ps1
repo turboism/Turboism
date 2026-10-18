@@ -104,6 +104,16 @@ try {
     $state = Read-CubismInstallationState -StatePath $statePath
     Assert-DiscoveryCache ($state.Valid -and $state.Installations[0].Version -ceq '5.3.03') 'shortcut operation never reprobes synthetic Java'
 
+    $testShortcutDir = Join-Path $homePath 'test-shortcuts'
+    foreach ($ver in @('5.0.00', '5.1.00', '5.1.03', '5.2.03', '5.3.02', '5.3.04')) {
+        $modernName = "Turboism_Cubism_${ver}_Live2D_Cubism_${ver}-A1B2C3D4E5F6.lnk"
+        $modernD3DName = "Turboism_Cubism_${ver}_Live2D_Cubism_${ver}-A1B2C3D4E5F6-D3D.lnk"
+        $legacyName = "Turboism Cubism $ver [Live2D Cubism $ver-A1B2C3D4E5F6].lnk"
+        Assert-DiscoveryCache (Test-CubismManagedShortcutPath -Path (Join-Path $testShortcutDir $modernName) -Directory $testShortcutDir) "managed shortcut path admits $ver modern"
+        Assert-DiscoveryCache (Test-CubismManagedShortcutPath -Path (Join-Path $testShortcutDir $modernD3DName) -Directory $testShortcutDir) "managed shortcut path admits $ver modern D3D"
+        Assert-DiscoveryCache (Test-CubismManagedShortcutPath -Path (Join-Path $testShortcutDir $legacyName) -Directory $testShortcutDir) "managed shortcut path admits $ver legacy"
+    }
+
     [System.IO.File]::AppendAllText($jar, 'changed')
     Assert-DiscoveryCacheThrows { Read-CubismInstallerSnapshot -TurboismHome $homePath -SnapshotPath $snapshot -ExpectedSha256 $snapshotHash } 'changed host artifact fails closed'
     [System.IO.File]::WriteAllText($jar, 'synthetic reviewed artifact')
