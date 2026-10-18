@@ -64,8 +64,10 @@ public class RecordingUiHost implements UiHostCapabilityService {
     public final List<VerticalToolbarContribution> verticalToolbarContributions = new CopyOnWriteArrayList<>();
     public final List<HorizontalToolbarContribution> horizontalToolbarContributions = new CopyOnWriteArrayList<>();
     public final List<EmbeddedPanelId> activatedPanels = new CopyOnWriteArrayList<>();
+    public final List<EmbeddedPanelId> floatingActivatedPanels = new CopyOnWriteArrayList<>();
     public final List<StoragePath> openedDirectories = new CopyOnWriteArrayList<>();
     public final List<FileChooserRequest> fileRequests = new CopyOnWriteArrayList<>();
+    public final List<Registration> registrations = new CopyOnWriteArrayList<>();
 
     public volatile Optional<String> chosenFile = Optional.empty();
     public volatile boolean confirmResult = true;
@@ -132,6 +134,10 @@ public class RecordingUiHost implements UiHostCapabilityService {
         return List.copyOf(fileRequests);
     }
 
+    public List<Registration> registrations() {
+        return List.copyOf(registrations);
+    }
+
     public FileChooserRequest lastFileChooserRequest() {
         return lastFileChooserRequest;
     }
@@ -180,8 +186,20 @@ public class RecordingUiHost implements UiHostCapabilityService {
         return collapsibleSections();
     }
 
+    public List<VerticalToolbarContribution> verticalToolbars() {
+        return List.copyOf(verticalToolbarContributions);
+    }
+
+    public List<HorizontalToolbarContribution> horizontalToolbars() {
+        return List.copyOf(horizontalToolbarContributions);
+    }
+
     public List<EmbeddedPanelId> activatedPanels() {
         return List.copyOf(activatedPanels);
+    }
+
+    public List<String> floatingActivations() {
+        return floatingActivatedPanels.stream().map(EmbeddedPanelId::value).toList();
     }
 
     public List<StoragePath> openedDirectories() {
@@ -290,13 +308,23 @@ public class RecordingUiHost implements UiHostCapabilityService {
         Objects.requireNonNull(contribution, "contribution");
         embeddedPanels.removeIf(existing -> existing.id().equals(contribution.id()));
         embeddedPanels.add(contribution);
-        return () -> embeddedPanels.removeIf(existing -> existing.id().equals(contribution.id()));
+        final Registration registration =
+                () -> embeddedPanels.removeIf(existing -> existing.id().equals(contribution.id()));
+        registrations.add(registration);
+        return registration;
     }
 
     @Override
     public void activateEmbeddedPanel(final EmbeddedPanelId panelId) {
         Objects.requireNonNull(panelId, "panelId");
         activatedPanels.add(panelId);
+    }
+
+    @Override
+    public void activateEmbeddedPanelFloating(final EmbeddedPanelId panelId) {
+        Objects.requireNonNull(panelId, "panelId");
+        floatingActivatedPanels.add(panelId);
+        activateEmbeddedPanel(panelId);
     }
 
     @Override
