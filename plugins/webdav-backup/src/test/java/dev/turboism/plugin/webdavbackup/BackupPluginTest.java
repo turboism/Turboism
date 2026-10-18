@@ -220,7 +220,7 @@ final class BackupPluginTest {
         assertTrue(
                 context.awaitLog("WEBDAV_TRIGGER_MODE mode=AUTO_BACKUP_SYNC", Duration.ofSeconds(2)),
                 "the trigger mode must be logged");
-        context.bus.fire(completedEvent());
+        context.bus.publish(completedEvent());
         Thread.sleep(300L);
         assertFalse(
                 context.hasLog("WEBDAV_SYNC_UPLOAD"),
@@ -245,13 +245,13 @@ final class BackupPluginTest {
         assertTrue(
                 java.nio.file.Files.exists(backupDir.resolve("model_backup2026_08_08_120000.cmo3")),
                 "AUTO_BACKUP_SYNC must never delete host artifacts");
-        int uploads = (int) context.logger.lines.stream()
+        int uploads = (int) context.logger.messages().stream()
                 .filter(line -> line.startsWith("WEBDAV_SYNC_UPLOAD"))
                 .count();
         plugin.scanOnce();
         assertEquals(
                 uploads,
-                (int) context.logger.lines.stream()
+                (int) context.logger.messages().stream()
                         .filter(line -> line.startsWith("WEBDAV_SYNC_UPLOAD"))
                         .count(),
                 "the dedup set must skip an already scanned artifact");
