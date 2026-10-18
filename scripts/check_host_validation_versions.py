@@ -19,17 +19,19 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+from turboism_dev.json_io import dump_json, read_json
+from turboism_dev.paths import repo_root
+from turboism_dev.versions import dotted_to_compact
+
 sys.path.insert(0, str(Path(__file__).resolve().parent / "preview"))
 import check_version_monotonicity as monotonicity  # noqa: E402
 import check_version_set_registry as registry  # noqa: E402
 from host_validation_static_gates import TASK_REQUIRED_CAPABILITIES  # noqa: E402
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = repo_root()
 MATRIX_PATH = Path("compatibility/cubism/compatibility-matrix.json")
 MANIFEST_PATH = Path("scripts/preview/host-validation-tasks.json")
 
@@ -144,11 +146,6 @@ TASK_CLASS_PINS: dict[str, tuple[str, ...]] = {
 }
 
 
-def dotted_to_compact(version: str) -> str:
-    parts = version.split(".")
-    return f"{parts[0]}{parts[1]}{parts[2]}"
-
-
 def derive_all_task_versions(
     root: Path = ROOT,
 ) -> tuple[dict[str, list[str]], list[str]]:
@@ -157,12 +154,12 @@ def derive_all_task_versions(
     matrix_file = root / MATRIX_PATH
     manifest_file = root / MANIFEST_PATH
     try:
-        matrix = json.loads(matrix_file.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        matrix = read_json(matrix_file)
+    except (OSError, Exception) as exc:
         return {}, [f"{MATRIX_PATH}: cannot read compatibility matrix: {exc}"]
     try:
-        manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        manifest = read_json(manifest_file)
+    except (OSError, Exception) as exc:
         return {}, [f"{MANIFEST_PATH}: cannot read task manifest: {exc}"]
 
     reviewed: list[str] = list(matrix.get("reviewedVersions", []))
@@ -269,8 +266,8 @@ def check(root: Path = ROOT) -> list[str]:
 
     manifest_file = root / MANIFEST_PATH
     try:
-        manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        manifest = read_json(manifest_file)
+    except (OSError, Exception) as exc:
         return [f"{MANIFEST_PATH}: cannot read task manifest: {exc}"]
 
     registry_entries: dict[tuple[str, str], dict] = {}
@@ -343,12 +340,12 @@ def update(root: Path = ROOT) -> int:
             print(f"FAIL: {problem}", file=sys.stderr)
         return 2
     manifest_file = root / MANIFEST_PATH
-    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+    manifest = read_json(manifest_file)
     for task_name, task_data in manifest.get("tasks", {}).items():
         if task_name in derived:
             task_data["versions"] = derived[task_name]
     manifest_file.write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+        dump_json(manifest, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
     print(f"updated {MANIFEST_PATH} with {len(derived)} derived task(s)")

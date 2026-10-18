@@ -48,10 +48,13 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import check_version_monotonicity as monotonicity  # noqa: E402
+from turboism_dev.json_io import read_json, write_json
+from turboism_dev.paths import repo_root
+from turboism_dev.versions import cubism_version_key
 
-ROOT = Path(__file__).resolve().parents[1]
+import check_version_monotonicity as monotonicity
+
+ROOT = repo_root()
 
 REGISTRY = Path("scripts/version-set-registry.json")
 REGISTRY_FORMAT = "turboism.version-set-registry/v1"
@@ -68,7 +71,7 @@ class RegistryError(Exception):
 
 
 def sort_versions(versions: set[str]) -> list[str]:
-    return sorted(versions, key=monotonicity.parse_dotted)
+    return sorted(versions, key=cubism_version_key)
 
 
 def collect_sites(root: Path) -> dict[tuple[str, str], int]:
@@ -152,7 +155,7 @@ def load_registry(root: Path) -> tuple[list[dict], list[str]]:
     if not path.is_file():
         raise RegistryError(f"{REGISTRY}: registry missing; create it with --update")
     try:
-        document = json.loads(path.read_text(encoding="utf-8"))
+        document = read_json(path)
     except json.JSONDecodeError as exc:
         raise RegistryError(f"{REGISTRY}: invalid JSON: {exc}") from exc
     if document.get("format") != REGISTRY_FORMAT:
@@ -260,10 +263,7 @@ def update(root: Path) -> int:
         ),
         "sites": sites,
     }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(document, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
-    )
+    write_json(path, document, indent=1, ensure_ascii=False)
     print(
         f"updated {REGISTRY} with {len(sites)} site(s)"
         + (f"; {pending} site(s) still need a basis/reason" if pending else "")
