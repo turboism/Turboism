@@ -6,22 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.plugin.atlasmaxrectsbssf.test.DefaultPluginConfigRegistry;
-import dev.turboism.sdk.action.ActionRegistry;
-import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService;
-import dev.turboism.sdk.diagnostics.DiagnosticReport;
-import dev.turboism.sdk.event.EventBus;
-import dev.turboism.sdk.menu.MenuRegistry;
-import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
-import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
-import dev.turboism.sdk.plugin.PluginPaths;
-import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.test.config.InMemoryConfigRegistry;
+import dev.turboism.test.plugin.FakePluginContext;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -247,7 +238,7 @@ class TextureAtlasPluginTest {
      */
     private static void upgradeFrom(
             final TextureAtlasSettingsBinding binding, dev.turboism.sdk.config.ConfigDocument stored) {
-        final DefaultPluginConfigRegistry registry = new DefaultPluginConfigRegistry();
+        final InMemoryConfigRegistry registry = new InMemoryConfigRegistry();
         binding.init(registry).toCompletableFuture().join();
         while (stored.schemaVersion() < 4) {
             for (final dev.turboism.sdk.config.ConfigMigration migration : registry.lastMigrations()) {
@@ -263,7 +254,7 @@ class TextureAtlasPluginTest {
         }
     }
 
-    private static final class ShellPluginContext implements PluginContext {
+    private static final class ShellPluginContext extends FakePluginContext {
         private final java.util.List<String> infoMessages = new java.util.ArrayList<>();
         private final java.util.List<String> warnMessages = new java.util.ArrayList<>();
         private final PluginLogger logger = new PluginLogger() {
@@ -289,11 +280,10 @@ class TextureAtlasPluginTest {
         private final TextureAtlasLayoutService layouts = new EmptyLayoutService();
         private final DisposableScope scope = new DisposableScope();
         private final TestAlgorithmRegistry registry = new TestAlgorithmRegistry(scope);
-        private final DefaultPluginConfigRegistry config = new DefaultPluginConfigRegistry();
+        private final InMemoryConfigRegistry config = new InMemoryConfigRegistry();
 
-        @Override
-        public PluginDescriptor descriptor() {
-            throw unused();
+        ShellPluginContext() {
+            super(FakePluginContext.builder());
         }
 
         @Override
@@ -302,12 +292,7 @@ class TextureAtlasPluginTest {
         }
 
         @Override
-        public PluginPaths paths() {
-            throw unused();
-        }
-
-        @Override
-        public PluginConfigRegistry config() {
+        public InMemoryConfigRegistry config() {
             return config;
         }
 
@@ -350,61 +335,6 @@ class TextureAtlasPluginTest {
                     return registry;
                 }
             };
-        }
-
-        @Override
-        public dev.turboism.sdk.i18n.PluginLocalization localization() {
-            return new dev.turboism.sdk.i18n.PluginLocalization() {
-                @Override
-                public java.util.Locale locale() {
-                    return java.util.Locale.ENGLISH;
-                }
-
-                @Override
-                public String text(String key) {
-                    return key;
-                }
-
-                @Override
-                public String format(String key, Object... arguments) {
-                    return key;
-                }
-
-                @Override
-                public boolean contains(String key) {
-                    return true;
-                }
-            };
-        }
-
-        @Override
-        public List<PluginPermission> permissions() {
-            return List.of();
-        }
-
-        @Override
-        public EventBus eventBus() {
-            throw unused();
-        }
-
-        @Override
-        public ActionRegistry actions() {
-            throw unused();
-        }
-
-        @Override
-        public MenuRegistry menus() {
-            throw unused();
-        }
-
-        @Override
-        public UiScheduler uiScheduler() {
-            throw unused();
-        }
-
-        @Override
-        public DiagnosticReport diagnostics() {
-            throw unused();
         }
 
         @Override
