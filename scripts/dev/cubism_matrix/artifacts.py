@@ -6,13 +6,14 @@ import json
 from pathlib import Path
 import re
 
-from .constants import get_ref_dir, get_verification_dir
+from .constants import REF_DIR, VERIFICATION_DIR
 
 
 def manifest_hashes(ref_dir: Path | None = None) -> dict[str, str]:
-    base = ref_dir if ref_dir is not None else get_ref_dir()
+    if ref_dir is None:
+        ref_dir = REF_DIR
     expected = {}
-    for line in (base / "MANIFEST.txt").read_text().splitlines():
+    for line in (ref_dir / "MANIFEST.txt").read_text().splitlines():
         parts = line.split()
         if len(parts) == 2 and re.fullmatch(r"[0-9a-f]{64}", parts[0]):
             expected[parts[1]] = parts[0]
@@ -24,8 +25,9 @@ def artifact_facts(
     jar_name: str = "Live2D_Cubism.jar",
     ref_dir: Path | None = None,
 ) -> dict:
-    base = ref_dir if ref_dir is not None else get_ref_dir()
-    path = base / version / jar_name
+    if ref_dir is None:
+        ref_dir = REF_DIR
+    path = ref_dir / version / jar_name
     data = path.read_bytes()
     return {
         "name": jar_name,
@@ -38,9 +40,10 @@ def load_source_records(
     verification_dir: Path | None = None,
 ) -> dict[str, list[tuple[str, dict]]]:
     """Group verification records by family, newest-reviewed first."""
-    base = verification_dir if verification_dir is not None else get_verification_dir()
+    if verification_dir is None:
+        verification_dir = VERIFICATION_DIR
     families: dict[str, list[tuple[str, dict]]] = {}
-    for path in sorted(base.glob("cubism-*.json")):
+    for path in sorted(verification_dir.glob("cubism-*.json")):
         doc = json.loads(path.read_text())
         match = re.match(r"cubism-(\d+\.\d+\.\d+)-(.+)\.json", path.name)
         version, family = match.group(1), match.group(2)

@@ -5,12 +5,12 @@ import os
 from pathlib import Path
 import re
 import subprocess
-import sys
 
 from turboism_dev.paths import repo_root
 from turboism_dev.versions import cubism_version_key
 
 ROOT = repo_root()
+version_key = cubism_version_key
 
 def cubism_ref_dir() -> Path:
     """Locate cubism-ref/ — it lives in the primary checkout, not worktrees."""
@@ -508,42 +508,6 @@ FAMILY_JSON = ROOT / "scripts/verification-sources/families"
 TEMPLATE_DIR = (
     ROOT / "scripts/verification-sources/templates/dev/turboism/mapping/verification"
 )
-
-
-def get_ref_dir() -> Path:
-    mod = sys.modules.get("cubism_version_matrix")
-    if mod is not None and "REF_DIR" in mod.__dict__:
-        return mod.__dict__["REF_DIR"]
-    return REF_DIR
-
-
-def get_verification_dir() -> Path:
-    mod = sys.modules.get("cubism_version_matrix")
-    if mod is not None and "VERIFICATION_DIR" in mod.__dict__:
-        return mod.__dict__["VERIFICATION_DIR"]
-    return VERIFICATION_DIR
-
-
-def get_pack_dir() -> Path:
-    mod = sys.modules.get("cubism_version_matrix")
-    if mod is not None and "PACK_DIR" in mod.__dict__:
-        return mod.__dict__["PACK_DIR"]
-    return PACK_DIR
-
-
-def get_profile_dir() -> Path:
-    mod = sys.modules.get("cubism_version_matrix")
-    if mod is not None and "PROFILE_DIR" in mod.__dict__:
-        return mod.__dict__["PROFILE_DIR"]
-    return PROFILE_DIR
-
-
-def get_template_dir() -> Path:
-    mod = sys.modules.get("cubism_version_matrix")
-    if mod is not None and "TEMPLATE_DIR" in mod.__dict__:
-        return mod.__dict__["TEMPLATE_DIR"]
-    return TEMPLATE_DIR
-
 
 TYPE_TOKEN = re.compile(r"L([^;]+);")
 MAPPING_ID_VERSION = re.compile(r"(cubism\.mapping\.)v([0-9_]+)\.")
