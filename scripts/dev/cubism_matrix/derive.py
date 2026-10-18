@@ -12,13 +12,13 @@ from .constants import (
     ALL_VERSIONS,
     EDITOR_MODEL_SLICE,
     MEMBER_VARIANTS,
+    PACK_DIR,
+    PROFILE_DIR,
+    REF_DIR,
     REVIEWED,
     TARGET_VERSIONS,
+    VERIFICATION_DIR,
     VERIFIED_AT,
-    get_pack_dir,
-    get_profile_dir,
-    get_ref_dir,
-    get_verification_dir,
 )
 from .contracts import required_aliases
 from .wire import wire_editor_model
@@ -31,8 +31,9 @@ def derive_version(
     ref_dir: Path | None = None,
 ) -> dict:
     """Derive the surviving record set for one target version."""
-    base = ref_dir if ref_dir is not None else get_ref_dir()
-    jar = JarIndex(base / version / "Live2D_Cubism.jar")
+    if ref_dir is None:
+        ref_dir = REF_DIR
+    jar = JarIndex(ref_dir / version / "Live2D_Cubism.jar")
     derived = {}
     for family, sources in sorted(families.items()):
         if family == "core-model-read":
@@ -251,12 +252,13 @@ def load_source_pack(
     family: str,
     pack_dir: Path | None = None,
 ) -> dict | None:
-    base = pack_dir if pack_dir is not None else get_pack_dir()
+    if pack_dir is None:
+        pack_dir = PACK_DIR
     for candidate in (
         f"cubism-{source_version}-{pack_name_for(family)}.json",
         f"cubism-{source_version}-{family}.json",
     ):
-        path = base / candidate
+        path = pack_dir / candidate
         if path.is_file():
             return json.loads(path.read_text())
     return None
@@ -264,6 +266,8 @@ def load_source_pack(
 
 def load_family_packs(family: str, pack_dir: Path | None = None) -> dict[str, dict]:
     """All reviewed packs for a family, keyed by version, newest first."""
+    if pack_dir is None:
+        pack_dir = PACK_DIR
     packs = {}
     for version in REVIEWED:
         pack = load_source_pack(version, family, pack_dir=pack_dir)
@@ -459,10 +463,10 @@ def refresh_editor_model(constants: dict, editor: dict, families: dict) -> None:
     )
     updates = []
     for version in ALL_VERSIONS:
-        record_path = get_verification_dir() / f"cubism-{version}-editor-model.json"
-        pack_path = get_pack_dir() / f"cubism-{version}-editor-model-read.json"
+        record_path = VERIFICATION_DIR / f"cubism-{version}-editor-model.json"
+        pack_path = PACK_DIR / f"cubism-{version}-editor-model-read.json"
         current = json.loads(record_path.read_text())
-        jar = JarIndex(get_ref_dir() / version / "Live2D_Cubism.jar")
+        jar = JarIndex(REF_DIR / version / "Live2D_Cubism.jar")
         if current["artifact"] != artifact_facts(version):
             raise ValueError(f"reviewed artifact identity drifted: {version}")
         for selector in current["selectors"]:
@@ -628,7 +632,7 @@ def repair_committed_records() -> list[str]:
     the resolver's ``getOrDefault`` applies to an unconditioned capability, so
     the patch preserves runtime semantics bit-for-bit."""
     repaired = []
-    for path in sorted(get_verification_dir().glob("cubism-*.json")):
+    for path in sorted(VERIFICATION_DIR.glob("cubism-*.json")):
         doc = json.loads(path.read_text())
         if "capabilityConditions" in doc:
             continue
@@ -646,14 +650,14 @@ def repair_committed_packs() -> list[str]:
     mapping-id migration: they omit the nine ``inherits`` selectors and carry
     four stale semanticNames, so ``packEntries == selectors`` fails."""
     repaired = []
-    for path in sorted(get_pack_dir().glob("cubism-*.json")):
+    for path in sorted(PACK_DIR.glob("cubism-*.json")):
         match = re.match(r"cubism-(\d+\.\d+\.\d+)-(.+)\.json", path.name)
         version = match.group(1)
         if version not in REVIEWED:
             continue
         family = match.group(2)
         record_path = None
-        for candidate in sorted(get_verification_dir().glob(f"cubism-{version}-*.json")):
+        for candidate in sorted(VERIFICATION_DIR.glob(f"cubism-{version}-*.json")):
             record_family = re.match(
                 r"cubism-\d+\.\d+\.\d+-(.+)\.json", candidate.name
             ).group(1)
@@ -679,7 +683,7 @@ def shared_core_profile(version: str) -> str | None:
     ``Live2DCubismCore.jar`` is byte-identical (``profileForArtifact`` binds
     by exact digest). The native runtime tuple stays unobserved for distinct
     jars, so they receive no core pack reference."""
-    if (get_pack_dir() / f"cubism-{version}-core-model-read.json").is_file():
+    if (PACK_DIR / f"cubism-{version}-core-model-read.json").is_file():
         return f"cubism-{version}-core-model-read"
     sha = artifact_facts(version, "Live2DCubismCore.jar")["sha256"]
     for reviewed in ("5.1.03", "5.2.03", "5.3.02", "5.3.04"):
@@ -689,7 +693,7 @@ def shared_core_profile(version: str) -> str | None:
 
 
 def derive_profile(version: str, packs: list[str]) -> dict:
-    template_path = get_profile_dir() / "cubism-5.3.03.json"
+    template_path = PROFILE_DIR / "cubism-5.3.03.json"
     profile = json.loads(template_path.read_text())
     profile["profileId"] = f"cubism-{version}"
     profile["mappingPacks"] = packs
