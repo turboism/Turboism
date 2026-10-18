@@ -16,15 +16,12 @@ import dev.turboism.mapping.verification.EmbeddedPanelVerificationManifest;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.MainToolbarVerificationManifest;
 import dev.turboism.mapping.verification.SliceContract;
+import dev.turboism.mapping.verification.SliceRegistry;
 import dev.turboism.mapping.verification.SliceResolverFactory;
 import dev.turboism.mapping.verification.TopMenuVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedCorePublicApiResolverFactory;
 import dev.turboism.mapping.verification.VerifiedEditorModelResolverFactory;
-import dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory;
-import dev.turboism.mapping.verification.VerifiedMainToolbarResolverFactory;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.mapping.verification.VerifiedTopMenuResolverFactory;
-import dev.turboism.mapping.verification.VerifiedWorkspaceControlResolverFactory;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.ui.appearance.AppearanceHostProvider;
 import dev.turboism.ui.appearance.FlatLafAppearanceHostProvider;
@@ -91,8 +88,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 new VerifiedRuntimeHostAdaptersFactory()::create,
                 slice -> resolverForSlice(slice, new VerifiedEditorModelResolverFactory()),
                 VerifiedHostAdapterConnector::productionEditorAccess,
-                slice -> resolverForSlice(slice, new VerifiedMainToolbarResolverFactory()),
-                slice -> resolverForSlice(slice, new VerifiedEmbeddedPanelResolverFactory()),
+                slice -> resolverForSlice(slice, SliceRegistry.MAIN_TOOLBAR.resolverFactory()),
+                slice -> resolverForSlice(slice, SliceRegistry.EMBEDDED_PANEL.resolverFactory()),
                 null,
                 null,
                 null,
@@ -100,7 +97,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 null,
                 new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
                 VerifiedHostAdapterConnector::productionAppearanceProvider,
-                slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
+                slice -> resolverForSlice(slice, SliceRegistry.WORKSPACE_CONTROL.resolverFactory()),
                 VerifiedHostAdapterConnector::coreMaterial);
     }
 
@@ -109,8 +106,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 factory,
                 slice -> resolverForSlice(slice, new VerifiedEditorModelResolverFactory()),
                 VerifiedHostAdapterConnector::productionEditorAccess,
-                slice -> resolverForSlice(slice, new VerifiedMainToolbarResolverFactory()),
-                slice -> resolverForSlice(slice, new VerifiedEmbeddedPanelResolverFactory()),
+                slice -> resolverForSlice(slice, SliceRegistry.MAIN_TOOLBAR.resolverFactory()),
+                slice -> resolverForSlice(slice, SliceRegistry.EMBEDDED_PANEL.resolverFactory()),
                 null,
                 null,
                 null,
@@ -118,7 +115,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 null,
                 new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
                 ignored -> unavailableAppearanceProvider(),
-                slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
+                slice -> resolverForSlice(slice, SliceRegistry.WORKSPACE_CONTROL.resolverFactory()),
                 VerifiedHostAdapterConnector::coreMaterial);
     }
 
@@ -139,7 +136,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 null,
                 new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
                 ignored -> unavailableAppearanceProvider(),
-                slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
+                slice -> resolverForSlice(slice, SliceRegistry.WORKSPACE_CONTROL.resolverFactory()),
                 VerifiedHostAdapterConnector::coreMaterial);
     }
 
@@ -161,7 +158,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 null,
                 new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
                 ignored -> unavailableAppearanceProvider(),
-                slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
+                slice -> resolverForSlice(slice, SliceRegistry.WORKSPACE_CONTROL.resolverFactory()),
                 coreBackendFactory);
     }
 
@@ -186,7 +183,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 null,
                 new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
                 appearanceProviderFactory,
-                slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
+                slice -> resolverForSlice(slice, SliceRegistry.WORKSPACE_CONTROL.resolverFactory()),
                 VerifiedHostAdapterConnector::coreMaterial);
     }
 
@@ -210,7 +207,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 null,
                 new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
                 ignored -> unavailableAppearanceProvider(),
-                slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
+                slice -> resolverForSlice(slice, SliceRegistry.WORKSPACE_CONTROL.resolverFactory()),
                 VerifiedHostAdapterConnector::coreMaterial);
     }
 
@@ -233,10 +230,10 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 editorUiPluginResources,
                 editorUiActionRouter,
                 embeddedPanelActivation,
-                slice -> resolverForSlice(slice, new VerifiedTopMenuResolverFactory()),
+                slice -> resolverForSlice(slice, SliceRegistry.TOP_MENU.resolverFactory()),
                 new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
                 ignored -> unavailableAppearanceProvider(),
-                slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
+                slice -> resolverForSlice(slice, SliceRegistry.WORKSPACE_CONTROL.resolverFactory()),
                 VerifiedHostAdapterConnector::coreMaterial);
     }
 
@@ -263,7 +260,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 topMenuResolverFactory,
                 new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator(),
                 ignored -> unavailableAppearanceProvider(),
-                slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
+                slice -> resolverForSlice(slice, SliceRegistry.WORKSPACE_CONTROL.resolverFactory()),
                 VerifiedHostAdapterConnector::coreMaterial);
     }
 
@@ -291,7 +288,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 topMenuResolverFactory,
                 dockMaintenance,
                 ignored -> unavailableAppearanceProvider(),
-                slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
+                slice -> resolverForSlice(slice, SliceRegistry.WORKSPACE_CONTROL.resolverFactory()),
                 VerifiedHostAdapterConnector::coreMaterial);
     }
 
@@ -321,7 +318,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 topMenuResolverFactory,
                 dockMaintenance,
                 appearanceProviderFactory,
-                slice -> resolverForSlice(slice, new VerifiedWorkspaceControlResolverFactory()),
+                slice -> resolverForSlice(slice, SliceRegistry.WORKSPACE_CONTROL.resolverFactory()),
                 VerifiedHostAdapterConnector::coreMaterial);
     }
 

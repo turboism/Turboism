@@ -133,16 +133,10 @@ public final class VerifiedEditorModelResolverFactory implements SliceResolverFa
     public VerifiedMemberResolver create(
             final Path reviewedRecord, final Path verifiedArtifact, final ClassLoader hostClassLoader)
             throws IOException {
-        final HostArtifactDigest artifact = HostArtifactDigest.from(verifiedArtifact);
-        return workflow.create(
-                reviewedRecord,
-                verifiedArtifact,
-                hostClassLoader,
-                EditorModelVerificationManifest.forArtifact(artifact),
-                ReviewedHostArtifacts.CUBISM_5_3_03.equals(artifact) ? cubism5303RuntimeScope() : null);
+        return SliceRegistry.EDITOR_MODEL.resolverFactory().create(reviewedRecord, verifiedArtifact, hostClassLoader);
     }
 
-    private static PinnedVerifiedResolverWorkflow.RuntimeScope cubism5303RuntimeScope() {
+    static PinnedVerifiedResolverWorkflow.RuntimeScope cubism5303RuntimeScope() {
         final String mode = System.getProperty("turboism.editorObjectValidation.mode");
         final String runId = System.getProperty("turboism.validation.runId");
         if (TextureAtlasVerificationManifest.admits5303ValidationCandidate()) {
