@@ -362,9 +362,16 @@ final class McpHttpServerTestFixtures {
         };
         int actionRevocations;
         int menuRevocations;
+        boolean failNextAction;
+        boolean failNextMenu;
+        java.util.function.Consumer<String> closeListener;
 
         @Override
         public Registration register(final String id, final Action action) {
+            if (failNextAction) {
+                failNextAction = false;
+                throw new IllegalStateException("fixture action failure");
+            }
             if (!id.equals(action.id())) throw new IllegalArgumentException("action id mismatch");
             if (actions.putIfAbsent(id, action) != null) {
                 throw new IllegalStateException("fixture action already registered");
@@ -374,17 +381,23 @@ final class McpHttpServerTestFixtures {
                 if (!closed.compareAndSet(false, true)) return;
                 actions.remove(id, action);
                 actionRevocations++;
+                if (closeListener != null) closeListener.accept("unpublish-action");
             };
         }
 
         @Override
         public Registration contribute(final MenuContribution contribution) {
+            if (failNextMenu) {
+                failNextMenu = false;
+                throw new IllegalStateException("fixture menu failure");
+            }
             menus.add(contribution);
             final java.util.concurrent.atomic.AtomicBoolean closed = new java.util.concurrent.atomic.AtomicBoolean();
             return () -> {
                 if (!closed.compareAndSet(false, true)) return;
                 menus.remove(contribution);
                 menuRevocations++;
+                if (closeListener != null) closeListener.accept("unpublish-menu");
             };
         }
     }
@@ -392,7 +405,9 @@ final class McpHttpServerTestFixtures {
     static final class RecordingConnections implements McpConnectionService {
         Optional<McpHttpConnection> current = Optional.empty();
         boolean failNextPublish;
+        boolean failOnClose;
         int revocations;
+        java.util.function.Consumer<String> closeListener;
 
         @Override
         public Optional<McpHttpConnection> current() {
@@ -414,6 +429,10 @@ final class McpHttpServerTestFixtures {
                 if (!closed.compareAndSet(false, true)) return;
                 current = Optional.empty();
                 revocations++;
+                if (closeListener != null) closeListener.accept("unpublish-connection");
+                if (failOnClose) {
+                    throw new RuntimeException("connection unpublish failure");
+                }
             };
         }
     }
