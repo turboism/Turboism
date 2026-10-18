@@ -405,6 +405,7 @@ final class McpHttpServerTestFixtures {
     static final class RecordingConnections implements McpConnectionService {
         Optional<McpHttpConnection> current = Optional.empty();
         boolean failNextPublish;
+        boolean failOnClose;
         int revocations;
         java.util.function.Consumer<String> closeListener;
 
@@ -429,6 +430,9 @@ final class McpHttpServerTestFixtures {
                 current = Optional.empty();
                 revocations++;
                 if (closeListener != null) closeListener.accept("unpublish-connection");
+                if (failOnClose) {
+                    throw new RuntimeException("connection unpublish failure");
+                }
             };
         }
     }
