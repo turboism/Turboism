@@ -413,5 +413,3 @@ def render_capabilities_doc(matrix: dict, locale: str) -> str:
         lines.append(f"| `{group}` | " + " | ".join(cells) + " |")
     lines.append("")
     return "\n".join(lines)
-
-

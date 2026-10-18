@@ -483,5 +483,3 @@ DEV_STRINGS = {
         "col_task": "태스크",
     },
 }
-
-

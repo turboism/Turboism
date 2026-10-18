@@ -546,5 +546,3 @@ def load_plugins(root: Path) -> list[dict]:
             }
         )
     return plugins
-
-

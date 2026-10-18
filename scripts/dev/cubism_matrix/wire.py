@@ -733,5 +733,3 @@ def wire() -> None:
     wire_host_validation()
     wire_index_md()
     print("wired", sum(len(v) for v in records.values()), "records")
-
-
