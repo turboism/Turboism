@@ -16,17 +16,13 @@ import gzip
 import hashlib
 import json
 import shutil
-import sys
 import tarfile
 import tempfile
 import unittest
 from pathlib import Path
 
-# Add repo scripts/ to path
-SCRIPTS_DIR = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(SCRIPTS_DIR))
-
-import test_corpus  # noqa: E402
+import _bootstrap  # noqa: F401
+import test_corpus
 
 
 def sha256_bytes(data: bytes) -> str:

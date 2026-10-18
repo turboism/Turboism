@@ -19,8 +19,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import check_remote_hygiene as crh  # noqa: E402
+import _bootstrap  # noqa: F401
+import check_remote_hygiene as crh
 
 GIT = ["git"]
 CHECKER = [sys.executable, str(Path(crh.__file__))]
