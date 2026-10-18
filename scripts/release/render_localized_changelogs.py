@@ -12,8 +12,9 @@ older than the JSON scheme — pass through from the committed localized file,
 so history predating the scheme is preserved exactly.
 
 Usage:
-    render_localized_changelogs.py            # rewrite localized changelogs
-    render_localized_changelogs.py --check    # verify committed files match; exit 1 on drift
+    render_localized_changelogs.py                        # rewrite localized changelogs
+    render_localized_changelogs.py --check                # verify committed files match
+    render_localized_changelogs.py --check --fail-on-drift  # fail closed on englishSha256 drift
 """
 
 import argparse
@@ -49,7 +50,7 @@ def load_notes(version):
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
 
 
-def render(lang, check=False):
+def render(lang, check=False, fail_on_drift=False):
     target = ROOT / f"CHANGELOG_{lang}.md"
     committed = target.read_text(encoding="utf-8")
     committed_header, committed_sections = sections(committed)
@@ -60,6 +61,7 @@ def render(lang, check=False):
     rendered = [committed_header]
     warnings = []
     missing = []
+    has_drift = False
     for version, header_line, en_body in en_sections:
         if version == "Unreleased":
             # Hand-translated work-in-progress notes; keep the committed section.
@@ -77,6 +79,7 @@ def render(lang, check=False):
             continue
         anchor = hashlib.sha256(en_body.encode()).hexdigest()
         if anchor != notes.get("englishSha256"):
+            has_drift = True
             warnings.append(
                 f"{version}: English section drifted from the reviewed release-notes anchor "
                 f"({notes.get('englishSha256', '')[:16]}… -> {anchor[:16]}…)")
@@ -98,11 +101,20 @@ def render(lang, check=False):
     if missing:
         print(f"warning: versions without localized sections: {missing}", file=sys.stderr)
     if check:
+        failed = False
         if result != committed:
             print(f"drift: {target.name} does not match the release-notes JSON; "
                   "run scripts/release/render_localized_changelogs.py", file=sys.stderr)
-            return 1
-        return 0
+            failed = True
+        if fail_on_drift and has_drift:
+            print(f"drift: English section drifted from release-notes anchor for {target.name}",
+                  file=sys.stderr)
+            failed = True
+        return 1 if failed else 0
+    if fail_on_drift and has_drift:
+        print(f"drift: English section drifted from release-notes anchor for {target.name}",
+              file=sys.stderr)
+        return 1
     if result != committed:
         target.write_text(result, encoding="utf-8")
         print(f"rendered {target.name}")
@@ -116,8 +128,13 @@ def main():
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--check", action="store_true",
                         help="verify committed localized changelogs instead of rewriting")
+    parser.add_argument("--fail-on-drift", "--strict", dest="fail_on_drift", action="store_true",
+                        help="fail closed (non-zero) on englishSha256 drift (default: warn only)")
     args = parser.parse_args()
     status = 0
+    for lang in LOCALES:
+        status |= render(lang, check=args.check, fail_on_drift=args.fail_on_drift)
+    return status
     for lang in LOCALES:
         status |= render(lang, check=args.check)
     return status
