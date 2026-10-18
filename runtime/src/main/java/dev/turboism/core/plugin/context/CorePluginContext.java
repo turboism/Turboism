@@ -71,24 +71,13 @@ public final class CorePluginContext implements PluginContext {
     private final CubismContextServices cubismServices;
     private final PluginConfigRegistry pluginConfigRegistry;
     private final UiCapabilityBundle uiCapabilities;
-    private final PluginLocalization localization;
-    private final PluginTaskScheduler taskScheduler;
-    private final PluginStorage pluginStorage;
-    private volatile ScriptService scriptService = ScriptService.unavailable();
-    private volatile McpConnectionService mcpConnectionService = McpConnectionService.unavailable();
-    private volatile ExportSettingsContributionService exportSettingsContributionService =
-            ExportSettingsContributionService.unavailable();
-    private final UserFileAccessService userFileAccessService;
-    private final AsyncHostReadService asyncHostReadService;
     private final MeshCapabilityBundle meshCapabilities;
+    private final HostCapabilityBundle hostCapabilities;
     private final dev.turboism.adapter.cubism.backup.AutoBackupCoordinator backupCoordinator;
     private final CubismEditorApiAvailabilityInterceptor editorApiAvailability;
-
-    private final dev.turboism.sdk.runtime.CubismLogService cubismLogService;
-    private dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
-
+    private volatile ScriptService scriptService = ScriptService.unavailable();
+    private volatile McpConnectionService mcpConnectionService = McpConnectionService.unavailable();
     private volatile dev.turboism.sdk.performance.PerformanceProbeService performanceStatsService;
-    private dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory;
     private volatile MeshToolRegistry meshTools;
     private boolean meshToolsInstalled;
     private volatile dev.turboism.sdk.cubism.modeling.ModelingToolRegistry modelingTools;
@@ -396,25 +385,10 @@ public final class CorePluginContext implements PluginContext {
                 ? coordinator
                 : null;
         this.pluginConfigRegistry = this.dependencies.config();
-        this.localization = env.localization();
-        this.taskScheduler = env.taskScheduler();
-        this.pluginStorage = env.pluginStorage();
-        this.userFileAccessService = env.userFileAccessService();
-        this.asyncHostReadService = env.asyncHostReadService();
         this.meshCapabilities = MeshCapabilityBundle.create(hostAccess, this.dependencies);
         this.uiCapabilities = UiCapabilityBundle.create(
-                hostAccess, adapters, this.dependencies, this.localization, this.editorApiAvailability);
-        this.cubismLogService =
-                hostAccess == null ? dev.turboism.sdk.runtime.CubismLogService.unavailable() : hostAccess.cubismLog();
-        this.runtimeSettings = env.runtimeSettings();
-        this.fileChooserHistory = env.fileChooserHistory() == null
-                ? null
-                : editorApiAvailability.wrapForTesting(
-                        env.fileChooserHistory(), dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService.class);
-        if (env.exportSettings() != null) {
-            this.exportSettingsContributionService =
-                    editorApiAvailability.wrapForTesting(env.exportSettings(), ExportSettingsContributionService.class);
-        }
+                hostAccess, adapters, this.dependencies, env.localization(), this.editorApiAvailability);
+        this.hostCapabilities = HostCapabilityBundle.create(hostAccess, env, this.editorApiAvailability);
         if (env.scriptService() != null) {
             this.scriptService = env.scriptService();
         }
@@ -438,37 +412,16 @@ public final class CorePluginContext implements PluginContext {
                 PluginService.MODELING_TOOLS, () -> disposableScope().isSealed() ? null : modelingTools);
         serviceDirectory.installWhenPresent(
                 PluginService.MESH_TOOLS, () -> disposableScope().isSealed() ? null : meshTools);
-        serviceDirectory.install(PluginService.LOCALIZATION, () -> localization, PluginLocalization::unavailable);
-        serviceDirectory.install(PluginService.TASKS, () -> taskScheduler, PluginTaskScheduler::unavailable);
-        serviceDirectory.install(
-                PluginService.HOST_READS, () -> asyncHostReadService, AsyncHostReadService::unavailable);
-        serviceDirectory.install(PluginService.STORAGE, () -> pluginStorage, PluginStorage::unavailable);
         serviceDirectory.install(PluginService.SCRIPTS, () -> scriptService, ScriptService::unavailable);
         serviceDirectory.install(
-                PluginService.USER_FILES, () -> userFileAccessService, UserFileAccessService::unavailable);
+                PluginService.MCP_CONNECTIONS, () -> mcpConnectionService, McpConnectionService::unavailable);
+        serviceDirectory.install(PluginService.CONFIG, () -> pluginConfigRegistry, PluginConfigRegistry::unavailable);
+        serviceDirectory.installAlways(PluginService.PERFORMANCE_STATS, this::performanceProbeService);
+
         cubismServices.registerServices(serviceDirectory);
-        serviceDirectory.install(
-                PluginService.FILE_CHOOSER_HISTORY,
-                () -> fileChooserHistory,
-                dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService::unavailable);
-        serviceDirectory.install(
-                PluginService.EXPORT_SETTINGS,
-                () -> exportSettingsContributionService,
-                ExportSettingsContributionService::unavailable);
         meshCapabilities.registerServices(serviceDirectory);
         uiCapabilities.registerServices(serviceDirectory);
-        serviceDirectory.install(PluginService.CONFIG, () -> pluginConfigRegistry, PluginConfigRegistry::unavailable);
-        serviceDirectory.install(
-                PluginService.CUBISM_LOG,
-                () -> cubismLogService,
-                dev.turboism.sdk.runtime.CubismLogService::unavailable);
-        serviceDirectory.install(
-                PluginService.RUNTIME_SETTINGS,
-                () -> runtimeSettings,
-                dev.turboism.sdk.runtime.RuntimeSettingsService::unavailable);
-        serviceDirectory.install(
-                PluginService.MCP_CONNECTIONS, () -> mcpConnectionService, McpConnectionService::unavailable);
-        serviceDirectory.installAlways(PluginService.PERFORMANCE_STATS, this::performanceProbeService);
+        hostCapabilities.registerServices(serviceDirectory);
     }
 
     @Override
@@ -488,22 +441,30 @@ public final class CorePluginContext implements PluginContext {
 
     @Override
     public PluginLocalization localization() {
-        return localization == null ? PluginContext.super.localization() : localization;
+        return hostCapabilities.localization() == null
+                ? PluginContext.super.localization()
+                : hostCapabilities.localization();
     }
 
     @Override
     public PluginTaskScheduler tasks() {
-        return taskScheduler == null ? PluginContext.super.tasks() : taskScheduler;
+        return hostCapabilities.taskScheduler() == null
+                ? PluginContext.super.tasks()
+                : hostCapabilities.taskScheduler();
     }
 
     @Override
     public AsyncHostReadService hostReads() {
-        return asyncHostReadService == null ? PluginContext.super.hostReads() : asyncHostReadService;
+        return hostCapabilities.asyncHostReadService() == null
+                ? PluginContext.super.hostReads()
+                : hostCapabilities.asyncHostReadService();
     }
 
     @Override
     public PluginStorage storage() {
-        return pluginStorage == null ? PluginContext.super.storage() : pluginStorage;
+        return hostCapabilities.pluginStorage() == null
+                ? PluginContext.super.storage()
+                : hostCapabilities.pluginStorage();
     }
 
     @Override
@@ -556,7 +517,9 @@ public final class CorePluginContext implements PluginContext {
 
     @Override
     public UserFileAccessService userFiles() {
-        return userFileAccessService == null ? PluginContext.super.userFiles() : userFileAccessService;
+        return hostCapabilities.userFileAccessService() == null
+                ? PluginContext.super.userFiles()
+                : hostCapabilities.userFileAccessService();
     }
 
     @Override
