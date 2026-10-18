@@ -326,5 +326,17 @@ public final class ReviewedHostArtifacts {
         return REVIEWED_CUBISM_VERSION_SET.contains(cubismVersion);
     }
 
+    private static final Set<String> REVIEWED_SHA256_SET = java.util.Collections.unmodifiableSet(
+            all().stream().map(HostArtifactDigest::sha256).collect(java.util.stream.Collectors.toSet()));
+
+    /**
+     * Returns the immutable set of SHA-256 digests for all reviewed Cubism Editor host artifacts.
+     *
+     * @return the set of reviewed SHA-256 strings
+     */
+    public static Set<String> reviewedSha256s() {
+        return REVIEWED_SHA256_SET;
+    }
+
     private ReviewedHostArtifacts() {}
 }

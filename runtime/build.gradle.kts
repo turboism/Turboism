@@ -295,7 +295,7 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
             "dev.turboism.mapping.verification.EditorTextureSelectorContractTest"
         )
         includeTestsMatching(
-            "dev.turboism.mapping.verification.VerifiedCorePublicApiResolverFactoryTest"
+            "dev.turboism.mapping.verification.CorePublicApiAdmissionTest"
         )
         includeTestsMatching(
             "dev.turboism.mapping.verification.VerifiedEditorStartupResolverFactoriesTest"
@@ -323,7 +323,7 @@ val legacyEvidenceTestClasses = listOf(
     "dev.turboism.mapping.verification.EditorStructureSelectorContractTest",
     "dev.turboism.mapping.verification.EditorTextureRelationsSelectorContractTest",
     "dev.turboism.mapping.verification.EditorTextureSelectorContractTest",
-    "dev.turboism.mapping.verification.VerifiedCorePublicApiResolverFactoryTest",
+    "dev.turboism.mapping.verification.CorePublicApiAdmissionTest",
     "dev.turboism.mapping.verification.VerifiedEditorStartupResolverFactoriesTest"
 )
 
