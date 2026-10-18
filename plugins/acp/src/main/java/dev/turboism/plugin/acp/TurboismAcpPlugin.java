@@ -49,7 +49,7 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
     }
 
     @Override
-    public synchronized void init(final PluginContext context) throws Exception {
+    public synchronized void init(final PluginContext context) {
         super.init(context);
         localization = context.localization();
         context.disposableScope().register(this::disposeUi);
@@ -58,13 +58,7 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
 
     @Override
     public synchronized void enable() {
-        try {
-            super.enable();
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Turboism ACP must be initialized before enable", e);
-        }
+        super.enable();
         if (enabled) return;
         AcpPluginSettings enabledSettings = null;
         try {
@@ -115,9 +109,16 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
         } catch (RuntimeException | Error failure) {
             try {
                 super.disable();
-            } catch (Exception ignored) {
+            } catch (Exception rollbackFailure) {
+                failure.addSuppressed(rollbackFailure);
             }
-            if (enabledSettings != null) enabledSettings.close();
+            if (enabledSettings != null) {
+                try {
+                    enabledSettings.close();
+                } catch (RuntimeException closeFailure) {
+                    failure.addSuppressed(closeFailure);
+                }
+            }
             throw failure;
         }
         context().logger().info("Turboism ACP enabled");
@@ -134,52 +135,42 @@ public final class TurboismAcpPlugin extends AbstractTurboismPlugin {
             settings = null;
             controller = null;
         }
-        Throwable failure = null;
         try {
             super.disable();
-        } catch (Throwable t) {
-            failure = t;
-        }
-        if (currentController != null) {
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Turboism ACP disposal failed", e);
+        } finally {
             try {
-                currentController.close();
-            } catch (Throwable t) {
-                if (failure == null) failure = t;
-                else failure.addSuppressed(t);
+                if (currentController != null) currentController.close();
+            } finally {
+                try {
+                    disposeFrames();
+                } finally {
+                    if (currentSettings != null) currentSettings.close();
+                }
             }
         }
-        try {
-            disposeFrames();
-        } catch (Throwable t) {
-            if (failure == null) failure = t;
-            else failure.addSuppressed(t);
-        }
-        if (currentSettings != null) {
-            try {
-                currentSettings.close();
-            } catch (Throwable t) {
-                if (failure == null) failure = t;
-                else failure.addSuppressed(t);
-            }
-        }
-        if (failure instanceof RuntimeException re) throw re;
-        if (failure instanceof Error err) throw err;
-        if (failure != null) throw new IllegalStateException("Turboism ACP disposal failed", failure);
     }
 
     @Override
     public void shutdown() {
-        disable();
         try {
-            super.shutdown();
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Turboism ACP shutdown failed", e);
-        }
-        synchronized (this) {
-            localization = null;
-            settings = null;
+            disable();
+        } finally {
+            try {
+                super.shutdown();
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new IllegalStateException("Turboism ACP shutdown failed", e);
+            } finally {
+                synchronized (this) {
+                    localization = null;
+                    settings = null;
+                }
+            }
         }
     }
 
