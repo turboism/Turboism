@@ -11,6 +11,8 @@ import dev.turboism.sdk.ui.workspace.WorkspaceId;
 import dev.turboism.sdk.ui.workspace.WorkspaceInfo;
 import dev.turboism.sdk.ui.workspace.WorkspaceOperationResult;
 import dev.turboism.sdk.ui.workspace.WorkspaceStatus;
+import dev.turboism.test.concurrent.Await;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -403,17 +405,14 @@ class WorkspaceCoordinatorTest {
     }
 
     private static void awaitState(
-            final AtomicReference<Thread> threadRef, final Thread.State expected, final String description)
-            throws InterruptedException {
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-        Thread thread = null;
-        while (thread == null || thread.getState() != expected) {
-            thread = threadRef.get();
-            if (System.nanoTime() > deadline) {
-                throw new AssertionError("timed out waiting for " + description);
-            }
-            Thread.sleep(5);
-        }
+            final AtomicReference<Thread> threadRef, final Thread.State expected, final String description) {
+        Await.condition(
+                description,
+                () -> {
+                    final Thread thread = threadRef.get();
+                    return thread != null && thread.getState() == expected;
+                },
+                Duration.ofSeconds(5));
     }
 
     private static final class ReentrantProvider implements WorkspaceHostProvider {

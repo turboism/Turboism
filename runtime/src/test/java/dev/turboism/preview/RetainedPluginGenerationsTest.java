@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.test.concurrent.Await;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
@@ -41,6 +42,7 @@ class RetainedPluginGenerationsTest {
                         reclaimed.set(true);
                         return true;
                     }));
+            // Intentionally assert nothing happens: reclaim must not run while worker is in flight.
             Thread.sleep(200);
             assertFalse(reclaimed.get(), "reclaim must not run while the lifecycle worker is still in flight");
             assertEquals(1, retention.retainedCount());
@@ -75,6 +77,7 @@ class RetainedPluginGenerationsTest {
                         reclaimed.set(true);
                         return true;
                     }));
+            // Intentionally assert nothing happens: disposal must wait for admitted SDK calls to drain.
             Thread.sleep(200);
             assertFalse(reclaimed.get(), "disposal must wait for admitted SDK calls to drain");
             release.countDown();
@@ -102,6 +105,7 @@ class RetainedPluginGenerationsTest {
                         reclaimed.set(true);
                         return true;
                     }));
+            // Intentionally assert nothing happens: an owner that never began closing must stay retained.
             Thread.sleep(200);
             assertFalse(reclaimed.get(), "an owner that never began closing must stay retained");
             owner.beginClosing();
@@ -127,6 +131,7 @@ class RetainedPluginGenerationsTest {
                     "pending", CompletableFuture.completedFuture(null), null, null, dormant::get, dormant::get));
             retention.retain(new RetainedPluginGenerations.RetainedGeneration(
                     ShellManifest.ID, CompletableFuture.completedFuture(null), null, null, () -> true, () -> true));
+            // Intentionally assert nothing happens: retained generation with unattempted cleanup stages holds barrier.
             Thread.sleep(200);
             assertFalse(
                     retention.drainedExcept(ShellManifest.ID),
@@ -167,14 +172,8 @@ class RetainedPluginGenerationsTest {
         }
     }
 
-    private static void awaitTrue(final java.util.function.BooleanSupplier condition) throws InterruptedException {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-        while (!condition.getAsBoolean()) {
-            if (System.nanoTime() > deadline) {
-                throw new AssertionError("condition did not become true in time");
-            }
-            Thread.sleep(10);
-        }
+    private static void awaitTrue(final java.util.function.BooleanSupplier condition) {
+        Await.condition("condition did not become true in time", condition, Duration.ofSeconds(10));
     }
 
     private static dev.turboism.core.runtime.RuntimeScheduler scheduler() {

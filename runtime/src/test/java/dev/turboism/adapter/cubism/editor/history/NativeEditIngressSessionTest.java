@@ -11,6 +11,8 @@ import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
+import dev.turboism.test.concurrent.Await;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -152,7 +154,7 @@ public class NativeEditIngressSessionTest {
 
         fixture.session.deactivate();
         fixture.makeEditorReady();
-        Thread.sleep(300L);
+        awaitRetryStopped(fixture);
 
         assertFalse(fixture.session.isAttached(), "cleanup must not be undone by a retry that was already in flight");
         assertEquals(0, fixture.manager.listenerCount());
@@ -166,7 +168,7 @@ public class NativeEditIngressSessionTest {
 
         fixture.session.close();
         fixture.makeEditorReady();
-        Thread.sleep(300L);
+        awaitRetryStopped(fixture);
 
         assertFalse(fixture.session.isAttached());
         assertFalse(fixture.session.bind(2L, fixture.resolver), "a closed session stays closed");
@@ -179,7 +181,7 @@ public class NativeEditIngressSessionTest {
         App.current = null;
 
         assertFalse(fixture.session.bind(1L, fixture.resolver));
-        Thread.sleep(300L);
+        awaitRetryStopped(fixture);
 
         assertFalse(fixture.session.isAttached(), "a host that never becomes ready stays inactive");
         assertFalse(fixture.retryStillRunning(), "the retry thread must not outlive its budget");
@@ -309,22 +311,12 @@ public class NativeEditIngressSessionTest {
         fixture.session.close();
     }
 
-    private static void awaitAttached(final Fixture fixture) throws Exception {
-        final long deadline = System.currentTimeMillis() + 5_000L;
-        while (System.currentTimeMillis() < deadline) {
-            if (fixture.session.isAttached()) return;
-            Thread.sleep(25L);
-        }
-        assertTrue(fixture.session.isAttached(), "the deferred bind never attached");
+    private static void awaitAttached(final Fixture fixture) {
+        Await.condition("the deferred bind never attached", fixture.session::isAttached, Duration.ofSeconds(5));
     }
 
-    private static void awaitRetryStopped(final Fixture fixture) throws Exception {
-        final long deadline = System.currentTimeMillis() + 5_000L;
-        while (System.currentTimeMillis() < deadline) {
-            if (!fixture.retryStillRunning()) return;
-            Thread.sleep(10L);
-        }
-        assertFalse(fixture.retryStillRunning(), "the startup retry did not finish");
+    private static void awaitRetryStopped(final Fixture fixture) {
+        Await.condition("the startup retry did not finish", () -> !fixture.retryStillRunning(), Duration.ofSeconds(5));
     }
 
     @Test

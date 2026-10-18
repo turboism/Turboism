@@ -11,9 +11,11 @@ import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.test.concurrent.Await;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.AbstractExecutorService;
@@ -76,6 +78,8 @@ class RuntimePluginManagementInstallWorkflowTest {
         try {
             actions.execute("install", new ActionRegistry.ActionContext() {});
             assertTrue(chooser.opened.await(1, TimeUnit.SECONDS));
+            // Intentionally assert nothing happens: holding chooser open past 50ms task timeout must not fire
+            // TIMED_OUT.
             Thread.sleep(120L);
             assertFalse(events.stream().anyMatch(event -> event.phase().name().equals("TIMED_OUT")), events.toString());
             assertTrue(results.isEmpty());
@@ -117,6 +121,8 @@ class RuntimePluginManagementInstallWorkflowTest {
         try {
             actions.execute("install", new ActionRegistry.ActionContext() {});
             assertTrue(chooser.opened.await(1, TimeUnit.SECONDS));
+            // Intentionally assert nothing happens: holding chooser open past 50ms task timeout must not fire
+            // TIMED_OUT.
             Thread.sleep(120L);
             chooser.complete(Optional.empty());
             assertTrue(completed.await(1, TimeUnit.SECONDS));
@@ -142,7 +148,10 @@ class RuntimePluginManagementInstallWorkflowTest {
         assertTrue(chooser.opened.await(1, TimeUnit.SECONDS));
         service.close();
         chooser.complete(Optional.of(source));
-        Thread.sleep(100L);
+        Await.condition(
+                "chooser closed and cancel result recorded",
+                () -> chooser.closed.get() && results.size() == 1,
+                Duration.ofSeconds(2));
 
         assertTrue(chooser.closed.get());
         assertEquals(1, results.size());

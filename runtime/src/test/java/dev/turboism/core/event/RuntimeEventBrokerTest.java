@@ -31,6 +31,7 @@ import dev.turboism.sdk.event.TurboismEvent;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.ui.table.SceneTableHeaderClickEvent;
 import dev.turboism.sdk.ui.table.SceneTableService;
+import dev.turboism.test.concurrent.Await;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -507,6 +508,7 @@ class RuntimeEventBrokerTest {
         subscriber.activate();
 
         assertTrue(delivered.await(1, TimeUnit.SECONDS));
+        // Intentionally assert nothing happens: verify no duplicate event is delivered within 50ms.
         Thread.sleep(50L);
         assertEquals(1, deliveries.get());
         scheduler.shutdown();
@@ -721,6 +723,7 @@ class RuntimeEventBrokerTest {
                 .anyMatch(
                         diagnostic -> diagnostic.code() == RuntimeEventBroker.DeliveryDiagnostic.Code.SUBSCRIBER_SLOW));
         // The second delivery's dedup check runs right after its latch: give the drain a beat.
+        // Intentionally assert nothing happens: two slow deliveries of one owner/type pair must diagnose exactly once.
         Thread.sleep(100L);
         assertEquals(
                 1,
@@ -732,14 +735,8 @@ class RuntimeEventBrokerTest {
         scheduler.shutdown();
     }
 
-    private static void awaitTrue(final java.util.function.BooleanSupplier condition) throws InterruptedException {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
-        while (!condition.getAsBoolean()) {
-            if (System.nanoTime() > deadline) {
-                throw new AssertionError("condition did not become true in time");
-            }
-            Thread.sleep(5L);
-        }
+    private static void awaitTrue(final java.util.function.BooleanSupplier condition) {
+        Await.condition("condition did not become true in time", condition, Duration.ofSeconds(2));
     }
 
     @Test
