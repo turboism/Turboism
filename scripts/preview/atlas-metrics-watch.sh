@@ -42,7 +42,7 @@ while [ -f "$sentinel" ]; do
     [ "${seen[$scope]}" = "1" ] || continue
     [ -d "$slices/$scope.scope" ] && continue
     seen[$scope]=done
-    last=$(tail -n 1 "$out/$scope.csv" 2>/dev/null | cut -d, -f3)
+    last=$(tail -n 1 "$out/$scope.csv" 2>/dev/null | cut -d, -f3) || last=""
     printf 'lastEpochMs=%s\nfinalPeakBytes=%s\n' "$(date +%s%3N)" "${last:--1}" >> "$out/$scope.properties"
     echo "scope ended: $scope finalPeak=$last" >&2
   done
