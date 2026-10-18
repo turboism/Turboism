@@ -18,26 +18,14 @@ public final class TabFilterPlugin extends AbstractTurboismPlugin {
 
     @Override
     public synchronized void init(final PluginContext context) {
-        try {
-            super.init(context);
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Tab filter initialization failed", e);
-        }
+        super.init(context);
         this.logger = context.logger();
         logger.info("TabFilterPlugin initialized");
     }
 
     @Override
     public synchronized void enable() {
-        try {
-            super.enable();
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Tab filter enable failed", e);
-        }
+        super.enable();
         if (enabled) {
             return;
         }
@@ -56,7 +44,8 @@ public final class TabFilterPlugin extends AbstractTurboismPlugin {
         } catch (RuntimeException | Error failure) {
             try {
                 super.disable();
-            } catch (Exception ignored) {
+            } catch (Exception rollbackFailure) {
+                failure.addSuppressed(rollbackFailure);
             }
             throw failure;
         }
