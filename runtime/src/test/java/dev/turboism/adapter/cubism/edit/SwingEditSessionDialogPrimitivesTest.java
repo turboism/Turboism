@@ -2,13 +2,13 @@ package dev.turboism.adapter.cubism.edit;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.test.concurrent.Await;
 import java.awt.GraphicsEnvironment;
 import java.awt.Window;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
@@ -147,18 +147,10 @@ final class SwingEditSessionDialogPrimitivesTest {
     }
 
     private static void awaitTrue(final java.util.function.Supplier<Boolean> condition) {
-        final long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(AWAIT_TIMEOUT_MS);
-        while (System.nanoTime() < deadlineNanos) {
-            if (Boolean.TRUE.equals(condition.get())) {
-                return;
-            }
-            try {
-                Thread.sleep(25L);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        }
+        Await.condition(
+                "condition not met within " + AWAIT_TIMEOUT_MS + "ms",
+                condition::get,
+                java.time.Duration.ofMillis(AWAIT_TIMEOUT_MS));
         assertTrue(condition.get(), "condition not met within " + AWAIT_TIMEOUT_MS + "ms");
     }
 

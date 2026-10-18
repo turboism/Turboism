@@ -44,6 +44,7 @@ import dev.turboism.sdk.ui.UserFileMode;
 import dev.turboism.sdk.ui.UserFileRequest;
 import dev.turboism.storage.RuntimePluginStorage;
 import dev.turboism.task.RuntimePluginTaskScheduler;
+import dev.turboism.test.concurrent.Await;
 import dev.turboism.userfile.RuntimeUserFileAccessService;
 import dev.turboism.userfile.UserFileGrantSource;
 import java.lang.reflect.Constructor;
@@ -521,6 +522,7 @@ class LocalPluginRuntimeCloseTest {
             sdkRelease.countDown();
             sdkCall.join(5_000);
             awaitTrue(() -> order.contains("held-disable") && order.contains("held-shutdown"));
+            // Intentionally assert nothing happens: disable and shutdown must not be called again after draining.
             Thread.sleep(200);
             assertEquals(
                     1,
@@ -576,14 +578,8 @@ class LocalPluginRuntimeCloseTest {
         }
     }
 
-    private static void awaitTrue(final java.util.function.BooleanSupplier condition) throws InterruptedException {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-        while (!condition.getAsBoolean()) {
-            if (System.nanoTime() > deadline) {
-                throw new AssertionError("condition did not become true in time");
-            }
-            Thread.sleep(10);
-        }
+    private static void awaitTrue(final java.util.function.BooleanSupplier condition) {
+        Await.condition("condition did not become true in time", condition, java.time.Duration.ofSeconds(10));
     }
 
     private ObjectNode previewRuntimeReport(final List<LocalPluginRuntime.LoadedPluginSummary> summaries) {
