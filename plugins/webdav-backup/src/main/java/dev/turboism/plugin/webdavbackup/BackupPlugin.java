@@ -118,11 +118,16 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
         } catch (Exception e) {
             throw new IllegalStateException("WebDAV backup plugin enable failed", e);
         }
-        startWorkers();
-        binding.enable();
-        refreshTarget();
-        registerMenuAndAction();
-        enabled = true;
+        try {
+            startWorkers();
+            binding.enable();
+            refreshTarget();
+            registerMenuAndAction();
+            enabled = true;
+        } catch (RuntimeException | Error failure) {
+            disable();
+            throw failure;
+        }
     }
 
     @Override
@@ -134,14 +139,21 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
         stopScanner();
         cancelTargetRetry();
         cleanupPendingTempArtifacts();
+        Throwable failure = null;
         try {
             super.disable();
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("WebDAV backup plugin disable failed", e);
+        } catch (Throwable t) {
+            failure = t;
         }
-        shutdownWorkers();
+        try {
+            shutdownWorkers();
+        } catch (Throwable t) {
+            if (failure == null) failure = t;
+            else failure.addSuppressed(t);
+        }
+        if (failure instanceof RuntimeException re) throw re;
+        if (failure instanceof Error err) throw err;
+        if (failure != null) throw new IllegalStateException("WebDAV backup plugin disable failed", failure);
     }
 
     @Override
@@ -482,6 +494,7 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
                                 requireContext(), binding, BackupPlugin.this::applySavedConfig);
                     }
                 });
+        disposalScope().register(action);
         final Registration menu = requireContext().menus().contribute(new MenuRegistry.MenuContribution() {
             @Override
             public String menuPath() {
@@ -498,7 +511,6 @@ public final class BackupPlugin extends AbstractTurboismPlugin implements ModelF
                 return MENU_ORDER;
             }
         });
-        disposalScope().register(action);
         disposalScope().register(menu);
     }
 
