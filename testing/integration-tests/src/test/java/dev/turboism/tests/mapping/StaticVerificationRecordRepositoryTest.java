@@ -58,10 +58,12 @@ class StaticVerificationRecordRepositoryTest {
             if (stream == null) {
                 throw new IllegalStateException("verification-record-pins.json test resource is missing");
             }
-            return new ObjectMapper()
+            final Map<String, String> pins = new ObjectMapper()
+                    .enable(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
                     .readValue(
                             stream,
                             new com.fasterxml.jackson.core.type.TypeReference<LinkedHashMap<String, String>>() {});
+            return Map.copyOf(pins);
         } catch (java.io.IOException failure) {
             throw new ExceptionInInitializerError(failure);
         }
@@ -278,7 +280,7 @@ class StaticVerificationRecordRepositoryTest {
     /**
      * Registers one repository expectation per emitted exact-version record not already pinned by
      * the hand-maintained tables above. All fields are derived from the record itself; the only
-     * literal pin is the record-file digest in {@link #EXPECTED_VERSIONED_RECORD_SHA256}, which
+     * independent pin is the record-file digest in {@link #EXPECTED_VERSIONED_RECORD_SHA256}, which
      * anchors the restated content.
      */
     private static Map<String, SliceExpectation> withVersionedRecords(final Map<String, SliceExpectation> existing) {
@@ -1355,6 +1357,18 @@ class StaticVerificationRecordRepositoryTest {
                 EXPECTATIONS.keySet(),
                 discovered.keySet(),
                 "registered expectations and tracked records must match bidirectionally");
+
+        assertEquals(
+                discovered.keySet(),
+                EXPECTED_VERSIONED_RECORD_SHA256.keySet(),
+                "verification pins and records must match bidirectionally; run :testing:integration-tests:updateVerificationPins");
+        for (final Map.Entry<String, Path> record : discovered.entrySet()) {
+            assertEquals(
+                    EXPECTED_VERSIONED_RECORD_SHA256.get(record.getKey()),
+                    HostArtifactDigest.from(record.getValue()).sha256(),
+                    "verification pin changed for " + record.getKey()
+                            + "; review the change and run :testing:integration-tests:updateVerificationPins");
+        }
 
         final Set<String> verificationIds = new HashSet<>();
         final Set<String> sliceVersions = new HashSet<>();
