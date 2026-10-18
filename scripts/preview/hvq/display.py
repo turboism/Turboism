@@ -14,8 +14,6 @@ from typing import TYPE_CHECKING, Any
 from .common import (
     X11_SOCKET_DIR,
     QueueError,
-    _delegate,
-    _entry_constant,
 )
 
 if TYPE_CHECKING:
@@ -31,25 +29,18 @@ def wake(store: Store) -> None:
             pass  # Durable state, not a datagram, is authoritative.
 
 
-def _default_xvfb_available() -> bool:
+def xvfb_available() -> bool:
     return shutil.which("Xvfb") is not None
 
 
-def xvfb_available() -> bool:
-    return _delegate("xvfb_available", xvfb_available, _default_xvfb_available)()
+def display_in_use(number: int) -> bool:
+    return os.path.lexists(os.path.join(X11_SOCKET_DIR, f"X{number}"))
 
 
-def display_in_use(number: int | str) -> bool:
-    num = str(number).lstrip(":").split(".", 1)[0]
-    socket_dir = _entry_constant("X11_SOCKET_DIR", X11_SOCKET_DIR)
-    return os.path.lexists(os.path.join(socket_dir, f"X{num}"))
-
-
-def _default_spawn_xvfb(display: str) -> subprocess.Popen | None:
+def spawn_xvfb(display: str) -> subprocess.Popen | None:
     """Start a private worker-owned X server; returns None when it is not ready."""
     number = display.lstrip(":")
-    socket_dir = _entry_constant("X11_SOCKET_DIR", X11_SOCKET_DIR)
-    socket_path = os.path.join(socket_dir, f"X{number}")
+    socket_path = os.path.join(X11_SOCKET_DIR, f"X{number}")
     try:
         process = subprocess.Popen(
             ["Xvfb", display, "-screen", "0", "1920x1080x24", "-nolisten", "tcp"],
@@ -66,10 +57,6 @@ def _default_spawn_xvfb(display: str) -> subprocess.Popen | None:
         time.sleep(0.05)
     terminate_process(process)
     return None
-
-
-def spawn_xvfb(display: str) -> subprocess.Popen | None:
-    return _delegate("spawn_xvfb", spawn_xvfb, _default_spawn_xvfb)(display)
 
 
 def terminate_process(process: subprocess.Popen) -> None:
@@ -132,8 +119,8 @@ def task_owned_session(command: bytes, environ: bytes, owned_markers: set[str]) 
                for marker in owned_markers)
 
 
-def _default_external_sessions(owned_markers: set[str] | frozenset[str] = frozenset(),
-                               proc_root: Path = Path("/proc")) -> list[int]:
+def external_sessions(owned_markers: set[str] | frozenset[str] = frozenset(),
+                      proc_root: Path = Path("/proc")) -> list[int]:
     """Read-only conservative check; never kill or adopt an unknown session."""
     found = []
     for path in proc_root.iterdir():
@@ -157,20 +144,6 @@ def _default_external_sessions(owned_markers: set[str] | frozenset[str] = frozen
         except PermissionError as failure:
             raise QueueError("cannot inspect host processes safely") from failure
     return sorted(found)
-
-
-def external_sessions(owned_markers: set[str] | frozenset[str] = frozenset(),
-                      proc_root: Path = Path("/proc")) -> list[int]:
-    target = _delegate("external_sessions", external_sessions, _default_external_sessions)
-    if target is not _default_external_sessions:
-        try:
-            return target(owned_markers, proc_root=proc_root)
-        except TypeError:
-            try:
-                return target(owned_markers)
-            except TypeError:
-                return target()
-    return _default_external_sessions(owned_markers, proc_root=proc_root)
 
 
 def scope_identity(raw: dict[str, Any]) -> dict[str, Any]:

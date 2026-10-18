@@ -19,7 +19,6 @@ from .common import (
     QUEUE_PROTOCOL,
     SCHEMA,
     QueueError,
-    _entry_constant,
     atomic_json,
     canonical_json,
     digest_json,
@@ -196,8 +195,6 @@ def tree_inventory(root: Path) -> dict[str, str]:
         raise QueueError(f"missing snapshot input: {root}")
     entries: dict[str, str] = {}
     for path in sorted(root.rglob("*")):
-        if "__pycache__" in path.parts or path.suffix == ".pyc":
-            continue
         if path.is_symlink():
             raise QueueError(f"snapshot input contains symlink: {path}")
         if path.is_file():
@@ -216,7 +213,7 @@ def copy_verified(source: Path, destination: Path) -> None:
     before = tree_inventory(source)
     destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     if source.is_dir():
-        shutil.copytree(source, destination, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        shutil.copytree(source, destination)
     else:
         shutil.copyfile(source, destination)
         destination.chmod(source.stat().st_mode & 0o700)
@@ -406,7 +403,7 @@ class PreparedStore:
     def capture(self, request: dict[str, Any], source_root: Path,
                 task_spec: str, *, resources: list[str] | None = None) -> dict[str, Any]:
         from host_validation_retention import check_space
-        if getattr(self.store, "production", False):
+        if self.store.production:
             check_space(self.store.root)
         with storage_lock(self.store.root):
             return self._capture(request, source_root, task_spec, resources)
@@ -439,7 +436,7 @@ class PreparedStore:
         memory_dependency = memory_observer_dependency(argv, source_root, task_spec)
         mcp_dependency = mcp_client_dependency(argv, source_root, task_spec)
         edit_protocol_dependency = edit_protocol_client_dependency(argv, source_root, task_spec)
-        if getattr(self.store, "production", False) and "--host-root" in argv:
+        if self.store.production and "--host-root" in argv:
             from host_validation_retention import check_space
             check_space(self.store.root, (Path(argv[argv.index("--host-root") + 1]),))
         with tempfile.TemporaryDirectory(dir=self.store.root / "staging") as temporary:
@@ -453,13 +450,21 @@ class PreparedStore:
             for path in sorted((source_root / "scripts/preview").iterdir()):
                 if path.suffix in {".sh", ".py", ".json"} and path.is_file():
                     copy_verified(path, tool_dir / path.name)
-                elif path.is_dir() and ((path / "__init__.py").is_file() or path.name == "hvq"):
-                    copy_verified(path, tool_dir / path.name)
+            hvq_source = source_root / "scripts/preview/hvq"
+            if not (hvq_source / "__init__.py").is_file():
+                raise QueueError("missing canonical runner/helper: hvq")
+            hvq_tool = tool_dir / "hvq"
+            hvq_tool.mkdir(mode=0o700, parents=True)
+            for path in sorted(hvq_source.iterdir()):
+                if path.suffix == ".py" and path.is_file():
+                    copy_verified(path, hvq_tool / path.name)
             for required in ("run-cubism-host-validation.sh", "host-validation-env.sh", "host-validation-transport.sh",
                              "archive-cubism-host-evidence.sh", "host_validation.py", "host_validation_queue.py",
                              "host_validation_containment.py", "host_validation_evidence.py"):
                 if not (tool_dir / required).is_file():
                     raise QueueError(f"missing canonical runner/helper: {required}")
+            if not (hvq_tool / "__init__.py").is_file():
+                raise QueueError("missing canonical runner/helper: hvq")
             rendered: list[str] = []
             source_inputs: list[dict[str, Any]] = []
             host_dependencies: list[dict[str, str]] = [
@@ -604,7 +609,7 @@ class PreparedStore:
             if resources is not None:
                 resources = sorted(resources)
             descriptor = {"schemaVersion": SCHEMA, "taskSpec": task_spec, "argv": rendered,
-                "queueProtocol": _entry_constant("QUEUE_PROTOCOL", QUEUE_PROTOCOL), "resources": resources,
+                "queueProtocol": QUEUE_PROTOCOL, "resources": resources,
                 "source": {"worktree": str(source_root), "head": head, "dirtyDigest": dirty_hash},
                 "sourceInputs": source_inputs, "hostDependencies": host_dependencies, "inventory": tree_inventory(stage)}
             digest = digest_json(descriptor)

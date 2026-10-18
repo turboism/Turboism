@@ -10,7 +10,6 @@ from pathlib import Path
 import pwd
 import sqlite3
 import stat
-import sys
 from typing import Any, Iterator
 import uuid
 
@@ -63,24 +62,6 @@ class NoHostSideEffects(QueueError):
     """A verified read-only preflight failed before any contained process start."""
 
 
-def _delegate(name: str, wrapper_func: Any, default_func: Any) -> Any:
-    """Delegate to an overridden attribute on host_validation_queue when patched."""
-    entry = sys.modules.get("host_validation_queue")
-    if entry is not None:
-        target = entry.__dict__.get(name)
-        if target is not None and target is not wrapper_func and target is not default_func:
-            return target
-    return default_func
-
-
-def _entry_constant(name: str, default: Any) -> Any:
-    """Read a constant from host_validation_queue when monkey-patched, else default."""
-    entry = sys.modules.get("host_validation_queue")
-    if entry is not None:
-        return entry.__dict__.get(name, default)
-    return default
-
-
 def canonical_json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
@@ -89,13 +70,9 @@ def digest_json(value: Any) -> str:
     return hashlib.sha256(canonical_json(value).encode()).hexdigest()
 
 
-def _default_account_root() -> Path:
+def account_root() -> Path:
     # HOME/XDG/cwd must not split one user's host into independent lock domains.
     return Path(pwd.getpwuid(os.getuid()).pw_dir) / ".local/state/turboism/host-validation"
-
-
-def account_root() -> Path:
-    return _delegate("account_root", account_root, _default_account_root)()
 
 
 def private_directory(path: Path) -> Path:
@@ -182,7 +159,6 @@ class FileLock:
 @contextlib.contextmanager
 def storage_lock(root: Path, *, exclusive: bool = False) -> Iterator[None]:
     """Readers prepare/submit concurrently; collection needs an idle storage domain."""
-    root.mkdir(mode=0o700, parents=True, exist_ok=True)
     fd = os.open(root / "storage.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
     try:
         info = os.fstat(fd)
