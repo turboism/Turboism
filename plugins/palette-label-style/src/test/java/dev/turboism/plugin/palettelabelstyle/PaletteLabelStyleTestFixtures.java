@@ -53,7 +53,7 @@ final class PaletteLabelStyleTestFixtures {
         final RecordingPluginLogger logger = new RecordingPluginLogger();
 
         RecordingPluginContext() {
-            super(FakePluginContext.builder());
+            super(FakePluginContext.builder().localization(passThroughLocalization()));
         }
 
         @Override
