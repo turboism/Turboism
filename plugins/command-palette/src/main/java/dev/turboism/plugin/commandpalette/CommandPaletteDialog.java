@@ -106,11 +106,7 @@ final class CommandPaletteDialog {
         dialog.setUndecorated(true);
         input = new HintField();
         model = new DefaultListModel<>();
-        list = new JList<>(model);
-        list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        list.setCellRenderer(new MatchRenderer());
-        list.setFocusable(false);
-        list.setFixedCellHeight(ROW_HEIGHT);
+        list = createResultList(model);
         listScroll = new JScrollPane(list);
         listScroll.setBorder(BorderFactory.createEmptyBorder());
         listScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
@@ -166,6 +162,20 @@ final class CommandPaletteDialog {
                 close();
             }
         });
+    }
+
+    /** Creates the result view independently of the native dialog. */
+    static JList<CommandMatcher.Match> createResultList(final DefaultListModel<CommandMatcher.Match> model) {
+        final JList<CommandMatcher.Match> result = new JList<>(model);
+        result.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        result.setCellRenderer(new MatchRenderer());
+        result.setFocusable(false);
+        result.setFixedCellHeight(ROW_HEIGHT);
+        // The scroll viewport supplies the actual row width. Without a fixed width,
+        // BasicListUI HTML-renders every result to measure it after each model change,
+        // including rows outside the ten visible slots, blocking input on the EDT.
+        result.setFixedCellWidth(1);
+        return result;
     }
 
     /** Shows the palette, or brings it to the front when already open. No-op headless. */
@@ -273,9 +283,7 @@ final class CommandPaletteDialog {
     private void refreshMatches() {
         matches = CommandMatcher.match(input.getText(), entries);
         model.clear();
-        for (final CommandMatcher.Match match : matches) {
-            model.addElement(match);
-        }
+        model.addAll(matches);
         if (!matches.isEmpty()) {
             list.setSelectedIndex(0);
             list.ensureIndexIsVisible(0);
