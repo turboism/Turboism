@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import dev.turboism.mapping.verification.SliceRegistry;
-import dev.turboism.mapping.verification.VerifiedEditorModelResolverFactory;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.ui.overlay.BoundingBoxOverlayButtonUpdateTransformer;
 import java.io.IOException;
@@ -56,7 +55,9 @@ class ExactArtifactRecordVerificationTest {
                                             .create(r, a, l)),
                             new Slice(
                                     "cubism-5.2.03-editor-model.json",
-                                    (r, a, l) -> new VerifiedEditorModelResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.EDITOR_MODEL
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.2.03-ui-main-toolbar.json",
                                     (r, a, l) -> SliceRegistry.MAIN_TOOLBAR
@@ -91,7 +92,9 @@ class ExactArtifactRecordVerificationTest {
                                             .create(r, a, l)),
                             new Slice(
                                     "cubism-5.3.02-editor-model.json",
-                                    (r, a, l) -> new VerifiedEditorModelResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.EDITOR_MODEL
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.3.02-ui-main-toolbar.json",
                                     (r, a, l) -> SliceRegistry.MAIN_TOOLBAR
@@ -126,7 +129,9 @@ class ExactArtifactRecordVerificationTest {
                                             .create(r, a, l)),
                             new Slice(
                                     "cubism-5.3.03-editor-model.json",
-                                    (r, a, l) -> new VerifiedEditorModelResolverFactory().create(r, a, l)),
+                                    (r, a, l) -> SliceRegistry.EDITOR_MODEL
+                                            .resolverFactory()
+                                            .create(r, a, l)),
                             new Slice(
                                     "cubism-5.3.03-ui-main-toolbar.json",
                                     (r, a, l) -> SliceRegistry.MAIN_TOOLBAR

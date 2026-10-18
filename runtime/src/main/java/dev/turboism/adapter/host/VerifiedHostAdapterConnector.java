@@ -19,8 +19,6 @@ import dev.turboism.mapping.verification.SliceContract;
 import dev.turboism.mapping.verification.SliceRegistry;
 import dev.turboism.mapping.verification.SliceResolverFactory;
 import dev.turboism.mapping.verification.TopMenuVerificationManifest;
-import dev.turboism.mapping.verification.VerifiedCorePublicApiResolverFactory;
-import dev.turboism.mapping.verification.VerifiedEditorModelResolverFactory;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.ui.appearance.AppearanceHostProvider;
@@ -86,7 +84,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     VerifiedHostAdapterConnector() {
         this(
                 new VerifiedRuntimeHostAdaptersFactory()::create,
-                slice -> resolverForSlice(slice, new VerifiedEditorModelResolverFactory()),
+                slice -> resolverForSlice(slice, SliceRegistry.EDITOR_MODEL.resolverFactory()),
                 VerifiedHostAdapterConnector::productionEditorAccess,
                 slice -> resolverForSlice(slice, SliceRegistry.MAIN_TOOLBAR.resolverFactory()),
                 slice -> resolverForSlice(slice, SliceRegistry.EMBEDDED_PANEL.resolverFactory()),
@@ -104,7 +102,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     VerifiedHostAdapterConnector(final VerifiedAdapterFactory factory) {
         this(
                 factory,
-                slice -> resolverForSlice(slice, new VerifiedEditorModelResolverFactory()),
+                slice -> resolverForSlice(slice, SliceRegistry.EDITOR_MODEL.resolverFactory()),
                 VerifiedHostAdapterConnector::productionEditorAccess,
                 slice -> resolverForSlice(slice, SliceRegistry.MAIN_TOOLBAR.resolverFactory()),
                 slice -> resolverForSlice(slice, SliceRegistry.EMBEDDED_PANEL.resolverFactory()),
@@ -678,7 +676,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     private static RuntimeCoreModelBackend coreMaterial(final HostVerificationEvidence evidence) throws Exception {
         if (evidence.coreRuntime().isEmpty()) return null;
         final HostVerificationEvidence.Slice slice = evidence.coreRuntime().orElseThrow();
-        final VerifiedMemberResolver resolver = resolverForSlice(slice, new VerifiedCorePublicApiResolverFactory());
+        final VerifiedMemberResolver resolver =
+                resolverForSlice(slice, SliceRegistry.CORE_PUBLIC_API.resolverFactory());
         final var admission = RuntimeCoreModelBackend.admit(
                 resolver, CoreVersionExpectation.reviewedProfile(resolver.admittedCubismVersion()));
         if (!admission.isSuccess()) {

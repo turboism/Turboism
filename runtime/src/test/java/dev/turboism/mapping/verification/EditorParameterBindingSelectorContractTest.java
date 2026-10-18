@@ -28,7 +28,8 @@ class EditorParameterBindingSelectorContractTest {
                 "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         final Path artifact = LEGACY_EVIDENCE.resolve(artifactDirectory + "/jars/Live2D_Cubism.jar");
         try (URLClassLoader loader = loader(artifact)) {
-            final VerifiedMemberResolver resolver = new VerifiedEditorModelResolverFactory()
+            final VerifiedMemberResolver resolver = SliceRegistry.EDITOR_MODEL
+                    .resolverFactory()
                     .create(PROJECT_ROOT.resolve("compatibility/cubism/verification/" + recordName), artifact, loader);
             assertTrue(resolver.authorizesFeature(
                     EditorParameterBindingReadSelectorContract.ADAPTER_SLICE_ID,
