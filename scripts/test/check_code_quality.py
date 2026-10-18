@@ -44,10 +44,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
-if _SCRIPTS_DIR not in sys.path:
-    sys.path.insert(0, _SCRIPTS_DIR)
-from turboism_dev.paths import repo_root
 
 PRODUCTION_ROOTS = (
     "sdk/src/main/java",
@@ -519,7 +515,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    root = repo_root(args.root)
+    root = Path(args.root).resolve()
     selected = [rule.strip() for rule in args.rules.split(",") if rule.strip()]
     unknown = [rule for rule in selected if rule not in CHECKS]
     if unknown:

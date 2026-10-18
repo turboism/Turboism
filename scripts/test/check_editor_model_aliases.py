@@ -21,7 +21,6 @@ _SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 from turboism_dev.json_io import read_json
-from turboism_dev.paths import repo_root
 
 IMPLEMENTATION_ROOT = "runtime/src/main/java"
 BASE_RECORDS = (
@@ -168,7 +167,7 @@ def main() -> int:
     parser.add_argument("--report", action="store_true", help="print both comparison directions")
     args = parser.parse_args()
 
-    root = repo_root(args.root)
+    root = Path(args.root).resolve()
     implementation = implementation_aliases(root)
     try:
         union, per_record = record_aliases(root)
