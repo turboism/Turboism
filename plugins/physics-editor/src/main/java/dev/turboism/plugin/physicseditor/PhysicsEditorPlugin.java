@@ -10,7 +10,7 @@ public final class PhysicsEditorPlugin extends AbstractTurboismPlugin {
     private boolean enabled;
 
     @Override
-    public synchronized void enable() throws Exception {
+    public synchronized void enable() {
         super.enable();
         if (enabled) {
             return;
