@@ -50,7 +50,9 @@ public class RecordingUiHost implements UiHostCapabilityService {
     public final List<StatusNotification> notifications = new CopyOnWriteArrayList<>();
     public final List<DialogRequest> dialogs = new CopyOnWriteArrayList<>();
     public final List<EmbeddedPanelContribution> embeddedPanels = new CopyOnWriteArrayList<>();
+    public final List<EmbeddedPanelContribution> panels = embeddedPanels;
     public final List<CollapsibleSectionContribution> collapsibleSections = new CopyOnWriteArrayList<>();
+    public final List<CollapsibleSectionContribution> sections = collapsibleSections;
     public final List<ColorPickerCall> colorPickers = new CopyOnWriteArrayList<>();
     public final List<ColorPickerResultListener> colorPickerListeners = new CopyOnWriteArrayList<>();
     public final List<OverlayContribution> overlays = new CopyOnWriteArrayList<>();
