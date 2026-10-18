@@ -15,16 +15,18 @@ from pathlib import Path
 import pwd
 import sqlite3
 import stat
+import sys
 import time
 from typing import Any, Iterator
 import uuid
 
-import _bootstrap  # noqa: F401
+_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
 from turboism_dev.json_io import read_json
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 import multiprocessing
 import select

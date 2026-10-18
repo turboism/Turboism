@@ -63,7 +63,9 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-import _bootstrap  # noqa: F401
+_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
 from turboism_dev.versions import framework_version
 
 from plugin_event_metadata import (
