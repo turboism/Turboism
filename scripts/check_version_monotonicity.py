@@ -44,7 +44,15 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+from turboism_dev.json_io import read_json
+from turboism_dev.paths import repo_root
+from turboism_dev.versions import (
+    compact_to_dotted as compact_to_dotted_impl,
+    missing_higher,
+    parse_cubism_version,
+)
+
+ROOT = repo_root()
 
 REVIEWED_HOST_ARTIFACTS = Path(
     "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java"
@@ -122,16 +130,17 @@ class Finding:
 
 
 def parse_dotted(token: str) -> tuple[int, int]:
-    match = DOTTED.fullmatch(token)
-    if match is None:
-        raise MonotonicityError(f"unsupported version token: {token!r}")
-    return int(match.group(1)), int(match.group(2))
+    try:
+        return parse_cubism_version(token)
+    except ValueError as exc:
+        raise MonotonicityError(str(exc)) from exc
 
 
 def compact_to_dotted(token: str) -> str:
-    if not COMPACT.fullmatch(token):
-        raise MonotonicityError(f"unsupported compact version token: {token!r}")
-    return f"5.{int(token[1:-2])}.{int(token[-2:]):0>2}"
+    try:
+        return compact_to_dotted_impl(token)
+    except ValueError as exc:
+        raise MonotonicityError(str(exc)) from exc
 
 
 def _read(root: Path, relative: Path) -> str:
@@ -157,18 +166,6 @@ def admitted_versions(root: Path) -> set[str]:
             f"{REVIEWED_HOST_ARTIFACTS}: no CUBISM_*_VERSION constants found"
         )
     return versions
-
-
-def missing_higher(declared: set[str], admitted: set[str]) -> set[str]:
-    """Admitted patches required by upward closure that ``declared`` skips."""
-    missing = set()
-    for version in declared:
-        minor, patch = parse_dotted(version)
-        for other in admitted:
-            other_minor, other_patch = parse_dotted(other)
-            if other_minor == minor and other_patch > patch and other not in declared:
-                missing.add(other)
-    return missing
 
 
 # --------------------------------------------------------------------------
@@ -448,7 +445,7 @@ def collect_verification_records(
         if name_match is None:
             continue
         try:
-            document = json.loads(record.read_text(encoding="utf-8"))
+            document = read_json(record)
         except json.JSONDecodeError as exc:
             problems.append(f"{VERIFICATION_DIR}/{record.name}: invalid JSON: {exc}")
             continue
@@ -508,7 +505,7 @@ def collect_class_pins(
         return findings, problems
     for pin in sorted(base.glob("*.json")):
         try:
-            document = json.loads(pin.read_text(encoding="utf-8"))
+            document = read_json(pin)
         except json.JSONDecodeError as exc:
             problems.append(f"{CLASS_PINS_DIR}/{pin.name}: invalid JSON: {exc}")
             continue
@@ -572,7 +569,7 @@ def collect_mcp_coverage(
     if not path.is_file():
         return findings, problems
     try:
-        document = json.loads(path.read_text(encoding="utf-8"))
+        document = read_json(path)
     except json.JSONDecodeError as exc:
         problems.append(f"{MCP_SDK_COVERAGE}: invalid JSON: {exc}")
         return findings, problems
@@ -605,7 +602,7 @@ def load_exceptions(root: Path) -> tuple[list[dict], list[str]]:
     if not path.is_file():
         return [], []
     try:
-        document = json.loads(path.read_text(encoding="utf-8"))
+        document = read_json(path)
     except json.JSONDecodeError as exc:
         raise MonotonicityError(f"{EXCEPTIONS_FILE}: invalid JSON: {exc}") from exc
     problems = []
