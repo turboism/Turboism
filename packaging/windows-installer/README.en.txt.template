@@ -36,7 +36,7 @@ Unchecking the option does not remove an engine installed earlier.
 2. Usage
 --------
 1. Place the whole folder anywhere, for example %LOCALAPPDATA%\Turboism.
-2. Run configure_turboism.ps1. It discovers standard Cubism 5.2 and 5.3
+2. Run configure_turboism.ps1. It discovers standard Cubism 5.0–5.3
    family candidates (including patch-suffixed names) from CUBISM_ROOT, Windows
    install records, known program locations, and bounded fixed-drive checks.
    You can also add a folder with the file picker. It checks the official
@@ -93,7 +93,7 @@ without changing payload.
 
 5. FAQ
 ------
-- No installation is selectable: confirm a 5.2/5.3 family root contains
+- No installation is selectable: confirm a 5.0–5.3 family root contains
   CubismEditor5.bat, app\jre\bin\java.exe, and app\lib\Live2D_Cubism.jar;
   exact patch admission is still decided by runtime identity checks.
 - Multiple versions are listed: use the per-root Start Menu entry or pass
