@@ -19,9 +19,9 @@ import sys
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Sequence
 
-from turboism_dev.versions import cubism_version_key, Sequence
+from turboism_dev.versions import cubism_version_key
 
 FORMAT = "turboism.cubism-core.public-api"
 SCHEMA_VERSION = 1
