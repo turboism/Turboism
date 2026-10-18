@@ -45,10 +45,9 @@ public abstract class AbstractTurboismPlugin implements TurboismPlugin {
      * @param context the plugin's runtime view, never {@code null}
      * @throws NullPointerException when {@code context} is null
      * @throws IllegalStateException when this plugin is already initialized or has been shut down
-     * @throws Exception when initialization fails
      */
     @Override
-    public void init(final PluginContext context) throws Exception {
+    public void init(final PluginContext context) {
         Objects.requireNonNull(context, "context");
         synchronized (lock) {
             if (shutDown) {
@@ -71,10 +70,9 @@ public abstract class AbstractTurboismPlugin implements TurboismPlugin {
      *
      * @throws IllegalStateException when called before {@link #init(PluginContext)}
      *     or after {@link #shutdown()}
-     * @throws Exception when enabling fails
      */
     @Override
-    public void enable() throws Exception {
+    public void enable() {
         context();
     }
 
