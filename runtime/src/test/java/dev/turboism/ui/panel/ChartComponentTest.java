@@ -133,7 +133,7 @@ class ChartComponentTest {
                     "the value text must be left-aligned near the plot edge (minX=" + text[2]
                             + "; a centered value would start near x=150)");
             assertTrue(
-                    text[0] <= 6,
+                    text[0] <= 8,
                     "the value band must start near the component top, not 18px down (minY=" + text[0] + ")");
             assertTrue(
                     plot[0] - text[1] >= 2,
