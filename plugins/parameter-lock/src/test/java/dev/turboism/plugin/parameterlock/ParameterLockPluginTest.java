@@ -200,7 +200,7 @@ class ParameterLockPluginTest {
         // Verify file in storage is preserved!
         final StoragePath storagePath =
                 ParameterLockStorage.storagePathFor(modelA.id().value());
-        assertTrue(context.storage.content(storagePath).isPresent());
+        assertNotNull(context.storage.content(storagePath));
 
         // Re-enable plugin
         plugin.enable();
@@ -473,7 +473,7 @@ class ParameterLockPluginTest {
         assertTrue(context.storage.readStarted().await(2, TimeUnit.SECONDS));
         gate.complete(null);
         awaitCondition(() -> {
-            final String json = context.storage.content(path).orElse(null);
+            final String json = context.storage.content(path);
             return json != null
                     && ParameterLockData.fromMap(Json.parseObject(json))
                             .lockedParameterIds()
@@ -489,9 +489,7 @@ class ParameterLockPluginTest {
         context.activeModel = modelB;
         invokeSelected(ParameterLockPlugin.ACTION_LOCK_SELECTED, "PARAM_BODY_ANGLE_Z");
         plugin.shutdown();
-        final String json = context.storage
-                .content(ParameterLockStorage.storagePathFor(guid))
-                .orElse(null);
+        final String json = context.storage.content(ParameterLockStorage.storagePathFor(guid));
         assertNotNull(json);
         assertEquals(
                 Set.of("PARAM_BODY_ANGLE_Z"),
@@ -514,7 +512,7 @@ class ParameterLockPluginTest {
         assertTrue(context.storage.readStarted().await(2, TimeUnit.SECONDS));
         gate.complete(null);
         awaitCondition(() -> {
-            final String json = context.storage.content(path).orElse(null);
+            final String json = context.storage.content(path);
             return json != null
                     && ParameterLockData.fromMap(Json.parseObject(json))
                             .lockedParameterIds()
