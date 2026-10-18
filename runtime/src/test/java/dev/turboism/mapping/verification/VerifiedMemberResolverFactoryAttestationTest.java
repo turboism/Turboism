@@ -29,15 +29,7 @@ class VerifiedMemberResolverFactoryAttestationTest {
                 new URLClassLoader(new URL[] {runtime.jar().toUri().toURL()}, ClassLoader.getPlatformClassLoader())) {
             assertThrows(
                     IllegalArgumentException.class,
-                    () -> new VerifiedMemberResolverFactory()
-                            .create(
-                                    record,
-                                    verified.jar(),
-                                    runtimeLoader,
-                                    "fixture.attested",
-                                    "adapter.test",
-                                    Set.of("test.capability"),
-                                    Set.of("host.value")));
+                    () -> factoryFor(record).create(record, verified.jar(), runtimeLoader));
         }
     }
 
@@ -47,18 +39,42 @@ class VerifiedMemberResolverFactoryAttestationTest {
         Path record = recordFor(verified.jar());
         try (URLClassLoader runtimeLoader =
                 new URLClassLoader(new URL[] {verified.jar().toUri().toURL()}, ClassLoader.getPlatformClassLoader())) {
-            VerifiedMemberResolver resolver = new VerifiedMemberResolverFactory()
-                    .create(
-                            record,
-                            verified.jar(),
-                            runtimeLoader,
-                            "fixture.attested",
-                            "adapter.test",
-                            Set.of("test.capability"),
-                            Set.of("host.value"));
+            VerifiedMemberResolver resolver = factoryFor(record).create(record, verified.jar(), runtimeLoader);
             Object host =
                     runtimeLoader.loadClass("attested.Host").getConstructor().newInstance();
             assertEquals("verified", resolver.invoke("host.value", host));
+        }
+    }
+
+    private static SliceResolverFactory factoryFor(final Path record) throws Exception {
+        final var loaded = new StaticVerificationRecordLoader().load(record);
+        final var data = loaded.record();
+        final var manifest = new PinnedVerifiedResolverWorkflow.Manifest(
+                data.verificationId(),
+                loaded.sha256(),
+                data.cubismVersion(),
+                data.profileId(),
+                data.artifact().size(),
+                data.artifact().sha256(),
+                data.adapterSliceId(),
+                Set.copyOf(data.capabilityIds()),
+                Set.of("host.value"));
+        return new SliceDescriptor(data.adapterSliceId(), ignored -> manifest).resolverFactory();
+    }
+
+    @Test
+    void rejectsRecordChangesBeforeResolvingSelectors() throws Exception {
+        final var host = compileHost("verified");
+        final Path record = recordFor(host.jar());
+        final var factory = factoryFor(record);
+        final var tree = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(record.toFile());
+        tree.put("verifiedBy", "self-issued-test");
+        mapper.writeValue(record.toFile(), tree);
+        try (URLClassLoader loader =
+                new URLClassLoader(new URL[] {host.jar().toUri().toURL()}, ClassLoader.getPlatformClassLoader())) {
+            final var failure =
+                    assertThrows(IllegalArgumentException.class, () -> factory.create(record, host.jar(), loader));
+            assertEquals("verification record is not the reviewed trust-root record", failure.getMessage());
         }
     }
 

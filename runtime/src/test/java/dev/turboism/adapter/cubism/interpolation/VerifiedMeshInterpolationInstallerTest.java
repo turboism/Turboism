@@ -2,12 +2,21 @@ package dev.turboism.adapter.cubism.interpolation;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import dev.turboism.mapping.verification.HostArtifactDigest;
+import java.io.IOException;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.FileTime;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 final class VerifiedMeshInterpolationInstallerTest {
+    @org.junit.jupiter.api.io.TempDir
+    Path temporary;
+
     @Test
     void productInstallationEnablesVerifiedCoefficientsOnlyForItsLifetime() {
         String previous = System.getProperty("turboism.meshInterpolation.coefficients");
@@ -110,5 +119,69 @@ final class VerifiedMeshInterpolationInstallerTest {
         }
         assertEquals(2, adds.get());
         assertEquals(2, removes.get());
+    }
+
+    @Test
+    void bridgeConsolidatesToReviewedArtifactSource() {
+        assertEquals(
+                dev.turboism.mapping.verification.ReviewedHostArtifacts.reviewedSha256s(),
+                NativeMeshInterpolationBridge.HOST_SHA256S);
+    }
+
+    @Test
+    void bridgeRejectsForeignArtifactsEvenAfterTheirFingerprintIsCached() throws Exception {
+        final Path jar = Files.writeString(temporary.resolve("host.jar"), "foreign content");
+        assertEquals(HostArtifactDigest.from(jar), NativeMeshInterpolationBridge.hostArtifactDigest(jar));
+        assertFalse(NativeMeshInterpolationBridge.isAdmittedHostArtifact(jar));
+        assertThrows(
+                IllegalArgumentException.class, () -> NativeMeshInterpolationBridge.requireAdmittedHostArtifact(jar));
+    }
+
+    @Test
+    void fingerprintCacheStreamsOnlyOnceForUnchangedCanonicalFile() throws Exception {
+        final Path jar = Files.writeString(temporary.resolve("host.jar"), "measured content");
+        final AtomicInteger reads = new AtomicInteger();
+        final var cache = new HostArtifactDigestCache(path -> {
+            reads.incrementAndGet();
+            return HostArtifactDigest.from(path);
+        });
+        final var expected = HostArtifactDigest.from(jar);
+        assertEquals(expected, cache.digest(jar));
+        assertEquals(expected, cache.digest(jar.getParent().resolve(".").resolve(jar.getFileName())));
+        assertEquals(1, reads.get());
+    }
+
+    @Test
+    void fingerprintCacheInvalidatesChangedReplacedAndDeletedFiles() throws Exception {
+        final Path jar = Files.writeString(temporary.resolve("host.jar"), "initial content");
+        final var cache = new HostArtifactDigestCache();
+        final var first = cache.digest(jar);
+        Files.writeString(jar, "longer modified content");
+        assertNotEquals(first, cache.digest(jar));
+        final var modified = cache.digest(jar);
+        final FileTime timestamp = Files.getLastModifiedTime(jar);
+        final Path replacement = Files.writeString(temporary.resolve("replacement.jar"), "changed content of size");
+        Files.setLastModifiedTime(replacement, timestamp);
+        Files.move(replacement, jar, StandardCopyOption.REPLACE_EXISTING);
+        assertNotEquals(modified, cache.digest(jar));
+        assertEquals(HostArtifactDigest.from(jar), cache.digest(jar));
+        Files.delete(jar);
+        assertThrows(IOException.class, () -> cache.digest(jar));
+    }
+
+    @Test
+    void fingerprintCacheDoesNotPublishArtifactChangedDuringHashing() throws Exception {
+        final Path jar = Files.writeString(temporary.resolve("host.jar"), "initial content");
+        final AtomicInteger reads = new AtomicInteger();
+        final var cache = new HostArtifactDigestCache(path -> {
+            final var digest = HostArtifactDigest.from(path);
+            if (reads.getAndIncrement() == 0) {
+                Files.writeString(path, "content changed while hashing");
+            }
+            return digest;
+        });
+        assertThrows(IOException.class, () -> cache.digest(jar));
+        assertEquals(HostArtifactDigest.from(jar), cache.digest(jar));
+        assertEquals(2, reads.get());
     }
 }

@@ -1,6 +1,6 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory;
+import dev.turboism.mapping.verification.SliceRegistry;
 
 /** Declarative contributor for the verified floating-frame dispose hook. */
 final class FloatingFrameDisposeHookContributor implements HookContributor {
@@ -34,7 +34,7 @@ final class FloatingFrameDisposeHookContributor implements HookContributor {
     public AutoCloseable install(final HookEnvironment environment) throws Exception {
         final var host = environment.host().orElseThrow();
         final var resolver = environment.sliceResolver(
-                new VerifiedEmbeddedPanelResolverFactory(),
+                SliceRegistry.EMBEDDED_PANEL.resolverFactory(),
                 "cubism-" + environment.profile() + "-ui-embedded-panel.json",
                 "ui-embedded-panel");
         final VerifiedFloatingFrameDisposeHookInstaller installer = new VerifiedFloatingFrameDisposeHookInstaller(

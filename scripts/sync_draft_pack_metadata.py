@@ -26,7 +26,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
+from turboism_dev.json_io import read_json
+from turboism_dev.paths import repo_root
+
+ROOT = repo_root()
 DRAFT_PACKS = Path("compatibility/cubism/mapping-packs/draft")
 VERIFICATION_RECORDS = Path("compatibility/cubism/verification")
 MANAGED_FIELDS = (
@@ -43,8 +46,8 @@ class SyncError(Exception):
 
 def load_json(path: Path) -> Any:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        return read_json(path)
+    except (OSError, Exception) as exc:
         raise SyncError(f"unable to read {path}: {exc}") from exc
 
 

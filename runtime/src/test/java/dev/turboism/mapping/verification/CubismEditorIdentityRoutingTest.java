@@ -43,9 +43,8 @@ class CubismEditorIdentityRoutingTest {
                         .exactVersion());
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new VerifiedCorePublicApiResolverFactory()
+                () -> SliceRegistry.corePublicApiForProfile("5.3.03")
                         .create(
-                                "5.3.03",
                                 Path.of("missing-record"),
                                 Path.of("missing-artifact"),
                                 ClassLoader.getPlatformClassLoader()));

@@ -1,6 +1,6 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.mapping.verification.VerifiedControlAppearanceResolverFactory;
+import dev.turboism.mapping.verification.SliceRegistry;
 
 /** Declarative contributor for the verified control-appearance hook. */
 final class ControlAppearanceHookContributor implements HookContributor {
@@ -25,7 +25,7 @@ final class ControlAppearanceHookContributor implements HookContributor {
         final var runtime = environment.runtime().orElseThrow();
         final var host = environment.host().orElseThrow();
         final var resolver = environment.sliceResolver(
-                new VerifiedControlAppearanceResolverFactory(),
+                SliceRegistry.CONTROL_APPEARANCE.resolverFactory(),
                 "cubism-" + environment.profile() + "-ui-control-appearance.json",
                 "ui-control-appearance");
         final long generation =

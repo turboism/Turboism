@@ -4,11 +4,8 @@ import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
@@ -18,10 +15,29 @@ public final class NativeMeshInterpolationBridge {
     /**
      * Exact reviewed host artifacts admitted by the interpolation hook.
      */
-    public static final java.util.Set<String> HOST_SHA256S =
-            java.util.Collections.unmodifiableSet(ReviewedHostArtifacts.all().stream()
-                    .map(dev.turboism.mapping.verification.HostArtifactDigest::sha256)
-                    .collect(java.util.stream.Collectors.toSet()));
+    public static final java.util.Set<String> HOST_SHA256S = ReviewedHostArtifacts.reviewedSha256s();
+
+    private static final HostArtifactDigestCache FINGERPRINTS = new HostArtifactDigestCache();
+
+    static dev.turboism.mapping.verification.HostArtifactDigest hostArtifactDigest(final Path artifact)
+            throws java.io.IOException {
+        return FINGERPRINTS.digest(artifact);
+    }
+
+    static boolean isAdmittedHostArtifact(final Path artifact) {
+        try {
+            requireAdmittedHostArtifact(artifact);
+            return true;
+        } catch (java.io.IOException | IllegalArgumentException refused) {
+            return false;
+        }
+    }
+
+    static void requireAdmittedHostArtifact(final Path artifact) throws java.io.IOException {
+        if (!ReviewedHostArtifacts.isReviewed(hostArtifactDigest(artifact))) {
+            throw new IllegalArgumentException("unreviewed host artifact");
+        }
+    }
 
     static final String EXTENSION =
             "com.live2d.cubism.doc.model.interpolator.extendedInterpolation.CExtendedInterpolationExtension";
@@ -38,7 +54,6 @@ public final class NativeMeshInterpolationBridge {
             } catch (ReflectiveOperationException
                     | java.io.IOException
                     | java.net.URISyntaxException
-                    | java.security.NoSuchAlgorithmException
                     | RuntimeException
                     | LinkageError unsupported) {
                 return Optional.empty();
@@ -112,8 +127,7 @@ public final class NativeMeshInterpolationBridge {
         final java.util.function.Consumer<Object> directUpdated;
 
         Access(Class<?> extension)
-                throws ReflectiveOperationException, java.io.IOException, java.net.URISyntaxException,
-                        java.security.NoSuchAlgorithmException {
+                throws ReflectiveOperationException, java.io.IOException, java.net.URISyntaxException {
             if (!extension.getName().equals(EXTENSION)) throw new IllegalArgumentException("extension type");
             Path artifact = Path.of(extension
                             .getProtectionDomain()
@@ -121,11 +135,7 @@ public final class NativeMeshInterpolationBridge {
                             .getLocation()
                             .toURI())
                     .toRealPath();
-            try (var input = Files.newInputStream(artifact)) {
-                if (!HOST_SHA256S.contains(HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(input.readAllBytes()))))
-                    throw new IllegalArgumentException("unreviewed host artifact");
-            }
+            requireAdmittedHostArtifact(artifact);
             ClassLoader loader = extension.getClassLoader();
             formClass = host("com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshForm", loader, artifact);
             keyClass = host(EXTENSION + "$b", loader, artifact);

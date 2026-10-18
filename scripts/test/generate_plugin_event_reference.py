@@ -7,8 +7,12 @@ import json
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT / "scripts"))
+_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+from turboism_dev.paths import repo_root
+
+REPO_ROOT = repo_root()
 
 from plugin_event_metadata import (
     EventMetadataError,

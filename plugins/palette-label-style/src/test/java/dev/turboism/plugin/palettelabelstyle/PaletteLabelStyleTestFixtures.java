@@ -1,6 +1,5 @@
 package dev.turboism.plugin.palettelabelstyle;
 
-import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
@@ -29,52 +28,32 @@ import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Parts;
-import dev.turboism.sdk.diagnostics.DiagnosticReport;
-import dev.turboism.sdk.event.EventBus;
-import dev.turboism.sdk.i18n.PluginLocalization;
-import dev.turboism.sdk.menu.MenuRegistry;
-import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
-import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
-import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.storage.PluginStorage;
-import dev.turboism.sdk.storage.StorageListResult;
-import dev.turboism.sdk.storage.StorageMutationResult;
-import dev.turboism.sdk.storage.StoragePath;
-import dev.turboism.sdk.storage.StorageReadResult;
-import dev.turboism.sdk.storage.StorageWriteResult;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
-import dev.turboism.sdk.ui.UiScheduler;
-import dev.turboism.sdk.ui.context.ContextMenuRegistry;
-import dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution;
-import dev.turboism.sdk.ui.context.ContextMenuSelection;
+import dev.turboism.test.action.RecordingActionRegistry;
+import dev.turboism.test.plugin.FakePluginContext;
+import dev.turboism.test.plugin.RecordingPluginLogger;
+import dev.turboism.test.storage.InMemoryPluginStorage;
+import dev.turboism.test.ui.RecordingContextMenuRegistry;
+import dev.turboism.test.ui.RecordingUiHost;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeUnit;
 
 final class PaletteLabelStyleTestFixtures {
 
-    static final class RecordingPluginContext implements PluginContext {
+    static final class RecordingPluginContext extends FakePluginContext {
         final DisposableScope disposableScope = new DisposableScope();
         final RecordingActionRegistry actions = new RecordingActionRegistry();
         final RecordingContextMenuRegistry contextMenu = new RecordingContextMenuRegistry();
         final RecordingUiHost uiHost = new RecordingUiHost();
-        final RecordingPluginStorage storage = new RecordingPluginStorage();
+        final InMemoryPluginStorage storage = new InMemoryPluginStorage();
         final FixedCubismFacade cubism = new FixedCubismFacade();
-        final TestPluginLogger logger = new TestPluginLogger();
+        final RecordingPluginLogger logger = new RecordingPluginLogger();
 
-        @Override
-        public PluginDescriptor descriptor() {
-            throw new UnsupportedOperationException();
+        RecordingPluginContext() {
+            super(FakePluginContext.builder().localization(passThroughLocalization()));
         }
 
         @Override
@@ -83,48 +62,8 @@ final class PaletteLabelStyleTestFixtures {
         }
 
         @Override
-        public PluginPaths paths() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public PluginLocalization localization() {
-            return new PluginLocalization() {
-                @Override
-                public Locale locale() {
-                    return Locale.ROOT;
-                }
-
-                @Override
-                public String text(final String key) {
-                    return key;
-                }
-
-                @Override
-                public String format(final String key, final Object... arguments) {
-                    return key;
-                }
-
-                @Override
-                public boolean contains(final String key) {
-                    return true;
-                }
-            };
-        }
-
-        @Override
         public FixedCubismFacade cubism() {
             return cubism;
-        }
-
-        @Override
-        public List<PluginPermission> permissions() {
-            return List.of();
-        }
-
-        @Override
-        public EventBus eventBus() {
-            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -133,22 +72,8 @@ final class PaletteLabelStyleTestFixtures {
         }
 
         @Override
-        public MenuRegistry menus() {
-            throw new UnsupportedOperationException();
-        }
-
         public RecordingContextMenuRegistry contextMenu() {
             return contextMenu;
-        }
-
-        @Override
-        public UiScheduler uiScheduler() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public DiagnosticReport diagnostics() {
-            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -156,12 +81,13 @@ final class PaletteLabelStyleTestFixtures {
             return disposableScope;
         }
 
+        @Override
         public RecordingUiHost uiHost() {
             return uiHost;
         }
 
         @Override
-        public RecordingPluginStorage storage() {
+        public InMemoryPluginStorage storage() {
             return storage;
         }
 
@@ -227,258 +153,6 @@ final class PaletteLabelStyleTestFixtures {
                 return model;
             };
         }
-    }
-
-    static final class RecordingActionRegistry implements ActionRegistry {
-        final List<ActionRegistry.Action> actions = new ArrayList<>();
-
-        List<String> ids() {
-            return actions.stream().map(ActionRegistry.Action::id).toList();
-        }
-
-        @Override
-        public Registration register(final String id, final ActionRegistry.Action action) {
-            actions.add(action);
-            return () -> actions.remove(action);
-        }
-
-        void execute(final String id) {
-            execute(id, new ActionRegistry.ActionContext() {});
-        }
-
-        void execute(final String id, final ContextMenuSelection selection) {
-            execute(id, new ActionRegistry.ActionContext() {
-                @Override
-                public Optional<ContextMenuSelection> contextMenuSelection() {
-                    return Optional.of(selection);
-                }
-            });
-        }
-
-        void execute(final String id, final ActionRegistry.ActionContext actionContext) {
-            actions.stream()
-                    .filter(action -> action.id().equals(id))
-                    .findFirst()
-                    .orElseThrow()
-                    .handler()
-                    .accept(actionContext);
-        }
-    }
-
-    static final class RecordingContextMenuRegistry implements ContextMenuRegistry {
-        final List<ContextMenuContribution> contributions = new ArrayList<>();
-
-        List<ContextMenuContribution> contributions() {
-            return List.copyOf(contributions);
-        }
-
-        @Override
-        public Registration contribute(final ContextMenuContribution contribution) {
-            contributions.add(contribution);
-            return () -> contributions.remove(contribution);
-        }
-    }
-
-    /** In-memory PluginStorage recording every read/write operation for async-aware assertions. */
-    static final class RecordingPluginStorage implements PluginStorage {
-        final Map<String, String> files = new HashMap<>();
-        final List<CompletableFuture<Void>> operations = new ArrayList<>();
-
-        synchronized void seed(final String relativePath, final String content) {
-            files.put(relativePath, content);
-        }
-
-        synchronized String content(final String relativePath) {
-            return files.get(relativePath);
-        }
-
-        /** Waits until at least {@code count} storage operations have been recorded. */
-        void awaitOperations(final int count) {
-            final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-            while (System.nanoTime() < deadline) {
-                synchronized (this) {
-                    if (operations.size() >= count) {
-                        return;
-                    }
-                }
-                try {
-                    Thread.sleep(10);
-                } catch (InterruptedException interrupted) {
-                    Thread.currentThread().interrupt();
-                    throw new AssertionError("interrupted while awaiting storage operations");
-                }
-            }
-            synchronized (this) {
-                throw new AssertionError("storage operations did not reach " + count + "; saw " + operations.size());
-            }
-        }
-
-        void record() {
-            final CompletableFuture<Void> operation = new CompletableFuture<>();
-            operation.complete(null);
-            operations.add(operation);
-        }
-
-        @Override
-        public synchronized CompletionStage<StorageReadResult<String>> readUtf8(
-                final StoragePath path, final int maxBytes) {
-            record();
-            return CompletableFuture.completedFuture(new StorageReadResult<>(
-                    Optional.ofNullable(files.get(path.relativePath())), Optional.empty(), false));
-        }
-
-        @Override
-        public synchronized CompletionStage<StorageWriteResult> writeUtf8Atomic(
-                final StoragePath path, final String content) {
-            record();
-            files.put(path.relativePath(), content);
-            return CompletableFuture.completedFuture(new StorageWriteResult(true, Optional.empty()));
-        }
-
-        @Override
-        public CompletionStage<StorageReadResult<byte[]>> readBytes(StoragePath path, int maxBytes) {
-            throw new UnsupportedOperationException("not used");
-        }
-
-        @Override
-        public CompletionStage<StorageWriteResult> writeBytesAtomic(StoragePath path, byte[] content) {
-            throw new UnsupportedOperationException("not used");
-        }
-
-        @Override
-        public CompletionStage<StorageListResult> list(StoragePath directory, int maxEntries) {
-            throw new UnsupportedOperationException("not used");
-        }
-
-        @Override
-        public CompletionStage<StorageMutationResult> copy(
-                StoragePath source, StoragePath target, boolean replaceExisting) {
-            throw new UnsupportedOperationException("not used");
-        }
-
-        @Override
-        public CompletionStage<StorageMutationResult> moveAtomic(
-                StoragePath source, StoragePath target, boolean replaceExisting) {
-            throw new UnsupportedOperationException("not used");
-        }
-
-        @Override
-        public CompletionStage<StorageMutationResult> delete(StoragePath path, boolean recursive) {
-            throw new UnsupportedOperationException("not used");
-        }
-    }
-
-    static final class RecordingUiHost implements UiHostCapabilityService {
-        final List<ColorPickerCall> colorPickers = new ArrayList<>();
-        final List<dev.turboism.sdk.ui.ColorPickerResultListener> colorPickerListeners = new ArrayList<>();
-
-        List<ColorPickerCall> colorPickers() {
-            return List.copyOf(colorPickers);
-        }
-
-        void acceptColorPicker(final int index, final String hex) {
-            colorPickerListeners.get(index).onResult(true, hex);
-        }
-
-        void cancelColorPicker(final int index) {
-            colorPickerListeners.get(index).onResult(false, null);
-        }
-
-        @Override
-        public void openColorPicker(
-                final String id,
-                final String title,
-                final String initialColorHex,
-                final dev.turboism.sdk.ui.ColorPickerResultListener listener) {
-            colorPickers.add(new ColorPickerCall(id, title, initialColorHex));
-            colorPickerListeners.add(listener);
-        }
-
-        record ColorPickerCall(String id, String title, String initial) {}
-
-        @Override
-        public Registration contributeOverlay(dev.turboism.sdk.ui.OverlayContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration contributeBoundingBoxOverlayButton(
-                dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public dev.turboism.sdk.ui.context.ContextSourceSnapshot contextSource() {
-            throw unsupported();
-        }
-
-        @Override
-        public dev.turboism.sdk.ui.ViewportSnapshot viewport() {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration openDialog(dev.turboism.sdk.ui.DialogRequest request) {
-            throw unsupported();
-        }
-
-        @Override
-        public boolean confirmDialog(dev.turboism.sdk.ui.DialogRequest request) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration contributeEmbeddedPanel(dev.turboism.sdk.ui.EmbeddedPanelContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Optional<String> requestFile(dev.turboism.sdk.ui.FileChooserRequest request) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration notifyStatus(dev.turboism.sdk.ui.StatusNotification notification) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration contributeContextMenu(ContextMenuContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration contributeMainToolbar(
-                dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.MainToolbarContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration contributePaletteToolbar(
-                dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
-            throw unsupported();
-        }
-
-        static UnsupportedOperationException unsupported() {
-            return new UnsupportedOperationException("not used");
-        }
-    }
-
-    static final class TestPluginLogger implements PluginLogger {
-        @Override
-        public void debug(String message) {}
-
-        @Override
-        public void info(String message) {}
-
-        @Override
-        public void warn(String message) {}
-
-        @Override
-        public void error(String message) {}
-
-        @Override
-        public void error(String message, Throwable throwable) {}
     }
 
     // ---------------------------------------------------------- model fakes

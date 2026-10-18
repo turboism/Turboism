@@ -45,7 +45,10 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+from turboism_dev.json_io import read_json
+from turboism_dev.paths import repo_root
+
+ROOT = repo_root()
 AUTHORING_ROOT = Path("scripts/verification-sources")
 FAMILY_DIR = AUTHORING_ROOT / "families"
 TEMPLATE_ROOT = AUTHORING_ROOT / "templates"
@@ -147,8 +150,8 @@ def load_records(root: Path) -> dict[str, dict]:
     for path in sorted(base.glob("*.json")):
         raw = path.read_bytes()
         try:
-            document = json.loads(raw)
-        except json.JSONDecodeError as exc:
+            document = read_json(path)
+        except Exception as exc:
             raise GenerationError(f"{path.name}: invalid JSON: {exc}") from exc
         selectors = document.get("selectors") or []
         records[path.name] = {
