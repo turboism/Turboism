@@ -116,9 +116,8 @@ public final class ParameterHookRegistry {
                         eventOwner, ParameterValueEvent.Before.class, entrypointOrdinal, 0, event -> {
                             try {
                                 event.setValue(hooks.beforeSetParameterValue(event.parameter(), event.value()));
-                            } catch (ThreadDeath | VirtualMachineError fatal) {
-                                throw fatal;
                             } catch (Throwable failure) {
+                                FatalErrors.rethrowIfFatal(failure);
                                 throw hookFailure(sink, "beforeSetParameterValue", failure);
                             }
                         }));
@@ -130,9 +129,8 @@ public final class ParameterHookRegistry {
                         eventOwner, ParameterValueEvent.On.class, entrypointOrdinal, 1, event -> {
                             try {
                                 hooks.onParameterValueChanged(event.parameter(), event.oldValue(), event.newValue());
-                            } catch (ThreadDeath | VirtualMachineError fatal) {
-                                throw fatal;
                             } catch (Throwable failure) {
+                                FatalErrors.rethrowIfFatal(failure);
                                 throw hookFailure(sink, "onParameterValueChanged", failure);
                             }
                         }));
@@ -144,9 +142,8 @@ public final class ParameterHookRegistry {
                         eventOwner, ParameterValueEvent.After.class, entrypointOrdinal, 2, event -> {
                             try {
                                 hooks.afterSetParameterValue(event.parameter(), event.finalValue());
-                            } catch (ThreadDeath | VirtualMachineError fatal) {
-                                throw fatal;
                             } catch (Throwable failure) {
+                                FatalErrors.rethrowIfFatal(failure);
                                 throw hookFailure(sink, "afterSetParameterValue", failure);
                             }
                         }));

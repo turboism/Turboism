@@ -666,9 +666,8 @@ public final class EditorObjectHookRegistry {
         installed.add(broker.subscribeAdapter(owner, eventType, entrypointOrdinal, methodOrdinal, event -> {
             try {
                 invocation.accept(event);
-            } catch (ThreadDeath | VirtualMachineError fatal) {
-                throw fatal;
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 throw hookFailure(logger, methodName, failure);
             }
         }));

@@ -38,10 +38,20 @@ PRODUCTION_ROOTS = (
     "scripts/verification-sources/templates",
 )
 PLUGIN_ROOT = "plugins"
+RUNTIME_BOOTSTRAP_PREFIXES = (
+    "runtime/src/main/java",
+    "bootstrap/src/main/java",
+)
 
 CATCH_RE = re.compile(r"catch\s*\(\s*Throwable\s+(\w+)\s*\)\s*\{")
+NON_STANDARD_FATAL_CATCH_RE = re.compile(
+    r"catch\s*\([^)]*\b(?:ThreadDeath|VirtualMachineError)\b[^)]*\)"
+)
 PRECEDING_FATAL_RE = re.compile(
-    r"catch\s*\([^)]*\b(?:ThreadDeath|VirtualMachineError)\b[^)]*\)\s*\w*\s*\{[^{}]*\}\s*$"
+    r"catch\s*\([^)]*(?:\bThreadDeath\b[^)]*\bVirtualMachineError\b|\bVirtualMachineError\b[^)]*\bThreadDeath\b)[^)]*\)\s*\w*\s*\{[^{}]*\}\s*$"
+)
+LONE_VME_CATCH_RE = re.compile(
+    r"catch\s*\([^)]*\bVirtualMachineError\b[^)]*\)"
 )
 EXEMPT_MARKER = "@containment-exempt"
 # How far into the block rethrowIfFatal / the marker may appear. Keeping the window tight
@@ -69,15 +79,43 @@ def findings(root: Path):
             relative = path.relative_to(root)
         except ValueError:
             relative = path
+        rel_str = str(relative).replace("\\", "/")
+        is_runtime_bootstrap = any(
+            rel_str.startswith(prefix) for prefix in RUNTIME_BOOTSTRAP_PREFIXES
+        )
+
+        if is_runtime_bootstrap:
+            for match in NON_STANDARD_FATAL_CATCH_RE.finditer(text):
+                head = text[match.end():match.end() + BLOCK_HEAD]
+                if (
+                    EXEMPT_MARKER in head
+                    or EXEMPT_MARKER in text[max(0, match.start() - 160):match.start()]
+                ):
+                    continue
+                line = text.count("\n", 0, match.start()) + 1
+                violations.append(
+                    f"{relative}:{line}: non-standard fatal error catch; "
+                    "runtime/bootstrap sources must use FatalErrors.rethrowIfFatal"
+                )
+        else:
+            for match in LONE_VME_CATCH_RE.finditer(text):
+                if "ThreadDeath" not in match.group(0):
+                    line = text.count("\n", 0, match.start()) + 1
+                    violations.append(
+                        f"{relative}:{line}: non-standard fatal error catch; "
+                        "non-runtime sources must catch both ThreadDeath and VirtualMachineError"
+                    )
+
         for match in CATCH_RE.finditer(text):
             head = text[match.end():match.end() + BLOCK_HEAD]
             if "rethrowIfFatal(" in head:
                 continue
             if EXEMPT_MARKER in head or EXEMPT_MARKER in text[max(0, match.start() - 160):match.start()]:
                 continue
-            preceding = text[:match.start()]
-            if PRECEDING_FATAL_RE.search(preceding):
-                continue
+            if not is_runtime_bootstrap:
+                preceding = text[:match.start()]
+                if PRECEDING_FATAL_RE.search(preceding):
+                    continue
             line = text.count("\n", 0, match.start()) + 1
             violations.append(f"{relative}:{line}: unguarded catch (Throwable {match.group(1)})")
     return violations

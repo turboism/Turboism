@@ -1,5 +1,6 @@
 package dev.turboism.ui.filter;
 
+import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.ui.palette.LogPaletteHostStructure;
 import java.awt.Component;
 import java.awt.Container;
@@ -267,7 +268,7 @@ final class PaletteComponentFinder {
                     continue;
                 }
                 try {
-                    field.setAccessible(true);
+                    ReflectAccess.open(field);
                     final Object value = field.get(table);
                     if (value instanceof JTree tree) {
                         return tree;

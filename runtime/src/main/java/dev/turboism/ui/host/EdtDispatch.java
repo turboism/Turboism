@@ -340,8 +340,13 @@ public final class EdtDispatch {
             if (!warned
                     && System.nanoTime() - waitStart >= TimeUnit.MILLISECONDS.toNanos(SLOW_COMPLETION_WARN_MILLIS)) {
                 warned = true;
+                final Thread edt = findEdtThread(queued.runningThread());
+                final String stack = dumpThreadStack(edt);
                 RuntimeDiagnostics.warn(
-                        COMPONENT, label + " is still running on the EDT after " + SLOW_COMPLETION_WARN_MILLIS + "ms");
+                        COMPONENT,
+                        label + " is still running on the EDT after " + SLOW_COMPLETION_WARN_MILLIS
+                                + "ms; wait continues to preserve host mutation correctness. EDT stack:\n"
+                                + stack);
             }
         }
         if (interrupted) {
@@ -354,6 +359,36 @@ public final class EdtDispatch {
                     label + " was abandoned by interrupt after starting on the EDT");
         }
         return queued.outcome(label, exact);
+    }
+
+    /** Locates the AWT Event Dispatch Thread using the provided thread hint or thread inspection. */
+    public static Thread findEdtThread(final Thread hint) {
+        if (hint != null && hint.isAlive()) {
+            return hint;
+        }
+        for (final Thread thread : Thread.getAllStackTraces().keySet()) {
+            if (thread.isAlive() && thread.getName().startsWith("AWT-EventQueue")) {
+                return thread;
+            }
+        }
+        return null;
+    }
+
+    /** Formats a stack dump of the specified thread for diagnostic watchdogs. */
+    public static String dumpThreadStack(final Thread thread) {
+        if (thread == null) {
+            return "\t(EDT thread not found or already terminated)";
+        }
+        final StringBuilder builder = new StringBuilder();
+        builder.append('\t')
+                .append(thread.getName())
+                .append(" (state=")
+                .append(thread.getState())
+                .append("):\n");
+        for (final StackTraceElement element : thread.getStackTrace()) {
+            builder.append("\t\tat ").append(element).append('\n');
+        }
+        return builder.toString().stripTrailing();
     }
 
     private static void markEdtUnresponsive(final String label) {
@@ -386,6 +421,7 @@ public final class EdtDispatch {
         private final CountDownLatch done = new CountDownLatch(1);
         private final AtomicReference<T> result = new AtomicReference<>();
         private final AtomicReference<Throwable> failure = new AtomicReference<>();
+        private volatile Thread runningThread;
 
         private Queued(final String label, final Callable<T> task) {
             this.label = label;
@@ -399,6 +435,7 @@ public final class EdtDispatch {
                 done.countDown();
                 return;
             }
+            runningThread = Thread.currentThread();
             started.countDown();
             // One queued body is one host-read epoch: it may mutate the host, so a
             // frame keeps it coherent and its exit invalidates any enclosing epoch.
@@ -427,6 +464,10 @@ public final class EdtDispatch {
 
         private boolean awaitDone(final long tickMillis) throws InterruptedException {
             return done.await(tickMillis, TimeUnit.MILLISECONDS);
+        }
+
+        Thread runningThread() {
+            return runningThread;
         }
 
         private T outcome(final String label, final boolean exact) {

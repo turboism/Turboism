@@ -729,9 +729,8 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
     private void diagnose(final String message) {
         try {
             diagnostics.accept(message);
-        } catch (ThreadDeath | VirtualMachineError fatal) {
-            throw fatal;
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Diagnostics cannot keep a plugin-facing completion stage unsettled.
         }
     }
