@@ -4,11 +4,8 @@ import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
@@ -18,10 +15,87 @@ public final class NativeMeshInterpolationBridge {
     /**
      * Exact reviewed host artifacts admitted by the interpolation hook.
      */
-    public static final java.util.Set<String> HOST_SHA256S =
-            java.util.Collections.unmodifiableSet(ReviewedHostArtifacts.all().stream()
-                    .map(dev.turboism.mapping.verification.HostArtifactDigest::sha256)
-                    .collect(java.util.stream.Collectors.toSet()));
+    public static final java.util.Set<String> HOST_SHA256S = ReviewedHostArtifacts.reviewedSha256s();
+
+    private static final java.util.concurrent.ConcurrentHashMap<
+                    Path, dev.turboism.mapping.verification.HostArtifactDigest>
+            VERIFIED_FINGERPRINTS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Records a previously verified host artifact fingerprint in the bridge cache so subsequent
+     * operations avoid re-reading the entire host JAR.
+     *
+     * @param artifact path to the host artifact
+     * @param digest verified artifact digest
+     */
+    public static void cacheVerifiedArtifact(
+            final Path artifact, final dev.turboism.mapping.verification.HostArtifactDigest digest) {
+        java.util.Objects.requireNonNull(artifact, "artifact");
+        java.util.Objects.requireNonNull(digest, "digest");
+        try {
+            VERIFIED_FINGERPRINTS.put(artifact.toRealPath(), digest);
+        } catch (java.io.IOException ignored) {
+            VERIFIED_FINGERPRINTS.put(artifact.toAbsolutePath().normalize(), digest);
+        }
+    }
+
+    /**
+     * Retrieves the cached verified host artifact digest if available.
+     *
+     * @param artifact path to the host artifact
+     * @return the cached digest, or null if not present
+     */
+    public static dev.turboism.mapping.verification.HostArtifactDigest getCachedVerifiedFingerprint(
+            final Path artifact) {
+        java.util.Objects.requireNonNull(artifact, "artifact");
+        try {
+            return VERIFIED_FINGERPRINTS.get(artifact.toRealPath());
+        } catch (java.io.IOException ignored) {
+            return VERIFIED_FINGERPRINTS.get(artifact.toAbsolutePath().normalize());
+        }
+    }
+
+    /**
+     * Checks whether the given host artifact path matches an admitted reviewed Cubism artifact,
+     * using the cached verified fingerprint if available to avoid re-reading the file.
+     *
+     * @param artifact path to the host artifact
+     * @return true if the artifact matches a reviewed Cubism build
+     */
+    public static boolean isAdmittedHostArtifact(final Path artifact) {
+        try {
+            requireAdmittedHostArtifact(artifact);
+            return true;
+        } catch (java.io.IOException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Asserts that the given host artifact path matches an admitted reviewed Cubism artifact,
+     * using the cached verified fingerprint if available to avoid re-reading the whole JAR.
+     *
+     * @param artifact path to the host artifact
+     * @throws IllegalArgumentException if the artifact is unreviewed
+     * @throws java.io.IOException if the artifact cannot be read
+     */
+    public static void requireAdmittedHostArtifact(final Path artifact) throws java.io.IOException {
+        java.util.Objects.requireNonNull(artifact, "artifact");
+        final Path realPath = artifact.toRealPath();
+        final dev.turboism.mapping.verification.HostArtifactDigest cached = VERIFIED_FINGERPRINTS.get(realPath);
+        if (cached != null) {
+            if (!HOST_SHA256S.contains(cached.sha256())) {
+                throw new IllegalArgumentException("unreviewed host artifact");
+            }
+            return;
+        }
+        final dev.turboism.mapping.verification.HostArtifactDigest measured =
+                dev.turboism.mapping.verification.HostArtifactDigest.from(realPath);
+        if (!HOST_SHA256S.contains(measured.sha256())) {
+            throw new IllegalArgumentException("unreviewed host artifact");
+        }
+        VERIFIED_FINGERPRINTS.put(realPath, measured);
+    }
 
     static final String EXTENSION =
             "com.live2d.cubism.doc.model.interpolator.extendedInterpolation.CExtendedInterpolationExtension";
@@ -121,11 +195,7 @@ public final class NativeMeshInterpolationBridge {
                             .getLocation()
                             .toURI())
                     .toRealPath();
-            try (var input = Files.newInputStream(artifact)) {
-                if (!HOST_SHA256S.contains(HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(input.readAllBytes()))))
-                    throw new IllegalArgumentException("unreviewed host artifact");
-            }
+            requireAdmittedHostArtifact(artifact);
             ClassLoader loader = extension.getClassLoader();
             formClass = host("com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshForm", loader, artifact);
             keyClass = host(EXTENSION + "$b", loader, artifact);

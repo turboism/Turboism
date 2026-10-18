@@ -91,6 +91,7 @@ public final class MeshInterpolationTransformer implements ClassFileTransformer 
                 report("DECLINED_ARTIFACT_HASH");
                 return null;
             }
+            NativeMeshInterpolationBridge.cacheVerifiedArtifact(artifact, hostDigest);
             String version = cubismVersion.get();
             if (!serializer && !property) {
                 var pins = REVIEWED_CLASS_SHA256.get(version);

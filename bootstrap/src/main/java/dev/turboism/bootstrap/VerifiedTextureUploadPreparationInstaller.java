@@ -4,6 +4,7 @@ import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationBridge;
 import dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Files;
@@ -18,7 +19,7 @@ import java.util.jar.JarFile;
 /** Owns exact Editor/JOGL/JVM admission and restoration for native texture preparation. */
 final class VerifiedTextureUploadPreparationInstaller implements AutoCloseable {
     static final String HOOK_ID = "cubism.texture-upload-preparation";
-    static final String JOGL_SHA256 = "7dbedb4ba89d9744aa8f8e3710436ef349547058c78e5b3beb813b27b382b0b9";
+    static final String JOGL_SHA256 = ReviewedHostArtifacts.CUBISM_5_3_03_JOGL.sha256();
     private final Instrumentation instrumentation;
     private final Class<?> target;
     private final TextureUploadPreparationTransformer transformer;

@@ -111,4 +111,32 @@ final class VerifiedMeshInterpolationInstallerTest {
         assertEquals(2, adds.get());
         assertEquals(2, removes.get());
     }
+
+    @Test
+    void bridgeConsolidatesToReviewedArtifactSource() {
+        assertEquals(
+                dev.turboism.mapping.verification.ReviewedHostArtifacts.reviewedSha256s(),
+                NativeMeshInterpolationBridge.HOST_SHA256S);
+    }
+
+    @Test
+    void bridgeUsesCachedVerifiedFingerprintWithoutReReadingArtifact() throws Exception {
+        final java.nio.file.Path tempJar = java.nio.file.Files.createTempFile("test-cubism-artifact", ".jar");
+        java.nio.file.Files.writeString(tempJar, "foreign content that would fail raw hash check");
+
+        // Without cache, foreign artifact fails
+        assertFalse(NativeMeshInterpolationBridge.isAdmittedHostArtifact(tempJar));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> NativeMeshInterpolationBridge.requireAdmittedHostArtifact(tempJar));
+
+        // When cached as a verified artifact, verification succeeds without re-reading
+        final dev.turboism.mapping.verification.HostArtifactDigest reviewedDigest =
+                dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_3_03;
+        NativeMeshInterpolationBridge.cacheVerifiedArtifact(tempJar, reviewedDigest);
+
+        assertEquals(reviewedDigest, NativeMeshInterpolationBridge.getCachedVerifiedFingerprint(tempJar));
+        assertTrue(NativeMeshInterpolationBridge.isAdmittedHostArtifact(tempJar));
+        assertDoesNotThrow(() -> NativeMeshInterpolationBridge.requireAdmittedHostArtifact(tempJar));
+    }
 }
