@@ -80,7 +80,7 @@ public class FakePluginContext implements PluginContext {
                 builder.descriptor != null ? builder.descriptor : FakePluginDescriptor.testDescriptor("test-plugin");
         this.logger = builder.logger != null ? builder.logger : new RecordingPluginLogger();
         this.paths = builder.paths;
-        this.localization = builder.localization != null ? builder.localization : defaultLocalization();
+        this.localization = builder.localization != null ? builder.localization : PluginLocalization.unavailable();
         this.tasks = builder.tasks != null ? builder.tasks : PluginTaskScheduler.unavailable();
         this.hostReads = builder.hostReads != null ? builder.hostReads : AsyncHostReadService.unavailable();
         this.storage = builder.storage != null ? builder.storage : new InMemoryPluginStorage();
@@ -135,7 +135,7 @@ public class FakePluginContext implements PluginContext {
         return new FakePluginContext();
     }
 
-    private static PluginLocalization defaultLocalization() {
+    public static PluginLocalization passThroughLocalization() {
         return new PluginLocalization() {
             @Override
             public Locale locale() {
