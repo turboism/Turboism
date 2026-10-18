@@ -51,7 +51,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[2]
+import _bootstrap  # noqa: F401
+from turboism_dev.paths import repo_root
+
+ROOT = repo_root()
 VERIFICATION_DIR = ROOT / "compatibility" / "cubism" / "verification"
 CLUSTERS_PATH = ROOT / "compatibility" / "cubism" / "clusters.json"
 CAMPAIGN_JOBS_PATH = ROOT / "validation" / "cubism-version-matrix" / "campaign-jobs.json"
