@@ -35,9 +35,28 @@ final class BackupPluginTestFixtures {
             this(new RecordingPluginLogger(), new GatedRegistry(), new RecordingEventBus());
         }
 
+        FakeContext(
+                final dev.turboism.sdk.action.ActionRegistry actions, final dev.turboism.sdk.menu.MenuRegistry menus) {
+            this(new RecordingPluginLogger(), new GatedRegistry(), new RecordingEventBus(), actions, menus);
+        }
+
         private FakeContext(
                 final RecordingPluginLogger logger, final GatedRegistry registry, final RecordingEventBus bus) {
-            super(FakePluginContext.builder().logger(logger).config(registry).eventBus(bus));
+            this(logger, registry, bus, null, null);
+        }
+
+        private FakeContext(
+                final RecordingPluginLogger logger,
+                final GatedRegistry registry,
+                final RecordingEventBus bus,
+                final dev.turboism.sdk.action.ActionRegistry actions,
+                final dev.turboism.sdk.menu.MenuRegistry menus) {
+            super(FakePluginContext.builder()
+                    .logger(logger)
+                    .config(registry)
+                    .eventBus(bus)
+                    .actions(actions)
+                    .menus(menus));
             this.logger = logger;
             this.registry = registry;
             this.bus = bus;

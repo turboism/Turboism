@@ -377,6 +377,24 @@ final class BackupPluginTest {
         assertEquals(0, liveWorkerThreads(), "no plugin worker thread may survive disable()");
     }
 
+    @Test
+    void menuFailureDuringEnableRollsBackActionAndWorkers() throws Exception {
+        final java.util.concurrent.atomic.AtomicInteger actionsRevoked =
+                new java.util.concurrent.atomic.AtomicInteger();
+        final dev.turboism.sdk.action.ActionRegistry actionRegistry = (id, action) -> actionsRevoked::incrementAndGet;
+        final dev.turboism.sdk.menu.MenuRegistry failingMenu = contribution -> {
+            throw new IllegalStateException("fixture menu failure");
+        };
+        final FakeContext context = new FakeContext(actionRegistry, failingMenu);
+        final BackupPlugin plugin = new BackupPlugin();
+        plugins.add(plugin);
+        plugin.init(context);
+
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, plugin::enable);
+        assertFalse(plugin.isEnabled(), "plugin must not remain enabled on failure");
+        assertEquals(1, actionsRevoked.get(), "action must be revoked on partial enable failure");
+    }
+
     /** Live threads owned by this plugin's worker executors. */
     private static int liveWorkerThreads() {
         int count = 0;
