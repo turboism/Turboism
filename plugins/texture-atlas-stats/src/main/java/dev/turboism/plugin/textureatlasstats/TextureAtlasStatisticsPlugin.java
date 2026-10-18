@@ -5,9 +5,8 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasSummary;
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.plugin.AbstractTurboismPlugin;
 import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.TurboismPlugin;
-import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -18,30 +17,40 @@ import javax.swing.SwingUtilities;
  * window through the framework UI/session capabilities:
  * {@code Total model images: 849, current texture model images: 37}.
  */
-public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
+public final class TextureAtlasStatisticsPlugin extends AbstractTurboismPlugin {
 
-    private PluginContext context;
     private ScheduledExecutorService scheduler;
-    private TextureAtlasEditorPanel panel;
     private boolean enabled;
 
     @Override
     public void init(final PluginContext context) {
-        this.context = Objects.requireNonNull(context, "context");
+        try {
+            super.init(context);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Texture Atlas Statistics plugin initialization failed", e);
+        }
         // context.logger().info("Texture Atlas Statistics plugin initialized");
     }
 
     @Override
     public void enable() {
-        requireContext();
+        try {
+            super.enable();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Texture Atlas Statistics plugin must be initialized before enable.", e);
+        }
         if (enabled) return;
         enabled = true;
         try {
-            final TextureAtlasEditorSession session = context.cubism().textureAtlasEditorSession();
-            final TextureAtlasEditorUi editorUi = context.cubism().textureAtlasEditorUi();
-            final PluginLocalization i18n = context.localization();
+            final TextureAtlasEditorSession session = context().cubism().textureAtlasEditorSession();
+            final TextureAtlasEditorUi editorUi = context().cubism().textureAtlasEditorUi();
+            final PluginLocalization i18n = context().localization();
             final TextureAtlasEditorPanel attached = editorUi.attach();
-            panel = attached;
+            disposalScope().register(attached);
             attached.setText(i18n.text("texture-atlas-stats.line"));
             scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
                 final Thread thread = new Thread(runnable, "turboism-texture-atlas-stats");
@@ -73,7 +82,10 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
             throw fatal;
         } catch (Throwable failure) {
             disable();
-            context.logger().warn("Texture Atlas Statistics panel unavailable: " + failure);
+            try {
+                context().logger().warn("Texture Atlas Statistics panel unavailable: " + failure);
+            } catch (IllegalStateException ignored) {
+            }
         }
     }
 
@@ -83,9 +95,12 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
             scheduler.shutdownNow();
             scheduler = null;
         }
-        if (panel != null) {
-            panel.close();
-            panel = null;
+        try {
+            super.disable();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Texture Atlas Statistics plugin disable failed", e);
         }
         enabled = false;
     }
@@ -93,12 +108,16 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
     @Override
     public void shutdown() {
         disable();
-        context = null;
+        try {
+            super.shutdown();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Texture Atlas Statistics plugin shutdown failed", e);
+        }
     }
 
-    private void requireContext() {
-        if (context == null) {
-            throw new IllegalStateException("Texture Atlas Statistics plugin must be initialized before enable.");
-        }
+    private PluginContext requireContext() {
+        return context();
     }
 }
