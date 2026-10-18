@@ -38,7 +38,7 @@ def write_tree(root: Path) -> None:
             encoding="utf-8")
 
 
-def run_case(check: bool, fail_on_drift: bool = False) -> int:
+def run_case(check: bool, fail_on_drift: bool = True) -> int:
     rc = 0
     for lang in rlc.LOCALES:
         rc |= rlc.render(lang, check=check, fail_on_drift=fail_on_drift)
@@ -80,14 +80,14 @@ def main() -> int:
             assert "- ko hand-written." in ko or "- 韩文旧版。" in ko, \
                 "ko fallback for locale-missing section lost"
 
-            # englishSha256 drift: passes by default in --check, fails with fail_on_drift
+            # englishSha256 drift: fails by default in --check (and with fail_on_drift alias)
             (root / "CHANGELOG.md").write_text(
                 "# Changelog\n\n## [Unreleased]\n\n### Added\n\n- WIP item.\n\n"
                 "## [1.0.0] - 2030-01-01\n\n### Added\n\n- English one modified.\n\n"
                 "## [0.9.0] - 2029-01-01\n\n### Fixed\n\n- Legacy English.\n",
                 encoding="utf-8")
-            if run_case(check=True, fail_on_drift=False) != 0:
-                print("FAIL: default --check should not fail on englishSha256 drift")
+            if run_case(check=True) != 1:
+                print("FAIL: default --check should fail on englishSha256 drift")
                 return 1
             if run_case(check=True, fail_on_drift=True) != 1:
                 print("FAIL: --check --fail-on-drift should fail on englishSha256 drift")
