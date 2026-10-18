@@ -100,6 +100,8 @@ class ScopedRunnerIntegrationTest(unittest.TestCase):
                          "host_validation_evidence.py", "host_validation_retention.py", "host-validation-env.sh", "host-validation-transport.sh",
                          "run-cubism-host-validation.sh", "archive-cubism-host-evidence.sh"):
                 queue.copy_verified(tools / name, preview / name)
+            if (tools / "hvq").is_dir():
+                queue.copy_verified(tools / "hvq", preview / "hvq")
             # A test-only SOURCE fixture override, included in the prepared digest.
             # No production option or ambient HOME override can select a test queue.
             with (preview / "host_validation_queue.py").open("a") as stream:
