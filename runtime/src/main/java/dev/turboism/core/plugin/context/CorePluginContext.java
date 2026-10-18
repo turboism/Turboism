@@ -69,12 +69,8 @@ public final class CorePluginContext implements PluginContext {
 
     private final Dependencies dependencies;
     private final CubismContextServices cubismServices;
-    private final PluginConfigRegistry pluginConfigRegistry;
-    private final UiCapabilityBundle uiCapabilities;
-    private final MeshCapabilityBundle meshCapabilities;
     private final HostCapabilityBundle hostCapabilities;
-    private final dev.turboism.adapter.cubism.backup.AutoBackupCoordinator backupCoordinator;
-    private final CubismEditorApiAvailabilityInterceptor editorApiAvailability;
+    private final List<PluginCapabilityBundle> capabilityBundles;
     private volatile ScriptService scriptService = ScriptService.unavailable();
     private volatile McpConnectionService mcpConnectionService = McpConnectionService.unavailable();
     private volatile dev.turboism.sdk.performance.PerformanceProbeService performanceStatsService;
@@ -365,7 +361,7 @@ public final class CorePluginContext implements PluginContext {
                                         hostAccess.adapters().projectWorkspace(), hostAccess::currentHostSelection));
         final RuntimeHostAdapters adapters = env.hostAdapters();
         final CubismServicesFactory servicesFactory = env.servicesFactory();
-        this.editorApiAvailability = new CubismEditorApiAvailabilityInterceptor(
+        final CubismEditorApiAvailabilityInterceptor editorApiAvailability = new CubismEditorApiAvailabilityInterceptor(
                 servicesFactory instanceof DefaultCubismServicesFactory defaultFactory
                         ? defaultFactory.cubismEditorVersion()
                         : java.util.Optional::empty,
@@ -380,15 +376,11 @@ public final class CorePluginContext implements PluginContext {
                 env.taskScheduler() instanceof dev.turboism.task.RuntimePluginTaskScheduler runtimeTasks
                         ? runtimeTasks
                         : null);
-        this.backupCoordinator = this.cubismServices.backupService()
-                        instanceof dev.turboism.adapter.cubism.backup.AutoBackupCoordinator coordinator
-                ? coordinator
-                : null;
-        this.pluginConfigRegistry = this.dependencies.config();
-        this.meshCapabilities = MeshCapabilityBundle.create(hostAccess, this.dependencies);
-        this.uiCapabilities = UiCapabilityBundle.create(
-                hostAccess, adapters, this.dependencies, env.localization(), this.editorApiAvailability);
-        this.hostCapabilities = HostCapabilityBundle.create(hostAccess, env, this.editorApiAvailability);
+        final MeshCapabilityBundle meshCapabilities = MeshCapabilityBundle.create(hostAccess, this.dependencies);
+        final UiCapabilityBundle uiCapabilities = UiCapabilityBundle.create(
+                hostAccess, adapters, this.dependencies, env.localization(), editorApiAvailability);
+        this.hostCapabilities = HostCapabilityBundle.create(hostAccess, env, editorApiAvailability);
+        this.capabilityBundles = List.of(cubismServices, meshCapabilities, uiCapabilities, hostCapabilities);
         if (env.scriptService() != null) {
             this.scriptService = env.scriptService();
         }
@@ -415,13 +407,12 @@ public final class CorePluginContext implements PluginContext {
         serviceDirectory.install(PluginService.SCRIPTS, () -> scriptService, ScriptService::unavailable);
         serviceDirectory.install(
                 PluginService.MCP_CONNECTIONS, () -> mcpConnectionService, McpConnectionService::unavailable);
-        serviceDirectory.install(PluginService.CONFIG, () -> pluginConfigRegistry, PluginConfigRegistry::unavailable);
+        serviceDirectory.install(PluginService.CONFIG, dependencies::config, PluginConfigRegistry::unavailable);
         serviceDirectory.installAlways(PluginService.PERFORMANCE_STATS, this::performanceProbeService);
 
-        cubismServices.registerServices(serviceDirectory);
-        meshCapabilities.registerServices(serviceDirectory);
-        uiCapabilities.registerServices(serviceDirectory);
-        hostCapabilities.registerServices(serviceDirectory);
+        for (final PluginCapabilityBundle bundle : capabilityBundles) {
+            bundle.registerServices(serviceDirectory);
+        }
     }
 
     @Override
@@ -549,8 +540,9 @@ public final class CorePluginContext implements PluginContext {
 
     /** Stops plugin-owned backup work before plugin lifecycle shutdown clears plugin state. */
     public void quiesceBackupOperations() {
-        if (backupCoordinator != null) {
-            backupCoordinator.close();
+        if (cubismServices.backupService()
+                instanceof dev.turboism.adapter.cubism.backup.AutoBackupCoordinator coordinator) {
+            coordinator.close();
         }
     }
 
@@ -576,7 +568,7 @@ public final class CorePluginContext implements PluginContext {
 
     @Override
     public PluginConfigRegistry config() {
-        return pluginConfigRegistry;
+        return dependencies.config();
     }
 
     @Override
