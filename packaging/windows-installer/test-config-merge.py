@@ -1032,6 +1032,21 @@ def check_launcher_and_shortcut_contract():
           'return "Turboism_Cubism_' in common and '"-D3D"' in common)
     check("L3 legacy managed shortcut names remain admitted for cleanup",
           "Turboism Cubism 5\\." in common)
+    shortcut_match = re.search(
+        r"\$nameOk\s*=\s*\$name\s*-match\s*'([^']+)'\s*-or\s*\$name\s*-match\s*'([^']+)'",
+        common
+    )
+    pat1 = re.sub(r"\\p\{[A-Za-z]+\}", r"\\w", shortcut_match.group(1)) if shortcut_match else ""
+    pat2 = re.sub(r"\\p\{[A-Za-z]+\}", r"\\w", shortcut_match.group(2)) if shortcut_match else ""
+    check("L3b managed shortcut patterns admit all reviewed 5.0.00-5.3.04 versions",
+          shortcut_match is not None
+          and all(
+              re.match(pat1, f"Turboism_Cubism_{v}_Live2D_Cubism_{v}-A1B2C3D4E5F6.lnk", re.I)
+              and re.match(pat1, f"Turboism_Cubism_{v}_Live2D_Cubism_{v}-A1B2C3D4E5F6-D3D.lnk", re.I)
+              and re.match(pat2, f"Turboism Cubism {v} [Live2D Cubism {v}-A1B2C3D4E5F6].lnk", re.I)
+              and re.match(pat2, f"Turboism Cubism {v} [Live2D Cubism {v}-A1B2C3D4E5F6] - D3D.lnk", re.I)
+              for v in ["5.0.00", "5.1.00", "5.1.03", "5.2.03", "5.3.02", "5.3.04", "5.0", "5.2"]
+          ))
     check("L4 installer Start Menu shortcut names contain no spaces",
           '"Turboism_Configurator"' in text
           and '"Turboism_Uninstall"' in text
