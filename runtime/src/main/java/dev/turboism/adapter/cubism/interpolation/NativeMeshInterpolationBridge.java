@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.interpolation;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -220,9 +221,8 @@ public final class NativeMeshInterpolationBridge {
                         (java.util.function.Consumer<Object>) site.getTarget().invokeExact();
                 DIRECT_UPDATE_BINDINGS.incrementAndGet();
                 return bound;
-            } catch (VirtualMachineError | ThreadDeath fatal) {
-                throw fatal;
             } catch (Throwable unsupported) {
+                FatalErrors.rethrowIfFatal(unsupported);
                 return null;
             }
         }
