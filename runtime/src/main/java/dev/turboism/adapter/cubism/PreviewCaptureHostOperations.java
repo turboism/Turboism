@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism;
 
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -858,7 +859,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
                 final String name = current.getClass().getName();
                 if (name.contains("GLJPanelWrapper$b")) {
                     final java.lang.reflect.Field wrapper = current.getClass().getDeclaredField("b");
-                    wrapper.setAccessible(true);
+                    ReflectAccess.open(wrapper);
                     final Object host = wrapper.get(current);
                     return MethodHandleCache.method(host.getClass(), "getSharedDrawable")
                             .invoke(host);
