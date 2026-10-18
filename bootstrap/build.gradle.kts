@@ -1,6 +1,6 @@
 plugins {
     `java-library`
-    id("com.gradleup.shadow") version "8.3.11"
+    alias(libs.plugins.shadow)
 }
 
 import java.util.jar.JarFile
