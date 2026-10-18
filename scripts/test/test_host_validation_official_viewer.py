@@ -34,13 +34,14 @@ class ViewerTests(unittest.TestCase):
     def test_dispatch_cannot_impersonate_another_task(self):
         import types
         from host_validation_queue import PreparedStore
-        store=PreparedStore(types.SimpleNamespace(root=Path('/tmp/unused-viewer-store')))
-        request=dict(schemaVersion=1,argv=args(),environment={})
-        with self.assertRaises(QueueError):
-            store.capture(request,Path(__file__).resolve().parents[2],'official-core:5302')
-        a=args();a[1]='official-core';request['argv']=a
-        with self.assertRaises(QueueError):
-            store.capture(request,Path(__file__).resolve().parents[2],'official-viewer:5302')
+        with tempfile.TemporaryDirectory() as tmp:
+            store = PreparedStore(types.SimpleNamespace(root=Path(tmp), production=False))
+            request = dict(schemaVersion=1, argv=args(), environment={})
+            with self.assertRaises(QueueError):
+                store.capture(request, Path(__file__).resolve().parents[2], 'official-core:5302')
+            a = args(); a[1] = 'official-core'; request['argv'] = a
+            with self.assertRaises(QueueError):
+                store.capture(request, Path(__file__).resolve().parents[2], 'official-viewer:5302')
 
     def test_frozen_finalizer_sibling_import_without_module_search_path(self):
         import types
