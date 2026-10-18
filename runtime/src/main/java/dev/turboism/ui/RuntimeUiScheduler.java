@@ -5,8 +5,10 @@ import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeCancellationToken;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.ui.host.EdtDispatch;
 import dev.turboism.ui.host.HostReadEpoch;
 import java.time.Duration;
 import java.util.Objects;
@@ -132,11 +134,15 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
 
     private static final class EdtCallback implements Runnable {
 
+        private static final long WATCHDOG_TICK_MILLIS = 250;
+        private static final long SLOW_AWAIT_WARN_MILLIS = 60_000;
+
         private final Runnable work;
         private final AtomicBoolean cancelled;
         private final RuntimeCancellationToken token;
         private final CountDownLatch settled = new CountDownLatch(1);
         private volatile Throwable failure;
+        private volatile Thread runningThread;
 
         private EdtCallback(final Runnable work, final AtomicBoolean cancelled, final RuntimeCancellationToken token) {
             this.work = work;
@@ -146,6 +152,7 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
 
         @Override
         public void run() {
+            runningThread = Thread.currentThread();
             try {
                 runGuarded(work, cancelled, token);
             } catch (Throwable exception) {
@@ -157,7 +164,23 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
         }
 
         private void awaitCompletion() throws InterruptedException {
-            settled.await();
+            boolean warned = false;
+            final long waitStart = System.nanoTime();
+            while (!settled.await(WATCHDOG_TICK_MILLIS, TimeUnit.MILLISECONDS)) {
+                if (!warned && System.nanoTime() - waitStart >= TimeUnit.MILLISECONDS.toNanos(SLOW_AWAIT_WARN_MILLIS)) {
+                    warned = true;
+                    final Thread edt = EdtDispatch.findEdtThread(runningThread);
+                    final String stack = EdtDispatch.dumpThreadStack(edt);
+                    // Unbounded wait is a deliberate correctness requirement: a callback already
+                    // running on the EDT is never interrupted or preempted to prevent host mutations
+                    // from completing after the caller gave up.
+                    RuntimeDiagnostics.warn(
+                            "ui-scheduler",
+                            "UI callback is still running on the EDT after " + SLOW_AWAIT_WARN_MILLIS
+                                    + "ms; wait continues to preserve host mutation correctness. EDT stack:\n"
+                                    + stack);
+                }
+            }
             if (failure != null) {
                 throwUnchecked(failure);
             }
