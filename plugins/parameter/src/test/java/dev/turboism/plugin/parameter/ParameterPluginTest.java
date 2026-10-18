@@ -20,29 +20,18 @@ import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations;
 import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
 import dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan;
-import dev.turboism.sdk.diagnostics.DiagnosticReport;
-import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
-import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
-import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
-import dev.turboism.sdk.plugin.PluginPaths;
-import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.DialogRequest;
-import dev.turboism.sdk.ui.EmbeddedPanelContribution;
-import dev.turboism.sdk.ui.FileChooserRequest;
-import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
-import dev.turboism.sdk.ui.UiScheduler;
-import dev.turboism.sdk.ui.ViewportSnapshot;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
-import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
-import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
-import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.test.action.RecordingActionRegistry;
+import dev.turboism.test.menu.RecordingMenuRegistry;
+import dev.turboism.test.plugin.FakePluginContext;
+import dev.turboism.test.ui.RecordingContextMenuRegistry;
+import dev.turboism.test.ui.RecordingUiHost;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -300,7 +289,7 @@ class ParameterPluginTest {
         assertTrue(context.actions().actions().isEmpty());
     }
 
-    private static final class RecordingPluginContext implements PluginContext {
+    private static final class RecordingPluginContext extends FakePluginContext {
         private final DisposableScope disposableScope = new DisposableScope();
         private final RecordingActionRegistry actions = new RecordingActionRegistry();
         private final RecordingMenuRegistry menus = new RecordingMenuRegistry();
@@ -310,12 +299,8 @@ class ParameterPluginTest {
         private final FixedCubismFacade cubism = new FixedCubismFacade();
 
         RecordingPluginContext(PluginLogger logger) {
+            super(FakePluginContext.builder());
             this.logger = logger;
-        }
-
-        @Override
-        public PluginDescriptor descriptor() {
-            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -324,23 +309,8 @@ class ParameterPluginTest {
         }
 
         @Override
-        public PluginPaths paths() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public FixedCubismFacade cubism() {
             return cubism;
-        }
-
-        @Override
-        public List<PluginPermission> permissions() {
-            return List.of();
-        }
-
-        @Override
-        public EventBus eventBus() {
-            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -358,20 +328,11 @@ class ParameterPluginTest {
         }
 
         @Override
-        public UiScheduler uiScheduler() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public DiagnosticReport diagnostics() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public DisposableScope disposableScope() {
             return disposableScope;
         }
 
+        @Override
         public RecordingUiHost uiHost() {
             return uiHost;
         }
@@ -573,153 +534,6 @@ class ParameterPluginTest {
                     throw unsupported();
                 }
             };
-        }
-
-        private static UnsupportedOperationException unsupported() {
-            return new UnsupportedOperationException("not used");
-        }
-    }
-
-    private static final class RecordingActionRegistry implements ActionRegistry {
-        private final List<Action> actions = new ArrayList<>();
-
-        List<Action> actions() {
-            return actions;
-        }
-
-        @Override
-        public Registration register(String id, Action action) {
-            actions.add(action);
-            return () -> actions.remove(action);
-        }
-
-        void execute(String id) {
-            execute(id, new ActionContext() {});
-        }
-
-        void execute(String id, ContextMenuSelection selection) {
-            execute(id, new ActionContext() {
-                @Override
-                public Optional<ContextMenuSelection> contextMenuSelection() {
-                    return Optional.of(selection);
-                }
-            });
-        }
-
-        private void execute(String id, ActionContext context) {
-            actions.stream()
-                    .filter(a -> a.id().equals(id))
-                    .findFirst()
-                    .orElseThrow()
-                    .handler()
-                    .accept(context);
-        }
-    }
-
-    private static final class RecordingMenuRegistry implements MenuRegistry {
-        private final List<MenuContribution> contributions = new ArrayList<>();
-
-        List<MenuContribution> contributions() {
-            return List.copyOf(contributions);
-        }
-
-        @Override
-        public Registration contribute(final MenuContribution contribution) {
-            contributions.add(contribution);
-            return () -> contributions.remove(contribution);
-        }
-    }
-
-    private static final class RecordingContextMenuRegistry implements ContextMenuRegistry {
-        private final List<ContextMenuContribution> contributions = new ArrayList<>();
-
-        List<ContextMenuContribution> contributions() {
-            return List.copyOf(contributions);
-        }
-
-        @Override
-        public Registration contribute(ContextMenuContribution contribution) {
-            contributions.add(contribution);
-            return () -> contributions.remove(contribution);
-        }
-    }
-
-    private static final class RecordingUiHost implements UiHostCapabilityService {
-        private final List<StatusNotification> notifications = new ArrayList<>();
-        private Optional<String> chosenFile = Optional.empty();
-        private boolean confirmResult = true;
-
-        List<StatusNotification> notifications() {
-            return notifications;
-        }
-
-        @Override
-        public Registration contributeOverlay(OverlayContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration contributeBoundingBoxOverlayButton(
-                dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public ContextSourceSnapshot contextSource() {
-            throw unsupported();
-        }
-
-        @Override
-        public ViewportSnapshot viewport() {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration openDialog(DialogRequest request) {
-            throw unsupported();
-        }
-
-        private DialogRequest lastConfirmRequest;
-
-        @Override
-        public boolean confirmDialog(DialogRequest request) {
-            lastConfirmRequest = request;
-            return confirmResult;
-        }
-
-        DialogRequest lastConfirmRequest() {
-            return lastConfirmRequest;
-        }
-
-        @Override
-        public Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Optional<String> requestFile(FileChooserRequest request) {
-            return chosenFile;
-        }
-
-        @Override
-        public Registration notifyStatus(StatusNotification notification) {
-            notifications.add(notification);
-            return () -> notifications.remove(notification);
-        }
-
-        @Override
-        public Registration contributeContextMenu(ContextMenuRegistry.ContextMenuContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration contributeMainToolbar(MainToolbarRegistry.MainToolbarContribution contribution) {
-            throw unsupported();
-        }
-
-        @Override
-        public Registration contributePaletteToolbar(PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
-            throw unsupported();
         }
 
         private static UnsupportedOperationException unsupported() {

@@ -4,15 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.sdk.config.ConfigKey;
-import dev.turboism.sdk.config.ConfigMigration;
-import dev.turboism.sdk.config.ConfigReadResult;
-import dev.turboism.sdk.config.ConfigSchema;
-import dev.turboism.sdk.config.ConfigValue;
-import dev.turboism.sdk.config.ConfigValueSource;
-import dev.turboism.sdk.config.ConfigWriteResult;
-import dev.turboism.sdk.config.PluginConfigException;
-import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry;
@@ -23,23 +14,16 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutSnapshot;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode;
-import dev.turboism.sdk.i18n.PluginLocalization;
-import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
-import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
-import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.test.config.InMemoryConfigRegistry;
+import dev.turboism.test.plugin.FakePluginContext;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -176,7 +160,7 @@ class TextureAtlasDalsooPluginDialogStateTest {
         ((BooleanSupplier) callback).getAsBoolean();
     }
 
-    private static final class ShellPluginContext implements PluginContext {
+    private static final class ShellPluginContext extends FakePluginContext {
         private final List<String> infoMessages = new ArrayList<>();
         private final PluginLogger logger = new PluginLogger() {
             @Override
@@ -196,13 +180,12 @@ class TextureAtlasDalsooPluginDialogStateTest {
             @Override
             public void error(final String message, final Throwable throwable) {}
         };
-        private final FakeRegistry config = new FakeRegistry();
+        private final InMemoryConfigRegistry config = new InMemoryConfigRegistry();
         private final TextureAtlasLayoutAlgorithmRegistry algorithms = new TestAlgorithmRegistry();
         private final DisposableScope scope = new DisposableScope();
 
-        @Override
-        public PluginDescriptor descriptor() {
-            throw unused();
+        ShellPluginContext() {
+            super(FakePluginContext.builder());
         }
 
         @Override
@@ -211,73 +194,13 @@ class TextureAtlasDalsooPluginDialogStateTest {
         }
 
         @Override
-        public PluginPaths paths() {
-            throw unused();
-        }
-
-        @Override
-        public PluginConfigRegistry config() {
+        public InMemoryConfigRegistry config() {
             return config;
         }
 
         @Override
         public DisposableScope disposableScope() {
             return scope;
-        }
-
-        @Override
-        public List<PluginPermission> permissions() {
-            return List.of();
-        }
-
-        @Override
-        public dev.turboism.sdk.event.EventBus eventBus() {
-            throw unused();
-        }
-
-        @Override
-        public dev.turboism.sdk.action.ActionRegistry actions() {
-            throw unused();
-        }
-
-        @Override
-        public dev.turboism.sdk.menu.MenuRegistry menus() {
-            throw unused();
-        }
-
-        @Override
-        public dev.turboism.sdk.ui.UiScheduler uiScheduler() {
-            throw unused();
-        }
-
-        @Override
-        public dev.turboism.sdk.diagnostics.DiagnosticReport diagnostics() {
-            throw unused();
-        }
-
-        @Override
-        public PluginLocalization localization() {
-            return new PluginLocalization() {
-                @Override
-                public Locale locale() {
-                    return Locale.ENGLISH;
-                }
-
-                @Override
-                public String text(final String key) {
-                    return key;
-                }
-
-                @Override
-                public String format(final String key, final Object... arguments) {
-                    return key;
-                }
-
-                @Override
-                public boolean contains(final String key) {
-                    return true;
-                }
-            };
         }
 
         @Override
@@ -374,55 +297,5 @@ class TextureAtlasDalsooPluginDialogStateTest {
         public List<TextureAtlasLayoutAlgorithm> algorithms() {
             return List.copyOf(algorithms.values());
         }
-    }
-
-    private static final class FakeRegistry implements PluginConfigRegistry {
-        private final Map<ConfigKey<?>, Object> values = new HashMap<>();
-        private long revision;
-
-        @Override
-        public CompletionStage<Void> registerSchema(final ConfigSchema schema, final List<ConfigMigration> migrations) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public <T> CompletionStage<ConfigReadResult<T>> read(final ConfigKey<T> key) {
-            final boolean stored = values.containsKey(key);
-            final T current = stored ? (T) values.get(key) : key.defaultValue();
-            final ConfigValueSource source = stored ? ConfigValueSource.STORED : ConfigValueSource.DEFAULT_MISSING;
-            return CompletableFuture.completedFuture(
-                    new ConfigReadResult<>(new ConfigValue<>(current, source, revision), Optional.empty()));
-        }
-
-        @Override
-        public <T> CompletionStage<ConfigWriteResult> write(
-                final ConfigKey<T> key, final T value, final long expectedRevision) {
-            if (expectedRevision != revision) {
-                return CompletableFuture.completedFuture(new ConfigWriteResult(false, revision, Optional.empty()));
-            }
-            values.put(key, value);
-            revision++;
-            return CompletableFuture.completedFuture(new ConfigWriteResult(true, revision, Optional.empty()));
-        }
-
-        @Override
-        public Registration readScope(final String relativePath) {
-            return () -> {};
-        }
-
-        @Override
-        public Registration writeScope(final String relativePath) {
-            return () -> {};
-        }
-
-        @Override
-        public Optional<String> readString(final String relativePath, final String key) {
-            return Optional.empty();
-        }
-
-        @Override
-        public void writeString(final String relativePath, final String key, final String value)
-                throws PluginConfigException {}
     }
 }

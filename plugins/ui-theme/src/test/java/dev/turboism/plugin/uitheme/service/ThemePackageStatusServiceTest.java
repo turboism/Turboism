@@ -2,21 +2,11 @@ package dev.turboism.plugin.uitheme.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
-import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
 import dev.turboism.sdk.ui.DialogRequest;
-import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.FileChooserRequest;
-import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
-import dev.turboism.sdk.ui.ViewportSnapshot;
-import dev.turboism.sdk.ui.context.ContextMenuRegistry;
-import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
-import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
-import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
-import java.util.ArrayList;
+import dev.turboism.test.ui.RecordingUiHost;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -123,100 +113,6 @@ class ThemePackageStatusServiceTest {
         @Override
         public Optional<ThemeStatusSnapshot> readStatus() {
             return Optional.empty();
-        }
-    }
-
-    private static final class RecordingUiHost implements UiHostCapabilityService {
-        private final Optional<String> selectedFile;
-        private final boolean confirmResult;
-        private final List<FileChooserRequest> fileRequests = new ArrayList<>();
-        private final List<DialogRequest> dialogs = new ArrayList<>();
-        private final List<StatusNotification> notifications = new ArrayList<>();
-
-        RecordingUiHost(final Optional<String> selectedFile) {
-            this(selectedFile, true);
-        }
-
-        RecordingUiHost(final Optional<String> selectedFile, final boolean confirmResult) {
-            this.selectedFile = selectedFile;
-            this.confirmResult = confirmResult;
-        }
-
-        List<FileChooserRequest> fileRequests() {
-            return fileRequests;
-        }
-
-        List<DialogRequest> dialogs() {
-            return dialogs;
-        }
-
-        List<StatusNotification> notifications() {
-            return notifications;
-        }
-
-        @Override
-        public Registration contributeOverlay(final OverlayContribution contribution) {
-            throw new UnsupportedOperationException("overlay contributions are not used by this service");
-        }
-
-        @Override
-        public Registration contributeBoundingBoxOverlayButton(BoundingBoxOverlayButton contribution) {
-            throw new UnsupportedOperationException("bounding-box overlay buttons are not used by this service");
-        }
-
-        @Override
-        public ContextSourceSnapshot contextSource() {
-            throw new UnsupportedOperationException("context source is not used by this service");
-        }
-
-        @Override
-        public ViewportSnapshot viewport() {
-            throw new UnsupportedOperationException("viewport is not used by this service");
-        }
-
-        @Override
-        public Registration openDialog(final DialogRequest request) {
-            dialogs.add(request);
-            return () -> dialogs.remove(request);
-        }
-
-        @Override
-        public boolean confirmDialog(final DialogRequest request) {
-            dialogs.add(request);
-            return confirmResult;
-        }
-
-        @Override
-        public Registration contributeEmbeddedPanel(final EmbeddedPanelContribution contribution) {
-            throw new UnsupportedOperationException("embedded panels are not used by this service");
-        }
-
-        @Override
-        public Optional<String> requestFile(final FileChooserRequest request) {
-            fileRequests.add(request);
-            return selectedFile;
-        }
-
-        @Override
-        public Registration notifyStatus(final StatusNotification notification) {
-            notifications.add(notification);
-            return () -> notifications.remove(notification);
-        }
-
-        @Override
-        public Registration contributeContextMenu(final ContextMenuRegistry.ContextMenuContribution contribution) {
-            throw new UnsupportedOperationException("context menus are not used by this service");
-        }
-
-        @Override
-        public Registration contributeMainToolbar(final MainToolbarRegistry.MainToolbarContribution contribution) {
-            throw new UnsupportedOperationException("main toolbar is not used by this service");
-        }
-
-        @Override
-        public Registration contributePaletteToolbar(
-                final PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
-            throw new UnsupportedOperationException("palette toolbar is not used by this service");
         }
     }
 }

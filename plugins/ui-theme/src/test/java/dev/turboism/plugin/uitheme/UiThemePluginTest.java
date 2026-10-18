@@ -12,16 +12,8 @@ import dev.turboism.sdk.appearance.AppearanceRequest;
 import dev.turboism.sdk.appearance.AppearanceRestoreResult;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.appearance.AppearanceStatus;
-import dev.turboism.sdk.config.ConfigKey;
-import dev.turboism.sdk.config.ConfigReadResult;
-import dev.turboism.sdk.config.ConfigSchema;
-import dev.turboism.sdk.config.ConfigValue;
-import dev.turboism.sdk.config.ConfigValueSource;
-import dev.turboism.sdk.config.ConfigWriteResult;
-import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
-import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.DeformerSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelObjectSnapshot;
@@ -34,36 +26,15 @@ import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
-import dev.turboism.sdk.diagnostics.DiagnosticReport;
-import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PermissionIds;
-import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
-import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
-import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.storage.PluginStorage;
-import dev.turboism.sdk.storage.StorageError;
-import dev.turboism.sdk.storage.StorageErrorCode;
-import dev.turboism.sdk.storage.StorageListResult;
-import dev.turboism.sdk.storage.StorageMutationResult;
-import dev.turboism.sdk.storage.StoragePath;
-import dev.turboism.sdk.storage.StorageReadResult;
-import dev.turboism.sdk.storage.StorageWriteResult;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
-import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
 import dev.turboism.sdk.ui.ChoiceDialogRequest;
-import dev.turboism.sdk.ui.DialogRequest;
-import dev.turboism.sdk.ui.EmbeddedPanelContribution;
-import dev.turboism.sdk.ui.FileChooserRequest;
-import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
-import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.UserFileAccessService;
 import dev.turboism.sdk.ui.UserFileHandle;
 import dev.turboism.sdk.ui.UserFileReadResult;
@@ -71,12 +42,16 @@ import dev.turboism.sdk.ui.UserFileRequest;
 import dev.turboism.sdk.ui.UserFileRequestResult;
 import dev.turboism.sdk.ui.UserFileRequestStatus;
 import dev.turboism.sdk.ui.UserFileWriteResult;
-import dev.turboism.sdk.ui.ViewportSnapshot;
-import dev.turboism.sdk.ui.context.ContextMenuRegistry;
-import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
-import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
-import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
-import java.util.ArrayList;
+import dev.turboism.test.action.RecordingActionRegistry;
+import dev.turboism.test.concurrent.Await;
+import dev.turboism.test.config.InMemoryConfigRegistry;
+import dev.turboism.test.menu.RecordingMenuRegistry;
+import dev.turboism.test.plugin.FakePluginContext;
+import dev.turboism.test.plugin.RecordingPluginLogger;
+import dev.turboism.test.storage.InMemoryPluginStorage;
+import dev.turboism.test.ui.RecordingContextMenuRegistry;
+import dev.turboism.test.ui.RecordingUiHost;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -196,27 +171,14 @@ class UiThemePluginTest {
                 notifications);
     }
 
-    private static List<StatusNotification> awaitNotifications(final RecordingUiHost host, final int seconds)
-            throws Exception {
-        final long deadline = System.nanoTime() + seconds * 1_000_000_000L;
-        while (System.nanoTime() < deadline) {
-            if (!host.notifications().isEmpty()) {
-                return host.notifications();
-            }
-            Thread.sleep(50);
-        }
+    private static List<StatusNotification> awaitNotifications(final RecordingUiHost host, final int seconds) {
+        Await.condition(() -> !host.notifications().isEmpty(), Duration.ofSeconds(seconds));
         return host.notifications();
     }
 
-    private static dev.turboism.sdk.ui.FormDialogRequest awaitFormRequest(final RecordingUiHost host, final int seconds)
-            throws Exception {
-        final long deadline = System.nanoTime() + seconds * 1_000_000_000L;
-        while (System.nanoTime() < deadline) {
-            if (host.lastFormRequest() != null) {
-                return host.lastFormRequest();
-            }
-            Thread.sleep(50);
-        }
+    private static dev.turboism.sdk.ui.FormDialogRequest awaitFormRequest(
+            final RecordingUiHost host, final int seconds) {
+        Await.condition(() -> host.lastFormRequest() != null, Duration.ofSeconds(seconds));
         return host.lastFormRequest();
     }
 
@@ -269,26 +231,14 @@ class UiThemePluginTest {
     }
 
     private static dev.turboism.sdk.appearance.AppearanceRestoreResult awaitAppearanceRestore(
-            final RecordingAppearanceService service, final int seconds) throws Exception {
-        final long deadline = System.nanoTime() + seconds * 1_000_000_000L;
-        while (System.nanoTime() < deadline) {
-            if (service.lastRestore() != null) {
-                return service.lastRestore();
-            }
-            Thread.sleep(50);
-        }
+            final RecordingAppearanceService service, final int seconds) {
+        Await.condition(() -> service.lastRestore() != null, Duration.ofSeconds(seconds));
         return service.lastRestore();
     }
 
     private static dev.turboism.sdk.appearance.AppearanceRequest awaitAppearanceRequest(
-            final RecordingAppearanceService service, final int seconds) throws Exception {
-        final long deadline = System.nanoTime() + seconds * 1_000_000_000L;
-        while (System.nanoTime() < deadline) {
-            if (service.lastRequest() != null) {
-                return service.lastRequest();
-            }
-            Thread.sleep(50);
-        }
+            final RecordingAppearanceService service, final int seconds) {
+        Await.condition(() -> service.lastRequest() != null, Duration.ofSeconds(seconds));
         return service.lastRequest();
     }
 
@@ -427,16 +377,16 @@ class UiThemePluginTest {
         assertEquals(List.of(), context.uiHost().notifications());
     }
 
-    private static final class RecordingPluginContext implements PluginContext {
+    private static final class RecordingPluginContext extends FakePluginContext {
         private final RecordingActionRegistry actions = new RecordingActionRegistry();
         private final RecordingContextMenuRegistry contextMenus = new RecordingContextMenuRegistry();
         private final RecordingMenuRegistry menus = new RecordingMenuRegistry();
-        private final DefaultPluginConfigRegistry config = new DefaultPluginConfigRegistry();
-        private final EmptyPluginStorage storage = new EmptyPluginStorage();
+        private final InMemoryConfigRegistry config = new InMemoryConfigRegistry();
+        private final InMemoryPluginStorage storage = new InMemoryPluginStorage();
         private final CanceledUserFiles userFiles = new CanceledUserFiles();
         private final RecordingUiHost uiHost;
         private final DisposableScope disposableScope = new DisposableScope();
-        private final PluginLogger logger = new NoopPluginLogger();
+        private final PluginLogger logger = new RecordingPluginLogger();
         private final CubismReadCapabilityService cubismRead = new ThemeOnlyReadCapabilityService();
         private final RecordingAppearanceService appearance = new RecordingAppearanceService();
 
@@ -445,6 +395,7 @@ class UiThemePluginTest {
         }
 
         RecordingPluginContext(final RecordingUiHost uiHost) {
+            super(FakePluginContext.builder());
             this.uiHost = uiHost;
         }
 
@@ -454,11 +405,6 @@ class UiThemePluginTest {
 
         RecordingAppearanceService appearanceService() {
             return appearance;
-        }
-
-        @Override
-        public PluginDescriptor descriptor() {
-            return null;
         }
 
         @Override
@@ -495,33 +441,14 @@ class UiThemePluginTest {
             };
         }
 
+        @Override
         public PluginLogger logger() {
             return logger;
         }
 
         @Override
-        public PluginPaths paths() {
-            return null;
-        }
-
-        @Override
-        public CubismFacade cubism() {
-            return null;
-        }
-
-        @Override
         public CubismReadCapabilityService cubismRead() {
             return cubismRead;
-        }
-
-        @Override
-        public List<PluginPermission> permissions() {
-            return List.of();
-        }
-
-        @Override
-        public EventBus eventBus() {
-            return null;
         }
 
         @Override
@@ -534,10 +461,12 @@ class UiThemePluginTest {
             return menus;
         }
 
-        public ContextMenuRegistry contextMenu() {
+        @Override
+        public RecordingContextMenuRegistry contextMenu() {
             return contextMenus;
         }
 
+        @Override
         public RecordingUiHost uiHost() {
             return uiHost;
         }
@@ -547,28 +476,18 @@ class UiThemePluginTest {
         }
 
         @Override
-        public PluginConfigRegistry config() {
+        public InMemoryConfigRegistry config() {
             return config;
         }
 
         @Override
-        public PluginStorage storage() {
+        public InMemoryPluginStorage storage() {
             return storage;
         }
 
         @Override
         public UserFileAccessService userFiles() {
             return userFiles;
-        }
-
-        @Override
-        public UiScheduler uiScheduler() {
-            return null;
-        }
-
-        @Override
-        public DiagnosticReport diagnostics() {
-            return null;
         }
 
         @Override
@@ -584,132 +503,6 @@ class UiThemePluginTest {
                     .supply(dev.turboism.sdk.appearance.AppearanceService.class, () -> this.appearance())
                     .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
                     .build();
-        }
-    }
-
-    private static final class RecordingActionRegistry implements ActionRegistry {
-        private final List<Action> actions = new ArrayList<>();
-
-        List<Action> actions() {
-            return actions;
-        }
-
-        @Override
-        public Registration register(String id, Action action) {
-            actions.add(action);
-            return () -> actions.remove(action);
-        }
-
-        void execute(String id) {
-            actions.stream()
-                    .filter(action -> action.id().equals(id))
-                    .findFirst()
-                    .orElseThrow()
-                    .handler()
-                    .accept(new ActionContext() {});
-        }
-    }
-
-    private static final class RecordingMenuRegistry implements MenuRegistry {
-        private final List<MenuContribution> contributions = new ArrayList<>();
-
-        List<MenuContribution> contributions() {
-            return contributions;
-        }
-
-        @Override
-        public Registration contribute(final MenuContribution contribution) {
-            contributions.add(contribution);
-            return () -> contributions.remove(contribution);
-        }
-    }
-
-    private static final class DefaultPluginConfigRegistry implements PluginConfigRegistry {
-        private ConfigSchema schema;
-
-        @Override
-        public CompletionStage<Void> registerSchema(
-                ConfigSchema schema, List<dev.turboism.sdk.config.ConfigMigration> migrations) {
-            this.schema = schema;
-            return CompletableFuture.completedFuture(null);
-        }
-
-        @Override
-        public <T> CompletionStage<ConfigReadResult<T>> read(ConfigKey<T> key) {
-            return CompletableFuture.completedFuture(new ConfigReadResult<>(
-                    new ConfigValue<>(key.defaultValue(), ConfigValueSource.DEFAULT_MISSING, 0), Optional.empty()));
-        }
-
-        @Override
-        public <T> CompletionStage<ConfigWriteResult> write(ConfigKey<T> key, T value, long expectedRevision) {
-            return CompletableFuture.completedFuture(
-                    new ConfigWriteResult(true, expectedRevision + 1, Optional.empty()));
-        }
-
-        @Override
-        public Registration readScope(String relativePath) {
-            return () -> {};
-        }
-
-        @Override
-        public Registration writeScope(String relativePath) {
-            return () -> {};
-        }
-
-        @Override
-        public Optional<String> readString(String relativePath, String key) {
-            return Optional.empty();
-        }
-
-        @Override
-        public void writeString(String relativePath, String key, String value) {}
-    }
-
-    private static final class EmptyPluginStorage implements PluginStorage {
-        @Override
-        public CompletionStage<StorageReadResult<String>> readUtf8(StoragePath path, int maxBytes) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public CompletionStage<StorageReadResult<byte[]>> readBytes(StoragePath path, int maxBytes) {
-            return CompletableFuture.completedFuture(new StorageReadResult<>(
-                    Optional.empty(),
-                    Optional.of(new StorageError(StorageErrorCode.NOT_FOUND, "not found", path)),
-                    false));
-        }
-
-        @Override
-        public CompletionStage<StorageWriteResult> writeUtf8Atomic(StoragePath path, String content) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public CompletionStage<StorageWriteResult> writeBytesAtomic(StoragePath path, byte[] content) {
-            return CompletableFuture.completedFuture(new StorageWriteResult(true, Optional.empty()));
-        }
-
-        @Override
-        public CompletionStage<StorageListResult> list(StoragePath directory, int maxEntries) {
-            return CompletableFuture.completedFuture(new StorageListResult(List.of(), Optional.empty(), false));
-        }
-
-        @Override
-        public CompletionStage<StorageMutationResult> copy(
-                StoragePath source, StoragePath target, boolean replaceExisting) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public CompletionStage<StorageMutationResult> moveAtomic(
-                StoragePath source, StoragePath target, boolean replaceExisting) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public CompletionStage<StorageMutationResult> delete(StoragePath path, boolean recursive) {
-            return CompletableFuture.completedFuture(new StorageMutationResult(
-                    false, Optional.of(new StorageError(StorageErrorCode.NOT_FOUND, "not found", path))));
         }
     }
 
@@ -741,152 +534,11 @@ class UiThemePluginTest {
         }
     }
 
-    private static final class RecordingContextMenuRegistry implements ContextMenuRegistry {
-        private final List<ContextMenuContribution> contributions = new ArrayList<>();
-
-        List<ContextMenuContribution> contributions() {
-            return contributions;
-        }
-
-        @Override
-        public Registration contribute(ContextMenuContribution contribution) {
-            contributions.add(contribution);
-            return () -> contributions.remove(contribution);
-        }
-    }
-
-    private static class RecordingUiHost implements UiHostCapabilityService {
-        private final Optional<String> selectedFile;
-        private final boolean confirmResult;
-        private final List<DialogRequest> dialogs = new ArrayList<>();
-        private final List<StatusNotification> notifications = new ArrayList<>();
-
-        RecordingUiHost() {
-            this(Optional.empty(), true);
-        }
-
-        RecordingUiHost(final Optional<String> selectedFile, final boolean confirmResult) {
-            this.selectedFile = selectedFile;
-            this.confirmResult = confirmResult;
-        }
-
-        @Override
-        public Optional<String> choose(final ChoiceDialogRequest request) {
-            return Optional.empty();
-        }
-
-        private ChoiceDialogRequest lastChoiceRequest;
-        private dev.turboism.sdk.ui.ChoiceDialogResultListener lastChoiceListener;
-        private dev.turboism.sdk.ui.FormDialogRequest lastFormRequest;
-        private dev.turboism.sdk.ui.FormDialogResultListener lastFormListener;
-
-        @Override
-        public void openChoiceDialog(
-                final ChoiceDialogRequest request, final dev.turboism.sdk.ui.ChoiceDialogResultListener listener) {
-            this.lastChoiceRequest = request;
-            this.lastChoiceListener = listener;
-        }
-
-        ChoiceDialogRequest lastChoiceRequest() {
-            return lastChoiceRequest;
-        }
-
-        dev.turboism.sdk.ui.ChoiceDialogResultListener lastChoiceListener() {
-            return lastChoiceListener;
-        }
-
-        dev.turboism.sdk.ui.FormDialogRequest lastFormRequest() {
-            return lastFormRequest;
-        }
-
-        dev.turboism.sdk.ui.FormDialogResultListener lastFormListener() {
-            return lastFormListener;
-        }
-
-        List<DialogRequest> dialogs() {
-            return dialogs;
-        }
-
-        List<StatusNotification> notifications() {
-            return notifications;
-        }
-
-        @Override
-        public Registration contributeOverlay(OverlayContribution contribution) {
-            throw new UnsupportedOperationException("overlay contributions are not used by this plugin test");
-        }
-
-        @Override
-        public Registration contributeBoundingBoxOverlayButton(BoundingBoxOverlayButton contribution) {
-            throw new UnsupportedOperationException("bounding-box overlay buttons are not used by this plugin test");
-        }
-
-        @Override
-        public ContextSourceSnapshot contextSource() {
-            throw new UnsupportedOperationException("context source is not used by this plugin test");
-        }
-
-        @Override
-        public ViewportSnapshot viewport() {
-            throw new UnsupportedOperationException("viewport is not used by this plugin test");
-        }
-
-        @Override
-        public Registration openDialog(DialogRequest request) {
-            dialogs.add(request);
-            return () -> dialogs.remove(request);
-        }
-
-        @Override
-        public boolean confirmDialog(DialogRequest request) {
-            dialogs.add(request);
-            return confirmResult;
-        }
-
-        @Override
-        public Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution) {
-            throw new UnsupportedOperationException("embedded panels are not used by this plugin test");
-        }
-
-        @Override
-        public void openFormDialog(
-                final dev.turboism.sdk.ui.FormDialogRequest request,
-                final dev.turboism.sdk.ui.FormDialogResultListener listener) {
-            this.lastFormRequest = request;
-            this.lastFormListener = listener;
-        }
-
-        @Override
-        public Optional<String> requestFile(FileChooserRequest request) {
-            return selectedFile;
-        }
-
-        @Override
-        public Registration notifyStatus(StatusNotification notification) {
-            notifications.add(notification);
-            return () -> notifications.remove(notification);
-        }
-
-        @Override
-        public Registration contributeContextMenu(ContextMenuRegistry.ContextMenuContribution contribution) {
-            throw new UnsupportedOperationException("context menus are not used through uiHost here");
-        }
-
-        @Override
-        public Registration contributeMainToolbar(MainToolbarRegistry.MainToolbarContribution contribution) {
-            throw new UnsupportedOperationException("main toolbar is not used by this plugin test");
-        }
-
-        @Override
-        public Registration contributePaletteToolbar(PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
-            throw new UnsupportedOperationException("palette toolbar is not used by this plugin test");
-        }
-    }
-
     private static final class PermissionGatedUiHost extends RecordingUiHost {
         private final boolean allowStatusNotify;
 
         PermissionGatedUiHost(final boolean allowStatusNotify) {
+            super(Optional.empty(), true);
             this.allowStatusNotify = allowStatusNotify;
         }
 
@@ -1023,22 +675,5 @@ class UiThemePluginTest {
         private static UnsupportedOperationException unsupported() {
             return new UnsupportedOperationException("only themeStatus is used by this plugin test");
         }
-    }
-
-    private static final class NoopPluginLogger implements PluginLogger {
-        @Override
-        public void debug(String message) {}
-
-        @Override
-        public void info(String message) {}
-
-        @Override
-        public void warn(String message) {}
-
-        @Override
-        public void error(String message) {}
-
-        @Override
-        public void error(String message, Throwable throwable) {}
     }
 }
