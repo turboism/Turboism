@@ -37,32 +37,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class ProcessSidecarDispatcher implements SidecarDispatcher {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static volatile java.util.concurrent.ExecutorService defaultDispatchDelegate = newDispatchExecutor();
-
-    private static java.util.concurrent.ExecutorService newDispatchExecutor() {
-        return Executors.newSingleThreadExecutor(new SidecarDispatchThreadFactory());
-    }
-
-    private static synchronized java.util.concurrent.ExecutorService defaultDispatchExecutor() {
-        if (defaultDispatchDelegate == null || defaultDispatchDelegate.isShutdown()) {
-            defaultDispatchDelegate = newDispatchExecutor();
-        }
-        return defaultDispatchDelegate;
-    }
-
-    /**
-     * Shuts down the sidecar dispatch daemon executor upon runtime close.
-     * Subsequent dispatches recreate the daemon executor on demand.
-     */
-    public static synchronized void shutdownDefaultDispatchExecutor() {
-        if (defaultDispatchDelegate != null) {
-            defaultDispatchDelegate.shutdownNow();
-            defaultDispatchDelegate = null;
-        }
-    }
-
     private static final Executor DEFAULT_DISPATCH_EXECUTOR =
-            command -> defaultDispatchExecutor().execute(command);
+            Executors.newSingleThreadExecutor(new SidecarDispatchThreadFactory());
 
     private final SidecarDispatcherConfiguration configuration;
     private final ProcessLauncher launcher;

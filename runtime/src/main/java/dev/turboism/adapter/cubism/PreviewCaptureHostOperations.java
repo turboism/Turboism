@@ -91,84 +91,15 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
      */
     private static volatile Consumer<String> diagnostics = reason -> {};
 
-    private static volatile ExecutorService postProcessDelegate = newPostProcessExecutor();
-
-    private static ExecutorService newPostProcessExecutor() {
-        return Executors.newSingleThreadExecutor(runnable -> {
-            final Thread thread = new Thread(runnable, "turboism-capture-postprocess");
-            thread.setDaemon(true);
-            return thread;
-        });
-    }
-
-    private static synchronized ExecutorService postProcessExecutor() {
-        if (postProcessDelegate == null || postProcessDelegate.isShutdown()) {
-            postProcessDelegate = newPostProcessExecutor();
-        }
-        return postProcessDelegate;
-    }
-
-    /**
-     * Shuts down the post-process daemon executor upon host-session / runtime close.
-     * Subsequent capture requests recreate the daemon executor on demand.
-     */
-    public static synchronized void shutdownPostProcessExecutor() {
-        if (postProcessDelegate != null) {
-            postProcessDelegate.shutdownNow();
-            postProcessDelegate = null;
-        }
-    }
-
     /**
      * Daemon executor for pixel post-processing (solidity, crop, scale, PNG encode) so the EDT
      * never blocks on it. Captures are debounced upstream; a single thread is sufficient.
      */
-    static final ExecutorService POST_PROCESS_EXECUTOR = new java.util.concurrent.AbstractExecutorService() {
-        @Override
-        public void shutdown() {
-            shutdownPostProcessExecutor();
-        }
-
-        @Override
-        public List<Runnable> shutdownNow() {
-            synchronized (PreviewCaptureHostOperations.class) {
-                if (postProcessDelegate != null) {
-                    final List<Runnable> pending = postProcessDelegate.shutdownNow();
-                    postProcessDelegate = null;
-                    return pending;
-                }
-                return List.of();
-            }
-        }
-
-        @Override
-        public boolean isShutdown() {
-            synchronized (PreviewCaptureHostOperations.class) {
-                return postProcessDelegate == null || postProcessDelegate.isShutdown();
-            }
-        }
-
-        @Override
-        public boolean isTerminated() {
-            synchronized (PreviewCaptureHostOperations.class) {
-                return postProcessDelegate == null || postProcessDelegate.isTerminated();
-            }
-        }
-
-        @Override
-        public boolean awaitTermination(long timeout, java.util.concurrent.TimeUnit unit) throws InterruptedException {
-            final ExecutorService delegate;
-            synchronized (PreviewCaptureHostOperations.class) {
-                delegate = postProcessDelegate;
-            }
-            return delegate == null || delegate.awaitTermination(timeout, unit);
-        }
-
-        @Override
-        public void execute(Runnable command) {
-            postProcessExecutor().execute(command);
-        }
-    };
+    private static final ExecutorService POST_PROCESS_EXECUTOR = Executors.newSingleThreadExecutor(runnable -> {
+        final Thread thread = new Thread(runnable, "turboism-capture-postprocess");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     private final Object debounceGate = new Object();
     private RecentFileId debouncedId;
