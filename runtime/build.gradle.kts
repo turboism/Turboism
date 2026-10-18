@@ -1,7 +1,7 @@
 import org.gradle.language.jvm.tasks.ProcessResources
 
 plugins {
-    `java-library`
+    id("turboism.java-conventions")
 }
 
 val generatedCoreCatalogRoot = layout.buildDirectory.dir(

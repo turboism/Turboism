@@ -3,6 +3,7 @@ import org.gradle.api.tasks.Sync
 import org.gradle.jvm.tasks.Jar
 
 plugins {
+    id("turboism.java-conventions")
     application
 }
 
