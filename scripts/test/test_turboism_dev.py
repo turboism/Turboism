@@ -38,6 +38,11 @@ class TestTurboismDevPaths(unittest.TestCase):
         self.assertEqual(repo_root(scripts), REPO_ROOT)
         self.assertEqual(repo_root(scripts / "test"), REPO_ROOT)
 
+    def test_repo_root_rejects_anchor_outside_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(ValueError):
+                repo_root(tmp)
+
     def test_scripts_dir(self) -> None:
         self.assertEqual(scripts_dir(), REPO_ROOT / "scripts")
 
