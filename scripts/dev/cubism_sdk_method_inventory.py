@@ -5,11 +5,14 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 from pathlib import Path
 import sys
 
-ROOT = Path(__file__).resolve().parents[2]
+import _bootstrap  # noqa: F401
+from turboism_dev.json_io import read_json, write_json
+from turboism_dev.paths import repo_root
+
+ROOT = repo_root()
 sys.path.insert(0, str(ROOT / "scripts/test"))
 from sdk_api_baseline_common import ACC_BRIDGE, ACC_SYNTHETIC, API_VISIBILITY  # noqa: E402
 from sdk_api_baseline_parse import api_classes, load_parsed_classes  # noqa: E402
@@ -23,7 +26,7 @@ def build_inventory(sdk_jar: Path, coverage_paths: Path | list[Path]) -> dict:
     indexes = []
     for coverage_path in coverage_paths:
         coverage_bytes = coverage_path.read_bytes()
-        coverage = json.loads(coverage_bytes)
+        coverage = read_json(coverage_path)
         indexes.append({"path": coverage_path.name, "sha256": hashlib.sha256(coverage_bytes).hexdigest()})
         for row in coverage["methods"]:
             owner, name = row["sdkMethod"].split("(", 1)[0].rsplit(".", 1)
@@ -103,7 +106,7 @@ def main() -> None:
     coverage = args.coverage or [ROOT / "validation/cubism-version-matrix" / name
                                 for name in ("owned-moc-coverage.json", "mcp-texture-coverage.json", "mcp-authoring-coverage.json")]
     document = build_inventory(args.sdk_jar, coverage)
-    args.output.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n")
+    write_json(args.output, document, indent=2, ensure_ascii=False)
     print(f"Indexed {document['classCount']} types, {document['methodCount']} methods, "
           f"{document['fieldCount']} fields; {document['explicitlyMappedMethodCount']} explicit scenario mappings")
 

@@ -32,7 +32,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 import pickle
 import re
 import struct
@@ -42,7 +41,11 @@ import zipfile
 from collections import deque
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+import _bootstrap  # noqa: F401
+from turboism_dev.json_io import read_json, write_json
+from turboism_dev.paths import repo_root
+
+ROOT = repo_root()
 PACK_DIR = ROOT / "compatibility" / "cubism" / "mapping-packs" / "draft"
 LIVE2D_PREFIX = "com/live2d/"
 L2D = LIVE2D_PREFIX.encode()
@@ -327,7 +330,7 @@ def family_roots():
     """family -> {'methods': {(owner,name,desc)}, 'fields': {(owner,name,desc)}}"""
     fams: dict[str, dict[str, set]] = {}
     for p in sorted(PACK_DIR.glob("*.json")):
-        d = json.loads(p.read_text())
+        d = read_json(p)
         m = re.match(r"cubism-\d+\.\d+\.\d+-(.+)\.json$", p.name)
         fam = m.group(1) if m else p.stem
         slot = fams.setdefault(fam, {"methods": set(), "fields": set()})
@@ -598,8 +601,7 @@ def main() -> int:
             "families": table,
         }
         path = Path(args.emit_json)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload, indent=1) + "\n")
+        write_json(path, payload, indent=1)
         print(f"\nemitted {path}", file=sys.stderr)
     return 0
 

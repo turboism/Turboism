@@ -46,7 +46,11 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+import _bootstrap  # noqa: F401
+from turboism_dev.paths import repo_root
+from turboism_dev.versions import cubism_version_key, dotted_to_compact, version_tag
+
+ROOT = repo_root()
 
 
 def cubism_ref_dir() -> Path:
@@ -1652,7 +1656,7 @@ def repair_committed_packs() -> list[str]:
 
 ALL_VERSIONS = tuple(
     sorted(
-        TARGET_VERSIONS + REVIEWED, key=lambda v: tuple(int(p) for p in v.split("."))
+        TARGET_VERSIONS + REVIEWED, key=cubism_version_key
     )
 )
 CATALOG_SLICES = (
@@ -1681,11 +1685,11 @@ TEMPLATE_DIR = (
 
 
 def vtag(version: str) -> str:
-    return version.replace(".", "_")
+    return version_tag(version)
 
 
 def vcompact(version: str) -> str:
-    return version.replace(".", "")
+    return dotted_to_compact(version)
 
 
 def emitted_records() -> dict[str, dict[str, str]]:
@@ -1764,7 +1768,7 @@ def wire_slice_catalog(records: dict[str, dict[str, str]]) -> None:
     arrays = []
     for slice_id in CATALOG_SLICES:
         versions = sorted(
-            records.get(slice_id, {}), key=lambda v: tuple(int(p) for p in v.split("."))
+            records.get(slice_id, {}), key=cubism_version_key
         )
         names = []
         for version in versions:
@@ -2066,7 +2070,7 @@ def wire_editor_model(versions: list[str]) -> None:
     )
     all_records = sorted(
         versions + ["5.2.03", "5.3.02", "5.3.03"],
-        key=lambda v: tuple(int(p) for p in v.split(".")),
+        key=cubism_version_key,
     )
     repl = (
         "private static final List<ReviewedSliceRecord> RECORDS = List.of(\n        "
@@ -2149,13 +2153,15 @@ def wire_protected_export(versions: list[str]) -> None:
         + "    // </version-matrix:pe-consts>\n\n"
         + text[anchor_end:]
     )
+    # forArtifact: legacy-surface records (no alias-source family) take
+    # cubism52Aliases(); full-surface records take REQUIRED_ALIASES.
     match = re.search(
         r"private static final List<ReviewedSliceRecord> RECORDS = List\.of\([^;]*\);",
         text,
     )
     all_records = sorted(
         versions + ["5.2.03", "5.3.02", "5.3.03"],
-        key=lambda v: tuple(int(p) for p in v.split(".")),
+        key=cubism_version_key,
     )
     repl = (
         "private static final List<ReviewedSliceRecord> RECORDS = List.of(\n        "
@@ -2163,8 +2169,6 @@ def wire_protected_export(versions: list[str]) -> None:
         + "\n    );"
     )
     text = text[: match.start()] + repl + text[match.end() :]
-    # forArtifact: legacy-surface records (no alias-source family) take
-    # cubism52Aliases(); full-surface records take REQUIRED_ALIASES.
     anchor = re.search(r"        if \(RECORD_5_2_03\.equals\(record\)\) \{\n", text)
     assert anchor
     arms = []
@@ -2336,7 +2340,7 @@ def wire() -> None:
     }
     for template, family in families.items():
         versions = sorted(
-            records.get(family, {}), key=lambda v: tuple(int(p) for p in v.split("."))
+            records.get(family, {}), key=cubism_version_key
         )
         wire_record_style_manifest(template, family, versions, family)
     for template, family, label, with_slice in (
@@ -2354,7 +2358,7 @@ def wire() -> None:
         ),
     ):
         versions = sorted(
-            records.get(family, {}), key=lambda v: tuple(int(p) for p in v.split("."))
+            records.get(family, {}), key=cubism_version_key
         )
         wire_arm_style_manifest(
             template, family, versions, label, with_slice=with_slice
@@ -2362,7 +2366,7 @@ def wire() -> None:
     wire_autobackup(
         sorted(
             records.get("autobackup", {}),
-            key=lambda v: tuple(int(p) for p in v.split(".")),
+            key=cubism_version_key,
         )
     )
     wire_bounding_box(
@@ -2372,19 +2376,19 @@ def wire() -> None:
                 for v in records.get("ui-bounding-box-overlay", {})
                 if v not in REVIEWED
             ),
-            key=lambda v: tuple(int(p) for p in v.split(".")),
+            key=cubism_version_key,
         )
     )
     wire_editor_model(
         sorted(
             (v for v in records.get("editor-model", {}) if v not in REVIEWED),
-            key=lambda v: tuple(int(p) for p in v.split(".")),
+            key=cubism_version_key,
         )
     )
     wire_protected_export(
         sorted(
             (v for v in records.get("protected-export", {}) if v not in REVIEWED),
-            key=lambda v: tuple(int(p) for p in v.split(".")),
+            key=cubism_version_key,
         )
     )
     wire_bootstrap(records)
