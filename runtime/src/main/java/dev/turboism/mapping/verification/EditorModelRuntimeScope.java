@@ -1,11 +1,7 @@
 package dev.turboism.mapping.verification;
 
-import java.io.IOException;
-import java.nio.file.Path;
-
-/** Pinned resolver factory for the verified Editor model read/write slice. */
-public final class VerifiedEditorModelResolverFactory implements SliceResolverFactory {
-
+/** Preserves the exact Editor-model validation scope independently of resolver construction. */
+final class EditorModelRuntimeScope {
     private static final String EDIT_LEVEL_WRITE_VALIDATION_PROPERTY = "turboism.validation.editorModelEditLevelWrite";
     private static final String EDIT_LEVEL_WRITE_VALIDATION_TOKEN = "EXACT_5303_EDIT_LEVEL_WRITE_CANDIDATE";
     private static final String EDIT_LEVEL_WRITE_VALIDATION_MODE = "edit-level-write-5303";
@@ -110,31 +106,7 @@ public final class VerifiedEditorModelResolverFactory implements SliceResolverFa
     private static final String ROTATION_FORM_WRITE_VALIDATION_TOKEN = "EXACT_5303_ROTATION_FORM_WRITE_CANDIDATE";
     private static final String ROTATION_FORM_WRITE_VALIDATION_MODE = "rotation-form-write-5303";
 
-    private final PinnedVerifiedResolverWorkflow workflow = new PinnedVerifiedResolverWorkflow();
-
-    /**
-     * Builds a resolver for the Editor model slice, but only after the
-     * whole pinned chain checks out: the reviewed record must hash to the
-     * trust-root value, its fields must match the manifest, the host artifact
-     * must be byte-identical to the reviewed Cubism build, every selector must
-     * verify statically, the loaded host classes must attest to that artifact,
-     * and the artifact must be unchanged afterwards.
-     *
-     * @param reviewedRecord path to the reviewed verification record JSON
-     * @param verifiedArtifact path to the host jar being admitted
-     * @param hostClassLoader loader the verified members will be resolved
-     *     against
-     * @return a resolver limited to the aliases the manifest authorizes
-     * @throws IOException if the record or artifact cannot be read
-     * @throws IllegalArgumentException if any link in that chain fails, so an
-     *     unrecognized or tampered host yields no resolver at all
-     * @throws NullPointerException if any argument is {@code null}
-     */
-    public VerifiedMemberResolver create(
-            final Path reviewedRecord, final Path verifiedArtifact, final ClassLoader hostClassLoader)
-            throws IOException {
-        return SliceRegistry.EDITOR_MODEL.resolverFactory().create(reviewedRecord, verifiedArtifact, hostClassLoader);
-    }
+    private EditorModelRuntimeScope() {}
 
     static PinnedVerifiedResolverWorkflow.RuntimeScope runtimeScopeFor(final HostArtifactDigest artifact) {
         return ReviewedHostArtifacts.CUBISM_5_3_03.equals(artifact) ? cubism5303RuntimeScope() : null;
@@ -432,27 +404,5 @@ public final class VerifiedEditorModelResolverFactory implements SliceResolverFa
             final String expectedToken,
             final String expectedMode) {
         return expectedToken.equals(token) && expectedMode.equals(mode) && runId != null && !runId.isBlank();
-    }
-    /**
-     * Creates a resolver for a slice admitted by structural compatibility. The
-     * catalog-pinned record still anchors verification, but the host artifact
-     * is a structurally matching binary rather than a reviewed release.
-     *
-     * @param reviewedRecord catalog-pinned verification record
-     * @param hostArtifact located host artifact admitted structurally
-     * @param hostClassLoader loader the verified members resolve against
-     * @param contract admitted compatibility contract
-     * @return a resolver limited to the aliases the record authorizes
-     * @throws IOException if the record or artifact cannot be read
-     * @throws IllegalArgumentException if any link in the chain fails
-     * @throws NullPointerException if any argument is {@code null}
-     */
-    public VerifiedMemberResolver createCompatible(
-            final Path reviewedRecord,
-            final Path hostArtifact,
-            final ClassLoader hostClassLoader,
-            final SliceContract contract)
-            throws IOException {
-        return workflow.createCompatible(reviewedRecord, hostArtifact, hostClassLoader, contract);
     }
 }

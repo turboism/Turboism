@@ -326,7 +326,7 @@ final class VerificationManifestAdmissionPreflightTest {
 
     /**
      * Whether production admits this manifest through a runtime scope — currently only
-     * {@link VerifiedEditorModelResolverFactory} scopes exact Cubism 5.3.03 to a subset of
+     * {@link EditorModelRuntimeScope} scopes exact Cubism 5.3.03 to a subset of
      * its record, so strict alias equality is not required there. Mirrors the artifact
      * check that factory performs; if another family grows a scoped admission this
      * fail-closed list must be revisited.

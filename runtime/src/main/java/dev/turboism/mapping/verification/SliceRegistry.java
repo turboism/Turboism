@@ -1,6 +1,8 @@
 package dev.turboism.mapping.verification;
 
 import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -37,7 +39,7 @@ public final class SliceRegistry {
     public static final SliceDescriptor EDITOR_MODEL = new SliceDescriptor(
             EditorModelVerificationManifest.ADAPTER_SLICE_ID,
             EditorModelVerificationManifest::forArtifact,
-            VerifiedEditorModelResolverFactory::runtimeScopeFor);
+            EditorModelRuntimeScope::runtimeScopeFor);
 
     /** Embedded panel slice descriptor. */
     public static final SliceDescriptor EMBEDDED_PANEL = new SliceDescriptor(
@@ -83,6 +85,31 @@ public final class SliceRegistry {
             WORKSPACE_CONTROL);
 
     private SliceRegistry() {}
+
+    /**
+     * Resolves the Core profile from its reviewed digest, not an Editor release label.
+     * Byte-identical Core artifacts intentionally share a profile.
+     *
+     * @param artifact exact Core artifact
+     * @return reviewed Core profile
+     * @throws IOException if the artifact cannot be read
+     */
+    public static String corePublicApiProfileForArtifact(final Path artifact) throws IOException {
+        return CorePublicApiVerificationManifest.profileFor(HostArtifactDigest.from(artifact));
+    }
+
+    /**
+     * Selects a Core profile explicitly without relaxing record, artifact or attestation checks.
+     *
+     * @param profile reviewed Core profile
+     * @return the generic factory pinned to that profile
+     * @throws IllegalArgumentException if the profile is unsupported
+     */
+    public static SliceResolverFactory corePublicApiForProfile(final String profile) {
+        final var manifest = CorePublicApiVerificationManifest.require(profile);
+        return new SliceDescriptor(CorePublicApiSelectorContract.ADAPTER_SLICE_ID, ignored -> manifest)
+                .resolverFactory();
+    }
 
     /**
      * Returns an unmodifiable list of all registered slice descriptors.
