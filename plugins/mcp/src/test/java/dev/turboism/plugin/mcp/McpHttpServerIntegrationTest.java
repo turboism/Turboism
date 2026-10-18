@@ -734,6 +734,93 @@ final class McpHttpServerIntegrationTest {
     }
 
     @Test
+    void actionFailureDuringEnableRollsBackPublicationAndClosesServer() throws Exception {
+        final RecordingConnections connections = new RecordingConnections();
+        final RecordingUi ui = new RecordingUi();
+        ui.failNextAction = true;
+        final McpPlugin plugin = new McpPlugin();
+        plugin.init(
+                pluginContext(new CapturingLogger(), new MutableObjects(), new FakeReadServices(), connections, ui));
+
+        assertThrows(IllegalStateException.class, plugin::enable);
+        assertEquals(null, plugin.serverForTests());
+        assertTrue(connections.current.isEmpty());
+        assertEquals(1, connections.revocations, "publication must be revoked on partial enable failure");
+    }
+
+    @Test
+    void menuFailureDuringEnableRollsBackActionAndPublicationAndClosesServer() throws Exception {
+        final RecordingConnections connections = new RecordingConnections();
+        final RecordingUi ui = new RecordingUi();
+        ui.failNextMenu = true;
+        final McpPlugin plugin = new McpPlugin();
+        plugin.init(
+                pluginContext(new CapturingLogger(), new MutableObjects(), new FakeReadServices(), connections, ui));
+
+        assertThrows(IllegalStateException.class, plugin::enable);
+        assertEquals(null, plugin.serverForTests());
+        assertTrue(connections.current.isEmpty());
+        assertEquals(1, connections.revocations, "publication must be revoked on partial enable failure");
+        assertEquals(1, ui.actionRevocations, "action must be revoked on partial enable failure");
+    }
+
+    @Test
+    void stopUnpublishesRegistrationsBeforeClosingServer() throws Exception {
+        final List<String> order = new ArrayList<>();
+        final RecordingConnections connections = new RecordingConnections();
+        connections.closeListener = order::add;
+        final RecordingUi ui = new RecordingUi();
+        ui.closeListener = order::add;
+        final McpPlugin plugin = new McpPlugin();
+        plugin.init(
+                pluginContext(new CapturingLogger(), new MutableObjects(), new FakeReadServices(), connections, ui));
+        plugin.enable();
+
+        final Path connectionFile = plugin.serverForTests().connectionFile();
+        assertTrue(Files.isRegularFile(connectionFile));
+
+        plugin.disable();
+
+        assertEquals(List.of("unpublish-menu", "unpublish-action", "unpublish-connection"), order);
+        assertFalse(Files.exists(connectionFile));
+    }
+
+    @Test
+    void closeFailureDuringDisableClosesServerAndCleansUp() throws Exception {
+        final RecordingConnections connections = new RecordingConnections();
+        connections.failOnClose = true;
+        final McpPlugin plugin = new McpPlugin();
+        plugin.init(pluginContext(new CapturingLogger(), new MutableObjects(), new FakeReadServices(), connections));
+        plugin.enable();
+
+        final Path connectionFile = plugin.serverForTests().connectionFile();
+        assertTrue(Files.isRegularFile(connectionFile));
+
+        final Exception error = assertThrows(Exception.class, plugin::disable);
+        assertEquals("connection unpublish failure", error.getMessage());
+
+        assertEquals(null, plugin.serverForTests());
+        assertFalse(Files.exists(connectionFile), "HTTP server must be stopped on close failure");
+    }
+
+    @Test
+    void closeFailureDuringShutdownClearsContext() throws Exception {
+        final RecordingConnections connections = new RecordingConnections();
+        connections.failOnClose = true;
+        final McpPlugin plugin = new McpPlugin();
+        plugin.init(pluginContext(new CapturingLogger(), new MutableObjects(), new FakeReadServices(), connections));
+        plugin.enable();
+
+        final Exception error = assertThrows(Exception.class, plugin::shutdown);
+        assertEquals("connection unpublish failure", error.getMessage());
+
+        assertThrows(
+                IllegalStateException.class,
+                plugin::context,
+                "context must be cleared after shutdown even on close failure");
+    }
+
+    @Test
     void readMethodsIgnoreBearerAndWritesRequireIt() throws Exception {
         final McpHttpServer server =
                 McpHttpServer.start(dependencies(new CapturingLogger(), new MutableObjects(), new FakeReadServices()));
