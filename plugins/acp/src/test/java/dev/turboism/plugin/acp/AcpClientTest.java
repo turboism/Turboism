@@ -30,6 +30,87 @@ import org.junit.jupiter.api.Test;
 final class AcpClientTest {
 
     @Test
+    void sendsImageAndFileContentAndReceivesAgentAndToolImages() throws Exception {
+        final AcpAttachment image = AcpAttachment.fromClipboard(
+                new java.awt.image.BufferedImage(20, 16, java.awt.image.BufferedImage.TYPE_INT_RGB));
+        final AcpAttachment file = new AcpAttachment("notes.txt", "text/plain", "file:///tmp/notes.txt", "aGk=", 2);
+        final AtomicReference<List<Object>> blocks = new AtomicReference<>();
+        final java.util.concurrent.CountDownLatch received = new java.util.concurrent.CountDownLatch(2);
+        try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
+                    final long id = (Long) request.get("id");
+                    if ("initialize".equals(request.get("method"))) {
+                        output.response(
+                                id,
+                                Map.of(
+                                        "protocolVersion",
+                                        1L,
+                                        "agentCapabilities",
+                                        Map.of("promptCapabilities", Map.of("image", true, "embeddedContext", true))));
+                    } else if ("session/prompt".equals(request.get("method"))) {
+                        blocks.set(list(object(request.get("params")).get("prompt")));
+                        output.notification(
+                                "session/update",
+                                Map.of(
+                                        "sessionId",
+                                        "s1",
+                                        "update",
+                                        Map.of(
+                                                "sessionUpdate",
+                                                "agent_message_chunk",
+                                                "content",
+                                                image.promptBlock(true, true))));
+                        output.notification(
+                                "session/update",
+                                Map.of(
+                                        "sessionId",
+                                        "s1",
+                                        "update",
+                                        Map.of(
+                                                "sessionUpdate",
+                                                "tool_call_update",
+                                                "toolCallId",
+                                                "t1",
+                                                "content",
+                                                List.of(Map.of(
+                                                        "type",
+                                                        "content",
+                                                        "content",
+                                                        image.promptBlock(true, true))))));
+                        output.response(id, Map.of("stopReason", "end_turn"));
+                    }
+                });
+                AcpClient client = new AcpClient(transport, new AcpListener() {
+                    @Override
+                    public void agentImage(AcpClient source, String sessionId, AcpAttachment actual) {
+                        if (sessionId.equals("s1") && actual.data().equals(image.data())) received.countDown();
+                    }
+                })) {
+            client.initialize(Duration.ofSeconds(2));
+            assertEquals(
+                    "end_turn",
+                    client.prompt("s1", "inspect", List.of(image, file)).get(2, TimeUnit.SECONDS));
+            assertEquals(
+                    List.of("text", "image", "resource"),
+                    blocks.get().stream()
+                            .map(block -> object(block).get("type"))
+                            .toList());
+            assertTrue(received.await(2, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void failureDetailsAreBoundedAndRedactCredentials() {
+        final String details = AcpClient.failureDetails(
+                new IllegalStateException("API failed: Authorization: Bearer super-secret-token"));
+        assertTrue(details.contains("API failed"));
+        assertFalse(details.contains("super-secret-token"));
+        assertTrue(AcpClient.failureDetails(new IllegalStateException("x".repeat(4096)))
+                        .length()
+                <= 1025);
+        assertEquals("", AcpClient.failureDetails(new IllegalStateException()));
+    }
+
+    @Test
     void initializesCreatesSessionAndUsesConfigOptions() throws Exception {
         try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
                     final String method = string(request.get("method"));
@@ -196,6 +277,7 @@ final class AcpClientTest {
                                         List.of(
                                                 Map.of(
                                                         "sessionId", "sess-new",
+                                                        "title", "修复模型参数",
                                                         "cwd", "/workspace",
                                                         "updatedAt", "2026-08-25T10:00:00Z"),
                                                 Map.of(
@@ -211,6 +293,8 @@ final class AcpClientTest {
                     List.of("sess-new", "sess-old"),
                     sessions.stream().map(AcpSessionSummary::sessionId).toList());
             assertEquals("2026-08-25T10:00:00Z", sessions.get(0).updatedAt());
+            assertEquals("修复模型参数", sessions.get(0).title());
+            assertEquals("", sessions.get(1).title());
         }
     }
 
@@ -706,7 +790,9 @@ final class AcpClientTest {
                     } else if ("session/list".equals(method)) {
                         output.response(
                                 (Long) request.get("id"),
-                                Map.of("sessions", List.of(Map.of("sessionId", "sess-1", "updatedAt", secret))));
+                                Map.of(
+                                        "sessions",
+                                        List.of(Map.of("sessionId", "sess-1", "title", secret, "updatedAt", secret))));
                     }
                 });
                 AcpClient client = new AcpClient(transport, new AcpListener() {})) {
@@ -714,6 +800,7 @@ final class AcpClientTest {
             client.newSession(Path.of("."), connection(), Duration.ofSeconds(2));
             final List<AcpSessionSummary> sessions = client.listSessions(Duration.ofSeconds(2));
             assertEquals("<redacted>", sessions.get(0).updatedAt());
+            assertEquals("<redacted>", sessions.get(0).title());
         }
     }
 
@@ -890,6 +977,7 @@ final class AcpClientTest {
         final AtomicReference<String> agentThought = new AtomicReference<>();
         final AtomicReference<List<String>> toolCall = new AtomicReference<>();
         final AtomicReference<List<String>> toolUpdate = new AtomicReference<>();
+        final AtomicReference<String> toolInput = new AtomicReference<>();
         final AtomicReference<AcpListener.PermissionRequest> permission = new AtomicReference<>();
         try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
                     final String method = string(request.get("method"));
@@ -937,11 +1025,18 @@ final class AcpClientTest {
                                         "sess-1",
                                         "update",
                                         Map.of(
-                                                "sessionUpdate", "tool_call",
-                                                "toolCallId", "new-call " + secret,
-                                                "title", secret,
-                                                "kind", "edit " + secret,
-                                                "status", "pending " + secret)));
+                                                "sessionUpdate",
+                                                "tool_call",
+                                                "toolCallId",
+                                                "new-call " + secret,
+                                                "title",
+                                                secret,
+                                                "kind",
+                                                "edit " + secret,
+                                                "status",
+                                                "pending " + secret,
+                                                "rawInput",
+                                                Map.of("command", "echo " + secret + " " + "i".repeat(300 * 1024)))));
                         output.notification(
                                 "session/update",
                                 Map.of(
@@ -1005,6 +1100,16 @@ final class AcpClientTest {
                     }
 
                     @Override
+                    public void toolInput(
+                            final AcpClient source,
+                            final String sessionId,
+                            final String toolCallId,
+                            final String input) {
+                        assertOpaqueToolKey(toolCallId);
+                        toolInput.set(input);
+                    }
+
+                    @Override
                     public PermissionDecision permission(
                             final AcpClient source, final String sessionId, final PermissionRequest request) {
                         permission.set(request);
@@ -1025,6 +1130,8 @@ final class AcpClientTest {
             toolCall.get().subList(1, toolCall.get().size()).forEach(AcpClientTest::assertRedacted);
             assertOpaqueToolKey(toolUpdate.get().get(0));
             toolUpdate.get().subList(1, toolUpdate.get().size()).forEach(AcpClientTest::assertRedacted);
+            assertRedacted(toolInput.get());
+            assertTrue(toolInput.get().length() <= 256 * 1024);
             assertRedacted(permission.get().title());
             assertRedacted(permission.get().kind());
             assertRedacted(permission.get().toolCallId());
