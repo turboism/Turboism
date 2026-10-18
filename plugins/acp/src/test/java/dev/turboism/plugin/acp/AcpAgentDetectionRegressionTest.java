@@ -201,49 +201,55 @@ final class AcpAgentDetectionRegressionTest {
     }
 
     @Test
-    void unpersistedUserSelectionInUiIsNotOverwrittenByLateDetection() {
+    void unpersistedUserSelectionInUiIsNotOverwrittenByLateDetection() throws Exception {
         assumeFalse(
                 java.awt.GraphicsEnvironment.isHeadless(),
                 "AcpChatWindow frame construction requires non-headless environment");
-        final AcpChatWindow window = new AcpChatWindow(
-                new dev.turboism.sdk.i18n.PluginLocalization() {
-                    @Override
-                    public String text(String key) {
-                        return key;
-                    }
+        javax.swing.SwingUtilities.invokeAndWait(() -> {
+            final AcpChatWindow window = new AcpChatWindow(
+                    new dev.turboism.sdk.i18n.PluginLocalization() {
+                        @Override
+                        public String text(String key) {
+                            return key;
+                        }
 
-                    @Override
-                    public String format(String key, Object... args) {
-                        return key;
-                    }
+                        @Override
+                        public String format(String key, Object... args) {
+                            return key;
+                        }
 
-                    @Override
-                    public boolean contains(String key) {
-                        return true;
-                    }
+                        @Override
+                        public boolean contains(String key) {
+                            return true;
+                        }
 
-                    @Override
-                    public java.util.Locale locale() {
-                        return java.util.Locale.ROOT;
-                    }
-                },
-                "claude",
-                null,
-                "");
-        assertFalse(window.isUserSelectionDirty());
+                        @Override
+                        public java.util.Locale locale() {
+                            return java.util.Locale.ROOT;
+                        }
+                    },
+                    "claude",
+                    null,
+                    "");
+            try {
+                assertFalse(window.isUserSelectionDirty());
 
-        // Programmatic showAgentSelected before user edit works
-        window.showAgentSelected("gemini");
-        assertEquals("gemini", window.agentId());
+                // Programmatic showAgentSelected before user edit works
+                window.showAgentSelected("gemini");
+                assertEquals("gemini", window.agentId());
 
-        // Simulate user dropdown interaction
-        window.agentSelector().setSelectedIndex(1);
-        final String userSelected = window.agentId();
-        assertTrue(window.isUserSelectionDirty());
+                // Simulate user dropdown interaction
+                window.agentSelector().setSelectedIndex(1);
+                final String userSelected = window.agentId();
+                assertTrue(window.isUserSelectionDirty());
 
-        // Late background detection returning "opencode" MUST NOT overwrite user's edit
-        window.showAgentSelected("opencode");
-        assertEquals(userSelected, window.agentId());
+                // Late background detection returning "opencode" MUST NOT overwrite user's edit
+                window.showAgentSelected("opencode");
+                assertEquals(userSelected, window.agentId());
+            } finally {
+                window.dispose();
+            }
+        });
     }
 
     @Test
