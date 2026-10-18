@@ -213,10 +213,11 @@ public final class TurboismAcpPlugin implements TurboismPlugin {
                         currentSettings.agentId(),
                         currentSettings.customCommand(),
                         currentSettings.initialPrompt().orElse(""));
+                created.setAttachmentBaseDirectory(context.paths().stateDir());
                 final AcpChatController next = new AcpChatController(context, currentSettings, created);
                 created.bind(
                         () -> next.connect(created.agentId(), created.customCommand(), created.initialPrompt()),
-                        next::sendPrompt,
+                        text -> next.sendPrompt(text, created.attachments()),
                         next::cancel,
                         next::setConfigOption,
                         next::newSession,
@@ -226,7 +227,8 @@ public final class TurboismAcpPlugin implements TurboismPlugin {
                         next::authenticate,
                         next::openAgentLogin,
                         next::logout,
-                        () -> next.saveSettings(created.agentId(), created.customCommand(), created.initialPrompt()));
+                        () -> next.saveSettings(
+                                currentSettings.agentId(), currentSettings.customCommand(), created.initialPrompt()));
                 window = created;
                 controller = next;
                 next.detectAgents();

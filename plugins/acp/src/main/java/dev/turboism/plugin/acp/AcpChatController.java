@@ -213,9 +213,14 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     }
 
     void sendPrompt(final String text) {
+        sendPrompt(text, List.of());
+    }
+
+    void sendPrompt(final String text, final List<AcpAttachment> attachments) {
         final String prompt = text == null ? "" : text.strip();
-        if (prompt.isEmpty()) return;
-        submit(() -> promptNow(prompt));
+        final List<AcpAttachment> snapshot = List.copyOf(attachments);
+        if (prompt.isEmpty() && snapshot.isEmpty()) return;
+        submit(() -> promptNow(prompt, snapshot));
     }
 
     void newSession() {
@@ -565,7 +570,8 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                 view.clearTranscript();
                 view.showConfigOptions(created.configOptions());
                 view.showSessions(
-                        List.of(new AcpSessionSummary(created.sessionId(), "active")),
+                        List.of(new AcpSessionSummary(
+                                created.sessionId(), java.time.Instant.now().toString())),
                         created.sessionId(),
                         created.durableSessionsAvailable());
             });
@@ -742,14 +748,18 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         }
     }
 
-    private void promptNow(final String text) {
+    static String promptPrefix(final String initial) {
+        return SYSTEM_BOUNDARY + "\n\n" + AcpPromptContext.REFERENCE
+                + (initial.isEmpty() ? "" : "\n\nUser-configured initial instructions:\n" + initial)
+                + "\n\nUser request:\n";
+    }
+
+    private void promptNow(final String text, final List<AcpAttachment> attachments) {
         final AcpClient active = client.get();
         final AcpSession current = session;
         if (active == null || current == null || prompting) return;
         final String initial = settings.initialPrompt().orElse("").strip();
-        final String prefix = initial.isEmpty()
-                ? SYSTEM_BOUNDARY + "\n\nUser request:\n"
-                : SYSTEM_BOUNDARY + "\n\nUser-configured initial instructions:\n" + initial + "\n\nUser request:\n";
+        final String prefix = promptPrefix(initial);
         if (text.length() > MAX_PROMPT_CHARS - prefix.length()) {
             context.logger().warn("ACP text limit exceeded; prompt was not sent");
             ui(() -> view.showSessionFailure("status.prompt-failed"));
@@ -757,15 +767,16 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         }
         final CompletableFuture<String> prompt;
         try {
-            prompt = active.prompt(current.sessionId(), prefix + text);
+            prompt = active.prompt(current.sessionId(), prefix + text, attachments);
         } catch (RuntimeException failure) {
             context.logger().error("ACP prompt failed before dispatch", failure);
-            ui(() -> view.showSessionFailure("status.prompt-failed"));
+            ui(() -> view.showSessionFailure("status.prompt-failed", AcpClient.failureDetails(failure)));
             return;
         }
         prompting = true;
         ui(() -> {
             view.appendUser(text);
+            for (AcpAttachment attachment : attachments) view.appendAttachment(attachment, true);
             view.showPrompting();
         });
         prompt.whenComplete((stopReason, failure) -> submit(() -> {
@@ -773,7 +784,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             prompting = false;
             if (failure != null) {
                 context.logger().error("ACP prompt failed", unwrap(failure));
-                ui(() -> view.showSessionFailure("status.prompt-failed"));
+                ui(() -> view.showSessionFailure("status.prompt-failed", AcpClient.failureDetails(unwrap(failure))));
             } else {
                 ui(() -> view.showPromptComplete(stopReason));
                 refreshSessionsNow();
@@ -825,6 +836,11 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     }
 
     @Override
+    public void agentImage(final AcpClient source, final String sessionId, final AcpAttachment image) {
+        sourceEvent(source, sessionId, new ImageEvent(image));
+    }
+
+    @Override
     public void agentText(final AcpClient source, final String sessionId, final String text) {
         sourceEvent(source, sessionId, new AgentTextEvent(text));
     }
@@ -853,6 +869,11 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             final String status,
             final String content) {
         sourceEvent(source, sessionId, new ToolCallUpdateEvent(toolCallId, status, content));
+    }
+
+    @Override
+    public void toolInput(final AcpClient source, final String sessionId, final String toolCallId, final String input) {
+        sourceEvent(source, sessionId, new ToolInputEvent(toolCallId, input));
     }
 
     @Override
@@ -945,10 +966,40 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         }
     }
 
-    private sealed interface ReplayEvent permits AgentTextEvent, AgentThoughtEvent, ToolCallEvent, ToolCallUpdateEvent {
+    private sealed interface ReplayEvent
+            permits ImageEvent, AgentTextEvent, AgentThoughtEvent, ToolCallEvent, ToolCallUpdateEvent, ToolInputEvent {
         long textBytes();
 
         void deliver(View target);
+    }
+
+    private record ToolInputEvent(String toolCallId, String input) implements ReplayEvent {
+        private ToolInputEvent {
+            Objects.requireNonNull(toolCallId, "toolCallId");
+            Objects.requireNonNull(input, "input");
+        }
+
+        @Override
+        public long textBytes() {
+            return utf8Bytes(toolCallId) + utf8Bytes(input);
+        }
+
+        @Override
+        public void deliver(final View target) {
+            target.updateToolInput(toolCallId, input);
+        }
+    }
+
+    private record ImageEvent(AcpAttachment image) implements ReplayEvent {
+        @Override
+        public long textBytes() {
+            return image.data().length();
+        }
+
+        @Override
+        public void deliver(final View target) {
+            target.appendAttachment(image, false);
+        }
     }
 
     private record AgentTextEvent(String text) implements ReplayEvent {
@@ -1390,6 +1441,10 @@ final class AcpChatController implements AutoCloseable, AcpListener {
 
         void showSessionFailure(String localizationKey);
 
+        default void showSessionFailure(final String localizationKey, final String details) {
+            showSessionFailure(localizationKey);
+        }
+
         void showSettingsSaved();
 
         default void showDisconnected() {}
@@ -1398,11 +1453,15 @@ final class AcpChatController implements AutoCloseable, AcpListener {
 
         void appendAgent(String text);
 
+        default void appendAttachment(final AcpAttachment attachment, final boolean user) {}
+
         default void appendThinking(final String text) {}
 
         void appendTool(String toolCallId, String title, String kind, String status);
 
         void updateTool(String toolCallId, String status, String content);
+
+        default void updateToolInput(final String toolCallId, final String input) {}
 
         PermissionDecision requestPermission(PermissionRequest request);
     }
