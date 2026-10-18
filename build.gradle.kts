@@ -8,8 +8,8 @@ plugins {
     id("java")
     id("java-library")
     // Pinned by the frozen java-installer spec; see packaging/java-installer/installer.gradle.kts
-    id("org.izpack.gradle") version "3.2.3"
-    id("com.diffplug.spotless") version "8.9.0" apply false
+    alias(libs.plugins.izpack)
+    id("com.diffplug.spotless") apply false
 }
 
 // scripts/dev/worktree-id.sh owns worktree ID resolution and validation.
@@ -124,7 +124,7 @@ subprojects {
     extensions.configure<com.diffplug.gradle.spotless.SpotlessExtension>("spotless") {
         java {
             target("src/**/*.java")
-            palantirJavaFormat("2.97.0")
+            palantirJavaFormat(libs.versions.palantirJavaFormat.get())
         }
     }
 }

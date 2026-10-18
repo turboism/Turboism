@@ -151,8 +151,9 @@ subprojects {
         isCanBeResolved = true
         description = "Error Prone javac plugin artifacts"
     }
+    val libs = rootProject.extensions.getByType<VersionCatalogsExtension>().named("libs")
     dependencies {
-        add("errorprone", "com.google.errorprone:error_prone_core:2.42.0")
+        add("errorprone", libs.findLibrary("errorprone-core").get())
     }
     tasks.withType<JavaCompile>().configureEach {
         options.release.set(17)
@@ -196,8 +197,8 @@ subprojects {
         }
     }
     dependencies {
-        add("testImplementation", platform("org.junit:junit-bom:5.10.3"))
-        add("testImplementation", "org.junit.jupiter:junit-jupiter")
-        add("testRuntimeOnly", "org.junit.platform:junit-platform-launcher")
+        add("testImplementation", platform(libs.findLibrary("junit-bom").get()))
+        add("testImplementation", libs.findLibrary("junit-jupiter").get())
+        add("testRuntimeOnly", libs.findLibrary("junit-platform-launcher").get())
     }
 }
