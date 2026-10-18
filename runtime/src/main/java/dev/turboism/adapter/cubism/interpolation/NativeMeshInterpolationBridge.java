@@ -17,84 +17,26 @@ public final class NativeMeshInterpolationBridge {
      */
     public static final java.util.Set<String> HOST_SHA256S = ReviewedHostArtifacts.reviewedSha256s();
 
-    private static final java.util.concurrent.ConcurrentHashMap<
-                    Path, dev.turboism.mapping.verification.HostArtifactDigest>
-            VERIFIED_FINGERPRINTS = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final HostArtifactDigestCache FINGERPRINTS = new HostArtifactDigestCache();
 
-    /**
-     * Records a previously verified host artifact fingerprint in the bridge cache so subsequent
-     * operations avoid re-reading the entire host JAR.
-     *
-     * @param artifact path to the host artifact
-     * @param digest verified artifact digest
-     */
-    public static void cacheVerifiedArtifact(
-            final Path artifact, final dev.turboism.mapping.verification.HostArtifactDigest digest) {
-        java.util.Objects.requireNonNull(artifact, "artifact");
-        java.util.Objects.requireNonNull(digest, "digest");
-        try {
-            VERIFIED_FINGERPRINTS.put(artifact.toRealPath(), digest);
-        } catch (java.io.IOException ignored) {
-            VERIFIED_FINGERPRINTS.put(artifact.toAbsolutePath().normalize(), digest);
-        }
+    static dev.turboism.mapping.verification.HostArtifactDigest hostArtifactDigest(final Path artifact)
+            throws java.io.IOException {
+        return FINGERPRINTS.digest(artifact);
     }
 
-    /**
-     * Retrieves the cached verified host artifact digest if available.
-     *
-     * @param artifact path to the host artifact
-     * @return the cached digest, or null if not present
-     */
-    public static dev.turboism.mapping.verification.HostArtifactDigest getCachedVerifiedFingerprint(
-            final Path artifact) {
-        java.util.Objects.requireNonNull(artifact, "artifact");
-        try {
-            return VERIFIED_FINGERPRINTS.get(artifact.toRealPath());
-        } catch (java.io.IOException ignored) {
-            return VERIFIED_FINGERPRINTS.get(artifact.toAbsolutePath().normalize());
-        }
-    }
-
-    /**
-     * Checks whether the given host artifact path matches an admitted reviewed Cubism artifact,
-     * using the cached verified fingerprint if available to avoid re-reading the file.
-     *
-     * @param artifact path to the host artifact
-     * @return true if the artifact matches a reviewed Cubism build
-     */
-    public static boolean isAdmittedHostArtifact(final Path artifact) {
+    static boolean isAdmittedHostArtifact(final Path artifact) {
         try {
             requireAdmittedHostArtifact(artifact);
             return true;
-        } catch (java.io.IOException | IllegalArgumentException e) {
+        } catch (java.io.IOException | IllegalArgumentException refused) {
             return false;
         }
     }
 
-    /**
-     * Asserts that the given host artifact path matches an admitted reviewed Cubism artifact,
-     * using the cached verified fingerprint if available to avoid re-reading the whole JAR.
-     *
-     * @param artifact path to the host artifact
-     * @throws IllegalArgumentException if the artifact is unreviewed
-     * @throws java.io.IOException if the artifact cannot be read
-     */
-    public static void requireAdmittedHostArtifact(final Path artifact) throws java.io.IOException {
-        java.util.Objects.requireNonNull(artifact, "artifact");
-        final Path realPath = artifact.toRealPath();
-        final dev.turboism.mapping.verification.HostArtifactDigest cached = VERIFIED_FINGERPRINTS.get(realPath);
-        if (cached != null) {
-            if (!HOST_SHA256S.contains(cached.sha256())) {
-                throw new IllegalArgumentException("unreviewed host artifact");
-            }
-            return;
-        }
-        final dev.turboism.mapping.verification.HostArtifactDigest measured =
-                dev.turboism.mapping.verification.HostArtifactDigest.from(realPath);
-        if (!HOST_SHA256S.contains(measured.sha256())) {
+    static void requireAdmittedHostArtifact(final Path artifact) throws java.io.IOException {
+        if (!ReviewedHostArtifacts.isReviewed(hostArtifactDigest(artifact))) {
             throw new IllegalArgumentException("unreviewed host artifact");
         }
-        VERIFIED_FINGERPRINTS.put(realPath, measured);
     }
 
     static final String EXTENSION =
@@ -112,7 +54,6 @@ public final class NativeMeshInterpolationBridge {
             } catch (ReflectiveOperationException
                     | java.io.IOException
                     | java.net.URISyntaxException
-                    | java.security.NoSuchAlgorithmException
                     | RuntimeException
                     | LinkageError unsupported) {
                 return Optional.empty();
@@ -186,8 +127,7 @@ public final class NativeMeshInterpolationBridge {
         final java.util.function.Consumer<Object> directUpdated;
 
         Access(Class<?> extension)
-                throws ReflectiveOperationException, java.io.IOException, java.net.URISyntaxException,
-                        java.security.NoSuchAlgorithmException {
+                throws ReflectiveOperationException, java.io.IOException, java.net.URISyntaxException {
             if (!extension.getName().equals(EXTENSION)) throw new IllegalArgumentException("extension type");
             Path artifact = Path.of(extension
                             .getProtectionDomain()

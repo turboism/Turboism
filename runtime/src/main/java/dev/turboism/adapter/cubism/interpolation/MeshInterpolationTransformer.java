@@ -85,13 +85,12 @@ public final class MeshInterpolationTransformer implements ClassFileTransformer 
             }
             Path artifact = Path.of(domain.getCodeSource().getLocation().toURI());
             dev.turboism.mapping.verification.HostArtifactDigest hostDigest =
-                    dev.turboism.mapping.verification.HostArtifactDigest.from(artifact);
+                    NativeMeshInterpolationBridge.hostArtifactDigest(artifact);
             var cubismVersion = ReviewedHostArtifacts.cubismVersionOf(hostDigest);
-            if (cubismVersion.isEmpty() || !NativeMeshInterpolationBridge.HOST_SHA256S.contains(hostDigest.sha256())) {
+            if (cubismVersion.isEmpty()) {
                 report("DECLINED_ARTIFACT_HASH");
                 return null;
             }
-            NativeMeshInterpolationBridge.cacheVerifiedArtifact(artifact, hostDigest);
             String version = cubismVersion.get();
             if (!serializer && !property) {
                 var pins = REVIEWED_CLASS_SHA256.get(version);
