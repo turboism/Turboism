@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 
@@ -54,9 +55,8 @@ public final class FreshTriangulationEdgeSearch {
                         + " objectSuperclass=" + (type.getSuperclass() == Object.class)
                         + " coldComputation=true");
             }
-        } catch (VirtualMachineError | ThreadDeath fatal) {
-            throw fatal;
         } catch (Throwable diagnosticFailure) {
+            FatalErrors.rethrowIfFatal(diagnosticFailure);
             // Keep this bridge JDK-only and contain every nonfatal diagnostic failure.
         }
         return admitted;

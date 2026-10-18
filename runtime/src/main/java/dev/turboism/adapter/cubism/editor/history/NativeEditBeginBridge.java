@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor.history;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
@@ -20,7 +21,8 @@ import java.util.function.Consumer;
  *       edit started and asks for a drain, so a Turboism bug cannot disturb the host's own edit
  *       setup. All publication happens later, off the host stack.</li>
  *   <li><b>It never throws.</b> A throw would propagate into the host's edit entry, so every
- *       failure is counted instead. Only a {@link VirtualMachineError} is allowed through.</li>
+ *       failure is counted instead. Only fatal JVM conditions (via {@link FatalErrors#rethrowIfFatal(Throwable)})
+ *       are allowed through.</li>
  * </ul>
  *
  * <p>One native edit can enter the instrumented code twice. {@code CModelingEditMode_Main}
@@ -123,17 +125,15 @@ public final class NativeEditBeginBridge {
             PENDING.add(label(editName));
             try {
                 binding.drainRequest().run();
-            } catch (VirtualMachineError fatal) {
-                throw fatal;
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 // A drain that never runs would leave the frame set for the rest of this thread's
                 // life, so the start is dropped together with the frame it opened.
                 INSIDE_EDIT.remove();
                 FAILURES.incrementAndGet();
             }
-        } catch (VirtualMachineError fatal) {
-            throw fatal;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             FAILURES.incrementAndGet();
         }
     }
@@ -157,9 +157,8 @@ public final class NativeEditBeginBridge {
                 DRAINED.incrementAndGet();
                 try {
                     sink.nativeEditStarted(pending);
-                } catch (VirtualMachineError fatal) {
-                    throw fatal;
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     FAILURES.incrementAndGet();
                 }
             }

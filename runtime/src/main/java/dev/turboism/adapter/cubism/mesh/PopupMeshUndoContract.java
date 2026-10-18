@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.reflect.Method;
@@ -129,7 +130,7 @@ final class PopupMeshUndoContract {
         final Class<?> listenerType = loader.loadClass("com.live2d.cubism.view.context.action.action_meshEditor.b");
         final var constructor = undoType.getConstructor(String.class, copyable, copyContext, int.class, marker);
         final var listener = listenerType.getDeclaredConstructor(meshType);
-        listener.setAccessible(true);
+        ReflectAccess.open(listener);
         final var addListener = undoType.getMethod("addUndoRedoListener", function);
         final var addEdit = group.getClass().getMethod("addEdit", undoBase, boolean.class);
         // Construct all snapshots before registering any edit or mutating geometry.

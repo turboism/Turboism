@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.textureatlas.cache;
 
+import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBuffer;
@@ -503,7 +504,7 @@ public final class AtlasCacheReuseDelegate {
             final Class<?> writable = Class.forName("com.live2d.graphics.CWritableImage", false, loader);
             final Class<?> colorType = Class.forName("com.live2d.graphics.n", false, loader);
             final Field defaultColorType = resource.getDeclaredField("DEFAULT_COLOR_TYPE");
-            defaultColorType.setAccessible(true);
+            ReflectAccess.open(defaultColorType);
             return new SideHandles(
                     entry.getMethod("getModelImageGuid"),
                     guid.getMethod("getUuidString"),
@@ -524,7 +525,7 @@ public final class AtlasCacheReuseDelegate {
 
     private static Field field(final Class<?> owner, final String name) throws NoSuchFieldException {
         final Field field = owner.getDeclaredField(name);
-        field.setAccessible(true);
+        ReflectAccess.open(field);
         return field;
     }
 
