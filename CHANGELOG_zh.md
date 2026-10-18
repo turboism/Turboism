@@ -330,6 +330,8 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 改进
 
+- 采用经评审的 SDK v9 精确发布基线，并将 v8 降级为历史审计。该锚点新增一个展示字段：`CubismOperationEvent` 获得可选的 `label`，使观察到的原生 Cubism Editor 编辑可以携带可本地化的原生编辑名称。该组件追加在 `subjectId` 之后，且明确不作为身份标识。**插件 API 可能需要迁移：** 直接构造 `CubismOperationEvent` 的插件必须传入新增的第五个组件；参见 [SDK v9 评审](sdk/api-contracts/sdk-api-v9-review.md)。
+- 采用经评审的 SDK v8 精确发布基线，并将 v7 降级为历史审计。该锚点捕获了 v7 门禁未曾记录的已捕获语义时间线与 UI 接口，以及原生编辑器编辑的四个新增 `CubismOperation` 标识（`SET_HIERARCHY_PARENT`、`DETACH_HIERARCHY_PARENT`、`MOVE_DRAWABLE`、`SET_DRAWABLE_COLOR`，均为追加因此不移动既有常量序数）。**插件 API 可能需要迁移：** `HistoryEntry`、`RuntimeSettings` 与 `PanelView.Toggle` 的构造函数已变更；参见 [SDK v8 评审](sdk/api-contracts/sdk-api-v8-review.md)。
 - 将产品发行拆分为只读候选构建和明确授权的受保护 GitHub 发布流程。失败的候选尝试沿用预期版本；只有发布阶段才创建正式附注标签，并直接发布已验证文件，不重新构建
 - 采用已审阅的 SDK v8 当前页纹理排布契约
 - 新增四语言项目与安装文档，以及限制在任务范围内的本地宿主验证监督
