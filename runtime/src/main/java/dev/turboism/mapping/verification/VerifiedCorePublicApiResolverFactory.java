@@ -40,7 +40,9 @@ public final class VerifiedCorePublicApiResolverFactory implements SliceResolver
     public VerifiedMemberResolver create(
             final Path reviewedRecord, final Path verifiedArtifact, final ClassLoader hostClassLoader)
             throws IOException {
-        return create(profileForArtifact(verifiedArtifact), reviewedRecord, verifiedArtifact, hostClassLoader);
+        return SliceRegistry.CORE_PUBLIC_API
+                .resolverFactory()
+                .create(reviewedRecord, verifiedArtifact, hostClassLoader);
     }
 
     /**
