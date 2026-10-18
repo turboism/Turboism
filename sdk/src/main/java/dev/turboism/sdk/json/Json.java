@@ -173,6 +173,111 @@ public final class Json {
         return stringify(value).getBytes(StandardCharsets.UTF_8);
     }
 
+    /**
+     * Returns {@code value} — or a copy — with every unpaired surrogate in
+     * strings replaced by U+FFFD and every non-finite {@link Float} or
+     * {@link Double} replaced by {@code null}. Map keys are rewritten the same
+     * way as values. The input is never mutated; when nothing needs rewriting
+     * the same instance is returned.
+     *
+     * @param <T> the value type
+     * @param value the object or tree to sanitize
+     * @return the sanitized value, or {@code value} if no rewriting was needed
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> T sanitize(final T value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof String text) {
+            return (T) replaceUnpairedSurrogates(text);
+        }
+        if (value instanceof Map<?, ?> map) {
+            LinkedHashMap<Object, Object> rewritten = null;
+            for (Map.Entry<?, ?> member : map.entrySet()) {
+                final Object key = sanitize(member.getKey());
+                final Object item = sanitize(member.getValue());
+                if (key != member.getKey() || item != member.getValue()) {
+                    if (rewritten == null) {
+                        rewritten = new LinkedHashMap<>(map);
+                    }
+                    if (key != member.getKey()) {
+                        rewritten.remove(member.getKey());
+                    }
+                    rewritten.put(key, item);
+                }
+            }
+            return rewritten == null ? value : (T) rewritten;
+        }
+        if (value instanceof Iterable<?> items) {
+            List<Object> rewritten = null;
+            int index = 0;
+            for (Object item : items) {
+                final Object encoded = sanitize(item);
+                if (encoded != item && rewritten == null) {
+                    rewritten = new ArrayList<>();
+                    for (Object existing : items) {
+                        rewritten.add(existing);
+                    }
+                }
+                if (rewritten != null) {
+                    rewritten.set(index, encoded);
+                }
+                index++;
+            }
+            return rewritten == null ? value : (T) rewritten;
+        }
+        if (value instanceof Object[] array) {
+            Object[] rewritten = null;
+            for (int index = 0; index < array.length; index++) {
+                final Object encoded = sanitize(array[index]);
+                if (encoded != array[index]) {
+                    if (rewritten == null) {
+                        rewritten = array.clone();
+                    }
+                    rewritten[index] = encoded;
+                }
+            }
+            return rewritten == null ? value : (T) rewritten;
+        }
+        if (value instanceof Float number) {
+            return Float.isFinite(number) ? value : null;
+        }
+        if (value instanceof Double number) {
+            return Double.isFinite(number) ? value : null;
+        }
+        return value;
+    }
+
+    /** Replaces each unpaired surrogate with U+FFFD; returns the input when already clean. */
+    private static String replaceUnpairedSurrogates(final String text) {
+        final int length = text.length();
+        StringBuilder rewritten = null;
+        for (int offset = 0; offset < length; offset++) {
+            final char unit = text.charAt(offset);
+            if (Character.isHighSurrogate(unit)) {
+                if (offset + 1 < length && Character.isLowSurrogate(text.charAt(offset + 1))) {
+                    offset++;
+                    if (rewritten != null) {
+                        rewritten.append(unit).append(text.charAt(offset));
+                    }
+                    continue;
+                }
+            } else if (!Character.isLowSurrogate(unit)) {
+                if (rewritten != null) {
+                    rewritten.append(unit);
+                }
+                continue;
+            }
+            if (rewritten == null) {
+                rewritten = new StringBuilder(length);
+                rewritten.append(text, 0, offset);
+            }
+            rewritten.append('\uFFFD');
+        }
+        return rewritten == null ? text : rewritten.toString();
+    }
+
     private static Object parseText(final String input) {
         return new Parser(input).parse();
     }
