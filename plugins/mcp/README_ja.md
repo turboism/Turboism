@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: integration
 tags: mcp, automation, external-tools
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -23,7 +23,6 @@ interface: swing
 | バージョン | `0.1.0` |
 | プラグイン ID | `dev.turboism.plugin.mcp` |
 | 公開カタログ | 11 ツール · 15 リソース · 2 テンプレート · 8 プロンプト |
-| Turboism API | `[0.1.0,0.2.0)` |
 | Cubism が必要 | はい |
 | インターフェース | `swing` |
 
@@ -37,7 +36,7 @@ interface: swing
 
 ## 要件と互換性
 
-- **Turboism API:** `[0.1.0,0.2.0)`。
+- **SDK API 範囲:** `[0.67.0,1.0.0)`。
 - **Cubism:** Turboism は現在、レビュー済みの正確な Editor アーティファクト `5.0.00` から `5.3.04` を受け入れます。ホスト向けリソースは、その公開 SDK 機能を利用できないとき、クローズドに失敗します。空の成功結果を捏造することはありません。
 - **トランスポート:** プロトコル `2025-11-25` を使用する MCP Streamable HTTP。サポート対象の以前のプロトコルバージョンについては互換性ネゴシエーションを行います。
 - **インターフェースモード:** `swing`。ローカル MCP 接続情報ウィンドウを提供します。

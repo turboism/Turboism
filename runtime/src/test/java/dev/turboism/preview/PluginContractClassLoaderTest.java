@@ -231,7 +231,7 @@ class PluginContractClassLoaderTest {
             {"format":"turboism.plugin.meta","schemaVersion":5,
             "id":"dev.example.contract-plugin","name":"Contract","version":"0.1.0",
             "description":"test","entrypoints":["dev.example.contract.Plugin"],
-            "turboismApi":"[0.1.0,0.2.0)","authors":[{"name":"Tests"}],
+            "turboismApi":"[0.67.0,1.0.0)","authors":[{"name":"Tests"}],
             "license":"Test","website":"https://turboism.dev","resources":[],
             "i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]},
             "dependencies":[],"permissions":[],"capabilities":[],

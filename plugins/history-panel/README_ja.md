@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: history, navigation, floating-window
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: false
 interface: embedded
 ---
@@ -24,7 +24,6 @@ interface: embedded
 | プラグイン ID | `dev.turboism.plugin.historypanel` |
 | カテゴリ | `workflow` |
 | タグ | history, navigation, floating-window |
-| Turboism API | `[0.1.0,0.2.0)` |
 | Cubism が必要 | いいえ |
 | インターフェース | `embedded` |
 | ライセンス | プロジェクトライセンス |
@@ -38,7 +37,7 @@ interface: embedded
 
 ## 要件と互換性
 
-- **Turboism API:** `[0.1.0,0.2.0)`。
+- **SDK API 範囲:** `[0.67.0,1.0.0)`。
 - **Cubism:** 初期化自体には Cubism を必要としません。履歴の表示と操作には、対応する厳密なバージョンのネイティブ履歴サービスとホスト UI 統合が必要です。
 - **インターフェースモード:** `embedded`。
 - **プラグインの依存関係:** 宣言されていません。

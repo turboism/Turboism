@@ -219,7 +219,7 @@ class PluginMarketScreenshotTest {
                         Instant.now(),
                         "integration",
                         List.of("plugin", "cubism"),
-                        "[0.1.0,0.2.0)",
+                        "[0.67.0,1.0.0)",
                         true,
                         List.of("5.3.04"),
                         List.of("windows-x64"),

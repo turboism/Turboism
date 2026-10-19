@@ -32,6 +32,29 @@ class PreviewPluginDiscoveryTest {
     Path temporary;
 
     @Test
+    void checksApiFloorsAndRejectsLegacyRangesWithActualRuntimeVersion() throws Exception {
+        final String current =
+                dev.turboism.core.FrameworkBuildInfo.current().apiVersion().toString();
+        for (String range : List.of("[" + current + ",1.0.0)", "[0.1.0,0.2.0)", "[99.0.0,100.0.0)")) {
+            final Path home = temporary.resolve("api-" + range.hashCode());
+            final Path plugins = home.resolve("plugins");
+            writePlugin(plugins.resolve("fixture.jar"), "1.0.0", range);
+            final List<LocalPluginRuntime.PluginFailure> failures = new ArrayList<>();
+            try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
+                final var candidates = new PreviewPluginDiscovery(plugins, log).discover(failures);
+                if (range.startsWith("[" + current + ",")) {
+                    assertNotNull(candidates.get(PLUGIN_ID));
+                    assertTrue(failures.isEmpty());
+                } else {
+                    assertTrue(candidates.isEmpty());
+                    assertEquals("TURBOISM_API_INCOMPATIBLE", failures.get(0).code());
+                    assertTrue(failures.get(0).message().contains("runtime is " + current));
+                }
+            }
+        }
+    }
+
+    @Test
     void selectsHighestSemanticVersionAndReportsEveryLosingArtifact() throws Exception {
         final Path home = temporary.resolve("home");
         final Path plugins = home.resolve("plugins");
@@ -101,7 +124,7 @@ class PreviewPluginDiscoveryTest {
             {"format":"turboism.plugin.meta","schemaVersion":5,
             "id":"dev.example.provider","name":"Provider","version":"0.1.0",
             "description":"test","entrypoints":["dev.example.provider.ProviderPlugin"],
-            "turboismApi":"[0.1.0,0.2.0)","authors":[{"name":"Tests"}],
+            "turboismApi":"[0.67.0,1.0.0)","authors":[{"name":"Tests"}],
             "license":"Test","website":"https://turboism.dev","resources":[],
             "i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]},
             "dependencies":[],"permissions":[],"capabilities":[],
@@ -230,10 +253,17 @@ class PreviewPluginDiscoveryTest {
     }
 
     private static void writePlugin(final Path jar, final String version) throws Exception {
+        writePlugin(jar, version, "[0.67.0,1.0.0)");
+    }
+
+    private static void writePlugin(final Path jar, final String version, final String apiRange) throws Exception {
         Files.createDirectories(jar.getParent());
         try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
             add(output, "dev/example/Fixture.class", new byte[] {0});
-            add(output, "META-INF/turboism/plugin.json", descriptor(version).getBytes(StandardCharsets.UTF_8));
+            add(
+                    output,
+                    "META-INF/turboism/plugin.json",
+                    descriptor(version).replace("[0.67.0,1.0.0)", apiRange).getBytes(StandardCharsets.UTF_8));
             add(output, "META-INF/turboism/i18n/messages.properties", new byte[0]);
         }
     }
@@ -242,7 +272,7 @@ class PreviewPluginDiscoveryTest {
         Files.createDirectories(jar.getParent());
         final String descriptor = """
             {"format":"turboism.plugin.meta","schemaVersion":2,"id":"%s","name":"Fixture","version":"1.0.0",
-            "description":"test","entrypoints":["dev.example.Fixture"],"turboismApi":"[0.1.0,0.2.0)",
+            "description":"test","entrypoints":["dev.example.Fixture"],"turboismApi":"[0.67.0,1.0.0)",
             "authors":[{"name":"Tests"}],"license":"Test","website":"https://turboism.dev","resources":[],
             "i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]},"dependencies":[],"permissions":[],
             "capabilities":[],"environment":{"requiresCubism":true,"ui":"none"}}
@@ -260,7 +290,7 @@ class PreviewPluginDiscoveryTest {
     private static String descriptor(final String version) {
         return """
             {"format":"turboism.plugin.meta","schemaVersion":2,"id":"%s","name":"Fixture","version":"%s",
-            "description":"test","entrypoints":["dev.example.Fixture"],"turboismApi":"[0.1.0,0.2.0)",
+            "description":"test","entrypoints":["dev.example.Fixture"],"turboismApi":"[0.67.0,1.0.0)",
             "authors":[{"name":"Tests"}],"license":"Test","website":"https://turboism.dev","resources":[],
             "i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]},"dependencies":[],"permissions":[],
             "capabilities":[],"environment":{"requiresCubism":false,"ui":"none"}}

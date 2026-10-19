@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: 3d, glb, gltf, obj, import
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -24,7 +24,7 @@ interface: embedded
 
 ## 要件と互換性
 
-- **Turboism API:** `[0.1.0,0.2.0)`。
+- **SDK API 範囲:** `[0.67.0,1.0.0)`。
 - **キャンバス要件:** インポート前に 1024×1024 キャンバスのモデルを開いてください。メニューからのインポートでは、モデルが半径 400px の境界球に収まるようカメラとピボットを自動設定します。
 - **入力形式:** 単体の GLB、glTF、OBJ、または必要なリソースをまとめた ZIP（最大 16 MiB、関連リソース最大 64 個）に対応します。外部の MTL、buffer、PNG/JPEG テクスチャが参照されている場合はファイル選択ダイアログで順次指定できます。
 

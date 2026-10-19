@@ -53,7 +53,7 @@ class CorePluginManagementDetailsTest {
 
         final CorePluginManagement.PluginDetails details = new CorePluginManagement.PluginDetails(
                 plugin(),
-                "[0.1.0,0.2.0)",
+                "[0.67.0,1.0.0)",
                 authors,
                 "MIT",
                 Optional.empty(),

@@ -1036,7 +1036,7 @@ class PreviewPluginLifecycleEventIntegrationTest {
             {"format":"turboism.plugin.meta","schemaVersion":2,
             "id":"%s","name":"%s","version":"0.1.0",
             "description":"test","entrypoints":["%s"],
-            "turboismApi":"[0.1.0,0.2.0)","authors":[{"name":"Tests"}],
+            "turboismApi":"[0.67.0,1.0.0)","authors":[{"name":"Tests"}],
             "license":"Test","website":"https://turboism.dev",
             "resources":[],"i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]},
             "dependencies":%s,"permissions":%s,"capabilities":[],

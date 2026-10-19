@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: texture-atlas, packing, polygon, auto-layout
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -27,7 +27,6 @@ interface: none
 | 插件 ID | `dev.turboism.plugin.texture-atlas-dalsoo` |
 | 分类 | `modeling` |
 | 标签 | texture-atlas, packing, polygon, auto-layout |
-| Turboism API | `[0.1.0,0.2.0)` |
 | 需要 Cubism | 是 |
 | 界面模式 | `none` |
 | 许可证 | MIT（内核移植） |
@@ -47,7 +46,7 @@ interface: none
 
 ## 要求与兼容性
 
-- **Turboism API：** `[0.1.0,0.2.0)`。
+- **SDK API 范围：** `[0.67.0,1.0.0)`。
 - **Cubism：** 仅精确审阅过的 Editor 构件 `5.2.00`–`5.3.04`。
   Cubism 5.4 未被准入；SDK 契约中保留 `HOST_NATIVE` 后端槽位供未来正式
   5.4 宿主 provider 使用。

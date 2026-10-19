@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: backup, webdav, automation
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -24,7 +24,6 @@ Uploads Cubism backup artifacts to a WebDAV endpoint configured by the user.
 | Plugin ID | `dev.turboism.plugin.webdav` |
 | Category | `workflow` |
 | Tags | backup, webdav, automation |
-| Turboism API | `[0.1.0,0.2.0)` |
 | Requires Cubism | Yes |
 | Interface | `swing` |
 | License | Project License |
@@ -37,7 +36,7 @@ Uploads Cubism backup artifacts to a WebDAV endpoint configured by the user.
 
 ## Requirements and compatibility
 
-- **Turboism API:** `[0.1.0,0.2.0)`.
+- **SDK API range:** `[0.67.0,1.0.0)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`; this plugin exposes each host-facing feature only when its declared services and capabilities are available.
 - **Interface mode:** `swing`.
 - **Plugin dependencies:** None declared.

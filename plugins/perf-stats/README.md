@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: performance
 tags: metrics, diagnostics, fps
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -24,7 +24,6 @@ Displays live Cubism CPU, FPS, JVM memory, and garbage-collection statistics.
 | Plugin ID | `dev.turboism.plugin.perf-stats` |
 | Category | `performance` |
 | Tags | metrics, diagnostics, fps |
-| Turboism API | `[0.1.0,0.2.0)` |
 | Requires Cubism | Yes |
 | Interface | `swing` |
 | License | Project License |
@@ -37,7 +36,7 @@ Displays live Cubism CPU, FPS, JVM memory, and garbage-collection statistics.
 
 ## Requirements and compatibility
 
-- **Turboism API:** `[0.1.0,0.2.0)`.
+- **SDK API range:** `[0.67.0,1.0.0)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`; this plugin exposes each host-facing feature only when its declared services and capabilities are available.
 - **Interface mode:** `swing`.
 - **Plugin dependencies:** None declared.

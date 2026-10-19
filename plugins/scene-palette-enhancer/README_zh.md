@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: appearance
 tags: scene, palette, enhancement
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -24,7 +24,6 @@ interface: none
 | 插件 ID | `dev.turboism.plugin.scene-palette-enhancer` |
 | 类别 | `appearance` |
 | 标签 | scene, palette, enhancement |
-| Turboism API | `[0.1.0,0.2.0)` |
 | 需要 Cubism | 是 |
 | 界面 | `none` |
 | 许可证 | 项目许可证 |
@@ -37,7 +36,7 @@ interface: none
 
 ## 要求与兼容性
 
-- **Turboism API：** `[0.1.0,0.2.0)`。
+- **SDK API 范围：** `[0.67.0,1.0.0)`。
 - **Cubism：**需要 Cubism。Scene 面板桥接允许全部精确审核过的 Editor 构件 `5.0.00` 至 `5.3.04`；其余构件一律失败关闭。全部 23 个 Scene 私有 UI selector 已在每个精确审核构件上完成结构化验证（成员名、descriptor 与访问标志逐 jar 一致），绑定时还会对已加载宿主再次复核。
 
 - **界面模式：**`none`。

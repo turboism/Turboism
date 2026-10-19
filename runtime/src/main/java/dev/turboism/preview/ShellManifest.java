@@ -1,5 +1,6 @@
 package dev.turboism.preview;
 
+import dev.turboism.core.FrameworkBuildInfo;
 import dev.turboism.core.descriptor.CorePluginDescriptor;
 import dev.turboism.core.descriptor.CorePluginDescriptor.CoreAuthor;
 import dev.turboism.core.descriptor.CorePluginDescriptor.CoreEnvironment;
@@ -65,7 +66,7 @@ public final class ShellManifest {
             "0.1.0",
             "Built-in menu, toolbar, settings, tab, and plugin management.",
             List.of(),
-            "[0.1.0,0.2.0)",
+            "[" + FrameworkBuildInfo.current().apiVersion() + ",1.0.0)",
             List.of(new CoreAuthor("Turboism Contributors", Optional.empty())),
             "Project License",
             Optional.of("https://turboism.dev"),

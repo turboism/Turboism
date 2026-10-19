@@ -7,7 +7,7 @@ status: development
 delivery: development-only
 category: workflow
 tags: parameter, lock, palette, safety
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -24,7 +24,6 @@ interface: embedded
 | 插件 ID | `dev.turboism.plugin.parameter-lock` |
 | 类别 | `workflow` |
 | 标签 | parameter, lock, palette, safety |
-| Turboism API | `[0.1.0,0.2.0)` |
 | 需要 Cubism | 是 |
 | 接口 | `embedded` |
 | 许可证 | 项目许可证 |
@@ -43,7 +42,7 @@ interface: embedded
 
 ## 要求与兼容性
 
-- **Turboism API：** `[0.1.0,0.2.0)`。
+- **SDK API 范围：** `[0.67.0,1.0.0)`。
 - **Cubism：** 需要 Cubism。Turboism 当前仅接受经过审查的精确 Editor 构件 `5.0.00` 至 `5.3.04`（含 `5.3.03`）；本插件仅在其声明的服务和能力可用时公开每项面向宿主的功能。
 - **接口模式：** `embedded`。
 - **插件依赖项：** 未声明。

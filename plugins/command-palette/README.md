@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: launcher, commands, shortcut
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -24,7 +24,6 @@ Opens a Ctrl+K launcher over the Editor's supported menu commands and other plug
 | Plugin ID | `dev.turboism.plugin.command-palette` |
 | Category | `workflow` |
 | Tags | launcher, commands, shortcut |
-| Turboism API | `[0.1.0,0.2.0)` |
 | Requires Cubism | Yes |
 | Interface | `swing` |
 | License | Project License |
@@ -41,7 +40,7 @@ Opens a Ctrl+K launcher over the Editor's supported menu commands and other plug
 
 ## Requirements and compatibility
 
-- **Turboism API:** `[0.1.0,0.2.0)`.
+- **SDK API range:** `[0.67.0,1.0.0)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.2.03`, `5.3.02`, and `5.3.03`; this plugin exposes each host-facing feature only when its declared services and capabilities are available.
 - **Interface mode:** `swing`.
 - **Plugin dependencies:** None declared.

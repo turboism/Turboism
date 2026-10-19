@@ -87,6 +87,8 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 变更
 
+- 插件 Turboism API 现在跟随框架基础版本，忽略 beta/nightly 等后缀。插件 SDK API 范围为 `[0.67.0,1.0.0)`；旧 `[0.1.0,0.2.0)` 插件会被拒绝并显示实际运行时 API 版本。运行时元数据记录实现与 API 版本，已审计的 SDK JAR 保持不变。
+
 - MCP 插件：回环服务器现在要求变更类 `tools/call` 调用与会话关闭携带 `Authorization: Bearer`
   令牌（以仅所有者权限持久化于 `<插件状态目录>/mcp.token`），并在同目录发布
   `TurboismMcpBridge.java` stdio↔HTTP 桥接器，使 MCP 客户端仅需一行

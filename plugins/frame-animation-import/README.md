@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: animation, frame-animation, sprite-sheet, parameter
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -24,7 +24,6 @@ Imports sequence frame animations from sprite sheets or image lists and automati
 | Plugin ID | `dev.turboism.plugin.frame-animation-import` |
 | Category | `modeling` |
 | Tags | animation, frame-animation, sprite-sheet, parameter |
-| Turboism API | `[0.1.0,0.2.0)` |
 | Requires Cubism | Yes |
 | Interface | `swing` |
 | License | Project License |
@@ -39,7 +38,7 @@ Imports sequence frame animations from sprite sheets or image lists and automati
 
 ## Requirements and compatibility
 
-- **Turboism API:** `[0.1.0,0.2.0)`.
+- **SDK API range:** `[0.67.0,1.0.0)`.
 - **Cubism:** Requires Cubism. Supports all reviewed Editor versions `5.0.00` through `5.3.04`.
 - **Interface mode:** `swing`.
 - **Plugin dependencies:** None declared.

@@ -104,7 +104,7 @@ final class ScriptRegistryPermissionContractTest {
         node.put("name", "Contract Probe");
         node.put("version", "0.1.0");
         node.putArray("entrypoints").add("dev.turboism.contract.Probe");
-        node.put("turboismApi", "[0.1.0,0.2.0)");
+        node.put("turboismApi", "[0.67.0,1.0.0)");
         node.putArray("authors").addObject().put("name", "Turboism");
         node.put("website", "https://turboism.dev");
         node.putArray("resources");

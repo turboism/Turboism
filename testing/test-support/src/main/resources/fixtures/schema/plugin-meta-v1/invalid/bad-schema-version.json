@@ -7,5 +7,5 @@
   "entrypoints": {
     "plugin": "dev.turboism.plugin.demo.DemoPlugin"
   },
-  "turboismApi": "[0.1.0,0.2.0)"
+  "turboismApi": "[0.67.0,1.0.0)"
 }

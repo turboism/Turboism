@@ -178,7 +178,7 @@ class LocalPluginRuntimeParameterHookIntegrationTest {
                 {"format":"turboism.plugin.meta","schemaVersion":2,
                 "id":"dev.example.parameter-hooks","name":"Hooks","version":"0.1.0",
                 "description":"test","entrypoints":["dev.example.hooks.HookPlugin"],
-                "turboismApi":"[0.1.0,0.2.0)","authors":[{"name":"Tests"}],
+                "turboismApi":"[0.67.0,1.0.0)","authors":[{"name":"Tests"}],
                 "license":"Test","website":"https://turboism.dev","resources":[],
                 "i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]},
                 "dependencies":[],"permissions":[

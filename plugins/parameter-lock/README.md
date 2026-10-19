@@ -7,7 +7,7 @@ status: development
 delivery: development-only
 category: workflow
 tags: parameter, lock, palette, safety
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -24,7 +24,6 @@ Protects Cubism parameter values from accidental editing, with cross-session per
 | Plugin ID | `dev.turboism.plugin.parameter-lock` |
 | Category | `workflow` |
 | Tags | parameter, lock, palette, safety |
-| Turboism API | `[0.1.0,0.2.0)` |
 | Requires Cubism | Yes |
 | Interface | `embedded` |
 | License | Project License |
@@ -43,7 +42,7 @@ Protects Cubism parameter values from accidental editing, with cross-session per
 
 ## Requirements and compatibility
 
-- **Turboism API:** `[0.1.0,0.2.0)`.
+- **SDK API range:** `[0.67.0,1.0.0)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`, including `5.3.03`; this plugin exposes each host-facing feature only when its declared services and capabilities are available.
 - **Interface mode:** `embedded`.
 - **Plugin dependencies:** None declared.

@@ -132,7 +132,7 @@ final class MultiEntrypointPluginJarFixture {
         descriptor.put("version", "0.1.0");
         descriptor.put("description", "Verifies ordered atomic plugin entrypoints.");
         descriptor.putArray("entrypoints").add(FIRST).add(SECOND);
-        descriptor.put("turboismApi", "[0.1.0,0.2.0)");
+        descriptor.put("turboismApi", "[0.67.0,1.0.0)");
         descriptor.putArray("authors").addObject().put("name", "Turboism Tests");
         descriptor.put("license", "Test License");
         descriptor.put("website", "https://turboism.dev/tests");
