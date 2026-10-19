@@ -104,8 +104,6 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 ### 변경
 
-- Full/Thin 배포를 Windows 설치 프로그램과 포터블 ZIP으로 통합했습니다. 두 패키지 모두 기본 제공 플러그인과 GraalJS 오프라인 엔진 라이브러리를 포함하며 GraalVM 런타임은 별도로 설치합니다. 기존 Full/Thin 설치도 통합 설치 프로그램으로 업데이트할 수 있습니다。
-
 - 플러그인 Turboism API가 beta/nightly 접미사를 제외한 프레임워크 기본 버전을 따릅니다. SDK API 범위는 `[0.67.0,1.0.0)`이며 기존 `[0.1.0,0.2.0)` 플러그인은 실제 런타임 API 버전과 함께 거부됩니다. 런타임 메타데이터에 구현 및 API 버전을 기록하며 검토된 SDK JAR는 변경하지 않습니다.
 
 - MCP 플러그인: 루프백 서버가 변경 도구 `tools/call` 및 세션 종료에 `Authorization: Bearer`
@@ -254,7 +252,7 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
   워크스페이스 항목을 제거했습니다. 팔레트 탭 컨텍스트 메뉴와 상위 메뉴 항목은 변경되지
   않습니다.
 
-## [0.67.0] - 2026-10-13
+## [0.67.0] - 2026-10-19
 
 ### 추가
 
@@ -281,11 +279,11 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 - 플러그인 개발자는 독립 템플릿 저장소 `turboism/turboism-plugin-template`에서 시작할 수 있습니다. setup 스크립트가 SDK와 새 릴리스 자산 `turboism-event-processor-<version>.jar`(`@SubscribeEvent`에 필요)를 가져와 검증하고, 스캐폴드 이름을 바꾸고 Cubism 버전 선언을 작성합니다.
 - Cubism 내 플러그인 마켓(Turboism → 플러그인 마켓…): 서명된 플러그인 디렉터리에서 플러그인을 탐색, 설치, 업데이트, 제거할 수 있습니다. `lifecycle.hotReload`를 선언한 플러그인은 즉시 적용되고, 나머지는 Cubism 재시작 후 적용됩니다. 퍼스트파티 플러그인은 백그라운드에서 자동 업데이트되며 설정에서 끌 수 있습니다. 웹 마켓 https://turboism.dev/plugins 에서 각 플러그인의 README를 보고 필터링할 수 있습니다.
 - Cubism 메뉴 이름이 "Turboism"으로 바뀌고 전용 플러그인 설정 창이 추가되었습니다.
-- 릴리스가 Full과 Thin 변형으로 나뉩니다: `TurboismInstaller-<v>-full.exe`/`-thin.exe`와 `turboism-<v>-full.zip`/`-thin.zip`. Full은 모든 퍼스트파티 플러그인을 포함하고 Thin은 포함하지 않으며, 설치 프로그램의 모드 및 플러그인 선택이 없어졌습니다. Java 설치 프로그램은 더 이상 배포하지 않습니다.
+- 배포 형식은 Windows EXE 설치 프로그램(`TurboismInstaller-<v>.exe`)과 포터블 ZIP(`turboism-<v>.zip`) 두 가지입니다. 모두 기본적으로 전체 번들 플러그인과 완전한 오프라인 GraalJS 엔진을 포함하며 GraalVM 런타임은 별도로 설치합니다. 기존 설치는 설치 프로그램으로 업그레이드할 수 있습니다. Java 설치 프로그램은 더 이상 배포하지 않습니다.
 
 ### 변경
 
-- SDK 계약 수렴, exact 기준선 v17로 승격(v2–v16 이력 감사 유지). 해당 플러그인은 마이그레이션이 필요합니다:
+- SDK 계약 수렴, exact 기준선 v21로 승격(v2–v20 이력 감사 유지). 해당 플러그인은 마이그레이션이 필요합니다:
   - 더 이상 사용되지 않는 서비스별 `PluginContext` getter를 제거했습니다. `ctx.services().find(...)` 또는 `require(...)`를 사용하세요.
   - 파라미터 조회 읽기 영역은 `ParameterAppearance`와 `cubism().model().active().parameters().all()`로 대체되었습니다.
   - 기존 명령 큐와 `TransactionManager`는 저작 트랜잭션과 `Parameter.setValue`로, `StrictJson`은 `dev.turboism.sdk.json.Json`으로, 자동 백업 경로는 `BackupArtifactHandle`로 대체되었습니다.

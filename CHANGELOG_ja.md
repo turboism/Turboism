@@ -114,8 +114,6 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 
 ### 変更
 
-- Full/Thin 配布を Windows インストーラーとポータブル ZIP に統合。どちらも同梱プラグインと GraalJS のオフラインエンジン依存を含み、GraalVM ランタイムは別途インストールします。既存の Full/Thin 環境も統合インストーラーで更新できます。
-
 - プラグインの Turboism API は beta/nightly などの接尾辞を除いたフレームワークの基本バージョンに追従します。SDK API 範囲は `[0.67.0,1.0.0)` となり、旧 `[0.1.0,0.2.0)` プラグインは実際のランタイム API バージョンを示して拒否されます。ランタイムに実装と API のバージョンを記録し、レビュー済み SDK JAR は変更しません。
 
 - MCP プラグイン: ループバックサーバーは変更系 `tools/call` およびセッション終了に
@@ -279,7 +277,7 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
   Parameter Batch Transfer プラグインのワークスペースエントリを削除しました。パレット
   タブのコンテキストメニューおよびトップメニューの項目は変更ありません。
 
-## [0.67.0] - 2026-10-13
+## [0.67.0] - 2026-10-19
 
 ### 追加
 
@@ -306,11 +304,11 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 - プラグイン開発者は独立したテンプレートリポジトリ `turboism/turboism-plugin-template` から始められます。setup スクリプトが SDK と新しいリリースアセット `turboism-event-processor-<version>.jar`（`@SubscribeEvent` に必要）を取得・検証し、スキャフォールドの名前を変更して Cubism バージョン宣言を書き込みます。
 - Cubism 内プラグインマーケット（Turboism → プラグインマーケット…）：署名済みプラグインディレクトリからプラグインを閲覧・インストール・更新・アンインストールできます。`lifecycle.hotReload` を宣言したプラグインは即時に反映され、その他は Cubism の再起動後に反映されます。ファーストパーティプラグインはバックグラウンドで自動更新され、設定で無効にできます。Web マーケット https://turboism.dev/plugins では各プラグインの README を表示し、絞り込みに対応します。
 - Cubism のメニュー名を「Turboism」に変更し、専用のプラグイン設定ウィンドウを追加しました。
-- リリースを Full 版と Thin 版に分けました：`TurboismInstaller-<v>-full.exe`/`-thin.exe` と `turboism-<v>-full.zip`/`-thin.zip`。Full 版は全ファーストパーティプラグインを含み、Thin 版は含みません。インストーラーのモード選択とプラグイン選択はなくなりました。Java インストーラーは公開を終了しました。
+- 配布形式は Windows EXE インストーラー（`TurboismInstaller-<v>.exe`）とポータブル ZIP（`turboism-<v>.zip`）の 2 種類です。どちらも全同梱プラグインと完全なオフライン GraalJS エンジンを標準で含みます。GraalVM ランタイムは別途インストールします。既存の環境はインストーラーで更新できます。Java インストーラーは公開しません。
 
 ### 変更
 
-- SDK 契約を収斂し、exact ベースラインを v17 に更新（v2–v16 は履歴監査として維持）。該当するプラグインは移行が必要です：
+- SDK 契約を収斂し、exact ベースラインを v21 に更新（v2–v20 は履歴監査として維持）。該当するプラグインは移行が必要です：
   - 非推奨のサービス別 `PluginContext` ゲッターを削除。`ctx.services().find(...)` または `require(...)` を使用してください。
   - パラメーター照会の読み取り面は `ParameterAppearance` と `cubism().model().active().parameters().all()` に置き換え。
   - 旧コマンドキューと `TransactionManager` はオーサリングトランザクションと `Parameter.setValue` に、`StrictJson` は `dev.turboism.sdk.json.Json` に、自動バックアップのパスは `BackupArtifactHandle` に置き換え。
