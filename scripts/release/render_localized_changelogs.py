@@ -14,7 +14,7 @@ so history predating the scheme is preserved exactly.
 Usage:
     render_localized_changelogs.py                        # rewrite localized changelogs
     render_localized_changelogs.py --check                # verify committed files match (fails on drift)
-    render_localized_changelogs.py --check --fail-on-drift  # accepted alias for backward compatibility
+    render_localized_changelogs.py --fail-on-drift        # rewrite, but fail closed on englishSha256 drift
 """
 
 import argparse
@@ -55,7 +55,7 @@ def load_notes(version):
     return read_json(path) if path.exists() else None
 
 
-def render(lang, check=False, fail_on_drift=True):
+def render(lang, check=False, fail_on_drift=False):
     target = ROOT / f"CHANGELOG_{lang}.md"
     committed = target.read_text(encoding="utf-8")
     committed_header, committed_sections = sections(committed)
@@ -116,7 +116,7 @@ def render(lang, check=False, fail_on_drift=True):
                   file=sys.stderr)
             failed = True
         return 1 if failed else 0
-    if has_drift:
+    if fail_on_drift and has_drift:
         print(f"drift: English section drifted from release-notes anchor for {target.name}",
               file=sys.stderr)
         return 1
@@ -134,7 +134,7 @@ def main():
     parser.add_argument("--check", action="store_true",
                         help="verify committed localized changelogs instead of rewriting (fails on drift)")
     parser.add_argument("--fail-on-drift", "--strict", dest="fail_on_drift", action="store_true",
-                        help="accepted alias; drift check fails closed by default")
+                        help="also fail rewrite mode on englishSha256 drift (--check always fails)")
     args = parser.parse_args()
     status = 0
     for lang in LOCALES:
