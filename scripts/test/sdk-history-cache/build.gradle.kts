@@ -1,4 +1,4 @@
-// Union of external plugins requested by the reviewed v2–v20 SDK anchors.
+// Union of external plugins requested by the reviewed v2–v21 SDK anchors.
 // Resolve marker metadata and implementation dependencies from the same Plugin
 // Portal as the archives. Keep each plugin's graph separate so conflict resolution
 // cannot omit an older transitive artifact needed by an earlier anchor.
@@ -23,7 +23,7 @@ buildscript {
 // Install the JVM variant-disambiguation rules used by the historical Java
 // projects (notably Guava's JVM/Android and Caffeine's shaded variants).
 plugins {
-    java
+    `kotlin-dsl`
     // Also resolve the real plugin classpath: Kotlin DSL adds embedded-Kotlin
     // constraints which ordinary dependency configurations do not reproduce.
     id("org.izpack.gradle") version "3.2.3" apply false
@@ -41,6 +41,8 @@ val sdkCompiler = configurations.create("sdkCompiler") {
 }
 
 dependencies {
+    // v21 buildSrc compiles convention plugins against this implementation.
+    implementation("com.diffplug.spotless:spotless-plugin-gradle:8.9.0")
     add(sdkCompiler.name, "com.google.errorprone:error_prone_core:2.42.0")
 }
 
@@ -50,5 +52,7 @@ tasks.register("warmSdkHistoryCache") {
             it.resolve()
         }
         sdkCompiler.resolve()
+        // Mirror v21 buildSrc Kotlin DSL compilation, including compiler plugins.
+        configurations.matching { it.isCanBeResolved }.forEach { it.resolve() }
     }
 }
