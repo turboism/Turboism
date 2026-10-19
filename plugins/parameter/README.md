@@ -7,7 +7,7 @@ status: development
 delivery: development-only
 category: modeling
 tags: parameter, binding, editing
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -24,7 +24,6 @@ Provides parameter CSV import/export plus typed parameter-binding inversion and 
 | Plugin ID | `dev.turboism.plugin.parameter` |
 | Category | `modeling` |
 | Tags | parameter, binding, editing |
-| Turboism API | `[0.1.0,0.2.0)` |
 | Requires Cubism | Yes |
 | Interface | `embedded` |
 | License | Project License |
@@ -37,7 +36,7 @@ Provides parameter CSV import/export plus typed parameter-binding inversion and 
 
 ## Requirements and compatibility
 
-- **Turboism API:** `[0.1.0,0.2.0)`.
+- **SDK API range:** `[0.67.0,1.0.0)`.
 - **Cubism:** Requires an active supported Cubism model for parameter and binding workflows.
 - **Interface mode:** `embedded`.
 - **Plugin dependencies:** None declared.

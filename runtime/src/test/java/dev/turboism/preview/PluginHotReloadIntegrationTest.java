@@ -289,7 +289,7 @@ class PluginHotReloadIntegrationTest {
                   "version": "%s",
                   "description": "Test",
                   "entrypoints": ["%s"],
-                  "turboismApi": "[0.1.0,0.2.0)",
+                  "turboismApi": "[0.67.0,1.0.0)",
                   "authors": [{"name": "Test"}],
                   "license": "Test",
                   "website": "https://turboism.dev",

@@ -77,6 +77,7 @@ if (turboismBuildNumber.isNotEmpty()) {
         throw GradleException("A numbered build requires a clean checkout and consistent version/channel/source identity")
     }
 }
+val turboismApiVersion = turboismFrameworkVersion.substringBefore('-')
 val effectiveVersion = if (turboismReleaseBuild) turboismFrameworkVersion else "$turboismFrameworkVersion-SNAPSHOT"
 val buildKind = if (turboismBuildNumber.isEmpty()) "local" else "ci"
 val displayVersion = "$effectiveVersion ($turboismBuildChannel, " +
@@ -84,7 +85,9 @@ val displayVersion = "$effectiveVersion ($turboismBuildChannel, " +
     (if (dirtySource) ", dirty" else "") + ")"
 rootProject.extra["turboismFrameworkVersion"] = turboismFrameworkVersion
 rootProject.extra["turboismBuildMetadata"] = linkedMapOf(
-    "version" to effectiveVersion, "channel" to turboismBuildChannel,
+    "version" to effectiveVersion,
+    "Implementation-Version" to effectiveVersion,
+    "apiVersion" to turboismApiVersion, "channel" to turboismBuildChannel,
     "buildNumber" to turboismBuildNumber, "sourceRevision" to turboismBuildSource,
     "buildKind" to buildKind, "dirty" to dirtySource.toString(), "displayVersion" to displayVersion
 )
@@ -104,6 +107,12 @@ allprojects {
     tasks.withType<Jar>().configureEach {
         isPreserveFileTimestamps = false
         isReproducibleFileOrder = true
+        if (project.path == ":runtime") {
+            manifest.attributes(
+                "Implementation-Version" to effectiveVersion,
+                "Turboism-API-Version" to turboismApiVersion
+            )
+        }
         // The SDK remains a byte-exact reviewed library, not a numbered product.
         if (project.path != ":sdk" && turboismBuildNumber.isNotEmpty()
             && !project.path.startsWith(":plugins:")) {

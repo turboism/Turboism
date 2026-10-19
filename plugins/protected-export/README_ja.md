@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: export, protected, candidate
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -25,7 +25,7 @@ interface: none
 
 ## 要件と互換性
 
-- **Turboism API：**`[0.1.0,0.2.0)`。
+- **SDK API 範囲：**`[0.67.0,1.0.0)`。
 - **Cubism：**Cubism が必要です。審査済みの正確なエディターバージョン（現時点では `5.1.00`–`5.3.04`）ごとにアドミッションが記録され、未対応または未審査のホストはプリフライトでフェイルクローズします。
 - **モデル：**対象条件を満たすモデルのみが受け入れられます。未対応ファミリ、非保存キーフォーム、縮退ジオメトリ、欠落ペアを含むモデルは、部分的なエクスポートではなくブロッカー理由付きで拒否されます。
 - **インターフェースモード：**`none` —— プラグインはフレームワークアクションでエクスポートを駆動し、通知とログで結果を報告します。

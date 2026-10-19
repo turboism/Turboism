@@ -5,7 +5,7 @@
   "name": "Sample Plugin",
   "version": "1.0.0",
   "entrypoints": ["dev.turboism.plugin.sample.SamplePlugin"],
-  "turboismApi": "[0.1.0,0.2.0)",
+  "turboismApi": "[0.67.0,1.0.0)",
   "authors": [{"name":"Turboism Contributors"}],
   "website": "https://turboism.dev",
   "resources": [],

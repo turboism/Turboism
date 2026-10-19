@@ -21,7 +21,7 @@ class PluginLifecycleIntegrationTest {
               "name": "Demo Plugin",
               "version": "0.1.0",
               "entrypoints": ["dev.turboism.plugin.demo.DemoPlugin"],
-              "turboismApi": "[0.1.0,0.2.0)",
+              "turboismApi": "[0.67.0,1.0.0)",
               "authors": [{"name":"Turboism Contributors"}],
               "website": "https://turboism.dev",
               "resources": [],

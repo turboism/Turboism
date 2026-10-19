@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: deformer, warp, editing, symmetry, boundingbox
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -24,7 +24,6 @@ interface: none
 | 插件 ID | `dev.turboism.plugin.boundingbox-warp-mirror` |
 | 分类 | `modeling` |
 | 标签 | deformer, warp, editing, symmetry, boundingbox |
-| Turboism API | `[0.1.0,0.2.0)` |
 | 需要 Cubism | 是 |
 | 界面模式 | `none` |
 | 许可证 | Project License |
@@ -39,6 +38,7 @@ interface: none
 
 ## 要求与兼容性
 
+- **SDK API 范围：**`[0.67.0,1.0.0)`。
 - 需要由 Turboism 运行时驱动的 Cubism Editor 会话。
 - 需要经精确验证的 Editor 模型适配切片；在不受支持的宿主版本上服务返回 `UNAVAILABLE`。
 - 方向标签描述实际镜像方向，已修正旧版对话框左右方向反转的问题。

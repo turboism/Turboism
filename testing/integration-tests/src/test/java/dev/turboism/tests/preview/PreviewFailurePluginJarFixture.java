@@ -89,7 +89,7 @@ final class PreviewFailurePluginJarFixture {
         descriptor.put("version", "0.1.0");
         descriptor.put("description", "Exercises report-safe preview failure collection.");
         descriptor.putArray("entrypoints").add(ENTRYPOINT);
-        descriptor.put("turboismApi", "[0.1.0,0.2.0)");
+        descriptor.put("turboismApi", "[0.67.0,1.0.0)");
         final ArrayNode authors = descriptor.putArray("authors");
         authors.addObject().put("name", "Turboism Tests");
         descriptor.put("license", "Test License");

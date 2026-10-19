@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: appearance
 tags: theme, colors, user-interface
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: false
 interface: none
 ---
@@ -24,7 +24,6 @@ Manages built-in and user theme packages and applies reviewed semantic appearanc
 | Plugin ID | `dev.turboism.plugin.uitheme` |
 | Category | `appearance` |
 | Tags | theme, colors, user-interface |
-| Turboism API | `[0.1.0,0.2.0)` |
 | Requires Cubism | No |
 | Interface | `none` |
 | License | Project License |
@@ -37,7 +36,7 @@ Manages built-in and user theme packages and applies reviewed semantic appearanc
 
 ## Requirements and compatibility
 
-- **Turboism API:** `[0.1.0,0.2.0)`.
+- **SDK API range:** `[0.67.0,1.0.0)`.
 - **Cubism:** The plugin can initialize without Cubism. Applying a theme to Cubism still requires an exact reviewed Editor artifact (`5.0.00` through `5.3.04`) and the semantic appearance service.
 - **Interface mode:** `none`.
 - **Plugin dependencies:** None declared.

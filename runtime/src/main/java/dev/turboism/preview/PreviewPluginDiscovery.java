@@ -2,6 +2,7 @@ package dev.turboism.preview;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.core.FrameworkBuildInfo;
 import dev.turboism.core.descriptor.DescriptorParseException;
 import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.core.plugin.PluginJarContract;
@@ -26,7 +27,8 @@ final class PreviewPluginDiscovery {
 
     private static final String DESCRIPTOR_PATH = "META-INF/turboism/plugin.json";
     private static final String CUBISM_VERSIONS_PATH = "META-INF/turboism/cubism-versions.json";
-    private static final PluginVersion TURBOISM_API_VERSION = PluginVersion.parse("0.1.0");
+    private static final PluginVersion TURBOISM_API_VERSION =
+            FrameworkBuildInfo.current().apiVersion();
 
     private final Path pluginDirectory;
     private final PreviewLog log;
@@ -166,7 +168,8 @@ final class PreviewPluginDiscovery {
                         descriptor.id(),
                         jar,
                         "TURBOISM_API_INCOMPATIBLE",
-                        "Plugin requires Turboism API " + descriptor.turboismApi() + ", runtime is 0.1.0"));
+                        "Plugin requires Turboism API " + descriptor.turboismApi() + ", runtime is "
+                                + TURBOISM_API_VERSION));
                 return null;
             }
             noteCubismVersionDeclaration(archive, descriptor);

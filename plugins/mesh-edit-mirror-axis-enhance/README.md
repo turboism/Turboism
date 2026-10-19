@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: mesh, artmesh, editing
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -24,7 +24,6 @@ Inspects mesh and deformer state and adds a bounded mirror-axis angle control to
 | Plugin ID | `dev.turboism.plugin.mesh` |
 | Category | `modeling` |
 | Tags | mesh, artmesh, editing |
-| Turboism API | `[0.1.0,0.2.0)` |
 | Requires Cubism | Yes |
 | Interface | `embedded` |
 | License | Project License |
@@ -37,7 +36,7 @@ Inspects mesh and deformer state and adds a bounded mirror-axis angle control to
 
 ## Requirements and compatibility
 
-- **Turboism API:** `[0.1.0,0.2.0)`.
+- **SDK API range:** `[0.67.0,1.0.0)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`; this plugin exposes each host-facing feature only when its declared services and capabilities are available.
 - **Interface mode:** `embedded`.
 - **Plugin dependencies:** None declared.

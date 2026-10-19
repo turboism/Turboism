@@ -191,8 +191,8 @@ final class RuntimePluginAutoUpdaterTest {
         installJarAt(home.resolve("plugins/mcp.jar"), pluginId, "0.1.0", true, List.of("5.3.02", "5.3.03"));
 
         final BuiltArtifact v020 =
-                buildArtifact(pluginId, "mcp", "0.2.0", "[0.1.0,0.2.0)", true, List.of("5.3.02", "5.3.03"));
-        final BuiltArtifact v030 = buildArtifact(pluginId, "mcp", "0.3.0", "[0.1.0,0.2.0)", true, List.of("5.3.04"));
+                buildArtifact(pluginId, "mcp", "0.2.0", "[0.67.0,1.0.0)", true, List.of("5.3.02", "5.3.03"));
+        final BuiltArtifact v030 = buildArtifact(pluginId, "mcp", "0.3.0", "[0.67.0,1.0.0)", true, List.of("5.3.04"));
 
         final KeyPair keyPair = generateEd25519KeyPair();
         final byte[] catalogBytes = catalogWithReleases(
@@ -205,7 +205,7 @@ final class RuntimePluginAutoUpdaterTest {
                                 "0.2.0",
                                 "stable",
                                 "active",
-                                "[0.1.0,0.2.0)",
+                                "[0.67.0,1.0.0)",
                                 true,
                                 List.of("5.3.02", "5.3.03"),
                                 List.of(),
@@ -214,7 +214,7 @@ final class RuntimePluginAutoUpdaterTest {
                                 "0.3.0",
                                 "stable",
                                 "active",
-                                "[0.1.0,0.2.0)",
+                                "[0.67.0,1.0.0)",
                                 true,
                                 List.of("5.3.04"),
                                 List.of(),
@@ -250,7 +250,7 @@ final class RuntimePluginAutoUpdaterTest {
                                 "0.2.0",
                                 "stable",
                                 "active",
-                                "[0.1.0,0.2.0)",
+                                "[0.67.0,1.0.0)",
                                 true,
                                 List.of("5.3.02", "5.3.03"),
                                 List.of(),
@@ -259,7 +259,7 @@ final class RuntimePluginAutoUpdaterTest {
                                 "0.3.0",
                                 "stable",
                                 "active",
-                                "[0.1.0,0.2.0)",
+                                "[0.67.0,1.0.0)",
                                 true,
                                 List.of("5.3.03", "5.3.04"),
                                 List.of(),
@@ -281,7 +281,7 @@ final class RuntimePluginAutoUpdaterTest {
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 FrameworkBuildInfo.Channel.STABLE,
                 () -> Optional.of("5.3.03"),
-                PluginVersion.parse("0.1.0"),
+                dev.turboism.core.FrameworkBuildInfo.current().apiVersion(),
                 Duration.ofDays(1),
                 Duration.ofDays(1),
                 diagnostics::add);
@@ -300,9 +300,9 @@ final class RuntimePluginAutoUpdaterTest {
     @Test
     void turboismApiIncompatibleYankedAndUnsatisfiedDependencyReleasesAreSkipped() throws Exception {
         final String pluginId = "dev.turboism.plugin.mcp";
-        final BuiltArtifact v020 = buildArtifact(pluginId, "mcp", "0.2.0", "[0.1.0,0.2.0)", false, List.of());
-        final BuiltArtifact v030 = buildArtifact(pluginId, "mcp", "0.3.0", "[0.2.0,0.3.0)", false, List.of());
-        final BuiltArtifact v040 = buildArtifact(pluginId, "mcp", "0.4.0", "[0.1.0,0.2.0)", false, List.of());
+        final BuiltArtifact v020 = buildArtifact(pluginId, "mcp", "0.2.0", "[0.67.0,1.0.0)", false, List.of());
+        final BuiltArtifact v030 = buildArtifact(pluginId, "mcp", "0.3.0", "[0.1.0,0.2.0)", false, List.of());
+        final BuiltArtifact v040 = buildArtifact(pluginId, "mcp", "0.4.0", "[0.67.0,1.0.0)", false, List.of());
 
         final KeyPair keyPair = generateEd25519KeyPair();
         final byte[] catalogBytes = catalogWithReleases(
@@ -311,16 +311,18 @@ final class RuntimePluginAutoUpdaterTest {
                 "mcp",
                 "official",
                 List.of(
-                        releaseJson("0.2.0", "stable", "active", "[0.1.0,0.2.0)", false, List.of(), List.of(), v020),
-                        // 0.3.0 requires Turboism API [0.2.0,0.3.0) while runtime is 0.1.0
-                        releaseJson("0.3.0", "stable", "active", "[0.2.0,0.3.0)", false, List.of(), List.of(), v030),
+                        releaseJson("0.2.0", "stable", "active", "[0.67.0,1.0.0)", false, List.of(), List.of(), v020),
+                        // A legacy API range is rejected by the current runtime.
+                        releaseJson("0.3.0", "stable", "active", "[0.1.0,0.2.0)", false, List.of(), List.of(), v030),
                         // 0.4.0 is yanked
-                        releaseJson("0.4.0", "stable", "yanked", "[0.1.0,0.2.0)", false, List.of(), List.of(), v040)));
+                        releaseJson("0.4.0", "stable", "yanked", "[0.67.0,1.0.0)", false, List.of(), List.of(), v040)));
         final byte[] sigBytes = signEnvelope(catalogBytes, keyPair.getPrivate(), TEST_KEY_ID);
         final PluginCatalog verified = testVerifier(keyPair).verify(catalogBytes, sigBytes);
 
         final PluginAutoUpdatePlanner planner = new PluginAutoUpdatePlanner(
-                FrameworkBuildInfo.Channel.STABLE, Optional.empty(), PluginVersion.parse("0.1.0"));
+                FrameworkBuildInfo.Channel.STABLE,
+                Optional.empty(),
+                dev.turboism.core.FrameworkBuildInfo.current().apiVersion());
         final List<PluginAutoUpdatePlanner.PlannedUpdate> planned =
                 planner.plan(verified, Map.of(pluginId, PluginVersion.parse("0.1.0")));
         assertEquals(1, planned.size());
@@ -337,7 +339,7 @@ final class RuntimePluginAutoUpdaterTest {
                         "0.2.0",
                         "stable",
                         "active",
-                        "[0.1.0,0.2.0)",
+                        "[0.67.0,1.0.0)",
                         false,
                         List.of(),
                         List.of(
@@ -360,14 +362,14 @@ final class RuntimePluginAutoUpdaterTest {
         config.setPluginEnabled(pluginId, false);
         assertTrue(config.disabledPlugins().contains(pluginId));
 
-        final BuiltArtifact v020 = buildArtifact(pluginId, "ui-theme", "0.2.0", "[0.1.0,0.2.0)", false, List.of());
+        final BuiltArtifact v020 = buildArtifact(pluginId, "ui-theme", "0.2.0", "[0.67.0,1.0.0)", false, List.of());
         final KeyPair keyPair = generateEd25519KeyPair();
         final byte[] catalogBytes = catalogWithReleases(
                 1L,
                 pluginId,
                 "ui-theme",
                 "official",
-                List.of(releaseJson("0.2.0", "stable", "active", "[0.1.0,0.2.0)", false, List.of(), List.of(), v020)));
+                List.of(releaseJson("0.2.0", "stable", "active", "[0.67.0,1.0.0)", false, List.of(), List.of(), v020)));
         final byte[] sigBytes = signEnvelope(catalogBytes, keyPair.getPrivate(), TEST_KEY_ID);
 
         final PluginCatalogClient client =
@@ -384,7 +386,7 @@ final class RuntimePluginAutoUpdaterTest {
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 FrameworkBuildInfo.Channel.STABLE,
                 Optional::empty,
-                PluginVersion.parse("0.1.0"),
+                dev.turboism.core.FrameworkBuildInfo.current().apiVersion(),
                 Duration.ofDays(1),
                 Duration.ofDays(1),
                 ignored -> {});
@@ -435,14 +437,14 @@ final class RuntimePluginAutoUpdaterTest {
         final Path existingJar = home.resolve("plugins/" + pluginId + ".jar");
         final byte[] originalBytes = installJarAt(existingJar, pluginId, "0.1.0", false, List.of());
 
-        final BuiltArtifact v020 = buildArtifact(pluginId, "mcp", "0.2.0", "[0.1.0,0.2.0)", false, List.of());
+        final BuiltArtifact v020 = buildArtifact(pluginId, "mcp", "0.2.0", "[0.67.0,1.0.0)", false, List.of());
         final KeyPair keyPair = generateEd25519KeyPair();
         final byte[] catalogBytes = catalogWithReleases(
                 1L,
                 pluginId,
                 "mcp",
                 "official",
-                List.of(releaseJson("0.2.0", "stable", "active", "[0.1.0,0.2.0)", false, List.of(), List.of(), v020)));
+                List.of(releaseJson("0.2.0", "stable", "active", "[0.67.0,1.0.0)", false, List.of(), List.of(), v020)));
         final byte[] sigBytes = signEnvelope(catalogBytes, keyPair.getPrivate(), TEST_KEY_ID);
 
         // 1. Tampered artifact bytes (same size, wrong SHA-256) must be rejected and not staged.
@@ -460,7 +462,7 @@ final class RuntimePluginAutoUpdaterTest {
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 FrameworkBuildInfo.Channel.STABLE,
                 Optional::empty,
-                PluginVersion.parse("0.1.0"),
+                dev.turboism.core.FrameworkBuildInfo.current().apiVersion(),
                 Duration.ofDays(1),
                 Duration.ofDays(1),
                 ignored -> {});
@@ -487,7 +489,7 @@ final class RuntimePluginAutoUpdaterTest {
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 FrameworkBuildInfo.Channel.STABLE,
                 Optional::empty,
-                PluginVersion.parse("0.1.0"),
+                dev.turboism.core.FrameworkBuildInfo.current().apiVersion(),
                 Duration.ofDays(1),
                 Duration.ofDays(1),
                 ignored -> {});
@@ -507,7 +509,7 @@ final class RuntimePluginAutoUpdaterTest {
                 pluginId,
                 "mcp",
                 "official",
-                List.of(releaseJson("0.2.0", "stable", "active", "[0.1.0,0.2.0)", false, List.of(), List.of(), v020)));
+                List.of(releaseJson("0.2.0", "stable", "active", "[0.67.0,1.0.0)", false, List.of(), List.of(), v020)));
         final byte[] sigV2 = signEnvelope(catalogV2, keyPair.getPrivate(), TEST_KEY_ID);
         final PluginCatalogClient validClient =
                 stubClient(catalogV2, sigV2, Map.of(URI.create(v020.url()), v020.bytes()));
@@ -520,7 +522,7 @@ final class RuntimePluginAutoUpdaterTest {
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 FrameworkBuildInfo.Channel.STABLE,
                 Optional::empty,
-                PluginVersion.parse("0.1.0"),
+                dev.turboism.core.FrameworkBuildInfo.current().apiVersion(),
                 Duration.ofDays(1),
                 Duration.ofDays(1),
                 ignored -> {});
@@ -549,7 +551,7 @@ final class RuntimePluginAutoUpdaterTest {
         final String pluginId = "dev.turboism.plugin.mcp";
         installJarAt(home.resolve("plugins/" + pluginId + ".jar"), pluginId, "0.1.0", false, List.of());
 
-        final BuiltArtifact preview020 = buildArtifact(pluginId, "mcp", "0.2.0", "[0.1.0,0.2.0)", false, List.of());
+        final BuiltArtifact preview020 = buildArtifact(pluginId, "mcp", "0.2.0", "[0.67.0,1.0.0)", false, List.of());
         final KeyPair keyPair = generateEd25519KeyPair();
         final byte[] catalogBytes = catalogWithReleases(
                 1L,
@@ -557,7 +559,7 @@ final class RuntimePluginAutoUpdaterTest {
                 "mcp",
                 "official",
                 List.of(releaseJson(
-                        "0.2.0", "preview", "active", "[0.1.0,0.2.0)", false, List.of(), List.of(), preview020)));
+                        "0.2.0", "preview", "active", "[0.67.0,1.0.0)", false, List.of(), List.of(), preview020)));
         final byte[] sigBytes = signEnvelope(catalogBytes, keyPair.getPrivate(), TEST_KEY_ID);
         final PluginCatalog verified = testVerifier(keyPair).verify(catalogBytes, sigBytes);
 
@@ -593,7 +595,7 @@ final class RuntimePluginAutoUpdaterTest {
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 FrameworkBuildInfo.Channel.BETA,
                 Optional::empty,
-                PluginVersion.parse("0.1.0"),
+                dev.turboism.core.FrameworkBuildInfo.current().apiVersion(),
                 Duration.ZERO,
                 Duration.ofDays(1),
                 ignored -> {});
@@ -624,7 +626,7 @@ final class RuntimePluginAutoUpdaterTest {
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 FrameworkBuildInfo.Channel.BETA,
                 Optional::empty,
-                PluginVersion.parse("0.1.0"),
+                dev.turboism.core.FrameworkBuildInfo.current().apiVersion(),
                 Duration.ofDays(1),
                 Duration.ofDays(1),
                 ignored -> {});
@@ -752,7 +754,8 @@ final class RuntimePluginAutoUpdaterTest {
             final List<String> supportedCubism)
             throws Exception {
         Files.createDirectories(target.getParent());
-        final BuiltArtifact built = buildArtifact(id, "mod", version, "[0.1.0,0.2.0)", requiresCubism, supportedCubism);
+        final BuiltArtifact built =
+                buildArtifact(id, "mod", version, "[0.67.0,1.0.0)", requiresCubism, supportedCubism);
         Files.write(target, built.bytes());
         return built.bytes();
     }

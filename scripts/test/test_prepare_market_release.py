@@ -79,7 +79,7 @@ def make_module(repo_root: Path, name: str, plugin_id: str, requires_cubism: boo
         "version": version,
         "description": f"{name} description.",
         "entrypoints": [f"dev.turboism.plugin.{name}.Main"],
-        "turboismApi": "[0.1.0,0.2.0)",
+        "turboismApi": "[0.67.0,1.0.0)",
         "authors": [{"name": "Turboism Contributors"}],
         "license": "Project License",
         "website": "https://turboism.dev",
@@ -594,7 +594,7 @@ class StagingTest(unittest.TestCase):
         self.assertEqual(mcp["descriptor"]["version"], "0.1.0")
         self.assertEqual(mcp["descriptor"]["category"], "workflow")
         self.assertEqual(mcp["descriptor"]["tags"], ["fixture", "test"])
-        self.assertEqual(mcp["descriptor"]["turboismApi"], "[0.1.0,0.2.0)")
+        self.assertEqual(mcp["descriptor"]["turboismApi"], "[0.67.0,1.0.0)")
         self.assertEqual(mcp["descriptor"]["environment"],
                          {"requiresCubism": True, "ui": "none"})
         self.assertEqual(mcp["descriptor"]["publishedEvents"], [])

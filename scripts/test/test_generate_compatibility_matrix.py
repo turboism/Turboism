@@ -114,7 +114,7 @@ Things.
 
 ## Requirements and compatibility
 
-- Turboism API: `[0.1.0,0.2.0)`.
+- Turboism API: `[0.67.0,1.0.0)`.
 
 ## Install and enable
 """
@@ -505,7 +505,7 @@ class MatrixTest(unittest.TestCase):
         )
         self.assertEqual(once, twice)
         # The capability-section body is preserved verbatim.
-        self.assertIn("- Turboism API: `[0.1.0,0.2.0)`.", once)
+        self.assertIn("- Turboism API: `[0.67.0,1.0.0)`.", once)
         self.assertIn("## Install and enable", once)
 
     def test_generate_then_check(self) -> None:

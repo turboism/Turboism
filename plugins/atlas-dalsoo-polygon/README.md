@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: texture-atlas, packing, polygon, auto-layout
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -29,7 +29,6 @@ supported hosts (`5.2.00`–`5.3.04`).
 | Plugin ID | `dev.turboism.plugin.texture-atlas-dalsoo` |
 | Category | `modeling` |
 | Tags | texture-atlas, packing, polygon, auto-layout |
-| Turboism API | `[0.1.0,0.2.0)` |
 | Requires Cubism | Yes |
 | Interface | `none` |
 | License | MIT (kernel port) |
@@ -52,7 +51,7 @@ supported hosts (`5.2.00`–`5.3.04`).
 
 ## Requirements and compatibility
 
-- **Turboism API:** `[0.1.0,0.2.0)`.
+- **SDK API range:** `[0.67.0,1.0.0)`.
 - **Cubism:** exact reviewed Editor artifacts `5.2.00`–`5.3.04`.
   Cubism 5.4 is not admitted; a future official 5.4 host-native provider keeps
   a reserved `HOST_NATIVE` backend slot in the SDK contract.

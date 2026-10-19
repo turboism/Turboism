@@ -30,7 +30,8 @@ import java.util.Set;
 public final class PluginAutoUpdatePlanner {
 
     /** Runtime Turboism API version used by default for {@code turboismApi} range checks. */
-    public static final PluginVersion DEFAULT_TURBOISM_API_VERSION = PluginVersion.parse("0.1.0");
+    public static final PluginVersion DEFAULT_TURBOISM_API_VERSION =
+            FrameworkBuildInfo.current().apiVersion();
 
     /** Required prefix for first-party official Turboism plugin identifiers. */
     public static final String FIRST_PARTY_ID_PREFIX = "dev.turboism.plugin.";

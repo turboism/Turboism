@@ -26,7 +26,7 @@ final class PluginPackageFixtures {
 
     static byte[] valid() throws Exception {
         return packageWith(
-                jar(descriptor(ID, VERSION, "[0.1.0,0.2.0)"), ENTRYPOINT.replace('.', '/') + ".class", "class"),
+                jar(descriptor(ID, VERSION, "[0.67.0,1.0.0)"), ENTRYPOINT.replace('.', '/') + ".class", "class"),
                 ID,
                 VERSION,
                 List.of());

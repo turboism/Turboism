@@ -18,6 +18,47 @@ final class FrameworkBuildInfoTest {
     }
 
     @Test
+    void frameworkApiUsesMinimumInclusiveAndMajorOneExclusiveRanges() {
+        var api = FrameworkBuildInfo.fromProperties(metadata("nightly", "0.67.0-0.nightly.local-SNAPSHOT", ""))
+                .apiVersion();
+        assertTrue(
+                dev.turboism.core.version.VersionRange.parse("[0.67.0,1.0.0)").contains(api));
+        assertFalse(
+                dev.turboism.core.version.VersionRange.parse("[0.68.0,1.0.0)").contains(api));
+        assertFalse(
+                dev.turboism.core.version.VersionRange.parse("[0.1.0,0.2.0)").contains(api));
+        assertFalse(dev.turboism.core.version.VersionRange.parse("[0.67.0,1.0.0)")
+                .contains(dev.turboism.core.version.PluginVersion.parse("1.0.0")));
+    }
+
+    @Test
+    void apiVersionStripsEveryReleaseAndLocalSuffix() {
+        for (String version : new String[] {
+            "0.67.0",
+            "0.67.0-0.nightly.32",
+            "0.67.0-beta.2",
+            "0.67.0-SNAPSHOT",
+            "0.67.0-beta.local-SNAPSHOT",
+            "0.67.0-0.nightly.local-SNAPSHOT"
+        }) {
+            Properties p = new Properties();
+            p.setProperty("version", version);
+            assertEquals(
+                    "0.67.0", FrameworkBuildInfo.fromProperties(p).apiVersion().toString());
+        }
+    }
+
+    @Test
+    void rejectsConflictingEmbeddedApiOrImplementationVersion() {
+        Properties p = metadata("stable", "0.67.0", "");
+        p.setProperty("apiVersion", "0.1.0");
+        assertThrows(IllegalArgumentException.class, () -> FrameworkBuildInfo.fromProperties(p));
+        p.setProperty("apiVersion", "0.67.0");
+        p.setProperty("Implementation-Version", "0.66.0");
+        assertThrows(IllegalArgumentException.class, () -> FrameworkBuildInfo.fromProperties(p));
+    }
+
+    @Test
     void readsAllThreeChannelsFromThePackageNotTheServer() {
         String[] channels = {"stable", "beta", "nightly"};
         String[] versions = {"1.2.3", "1.2.3-beta.2", "1.2.3-0.nightly.42"};
@@ -69,9 +110,17 @@ final class FrameworkBuildInfoTest {
     }
 
     @Test
-    void readsTheActualGeneratedResource() {
+    void readsTheActualGeneratedResource() throws Exception {
         var info = FrameworkBuildInfo.current();
         assertNotEquals("unknown", info.version());
+        Properties embedded = new Properties();
+        try (var input =
+                FrameworkBuildInfo.class.getResourceAsStream("/META-INF/turboism/framework-version.properties")) {
+            assertNotNull(input);
+            embedded.load(input);
+        }
+        assertEquals(info.version(), embedded.getProperty("Implementation-Version"));
+        assertEquals(info.apiVersion().toString(), embedded.getProperty("apiVersion"));
         String expectedVersion = System.getenv("TURBOISM_BUILD_VERSION");
         String expectedChannel = System.getenv("TURBOISM_BUILD_CHANNEL");
         if (expectedVersion != null && !expectedVersion.isEmpty()) {

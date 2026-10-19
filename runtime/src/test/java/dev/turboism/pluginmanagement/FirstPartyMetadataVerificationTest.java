@@ -103,7 +103,7 @@ class FirstPartyMetadataVerificationTest {
               "name": "First Party",
               "version": "1.0.0",
               "entrypoints": ["dev.turboism.plugin.firstparty.FirstPartyPlugin"],
-              "turboismApi": "[0.1.0,0.2.0)",
+              "turboismApi": "[0.67.0,1.0.0)",
               "authors": [{"name":"Turboism"}],
               "license": "Project License",
               "website": "https://turboism.dev",

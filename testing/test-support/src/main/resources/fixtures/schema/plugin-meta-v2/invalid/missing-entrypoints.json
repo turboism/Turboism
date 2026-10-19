@@ -4,7 +4,7 @@
   "id": "dev.turboism.plugin.sample",
   "name": "Sample",
   "version": "1.0.0",
-  "turboismApi": "0.1.0",
+  "turboismApi": "[0.67.0,1.0.0)",
   "authors": [{"name":"Turboism Contributors"}],
   "website": "https://turboism.dev",
   "resources": [],

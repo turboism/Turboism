@@ -6,7 +6,7 @@
   "version": "0.0.0",
   "description": "025 test-only relation smoke; not complete external PSD editing acceptance.",
   "entrypoints": ["dev.turboism.validation.textures.TextureRelationsHostProbe"],
-  "turboismApi": "[0.1.0,0.2.0)",
+  "turboismApi": "[0.67.0,1.0.0)",
   "authors": [{"name": "Turboism Validation"}],
   "license": "Project License",
   "website": "https://turboism.dev",

@@ -189,7 +189,7 @@ class LocalPluginJarPreparerTest {
             {"format":"turboism.plugin.meta","schemaVersion":5,
             "id":"dev.example.provider","name":"dev.example.provider","version":"0.1.0",
             "description":"test","entrypoints":["dev.example.provider.ProviderPlugin"],
-            "turboismApi":"[0.1.0,0.2.0)","authors":[{"name":"Tests"}],
+            "turboismApi":"[0.67.0,1.0.0)","authors":[{"name":"Tests"}],
             "license":"Test","website":"https://turboism.dev","resources":[],
             "i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]},
             "dependencies":[],"permissions":[],"capabilities":[],
@@ -439,7 +439,7 @@ class LocalPluginJarPreparerTest {
         final String descriptor = "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":2,"
                 + "\"id\":\"" + id + "\",\"name\":\"Example\",\"version\":\"" + version + "\","
                 + "\"description\":\"Example\",\"entrypoints\":[\"example.Plugin\"],"
-                + "\"turboismApi\":\"[0.1.0,0.2.0)\",\"authors\":[{\"name\":\"Test\"}],"
+                + "\"turboismApi\":\"[0.67.0,1.0.0)\",\"authors\":[{\"name\":\"Test\"}],"
                 + "\"license\":\"Test\",\"website\":\"https://example.test\",\"resources\":[],"
                 + "\"i18n\":{\"baseName\":\"META-INF/turboism/i18n/messages\",\"locales\":[]},"
                 + "\"dependencies\":[],\"permissions\":[],\"capabilities\":[],"
@@ -511,7 +511,7 @@ class LocalPluginJarPreparerTest {
             {"format":"turboism.plugin.meta","schemaVersion":5,
             "id":"%s","name":"%s","version":"0.1.0",
             "description":"test","entrypoints":["dev.example.provider.ProviderPlugin"],
-            "turboismApi":"[0.1.0,0.2.0)","authors":[{"name":"Tests"}],
+            "turboismApi":"[0.67.0,1.0.0)","authors":[{"name":"Tests"}],
             "license":"Test","website":"https://turboism.dev","resources":[],
             "i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]},
             "dependencies":[],"permissions":[],"capabilities":[],

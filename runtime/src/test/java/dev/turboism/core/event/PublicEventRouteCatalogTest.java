@@ -319,7 +319,7 @@ class PublicEventRouteCatalogTest {
                 version,
                 "",
                 List.of("dev.example.Plugin"),
-                "[0.1.0,0.2.0)",
+                "[0.67.0,1.0.0)",
                 List.of(new CorePluginDescriptor.CoreAuthor("Example", Optional.empty())),
                 "",
                 Optional.of("https://example.invalid"),

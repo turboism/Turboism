@@ -139,7 +139,7 @@ public final class HeadlessRuntimeProbeMain {
         return """
             {"format":"turboism.plugin.meta","schemaVersion":2,"id":"dev.example.headless",
             "name":"HeadlessFixture","version":"0.1.0","description":"probe",
-            "entrypoints":["dev.example.HeadlessFixture"],"turboismApi":"[0.1.0,0.2.0)",
+            "entrypoints":["dev.example.HeadlessFixture"],"turboismApi":"[0.67.0,1.0.0)",
             "authors":[{"name":"Probe"}],"license":"Test","website":"https://turboism.dev",
             "resources":[],"i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]},
             "dependencies":[],"permissions":[],"capabilities":[],
