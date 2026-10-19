@@ -185,7 +185,7 @@ class NightlyAllocationTest(unittest.TestCase):
 class NightlyPayloadTest(unittest.TestCase):
     def test_nightly_version_is_opt_in_and_stable_rules_are_unchanged(self):
         with self.assertRaises(ValueError): release.release_artifacts(Path('.'),'1.2.4-0.nightly.7')
-        self.assertEqual(len(release.release_artifacts(Path('.'),'1.2.4-0.nightly.7',channel='nightly')),12)
+        self.assertEqual(len(release.release_artifacts(Path('.'),'1.2.4-0.nightly.7',channel='nightly')),8)
         for v in ['1.2.4','1.2.4-beta.7','1.2.4-0.nightly.07']:
             with self.assertRaises(ValueError):release.release_artifacts(Path('.'),v,channel='nightly')
     def test_partial_published_release_or_modified_bytes_cannot_be_success(self):
@@ -197,7 +197,7 @@ class NightlyPayloadTest(unittest.TestCase):
             with self.assertRaises(ValueError):n.missing_assets(r,expected,raw['tag_name'])
     def test_canonical_sets_contain_expected_historical_and_modern_rosters(self):
         sets = n.canonical_sets_for('1.2.4-0.nightly.7')
-        self.assertEqual(len(sets), 4)
+        self.assertEqual(len(sets), 5)
         sizes = {len(s) for s in sets}
         self.assertEqual(sizes, {8, 10, 12})
         raw, rec = published()

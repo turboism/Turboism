@@ -27,13 +27,16 @@ Turboism 是面向 **Live2D Cubism Editor**、以 Windows 为主要平台的运�
 
 支持的 Cubism 宿主平台为 **Windows x64**。未列出的 Editor 版本不承诺兼容；缺少所需适配器或功能时会拒绝启用，而不是猜测兼容性。支持某个版本不代表每个插件功能都能在该版本上使用。
 
-在 macOS 和 Linux 上，可下载并解压便携式 ZIP 发行包（`turboism-<version>-full.zip` 或 `turboism-<version>-thin.zip`）。macOS 打包仅处于预览阶段，尚未验证 Cubism 宿主支持；Linux 仅覆盖运行时和文件部署行为，不是受支持的 Cubism 宿主平台。
+在 macOS 和 Linux 上，可下载并解压便携式 ZIP 发行包（`turboism-<version>.zip`）。macOS 打包仅处于预览阶段，尚未验证 Cubism 宿主支持；Linux 仅覆盖运行时和文件部署行为，不是受支持的 Cubism 宿主平台。
 
 ## 安装
 
-从[最新 GitHub Release](https://github.com/turboism/Turboism/releases/latest)下载发行包及对应的 `.sha256` 文件。共提供两种变体的四种正式发行产物：
-- **完整版（Full）**（`TurboismInstaller-<version>-full.exe`、`turboism-<version>-full.zip`）：包含核心运行时框架以及所有随包提供的第一方插件。
-- **精简版（Thin）**（`TurboismInstaller-<version>-thin.exe`、`turboism-<version>-thin.zip`）：仅包含运行时框架，不带任何第一方插件（插件后续可通过插件管理从插件市场获取）。
+从[最新 GitHub Release](https://github.com/turboism/Turboism/releases/latest)下载发行包及对应的 `.sha256` 文件。标准包包含全部随包提供的第一方插件：
+
+- **Windows 安装器**：`TurboismInstaller-<version>.exe`。
+- **便携包**：`turboism-<version>.zip`。
+
+两种标准包均内置完整的 GraalJS 离线引擎依赖。兼容的 GraalVM 运行时通过配置器单独安装。
 
 下列安装方式**任选一种**即可。安装或更新前，请关闭 Cubism 并备份工程。
 
@@ -42,20 +45,20 @@ Turboism 是面向 **Live2D Cubism Editor**、以 Windows 为主要平台的运�
 当前安装器尚未签名，运行前请将下载文件的 SHA-256 与对应校验文件中的值进行比对。例如在 PowerShell 中执行（将 `<version>` 替换为下载的版本号）：
 
 ```powershell
-Get-FileHash ".\TurboismInstaller-<version>-full.exe" -Algorithm SHA256
+Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256
 ```
 
 ### EXE — Windows 推荐方式
 
-运行 `TurboismInstaller-<version>-full.exe`（完整版）或 `TurboismInstaller-<version>-thin.exe`（精简版），按照安装向导选择安装目录和启动选项。完整版安装器将安装全部第一方插件，无需逐项选择；精简版安装器不安装任何插件。用户后续可在插件管理中自由启用或停用插件。向导在欢迎页之前会先弹出语言选择框（英语、简体中文、日语、韩语），仅作用于安装器界面。安装后使用生成的 Turboism 快捷方式启动。
+运行 `TurboismInstaller-<version>.exe`，按照向导选择安装目录和启动选项。安装器包含全部第一方插件，可随后在插件管理中启用或停用。欢迎页之前可选择英语、简体中文、日语或韩语；该选择仅作用于安装器。安装后使用生成的 Turboism 快捷方式启动。
 
 与 Cubism 官方启动 BAT 的集成是**可选项**，必须明确勾选。该集成使用带哈希校验的备份；之后的手动修改可能导致无法自动恢复。请勿将这些安装器管理的备份当作工程备份。
 
-升级路径安全受控：使用精简版安装器升级既有完整安装时，会原样保留现有的 `plugins/` 目录；使用完整版安装器升级精简版时，会安装或更新全部第一方插件，并保留既有的 `disabledPlugins` 设置。
+安装器可升级既有安装，安装当前第一方插件，并保留已有的 `disabledPlugins` 设置。
 
 ### ZIP — Windows 手动配置
 
-1. 选择 `turboism-<version>-full.zip` 可获得随包提供的第一方插件；`turboism-<version>-thin.zip` 仅包含运行时，不带插件 JAR。
+1. 下载 `turboism-<version>.zip`，其中包含运行时及随包提供的第一方插件。
 2. 将**整个压缩包**解压到独立的 Turboism 文件夹，不要解压到 Cubism 安装目录。
 3. 在解压后的文件夹中打开配置工具：
 

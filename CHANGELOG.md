@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- Consolidated Full/Thin distributions into one Windows installer and one portable ZIP. Both include all bundled first-party plugins and the complete offline GraalJS engine; GraalVM runtime installation remains separate. Existing Full/Thin installations can update through the unified installer.
+
 ## [0.67.0] - 2026-10-13
 
 ### Added

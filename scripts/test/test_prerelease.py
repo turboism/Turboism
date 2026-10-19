@@ -24,15 +24,15 @@ class PrereleaseTest(unittest.TestCase):
         with self.assertRaises(ValueError):self.p.receipt_from_body(body,'nightly')
         with self.assertRaises(ValueError):self.p.receipt_from_body(body*2,'beta')
 
-    def test_both_prereleases_require_exactly_twelve_assets(self):
+    def test_both_prereleases_require_exactly_eight_assets(self):
         for version in ['1.2.3-beta.2','1.2.3-0.nightly.7']:
-            names=self.p.names_for(version);self.assertEqual(len(names),12)
+            names=self.p.names_for(version);self.assertEqual(len(names),8)
         with self.assertRaises(ValueError):self.p.names_for('1.2.3')
 
     def test_canonical_sets_support_legacy_and_modern_and_reject_invalid(self):
         for version in ['1.2.3-beta.2', '1.2.3-0.nightly.7']:
             sets = self.p.canonical_sets_for(version)
-            self.assertEqual(len(sets), 4)
+            self.assertEqual(len(sets), 5)
             self.assertEqual(self.p.names_for(version), sets[0])
             self.assertEqual({len(s) for s in sets}, {8, 10, 12})
         with self.assertRaises(ValueError):

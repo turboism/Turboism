@@ -99,7 +99,13 @@ def verify_receipt(github, source_root, bundle_root, version, source, run_id, at
     if type(number) is not int or not 0 < number < 9007199254740991:
         raise ValueError('Invalid build number')
     extended = (Path(source_root) / 'runtime/src/main/java/dev/turboism/core/FrameworkBuildInfo.java').is_file()
-    dist = next(Path(bundle_root).rglob(f'turboism-{version}-full.zip')).parent
+    archives = list(Path(bundle_root).rglob(f'turboism-{version}.zip'))
+    if not archives:
+        archives = list(Path(bundle_root).rglob(f'turboism-{version}-full.zip'))
+    if len(archives) != 1:
+        raise ValueError('Candidate requires exactly one standard or legacy full ZIP')
+    dist = archives[0].parent
+    from .artifact_layout import portable_archives
     def check_jar(data):
         with zipfile.ZipFile(data) as jar:
             if 'META-INF/MANIFEST.MF' not in jar.namelist():
@@ -120,8 +126,8 @@ def verify_receipt(github, source_root, bundle_root, version, source, run_id, at
                         if properties.get(key) != value:
                             raise ValueError('Runtime version resource disagrees with the verified build receipt: ' + key)
             return True
-    for variant in ('full', 'thin'):
-        with zipfile.ZipFile(dist / f'turboism-{version}-{variant}.zip') as archive:
+    for portable in portable_archives(dist, version):
+        with zipfile.ZipFile(portable) as archive:
             if extended:
                 with zipfile.ZipFile(io.BytesIO(archive.read('turboism-agent.jar'))) as agent:
                     if 'META-INF/turboism/framework-version.properties' not in agent.namelist():

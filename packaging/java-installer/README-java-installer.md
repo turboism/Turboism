@@ -3,9 +3,9 @@
 > **Notice**: The Java installer (`TurboismInstaller-<version>.jar`) has been retired from official release assets.
 > The product release assets are now the four variants:
 > - `TurboismInstaller-<version>-full.exe` and `TurboismInstaller-<version>-thin.exe` (Windows installers)
-> - `turboism-<version>-full.zip` and `turboism-<version>-thin.zip` (Portable archives)
+> - `turboism-<version>.zip` (Portable archives)
 >
-> On macOS and Linux, users should extract either `turboism-<version>-full.zip` (bundled plugins) or `turboism-<version>-thin.zip` (runtime only).
+> On macOS and Linux, users should extract `turboism-<version>.zip` (bundled plugins).
 
 
 ## Build

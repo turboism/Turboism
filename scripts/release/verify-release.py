@@ -93,14 +93,9 @@ def release_artifacts(dist: Path, version: str, channel: str = "stable") -> list
         sys.path.insert(0, module_root)
     from turboism_release.channels import require_version
     require_version(version, channel)
-    primary = [
-        dist / f"turboism-{version}-thin.zip",
-        dist / f"turboism-{version}-full.zip",
-        dist / f"TurboismInstaller-{version}-full.exe",
-        dist / f"TurboismInstaller-{version}-thin.exe",
-        dist / f"turboism-sdk-{version}.jar",
-        dist / f"turboism-event-processor-{version}.jar",
-    ]
+    from turboism_release.artifact_layout import product_primary, DEVELOPER_PRIMARY
+    primary = [dist / name.format(version=version)
+               for name in (*product_primary(dist, version), *DEVELOPER_PRIMARY)]
     return sorted(primary + [path.with_name(path.name + ".sha256") for path in primary])
 
 
@@ -172,20 +167,47 @@ def verify(
     if release_plugins is None:
         raise ValueError("release plugin roster is required")
     plugins = release_plugin_modules(release_plugins)
-    verify_zip(
-        dist / f"turboism-{version}-thin.zip",
-        version,
-        full=False,
-        plugins=plugins,
-    )
-    verify_zip(
-        dist / f"turboism-{version}-full.zip",
-        version,
-        full=True,
-        plugins=plugins,
-    )
+    from turboism_release.artifact_layout import legacy_layout
+    if legacy_layout(dist, version):
+        verify_zip(dist / f"turboism-{version}-thin.zip", version, full=False, plugins=plugins)
+        verify_zip(dist / f"turboism-{version}-full.zip", version, full=True, plugins=plugins)
+    else:
+        verify_zip(dist / f"turboism-{version}.zip", version, full=True, plugins=plugins)
+        verify_bundled_engine(dist, version, windows_stage)
     verify_sdk_jar(dist / f"turboism-sdk-{version}.jar", version, windows_stage)
     verify_event_processor_jar(dist / f"turboism-event-processor-{version}.jar")
+
+
+def verify_bundled_engine(dist: Path, version: str, windows_stage: Path | None) -> None:
+    """Require the complete offline engine, bound to the source's pinned manifest."""
+    source = windows_stage or Path(__file__).resolve().parents[2] / "packaging/windows-installer"
+    pinned = (source / "script-engine.json").read_bytes()
+    manifest = json.loads(pinned)
+    if manifest.get("format") != "turboism.optional-script-engine" or manifest.get("schemaVersion") != 1:
+        raise ValueError("invalid GraalJS engine manifest")
+    engine_version = manifest.get("version", "")
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:\.[0-9]+)?", engine_version):
+        raise ValueError("invalid GraalJS engine version")
+    entries = manifest.get("artifacts", [])
+    expected = {f"js-isolate-windows-amd64-community-{engine_version}.jar", f"truffle-api-{engine_version}.jar"}
+    if len(entries) != 2 or {e.get("name") for e in entries} != expected:
+        raise ValueError("GraalJS engine must contain exactly the two pinned engine dependencies")
+    with zipfile.ZipFile(dist / f"turboism-{version}.zip") as standard:
+        names = standard.namelist()
+        if len(names) != len(set(names)):
+            raise ValueError("standard ZIP contains duplicate entries")
+        if standard.read("script-engine.json") != pinned:
+            raise ValueError("standard package engine manifest differs from source")
+        for entry in entries:
+            data = standard.read("graal/lib/" + entry["name"])
+            if len(data) != entry["bytes"] or hashlib.sha256(data).hexdigest() != entry["sha256"]:
+                raise ValueError("bundled GraalJS engine differs from pin: " + entry["name"])
+        # Host JARs carry a worktree classifier; match its namespace as well as the version.
+        if not any(re.fullmatch(r"graal/lib/graal-host-" + re.escape(version) + r"(?:-[a-z0-9-]+)?\.jar", n) for n in names):
+            raise ValueError("standard package is missing the Graal host")
+        for name in (f"graal/lib/sdk-{version}.jar", "install-script-engine.ps1"):
+            if name not in names:
+                raise ValueError("standard package is missing engine installation support: " + name)
 
 
 def artifact_manifest(
@@ -195,7 +217,7 @@ def artifact_manifest(
     windows_stage: Path | None = None,
     channel: str = "stable",
 ) -> dict:
-    """Return a deterministic manifest without writing into the twelve-file dist."""
+    """Return a deterministic manifest without writing into the release dist."""
     verify(dist, version, release_plugins, windows_stage, channel)
     artifacts = []
     for path in release_artifacts(dist, version, channel):

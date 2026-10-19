@@ -2158,7 +2158,7 @@ function Resolve-TurboismGraalHost {
             . $engineHelper -HomePath $TurboismHome
             $engineState = Get-TurboismScriptEngineStatus -HomePath $TurboismHome
             if ($engineState.Status -ne 'Ready') {
-                Write-Warning "Turboism JavaScript engine is $($engineState.Status); scripting is disabled. Run install-script-engine.ps1 or use the offline Full ZIP."
+                Write-Warning "Turboism JavaScript engine is $($engineState.Status); scripting is disabled. Run install-script-engine.ps1 or restore the bundled engine from the portable ZIP."
                 return $null
             }
         }
