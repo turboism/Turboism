@@ -9,6 +9,7 @@ import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.plugin.PluginService;
 import java.util.Objects;
 
 record CubismContextServices(
@@ -20,7 +21,8 @@ record CubismContextServices(
         PhysicsEditorService physicsEditorService,
         CubismClipMaskService cubismClipMaskService,
         EditorCommandService editorCommandService,
-        EditorAutoBackupService backupService) {
+        EditorAutoBackupService backupService)
+        implements PluginCapabilityBundle {
     CubismContextServices {
         cubismFacade = Objects.requireNonNull(cubismFacade, "cubismFacade");
         selectionQueryService = Objects.requireNonNull(selectionQueryService, "selectionQueryService");
@@ -32,5 +34,17 @@ record CubismContextServices(
         cubismClipMaskService = Objects.requireNonNull(cubismClipMaskService, "cubismClipMaskService");
         editorCommandService = Objects.requireNonNull(editorCommandService, "editorCommandService");
         backupService = Objects.requireNonNull(backupService, "backupService");
+    }
+
+    @Override
+    public void registerServices(final RuntimePluginServiceDirectory directory) {
+        directory.installWhenPresent(PluginService.SELECTION_QUERY, this::selectionQueryService);
+        directory.installWhenPresent(PluginService.MODEL_HIERARCHY_QUERY, this::modelHierarchyQueryService);
+        directory.installWhenPresent(PluginService.CUBISM_READ, this::cubismReadCapabilityService);
+        directory.install(PluginService.MODEL_OBJECTS, this::modelObjectService, ModelObjectService::unavailable);
+        directory.installWhenPresent(PluginService.CUBISM_CLIP_MASKS, this::cubismClipMaskService);
+        directory.install(PluginService.PHYSICS_EDITOR, this::physicsEditorService, PhysicsEditorService::unavailable);
+        directory.install(PluginService.EDITOR_COMMANDS, this::editorCommandService, EditorCommandService::unavailable);
+        directory.install(PluginService.BACKUP, this::backupService, EditorAutoBackupService::unavailable);
     }
 }

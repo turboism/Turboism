@@ -5,12 +5,17 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 from pathlib import Path
 import re
 import sys
 
-ROOT = Path(__file__).resolve().parents[2]
+_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+from turboism_dev.json_io import read_json, write_json
+from turboism_dev.paths import repo_root
+
+ROOT = repo_root()
 sys.path.insert(0, str(ROOT / "scripts/preview"))
 from host_validation_evidence import HOSTS  # noqa: E402
 
@@ -31,7 +36,7 @@ def build_inventory(install_root: Path, root: Path = ROOT) -> dict:
     records = []
     capabilities: dict[str, list[str]] = {}
     for path in sorted((root / "compatibility/cubism/verification").glob("*.json")):
-        record = json.loads(path.read_text())
+        record = read_json(path)
         relative = path.relative_to(root).as_posix()
         records.append({
             "path": relative, "sha256": sha256(path),
@@ -45,10 +50,10 @@ def build_inventory(install_root: Path, root: Path = ROOT) -> dict:
     services = dict(re.findall(r"^\s+([A-Z][A-Z_]+)\((dev\.[\w.]+)\.class\)", service_source.read_text(), re.M))
     plugins = []
     for path in sorted((root / "plugins").glob("*/src/main/resources/META-INF/turboism/plugin.json")):
-        descriptor = json.loads(path.read_text())
+        descriptor = read_json(path)
         plugins.append({"id": descriptor["id"], "descriptor": path.relative_to(root).as_posix(), "sha256": sha256(path)})
 
-    tasks = json.loads((root / "scripts/preview/host-validation-tasks.json").read_text())["tasks"]
+    tasks = read_json(root / "scripts/preview/host-validation-tasks.json")["tasks"]
     scenarios = []
     for name, task in sorted(tasks.items()):
         for variant in sorted(task.get("variants") or {"default": None}):
@@ -75,9 +80,9 @@ def build_inventory(install_root: Path, root: Path = ROOT) -> dict:
         if actual_sha != expected_sha:
             raise ValueError(f"Installed Editor fingerprint changed: {version}")
         core_sha = sha256(core)
-        observed_core = json.loads((root / (
+        observed_core = read_json(root / (
             f"compatibility/cubism/core-api/observed/cubism-core-{version}.json"
-        )).read_text())["artifact"]
+        ))["artifact"]
         if core_sha != observed_core["sha256"] or core.stat().st_size != observed_core["sizeBytes"]:
             raise ValueError(f"Installed Core fingerprint changed: {version}")
         matched_records = [r for r in records if r["version"] == version]
@@ -144,7 +149,7 @@ def main() -> None:
     args = parser.parse_args()
     document = build_inventory(args.install_root)
     args.output.mkdir(parents=True, exist_ok=True)
-    (args.output / "inventory.json").write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n")
+    write_json(args.output / "inventory.json", document, indent=2, ensure_ascii=False)
     (args.output / "verification-table.md").write_text(render_markdown(document))
     print(f"Inventoried {len(document['versions'])} installed versions; runtime coverage remains pending")
 

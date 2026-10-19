@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.mesh;
 
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.mesh.MeshDeletion;
 import dev.turboism.sdk.cubism.mesh.MeshEdgeRef;
@@ -362,7 +363,7 @@ public final class NativeMeshMirrorBridge {
         for (final Method method : MethodHandleCache.declaredOverloads(drawer.getClass(), "a", 8)) {
             if (!Modifier.isStatic(method.getModifiers())) continue;
             try {
-                if (!method.canAccess(null)) method.setAccessible(true);
+                if (!method.canAccess(null)) ReflectAccess.open(method);
                 method.invoke(null, drawer, start, end, color, first, second, flags, defaults);
                 return;
             } catch (IllegalArgumentException ignored) {
@@ -498,7 +499,7 @@ public final class NativeMeshMirrorBridge {
                     try {
                         final Field resolved = Class.forName(key.className(), false, key.loader())
                                 .getDeclaredField(key.fieldName());
-                        resolved.setAccessible(true);
+                        ReflectAccess.open(resolved);
                         return Optional.of(resolved);
                     } catch (ReflectiveOperationException | RuntimeException failure) {
                         return Optional.empty();
@@ -560,7 +561,7 @@ public final class NativeMeshMirrorBridge {
     private static Object field(final Object target, final String name) throws ReflectiveOperationException {
         if (target == null) throw new NoSuchFieldException(name);
         final Field field = MethodHandleCache.declaredFieldUp(target.getClass(), name);
-        field.setAccessible(true);
+        ReflectAccess.open(field);
         return field.get(target);
     }
 
@@ -1536,7 +1537,7 @@ public final class NativeMeshMirrorBridge {
                 continue;
             }
             try {
-                candidate.setAccessible(true);
+                ReflectAccess.open(candidate);
                 return candidate;
             } catch (RuntimeException ignored) {
                 return null;
@@ -1725,7 +1726,7 @@ public final class NativeMeshMirrorBridge {
                 .computeIfAbsent(vectorType, type -> {
                     try {
                         final Constructor<?> constructor = type.getDeclaredConstructor(float.class, float.class);
-                        constructor.setAccessible(true);
+                        ReflectAccess.open(constructor);
                         return Optional.of(constructor);
                     } catch (ReflectiveOperationException | RuntimeException failure) {
                         return Optional.empty();
@@ -1739,7 +1740,7 @@ public final class NativeMeshMirrorBridge {
             final Class<?>[] parameters = method.getParameterTypes();
             if (!parameters[0].isAssignableFrom(vectorType) || parameters[1] != float.class) continue;
             try {
-                method.setAccessible(true);
+                ReflectAccess.open(method);
                 return method;
             } catch (RuntimeException ignored) {
                 return null;

@@ -25,7 +25,8 @@ class EditorTextureSelectorContractTest {
                 LEGACY_EVIDENCE != null,
                 "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         final Path artifact = LEGACY_EVIDENCE.resolve(evidenceDirectory + "/jars/Live2D_Cubism.jar");
-        final var resolver = new VerifiedEditorModelResolverFactory()
+        final var resolver = SliceRegistry.EDITOR_MODEL
+                .resolverFactory()
                 .create(
                         PROJECT_ROOT.resolve("compatibility/cubism/verification/" + recordName),
                         artifact,

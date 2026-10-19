@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.physics;
 
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorContribution;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
@@ -445,7 +446,7 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
 
     private static Object invoke(final Object target, final String name, final Object... arguments) throws Exception {
         final Method method = method(target.getClass(), name, arguments.length);
-        method.setAccessible(true);
+        ReflectAccess.open(method);
         return method.invoke(target, arguments);
     }
 
@@ -459,7 +460,7 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
         for (Class<?> current = target.getClass(); current != null; current = current.getSuperclass()) {
             try {
                 final Field field = current.getDeclaredField(name);
-                field.setAccessible(true);
+                ReflectAccess.open(field);
                 return field.get(target);
             } catch (NoSuchFieldException ignored) {
             }

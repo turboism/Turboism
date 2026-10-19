@@ -878,13 +878,11 @@ final class RuntimeUpdateServiceTest {
         @Override
         public int read(final byte[] buffer, final int offset, final int length) throws IOException {
             readStarted.countDown();
-            while (!isClosed && !Thread.currentThread().isInterrupted()) {
-                try {
-                    Thread.sleep(10L);
-                } catch (InterruptedException interrupted) {
-                    Thread.currentThread().interrupt();
-                    throw new IOException("interrupted", interrupted);
-                }
+            try {
+                closed.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IOException("interrupted", interrupted);
             }
             throw new IOException("closed");
         }

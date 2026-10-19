@@ -5,6 +5,7 @@ import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeTimerHandle;
 import dev.turboism.core.runtime.RuntimeTimerSubmission;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.runtime.CubismLogBatchEvent;
 import dev.turboism.sdk.runtime.CubismLogService;
@@ -358,9 +359,8 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
         if (broker != null) {
             try {
                 broker.publishRuntime(batch);
-            } catch (ThreadDeath | VirtualMachineError fatal) {
-                throw fatal;
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Observation delivery cannot break Cubism's host log stream.
             }
         }

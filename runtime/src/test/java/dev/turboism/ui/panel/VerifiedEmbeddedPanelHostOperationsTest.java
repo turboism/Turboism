@@ -21,6 +21,7 @@ import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.PanelTabSelection;
 import dev.turboism.sdk.ui.resource.CubismIcon;
 import dev.turboism.sdk.ui.resource.UiIconRef;
+import dev.turboism.test.concurrent.Await;
 import dev.turboism.ui.action.EditorUiActionRouter;
 import java.awt.BorderLayout;
 import java.awt.event.ContainerEvent;
@@ -293,12 +294,12 @@ public class VerifiedEmbeddedPanelHostOperationsTest {
         }
     }
 
-    private static void awaitWaiting(final Thread thread) throws InterruptedException {
+    private static void awaitWaiting(final Thread thread) {
         // Bounded EDT dispatch parks with a timeout, so the parked state is TIMED_WAITING.
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
-        while (thread.getState() != Thread.State.TIMED_WAITING && System.nanoTime() < deadline) {
-            Thread.sleep(5L);
-        }
+        Await.condition(
+                "thread entered TIMED_WAITING",
+                () -> thread.getState() == Thread.State.TIMED_WAITING,
+                Duration.ofSeconds(2));
         assertEquals(Thread.State.TIMED_WAITING, thread.getState());
     }
 

@@ -53,7 +53,7 @@
     },
     {
       "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/mapping/verification/VerifiedEditorModelResolverFactory.java",
+      "path": "runtime/src/main/java/dev/turboism/mapping/verification/EditorModelRuntimeScope.java",
       "site": "5.3.03",
       "missing": [
         "5.3.04"

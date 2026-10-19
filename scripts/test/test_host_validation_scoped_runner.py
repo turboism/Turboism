@@ -22,6 +22,8 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "preview"))
 import host_validation_queue as queue
+import hvq.common
+import hvq.display
 
 
 FAKE_XVFB_CODE = (
@@ -82,6 +84,10 @@ class ScopedRunnerIntegrationTest(unittest.TestCase):
             sockets = root / "x11-sockets"
             sockets.mkdir()
             patches = [
+                mock.patch.object(hvq.display, "xvfb_available", return_value=True),
+                mock.patch.object(hvq.display, "spawn_xvfb",
+                                  side_effect=lambda display: fake_xvfb(spawned_xvfb, display)),
+                mock.patch.object(hvq.common, "X11_SOCKET_DIR", str(sockets)),
                 mock.patch.object(queue, "xvfb_available", return_value=True),
                 mock.patch.object(queue, "spawn_xvfb",
                                   side_effect=lambda display: fake_xvfb(spawned_xvfb, display)),
@@ -100,10 +106,17 @@ class ScopedRunnerIntegrationTest(unittest.TestCase):
                          "host_validation_evidence.py", "host_validation_retention.py", "host-validation-env.sh", "host-validation-transport.sh",
                          "run-cubism-host-validation.sh", "archive-cubism-host-evidence.sh"):
                 queue.copy_verified(tools / name, preview / name)
+            hvq_dir = preview / "hvq"
+            hvq_dir.mkdir(parents=True, exist_ok=True)
+            for py_file in sorted((tools / "hvq").glob("*.py")):
+                queue.copy_verified(py_file, hvq_dir / py_file.name)
             # A test-only SOURCE fixture override, included in the prepared digest.
             # No production option or ambient HOME override can select a test queue.
+            override = f"\n# Isolated test source fixture, never deployed.\ndef account_root():\n    return Path({str(store.root)!r})\n"
+            with (preview / "hvq/common.py").open("a") as stream:
+                stream.write(override)
             with (preview / "host_validation_queue.py").open("a") as stream:
-                stream.write(f"\n# Isolated test source fixture, never deployed.\ndef account_root():\n    return Path({str(store.root)!r})\n")
+                stream.write(override)
             subprocess.run(["git", "init", "-q", str(source)], check=True)
             subprocess.run(["git", "add", "."], cwd=source, check=True)
             subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
@@ -215,7 +228,9 @@ class ScopedRunnerIntegrationTest(unittest.TestCase):
             if canceller is not None:
                 canceller.start()
             try:
-                with queue.FileLock(store.root / "admission.lock") as lock, mock.patch.object(queue, "account_root", return_value=store.root):
+                with queue.FileLock(store.root / "admission.lock") as lock, \
+                        mock.patch.object(hvq.common, "account_root", return_value=store.root), \
+                        mock.patch.object(queue, "account_root", return_value=store.root):
                     result = queue.RunnerBackend().run(store, job, lock.fd)
             finally:
                 finished.set()

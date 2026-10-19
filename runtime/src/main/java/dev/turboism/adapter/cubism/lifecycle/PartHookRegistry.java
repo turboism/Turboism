@@ -158,9 +158,8 @@ public final class PartHookRegistry {
         installed.add(broker.subscribeAdapter(owner, PartOpacityEvent.Before.class, entrypointOrdinal, 0, event -> {
             try {
                 event.setOpacity(hooks.beforeSetPartOpacity(event.part(), event.opacity()));
-            } catch (ThreadDeath | VirtualMachineError fatal) {
-                throw fatal;
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 throw hookFailure(logger, "beforeSetPartOpacity", failure);
             }
         }));
@@ -180,9 +179,8 @@ public final class PartHookRegistry {
         installed.add(broker.subscribeAdapter(owner, PartOpacityEvent.On.class, entrypointOrdinal, 1, event -> {
             try {
                 hooks.onPartOpacityChanged(event.part(), event.oldOpacity(), event.newOpacity());
-            } catch (ThreadDeath | VirtualMachineError fatal) {
-                throw fatal;
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 throw hookFailure(logger, "onPartOpacityChanged", failure);
             }
         }));
@@ -202,9 +200,8 @@ public final class PartHookRegistry {
         installed.add(broker.subscribeAdapter(owner, PartOpacityEvent.After.class, entrypointOrdinal, 2, event -> {
             try {
                 hooks.afterSetPartOpacity(event.part(), event.finalOpacity());
-            } catch (ThreadDeath | VirtualMachineError fatal) {
-                throw fatal;
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 throw hookFailure(logger, "afterSetPartOpacity", failure);
             }
         }));
@@ -224,9 +221,8 @@ public final class PartHookRegistry {
         installed.add(broker.subscribeAdapter(owner, PartNameEvent.Before.class, entrypointOrdinal, 3, event -> {
             try {
                 event.setName(hooks.beforeSetPartName(event.part(), event.name()));
-            } catch (ThreadDeath | VirtualMachineError fatal) {
-                throw fatal;
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 throw hookFailure(logger, "beforeSetPartName", failure);
             }
         }));
@@ -246,9 +242,8 @@ public final class PartHookRegistry {
         installed.add(broker.subscribeAdapter(owner, PartNameEvent.On.class, entrypointOrdinal, 4, event -> {
             try {
                 hooks.onPartNameChanged(event.part(), event.oldName(), event.newName());
-            } catch (ThreadDeath | VirtualMachineError fatal) {
-                throw fatal;
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 throw hookFailure(logger, "onPartNameChanged", failure);
             }
         }));
@@ -268,9 +263,8 @@ public final class PartHookRegistry {
         installed.add(broker.subscribeAdapter(owner, PartNameEvent.After.class, entrypointOrdinal, 5, event -> {
             try {
                 hooks.afterSetPartName(event.part(), event.finalName());
-            } catch (ThreadDeath | VirtualMachineError fatal) {
-                throw fatal;
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 throw hookFailure(logger, "afterSetPartName", failure);
             }
         }));

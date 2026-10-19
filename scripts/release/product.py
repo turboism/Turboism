@@ -11,9 +11,12 @@ import sys
 import zipfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-if str(Path(__file__).resolve().parent) not in sys.path:
-    sys.path.insert(0,str(Path(__file__).resolve().parent))
+_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+from turboism_dev.paths import repo_root
+
+ROOT = repo_root()
 from turboism_release.channels import CHANNELS, resolve_version
 from turboism_release.versions import framework_version
 from turboism_release.promotion import GitHub, validate_run

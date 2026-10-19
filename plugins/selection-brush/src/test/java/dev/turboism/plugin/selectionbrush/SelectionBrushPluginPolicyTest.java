@@ -21,8 +21,14 @@ class SelectionBrushPluginPolicyTest {
         assertTrue(source.contains("dev.turboism.sdk."));
 
         String gradle = Files.readString(Path.of("build.gradle.kts"));
-        assertTrue(gradle.contains("compileOnly(project(\":sdk\"))"));
+        assertTrue(gradle.contains("id(\"turboism.plugin-conventions\")"));
         assertFalse(gradle.contains("project(\":runtime\")"));
         assertFalse(gradle.contains("implementation(project"));
+
+        String conventions =
+                Files.readString(Path.of("../../buildSrc/src/main/kotlin/turboism.plugin-conventions.gradle.kts"));
+        assertTrue(conventions.contains("add(\"compileOnly\", project(\":sdk\"))"));
+        assertFalse(conventions.contains("project(\":runtime\")"));
+        assertFalse(conventions.contains("\"implementation\""));
     }
 }
