@@ -73,6 +73,9 @@ final class AcpChatControllerTest {
         try (AcpChatController controller = fixture.controller()) {
             controller.connect("custom", "/new/agent", "new instructions");
             fixture.view.awaitFailure("status.settings-save-failed");
+            // The failure notification precedes pending-settings cleanup. Let the operation
+            // finish before close() can flush that still-pending, one-shot-failed write.
+            awaitSerial(controller);
             awaitConfigValue(fixture, "agentId", "codex");
             awaitConfigValue(fixture, "customCommand", "/old/agent");
             awaitConfigValue(fixture, "initialPrompt", "old instructions");
