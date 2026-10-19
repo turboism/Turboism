@@ -11,6 +11,10 @@ import java.util.Objects;
  * plan is produced. A non-null planner receives the automatic-layout invocation and
  * the user's parallel-search flag.</p>
  *
+ * <p>A planner implementing {@link TextureAtlasPolygonLayoutPlanner} receives
+ * the native page's real outlines and issued transforms through its polygon
+ * entry. The runtime validates and applies that plan through the polygon service.</p>
+ *
  * <p>{@code supportsPolygonOptions} declares that the algorithm consumes the
  * extended packing controls (rotation granularity, lock preset, scale mode and
  * auto-scale tuning, kernel choice); the dialog enables those controls only for
