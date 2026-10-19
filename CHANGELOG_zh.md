@@ -139,10 +139,6 @@ Turboism 的所有重要变更都记录在本文件中。
   新增钩子只需要一行清单加一个 contributor 类，而不必修改 agent。已验证/失败关闭准入、
   原子记录提取、mesh-mirror premain/bind 生命周期以及 `installation=`/`cleanup=` 报告行
   均保持不变。
-- Windows 安装器现在默认勾选官方 Cubism BAT 集成，与 legacy 的自动启动行为一致：默认
-  备份并修改所选 `CubismEditor5.bat` 启动器，使现有 Cubism 快捷方式、文件关联和其他
-  入口无需经过托管启动器即可加载 Turboism。该选项仍可在启动选项页取消勾选，保持哈希
-  保护与幂等，并在卸载时恢复。静默安装同样应用；仅集成步骤通过 UAC 提权。
 
 ### 修复
 
@@ -252,6 +248,11 @@ Turboism 的所有重要变更都记录在本文件中。
 - 启动抑制功能（跳过更新检查、启动闪屏与通知对话框）默认开启。
 - 宿主钩子改为在 `META-INF/turboism/hooks` 中声明并通过 `HookContributor` 扫描，取代手动硬编码并保持 fail-closed 准入。
 - 语义事件类型包路径迁移至 `dev.turboism.sdk.cubism.event`。
+- 插件的 Turboism API 版本现在跟随框架基础版本（含 beta/nightly 构建）。插件 SDK API 范围从 `0.67.0` 起、到 `1.0.0` 之前；旧的 `[0.1.0,0.2.0)` 插件会被拒绝，并提示运行时实际的 API 版本。运行时元数据记录实现版本与 API 版本；已审核的 SDK JAR 不变。
+- Windows 安装器现在默认勾选官方 Cubism BAT 集成，与 legacy 的自动启动行为一致：默认
+  备份并修改所选 `CubismEditor5.bat` 启动器，使现有 Cubism 快捷方式、文件关联和其他
+  入口无需经过托管启动器即可加载 Turboism。该选项仍可在启动选项页取消勾选，保持哈希
+  保护与幂等，并在卸载时恢复。静默安装同样应用；仅集成步骤通过 UAC 提权。
 
 ### 移除
 

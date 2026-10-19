@@ -8,17 +8,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-### Changed
-
-- The plugin Turboism API now follows the framework base version (including beta/nightly builds). Plugin SDK API ranges start at `0.67.0` and end before `1.0.0`; legacy `[0.1.0,0.2.0)` plugins are rejected with the actual runtime API version. Runtime metadata records implementation and API versions; the reviewed SDK JAR is unchanged.
-
-- The Windows installer now pre-selects official Cubism BAT integration, matching the legacy
-  auto-start behavior: backing up and modifying the selected `CubismEditor5.bat` launchers is
-  on by default, so existing Cubism shortcuts, file associations and other entry points load
-  Turboism without going through the managed launcher. The option can still be unchecked on the
-  launch-options page, stays hash-guarded and idempotent, and is restored on uninstall. Silent
-  installs apply it as well; only the integration step elevates through UAC.
-
 ## [0.67.0] - 2026-10-13
 
 ### Added
@@ -117,6 +106,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Host hooks are declared in `META-INF/turboism/hooks` and scanned via `HookContributor`, replacing manual
   agent wiring while preserving fail-closed admission.
 - Semantic event types relocated to `dev.turboism.sdk.cubism.event`.
+- The plugin Turboism API now follows the framework base version (including beta/nightly builds). Plugin SDK API ranges start at `0.67.0` and end before `1.0.0`; legacy `[0.1.0,0.2.0)` plugins are rejected with the actual runtime API version. Runtime metadata records implementation and API versions; the reviewed SDK JAR is unchanged.
+- The Windows installer now pre-selects official Cubism BAT integration, matching the legacy
+  auto-start behavior: backing up and modifying the selected `CubismEditor5.bat` launchers is
+  on by default, so existing Cubism shortcuts, file associations and other entry points load
+  Turboism without going through the managed launcher. The option can still be unchecked on the
+  launch-options page, stays hash-guarded and idempotent, and is restored on uninstall. Silent
+  installs apply it as well; only the integration step elevates through UAC.
 
 ### Removed
 
