@@ -107,7 +107,7 @@ class PluginArchiveMetadataRetiredIdTest {
                         + "  \"version\": \"1.0.0\",\n"
                         + "  \"description\": \"Fixture.\",\n"
                         + "  \"entrypoints\": [\"dev.example.FixturePlugin\"],\n"
-                        + "  \"turboismApi\": \"[0.1.0,0.2.0)\",\n"
+                        + "  \"turboismApi\": \"[0.67.0,1.0.0)\",\n"
                         + "  \"authors\": [{\"name\": \"Turboism Contributors\"}],\n"
                         + "  \"license\": \"Project License\",\n"
                         + "  \"website\": \"https://turboism.dev\",\n"

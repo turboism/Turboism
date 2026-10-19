@@ -1,5 +1,6 @@
 package dev.turboism.core;
 
+import dev.turboism.core.version.PluginVersion;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Locale;
@@ -54,6 +55,11 @@ public record FrameworkBuildInfo(
     public static FrameworkBuildInfo current() {
         return Loaded.VALUE;
     }
+    /** Plugin API is the framework base version, independent of release channel or local suffixes. */
+    public PluginVersion apiVersion() {
+        return PluginVersion.parse(version.split("-", 2)[0]);
+    }
+
     /** True only for an unnumbered local development build. */
     public boolean isLocalBuild() {
         return buildKind.equals("local");
@@ -74,6 +80,11 @@ public record FrameworkBuildInfo(
         if (!version.matches("(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)(?:-[A-Za-z0-9.-]+)?")
                 || version.length() > 120) {
             throw new IllegalArgumentException("Invalid embedded framework version");
+        }
+        String apiVersion = version.split("-", 2)[0];
+        if (!p.getProperty("apiVersion", apiVersion).equals(apiVersion)
+                || !p.getProperty("Implementation-Version", version).equals(version)) {
+            throw new IllegalArgumentException("Embedded API/implementation version mismatch");
         }
         String withoutSnapshot = version.endsWith("-SNAPSHOT") ? version.substring(0, version.length() - 9) : version;
         Channel inferred = withoutSnapshot.contains("-0.nightly.")

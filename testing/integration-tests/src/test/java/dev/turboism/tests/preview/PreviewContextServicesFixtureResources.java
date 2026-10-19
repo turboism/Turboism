@@ -31,7 +31,7 @@ final class PreviewContextServicesFixtureResources {
         descriptor.put("version", "0.1.0");
         descriptor.put("description", "Characterizes preview PluginContext service wiring.");
         descriptor.putArray("entrypoints").add(ENTRYPOINT);
-        descriptor.put("turboismApi", "[0.1.0,0.2.0)");
+        descriptor.put("turboismApi", "[0.67.0,1.0.0)");
         descriptor.putArray("authors").addObject().put("name", "Turboism Tests");
         descriptor.put("license", "Test License");
         descriptor.put("website", "https://turboism.dev/tests");

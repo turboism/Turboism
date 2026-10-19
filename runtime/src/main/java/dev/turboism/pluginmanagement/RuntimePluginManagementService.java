@@ -1,6 +1,7 @@
 package dev.turboism.pluginmanagement;
 
 import dev.turboism.config.RuntimeConfigRepository;
+import dev.turboism.core.FrameworkBuildInfo;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.i18n.LocalizationDiagnosticSink;
 import dev.turboism.internal.core.CorePluginManagement;
@@ -193,7 +194,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
                 pending,
                 this,
                 () -> cubismVersion.get(),
-                dev.turboism.core.version.PluginVersion.parse("0.1.0"),
+                FrameworkBuildInfo.current().apiVersion(),
                 diagnostic);
     }
 

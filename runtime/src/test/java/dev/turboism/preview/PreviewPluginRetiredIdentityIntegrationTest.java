@@ -229,7 +229,7 @@ class PreviewPluginRetiredIdentityIntegrationTest {
     private static String descriptor(final String id, final String entrypoint) {
         return """
             {"format":"turboism.plugin.meta","schemaVersion":2,"id":"%s","name":"Fixture","version":"0.1.0",
-            "description":"test","entrypoints":["%s"],"turboismApi":"[0.1.0,0.2.0)",
+            "description":"test","entrypoints":["%s"],"turboismApi":"[0.67.0,1.0.0)",
             "authors":[{"name":"Tests"}],"license":"Test","website":"https://turboism.dev","resources":[],
             "i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]},"dependencies":[],"permissions":[],
             "capabilities":[],"environment":{"requiresCubism":false,"ui":"none"}}

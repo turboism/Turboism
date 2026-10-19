@@ -958,6 +958,17 @@ val checkDuplicateJavaImports by tasks.registering {
     VerificationStamps.apply(this)
 }
 
+val checkPluginApiRanges by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Check official/template SDK API floors against the declared framework version."
+    inputs.files("scripts/sync_plugin_api.py", "scripts/turboism_dev/versions.py", "gradle/common-java.gradle.kts")
+    inputs.files(fileTree("plugins") { include("*/src/main/resources/META-INF/turboism/plugin.json", "*/README*.md") })
+    inputs.dir("templates/plugin-template/src/main/resources")
+    inputs.files(fileTree("templates/plugin-template") { include("README*.md") })
+    commandLine("python3", "scripts/sync_plugin_api.py")
+    VerificationStamps.apply(this)
+}
+
 val checkOfficialPluginReadmes by tasks.registering(Exec::class) {
     group = "verification"
     description = "Verifies every first-party plugin has a README matching its descriptor and delivery role."
@@ -1204,6 +1215,7 @@ val devCheck by tasks.registering {
         checkHostValidationVersions,
         checkSdkCubismEditorAnnotations,
         "validatePluginMeta",
+        checkPluginApiRanges,
         ":runtime:checkHeadlessRuntimeClasspath",
         ":runtime:admissionPreflightTest",
         ":runtime:admissionUnitTests",
@@ -1774,6 +1786,7 @@ val checkCompletedCommit by tasks.registering {
         ":sdk:javadoc",
         "checkOfficialPluginI18nCompleteness",
         checkOfficialPluginReadmes,
+        checkPluginApiRanges,
         checkDraftPackMetadata,
         checkVersionSetCompleteness,
         generateClassPinsSelfTest,

@@ -28,7 +28,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as raw:
         root = Path(raw)
         jar = root / "plugin.jar"
-        descriptor = b'{"format":"turboism.plugin.meta","schemaVersion":2,"id":"example.plugin","name":"Example","version":"1.0.0","entrypoints":["example.Plugin"],"turboismApi":"[0.1.0,0.2.0)","authors":[{"name":"Test"}],"website":"https://example.test","resources":[],"i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]}}'
+        descriptor = b'{"format":"turboism.plugin.meta","schemaVersion":2,"id":"example.plugin","name":"Example","version":"1.0.0","entrypoints":["example.Plugin"],"turboismApi":"[0.67.0,1.0.0)","authors":[{"name":"Test"}],"website":"https://example.test","resources":[],"i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]}}'
         readmes = {
             "META-INF/turboism/readme/README.md": "# Example\n",
             "META-INF/turboism/readme/README_zh.md": "# 示例\n",

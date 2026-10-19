@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: mesh, selection, brush
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -28,7 +28,7 @@ Turboism 官方插件，在普通建模模式和网格编辑模式提供选区�
 
 ## 要求与兼容性
 
-- Turboism API：`[0.1.0,0.2.0)`，工具服务使用 Preview SDK 合同。
+- SDK API 范围：`[0.67.0,1.0.0)`，工具服务使用 Preview SDK 合同。
 - 支持精确审核的 Cubism Editor 5.2.03、5.3.02 和 5.3.03。普通模式另需独立准入的点选区及工具生命周期能力。
 - 界面模式为嵌入式；未声明其他插件依赖。
 

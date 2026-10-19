@@ -735,7 +735,7 @@ class EditorObjectLifecycleCoordinatorContractTest {
 
             @Override
             public String turboismApi() {
-                return "[0.1.0,0.2.0)";
+                return "[0.67.0,1.0.0)";
             }
 
             @Override

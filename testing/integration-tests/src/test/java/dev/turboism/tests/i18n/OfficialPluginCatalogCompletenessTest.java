@@ -264,7 +264,7 @@ class OfficialPluginCatalogCompletenessTest {
               "name": "No I18n",
               "version": "1.0.0",
               "entrypoints": ["dev.turboism.plugin.noi18n.Plugin"],
-              "turboismApi": "[0.1.0,0.2.0)"
+              "turboismApi": "[0.67.0,1.0.0)"
             }
             """, StandardCharsets.UTF_8);
 

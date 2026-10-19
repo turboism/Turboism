@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: appearance
 tags: palette, labels, typography
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -24,7 +24,6 @@ interface: embedded
 | プラグイン ID | `dev.turboism.plugin.palette-label-style` |
 | カテゴリー | `appearance` |
 | タグ | palette, labels, typography |
-| Turboism API | `[0.1.0,0.2.0)` |
 | Cubism が必要 | はい |
 | インターフェース | `embedded` |
 | ライセンス | プロジェクトライセンス |
@@ -37,7 +36,7 @@ interface: embedded
 
 ## 要件と互換性
 
-- **Turboism API:** `[0.1.0,0.2.0)`。
+- **SDK API 範囲:** `[0.67.0,1.0.0)`。
 - **Cubism:** Cubism が必要です。Turboism は現在、レビュー済みの正確な Editor アーティファクト `5.0.00` から `5.3.04` を受け入れます。本プラグインは、宣言されたサービスと機能が利用できる場合にのみ、各ホスト向け機能を公開します。
 - **インターフェースモード:** `embedded`。
 - **プラグイン依存関係:** 宣言されていません。

@@ -28,7 +28,7 @@ class PluginDetailsTest {
                 service.details("detailed.plugin").orElseThrow();
 
         assertEquals("detailed.plugin", details.plugin().id());
-        assertEquals("[0.1.0,0.2.0)", details.turboismApi());
+        assertEquals("[0.67.0,1.0.0)", details.turboismApi());
         assertEquals(
                 List.of(new CorePluginManagement.Author("Test Author", Optional.of("test@example.test"))),
                 details.authors());

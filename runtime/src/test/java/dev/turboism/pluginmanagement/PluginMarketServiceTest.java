@@ -3,7 +3,6 @@ package dev.turboism.pluginmanagement;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.core.version.PluginVersion;
 import dev.turboism.internal.core.CorePluginManagement.PluginInfo;
 import dev.turboism.pluginmanagement.PluginCatalog.CatalogArtifact;
 import dev.turboism.pluginmanagement.PluginCatalog.CatalogLocalization;
@@ -63,40 +62,45 @@ class PluginMarketServiceTest {
                 new PendingPluginOperations(home),
                 mgmt,
                 () -> Optional.of("5.3.04"),
-                PluginVersion.parse("0.1.0"),
+                dev.turboism.core.FrameworkBuildInfo.current().apiVersion(),
                 ignored -> {});
 
         // 1. Installed and up to date
-        final CatalogPlugin p1 = createPlugin("dev.installed", "1.0.0", "5.3.04", "[0.1.0,0.2.0)");
+        final CatalogPlugin p1 = createPlugin("dev.installed", "1.0.0", "5.3.04", "[0.67.0,1.0.0)");
         final PluginMarketStatus st1 = market.resolveStatus(p1);
         assertEquals(StatusType.INSTALLED, st1.type());
         assertEquals("1.0.0", st1.installedVersion().orElseThrow());
 
         // 2. Update available
-        final CatalogPlugin p2 = createPlugin("dev.updatable", "1.2.0", "5.3.04", "[0.1.0,0.2.0)");
+        final CatalogPlugin p2 = createPlugin("dev.updatable", "1.2.0", "5.3.04", "[0.67.0,1.0.0)");
         final PluginMarketStatus st2 = market.resolveStatus(p2);
         assertEquals(StatusType.UPDATE_AVAILABLE, st2.type());
         assertEquals("1.0.0", st2.installedVersion().orElseThrow());
         assertEquals("1.2.0", st2.targetRelease().orElseThrow().version());
 
         // 3. Not installed
-        final CatalogPlugin p3 = createPlugin("dev.fresh", "0.5.0", "5.3.04", "[0.1.0,0.2.0)");
+        final CatalogPlugin p3 = createPlugin("dev.fresh", "0.5.0", "5.3.04", "[0.67.0,1.0.0)");
         final PluginMarketStatus st3 = market.resolveStatus(p3);
         assertEquals(StatusType.NOT_INSTALLED, st3.type());
         assertTrue(st3.installedVersion().isEmpty());
         assertEquals("0.5.0", st3.targetRelease().orElseThrow().version());
 
         // 4. Incompatible due to Cubism version
-        final CatalogPlugin p4 = createPlugin("dev.cubism.incompat", "2.0.0", "5.0.00", "[0.1.0,0.2.0)");
+        final CatalogPlugin p4 = createPlugin("dev.cubism.incompat", "2.0.0", "5.0.00", "[0.67.0,1.0.0)");
         final PluginMarketStatus st4 = market.resolveStatus(p4);
         assertEquals(StatusType.INCOMPATIBLE, st4.type());
         assertTrue(st4.incompatibleReason().orElseThrow().contains("Cubism"));
 
         // 5. Incompatible due to Turboism API
-        final CatalogPlugin p5 = createPlugin("dev.api.incompat", "2.0.0", "5.3.04", "[0.2.0,0.3.0)");
+        final CatalogPlugin p5 = createPlugin("dev.api.incompat", "2.0.0", "5.3.04", "[0.1.0,0.2.0)");
         final PluginMarketStatus st5 = market.resolveStatus(p5);
         assertEquals(StatusType.INCOMPATIBLE, st5.type());
         assertTrue(st5.incompatibleReason().orElseThrow().contains("API"));
+        assertTrue(st5.incompatibleReason()
+                .orElseThrow()
+                .contains(dev.turboism.core.FrameworkBuildInfo.current()
+                        .apiVersion()
+                        .toString()));
     }
 
     @Test
@@ -115,7 +119,7 @@ class PluginMarketServiceTest {
                         "zh-Hans", new CatalogLocalization("简体中文名称", "简体中文摘要"),
                         "zh-Hant", new CatalogLocalization("繁體中文名稱", "繁體中文摘要"),
                         "ja", new CatalogLocalization("日本語の名前", "日本語の概要")),
-                List.of(createRelease("1.0.0", "5.3.04", "[0.1.0,0.2.0)")));
+                List.of(createRelease("1.0.0", "5.3.04", "[0.67.0,1.0.0)")));
 
         // Exact match
         final var zhHans = PluginMarketService.localizePlugin(plugin, Locale.SIMPLIFIED_CHINESE);

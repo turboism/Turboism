@@ -10,6 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- The plugin Turboism API now follows the framework base version (including beta/nightly builds). Plugin SDK API ranges start at `0.67.0` and end before `1.0.0`; legacy `[0.1.0,0.2.0)` plugins are rejected with the actual runtime API version. Runtime metadata records implementation and API versions; the reviewed SDK JAR is unchanged.
+
 - The Windows installer now pre-selects official Cubism BAT integration, matching the legacy
   auto-start behavior: backing up and modifying the selected `CubismEditor5.bat` launchers is
   on by default, so existing Cubism shortcuts, file associations and other entry points load

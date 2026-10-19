@@ -96,7 +96,7 @@ class RuntimePluginManagementMetadataDiagnosticsTest {
                         + "  \"version\": \"1.0.0\",\n"
                         + "  \"description\": \"" + name + " for metadata diagnostics.\",\n"
                         + "  \"entrypoints\": [\"dev.turboism.plugin." + id.replace("-", "") + ".Plugin\"],\n"
-                        + "  \"turboismApi\": \"[0.1.0,0.2.0)\",\n"
+                        + "  \"turboismApi\": \"[0.67.0,1.0.0)\",\n"
                         + "  \"authors\": [{\"name\": \"Turboism Contributors\"}],\n"
                         + "  \"license\": \"Project License\",\n"
                         + "  \"website\": \"https://turboism.dev\",\n"

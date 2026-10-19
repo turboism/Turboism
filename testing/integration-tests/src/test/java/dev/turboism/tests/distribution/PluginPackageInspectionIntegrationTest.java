@@ -42,7 +42,7 @@ class PluginPackageInspectionIntegrationTest {
         assertFalse(plan.packageIdentity()
                 .packageHash()
                 .equals(plan.packageIdentity().rawArchiveSha256()));
-        assertEquals("[0.1.0,0.2.0)", plan.descriptor().turboismApi());
+        assertEquals("[0.67.0,1.0.0)", plan.descriptor().turboismApi());
         assertEquals(
                 List.of(PluginPackageFixtures.ENTRYPOINT), plan.descriptor().entrypoints());
         assertEquals("plugin/plugin.jar", plan.files().get(0).archivePath());

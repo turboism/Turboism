@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: deformer, warp, editing, symmetry
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -24,7 +24,6 @@ Cubism ネイティブのバウンディングボックスにおける Alt 対�
 | プラグイン ID | `dev.turboism.plugin.warp-deformer-alt-symmetry` |
 | カテゴリ | `modeling` |
 | タグ | deformer, warp, editing, symmetry |
-| Turboism API | `[0.1.0,0.2.0)` |
 | Cubism 必須 | はい |
 | インターフェース | `none` |
 | ライセンス | Project License |
@@ -38,7 +37,7 @@ Cubism ネイティブのバウンディングボックスにおける Alt 対�
 
 ## 要件と互換性
 
-- **Turboism API:** `[0.1.0,0.2.0)`。
+- **SDK API 範囲:** `[0.67.0,1.0.0)`。
 - **Cubism:** Cubism が必要です。Turboism は現在レビュー済みの Editor `5.0.00`〜`5.3.04` をサポートしており、宣言されたサービスと機能が利用可能な場合にのみ各機能を提供します。
 - **インターフェースモード:** `none`。
 - **プラグイン依存関係:** なし。

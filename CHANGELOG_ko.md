@@ -104,6 +104,8 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 ### 변경
 
+- 플러그인 Turboism API가 beta/nightly 접미사를 제외한 프레임워크 기본 버전을 따릅니다. SDK API 범위는 `[0.67.0,1.0.0)`이며 기존 `[0.1.0,0.2.0)` 플러그인은 실제 런타임 API 버전과 함께 거부됩니다. 런타임 메타데이터에 구현 및 API 버전을 기록하며 검토된 SDK JAR는 변경하지 않습니다.
+
 - MCP 플러그인: 루프백 서버가 변경 도구 `tools/call` 및 세션 종료에 `Authorization: Bearer`
   토큰(`<plugin-state>/mcp.token`, 소유자 전용 저장)을 요구하도록 변경하고, 같은 디렉터리에
   `TurboismMcpBridge.java` stdio↔HTTP 릴레이를 게시합니다. MCP 클라이언트는

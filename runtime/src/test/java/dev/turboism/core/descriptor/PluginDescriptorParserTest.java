@@ -33,7 +33,7 @@ class PluginDescriptorParserTest {
                 "dev.turboism.plugin.demo.DemoPlugin",
                 "dev.turboism.plugin.demo.ModelHooks"
               ],
-              "turboismApi": "[0.1.0,0.2.0)",
+              "turboismApi": "[0.67.0,1.0.0)",
               "authors": [{ "name": "Turboism Contributors" }],
               "website": "https://turboism.dev",
               "resources": ["icons/", "themes/"],
@@ -95,7 +95,7 @@ class PluginDescriptorParserTest {
         assertEquals("modeling", descriptor.category().orElseThrow());
         assertEquals(List.of("parameter", "batch-edit"), descriptor.tags());
         assertEquals("dev.turboism.plugin.demo", descriptor.id());
-        assertEquals("[0.1.0,0.2.0)", descriptor.turboismApi());
+        assertEquals("[0.67.0,1.0.0)", descriptor.turboismApi());
     }
 
     @Test
@@ -310,7 +310,7 @@ class PluginDescriptorParserTest {
 
             @Override
             public String turboismApi() {
-                return "[0.1.0,0.2.0)";
+                return "[0.67.0,1.0.0)";
             }
 
             @Override
@@ -533,7 +533,7 @@ class PluginDescriptorParserTest {
               "name": "Demo Plugin",
               "version": "0.1.0",
               "entrypoints": ["dev.turboism.plugin.demo.DemoPlugin"],
-              "turboismApi": "[0.1.0,0.2.0)",
+              "turboismApi": "[0.67.0,1.0.0)",
               "authors": [{ "name": "Turboism Contributors" }],
               "website": "https://turboism.dev",
               "resources": [],
@@ -558,7 +558,7 @@ class PluginDescriptorParserTest {
               "name": "Demo Plugin",
               "version": "0.1.0",
               "entrypoints": ["dev.turboism.plugin.demo.DemoPlugin"],
-              "turboismApi": "[0.1.0,0.2.0)",
+              "turboismApi": "[0.67.0,1.0.0)",
               "authors": [{ "name": "Turboism Contributors" }],
               "website": "https://turboism.dev",
               "resources": [],
@@ -583,7 +583,7 @@ class PluginDescriptorParserTest {
               "name": "Demo Plugin",
               "version": "0.1.0",
               "entrypoints": ["dev.turboism.plugin.demo.DemoPlugin"],
-              "turboismApi": "[0.1.0,0.2.0)",
+              "turboismApi": "[0.67.0,1.0.0)",
               "authors": [{ "name": "Turboism Contributors" }],
               "website": "https://turboism.dev",
               "resources": [],
@@ -606,7 +606,7 @@ class PluginDescriptorParserTest {
               "name": "Demo Plugin",
               "version": "0.1.0",
               "entrypoints": ["dev.turboism.plugin.demo.DemoPlugin"],
-              "turboismApi": "[0.1.0,0.2.0)",
+              "turboismApi": "[0.67.0,1.0.0)",
               "authors": [{ "name": "Turboism Contributors" }],
               "website": "https://turboism.dev",
               "resources": [],

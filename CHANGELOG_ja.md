@@ -114,6 +114,8 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 
 ### 変更
 
+- プラグインの Turboism API は beta/nightly などの接尾辞を除いたフレームワークの基本バージョンに追従します。SDK API 範囲は `[0.67.0,1.0.0)` となり、旧 `[0.1.0,0.2.0)` プラグインは実際のランタイム API バージョンを示して拒否されます。ランタイムに実装と API のバージョンを記録し、レビュー済み SDK JAR は変更しません。
+
 - MCP プラグイン: ループバックサーバーは変更系 `tools/call` およびセッション終了に
   `Authorization: Bearer` トークン（`<plugin-state>/mcp.token` に所有者限定で永続化）を
   必須化し、同ディレクトリに `TurboismMcpBridge.java` stdio↔HTTP リレーを発行します。

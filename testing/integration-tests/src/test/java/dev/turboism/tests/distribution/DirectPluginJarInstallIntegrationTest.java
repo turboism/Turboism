@@ -18,7 +18,7 @@ class DirectPluginJarInstallIntegrationTest {
     void preparesProjectPluginJarWithoutOuterDistributionPackage() throws Exception {
         final byte[] jar = PluginPackageFixtures.jar(
                 PluginPackageFixtures.descriptor(
-                        PluginPackageFixtures.ID, PluginPackageFixtures.VERSION, "[0.1.0,0.2.0)"),
+                        PluginPackageFixtures.ID, PluginPackageFixtures.VERSION, "[0.67.0,1.0.0)"),
                 PluginPackageFixtures.ENTRYPOINT.replace('.', '/') + ".class",
                 "class");
         final Path selected = tempDir.resolve("selected-plugin.jar");

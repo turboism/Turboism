@@ -278,7 +278,7 @@ class PluginPackageRaceRegressionTest {
         String entrypoint = "dev.turboism.plugin.sample.SamplePlugin";
         String descriptor = "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":2,\"id\":\"" + id
                 + "\",\"name\":\"Sample\",\"version\":\"0.1.0\",\"entrypoints\":[\""
-                + entrypoint + "\"],\"turboismApi\":\"0.1.0\","
+                + entrypoint + "\"],\"turboismApi\":\"[0.67.0,1.0.0)\","
                 + "\"authors\":[{\"name\":\"Turboism Contributors\"}],"
                 + "\"website\":\"https://turboism.dev\",\"resources\":[],"
                 + "\"i18n\":{\"baseName\":\"META-INF/turboism/i18n/messages\",\"locales\":[]}}";

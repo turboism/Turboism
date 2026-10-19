@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: animation, frame-animation, sprite-sheet, parameter
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -24,7 +24,6 @@ interface: swing
 | プラグイン ID | `dev.turboism.plugin.frame-animation-import` |
 | カテゴリ | `modeling` (モデリング) |
 | タグ | animation, frame-animation, sprite-sheet, parameter |
-| Turboism API | `[0.1.0,0.2.0)` |
 | ホスト要件 | Live2D Cubism Editor |
 | UI 技術 | `swing` |
 | ライセンス | Project License |
@@ -39,7 +38,7 @@ interface: swing
 
 ## 要件と互換性
 
-- **Turboism API:** `[0.1.0,0.2.0)`.
+- **SDK API 範囲:** `[0.67.0,1.0.0)`.
 - **Cubism:** 検証済みの全 Editor バージョン `5.0.00` ～ `5.3.04` をサポート。
 - **UI モード:** `swing`.
 - **依存関係:** なし。

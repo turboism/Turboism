@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: appearance
 tags: palette, labels, typography
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -24,7 +24,6 @@ Adds text and background color controls to Deformer, Part, and Parameter palette
 | Plugin ID | `dev.turboism.plugin.palette-label-style` |
 | Category | `appearance` |
 | Tags | palette, labels, typography |
-| Turboism API | `[0.1.0,0.2.0)` |
 | Requires Cubism | Yes |
 | Interface | `embedded` |
 | License | Project License |
@@ -37,7 +36,7 @@ Adds text and background color controls to Deformer, Part, and Parameter palette
 
 ## Requirements and compatibility
 
-- **Turboism API:** `[0.1.0,0.2.0)`.
+- **SDK API range:** `[0.67.0,1.0.0)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`; this plugin exposes each host-facing feature only when its declared services and capabilities are available.
 - **Interface mode:** `embedded`.
 - **Plugin dependencies:** None declared.

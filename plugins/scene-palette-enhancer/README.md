@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: appearance
 tags: scene, palette, enhancement
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -24,7 +24,6 @@ Adds natural sorting and persistent manual row ordering to Cubism's Scene palett
 | Plugin ID | `dev.turboism.plugin.scene-palette-enhancer` |
 | Category | `appearance` |
 | Tags | scene, palette, enhancement |
-| Turboism API | `[0.1.0,0.2.0)` |
 | Requires Cubism | Yes |
 | Interface | `none` |
 | License | Project License |
@@ -37,7 +36,7 @@ Adds natural sorting and persistent manual row ordering to Cubism's Scene palett
 
 ## Requirements and compatibility
 
-- **Turboism API:** `[0.1.0,0.2.0)`.
+- **SDK API range:** `[0.67.0,1.0.0)`.
 - **Cubism:** Requires Cubism. The Scene palette bridge is admitted for the exact reviewed Editor artifacts `5.0.00` through `5.3.04`; any other artifact fails closed. All 23 Scene-specific private UI selectors were verified structurally against every exact reviewed artifact (member names, descriptors and access flags matching on each jar), and binding re-verifies them against the loaded host at attach time.
 
 - **Interface mode:** `none`.

@@ -154,7 +154,7 @@ class PreviewPluginLoaderRollbackContextClassLoaderIntegrationTest {
             "description":"test","entrypoints":[
               "dev.example.rollback.RollbackEntrypoint",
               "dev.example.rollback.RollbackEntrypoint$FailingEntrypoint"
-            ],"turboismApi":"[0.1.0,0.2.0)","authors":[{"name":"Tests"}],
+            ],"turboismApi":"[0.67.0,1.0.0)","authors":[{"name":"Tests"}],
             "license":"Test","website":"https://turboism.dev",
             "resources":["dev/example/rollback/"],
             "i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]},

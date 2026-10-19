@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: psd, texture, external-edit
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -24,7 +24,6 @@ ArtMesh を右クリックして完全な原画 PSD を OS 既定の PSD アプ�
 | プラグイン ID | `dev.turboism.plugin.external-psd-edit` |
 | カテゴリ | `modeling` |
 | タグ | psd, texture, external-edit |
-| Turboism API | `[0.1.0,0.2.0)` |
 | Cubism 必須 | はい |
 | インターフェース | `embedded` |
 | ライセンス | Project License |
@@ -41,7 +40,7 @@ ArtMesh を右クリックして完全な原画 PSD を OS 既定の PSD アプ�
 
 ## 要件と互換性
 
-- **Turboism API:** `[0.1.0,0.2.0)`。
+- **SDK API 範囲:** `[0.67.0,1.0.0)`。
 - **Cubism:** 必須。書き出しと置換には Cubism ネイティブのレイヤー画像書き出しおよび原画置換機能（Cubism 5.2.00 以降）を使用します。
 - **インターフェースモード:** `embedded`。
 - **プラグイン依存関係:** なし。

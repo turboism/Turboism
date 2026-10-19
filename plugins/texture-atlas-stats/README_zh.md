@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: analysis
 tags: texture-atlas, metrics, inspection
-turboismApi: "[0.1.0,0.2.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -24,7 +24,6 @@ interface: swing
 | 插件 ID | `dev.turboism.plugin.texture-atlas-stats` |
 | 类别 | `analysis` |
 | 标签 | texture-atlas, metrics, inspection |
-| Turboism API | `[0.1.0,0.2.0)` |
 | 需要 Cubism | 是 |
 | 界面 | `swing` |
 | 许可证 | 项目许可证 |
@@ -37,7 +36,7 @@ interface: swing
 
 ## 要求与兼容性
 
-- **Turboism API：** `[0.1.0,0.2.0)`。
+- **SDK API 范围：** `[0.67.0,1.0.0)`。
 - **Cubism：**需要 Cubism。Turboism 当前允许精确审核过的 Editor 构件 `5.0.00` 至 `5.3.04`；本插件仅在其声明的服务和功能能力可用时公开各项面向主机的功能。
 - **界面模式：**`swing`。
 - **插件依赖：**未声明。

@@ -6,7 +6,7 @@
   "version": "0.0.0",
   "description": "Task-only SDK probe for a new blank model, native ArtMesh creation, stored forms and ordinary grid Undo/Redo. Not a production importer.",
   "entrypoints": ["dev.turboism.validation.modelimport3d.host.HostProbe"],
-  "turboismApi": "[0.1.0,0.2.0)",
+  "turboismApi": "[0.67.0,1.0.0)",
   "authors": [{"name": "Turboism Validation"}],
   "license": "Project License",
   "website": "https://turboism.dev",
