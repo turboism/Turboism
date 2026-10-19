@@ -70,6 +70,12 @@ def strip_comments(text: str) -> str:
     return "".join(out)
 
 
+# The only non-root repository declarations: warming the Gradle cache that the offline
+# historical SDK reconstruction needs (pinned plugins and compiler from past anchors).
+HISTORY_CACHE_BUILD = "scripts/test/sdk-history-cache/build.gradle.kts"
+HISTORY_CACHE_REPOSITORIES = {"gradlePluginPortal()", "mavenCentral()"}
+
+
 def source_files(root: Path) -> list[Path]:
     result: list[Path] = []
     # templates/ scaffolds standalone out-of-repo plugin builds and is not part
@@ -126,8 +132,12 @@ def static_check(root: Path) -> None:
         blocks = extract_blocks(clean, "repositories")
         calls = list(re.finditer(r"\b(?:mavenCentral|mavenLocal|google|ivy|flatDir|maven)\s*(?:\(|\{)", clean))
         for start, end, body in blocks:
-            repository_sites.append((rel, "repositories block"))
             normalized = re.sub(r"\s+", "", body)
+            if rel == HISTORY_CACHE_BUILD and normalized in HISTORY_CACHE_REPOSITORIES:
+                # Pinned historical plugin/compiler resolution only; not a production graph.
+                calls = [m for m in calls if not (start <= m.start() < end)]
+                continue
+            repository_sites.append((rel, "repositories block"))
             if rel in ("build.gradle.kts", "buildSrc/build.gradle.kts") and normalized == "mavenCentral()":
                 if rel == "build.gradle.kts":
                     root_repo_ok = True

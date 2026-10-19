@@ -62,6 +62,10 @@ mutation 'catalog Byte Buddy alias' 'Byte Buddy' \
   'mkdir -p "$sandbox/gradle"; printf '\''[libraries]\nagent = { module = "net.bytebuddy:byte-buddy", version = "1.15.0" }\n'\'' > "$sandbox/gradle/libs.versions.toml"'
 mutation 'settings dependencyResolutionManagement mavenCentral' 'repository calls are forbidden' \
   'printf '\''\ndependencyResolutionManagement { repositories.mavenCentral() }\n'\'' >> "$sandbox/settings.gradle.kts"'
+mutation 'history cache extra maven repository' 'repository calls are forbidden' \
+  'printf '\''\nrepositories { maven { url = uri("https://evil.invalid") } }\n'\'' >> "$sandbox/scripts/test/sdk-history-cache/build.gradle.kts"'
+mutation 'plugin portal outside history cache' 'repository calls are forbidden' \
+  'printf '\''\nrepositories { gradlePluginPortal() }\n'\'' >> "$sandbox/plugins/demo/build.gradle.kts"'
 mutation 'settings repositories.maven block' 'repository calls are forbidden' \
   'printf '\''\ndependencyResolutionManagement { repositories.maven { url = uri("https://evil.invalid") } }\n'\'' >> "$sandbox/settings.gradle.kts"'
 mutation 'pluginManagement repository' 'repository calls are forbidden' \
