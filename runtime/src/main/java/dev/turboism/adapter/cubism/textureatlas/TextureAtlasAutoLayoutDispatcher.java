@@ -6,6 +6,9 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlanner;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutPlanner;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
@@ -78,6 +81,9 @@ public final class TextureAtlasAutoLayoutDispatcher {
         if (planner == null) {
             return false;
         }
+        if (planner instanceof TextureAtlasPolygonLayoutPlanner polygonPlanner) {
+            return invokePolygon(lease, polygonPlanner, parallel);
+        }
         final Optional<TextureAtlasLayoutSnapshot> current = layouts.current();
         if (current.isEmpty()) {
             return false;
@@ -120,6 +126,47 @@ public final class TextureAtlasAutoLayoutDispatcher {
                 dev.turboism.runtime.log.RuntimeDiagnostics.error(
                         "texture-atlas", "Texture-atlas layout apply failed safely", failure);
                 return false;
+            }
+            return result != null && result.status().isPresent();
+        }
+    }
+
+    private boolean invokePolygon(
+            final RuntimeTextureAtlasLayoutAlgorithmRegistry.RegisteredAlgorithm lease,
+            final TextureAtlasPolygonLayoutPlanner planner,
+            final boolean parallel) {
+        if (!(layouts instanceof TextureAtlasPolygonLayoutService polygons)) {
+            return false;
+        }
+        final var current = polygons.currentPolygon();
+        if (current.isEmpty()) {
+            return false;
+        }
+        final var snapshot = current.orElseThrow();
+        final TextureAtlasPolygonPlan plan;
+        final Thread thread = Thread.currentThread();
+        final ClassLoader previousLoader = thread.getContextClassLoader();
+        try {
+            if (lease.ownerLoader() != null) {
+                thread.setContextClassLoader(lease.ownerLoader());
+            }
+            plan = planner.planPolygon(snapshot, parallel);
+        } finally {
+            thread.setContextClassLoader(previousLoader);
+        }
+        if (plan == null) {
+            return false;
+        }
+        synchronized (lease.commitGate()) {
+            if (!algorithms.isCurrent(lease)) {
+                return false;
+            }
+            final var result = polygons.apply(snapshot.target(), plan);
+            if (result != null && result.failureCode().isPresent()) {
+                dev.turboism.runtime.log.RuntimeDiagnostics.warn(
+                        "texture-atlas",
+                        "Polygon layout rejected: " + result.failureCode().orElseThrow() + " "
+                                + result.message().orElse(""));
             }
             return result != null && result.status().isPresent();
         }

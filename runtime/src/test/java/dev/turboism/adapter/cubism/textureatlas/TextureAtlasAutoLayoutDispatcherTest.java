@@ -10,12 +10,19 @@ import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutBackend;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlanner;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutTarget;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutPlanner;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutSnapshot;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlacement;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.test.concurrent.Await;
@@ -40,6 +47,48 @@ import org.junit.jupiter.api.Test;
 final class TextureAtlasAutoLayoutDispatcherTest {
 
     @Test
+    void registeredPolygonPlannerWritesThroughTheNativeInvocation() {
+        final Fixture fixture = new Fixture();
+        final var coordinator = new TextureAtlasNativeInvocationCoordinator();
+        coordinator.connect(resolver());
+        final var registry = new RuntimeTextureAtlasLayoutAlgorithmRegistry();
+        final var selection = new TextureAtlasAutoLayoutSelection();
+        registry.bindSelection(selection);
+        final var layouts = service(coordinator);
+        registry.register(new TextureAtlasLayoutAlgorithm(
+                "polygon", "Polygon", true, true, new TextureAtlasPolygonLayoutPlanner() {
+                    @Override
+                    public TextureAtlasLayoutPlan plan(
+                            List<TextureAtlasLayoutItem> items, TextureAtlasLayoutConstraints c) {
+                        throw new AssertionError("native polygon invocation reached the rectangle adapter");
+                    }
+
+                    @Override
+                    public TextureAtlasPolygonPlan planPolygon(
+                            TextureAtlasPolygonLayoutSnapshot snapshot, boolean parallel) {
+                        assertTrue(parallel);
+                        assertEquals(2, snapshot.items().size());
+                        assertEquals(1, snapshot.constraints().requestedScale());
+                        return new TextureAtlasPolygonPlan(
+                                32,
+                                16,
+                                1,
+                                List.of(new TextureAtlasPolygonPlacement("native-item-0", 2, 2, 0, 1)),
+                                List.of("native-item-1"),
+                                TextureAtlasLayoutBackend.DALSOO_POLYGON,
+                                java.util.Map.of("rotationMode", "NONE"));
+                    }
+                }));
+        selection.select(new TextureAtlasLayoutSelection("polygon", true));
+        final var dispatcher = new TextureAtlasAutoLayoutDispatcher(registry, selection, layouts);
+        assertTrue(coordinator.ingress(dispatcher.callback()).test(fixture.receiver));
+        assertEquals(2, fixture.first.f.getTranslateX(), 1e-9);
+        assertEquals(2, fixture.first.f.getTranslateY(), 1e-9);
+        assertEquals(fixture.first.f, fixture.firstRef.transform);
+        assertEquals(List.of(fixture.second), fixture.receiver.i);
+    }
+
+    @Test
     void dispatchesSelectedThirdPartyPlannerThroughTheNativeInvocation() {
         final Fixture fixture = new Fixture();
         final TextureAtlasNativeInvocationCoordinator coordinator = new TextureAtlasNativeInvocationCoordinator();
@@ -55,10 +104,7 @@ final class TextureAtlasAutoLayoutDispatcherTest {
         final AtomicReference<TextureAtlasLayoutConstraints> seenConstraints = new AtomicReference<>();
         final AtomicBoolean seenParallel = new AtomicBoolean();
         registry.register(new TextureAtlasLayoutAlgorithm(
-                "third-party",
-                "Third Party",
-                true,
-                new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlanner() {
+                "third-party", "Third Party", true, new TextureAtlasLayoutPlanner() {
                     @Override
                     public TextureAtlasLayoutPlan plan(
                             final List<TextureAtlasLayoutItem> items, final TextureAtlasLayoutConstraints constraints) {
@@ -349,8 +395,7 @@ final class TextureAtlasAutoLayoutDispatcherTest {
     }
 
     /** Recording layout service: returns a fixed native-scope snapshot and counts applies. */
-    private static final class RecordingLayouts
-            implements dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService {
+    private static final class RecordingLayouts implements TextureAtlasLayoutService {
         private final TextureAtlasLayoutTarget target = new TextureAtlasLayoutTarget() {};
         private final TextureAtlasLayoutPlan snapshotPlan = TextureAtlasLayoutPlan.currentPage(32, 16, List.of(), 1);
         private final TextureAtlasLayoutSnapshot snapshot = new TextureAtlasLayoutSnapshot(

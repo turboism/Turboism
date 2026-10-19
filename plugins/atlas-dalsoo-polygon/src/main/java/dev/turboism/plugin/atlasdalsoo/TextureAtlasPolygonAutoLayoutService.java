@@ -51,6 +51,33 @@ final class TextureAtlasPolygonAutoLayoutService {
                     TextureAtlasLayoutFailureCode.CAPABILITY_UNAVAILABLE, "No active texture atlas page is available.");
         }
         final TextureAtlasPolygonLayoutSnapshot snapshot = maybeSnapshot.get();
+        final TextureAtlasPolygonPlan plan;
+        try {
+            plan = planAutomaticLayout(snapshot, parallel);
+        } catch (RuntimeException failure) {
+            return TextureAtlasLayoutApplyResult.failed(
+                    TextureAtlasLayoutFailureCode.PLAN_INVALID, "Polygon planner failed: " + failure.getMessage());
+        }
+        final TextureAtlasLayoutApplyResult result = layouts.apply(snapshot.target(), plan);
+        // Post-apply readback is live (the session reads issued transforms per
+        // call), so a second snapshot inside the same invocation yields the
+        // post-write state digest.
+        if (result.status().isPresent()) {
+            try {
+                layouts.currentPolygon()
+                        .ifPresent(post -> logger.accept("dalsoo applied: state=" + stateDigest(post.items())
+                                + " status=" + result.status().orElseThrow()));
+            } catch (RuntimeException reread) {
+                logger.accept("dalsoo applied: state=unreadable" + " status="
+                        + result.status().orElseThrow());
+            }
+        }
+        return result;
+    }
+
+    /** Plans only; the runtime dispatcher owns the guarded host writeback. */
+    TextureAtlasPolygonPlan planAutomaticLayout(
+            final TextureAtlasPolygonLayoutSnapshot snapshot, final boolean parallel) {
         final PolygonLayoutSettings policy = settings.get();
         final List<TextureAtlasPolygonItem> items =
                 new ArrayList<>(snapshot.items().size());
@@ -115,33 +142,13 @@ final class TextureAtlasPolygonAutoLayoutService {
                         ? TextureAtlasLayoutBackend.DALSOO_POLYGON
                         : policy.backend(),
                 policy.quality());
-        final TextureAtlasPolygonPlan plan;
-        try {
-            plan = new DalsooPolygonPlanner(
-                            null, null, null, policy.useAbey(), policy.autoScaleTolerance(), policy.autoScaleMaxTry())
-                    .plan(items, constraints, parallel);
-        } catch (RuntimeException failure) {
-            return TextureAtlasLayoutApplyResult.failed(
-                    TextureAtlasLayoutFailureCode.PLAN_INVALID, "Polygon planner failed: " + failure.getMessage());
-        }
+        final TextureAtlasPolygonPlan plan = new DalsooPolygonPlanner(
+                        null, null, null, policy.useAbey(), policy.autoScaleTolerance(), policy.autoScaleMaxTry())
+                .plan(items, constraints, parallel);
         logger.accept("dalsoo plan: placements=" + plan.placements().size()
                 + " overflow=" + plan.overflowTextureIds().size()
                 + " scale=" + plan.scale() + " " + plan.diagnostics());
-        final TextureAtlasLayoutApplyResult result = layouts.apply(snapshot.target(), plan);
-        // Post-apply readback is live (the session reads issued transforms per
-        // call), so a second snapshot inside the same invocation yields the
-        // post-write state digest.
-        if (result.status().isPresent()) {
-            try {
-                layouts.currentPolygon()
-                        .ifPresent(post -> logger.accept("dalsoo applied: state=" + stateDigest(post.items())
-                                + " status=" + result.status().orElseThrow()));
-            } catch (RuntimeException reread) {
-                logger.accept("dalsoo applied: state=unreadable" + " status="
-                        + result.status().orElseThrow());
-            }
-        }
-        return result;
+        return plan;
     }
 
     /**
