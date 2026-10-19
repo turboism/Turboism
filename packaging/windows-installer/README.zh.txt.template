@@ -6,17 +6,9 @@ Turboism 自有快捷方式启动；NSIS 安装器默认还会备份并修改所
 BAT，使现有 Cubism 快捷方式同样加载 Turboism，可在安装选项页取消勾选。该操作
 有哈希保护、可幂等升级并在卸载时恢复。
 
-可选的 JavaScript 脚本引擎
+内置 JavaScript 脚本引擎
 --------------------------
-普通 EXE 不再内嵌两项较大的 GraalJS 引擎依赖。可在向导的「JavaScript 脚本引擎」
-页面选择下载，或在安装目录执行：
-  powershell -NoProfile -ExecutionPolicy Bypass -File .\install-script-engine.ps1
-该工具按固定版本下载并验证长度及 SHA-256，不会启动 Java。
-离线安装可追加参数 -OfflineSource "<解压后的完整 ZIP>\graal\lib"。
-Full、精简版（Thin）ZIP 仍保留完整的离线引擎依赖。
-运行脚本还需要兼容的 GraalVM；引擎下载与 JVM 安装是两项独立操作。
-可选依赖缺失或损坏时，会提示并停用脚本，不影响基础框架和 Java 插件。
-取消勾选不会删除此前已安装的脚本引擎。
+两种标准包均内置完整的 GraalJS 离线引擎依赖。兼容的 GraalVM 运行时通过配置器单独安装。
 
 一、目录结构
 ------------
@@ -27,7 +19,7 @@ Full、精简版（Thin）ZIP 仍保留完整的离线引擎依赖。
   launch-cubism-turboism.bat     托管启动入口
   launch-cubism-turboism.ps1     PowerShell 启动实现
   cubism-launch-common.ps1       共享的清单/启动辅助代码
-  plugins/                       插件 jar（full 包才有；精简版 thin 包无此目录）
+  plugins/                       随包提供的第一方插件 JAR
   README.txt / README.zh.txt / README.ja.txt / LICENSE.txt
 
 二、使用方法
@@ -68,7 +60,7 @@ disabledPlugins，其他有效设置保持不变；若选择未变化，原始�
 
 四、卸载
 --------
-- 通过 NSIS 安装器（TurboismInstaller-<ver>-full.exe 或 TurboismInstaller-<ver>-thin.exe）安装时：运行 Turboism home
+- 通过 NSIS 安装器（TurboismInstaller-<ver>.exe）安装时：运行 Turboism home
   目录中的 uninstall.exe。它只清理 Turboism 记录的托管快捷方式/状态与自有
   文件。卸载确认页含「保留 config.json（用户配置）」复选框，默认勾选；
   取消勾选将删除 config.json。

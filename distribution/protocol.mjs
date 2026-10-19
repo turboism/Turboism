@@ -95,20 +95,20 @@ export function parseRelease(raw,sourceRevision,verifiedIdentity=null){
  require(typeof raw.published_at==='string'&&Number.isFinite(Date.parse(raw.published_at)),'Invalid publication date');
  const receipt=buildReceipt(raw.body);
  if(receipt){require(verifiedIdentity&&Object.keys(receipt).every(k=>receipt[k]===verifiedIdentity[k]),'Unverified build identity');require(receipt.sourceRevision===sourceRevision&&receipt.version===version&&receipt.channel===channel,'Build identity source/version mismatch');}
+ const isStandard=raw.assets?.some(a=>a.name===`turboism-${version}.zip`);
  const isNew=raw.assets?.some(a=>a.name===`TurboismInstaller-${version}-full.exe`||a.name===`turboism-${version}-thin.zip`);
- const names=isNew
-  ?[`TurboismInstaller-${version}-full.exe`,`TurboismInstaller-${version}-thin.exe`,`turboism-${version}-full.zip`,`turboism-${version}-thin.zip`]
-  :[`TurboismInstaller-${version}.exe`,`TurboismInstaller-${version}.jar`,`turboism-${version}-full.zip`,`turboism-${version}-lite.zip`];
+ const names=isStandard
+  ?[`TurboismInstaller-${version}.exe`,`turboism-${version}.zip`]
+  :isNew
+   ?[`TurboismInstaller-${version}-full.exe`,`TurboismInstaller-${version}-thin.exe`,`turboism-${version}-full.zip`,`turboism-${version}-thin.zip`]
+   :[`TurboismInstaller-${version}.exe`,`TurboismInstaller-${version}.jar`,`turboism-${version}-full.zip`,`turboism-${version}-lite.zip`];
  const expected=names.flatMap(n=>[n,n+'.sha256']);
- const kinds=isNew
-  ?['windows-installer-full','windows-installer-thin','full','thin']
+ // Keep the full ZIP kind for existing download clients.
+ const kinds=isStandard?['windows-installer','full']
+  :isNew?['windows-installer-full','windows-installer-thin','full','thin']
   :['windows-installer','java-installer','full','lite'];
- const variants=isNew
-  ?['full','thin','full','thin']
-  :[null,null,'full','thin'];
- const platforms=isNew
-  ?['windows','windows',null,null]
-  :['windows',null,null,null];
+ const variants=isStandard?['full','full']:isNew?['full','thin','full','thin']:[null,null,'full','thin'];
+ const platforms=isStandard?['windows',null]:isNew?['windows','windows',null,null]:['windows',null,null,null];
  // Releases also carry standalone developer jars (SDK and event-processor) for
  // plugin developers. They pass the same integrity checks but stay out of the
  // mirrored files API; older releases may have SDK-only or neither.

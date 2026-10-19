@@ -27,13 +27,16 @@ Turboism is a Windows-first runtime enhancement tool and plugin framework for **
 
 **Windows x64** is the supported Cubism host platform. Unlisted Editor versions are not claimed compatible; unavailable adapters or features fail closed. Version support does not mean every plugin feature is available on every version.
 
-On macOS and Linux, download and extract either portable ZIP archive (`turboism-<version>-full.zip` or `turboism-<version>-thin.zip`). macOS packaging is preview-only with no verified Cubism host support; Linux covers runtime behavior only and is not a supported Cubism host.
+On macOS and Linux, download and extract either portable ZIP archive (`turboism-<version>.zip`). macOS packaging is preview-only with no verified Cubism host support; Linux covers runtime behavior only and is not a supported Cubism host.
 
 ## Installation
 
-Download a package and its matching `.sha256` file from the [latest GitHub Release](https://github.com/turboism/Turboism/releases/latest). Four product assets are provided across two variants:
-- **Full** (`TurboismInstaller-<version>-full.exe`, `turboism-<version>-full.zip`): runtime framework plus every bundled first-party plugin.
-- **Thin** (`TurboismInstaller-<version>-thin.exe`, `turboism-<version>-thin.zip`): runtime framework only, zero first-party plugins (plugins are installed later via plugin management from the plugin market).
+Download a package and its matching `.sha256` file from the [latest GitHub Release](https://github.com/turboism/Turboism/releases/latest). The standard packages include every bundled first-party plugin:
+
+- **Windows installer**: `TurboismInstaller-<version>.exe`.
+- **Portable package**: `turboism-<version>.zip`.
+
+Both standard packages include the complete offline GraalJS engine. A compatible GraalVM runtime is installed separately through the configurator.
 
 Choose **one** installation format below. Close Cubism and back up your projects before installing or updating.
 
@@ -42,20 +45,20 @@ Every Turboism installer ships in **English, Simplified Chinese, Japanese and Ko
 Installers are currently unsigned. Verify the downloaded file against its checksum before running it. For example, in PowerShell (replace `<version>` with the downloaded version):
 
 ```powershell
-Get-FileHash ".\TurboismInstaller-<version>-full.exe" -Algorithm SHA256
+Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256
 ```
 
 ### EXE — recommended on Windows
 
-Run `TurboismInstaller-<version>-full.exe` (Full) or `TurboismInstaller-<version>-thin.exe` (Thin) and follow the setup wizard to choose the installation directory and launch options. The full installer installs every first-party plugin without per-plugin deselection; the thin installer installs none. Plugins can be disabled or managed later in plugin management. The wizard offers a language picker (English, Simplified Chinese, Japanese, Korean) before the welcome page; it applies to the installer only. Use the generated Turboism shortcut afterward.
+Run `TurboismInstaller-<version>.exe` and follow the setup wizard to choose the installation directory and launch options. All first-party plugins are included; enable or disable them through plugin management. Choose English, Simplified Chinese, Japanese or Korean before the welcome page. Use the generated Turboism shortcut afterward.
 
 Integration with the official Cubism startup BAT is **optional** and must be explicitly selected. It uses hash-guarded backups; later user edits can prevent automatic restoration. Keep your project backups separate from these installer-managed backups.
 
-Upgrades are safe: running the thin installer over an existing full installation leaves your existing `plugins/` untouched; running the full installer over a thin installation installs or updates all first-party plugins while respecting existing `disabledPlugins`.
+The installer upgrades existing installations, installs the current first-party plugins and preserves existing `disabledPlugins` settings.
 
 ### ZIP — manual setup on Windows
 
-1. Choose `turboism-<version>-full.zip` for the bundled first-party plugins, or `turboism-<version>-thin.zip` for the runtime without plugin JARs.
+1. Download `turboism-<version>.zip`, which includes the runtime and bundled first-party plugins.
 2. Extract the **whole archive** into a separate Turboism folder, not into the Cubism installation directory.
 3. From the extracted folder, open the configurator:
 

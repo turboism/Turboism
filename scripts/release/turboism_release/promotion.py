@@ -169,7 +169,9 @@ def verify_bundle(source_root, bundle_root, run, source_sha):
         "candidate changelog binding mismatch")
     require(unique_file(bundle_root, "release-notes.md").read_bytes() == notes.encode("utf-8"),
             "candidate release notes differ from source")
-    dist = unique_file(bundle_root, f"turboism-{version}-full.zip").parent
+    archives = list(Path(bundle_root).rglob(f"turboism-{version}.zip"))
+    dist = (unique_file(bundle_root, f"turboism-{version}.zip") if archives
+            else unique_file(bundle_root, f"turboism-{version}-full.zip")).parent
     artifacts = framework_artifacts(source_root, dist, version)
     require(framework.get("artifacts") == artifacts, "candidate artifact hashes/sizes differ")
     developer = developer_artifacts(dist, version)

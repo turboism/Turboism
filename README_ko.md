@@ -27,13 +27,16 @@ Turboism은 **Live2D Cubism Editor**를 위한 Windows 중심의 런타임 확�
 
 지원하는 Cubism 호스트 플랫폼은 **Windows x64**입니다. 목록에 없는 Editor 버전의 호환성은 보장하지 않습니다. 필요한 어댑터나 기능이 없으면 안전을 위해 실행을 거부합니다. 지원 버전이라고 해서 모든 플러그인 기능을 사용할 수 있는 것은 아닙니다.
 
-macOS와 Linux에서는 포터블 ZIP 압축 파일(`turboism-<version>-full.zip` 또는 `turboism-<version>-thin.zip`)을 내려받아 압축을 풀어 사용할 수 있습니다. 다만 macOS 패키징은 미리 보기 단계이며 Cubism 호스트 지원은 검증되지 않았습니다. Linux는 파일 배포 및 런타임 동작만을 대상으로 하며 Cubism 호스트로는 지원하지 않습니다.
+macOS와 Linux에서는 포터블 ZIP 압축 파일(`turboism-<version>.zip`)을 내려받아 압축을 풀어 사용할 수 있습니다. 다만 macOS 패키징은 미리 보기 단계이며 Cubism 호스트 지원은 검증되지 않았습니다. Linux는 파일 배포 및 런타임 동작만을 대상으로 하며 Cubism 호스트로는 지원하지 않습니다.
 
 ## 설치
 
-[최신 GitHub Release](https://github.com/turboism/Turboism/releases/latest)에서 패키지와 해당 `.sha256` 파일을 다운로드하세요. 두 가지 변형으로 나뉜 네 가지 정식 릴리스 자산이 제공됩니다:
-- **Full**(`TurboismInstaller-<version>-full.exe`, `turboism-<version>-full.zip`): 런타임 프레임워크와 모든 기본 제공 퍼스트 파티 플러그인.
-- **Thin**(`TurboismInstaller-<version>-thin.exe`, `turboism-<version>-thin.zip`): 런타임 프레임워크만 포함되며 퍼스트 파티 플러그인은 포함되지 않음(플러그인은 이후 플러그인 마켓에서 설치).
+[최신 GitHub Release](https://github.com/turboism/Turboism/releases/latest)에서 패키지와 해당 `.sha256` 파일을 다운로드하세요. 표준 패키지는 모든 기본 제공 플러그인을 포함합니다:
+
+- **Windows 설치 프로그램**: `TurboismInstaller-<version>.exe`.
+- **포터블 패키지**: `turboism-<version>.zip`.
+
+두 표준 패키지는 GraalJS 오프라인 엔진 라이브러리를 모두 포함합니다. 호환 GraalVM 런타임은 설정 도구에서 별도로 설치합니다.
 
 아래 설치 방식 중 하나를 선택하면 됩니다. 설치하거나 업데이트하기 전에 Cubism을 종료하고 프로젝트를 백업하세요.
 
@@ -42,20 +45,20 @@ macOS와 Linux에서는 포터블 ZIP 압축 파일(`turboism-<version>-full.zip
 현재 설치 프로그램에는 코드 서명이 없습니다. 실행하기 전에 다운로드한 파일의 SHA-256을 함께 제공되는 체크섬과 비교하세요. 다음은 PowerShell 예시입니다. `<version>`을 다운로드한 버전으로 바꿔 주세요.
 
 ```powershell
-Get-FileHash ".\TurboismInstaller-<version>-full.exe" -Algorithm SHA256
+Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256
 ```
 
 ### EXE — Windows 권장 방식
 
-`TurboismInstaller-<version>-full.exe`(Full) 또는 `TurboismInstaller-<version>-thin.exe`(Thin)를 실행하고 설치 마법사에서 설치 경로 및 실행 옵션을 선택하세요. Full 설치 프로그램은 개별 선택 없이 모든 퍼스트 파티 플러그인을 설치하며, Thin 설치 프로그램은 플러그인을 설치하지 않습니다. 플러그인은 나중에 플러그인 관리에서 사용 여부를 변경할 수 있습니다. 환영 페이지 전에 언어 선택(영어, 중국어 간체, 일본어, 한국어)이 먼저 표시되며, 설치 프로그램에만 적용됩니다. 설치 후에는 생성된 Turboism 바로 가기를 사용하세요.
+`TurboismInstaller-<version>.exe`를 실행하고 설치 경로와 실행 옵션을 선택하세요. 기본 제공 플러그인이 모두 설치되며 플러그인 관리에서 활성화 여부를 변경할 수 있습니다. 환영 페이지 전에 영어, 중국어 간체, 일본어, 한국어를 선택할 수 있습니다. 완료 후 Turboism 바로 가기를 사용하세요.
 
 Cubism 공식 실행 BAT와의 통합은 **선택 사항**이며 명시적으로 선택해야 합니다. 해시 검증을 적용한 백업을 사용하지만, 나중에 파일을 직접 수정하면 자동 복원이 불가능할 수 있습니다. 이러한 설치 프로그램 관리 백업과 별도로 프로젝트 백업을 보관하세요.
 
-안전한 업그레이드: 기존 Full 설치본에 Thin 설치 프로그램을 실행해도 기존 `plugins/` 디렉터리는 그대로 유지되며, Thin 설치본에 Full 설치 프로그램을 실행하면 기존 `disabledPlugins` 설정을 유지하면서 모든 퍼스트 파티 플러그인을 설치하거나 업데이트합니다.
+설치 프로그램은 기존 설치를 업데이트하고 현재 기본 제공 플러그인을 설치하며 기존 `disabledPlugins` 설정을 유지합니다.
 
 ### ZIP — Windows 수동 설정
 
-1. 기본 제공 플러그인이 필요하면 `turboism-<version>-full.zip`을, 플러그인 JAR 없이 런타임만 필요하면 `turboism-<version>-thin.zip`을 선택하세요.
+1. 런타임과 기본 제공 플러그인이 포함된 `turboism-<version>.zip`을 다운로드하세요.
 2. **압축 파일 전체**를 별도의 Turboism 폴더에 풀어 주세요. Cubism 설치 폴더에는 풀지 마세요.
 3. 압축을 푼 폴더에서 설정 도구를 실행하세요.
 

@@ -57,8 +57,13 @@ def classify_framework(
     artifacts = framework.get("artifacts")
     if not eligible:
         return {"action": "none", "reason": "source has no exact release tag"}
-    if not isinstance(artifacts, list) or len(artifacts) != 8:
-        raise ReleaseError("tagged framework candidate must contain exactly eight verified artifacts")
+    from .artifact_layout import PRODUCT_PRIMARY, LEGACY_PRODUCT_PRIMARY
+    version = framework.get("version")
+    rosters = [{name.format(version=version) for pattern in roster for name in (pattern, pattern + ".sha256")}
+               for roster in (PRODUCT_PRIMARY, LEGACY_PRODUCT_PRIMARY)]
+    names = {a.get("name") for a in artifacts if isinstance(a, dict)} if isinstance(artifacts, list) else set()
+    if names not in rosters or len(artifacts) != len(names):
+        raise ReleaseError("tagged framework candidate must contain a complete canonical verified artifact set")
     # Developer artifacts (the standalone SDK and event-processor jars) are GitHub
     # Release assets only; they never enter the product or Updates media contracts.
     developer = framework.get("developerArtifacts")
