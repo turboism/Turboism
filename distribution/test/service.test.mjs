@@ -38,3 +38,13 @@ test('Workers-compatible metadata fetch uses manual redirects and rejects redire
  await assert.rejects(()=>synchronize(null,{},async(_url,init)=>{observed=init.redirect;return new Response(null,{status:302,headers:{Location:'https://untrusted.invalid'}});}),/302/);
  assert.equal(observed,'manual');
 });
+
+test('retired layouts are excluded instead of advertised or reused from cached channels',async()=>{
+ const old=await synchronize(null,{},source([fixture()]));
+ const retired=fixture('1.2.3',false,true,false);
+ const next=await synchronize(old,{},source([retired]));
+ assert.equal(documentFor(next,'stable').status,'not_published');
+ assert.equal(next.known['v1.2.3'].active,false);
+ const mixed=await synchronize(null,{},source([fixture(),fixture('2.0.0',false,true,true)]));
+ assert.equal(documentFor(mixed,'stable').release.version,'1.2.3');
+});

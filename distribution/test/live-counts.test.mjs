@@ -48,7 +48,7 @@ test('file serving changes persistent counts immediately; retries and probes do 
   const after = await stats({headers: {'If-None-Match': before.headers.get('ETag')}});
   assert.equal(after.status, 200);
   const counts = await after.json();
-  assert.equal(counts.official.count, 1); assert.equal(counts.total, 9); assert.equal(counts.assets[0].official, 1);
+  assert.equal(counts.official.count, 1); assert.equal(counts.total, 5); assert.equal(counts.assets[0].official, 1);
   for (const [headers, method] of [[{}, 'GET'], [{Range: 'bytes=0-3'}, 'GET'], [{Range: 'bytes=4-7'}, 'GET'], [{}, 'HEAD'], [{'User-Agent': 'Probe', 'X-Turboism-Download-Purpose': 'verification'}, 'GET']]) {
     const response = await download(headers, method); await response.arrayBuffer();
   }

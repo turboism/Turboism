@@ -17,7 +17,7 @@ test('individual persisted binary counts reconcile to the release total without 
   await counter.record(request,new Response('bytes'),release.assets[0]);
   const restored=new DownloadCounter(storage,()=>time);restored.initialize();
   const d=countsDocument('1.2.3',record,restored.read(release.assets));
-  assert.equal(d.assets.length,4);assert.equal(d.assets[0].official,1);assert.equal(d.assets[1].official,0);
+  assert.equal(d.assets.length,2);assert.equal(d.assets[0].official,1);assert.equal(d.assets[1].official,0);
   assert.equal(d.assets.reduce((n,a)=>n+a.total,0),d.total);
   assert.equal(d.assets[0].key,release.assets[0].key);assert.equal(d.assets[0].sha256,release.assets[0].sha256);
   release.assets[1].downloadCount=null;

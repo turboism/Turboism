@@ -19,9 +19,9 @@ function setup() {
  const fetcher=async(input)=>{const url=new URL(input);assert.equal(url.origin,'https://github.com');const b=bytes.get(url.pathname.split('/').at(-1));assert.ok(b);events.push('fetch '+url.pathname);return new Response(b,{headers:{'Content-Length':String(b.length),'Content-Type':'application/octet-stream'}});};
  return{raw,release,bytes,store,events,bucket,fetcher};
 }
-test('mirrors all eight original files with R2-enforced SHA-256 before advertising official sources',async()=>{
+test('mirrors both packages and their checksum files with R2-enforced SHA-256 before advertising official sources',async()=>{
  const x=setup();const r=await mirrorRelease(x.release,x.bucket,x.fetcher);
- assert.equal(x.store.size,9);assert.equal(x.events.filter(e=>e.startsWith('fetch ')).length,8);
+ assert.equal(x.store.size,5);assert.equal(x.events.filter(e=>e.startsWith('fetch ')).length,4);
  assert.ok(x.events.at(-1).includes('mirrors/v1.2.3.json'));
  for(const a of r.assets){assert.equal(a.sources[0].id,'official');assert.match(a.sources[0].url,/^https:\/\/api.turboism.dev\/files\//);}
  x.events.length=0;await mirrorRelease(x.release,x.bucket,x.fetcher);assert.ok(!x.events.some(e=>e.startsWith('fetch ')||e.startsWith('put ')));

@@ -29,7 +29,7 @@ ID, source SHA and original visible body. Regenerate with
 `python3 scripts/release/build-historical-display.py`. They enrich API presentation
 without rewriting public Release bodies, tags, receipts, binary files or numbers.
 
-The statistics endpoint adds four `assets` records containing `name`, `key`,
+The statistics endpoint adds two `assets` records containing `name`, `key`,
 `sha256`, `official`, `github`, and `total`. These read the existing persistent
 counter; there is no reset or second collection. Missing counts remain null.
 The version aggregate reconciles with the file totals, excluding checksum files.
