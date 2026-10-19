@@ -38,12 +38,14 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 import sys
 import zipfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+from turboism_dev.json_io import dump_json, read_json, write_json
+from turboism_dev.paths import repo_root
+
+ROOT = repo_root()
 PIN_DIR = ROOT / "runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins"
 
 
@@ -57,8 +59,8 @@ def _load_pin_files(selected: list[str]) -> dict[str, tuple[Path, dict]]:
         if not path.is_file():
             raise SystemExit(f"pin file not found: {path}")
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as failure:
+            data = read_json(path)
+        except Exception as failure:
             raise SystemExit(f"pin file {path} is not valid JSON: {failure}")
         if not isinstance(data, dict):
             raise SystemExit(f"pin file {path} must contain a top-level object")
@@ -97,7 +99,7 @@ def _sha256_members(jar: zipfile.ZipFile, internal_names: set[str]) -> tuple[dic
 
 
 def _write_table(path: Path, data: dict) -> None:
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    write_json(path, data, indent=2)
 
 
 def _cmd_update(args: argparse.Namespace) -> int:
@@ -105,7 +107,7 @@ def _cmd_update(args: argparse.Namespace) -> int:
         table_path = PIN_DIR / f"{args.new}.json"
         data = {}
         if table_path.is_file():
-            data = json.loads(table_path.read_text(encoding="utf-8"))
+            data = read_json(table_path)
         tables = {args.new: (table_path, data)}
         class_keys = {args.new: set(args.classes)}
         if not args.classes:
@@ -135,7 +137,7 @@ def _cmd_update(args: argparse.Namespace) -> int:
             ordered = {v: updated[v] for v in sorted(updated)}
             if args.dry_run:
                 print(f"--- {path} ---")
-                print(json.dumps(ordered, indent=2))
+                print(dump_json(ordered, indent=2).rstrip("\n"))
             else:
                 _write_table(path, ordered)
                 print(f"{name}: wrote {len(block)} pin(s) for {args.version} -> {path}")

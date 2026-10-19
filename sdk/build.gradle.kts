@@ -2,7 +2,7 @@ import org.gradle.jvm.tasks.Jar
 import org.gradle.language.jvm.tasks.ProcessResources
 
 plugins {
-    `java-library`
+    id("turboism.java-conventions")
     `maven-publish`
 }
 

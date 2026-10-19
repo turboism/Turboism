@@ -33,10 +33,8 @@ public final class DerivedCacheSerializationBridge {
                                         .getLocation()
                                         .toURI())
                                 .toRealPath();
-                        try (var input = java.nio.file.Files.newInputStream(path)) {
-                            if (!NativeMeshInterpolationBridge.HOST_SHA256S.contains(java.util.HexFormat.of()
-                                    .formatHex(java.security.MessageDigest.getInstance("SHA-256")
-                                            .digest(input.readAllBytes())))) return java.util.Optional.empty();
+                        if (!NativeMeshInterpolationBridge.isAdmittedHostArtifact(path)) {
+                            return java.util.Optional.empty();
                         }
                         Class<?> list = Class.forName("com.live2d.type.CArrayList", false, owner.getClassLoader());
                         if (list.getClassLoader() != owner.getClassLoader()
@@ -64,11 +62,7 @@ public final class DerivedCacheSerializationBridge {
                                 .getLocation()
                                 .toURI())
                         .toRealPath();
-                try (var input = java.nio.file.Files.newInputStream(path)) {
-                    return NativeMeshInterpolationBridge.HOST_SHA256S.contains(java.util.HexFormat.of()
-                            .formatHex(java.security.MessageDigest.getInstance("SHA-256")
-                                    .digest(input.readAllBytes())));
-                }
+                return NativeMeshInterpolationBridge.isAdmittedHostArtifact(path);
             } catch (Exception | LinkageError refused) {
                 return false;
             }

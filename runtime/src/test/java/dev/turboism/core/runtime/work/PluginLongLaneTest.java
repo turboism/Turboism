@@ -9,6 +9,7 @@ import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeCancellationToken;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
+import dev.turboism.test.concurrent.Await;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -173,6 +174,7 @@ class PluginLongLaneTest {
         final PluginLongLane lane = lane(1, 8);
         final CountDownLatch started = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
+        final CountDownLatch finished = new CountDownLatch(1);
         final AtomicBoolean interrupted = new AtomicBoolean();
         lane.submit(task("plugin.long.normal"), new RuntimeCancellationToken(), () -> {
             started.countDown();
@@ -181,6 +183,7 @@ class PluginLongLaneTest {
                 awaitQuietly(release);
             } finally {
                 interrupted.set(Thread.currentThread().isInterrupted());
+                finished.countDown();
             }
         });
         assertTrue(started.await(1, TimeUnit.SECONDS));
@@ -191,7 +194,7 @@ class PluginLongLaneTest {
         assertFalse(shutdownThread.isAlive(), "shutdown returns after its bounded wait");
 
         release.countDown();
-        Thread.sleep(100);
+        assertTrue(finished.await(2, TimeUnit.SECONDS));
         assertFalse(interrupted.get(), "a stubborn task is left running, never interrupted");
     }
 
@@ -205,14 +208,13 @@ class PluginLongLaneTest {
             lane.submit(task("plugin.long.beta"), new RuntimeCancellationToken(), () -> sleepQuietly(150));
 
             // Wait for both threshold reports before shutdown purges the monitor schedule.
-            final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
-            while (messages.stream()
+            Await.condition(
+                    "both threshold reports emitted",
+                    () -> messages.stream()
                                     .filter(m -> m.contains("LONG_TASK_RUNNING"))
                                     .count()
-                            < 2
-                    && System.nanoTime() < deadline) {
-                sleepQuietly(10);
-            }
+                            >= 2,
+                    Duration.ofSeconds(2));
             lane.shutdown();
 
             final List<String> reports = messages.stream()

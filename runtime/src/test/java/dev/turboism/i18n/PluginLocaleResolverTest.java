@@ -17,19 +17,28 @@ class PluginLocaleResolverTest {
 
     private final List<String> diagnostics = new ArrayList<>();
     private String previousProperty;
+    private Locale previousDefaultLocale;
+    private Locale previousDisplayLocale;
+    private Locale previousFormatLocale;
 
     @BeforeEach
-    void captureProperty() {
+    void captureEnvironment() {
         previousProperty = System.getProperty(PROPERTY);
+        previousDefaultLocale = Locale.getDefault();
+        previousDisplayLocale = Locale.getDefault(Locale.Category.DISPLAY);
+        previousFormatLocale = Locale.getDefault(Locale.Category.FORMAT);
     }
 
     @AfterEach
-    void restoreProperty() {
+    void restoreEnvironment() {
         if (previousProperty == null) {
             System.clearProperty(PROPERTY);
         } else {
             System.setProperty(PROPERTY, previousProperty);
         }
+        Locale.setDefault(previousDefaultLocale);
+        Locale.setDefault(Locale.Category.DISPLAY, previousDisplayLocale);
+        Locale.setDefault(Locale.Category.FORMAT, previousFormatLocale);
     }
 
     private Locale resolve(final String configured, final Locale host, final Locale jvm) {
@@ -81,9 +90,43 @@ class PluginLocaleResolverTest {
     @Test
     void jvmDefaultDisplayLocaleIsTheFinalSource() {
         System.clearProperty(PROPERTY);
-        final Locale expected = Locale.getDefault(Locale.Category.DISPLAY);
-        assertEquals(expected, resolve("", null, null));
-        assertTrue(diagnostics.isEmpty());
+        final Locale originalDefault = Locale.getDefault();
+        final Locale originalDisplay = Locale.getDefault(Locale.Category.DISPLAY);
+        final Locale originalFormat = Locale.getDefault(Locale.Category.FORMAT);
+        try {
+            final Locale pinned = Locale.GERMAN;
+            Locale.setDefault(pinned);
+            Locale.setDefault(Locale.Category.DISPLAY, pinned);
+            Locale.setDefault(Locale.Category.FORMAT, pinned);
+
+            final Locale expected = Locale.getDefault(Locale.Category.DISPLAY);
+            assertEquals(expected, resolve("", null, null));
+            assertTrue(diagnostics.isEmpty());
+        } finally {
+            Locale.setDefault(originalDefault);
+            Locale.setDefault(Locale.Category.DISPLAY, originalDisplay);
+            Locale.setDefault(Locale.Category.FORMAT, originalFormat);
+        }
+    }
+
+    @Test
+    void jvmDefaultDisplayLocaleNormalizesChinese() {
+        System.clearProperty(PROPERTY);
+        final Locale originalDefault = Locale.getDefault();
+        final Locale originalDisplay = Locale.getDefault(Locale.Category.DISPLAY);
+        final Locale originalFormat = Locale.getDefault(Locale.Category.FORMAT);
+        try {
+            Locale.setDefault(Locale.CHINA);
+            Locale.setDefault(Locale.Category.DISPLAY, Locale.CHINA);
+            Locale.setDefault(Locale.Category.FORMAT, Locale.CHINA);
+
+            assertEquals(Locale.forLanguageTag("zh-Hans"), resolve("", null, null));
+            assertTrue(diagnostics.isEmpty());
+        } finally {
+            Locale.setDefault(originalDefault);
+            Locale.setDefault(Locale.Category.DISPLAY, originalDisplay);
+            Locale.setDefault(Locale.Category.FORMAT, originalFormat);
+        }
     }
 
     @Test

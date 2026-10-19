@@ -20,6 +20,7 @@ import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.hostread.ProjectWorkspaceSnapshot;
+import dev.turboism.test.concurrent.Await;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -111,6 +112,7 @@ class SelectionObservationPublisherTest {
         final MutableHostSource source = new MutableHostSource();
         harness(source);
 
+        // Intentionally assert nothing happens: idle observer must not read the host within 60ms.
         Thread.sleep(60);
 
         assertEquals(0, source.reads.get(), "idle observer must not read the host");
@@ -194,6 +196,7 @@ class SelectionObservationPublisherTest {
             secondCommitter.start();
             // The second commit cannot publish while the first commit's
             // publication is still inside the baseline monitor.
+            // Intentionally assert nothing happens: concurrent commit must not publish before in-flight transition.
             Thread.sleep(60);
             assertTrue(transitions.isEmpty(), "a concurrent commit must not publish before the in-flight transition");
             releaseFirstPublish.countDown();
@@ -219,6 +222,7 @@ class SelectionObservationPublisherTest {
         source.replaceSelection(List.of("mesh-face"));
         publisher.signalDemand();
 
+        // Intentionally assert nothing happens: a read fenced by close must not publish.
         Thread.sleep(60);
         assertTrue(events.isEmpty(), "a read fenced by close must not publish");
     }
@@ -251,9 +255,7 @@ class SelectionObservationPublisherTest {
         harness(source);
         subscribe("plugin.alpha", new ArrayList<>(), new CountDownLatch(1));
 
-        Thread.sleep(120);
-
-        assertTrue(source.reads.get() > 0, "demand must produce periodic reads");
+        Await.condition("demand must produce periodic reads", () -> source.reads.get() >= 2, Duration.ofSeconds(2));
         assertEquals(1, source.maxConcurrentReads.get(), "reads must not overlap");
     }
 
@@ -293,7 +295,7 @@ class SelectionObservationPublisherTest {
         final List<SelectionChangedEvent> events = new ArrayList<>();
         subscribe("plugin.alpha", events, new CountDownLatch(1));
 
-        Thread.sleep(120);
+        awaitBaselineCommit();
 
         assertTrue(events.isEmpty(), "the first observation establishes the baseline without an event");
     }
@@ -319,14 +321,11 @@ class SelectionObservationPublisherTest {
         owner.activate();
     }
 
-    private void awaitBaselineCommit() throws InterruptedException {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-        while (broker.observationBaseline(SelectionObservation.class).get() == null) {
-            if (System.nanoTime() > deadline) {
-                throw new AssertionError("baseline was never committed");
-            }
-            Thread.sleep(5);
-        }
+    private void awaitBaselineCommit() {
+        Await.condition(
+                "baseline was never committed",
+                () -> broker.observationBaseline(SelectionObservation.class).get() != null,
+                Duration.ofSeconds(5));
     }
 
     private static java.util.function.BiConsumer<SelectionSummary, SelectionSummary> record(

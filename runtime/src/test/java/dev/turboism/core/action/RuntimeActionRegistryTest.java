@@ -178,10 +178,11 @@ class RuntimeActionRegistryTest {
     void invokerThreadReturnsImmediately() throws InterruptedException {
         // Given
         RuntimeActionRegistry registry = registry();
+        CountDownLatch allowFinish = new CountDownLatch(1);
         CountDownLatch completed = new CountDownLatch(1);
         registry.register("slow.action", new TestAction("slow.action", "Slow Action", context -> {
             try {
-                Thread.sleep(500);
+                allowFinish.await();
             } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
             }
@@ -196,6 +197,7 @@ class RuntimeActionRegistryTest {
         // Then
         assertTrue(elapsed < 50, "execute returned in " + elapsed + " ms");
         assertEquals(1, completed.getCount());
+        allowFinish.countDown();
         assertTrue(completed.await(2, TimeUnit.SECONDS));
     }
 

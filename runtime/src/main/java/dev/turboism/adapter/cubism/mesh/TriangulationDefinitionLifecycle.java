@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.mesh;
 
 import com.sun.management.HotSpotDiagnosticMXBean;
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.lang.management.ManagementFactory;
@@ -267,8 +268,9 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
             raw.addTransformer(collector, true);
             registered = true;
             raw.retransformClasses(actual);
-            if (collector.fatal instanceof VirtualMachineError failure) throw failure;
-            if (collector.fatal instanceof ThreadDeath failure) throw failure;
+            if (collector.fatal != null) {
+                FatalErrors.rethrowIfFatal(collector.fatal);
+            }
             if (!collector.failed
                     && collector.captured.size() == collector.wanted.size()
                     && collector.wanted.entrySet().stream()
@@ -333,9 +335,11 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
                 captured.put(type, fingerprinter.apply(bytes.clone()));
             } catch (RuntimeException | LinkageError invalid) {
                 failed = true;
-            } catch (VirtualMachineError | ThreadDeath failure) {
-                failed = true;
-                fatal = failure;
+            } catch (Error failure) {
+                if (FatalErrors.isFatal(failure)) {
+                    failed = true;
+                    fatal = failure;
+                }
                 throw failure;
             }
             return null;

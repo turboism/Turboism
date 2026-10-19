@@ -359,6 +359,8 @@ with tempfile.TemporaryDirectory(prefix="atlas-image-prepared-replay-") as tempo
     source_preview.mkdir(parents=True)
     for name in required:
         shutil.copy2(root / "scripts" / "preview" / name, source_preview / name)
+    (source_preview / "hvq").mkdir()
+    (source_preview / "hvq/__init__.py").write_text("# test fixture\n")
     subprocess.run(["git", "init", "-q"], cwd=source, check=True)
     subprocess.run(["git", "config", "user.email", "offline@example.invalid"], cwd=source, check=True)
     subprocess.run(["git", "config", "user.name", "offline"], cwd=source, check=True)

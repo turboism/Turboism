@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -28,8 +29,8 @@ public final class NativeMeshEdgeLookup {
                 Field edges = type.getDeclaredField("_edges"), indices = type.getDeclaredField("cached_indices");
                 if (edges.getType() != list || indices.getType() != int[].class)
                     throw new IllegalArgumentException("native field identity");
-                edges.setAccessible(true);
-                indices.setAccessible(true);
+                ReflectAccess.open(edges);
+                ReflectAccess.open(indices);
                 Method first = edge.getDeclaredMethod("getIndex1"), second = edge.getDeclaredMethod("getIndex2");
                 if (first.getReturnType() != int.class || second.getReturnType() != int.class)
                     throw new IllegalArgumentException("native endpoint identity");

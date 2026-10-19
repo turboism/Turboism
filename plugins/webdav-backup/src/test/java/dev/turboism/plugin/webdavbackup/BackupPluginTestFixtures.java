@@ -1,26 +1,12 @@
 package dev.turboism.plugin.webdavbackup;
 
-import dev.turboism.sdk.action.ActionRegistry;
-import dev.turboism.sdk.config.ConfigKey;
-import dev.turboism.sdk.config.ConfigReadResult;
-import dev.turboism.sdk.config.ConfigValue;
-import dev.turboism.sdk.config.ConfigValueSource;
-import dev.turboism.sdk.config.ConfigWriteResult;
-import dev.turboism.sdk.config.PluginConfigException;
-import dev.turboism.sdk.config.PluginConfigRegistry;
-import dev.turboism.sdk.cubism.CubismFacade;
-import dev.turboism.sdk.event.EventBus;
-import dev.turboism.sdk.menu.MenuRegistry;
-import dev.turboism.sdk.permission.PluginPermission;
-import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.PluginDescriptor;
-import dev.turboism.sdk.plugin.PluginLogger;
-import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.test.config.InMemoryConfigRegistry;
+import dev.turboism.test.event.RecordingEventBus;
+import dev.turboism.test.plugin.FakePluginContext;
+import dev.turboism.test.plugin.RecordingPluginLogger;
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -35,15 +21,46 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 final class BackupPluginTestFixtures {
 
-    static final class FakeContext implements PluginContext {
-        final RecordingLogger logger = new RecordingLogger();
-        final GatedRegistry registry = new GatedRegistry();
-        final RecordingEventBus bus = new RecordingEventBus();
+    static final class FakeContext extends FakePluginContext {
+        final RecordingPluginLogger logger;
+        final GatedRegistry registry;
+        final RecordingEventBus bus;
         java.nio.file.Path hostBackupDir;
         List<dev.turboism.sdk.cubism.backup.BackupArtifactHandle> backupArtifacts = List.of();
         CompletionStage<dev.turboism.sdk.cubism.backup.BackupRunResult> backupAfterSave;
         final List<dev.turboism.sdk.task.PluginTaskKind> submittedTaskKinds = new CopyOnWriteArrayList<>();
         volatile boolean rejectTasks;
+
+        FakeContext() {
+            this(new RecordingPluginLogger(), new GatedRegistry(), new RecordingEventBus());
+        }
+
+        FakeContext(
+                final dev.turboism.sdk.action.ActionRegistry actions, final dev.turboism.sdk.menu.MenuRegistry menus) {
+            this(new RecordingPluginLogger(), new GatedRegistry(), new RecordingEventBus(), actions, menus);
+        }
+
+        private FakeContext(
+                final RecordingPluginLogger logger, final GatedRegistry registry, final RecordingEventBus bus) {
+            this(logger, registry, bus, null, null);
+        }
+
+        private FakeContext(
+                final RecordingPluginLogger logger,
+                final GatedRegistry registry,
+                final RecordingEventBus bus,
+                final dev.turboism.sdk.action.ActionRegistry actions,
+                final dev.turboism.sdk.menu.MenuRegistry menus) {
+            super(FakePluginContext.builder()
+                    .logger(logger)
+                    .config(registry)
+                    .eventBus(bus)
+                    .actions(actions)
+                    .menus(menus));
+            this.logger = logger;
+            this.registry = registry;
+            this.bus = bus;
+        }
 
         @Override
         public dev.turboism.sdk.task.PluginTaskScheduler tasks() {
@@ -89,61 +106,6 @@ final class BackupPluginTestFixtures {
                             .scheduleWithFixedDelay(request);
                 }
             };
-        }
-
-        @Override
-        public PluginDescriptor descriptor() {
-            return null;
-        }
-
-        @Override
-        public PluginLogger logger() {
-            return logger;
-        }
-
-        @Override
-        public PluginPaths paths() {
-            return null;
-        }
-
-        @Override
-        public CubismFacade cubism() {
-            return null;
-        }
-
-        @Override
-        public List<PluginPermission> permissions() {
-            return List.of();
-        }
-
-        @Override
-        public EventBus eventBus() {
-            return bus;
-        }
-
-        @Override
-        public ActionRegistry actions() {
-            return new ActionRegistry() {
-                @Override
-                public Registration register(final String id, final Action action) {
-                    return () -> {};
-                }
-            };
-        }
-
-        @Override
-        public MenuRegistry menus() {
-            return new MenuRegistry() {
-                @Override
-                public Registration contribute(final MenuContribution contribution) {
-                    return () -> {};
-                }
-            };
-        }
-
-        @Override
-        public PluginConfigRegistry config() {
-            return registry;
         }
 
         public dev.turboism.sdk.cubism.backup.EditorAutoBackupService backup() {
@@ -202,41 +164,6 @@ final class BackupPluginTestFixtures {
             };
         }
 
-        @Override
-        public dev.turboism.sdk.plugin.DisposableScope disposableScope() {
-            return new dev.turboism.sdk.plugin.DisposableScope();
-        }
-
-        @Override
-        public dev.turboism.sdk.ui.UiScheduler uiScheduler() {
-            return new dev.turboism.sdk.ui.UiScheduler() {
-                @Override
-                public Registration runOnUiThread(final Runnable work) {
-                    return () -> {};
-                }
-
-                @Override
-                public Registration runOnUiThreadLater(final Runnable work, final java.time.Duration delay) {
-                    return () -> {};
-                }
-            };
-        }
-
-        @Override
-        public dev.turboism.sdk.diagnostics.DiagnosticReport diagnostics() {
-            return new dev.turboism.sdk.diagnostics.DiagnosticReport() {
-                @Override
-                public java.time.Instant createdAt() {
-                    return java.time.Instant.EPOCH;
-                }
-
-                @Override
-                public List<dev.turboism.sdk.diagnostics.DiagnosticReport.Problem> problems() {
-                    return List.of();
-                }
-            };
-        }
-
         boolean awaitLog(final String fragment, final Duration timeout) throws InterruptedException {
             final long deadline = System.nanoTime() + timeout.toNanos();
             while (System.nanoTime() < deadline) {
@@ -249,7 +176,7 @@ final class BackupPluginTestFixtures {
         }
 
         boolean hasLog(final String fragment) {
-            return logger.lines.stream().anyMatch(line -> line.contains(fragment));
+            return logger.messages().stream().anyMatch(line -> line.contains(fragment));
         }
 
         @Override
@@ -262,109 +189,19 @@ final class BackupPluginTestFixtures {
     }
 
     /** Registry whose registerSchema completes only when the test says so. */
-    static final class GatedRegistry implements PluginConfigRegistry {
-        final CompletableFuture<Void> schema = new CompletableFuture<>();
-        final Map<String, Object> values = new HashMap<>();
+    static final class GatedRegistry extends InMemoryConfigRegistry {
+        final CompletableFuture<Void> gate = new CompletableFuture<>();
 
         void completeSchema() {
-            schema.complete(null);
+            gate.complete(null);
         }
 
         @Override
         public CompletionStage<Void> registerSchema(
                 final dev.turboism.sdk.config.ConfigSchema schema,
                 final List<dev.turboism.sdk.config.ConfigMigration> migrations) {
-            return this.schema;
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public <T> CompletionStage<ConfigReadResult<T>> read(final ConfigKey<T> key) {
-            final T value = (T) values.getOrDefault(key.name(), key.defaultValue());
-            return CompletableFuture.completedFuture(
-                    new ConfigReadResult<>(new ConfigValue<>(value, ConfigValueSource.STORED, 1L), Optional.empty()));
-        }
-
-        @Override
-        public <T> CompletionStage<ConfigWriteResult> write(
-                final ConfigKey<T> key, final T value, final long expected) {
-            values.put(key.name(), value);
-            return CompletableFuture.completedFuture(new ConfigWriteResult(true, expected + 1, Optional.empty()));
-        }
-
-        @Override
-        public Registration readScope(final String relativePath) {
-            return () -> {};
-        }
-
-        @Override
-        public Registration writeScope(final String relativePath) {
-            return () -> {};
-        }
-
-        @Override
-        public Optional<String> readString(final String relativePath, final String key) {
-            return Optional.empty();
-        }
-
-        @Override
-        public void writeString(final String relativePath, final String key, final String value)
-                throws PluginConfigException {
-            throw new PluginConfigException("not supported");
-        }
-    }
-
-    /** Event bus that captures the subscribed listener so tests can fire events. */
-    static final class RecordingEventBus implements EventBus {
-        final List<java.util.function.Consumer<?>> listeners = new CopyOnWriteArrayList<>();
-
-        @Override
-        public <T extends EventBus.TurboismEvent> Registration subscribe(
-                final Class<T> type, final java.util.function.Consumer<T> listener) {
-            listeners.add(listener);
-            return () -> listeners.remove(listener);
-        }
-
-        @Override
-        public <T extends EventBus.TurboismEvent> void publish(final T event) {
-            fire((dev.turboism.sdk.cubism.backup.BackupCompletedEvent) event);
-        }
-
-        @SuppressWarnings("unchecked")
-        void fire(final dev.turboism.sdk.cubism.backup.BackupCompletedEvent event) {
-            for (java.util.function.Consumer<?> listener : listeners) {
-                ((java.util.function.Consumer<dev.turboism.sdk.cubism.backup.BackupCompletedEvent>) listener)
-                        .accept(event);
-            }
-        }
-    }
-
-    static final class RecordingLogger implements PluginLogger {
-        final List<String> lines = new CopyOnWriteArrayList<>();
-
-        @Override
-        public void debug(final String message) {
-            lines.add(message);
-        }
-
-        @Override
-        public void info(final String message) {
-            lines.add(message);
-        }
-
-        @Override
-        public void warn(final String message) {
-            lines.add(message);
-        }
-
-        @Override
-        public void error(final String message) {
-            lines.add(message);
-        }
-
-        @Override
-        public void error(final String message, final Throwable throwable) {
-            lines.add(message);
+            super.registerSchema(schema, migrations);
+            return gate;
         }
     }
 }

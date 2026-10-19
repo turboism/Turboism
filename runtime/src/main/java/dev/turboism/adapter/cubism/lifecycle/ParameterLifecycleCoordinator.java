@@ -192,9 +192,8 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
                     } else {
                         plugin.logger().warn("Ignored non-finite beforeSetParameterValue result for " + OPERATION_ID);
                     }
-                } catch (ThreadDeath | VirtualMachineError fatal) {
-                    throw fatal;
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     logHookFailure(plugin, "beforeSetParameterValue", failure);
                 }
             }

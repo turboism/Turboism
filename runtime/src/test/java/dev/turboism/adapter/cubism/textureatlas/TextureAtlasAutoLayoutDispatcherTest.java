@@ -18,8 +18,10 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutTarget;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.test.concurrent.Await;
 import java.awt.geom.AffineTransform;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -302,7 +304,10 @@ final class TextureAtlasAutoLayoutDispatcherTest {
         closer.start();
         // Interrupting the close must not report success while the planner still runs.
         closer.interrupt();
-        Thread.sleep(50);
+        Await.condition(
+                "closer waiting for in-flight planner",
+                () -> closer.getState() == Thread.State.WAITING || closer.getState() == Thread.State.TIMED_WAITING,
+                Duration.ofSeconds(5));
         assertFalse(closeDone.get());
         finish.countDown();
         dispatchThread.join(10_000);

@@ -1,6 +1,6 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory;
+import dev.turboism.mapping.verification.SliceRegistry;
 
 /** Declarative contributor for the verified floating-tab close hook. */
 final class FloatingTabCloseHookContributor implements HookContributor {
@@ -34,7 +34,7 @@ final class FloatingTabCloseHookContributor implements HookContributor {
     public AutoCloseable install(final HookEnvironment environment) throws Exception {
         final var host = environment.host().orElseThrow();
         final var resolver = environment.sliceResolver(
-                new VerifiedEmbeddedPanelResolverFactory(),
+                SliceRegistry.EMBEDDED_PANEL.resolverFactory(),
                 "cubism-" + environment.profile() + "-ui-embedded-panel.json",
                 "ui-embedded-panel");
         final VerifiedFloatingTabCloseHookInstaller installer = new VerifiedFloatingTabCloseHookInstaller(

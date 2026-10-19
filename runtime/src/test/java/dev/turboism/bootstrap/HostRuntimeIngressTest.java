@@ -9,7 +9,9 @@ import dev.turboism.adapter.host.HostInstanceDescriptor;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.adapter.host.HostSessionFailure;
 import dev.turboism.adapter.host.HostVerificationEvidence;
+import dev.turboism.test.concurrent.Await;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -74,10 +76,7 @@ class HostRuntimeIngressTest {
         assertTrue(sourceEntered.await(5, TimeUnit.SECONDS));
         Thread closing = new Thread(() -> captureFailure(ingress::close, closeFailure), "ingress-close");
         closing.start();
-        final long closeDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-        while (!ingress.isCloseRequestedForTest() && System.nanoTime() < closeDeadline) {
-            Thread.sleep(1);
-        }
+        Await.condition("ingress close requested", ingress::isCloseRequestedForTest, Duration.ofSeconds(5));
         assertTrue(ingress.isCloseRequestedForTest());
         releaseSource.countDown();
         publishing.join(5_000);

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import dev.turboism.sdk.ui.UserFileLifetime;
 import dev.turboism.sdk.ui.UserFileMode;
 import dev.turboism.sdk.ui.UserFileRequest;
+import dev.turboism.test.concurrent.Await;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.GraphicsEnvironment;
@@ -77,22 +78,27 @@ class SwingUserFileGrantSourceDisplayTest {
                 UserFileLifetime.ONE_OPERATION);
     }
 
-    private static JFileChooser awaitChooser() throws Exception {
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+    private static JFileChooser awaitChooser() {
         var found = new AtomicReference<JFileChooser>();
-        while (System.nanoTime() < deadline) {
-            SwingUtilities.invokeAndWait(() -> {
-                for (Window window : Window.getWindows()) {
-                    if (window.isShowing()) {
-                        JFileChooser chooser = find(window);
-                        if (chooser != null && chooser.isShowing()) found.set(chooser);
+        Await.condition(
+                "No visible JFileChooser",
+                () -> {
+                    try {
+                        SwingUtilities.invokeAndWait(() -> {
+                            for (Window window : Window.getWindows()) {
+                                if (window.isShowing()) {
+                                    JFileChooser chooser = find(window);
+                                    if (chooser != null && chooser.isShowing()) found.set(chooser);
+                                }
+                            }
+                        });
+                    } catch (Exception exception) {
+                        throw new RuntimeException(exception);
                     }
-                }
-            });
-            if (found.get() != null) return found.get();
-            Thread.sleep(25);
-        }
-        throw new AssertionError("No visible JFileChooser");
+                    return found.get() != null;
+                },
+                java.time.Duration.ofSeconds(10));
+        return found.get();
     }
 
     private static JFileChooser find(Component component) {

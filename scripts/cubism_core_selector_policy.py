@@ -12,10 +12,12 @@ import sys
 from pathlib import Path
 from typing import Any, Sequence
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+from turboism_dev.paths import repo_root
+from turboism_dev.versions import cubism_version_key
 
-from cubism_core_api import InventoryError, decode_json  # noqa: E402
+from cubism_core_api import InventoryError, decode_json
+
+ROOT = repo_root()
 
 FORMAT = "turboism.cubism-core.selector-policy"
 SCHEMA_VERSION = 1
@@ -49,7 +51,7 @@ def load_json(path: Path) -> dict[str, Any]:
 
 def version_key(version: str) -> tuple[int, ...]:
     try:
-        return tuple(int(part) for part in version.split("."))
+        return cubism_version_key(version)
     except ValueError as exc:
         raise InventoryError(f"invalid Cubism version: {version!r}") from exc
 

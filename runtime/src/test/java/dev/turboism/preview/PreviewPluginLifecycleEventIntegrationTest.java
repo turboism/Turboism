@@ -11,6 +11,7 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.runtime.PluginLifecycleEvent;
+import dev.turboism.test.concurrent.Await;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -23,7 +24,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.jar.JarEntry;
@@ -693,14 +693,17 @@ class PreviewPluginLifecycleEventIntegrationTest {
         }
     }
 
-    private static void awaitTrue(final ConditionWithException condition, final String description) throws Exception {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-        while (!condition.getAsBoolean()) {
-            if (System.nanoTime() > deadline) {
-                throw new AssertionError(description);
-            }
-            Thread.sleep(10);
-        }
+    private static void awaitTrue(final ConditionWithException condition, final String description) {
+        Await.condition(
+                description,
+                () -> {
+                    try {
+                        return condition.getAsBoolean();
+                    } catch (Exception exception) {
+                        throw new RuntimeException(exception);
+                    }
+                },
+                Duration.ofSeconds(10));
     }
 
     private interface ConditionWithException {

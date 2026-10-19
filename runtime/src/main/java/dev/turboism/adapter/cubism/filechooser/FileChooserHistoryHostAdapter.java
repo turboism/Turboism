@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.filechooser;
 
+import dev.turboism.core.reflect.ReflectAccess;
 import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -114,7 +115,7 @@ public final class FileChooserHistoryHostAdapter {
         for (Class<?> type = target.getClass(); type != null; type = type.getSuperclass()) {
             try {
                 final Field field = type.getDeclaredField(name);
-                field.setAccessible(true);
+                ReflectAccess.open(field);
                 return field.get(target);
             } catch (NoSuchFieldException ignored) {
                 // keep walking the hierarchy
@@ -131,7 +132,7 @@ public final class FileChooserHistoryHostAdapter {
         for (Class<?> type = target.getClass(); type != null; type = type.getSuperclass()) {
             try {
                 final Field field = type.getDeclaredField(name);
-                field.setAccessible(true);
+                ReflectAccess.open(field);
                 field.set(target, value);
                 return;
             } catch (NoSuchFieldException ignored) {

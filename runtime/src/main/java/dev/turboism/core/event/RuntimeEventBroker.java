@@ -3,6 +3,7 @@ package dev.turboism.core.event;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeCancellationToken;
 import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.runtime.work.PluginExecutorSet;
 import dev.turboism.core.runtime.work.PluginWorkSubmission;
 import dev.turboism.permissions.PermissionChecker;
@@ -304,9 +305,8 @@ public final class RuntimeEventBroker {
         for (Consumer<Class<?>> listener : subscriptionDemandListeners) {
             try {
                 listener.accept(subscribedType);
-            } catch (ThreadDeath | VirtualMachineError fatal) {
-                throw fatal;
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 diagnose(new DeliveryDiagnostic(
                         INTERNAL_DIAGNOSTIC_OWNER,
                         subscribedType.getName(),
@@ -381,9 +381,8 @@ public final class RuntimeEventBroker {
                         if (transformed != null && Float.isFinite(transformed)) {
                             current = transformed;
                         }
-                    } catch (ThreadDeath | VirtualMachineError fatal) {
-                        throw fatal;
                     } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure);
                         diagnose(new DeliveryDiagnostic(
                                 owner.key(), eventType.getName(), DeliveryDiagnostic.Code.SUBSCRIBER_FAILED));
                         // The checkpoint in current remains authoritative for later subscribers.
@@ -434,9 +433,8 @@ public final class RuntimeEventBroker {
                         if (transformed != null && validator.test(transformed)) {
                             current = transformed;
                         }
-                    } catch (ThreadDeath | VirtualMachineError fatal) {
-                        throw fatal;
                     } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure);
                         diagnose(new DeliveryDiagnostic(
                                 owner.key(), eventType.getName(), DeliveryDiagnostic.Code.SUBSCRIBER_FAILED));
                         // The checkpoint in current remains authoritative for later subscribers.
@@ -485,9 +483,8 @@ public final class RuntimeEventBroker {
             final EventBus.TurboismEvent event) {
         try {
             invoker.invoke(descriptor, event);
-        } catch (ThreadDeath | VirtualMachineError fatal) {
-            throw fatal;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             final EventFailureInterceptor interceptor = failureInterceptors.get(owner);
             final boolean advised =
                     interceptor != null && interceptor.intercept(owner.pluginId(), descriptor, event, failure);
@@ -515,9 +512,8 @@ public final class RuntimeEventBroker {
                     event.getClass().getName(),
                     failure.getClass().getName(),
                     advised));
-        } catch (ThreadDeath | VirtualMachineError fatal) {
-            throw fatal;
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Structured failure collection cannot alter subscriber containment.
         }
     }
@@ -673,9 +669,8 @@ public final class RuntimeEventBroker {
                 final long startedNanos = System.nanoTime();
                 try {
                     delivery.deliver(owner.key());
-                } catch (ThreadDeath | VirtualMachineError fatal) {
-                    throw fatal;
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     diagnose(new DeliveryDiagnostic(
                             owner.key(),
                             delivery.event().getClass().getName(),
@@ -737,9 +732,8 @@ public final class RuntimeEventBroker {
     private void diagnose(final DeliveryDiagnostic diagnostic) {
         try {
             diagnosticSink.accept(diagnostic);
-        } catch (ThreadDeath | VirtualMachineError fatal) {
-            throw fatal;
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Diagnostics must never alter publication or host-operation behavior.
         }
     }

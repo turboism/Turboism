@@ -1,5 +1,6 @@
 package dev.turboism.core.event;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.failure.ExceptionAdvice;
 import dev.turboism.sdk.failure.FailureContext;
@@ -56,9 +57,8 @@ final class EventFailureInterceptor {
             try {
                 handler.invoke(failure, context);
                 return true;
-            } catch (ThreadDeath | VirtualMachineError fatal) {
-                throw fatal;
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Advice failure falls through to Runtime structured containment.
             }
         }

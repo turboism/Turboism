@@ -70,6 +70,22 @@ public final class Sample {
 }
 """
 
+LONE_VME = """package dev.turboism.sample;
+
+public final class Sample {
+
+    void run() {
+        try {
+            work();
+        } catch (VirtualMachineError fatal) {
+            throw fatal;
+        } catch (Throwable failure) {
+            diagnose(failure);
+        }
+    }
+}
+"""
+
 
 def run(root: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
@@ -79,8 +95,8 @@ def run(root: Path) -> subprocess.CompletedProcess:
     )
 
 
-def seed(root: Path, name: str, body: str) -> None:
-    target = root / "runtime/src/main/java/dev/turboism/sample" / name
+def seed(root: Path, relative: str, body: str) -> None:
+    target = root / relative
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(body)
 
@@ -88,15 +104,17 @@ def seed(root: Path, name: str, body: str) -> None:
 def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
-        seed(root, "Guarded.java", GUARDED_HELPER)
-        seed(root, "Clause.java", GUARDED_CLAUSE)
-        seed(root, "Exempt.java", EXEMPT)
+        # repo_root() anchors on this marker; without it the checker would scan the real repo.
+        seed(root, "gradle/common-java.gradle.kts", "")
+        seed(root, "runtime/src/main/java/dev/turboism/sample/Guarded.java", GUARDED_HELPER)
+        seed(root, "sdk/src/main/java/dev/turboism/sample/Clause.java", GUARDED_CLAUSE)
+        seed(root, "runtime/src/main/java/dev/turboism/sample/Exempt.java", EXEMPT)
         result = run(root)
         if result.returncode != 0:
             print("FAIL: compliant shapes must pass:", result.stderr, result.stdout)
             return 1
 
-        seed(root, "Violating.java", VIOLATING)
+        seed(root, "runtime/src/main/java/dev/turboism/sample/Violating.java", VIOLATING)
         result = run(root)
         if result.returncode == 0:
             print("FAIL: an unguarded catch (Throwable) must fail closed")
@@ -104,6 +122,27 @@ def main() -> int:
         if "unguarded catch (Throwable failure)" not in result.stdout:
             print("FAIL: violation must name the site:", result.stdout)
             return 1
+        (root / "runtime/src/main/java/dev/turboism/sample/Violating.java").unlink()
+
+        seed(root, "runtime/src/main/java/dev/turboism/sample/NonStandardClause.java", GUARDED_CLAUSE)
+        result = run(root)
+        if result.returncode == 0:
+            print("FAIL: non-standard fatal clause in runtime must fail closed")
+            return 1
+        if "runtime/bootstrap sources must use FatalErrors.rethrowIfFatal" not in result.stdout:
+            print("FAIL: violation must name the non-standard rule:", result.stdout)
+            return 1
+        (root / "runtime/src/main/java/dev/turboism/sample/NonStandardClause.java").unlink()
+
+        seed(root, "sdk/src/main/java/dev/turboism/sample/LoneVme.java", LONE_VME)
+        result = run(root)
+        if result.returncode == 0:
+            print("FAIL: lone VirtualMachineError catch outside runtime must fail closed")
+            return 1
+        if "non-runtime sources must catch both ThreadDeath and VirtualMachineError" not in result.stdout:
+            print("FAIL: violation must name the lone VME rule:", result.stdout)
+            return 1
+        (root / "sdk/src/main/java/dev/turboism/sample/LoneVme.java").unlink()
 
         print("check_throwable_containment self-test passed")
         return 0

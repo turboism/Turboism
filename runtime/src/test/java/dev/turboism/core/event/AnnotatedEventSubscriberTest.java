@@ -18,7 +18,9 @@ import dev.turboism.sdk.failure.FailureBoundary;
 import dev.turboism.sdk.failure.FailureContext;
 import dev.turboism.sdk.failure.HandlesException;
 import dev.turboism.sdk.failure.NoFailureInterception;
+import dev.turboism.test.concurrent.Await;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -96,11 +98,8 @@ class AnnotatedEventSubscriberTest {
         scheduler.shutdown();
     }
 
-    private static boolean awaitSize(final List<?> values, final int size) throws InterruptedException {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(1);
-        while (values.size() < size && System.nanoTime() < deadline) {
-            Thread.sleep(5L);
-        }
+    private static boolean awaitSize(final List<?> values, final int size) {
+        Await.condition("values reached size " + size, () -> values.size() >= size, Duration.ofSeconds(1));
         return values.size() >= size;
     }
 

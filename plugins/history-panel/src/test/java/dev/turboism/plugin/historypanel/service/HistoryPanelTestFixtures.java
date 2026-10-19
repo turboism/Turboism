@@ -5,7 +5,6 @@ import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.plugin.CancellationToken;
 import dev.turboism.sdk.plugin.PluginLogger;
-import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.task.FixedDelayTaskRequest;
 import dev.turboism.sdk.task.PluginTaskRequest;
 import dev.turboism.sdk.task.PluginTaskScheduler;
@@ -16,9 +15,7 @@ import dev.turboism.sdk.task.TaskProgress;
 import dev.turboism.sdk.task.TaskRejectionReason;
 import dev.turboism.sdk.task.TaskSubmission;
 import dev.turboism.sdk.task.TaskSubmissionStatus;
-import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.PanelView;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -51,94 +48,7 @@ final class HistoryPanelTestFixtures {
         }
     }
 
-    static final class RecordingUiHost implements UiHostCapabilityService {
-
-        final List<EmbeddedPanelContribution> panels = new ArrayList<>();
-        final List<Registration> registrations = new ArrayList<>();
-
-        List<EmbeddedPanelContribution> panels() {
-            return List.copyOf(panels);
-        }
-
-        List<Registration> registrations() {
-            return List.copyOf(registrations);
-        }
-
-        @Override
-        public Registration contributeEmbeddedPanel(final EmbeddedPanelContribution contribution) {
-            // Mirrors the runtime authority: same identity replaces the previous
-            // contribution (content refresh) instead of adding a second panel.
-            panels.removeIf(existing -> existing.id().equals(contribution.id()));
-            panels.add(contribution);
-            final Registration registration =
-                    () -> panels.removeIf(existing -> existing.id().equals(contribution.id()));
-            registrations.add(registration);
-            return registration;
-        }
-
-        @Override
-        public Registration contributeOverlay(final dev.turboism.sdk.ui.OverlayContribution contribution) {
-            return noOp();
-        }
-
-        @Override
-        public Registration contributeBoundingBoxOverlayButton(
-                final dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution) {
-            return noOp();
-        }
-
-        @Override
-        public dev.turboism.sdk.ui.context.ContextSourceSnapshot contextSource() {
-            return null;
-        }
-
-        @Override
-        public dev.turboism.sdk.ui.ViewportSnapshot viewport() {
-            return null;
-        }
-
-        @Override
-        public Registration openDialog(final dev.turboism.sdk.ui.DialogRequest request) {
-            return noOp();
-        }
-
-        @Override
-        public boolean confirmDialog(final dev.turboism.sdk.ui.DialogRequest request) {
-            return false;
-        }
-
-        @Override
-        public Optional<String> requestFile(final dev.turboism.sdk.ui.FileChooserRequest request) {
-            return Optional.empty();
-        }
-
-        @Override
-        public Registration notifyStatus(final dev.turboism.sdk.ui.StatusNotification notification) {
-            return noOp();
-        }
-
-        @Override
-        public Registration contributeContextMenu(
-                final dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution contribution) {
-            return noOp();
-        }
-
-        @Override
-        public Registration contributeMainToolbar(
-                final dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.MainToolbarContribution contribution) {
-            return noOp();
-        }
-
-        @Override
-        public Registration contributePaletteToolbar(
-                final dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
-            return noOp();
-        }
-
-        static Registration noOp() {
-            return () -> {};
-        }
-    }
+    static final class RecordingUiHost extends dev.turboism.test.ui.RecordingUiHost {}
 
     /**
      * Records fixed-delay scheduling so the test can assert the cadence, drive
