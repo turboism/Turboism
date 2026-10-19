@@ -5,7 +5,7 @@ from update metadata so a statistics outage never invalidates a release. It only
 reads known, active releases; it cannot increment or set counters.
 
 The total adds public GitHub binary-asset downloads to official mirror starts.
-The four binaries count; checksum sidecars and standalone developer SDK assets do
+The EXE installer and portable ZIP count; checksum sidecars and standalone developer SDK assets do
 not. GitHub's raw `download_count` includes internal fetches that occur before or
 during initial release mirroring (such as the Cloudflare Worker's one-time mirror
 pull of each binary). To exclude those internal fetches:
@@ -66,7 +66,7 @@ are derived from the release workflows (`release.yml`, `release-github-only.yml`
   official R2 mirror (`https://api.turboism.dev/files/...`) with
   `X-Turboism-Download-Purpose: verification` (**0** GitHub binary downloads).
 - The Cloudflare Worker mirror (`distribution/mirror.mjs`) downloads each of the
-  four binaries **once** from GitHub when first populating R2 (**1** GitHub binary
+  product binaries **once** from GitHub when first populating R2 (**1** GitHub binary
   download per asset).
 
 | Tag | `.exe` | `.jar` | `-full.zip` | `-lite.zip` | Total baseline | Observed GitHub (`.exe` / `.jar` / `-full` / `-lite`) | Derivation |

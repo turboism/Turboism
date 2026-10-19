@@ -77,7 +77,7 @@ export function baselineFor(tag, asset, record = null) {
 }
 
 export function countsDocument(version, record, official) {
-  if (!record?.active || record.release.tag !== 'v'+version || record.release.assets.length !== 4) throw new Error('Unknown release');
+  if (!record?.active || record.release.tag !== 'v'+version || ![2,4].includes(record.release.assets.length)) throw new Error('Unknown release');
   const tag = record.release.tag;
   const githubAsOf = Number.isFinite(Date.parse(record.countsAsOf)) ? record.countsAsOf : null;
   const assets = record.release.assets.map(a => {
