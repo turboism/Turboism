@@ -87,8 +87,6 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 变更
 
-- 将 Full/Thin 发行包合并为一个 Windows 安装器和一个便携 ZIP，均包含全部随包第一方插件与完整的 GraalJS 离线引擎依赖；GraalVM 运行时继续单独安装。既有 Full/Thin 安装可通过统一安装器更新。
-
 - 插件 Turboism API 现在跟随框架基础版本，忽略 beta/nightly 等后缀。插件 SDK API 范围为 `[0.67.0,1.0.0)`；旧 `[0.1.0,0.2.0)` 插件会被拒绝并显示实际运行时 API 版本。运行时元数据记录实现与 API 版本，已审计的 SDK JAR 保持不变。
 
 - MCP 插件：回环服务器现在要求变更类 `tools/call` 调用与会话关闭携带 `Authorization: Bearer`
@@ -207,7 +205,7 @@ Turboism 的所有重要变更都记录在本文件中。
   以及 Parameter、Parameter Batch Transfer 插件的工作区条目；它们在面板标签页上下文菜单
   与顶层菜单中的入口保持不变。
 
-## [0.67.0] - 2026-10-13
+## [0.67.0] - 2026-10-19
 
 ### 新增
 
@@ -234,11 +232,11 @@ Turboism 的所有重要变更都记录在本文件中。
 - 插件开发者可以从独立模板仓库 `turboism/turboism-plugin-template` 开始：setup 脚本会拉取并校验 SDK 和新增的发布文件 `turboism-event-processor-<version>.jar`（`@SubscribeEvent` 需要它），重命名脚手架并写入 Cubism 版本声明。
 - Cubism 内插件市场（Turboism → 插件市场…）：从已签名的插件目录浏览、安装、更新和卸载插件。声明 `lifecycle.hotReload` 的插件立即生效，其余在重启 Cubism 后生效。第一方插件会在后台自动更新，可在设置中关闭。网页插件市场 https://turboism.dev/plugins 显示每个插件的 README 并支持筛选。
 - Cubism 菜单更名为“Turboism”，并新增独立的插件设置窗口。
-- 发布分为完整版与精简版：`TurboismInstaller-<v>-full.exe`/`-thin.exe` 与 `turboism-<v>-full.zip`/`-thin.zip`。完整版包含全部第一方插件，精简版不含任何插件；安装器不再提供模式或插件选择。不再发布 Java 安装器。
+- 发行包仅区分 Windows EXE 安装包（`TurboismInstaller-<v>.exe`）与便携 ZIP（`turboism-<v>.zip`），均默认包含全部随包第一方插件和完整离线 GraalJS 引擎；GraalVM 运行时单独安装。既有安装可通过安装器升级。不再发布 Java 安装器。
 
 ### 变更
 
-- SDK 契约收敛，exact 基线升级为 v17（保留 v2–v16 历史审计），受影响的插件需要迁移：
+- SDK 契约收敛，exact 基线升级为 v21（保留 v2–v20 历史审计），受影响的插件需要迁移：
   - 移除已弃用的按服务 `PluginContext` getter，改用 `ctx.services().find(...)` 或 `require(...)`。
   - 参数查询读取面由 `ParameterAppearance` 与 `cubism().model().active().parameters().all()` 取代。
   - 旧命令队列与 `TransactionManager` 由创作事务和 `Parameter.setValue` 取代，`StrictJson` 由 `dev.turboism.sdk.json.Json` 取代，自动备份路径由 `BackupArtifactHandle` 取代。
