@@ -2,12 +2,17 @@ package dev.turboism.plugin.acp;
 
 import java.util.Objects;
 
-/** Opaque durable ACP session identity plus its agent-provided last-update timestamp. */
-record AcpSessionSummary(String sessionId, String updatedAt) {
+/** Opaque durable ACP session identity and optional agent-provided display metadata. */
+record AcpSessionSummary(String sessionId, String title, String updatedAt) {
+
+    AcpSessionSummary(final String sessionId, final String updatedAt) {
+        this(sessionId, "", updatedAt);
+    }
 
     AcpSessionSummary {
         sessionId = requireText(sessionId, "sessionId", 512);
-        updatedAt = requireText(updatedAt, "updatedAt", 128);
+        title = Objects.requireNonNullElse(title, "");
+        updatedAt = Objects.requireNonNullElse(updatedAt, "");
     }
 
     private static String requireText(final String value, final String name, final int maximum) {

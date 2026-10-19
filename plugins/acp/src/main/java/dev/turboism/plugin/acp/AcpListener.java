@@ -7,6 +7,8 @@ interface AcpListener {
 
     default void agentText(final AcpClient source, final String sessionId, final String text) {}
 
+    default void agentImage(final AcpClient source, final String sessionId, final AcpAttachment image) {}
+
     default void agentThought(final AcpClient source, final String sessionId, final String text) {}
 
     default void toolCall(
@@ -23,6 +25,10 @@ interface AcpListener {
             final String toolCallId,
             final String status,
             final String content) {}
+
+    /** Bounded, credential-redacted input, supplied independently of tool output updates. */
+    default void toolInput(
+            final AcpClient source, final String sessionId, final String toolCallId, final String input) {}
 
     /** Agent-pushed replacement of the session configuration catalog. */
     default void configOptions(final AcpClient source, final String sessionId, final List<AcpConfigOption> options) {}
