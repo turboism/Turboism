@@ -4,6 +4,7 @@ import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeTimerHandle;
 import dev.turboism.core.runtime.RuntimeTimerSubmission;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.performance.PerformanceProbeService;
 import dev.turboism.sdk.performance.PerformanceSampleEvent;
 import dev.turboism.sdk.performance.PerformanceSnapshot;
@@ -81,9 +82,8 @@ public final class RuntimePerformanceEventPublisher implements AutoCloseable {
         }
         try {
             eventBroker.publishRuntime(event);
-        } catch (ThreadDeath | VirtualMachineError fatal) {
-            throw fatal;
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Performance observation delivery cannot stop the shared sampler.
         }
     }

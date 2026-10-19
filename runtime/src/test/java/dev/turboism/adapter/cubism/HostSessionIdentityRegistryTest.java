@@ -4,10 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.test.concurrent.Await;
 import java.lang.ref.WeakReference;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 class HostSessionIdentityRegistryTest {
@@ -63,12 +64,14 @@ class HostSessionIdentityRegistryTest {
                 survivorId, registry.idFor(survivor, "document"), "a live object's id survives any collection pass");
     }
 
-    private static void assertCollected(final List<WeakReference<Object>> references) throws Exception {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-        while (references.stream().anyMatch(reference -> !reference.refersTo(null)) && System.nanoTime() < deadline) {
-            System.gc();
-            Thread.sleep(10);
-        }
+    private static void assertCollected(final List<WeakReference<Object>> references) {
+        Await.condition(
+                "references collected",
+                () -> {
+                    System.gc();
+                    return references.stream().allMatch(reference -> reference.refersTo(null));
+                },
+                Duration.ofSeconds(5));
         assertTrue(
                 references.stream().allMatch(reference -> reference.refersTo(null)),
                 "the registry must not retain collected host objects");

@@ -29,7 +29,10 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+from turboism_dev.json_io import read_json
+from turboism_dev.paths import repo_root
+
+ROOT = repo_root()
 
 CANONICAL = "ReviewedHostArtifacts.CUBISM_*_VERSION"
 REVIEWED_HOST_ARTIFACTS = Path(
@@ -201,7 +204,7 @@ def draft_profiles(root: Path) -> tuple[set[str], list[str]]:
         version = match.group(1)
         versions.add(version)
         try:
-            document = json.loads(profile.read_text(encoding="utf-8"))
+            document = read_json(profile)
         except json.JSONDecodeError as exc:
             problems.append(f"{profile.name}: invalid JSON: {exc}")
             continue
@@ -235,7 +238,7 @@ def class_pin_tables(root: Path) -> tuple[set[str], list[str]]:
         return versions, problems
     for pin in sorted(base.glob("*.json")):
         try:
-            document = json.loads(pin.read_text(encoding="utf-8"))
+            document = read_json(pin)
         except json.JSONDecodeError as exc:
             problems.append(f"{CLASS_PINS_DIR}/{pin.name}: invalid JSON: {exc}")
             continue

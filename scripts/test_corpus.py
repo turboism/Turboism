@@ -25,7 +25,6 @@ from __future__ import annotations
 import argparse
 import gzip
 import hashlib
-import json
 import os
 import shutil
 import sys
@@ -35,9 +34,12 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from turboism_dev.json_io import read_json
+from turboism_dev.paths import repo_root
+
 
 def default_repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    return repo_root()
 
 
 def default_manifest_path(repo_root: Path | None = None) -> Path:
@@ -63,8 +65,7 @@ def compute_file_sha256(path: Path | str) -> str:
 def load_manifest(manifest_path: Path) -> dict[str, Any]:
     if not manifest_path.exists():
         raise FileNotFoundError(f"Manifest not found: {manifest_path}")
-    with open(manifest_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return read_json(manifest_path)
 
 
 def find_dataset(manifest: dict[str, Any], dataset_id: str) -> dict[str, Any]:

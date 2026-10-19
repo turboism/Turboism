@@ -220,8 +220,9 @@ final class BackupPluginTest {
         assertTrue(
                 context.awaitLog("WEBDAV_TRIGGER_MODE mode=AUTO_BACKUP_SYNC", Duration.ofSeconds(2)),
                 "the trigger mode must be logged");
-        context.bus.fire(completedEvent());
-        Thread.sleep(300L);
+        context.bus.publish(completedEvent());
+        // publish() dispatches synchronously and an upload is submitted before the handler returns
+        assertTrue(context.submittedTaskKinds.isEmpty(), "AUTO_BACKUP_SYNC must not submit an upload task");
         assertFalse(
                 context.hasLog("WEBDAV_SYNC_UPLOAD"),
                 "AUTO_BACKUP_SYNC must not react to BackupCompletedEvent (the scanner owns it)");
@@ -245,13 +246,13 @@ final class BackupPluginTest {
         assertTrue(
                 java.nio.file.Files.exists(backupDir.resolve("model_backup2026_08_08_120000.cmo3")),
                 "AUTO_BACKUP_SYNC must never delete host artifacts");
-        int uploads = (int) context.logger.lines.stream()
+        int uploads = (int) context.logger.messages().stream()
                 .filter(line -> line.startsWith("WEBDAV_SYNC_UPLOAD"))
                 .count();
         plugin.scanOnce();
         assertEquals(
                 uploads,
-                (int) context.logger.lines.stream()
+                (int) context.logger.messages().stream()
                         .filter(line -> line.startsWith("WEBDAV_SYNC_UPLOAD"))
                         .count(),
                 "the dedup set must skip an already scanned artifact");
@@ -374,6 +375,24 @@ final class BackupPluginTest {
             Thread.sleep(20L);
         }
         assertEquals(0, liveWorkerThreads(), "no plugin worker thread may survive disable()");
+    }
+
+    @Test
+    void menuFailureDuringEnableRollsBackActionAndWorkers() throws Exception {
+        final java.util.concurrent.atomic.AtomicInteger actionsRevoked =
+                new java.util.concurrent.atomic.AtomicInteger();
+        final dev.turboism.sdk.action.ActionRegistry actionRegistry = (id, action) -> actionsRevoked::incrementAndGet;
+        final dev.turboism.sdk.menu.MenuRegistry failingMenu = contribution -> {
+            throw new IllegalStateException("fixture menu failure");
+        };
+        final FakeContext context = new FakeContext(actionRegistry, failingMenu);
+        final BackupPlugin plugin = new BackupPlugin();
+        plugins.add(plugin);
+        plugin.init(context);
+
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, plugin::enable);
+        assertFalse(plugin.isEnabled(), "plugin must not remain enabled on failure");
+        assertEquals(1, actionsRevoked.get(), "action must be revoked on partial enable failure");
     }
 
     /** Live threads owned by this plugin's worker executors. */

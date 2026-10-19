@@ -1,7 +1,7 @@
 import org.gradle.language.jvm.tasks.ProcessResources
 
 plugins {
-    `java-library`
+    id("turboism.java-conventions")
 }
 
 val generatedCoreCatalogRoot = layout.buildDirectory.dir(
@@ -295,7 +295,7 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
             "dev.turboism.mapping.verification.EditorTextureSelectorContractTest"
         )
         includeTestsMatching(
-            "dev.turboism.mapping.verification.VerifiedCorePublicApiResolverFactoryTest"
+            "dev.turboism.mapping.verification.CorePublicApiAdmissionTest"
         )
         includeTestsMatching(
             "dev.turboism.mapping.verification.VerifiedEditorStartupResolverFactoriesTest"
@@ -323,7 +323,7 @@ val legacyEvidenceTestClasses = listOf(
     "dev.turboism.mapping.verification.EditorStructureSelectorContractTest",
     "dev.turboism.mapping.verification.EditorTextureRelationsSelectorContractTest",
     "dev.turboism.mapping.verification.EditorTextureSelectorContractTest",
-    "dev.turboism.mapping.verification.VerifiedCorePublicApiResolverFactoryTest",
+    "dev.turboism.mapping.verification.CorePublicApiAdmissionTest",
     "dev.turboism.mapping.verification.VerifiedEditorStartupResolverFactoriesTest"
 )
 
@@ -443,21 +443,22 @@ val checkHeadlessRuntimeClasspath by tasks.registering(JavaExec::class) {
 
 dependencies {
     testImplementation(project(":plugins:selection-brush"))
+    testImplementation(project(":testing:test-support"))
     implementation(project(":sdk"))
     // Internal management contracts shared with the framework shell.
     // The runtime never depends on :plugins:* modules.
     implementation(project(":core-contract"))
 
     // JSON parsing implementation stays in runtime, not in SDK
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.9")
-    implementation("com.fasterxml.jackson.core:jackson-core:2.18.9")
-    implementation("com.fasterxml.jackson.core:jackson-annotations:2.18.9")
+    implementation(libs.jackson.databind)
+    implementation(libs.jackson.core)
+    implementation(libs.jackson.annotations)
 
     // Runtime-only bytecode metadata scanning for the local draft mapping review pipeline.
     implementation("org.ow2.asm:asm:9.7.1")
 
-    implementation("io.github.resilience4j:resilience4j-bulkhead:2.1.0")
-    implementation("io.github.resilience4j:resilience4j-timelimiter:2.1.0")
-    implementation("io.github.resilience4j:resilience4j-circuitbreaker:2.1.0")
+    implementation(libs.resilience4j.bulkhead)
+    implementation(libs.resilience4j.timelimiter)
+    implementation(libs.resilience4j.circuitbreaker)
 
 }

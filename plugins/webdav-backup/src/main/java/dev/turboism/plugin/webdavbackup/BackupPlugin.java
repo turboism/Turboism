@@ -14,10 +14,11 @@ import dev.turboism.sdk.cubism.hook.AnimationFileHooks;
 import dev.turboism.sdk.cubism.hook.ModelFileHooks;
 import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.menu.MenuRegistry;
+import dev.turboism.sdk.plugin.AbstractTurboismPlugin;
+import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.task.PluginTaskKind;
 import dev.turboism.sdk.task.PluginTaskPriority;
 import dev.turboism.sdk.task.PluginTaskRequest;
@@ -42,7 +43,7 @@ import java.util.function.Consumer;
  * menu dialog. Configuration comes from {@code backup/webdav.cfg}; credentials
  * are never written to logs.
  */
-public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, AnimationFileHooks {
+public final class BackupPlugin extends AbstractTurboismPlugin implements ModelFileHooks, AnimationFileHooks {
 
     static final String OPEN_SETTINGS_ACTION_ID = "backup.webdav.settings.open";
     static final String MENU_ROOT = "Turboism";
@@ -51,10 +52,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
     static final int MENU_ORDER = 100;
 
     private final WebDavSettingsBinding binding = new WebDavSettingsBinding();
-    private PluginContext context;
     private volatile WebDavSyncTarget target;
-    private volatile Registration actionRegistration;
-    private volatile Registration menuRegistration;
     private volatile boolean enabled;
     private volatile WebDavConfig lastSavedConfig;
     private volatile WebDavConfig.RemoteTrigger triggerMode = WebDavConfig.RemoteTrigger.SAVE_TRIGGERED;
@@ -89,7 +87,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
 
     @Override
     public void init(final PluginContext context) {
-        this.context = Objects.requireNonNull(context, "context");
+        super.init(context);
         binding.init(context.config()).whenComplete((result, failure) -> {
             if (result == ConfigBindingResult.APPLIED) {
                 context.logger().info("WebDAV backup sync binding initialized");
@@ -108,11 +106,25 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
 
     @Override
     public void enable() {
-        startWorkers();
-        binding.enable();
-        refreshTarget();
-        registerMenuAndAction();
-        enabled = true;
+        super.enable();
+        try {
+            startWorkers();
+            binding.enable();
+            refreshTarget();
+            registerMenuAndAction();
+            enabled = true;
+        } catch (RuntimeException | Error failure) {
+            try (DisposableScope rollback = new DisposableScope()) {
+                rollback.register(this::disable);
+                rollback.register(() -> {
+                    throw failure;
+                });
+            } catch (RuntimeException rollbackFailure) {
+                throw rollbackFailure;
+            } catch (Exception rollbackFailure) {
+                throw new IllegalStateException("WebDAV backup startup rollback failed", rollbackFailure);
+            }
+        }
     }
 
     @Override
@@ -124,15 +136,27 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         stopScanner();
         cancelTargetRetry();
         cleanupPendingTempArtifacts();
-        closeRegistrations();
-        shutdownWorkers();
+        try (DisposableScope cleanup = new DisposableScope()) {
+            cleanup.register(this::shutdownWorkers);
+            cleanup.register(super::disable);
+        } catch (RuntimeException failure) {
+            throw failure;
+        } catch (Exception failure) {
+            throw new IllegalStateException("WebDAV backup plugin disable failed", failure);
+        }
     }
 
     @Override
     public void shutdown() {
-        disable();
-        binding.shutdown();
-        context = null;
+        try (DisposableScope cleanup = new DisposableScope()) {
+            cleanup.register(super::shutdown);
+            cleanup.register(binding::shutdown);
+            cleanup.register(this::disable);
+        } catch (RuntimeException failure) {
+            throw failure;
+        } catch (Exception failure) {
+            throw new IllegalStateException("WebDAV backup plugin shutdown failed", failure);
+        }
     }
 
     @Override
@@ -152,10 +176,11 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
      * so the init/enable race cannot leave the plugin without a target.
      */
     void refreshTarget() {
-        if (context == null) {
+        final PluginContext current = currentContext();
+        if (current == null) {
             return;
         }
-        final PluginLogger logger = context.logger();
+        final PluginLogger logger = current.logger();
         final CompletionStage<WebDavConfig> read = binding.read();
         read.whenComplete((config, failure) -> {
             if (config == null) {
@@ -286,7 +311,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         executor.shutdownNow();
         try {
             if (!executor.awaitTermination(WORKER_SHUTDOWN_BOUND_MILLIS, java.util.concurrent.TimeUnit.MILLISECONDS)) {
-                final PluginContext active = context;
+                final PluginContext active = currentContext();
                 if (active != null) {
                     active.logger().warn("WEBDAV_WORKER_SHUTDOWN_TIMEOUT");
                 }
@@ -331,7 +356,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
             retryFuture = sched.schedule(
                     () -> {
                         targetRetryPending.set(false);
-                        if (!enabled || context == null) {
+                        if (!enabled || currentContext() == null) {
                             return; // cancelled by disable()/shutdown()
                         }
                         refreshTarget();
@@ -379,17 +404,17 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
      * throws into the hook dispatcher.
      */
     private void backupAfterSave(final ProjectContentSnapshot saved) {
-        if (context == null || !enabled || triggerMode != WebDavConfig.RemoteTrigger.SAVE_TRIGGERED) {
+        final PluginContext callbackContext = currentContext();
+        if (callbackContext == null || !enabled || triggerMode != WebDavConfig.RemoteTrigger.SAVE_TRIGGERED) {
             return; // AUTO_BACKUP_SYNC: the scanner owns the upload path
         }
         try {
-            final PluginContext callbackContext = context;
             callbackContext
                     .services()
                     .require(EditorAutoBackupService.class)
                     .backupAfterSave(saved)
                     .whenComplete((event, failure) -> {
-                        if (!enabled || context != callbackContext) {
+                        if (!enabled || currentContext() != callbackContext) {
                             return;
                         }
                         if (failure != null) {
@@ -421,7 +446,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
                         }
                     });
         } catch (RuntimeException | Error failure) {
-            final PluginContext activeContext = context;
+            final PluginContext activeContext = currentContext();
             if (activeContext != null) {
                 activeContext
                         .logger()
@@ -432,7 +457,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
 
     /** Localized label for the Turboism menu entry and its action; English literal as fallback. */
     private String menuLabel() {
-        final PluginContext active = context;
+        final PluginContext active = currentContext();
         if (active == null) {
             return MENU_LABEL;
         }
@@ -459,6 +484,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
                                 requireContext(), binding, BackupPlugin.this::applySavedConfig);
                     }
                 });
+        disposalScope().register(action);
         final Registration menu = requireContext().menus().contribute(new MenuRegistry.MenuContribution() {
             @Override
             public String menuPath() {
@@ -475,19 +501,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
                 return MENU_ORDER;
             }
         });
-        actionRegistration = action;
-        menuRegistration = menu;
-    }
-
-    private void closeRegistrations() {
-        if (actionRegistration != null) {
-            actionRegistration.close();
-            actionRegistration = null;
-        }
-        if (menuRegistration != null) {
-            menuRegistration.close();
-            menuRegistration = null;
-        }
+        disposalScope().register(menu);
     }
 
     /** Observes completed backups and records save-triggered remote-backup activity. */
@@ -637,7 +651,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
     /** Uploads new {@code _backup*.cmo3} host artifacts (dedup by name+size); never deletes them. */
     void scanOnce() {
         final WebDavSyncTarget active = target;
-        if (active == null || context == null) {
+        if (active == null || currentContext() == null) {
             return;
         }
         final List<BackupArtifactHandle> fresh =
@@ -660,10 +674,15 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         return enabled;
     }
 
-    private PluginContext requireContext() {
-        if (context == null) {
-            throw new IllegalStateException("backup plugin must be initialized");
+    private PluginContext currentContext() {
+        try {
+            return context();
+        } catch (IllegalStateException e) {
+            return null;
         }
-        return context;
+    }
+
+    private PluginContext requireContext() {
+        return context();
     }
 }

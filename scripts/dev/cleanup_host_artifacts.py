@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
-import json
 import os
 from pathlib import Path
 import re
@@ -29,6 +28,12 @@ import shutil
 import stat
 import sys
 from typing import Any, Iterable
+
+_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1])
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+from turboism_dev.json_io import dump_json
+from turboism_dev.paths import repo_root as find_repo_root
 
 
 class SecurityError(RuntimeError):
@@ -504,7 +509,7 @@ def run_cleanup(
     env_file: Path | None = None,
 ) -> dict[str, Any]:
     """Execute cleanup inspection or removal according to arguments."""
-    repo = repo_root or Path(__file__).resolve().parents[2]
+    repo = repo_root or find_repo_root()
     env_path = env_file or repo / ".env"
     env = parse_local_env(env_path)
     context = SafetyContext.create(repo, env)
@@ -608,7 +613,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     if args.json:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        print(dump_json(result, ensure_ascii=False, indent=2).rstrip("\n"))
         return 0 if not result["errors"] else 1
 
     mode_str = "[DRY-RUN] " if result["dryRun"] else ""

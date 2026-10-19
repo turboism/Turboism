@@ -17,6 +17,9 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "preview"))
 import host_validation_queue as queue
+import hvq.common
+import hvq.display
+import hvq.snapshot
 
 
 FAKE_XVFB_CODE = (
@@ -69,6 +72,8 @@ class SlotFixture:
                      "archive-cubism-host-evidence.sh", "host_validation.py", "host_validation_queue.py",
                      "host_validation_containment.py", "host_validation_evidence.py"):
             (self.preview / name).write_text("# test fixture, never executed\n")
+        (self.preview / "hvq").mkdir()
+        (self.preview / "hvq/__init__.py").write_text("# test fixture, never executed\n")
         subprocess.run(["git", "init", "-q", str(self.source)], check=True)
         subprocess.run(["git", "add", "."], cwd=self.source, check=True)
         subprocess.run(["git", "-c", "user.name=Slot Test", "-c", "user.email=test@example.invalid",
@@ -80,6 +85,10 @@ class SlotFixture:
         self.displays.mkdir()
         self.spawned: list[subprocess.Popen] = []
         patches = [
+            mock.patch.object(hvq.display, "xvfb_available", return_value=True),
+            mock.patch.object(hvq.display, "spawn_xvfb",
+                              side_effect=lambda display: fake_xvfb(self.spawned, display)),
+            mock.patch.object(hvq.common, "X11_SOCKET_DIR", str(self.displays)),
             mock.patch.object(queue, "xvfb_available", return_value=True),
             mock.patch.object(queue, "spawn_xvfb",
                               side_effect=lambda display: fake_xvfb(self.spawned, display)),
@@ -192,7 +201,8 @@ class VersionedSlotClaimTest(SlotFixture, unittest.TestCase):
     def test_missing_xvfb_defers_display_jobs_but_desktop_still_runs(self) -> None:
         display_job = self.submit("parameter", "5203", "d")
         desk = self.submit("backup-interactive", "5302", "desk")
-        with mock.patch.object(queue, "xvfb_available", return_value=False):
+        with mock.patch.object(hvq.display, "xvfb_available", return_value=False), \
+                mock.patch.object(queue, "xvfb_available", return_value=False):
             claimed = self.store.claim()
             self.assertEqual(desk["job_id"], claimed["job_id"])
             self.assertEqual(":0", claimed["display"])
@@ -223,7 +233,9 @@ class VersionedSlotClaimTest(SlotFixture, unittest.TestCase):
 
     def test_old_protocol_descriptor_is_serial_only(self) -> None:
         # A descriptor prepared before per-job admission cannot parallel claim.
-        with mock.patch.object(queue, "QUEUE_PROTOCOL", 1):
+        with mock.patch.object(hvq.snapshot, "QUEUE_PROTOCOL", 1), \
+                mock.patch.object(hvq.common, "QUEUE_PROTOCOL", 1), \
+                mock.patch.object(queue, "QUEUE_PROTOCOL", 1):
             request = {"schemaVersion": 1, "environment": {}, "argv": [
                 "--name", "test", "--agent", str(self.input), "--version", "5203"]}
             prepared = self.prepared.capture(request, self.source, "parameter:5203")
@@ -370,8 +382,9 @@ class SlotWorkerTest(SlotFixture, unittest.TestCase):
             "TURBOISM_QUEUE_ATTEMPT_ID": job["attempt_id"], "TURBOISM_QUEUE_RUN_ID": job["run_id"],
             "TURBOISM_QUEUE_SUPERVISOR_PID": str(os.getpid())})
         code = ("import sys; from pathlib import Path; sys.path.insert(0,sys.argv[1]); "
-                "import host_validation_queue as q; q.account_root=lambda:Path(sys.argv[2]); "
-                "q.verify_containment_membership=lambda store,job: {'testOnly':True}; "
+                "import host_validation_queue as q, hvq.common as c, hvq.runner as r; "
+                "c.account_root=q.account_root=lambda:Path(sys.argv[2]); "
+                "r.verify_containment_membership=q.verify_containment_membership=lambda store,job: {'testOnly':True}; "
                 "print(q.canonical_json(q.validate_admission()))")
 
         def admit(fd, inherit=True):

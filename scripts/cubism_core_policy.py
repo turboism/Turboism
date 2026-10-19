@@ -17,10 +17,13 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Sequence
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+from turboism_dev.json_io import read_json
+from turboism_dev.paths import repo_root
+from turboism_dev.versions import cubism_version_key
 
-from cubism_core_api import InventoryError, load_inventory  # noqa: E402
+from cubism_core_api import InventoryError, load_inventory
+
+ROOT = repo_root()
 
 FORMAT = "turboism.cubism-core.member-policy"
 SCHEMA_VERSION = 1
@@ -182,7 +185,7 @@ def compact_json(document: Any) -> str:
 
 def version_key(version: str) -> tuple[int, ...]:
     try:
-        return tuple(int(part) for part in version.split("."))
+        return cubism_version_key(version)
     except ValueError as exc:
         raise InventoryError(f"invalid Cubism version: {version!r}") from exc
 
@@ -390,8 +393,8 @@ def bootstrap(inventories: Sequence[dict[str, Any]]) -> dict[str, Any]:
 
 def load_policy(path: Path) -> dict[str, Any]:
     try:
-        document = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        document = read_json(path)
+    except (OSError, Exception) as exc:
         raise InventoryError(f"unable to load member policy {path}: {exc}") from exc
     if not isinstance(document, dict):
         fail("member policy root must be an object")

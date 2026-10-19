@@ -519,6 +519,7 @@ val checkCompatibilityMatrixSelfTest by tasks.registering(Exec::class) {
     workingDir(rootDir)
     inputs.files(
         "scripts/generate_compatibility_matrix.py",
+        fileTree("scripts/compat_matrix") { include("*.py") },
         "scripts/test/test_generate_compatibility_matrix.py"
     )
     VerificationStamps.apply(this)
@@ -536,6 +537,7 @@ val checkCompatibilityMatrix by tasks.registering(Exec::class) {
     workingDir(rootDir)
     inputs.files(
         "scripts/generate_compatibility_matrix.py",
+        fileTree("scripts/compat_matrix") { include("*.py") },
         "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
         "runtime/src/main/java/dev/turboism/core/plugin/context/CubismEditorApiAvailabilityInterceptor.java",
         "validation/cubism-version-matrix/campaign-jobs.json",

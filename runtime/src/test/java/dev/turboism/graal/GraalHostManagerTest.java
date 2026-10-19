@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.test.concurrent.Await;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.InputStreamReader;
@@ -593,27 +594,15 @@ final class GraalHostManagerTest {
     /** Child-JVM startups are slow on loaded CI runners; give the diagnostics a generous budget. */
     private static final Duration DIAGNOSTIC_WAIT = Duration.ofSeconds(60);
 
-    private static void awaitDiagnostic(final List<String> diagnostics, final String marker) throws Exception {
-        final long deadline = System.nanoTime() + DIAGNOSTIC_WAIT.toNanos();
-        while (System.nanoTime() < deadline) {
-            if (diagnostics.stream().anyMatch(message -> message.contains(marker))) {
-                return;
-            }
-            Thread.sleep(10L);
-        }
-        assertTrue(false, "Missing diagnostic " + marker + ": " + diagnostics);
+    private static void awaitDiagnostic(final List<String> diagnostics, final String marker) {
+        Await.condition(
+                "Missing diagnostic " + marker + ": " + diagnostics,
+                () -> diagnostics.stream().anyMatch(message -> message.contains(marker)),
+                DIAGNOSTIC_WAIT);
     }
 
-    private static void awaitProcessExit(final long pid) throws Exception {
-        final long deadline = System.nanoTime() + DIAGNOSTIC_WAIT.toNanos();
-        while (System.nanoTime() < deadline) {
-            if (isRunningProcess(pid)) {
-                Thread.sleep(10L);
-                continue;
-            }
-            return;
-        }
-        assertTrue(false, "Host process is still alive: " + pid);
+    private static void awaitProcessExit(final long pid) {
+        Await.condition("Host process is still alive: " + pid, () -> !isRunningProcess(pid), DIAGNOSTIC_WAIT);
     }
 
     private static boolean isRunningProcess(final long pid) {

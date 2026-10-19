@@ -50,7 +50,7 @@ class EditorRawImagePsdSelectorContractTest {
                         .toString());
 
         try (final URLClassLoader loader = loader(artifact)) {
-            final var resolver = new VerifiedEditorModelResolverFactory().create(recordPath, artifact, loader);
+            final var resolver = SliceRegistry.EDITOR_MODEL.resolverFactory().create(recordPath, artifact, loader);
             assertTrue(EditorRawImagePsdSelectorContract.SUPPORTED_CUBISM_VERSIONS.contains(version));
             assertTrue(resolver.isExactCubismVersion(version));
             final Set<String> required = new HashSet<>(EditorRawImagePsdSelectorContract.REQUIRED_ALIASES);

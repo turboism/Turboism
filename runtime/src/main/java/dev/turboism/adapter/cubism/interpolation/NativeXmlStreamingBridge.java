@@ -3,7 +3,6 @@ package dev.turboism.adapter.cubism.interpolation;
 import java.io.*;
 import java.lang.reflect.*;
 import java.nio.file.*;
-import java.security.MessageDigest;
 import java.util.*;
 
 /** Optional pinned archive callback: emits official JDOM formatting without a giant XML String. */
@@ -85,11 +84,7 @@ public final class NativeXmlStreamingBridge {
                             .getLocation()
                             .toURI())
                     .toRealPath();
-            try (var input = Files.newInputStream(artifact)) {
-                if (!NativeMeshInterpolationBridge.HOST_SHA256S.contains(HexFormat.of()
-                        .formatHex(MessageDigest.getInstance("SHA-256").digest(input.readAllBytes()))))
-                    throw new IllegalArgumentException("artifact");
-            }
+            NativeMeshInterpolationBridge.requireAdmittedHostArtifact(artifact);
             ClassLoader loader = writer.getClassLoader();
             function = Class.forName("kotlin.jvm.functions.Function2", false, loader);
             documentType = Class.forName("org.jdom.Document", false, loader);

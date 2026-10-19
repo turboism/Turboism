@@ -10,12 +10,13 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.ParameterBindingTargetType;
 import dev.turboism.sdk.cubism.model.ParameterType;
+import dev.turboism.test.concurrent.Await;
 import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
+import java.time.Duration;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 class EditorBackedCubismModelAccessTest {
@@ -741,12 +742,14 @@ class EditorBackedCubismModelAccessTest {
      * CubismEditorApiAvailabilityInterceptorTest for "the live component must not retain discarded host
      * objects".
      */
-    private static void assertCollected(final List<WeakReference<?>> references) throws Exception {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-        while (references.stream().anyMatch(reference -> !reference.refersTo(null)) && System.nanoTime() < deadline) {
-            System.gc();
-            Thread.sleep(10);
-        }
+    private static void assertCollected(final List<WeakReference<?>> references) {
+        Await.condition(
+                "references collected",
+                () -> {
+                    System.gc();
+                    return references.stream().allMatch(reference -> reference.refersTo(null));
+                },
+                Duration.ofSeconds(5));
         assertTrue(
                 references.stream().allMatch(reference -> reference.refersTo(null)),
                 "the binding cache must not retain a closed document, its model source or its model instance");

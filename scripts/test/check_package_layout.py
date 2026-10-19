@@ -6,6 +6,7 @@ import re
 import sys
 from pathlib import Path
 
+
 FORBIDDEN_DIRECTORIES = (
     "sdk/src/main/java/dev/turboism/sdk/cubism/callback",
     "sdk/src/main/java/dev/turboism/sdk/cubism/write",

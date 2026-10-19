@@ -2,8 +2,8 @@ package dev.turboism.tests.validation;
 
 import dev.turboism.mapping.verification.EditorModelVerificationManifest;
 import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.SliceRegistry;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.mapping.verification.VerifiedWorkspaceControlResolverFactory;
 import dev.turboism.preview.PreviewRuntime;
 import dev.turboism.sdk.ui.workspace.WorkspaceId;
 import dev.turboism.sdk.ui.workspace.WorkspaceOperationResult;
@@ -202,8 +202,9 @@ public final class WorkspaceValidationAgent {
             final String profile = EditorModelVerificationManifest.resourceProfileForArtifact(digest);
             final Path record = resolveRecord(options, profile);
             evidence.recordIdentity(profile, host, digest, record, admittedState, degraded);
-            final VerifiedMemberResolver resolver =
-                    new VerifiedWorkspaceControlResolverFactory().create(record, host.artifact(), host.classLoader());
+            final VerifiedMemberResolver resolver = SliceRegistry.WORKSPACE_CONTROL
+                    .resolverFactory()
+                    .create(record, host.artifact(), host.classLoader());
             final CountingWorkspaceHostProvider provider =
                     new CountingWorkspaceHostProvider(WorkspaceHostProviderFactory.create(resolver));
             final WorkspaceCoordinator coordinator = runtime.hostAccess().workspaceCoordinator();

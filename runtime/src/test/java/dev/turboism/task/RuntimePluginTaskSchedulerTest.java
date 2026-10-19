@@ -27,6 +27,7 @@ import dev.turboism.sdk.task.TaskOutcomeStatus;
 import dev.turboism.sdk.task.TaskRejectionReason;
 import dev.turboism.sdk.task.TaskRunOutcomeStatus;
 import dev.turboism.sdk.task.TaskSubmission;
+import dev.turboism.test.concurrent.Await;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -1409,12 +1410,8 @@ class RuntimePluginTaskSchedulerTest {
         assertFalse(thread.isAlive(), () -> "thread did not terminate: " + thread.getName());
     }
 
-    private static void waitUntil(final java.util.function.BooleanSupplier condition, final long timeoutMillis)
-            throws InterruptedException {
-        final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
-        while (!condition.getAsBoolean() && System.nanoTime() < deadline) {
-            Thread.sleep(5);
-        }
+    private static void waitUntil(final java.util.function.BooleanSupplier condition, final long timeoutMillis) {
+        Await.condition("condition did not become true before timeout", condition, Duration.ofMillis(timeoutMillis));
         assertTrue(condition.getAsBoolean(), "condition did not become true before timeout");
     }
 }

@@ -15,6 +15,8 @@ import dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionWork;
+import dev.turboism.test.concurrent.Await;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
@@ -113,7 +115,12 @@ final class DynamicCubismAuthoringTransactionTest {
                 "authoring-disconnect-test");
         disconnect.start();
 
-        Thread.sleep(100L);
+        Await.condition(
+                "disconnect waiting for in-flight transaction",
+                () -> disconnect.getState() == Thread.State.WAITING
+                        || disconnect.getState() == Thread.State.TIMED_WAITING
+                        || disconnect.getState() == Thread.State.BLOCKED,
+                Duration.ofSeconds(5));
         assertFalse(disconnected.get());
         release.countDown();
         transaction.join(TimeUnit.SECONDS.toMillis(5));

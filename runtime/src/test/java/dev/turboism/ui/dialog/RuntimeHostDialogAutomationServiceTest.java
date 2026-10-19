@@ -11,6 +11,7 @@ import dev.turboism.sdk.ui.dialog.HostDialogAction;
 import dev.turboism.sdk.ui.dialog.HostDialogMatcher;
 import dev.turboism.sdk.ui.dialog.HostDialogOutcome;
 import dev.turboism.sdk.ui.dialog.HostDialogSnapshot;
+import dev.turboism.test.concurrent.Await;
 import java.awt.Dialog;
 import java.awt.GraphicsEnvironment;
 import java.awt.event.WindowAdapter;
@@ -332,16 +333,20 @@ class RuntimeHostDialogAutomationServiceTest {
         }
     }
 
-    private static List<JButton> awaitButtons(final JDialog dialog) throws Exception {
+    private static List<JButton> awaitButtons(final JDialog dialog) {
         final AtomicReference<List<JButton>> buttonsRef = new AtomicReference<>(List.of());
-        for (int attempt = 0; attempt < 50; attempt++) {
-            SwingUtilities.invokeAndWait(() -> buttonsRef.set(findButtons(dialog)));
-            if (!buttonsRef.get().isEmpty()) {
-                return buttonsRef.get();
-            }
-            Thread.sleep(50L);
-        }
-        throw new IllegalStateException("JOptionPane buttons never appeared");
+        Await.condition(
+                "JOptionPane buttons never appeared",
+                () -> {
+                    try {
+                        SwingUtilities.invokeAndWait(() -> buttonsRef.set(findButtons(dialog)));
+                    } catch (Exception exception) {
+                        throw new RuntimeException(exception);
+                    }
+                    return !buttonsRef.get().isEmpty();
+                },
+                Duration.ofMillis(2500));
+        return buttonsRef.get();
     }
 
     /** Ownerless application-modal dialog with no content at all (no buttons). */

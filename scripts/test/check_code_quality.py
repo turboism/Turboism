@@ -44,6 +44,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+
 PRODUCTION_ROOTS = (
     "sdk/src/main/java",
     "runtime/src/main/java",

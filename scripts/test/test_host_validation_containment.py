@@ -344,7 +344,7 @@ class RealKernelAdmissionTest(unittest.TestCase):
                         "runId": job["run_id"], "preparedDigest": job["digest"]}
             directory = queue.private_directory(store.root / "jobs" / job["job_id"])
             code = ("import sys; from pathlib import Path; sys.path.insert(0,sys.argv[1]); "
-                    "import host_validation_queue as q; q.account_root=lambda:Path(sys.argv[2]); "
+                    "import host_validation_queue as q, hvq.common as c; c.account_root=q.account_root=lambda:Path(sys.argv[2]); "
                     "print(q.canonical_json(q.validate_admission()))")
             contained = None
             with queue.FileLock(store.root / "admission.lock") as lock, (directory / "test.log").open("w+b") as output:

@@ -11,13 +11,14 @@ import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.test.concurrent.Await;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -147,9 +148,8 @@ class RuntimePluginManagementDuplicateActionTest {
         };
     }
 
-    private static void awaitSize(final List<?> values, final int size) throws InterruptedException {
-        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
-        while (values.size() < size && System.nanoTime() < deadline) Thread.sleep(10L);
+    private static void awaitSize(final List<?> values, final int size) {
+        Await.condition("values reached size " + size, () -> values.size() >= size, Duration.ofSeconds(2));
         assertEquals(size, values.size());
     }
 }

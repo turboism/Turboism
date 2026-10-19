@@ -37,7 +37,7 @@ class EditorTextureRelationsSelectorContractTest {
                         .toList()
                         .toString());
         try (final URLClassLoader loader = loader(artifact)) {
-            final var resolver = new VerifiedEditorModelResolverFactory().create(recordPath, artifact, loader);
+            final var resolver = SliceRegistry.EDITOR_MODEL.resolverFactory().create(recordPath, artifact, loader);
             assertTrue(EditorTextureRelationsSelectorContract.SUPPORTED_CUBISM_VERSIONS.contains(version));
             assertTrue(resolver.isExactCubismVersion(version));
             assertTrue(resolver.authorizesFeature(
