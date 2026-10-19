@@ -38,7 +38,7 @@ def write_tree(root: Path) -> None:
             encoding="utf-8")
 
 
-def run_case(check: bool, fail_on_drift: bool = True) -> int:
+def run_case(check: bool, fail_on_drift: bool = False) -> int:
     rc = 0
     for lang in rlc.LOCALES:
         rc |= rlc.render(lang, check=check, fail_on_drift=fail_on_drift)
@@ -91,6 +91,12 @@ def main() -> int:
                 return 1
             if run_case(check=True, fail_on_drift=True) != 1:
                 print("FAIL: --check --fail-on-drift should fail on englishSha256 drift")
+                return 1
+            if run_case(check=False) != 0:
+                print("FAIL: default rewrite should warn, not fail, on englishSha256 drift")
+                return 1
+            if run_case(check=False, fail_on_drift=True) != 1:
+                print("FAIL: rewrite --fail-on-drift should fail on englishSha256 drift")
                 return 1
         finally:
             rlc.ROOT, rlc.NOTES_DIR, rlc.ENGLISH = \
