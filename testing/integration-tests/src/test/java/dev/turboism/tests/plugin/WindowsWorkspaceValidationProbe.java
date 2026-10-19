@@ -383,7 +383,23 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
                     alternateId);
             final var layoutBeforeSave = currentLayout();
             perturbLayout(stateDir);
-            final var savedLayout = currentLayout();
+            if (currentLayout().equals(layoutBeforeSave)) {
+                perturbLayout(stateDir);
+            }
+            var savedLayout = currentLayout();
+            if (!isCurrent(workspace, alternate.id())) {
+                requireOperation(
+                        report,
+                        "updateDefault.reswitch",
+                        switchTo(workspace, alternate.id()),
+                        WorkspaceOperationResult.Outcome.CHANGED,
+                        alternateId);
+                perturbLayout(stateDir);
+                if (currentLayout().equals(layoutBeforeSave)) {
+                    perturbLayout(stateDir);
+                }
+                savedLayout = currentLayout();
+            }
             require(
                     report,
                     "updateDefault.layoutChanged",
@@ -420,6 +436,21 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             requireOperation(
                     report, "resetDefault.prepare", resetBack, WorkspaceOperationResult.Outcome.CHANGED, alternateId);
             perturbLayout(stateDir);
+            if (currentLayout().equals(savedLayout)) {
+                perturbLayout(stateDir);
+            }
+            if (!isCurrent(workspace, alternate.id())) {
+                requireOperation(
+                        report,
+                        "resetDefault.reswitch",
+                        switchTo(workspace, alternate.id()),
+                        WorkspaceOperationResult.Outcome.CHANGED,
+                        alternateId);
+                perturbLayout(stateDir);
+                if (currentLayout().equals(savedLayout)) {
+                    perturbLayout(stateDir);
+                }
+            }
             require(
                     report,
                     "resetDefault.layoutPerturbed",
@@ -576,7 +607,29 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
     }
 
     private static WorkspaceStatus awaitCurrent(final WorkspaceService workspace) throws Exception {
-        return workspace.current().toCompletableFuture().get(SDK_CALL_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+        return awaitCurrent(workspace, SDK_CALL_TIMEOUT);
+    }
+
+    static WorkspaceStatus awaitCurrent(final WorkspaceService workspace, final Duration timeout) throws Exception {
+        final long deadline = System.nanoTime() + timeout.toNanos();
+        while (true) {
+            final long remaining = deadline - System.nanoTime();
+            if (remaining <= 0) throw new java.util.concurrent.TimeoutException("Workspace readiness timed out");
+            final WorkspaceStatus status =
+                    workspace.current().toCompletableFuture().get(remaining, TimeUnit.NANOSECONDS);
+            if (status.availability() == WorkspaceStatus.Availability.AVAILABLE) return status;
+            final long pause = Math.min(TimeUnit.MILLISECONDS.toNanos(250), deadline - System.nanoTime());
+            if (pause <= 0) return status;
+            TimeUnit.NANOSECONDS.sleep(pause);
+            if (System.nanoTime() >= deadline) return status;
+        }
+    }
+
+    private boolean isCurrent(final WorkspaceService workspace, final WorkspaceId id) throws Exception {
+        return awaitCurrent(workspace)
+                .current()
+                .map(info -> info.id().equals(id))
+                .orElse(false);
     }
 
     private dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutSnapshot currentLayout() throws Exception {

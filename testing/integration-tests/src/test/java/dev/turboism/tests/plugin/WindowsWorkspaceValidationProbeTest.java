@@ -38,6 +38,62 @@ class WindowsWorkspaceValidationProbeTest {
     private static final CubismFacade NO_HOST = fakeCubism(false, Optional.empty(), Optional.empty());
 
     @Test
+    void readinessWaitRetriesTransientUnavailableStatus() throws Exception {
+        final var calls = new java.util.concurrent.atomic.AtomicInteger();
+        final WorkspaceStatus available = new WorkspaceStatus(
+                WorkspaceStatus.Availability.AVAILABLE, Optional.empty(), List.of(), Optional.empty());
+        final WorkspaceService workspace = pollingWorkspace(() -> calls.incrementAndGet() == 1
+                ? WorkspaceService.unavailable().current()
+                : CompletableFuture.completedFuture(available));
+        assertEquals(
+                available, WindowsWorkspaceValidationProbe.awaitCurrent(workspace, java.time.Duration.ofSeconds(2)));
+        assertEquals(2, calls.get());
+    }
+
+    @Test
+    void readinessWaitBoundsAnUnfinishedSdkCall() {
+        final WorkspaceService workspace = pollingWorkspace(CompletableFuture::new);
+        org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+                java.time.Duration.ofSeconds(2),
+                () -> assertThrows(
+                        java.util.concurrent.TimeoutException.class,
+                        () -> WindowsWorkspaceValidationProbe.awaitCurrent(
+                                workspace, java.time.Duration.ofMillis(20))));
+    }
+
+    @Test
+    void readinessWaitReturnsUnavailableAtItsDeadline() throws Exception {
+        final WorkspaceStatus status = WindowsWorkspaceValidationProbe.awaitCurrent(
+                WorkspaceService.unavailable(), java.time.Duration.ofMillis(20));
+        assertEquals(WorkspaceStatus.Availability.UNAVAILABLE, status.availability());
+    }
+
+    private static WorkspaceService pollingWorkspace(
+            final java.util.function.Supplier<CompletionStage<WorkspaceStatus>> status) {
+        return new WorkspaceService() {
+            @Override
+            public CompletionStage<WorkspaceStatus> current() {
+                return status.get();
+            }
+
+            @Override
+            public CompletionStage<WorkspaceOperationResult> switchTo(final WorkspaceId id) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public CompletionStage<WorkspaceOperationResult> updateDefault() {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public CompletionStage<WorkspaceOperationResult> resetToDefault() {
+                throw new UnsupportedOperationException();
+            }
+        };
+    }
+
+    @Test
     void parserAcceptsEveryBoundedOperation() {
         assertEquals(
                 new Command(1, "status", Optional.empty()),
