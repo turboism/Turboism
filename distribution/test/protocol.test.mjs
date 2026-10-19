@@ -14,31 +14,27 @@ test('version ordering does not confuse beta.10, late old-branch builds or build
  assert.equal(compareVersions('1.2.3+build.42','1.2.3+build.43'),0);
  assert.throws(()=>compareVersions('1.2.3-beta.01','1.2.3'));
 });
-test('raw release produces four verified binary choices and preserves no invented historical build',()=>{
- const r=parseRelease(fixture(),'b'.repeat(40));assert.equal(r.assets.length,4);assert.equal(r.buildNumber,null);assert.equal(r.channel,'stable');
+test('raw release produces two verified binary choices and preserves no invented historical build',()=>{
+ const r=parseRelease(fixture(),'b'.repeat(40));assert.equal(r.assets.length,2);assert.equal(r.buildNumber,null);assert.equal(r.channel,'stable');
  assert.equal(r.assets[0].sha256,'a'.repeat(64));assert.equal(r.assets[0].sources[0].id,'github');assert.equal(r.assets[0].architecture,null);
- assert.deepEqual(r.assets.map(a=>a.kind),['windows-installer-full','windows-installer-thin','full','thin']);
- assert.deepEqual(r.assets.map(a=>a.variant),['full','thin','full','thin']);
- assert.deepEqual(r.assets.map(a=>a.platform),['windows','windows',null,null]);
+ assert.deepEqual(r.assets.map(a=>a.kind),['windows-installer','full']);
+ assert.deepEqual(r.assets.map(a=>a.variant),[null,null]);
+ assert.deepEqual(r.assets.map(a=>a.platform),['windows',null]);
  assert.equal(r.notes,'Release notes');assert.equal(r.sourceRevision,'b'.repeat(40));
 
- const legacy=parseRelease(fixture('1.2.3',false,false,true),'b'.repeat(40));
- assert.equal(legacy.assets.length,4);
- assert.deepEqual(legacy.assets.map(a=>a.kind),['windows-installer','java-installer','full','lite']);
- assert.deepEqual(legacy.assets.map(a=>a.variant),[null,null,'full','thin']);
- assert.deepEqual(legacy.assets.map(a=>a.platform),['windows',null,null,null]);
+ assert.throws(()=>parseRelease(fixture('1.2.3',false,false,true),'b'.repeat(40)));
 });
 test('partial assets, unsafe URLs, invalid digests and tag mismatch fail closed',()=>{
  for(const mutate of [r=>r.assets.pop(),r=>r.assets[0].digest=null,r=>r.assets[0].browser_download_url='https://evil.invalid/a',r=>r.assets.push(r.assets[0])]){const r=fixture();mutate(r);assert.throws(()=>parseRelease(r,'b'.repeat(40)));}
 });
 test('developer SDK and event-processor assets are validated but never mirrored, and legacy SDK-only or neither still parse',()=>{
  const withBoth=parseRelease(fixture(),'b'.repeat(40));
- assert.equal(withBoth.assets.length,4);
+ assert.equal(withBoth.assets.length,2);
  assert.ok(withBoth.assets.every(a=>!a.name.startsWith('turboism-sdk-')&&!a.name.startsWith('turboism-event-processor-')));
  const sdkOnly=parseRelease(fixture('1.2.3',false,'sdk'),'b'.repeat(40));
- assert.equal(sdkOnly.assets.length,4);
+ assert.equal(sdkOnly.assets.length,2);
  const legacy=parseRelease(fixture('1.2.3',false,false),'b'.repeat(40));
- assert.equal(legacy.assets.length,4);
+ assert.equal(legacy.assets.length,2);
  const partialSdk=fixture();partialSdk.assets=partialSdk.assets.filter(a=>a.name!=='turboism-sdk-1.2.3.jar.sha256');
  assert.throws(()=>parseRelease(partialSdk,'b'.repeat(40)),/developer/i);
  const partialProcessor=fixture();partialProcessor.assets=partialProcessor.assets.filter(a=>a.name!=='turboism-event-processor-1.2.3.jar.sha256');

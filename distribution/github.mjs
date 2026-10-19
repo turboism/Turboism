@@ -30,8 +30,8 @@ export async function synchronize(previous,env={},fetcher=fetch){
   const data=await github(`/releases?per_page=100&page=${page}`,fetcher);if(!Array.isArray(data.value))throw new Error('Malformed release list');raws.push(...data.value);if(!data.next){done=true;break;}
  }if(!done)throw new Error('Release enumeration was incomplete');
  const grouped={stable:[],beta:[],nightly:[]},errors={};
- for(const raw of raws){try{const channel=classify(raw);if(channel)grouped[channel].push(raw);}catch{if(/^v\d/.test(raw.tag_name??''))errors[raw.prerelease?'beta':'stable']='INVALID_RELEASE';}}
- const known=structuredClone(previous?.known??{}),releases=[];const activeTags=new Set(raws.filter(r=>!r.draft).map(r=>r.tag_name));
+ for(const raw of raws){try{const channel=classify(raw);if(channel&&raw.assets?.some(a=>a.name===`turboism-${raw.tag_name.slice(1)}.zip`))grouped[channel].push(raw);}catch{if(/^v\d/.test(raw.tag_name??''))errors[raw.prerelease?'beta':'stable']='INVALID_RELEASE';}}
+ const known=structuredClone(previous?.known??{}),releases=[];const activeTags=new Set(Object.values(grouped).flat().map(r=>r.tag_name));
  for(const record of Object.values(known))record.active=activeTags.has(record.release.tag);
  for(const channel of CHANNELS){
   const raw=grouped[channel].sort((a,b)=>compareVersions(b.tag_name.slice(1),a.tag_name.slice(1)))[0];if(!raw)continue;

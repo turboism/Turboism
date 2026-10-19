@@ -7,6 +7,11 @@ import { fixture } from './fixture.mjs';
 import { synchronize } from '../github.mjs';
 import { ReleaseRegistry } from '../worker.mjs';
 const source = 'b'.repeat(40);
+// Historical counts remain queryable from stored snapshots without admitting old downloads.
+function historicalSnapshot(raw) {
+ const version=raw.tag_name.slice(1);
+ return {version,tag:raw.tag_name,assets:raw.assets.filter(a=>!a.name.endsWith('.sha256')&&!a.name.startsWith('turboism-sdk-')&&!a.name.startsWith('turboism-event-processor-')).map(a=>({name:a.name,key:`files/${a.digest.slice(7)}/${a.name}`,sha256:a.digest.slice(7),downloadCount:a.download_count}))};
+}
 const baseTime = Date.parse('2026-09-11T00:00:00.000Z');
 async function implementation() {
   const url = new URL('../download-counts.mjs', import.meta.url);
@@ -57,7 +62,7 @@ test('source breakdown excludes checksum downloads, retains unknowns, and is ver
  const {countsDocument,DownloadCounter}=await implementation(),s=realStorage(),c=new DownloadCounter(s,()=>baseTime);c.initialize();
  const raw=fixture();raw.assets.forEach(a=>a.download_count=a.name.endsWith('.sha256')?10000:7);const r=parseRelease(raw,source);
  const record={active:true,countsAsOf:new Date(baseTime).toISOString(),release:r};
- const d=countsDocument('1.2.3',record,c.read(r.assets));assert.equal(d.github.count,28);assert.equal(d.official.count,0);assert.equal(d.total,28);assert.equal(d.status,'ready');
+ const d=countsDocument('1.2.3',record,c.read(r.assets));assert.equal(d.github.count,14);assert.equal(d.official.count,0);assert.equal(d.total,14);assert.equal(d.status,'ready');
  r.assets[0].downloadCount=null;const partial=countsDocument('1.2.3',record,c.read(r.assets));assert.equal(partial.total,null);assert.equal(partial.github.count,null);assert.equal(partial.status,'partial');
  assert.equal(countsDocument('1.2.3',record,null).official.count,null);
  assert.throws(()=>countsDocument('1.2.4',record,c.read(r.assets)));
@@ -119,32 +124,30 @@ test('first mirror sync captures immutable post-pull baseline in R2 marker and s
  const marker=JSON.parse(store.get('mirrors/v1.4.0.json').bytes.toString());
  assert.deepEqual(marker.baseline,{
   'TurboismInstaller-1.4.0.exe':3,
-  'TurboismInstaller-1.4.0.jar':3,
-  'turboism-1.4.0-full.zip':3,
-  'turboism-1.4.0-lite.zip':3,
+  'turboism-1.4.0.zip':3,
  });
  const initialCounts=countsDocument('1.4.0',first.known['v1.4.0'],c.read(first.releases[0].assets));
- assert.equal(initialCounts.github.internalBaseline,12);
+ assert.equal(initialCounts.github.internalBaseline,6);
  assert.equal(initialCounts.github.count,0);
  assert.equal(initialCounts.total,0);
- assert.deepEqual(initialCounts.assets.map(a=>a.github),[0,0,0,0]);
- assert.deepEqual(initialCounts.assets.map(a=>a.internalBaseline),[3,3,3,3]);
+ assert.deepEqual(initialCounts.assets.map(a=>a.github),[0,0]);
+ assert.deepEqual(initialCounts.assets.map(a=>a.internalBaseline),[3,3]);
 
  // Next sync: GitHub reflects the mirror pull (+1 -> 3) plus 5 public downloads on exe (-> 8).
  for(const a of raw.assets.filter(a=>!a.name.endsWith('.sha256')))a.download_count=a.name.endsWith('.exe')?8:3;
  const second=await synchronize(first,{DOWNLOADS:bucket},fetcher);
  const updatedCounts=countsDocument('1.4.0',second.known['v1.4.0'],c.read(second.releases[0].assets));
- assert.equal(updatedCounts.github.internalBaseline,12);
+ assert.equal(updatedCounts.github.internalBaseline,6);
  assert.equal(updatedCounts.github.count,5);
  assert.equal(updatedCounts.total,5);
- assert.deepEqual(updatedCounts.assets.map(a=>a.github),[5,0,0,0]);
+ assert.deepEqual(updatedCounts.assets.map(a=>a.github),[5,0]);
 });
 test('reviewed baseline overrides subtract pre-baseline internal downloads and clamp never-negative',async()=>{
  const {countsDocument,DownloadCounter}=await implementation(),s=realStorage(),c=new DownloadCounter(s,()=>baseTime);c.initialize();
- const betaRaw=fixture('0.67.0-beta.1',true);
+ const betaRaw=fixture('0.67.0-beta.1',true,true,true);
  const observed={'TurboismInstaller-0.67.0-beta.1.exe':3,'TurboismInstaller-0.67.0-beta.1.jar':3,'turboism-0.67.0-beta.1-full.zip':3,'turboism-0.67.0-beta.1-lite.zip':2};
  for(const a of betaRaw.assets)a.download_count=observed[a.name]??2;
- const betaRelease=parseRelease(betaRaw,source);
+ const betaRelease=historicalSnapshot(betaRaw);
  const betaRecord={active:true,countsAsOf:new Date(baseTime).toISOString(),release:betaRelease};
  const betaCounts=countsDocument('0.67.0-beta.1',betaRecord,c.read(betaRelease.assets));
  assert.equal(betaCounts.status,'ready');
@@ -164,10 +167,10 @@ test('reviewed baseline overrides subtract pre-baseline internal downloads and c
  assert.deepEqual(clamped.assets.map(a=>a.github),[0,0,0,0]);
 
  // Historical release v0.44.0 uses derived mirror baseline = 1 per binary (4 total).
- const v044Raw=fixture('0.44.0',false,false);
+ const v044Raw=fixture('0.44.0',false,false,true);
  const v044Observed={'TurboismInstaller-0.44.0.exe':3,'TurboismInstaller-0.44.0.jar':2,'turboism-0.44.0-full.zip':12,'turboism-0.44.0-lite.zip':3};
  for(const a of v044Raw.assets)a.download_count=v044Observed[a.name]??2;
- const v044Release=parseRelease(v044Raw,source);
+ const v044Release=historicalSnapshot(v044Raw);
  const v044Counts=countsDocument('0.44.0',{active:true,countsAsOf:new Date(baseTime).toISOString(),release:v044Release},c.read(v044Release.assets));
  assert.equal(v044Counts.github.internalBaseline,4);
  assert.equal(v044Counts.github.count,16);
@@ -180,9 +183,9 @@ test('missing baseline defaults to zero without fabricating counts for null upst
  assert.equal(baselineFor('v9.9.9',release.assets[0]),0);
  const d=countsDocument('9.9.9',{active:true,countsAsOf:new Date(baseTime).toISOString(),release},c.read(release.assets));
  assert.equal(d.github.internalBaseline,0);
- assert.deepEqual(d.assets.map(a=>a.internalBaseline),[0,0,0,0]);
- assert.deepEqual(d.assets.map(a=>a.github),[1,2,3,4]);
- assert.equal(d.github.count,10);
+ assert.deepEqual(d.assets.map(a=>a.internalBaseline),[0,0]);
+ assert.deepEqual(d.assets.map(a=>a.github),[1,2]);
+ assert.equal(d.github.count,3);
 
  release.assets[0].downloadCount=null;
  const partial=countsDocument('9.9.9',{active:true,countsAsOf:new Date(baseTime).toISOString(),release},c.read(release.assets));

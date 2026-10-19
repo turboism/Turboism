@@ -74,3 +74,7 @@ mainland-China testing; global Cloudflare delivery is not a mainland-CDN guarant
 
 The regular product candidate remains explicitly promoted. No new product version,
 GitHub tag, installer or public nightly build is created by deploying this service.
+
+Public product downloads use only `TurboismInstaller-<version>.exe` and
+`turboism-<version>.zip`, with their checksum sidecars. Releases using retired
+Full/Thin or Java-installer layouts are excluded from synchronization.
