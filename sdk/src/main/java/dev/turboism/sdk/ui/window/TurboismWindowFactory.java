@@ -166,11 +166,11 @@ public final class TurboismWindowFactory {
      */
     static Image loadWindowIcon(final String resource) {
         try {
-            final ClassLoader loader = TurboismWindowFactory.class.getClassLoader();
-            if (loader == null) {
+            if (resource == null) {
                 return null;
             }
-            final URL url = loader.getResource(resource);
+            // The packaged agent loads this class through Boot-Class-Path (a null classloader).
+            final URL url = TurboismWindowFactory.class.getResource("/" + resource);
             if (url == null) {
                 return null;
             }

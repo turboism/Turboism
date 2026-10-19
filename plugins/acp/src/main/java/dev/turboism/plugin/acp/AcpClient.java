@@ -66,6 +66,8 @@ final class AcpClient implements AutoCloseable {
     private final AtomicReference<String> protocolFailurePreview = new AtomicReference<>();
     private final AtomicReference<String> stderrFailureHint = new AtomicReference<>();
     private final CountDownLatch stderrFinished = new CountDownLatch(1);
+    private volatile boolean promptImages;
+    private volatile boolean promptEmbedded;
     private volatile AcpCapabilities capabilities = AcpCapabilities.NONE;
     private volatile AcpAgentInfo agentInfo = AcpAgentInfo.UNKNOWN;
     private volatile List<AcpAuthMethod> authMethods = List.of();
@@ -131,6 +133,10 @@ final class AcpClient implements AutoCloseable {
                 redactedUi(display(info.get("title")), MAX_UI_METADATA_CHARS),
                 redactedUi(display(info.get("version")), MAX_UI_METADATA_CHARS));
         capabilities = AcpCapabilities.from(result.get("agentCapabilities"));
+        final Map<String, Object> promptCapabilities =
+                objectOrEmpty(objectOrEmpty(result.get("agentCapabilities")).get("promptCapabilities"));
+        promptImages = Boolean.TRUE.equals(promptCapabilities.get("image"));
+        promptEmbedded = Boolean.TRUE.equals(promptCapabilities.get("embeddedContext"));
         authMethods = authMethods(result.get("authMethods"));
     }
 
@@ -212,8 +218,11 @@ final class AcpClient implements AutoCloseable {
             final Map<String, Object> entry = object(rawSession);
             final String sessionId = string(entry.get("sessionId"));
             final String updatedAt = string(entry.get("updatedAt"));
-            if (sessionId != null && updatedAt != null) {
-                sessions.add(new AcpSessionSummary(sessionId, redactedUi(updatedAt, MAX_UI_METADATA_CHARS)));
+            if (sessionId != null) {
+                sessions.add(new AcpSessionSummary(
+                        sessionId,
+                        redactedUi(display(entry.get("title")), MAX_UI_METADATA_CHARS),
+                        redactedUi(display(updatedAt), MAX_UI_METADATA_CHARS)));
             }
         }
         return List.copyOf(sessions);
@@ -221,9 +230,19 @@ final class AcpClient implements AutoCloseable {
 
     /** Sends one text prompt and completes with the agent's ACP stop reason. */
     CompletableFuture<String> prompt(final String sessionId, final String text) {
+        return prompt(sessionId, text, List.of());
+    }
+
+    CompletableFuture<String> prompt(final String sessionId, final String text, final List<AcpAttachment> attachments) {
         final LinkedHashMap<String, Object> params = new LinkedHashMap<>();
         params.put("sessionId", requireText(sessionId, "sessionId", 512));
-        params.put("prompt", List.of(Map.of("type", "text", "text", requireText(text, "text", 1024 * 1024))));
+        final List<Map<String, Object>> blocks = new ArrayList<>();
+        blocks.add(Map.of("type", "text", "text", requireText(text, "text", 1024 * 1024)));
+        if (attachments.size() > AcpAttachment.MAX_COUNT
+                || attachments.stream().mapToLong(AcpAttachment::byteSize).sum() > AcpAttachment.MAX_BYTES)
+            throw new IllegalArgumentException("Attachments exceed 4 MiB total or 8 files");
+        for (AcpAttachment attachment : attachments) blocks.add(attachment.promptBlock(promptImages, promptEmbedded));
+        params.put("prompt", blocks);
         return request("session/prompt", params).thenApply(result -> {
             final String stopReason = string(object(result).get("stopReason"));
             return stopReason == null ? "unknown" : redactedUi(stopReason, MAX_UI_METADATA_CHARS);
@@ -455,6 +474,7 @@ final class AcpClient implements AutoCloseable {
             if (text != null) {
                 listener.agentText(this, sessionId, redactedUi(text, MAX_UI_CONTENT_CHARS));
             }
+            dispatchImage(sessionId, content);
         } else if ("agent_thought_chunk".equals(kind)) {
             final Map<String, Object> content = objectOrEmpty(update.get("content"));
             final String text = string(content.get("text"));
@@ -469,6 +489,17 @@ final class AcpClient implements AutoCloseable {
                     redactedUi(display(update.get("title")), MAX_UI_METADATA_CHARS),
                     redactedUi(display(update.get("kind")), MAX_UI_METADATA_CHARS),
                     redactedUi(display(update.get("status")), MAX_UI_METADATA_CHARS));
+            dispatchToolInput(sessionId, update);
+            dispatchToolImages(sessionId, update.get("content"));
+            final String content = contentText(update.get("content"));
+            if (!content.isEmpty()) {
+                listener.toolCallUpdate(
+                        this,
+                        sessionId,
+                        toolCallKey(update.get("toolCallId")),
+                        redactedUi(display(update.get("status")), MAX_UI_METADATA_CHARS),
+                        redactedUi(content, MAX_UI_CONTENT_CHARS));
+            }
         } else if ("tool_call_update".equals(kind)) {
             listener.toolCallUpdate(
                     this,
@@ -476,11 +507,52 @@ final class AcpClient implements AutoCloseable {
                     toolCallKey(update.get("toolCallId")),
                     redactedUi(display(update.get("status")), MAX_UI_METADATA_CHARS),
                     redactedUi(contentText(update.get("content")), MAX_UI_CONTENT_CHARS));
+            dispatchToolInput(sessionId, update);
+            dispatchToolImages(sessionId, update.get("content"));
         } else if ("config_option_update".equals(kind)) {
             listener.configOptions(this, sessionId, configOptions(update.get("configOptions")));
         } else if ("available_commands_update".equals(kind)) {
             listener.availableCommands(this, sessionId, commandNames(update.get("availableCommands")));
         }
+    }
+
+    private void dispatchToolImages(final String sessionId, final Object contents) {
+        for (Object wrapper : list(contents))
+            dispatchImage(sessionId, objectOrEmpty(objectOrEmpty(wrapper).get("content")));
+    }
+
+    private void dispatchImage(final String sessionId, final Map<String, Object> content) {
+        final Map<String, Object> image =
+                "resource".equals(content.get("type")) ? objectOrEmpty(content.get("resource")) : content;
+        final String mime = string(image.get("mimeType"));
+        final String data = string(image.get(image == content ? "data" : "blob"));
+        if (mime == null || !mime.startsWith("image/") || data == null) return;
+        try {
+            listener.agentImage(this, sessionId, AcpAttachment.receivedImage(mime, data));
+        } catch (IllegalArgumentException failure) {
+            listener.agentText(this, sessionId, "[Image unavailable: " + failure.getMessage() + "]");
+        }
+    }
+
+    private void dispatchToolInput(final String sessionId, final Map<String, Object> update) {
+        final Object input = update.get("rawInput");
+        if (input == null) return;
+        String details = null;
+        if (input instanceof Map<?, ?> map) {
+            for (String key : List.of("command", "cmd", "script")) {
+                if (map.get(key) instanceof String command) {
+                    details = command;
+                    break;
+                }
+            }
+        }
+        if (details == null) {
+            if (input instanceof Map<?, ?>) details = Json.stringify(objectOrEmpty(input));
+            else if (input instanceof List<?> items) details = Json.stringify(items);
+            else details = String.valueOf(input);
+        }
+        listener.toolInput(
+                this, sessionId, toolCallKey(update.get("toolCallId")), redactedUi(details, MAX_UI_CONTENT_CHARS));
     }
 
     private void incomingRequest(final Object id, final String method, final Map<String, Object> params) {
@@ -784,6 +856,10 @@ final class AcpClient implements AutoCloseable {
 
     private static boolean unsafeTruncatedSecret(final String redacted, final boolean truncated) {
         return truncated && redacted.contains("<redacted>");
+    }
+
+    static String failureDetails(final Throwable failure) {
+        return redactedUi(Objects.requireNonNullElse(failure.getMessage(), ""), 1024);
     }
 
     private static String redactedUi(final String text, final int maximum) {

@@ -150,6 +150,11 @@ final class AcpChatControllerTestFixtures {
         }
 
         @Override
+        public void updateToolInput(final String toolCallId, final String input) {
+            record("input:" + toolCallId + ":" + input);
+        }
+
+        @Override
         public void updateTool(final String toolCallId, final String status, final String content) {
             record("update:" + toolCallId + ":" + status + ":" + content);
         }
