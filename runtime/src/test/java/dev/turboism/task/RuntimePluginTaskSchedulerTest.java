@@ -481,6 +481,8 @@ class RuntimePluginTaskSchedulerTest {
         final AtomicInteger running = new AtomicInteger();
         final AtomicInteger maxRunning = new AtomicInteger();
         final CountDownLatch twoRuns = new CountDownLatch(2);
+        final CountDownLatch timerBlocked = new CountDownLatch(1);
+        final CountDownLatch releaseTimer = new CountDownLatch(1);
         final TaskSubmission submission = scheduler.scheduleWithFixedDelay(new FixedDelayTaskRequest(
                 new TaskId("refresh"),
                 PluginTaskKind.LOW_FREQUENCY_REFRESH,
@@ -492,28 +494,47 @@ class RuntimePluginTaskSchedulerTest {
                     maxRunning.accumulateAndGet(current, Math::max);
                     try {
                         Thread.sleep(20);
+                        if (twoRuns.getCount() == 1) {
+                            // Hold the timer so no third iteration can start before cancellation.
+                            assertTrue(runtimeScheduler
+                                    .schedule(Duration.ZERO, () -> {
+                                        timerBlocked.countDown();
+                                        await(releaseTimer);
+                                    })
+                                    .accepted());
+                            assertTrue(timerBlocked.await(2, TimeUnit.SECONDS));
+                        }
                     } finally {
                         running.decrementAndGet();
                         twoRuns.countDown();
                     }
                 }));
 
-        assertTrue(submission.accepted());
-        assertTrue(twoRuns.await(2, TimeUnit.SECONDS));
-        waitUntil(
-                () -> submission.handle().progress().runCount() >= 2
-                        && submission.handle().progress().lastRunOutcome().isPresent(),
-                1_000);
-        assertTrue(submission.handle().cancel());
-        final TaskOutcome outcome =
-                submission.handle().completion().toCompletableFuture().get(1, TimeUnit.SECONDS);
+        try {
+            assertTrue(submission.accepted());
+            assertTrue(twoRuns.await(2, TimeUnit.SECONDS));
+            // The action's latch fires before the handle records its result. Wait for run 2 itself.
+            waitUntil(
+                    () -> submission
+                            .handle()
+                            .progress()
+                            .lastRunOutcome()
+                            .filter(run -> run.runNumber() == 2 && run.status() == TaskRunOutcomeStatus.SUCCEEDED)
+                            .isPresent(),
+                    1_000);
+            assertTrue(submission.handle().cancel());
+            final TaskOutcome outcome =
+                    submission.handle().completion().toCompletableFuture().get(1, TimeUnit.SECONDS);
 
-        assertEquals(1, maxRunning.get());
-        assertEquals(TaskOutcomeStatus.CANCELED, outcome.status());
-        assertTrue(outcome.runCount() >= 2);
-        assertEquals(
-                TaskRunOutcomeStatus.SUCCEEDED,
-                outcome.lastRunOutcome().orElseThrow().status());
+            assertEquals(1, maxRunning.get());
+            assertEquals(TaskOutcomeStatus.CANCELED, outcome.status());
+            assertEquals(2, outcome.runCount());
+            assertEquals(
+                    TaskRunOutcomeStatus.SUCCEEDED,
+                    outcome.lastRunOutcome().orElseThrow().status());
+        } finally {
+            releaseTimer.countDown();
+        }
     }
 
     @Test
