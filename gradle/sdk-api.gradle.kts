@@ -79,8 +79,30 @@ fun sdkHistoryGradleLauncher(): String {
     return home.resolve("bin/$script").absolutePath
 }
 
+// Historical plugins{} requests need their marker POMs, even when the current
+// build supplies the implementation through buildSrc. Resolve the historical
+// dependency set separately, into the exact home used by offline reconstruction.
+val prepareSdkHistoryGradleCache by tasks.registering(Exec::class) {
+    group = "historical verification"
+    description = "Resolves pinned historical SDK plugins and compiler dependencies before offline reconstruction."
+    workingDir(rootDir)
+    inputs.dir("scripts/test/sdk-history-cache")
+    inputs.property("historicalGradleUserHome", sdkHistoryGradleUserHome.map { it.absolutePath })
+    doFirst {
+        commandLine(
+            sdkHistoryGradleLauncher(), "--no-daemon", "--no-build-cache",
+            "--gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath,
+            "--project-cache-dir", layout.buildDirectory.dir("sdk-history-gradle-cache").get().asFile.absolutePath,
+            "-p", file("scripts/test/sdk-history-cache").absolutePath,
+            "warmSdkHistoryCache", "--console=plain"
+        )
+        if (gradle.startParameter.isOffline) args("--offline")
+    }
+}
+
 tasks.matching { it.name.startsWith("prepareSdk") && it.name.endsWith("ExactReference") }
     .withType<Exec>().configureEach {
+        dependsOn(prepareSdkHistoryGradleCache)
         doFirst {
             args("--gradle", sdkHistoryGradleLauncher())
         }
