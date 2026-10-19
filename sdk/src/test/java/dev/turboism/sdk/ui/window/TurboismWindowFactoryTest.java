@@ -11,8 +11,13 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
+import java.nio.file.Path;
+import java.util.concurrent.TimeUnit;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Headless-safe focused tests for the plugin-owned window factory Preview
@@ -22,6 +27,63 @@ import org.junit.jupiter.api.Test;
 class TurboismWindowFactoryTest {
 
     private static final String ICON_RESOURCE = "dev/turboism/sdk/ui/window/turboism-window-icon.png";
+
+    @Test
+    void windowIconLoadsWhenFactoryIsOnBootClasspath(@TempDir final Path directory) throws Exception {
+        final Path jar = directory.resolve("window-factory.jar");
+        try (JarOutputStream out = new JarOutputStream(java.nio.file.Files.newOutputStream(jar))) {
+            for (String resource :
+                    new String[] {"dev/turboism/sdk/ui/window/TurboismWindowFactory.class", ICON_RESOURCE}) {
+                out.putNextEntry(new JarEntry(resource));
+                try (java.io.InputStream in = TurboismWindowFactory.class.getResourceAsStream("/" + resource)) {
+                    assertNotNull(in, resource);
+                    in.transferTo(out);
+                }
+                out.closeEntry();
+            }
+        }
+        final Path log = directory.resolve("bootstrap-icon.log");
+        final String executable = System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java";
+        final Process process = new ProcessBuilder(
+                        Path.of(System.getProperty("java.home"), "bin", executable)
+                                .toString(),
+                        "-Djava.awt.headless=true",
+                        "-Xbootclasspath/a:" + jar,
+                        "-cp",
+                        Path.of(BootstrapIconProbe.class
+                                        .getProtectionDomain()
+                                        .getCodeSource()
+                                        .getLocation()
+                                        .toURI())
+                                .toString(),
+                        BootstrapIconProbe.class.getName())
+                .redirectErrorStream(true)
+                .redirectOutput(log.toFile())
+                .start();
+        try {
+            assertTrue(process.waitFor(30, TimeUnit.SECONDS), "bootstrap icon probe timed out");
+            assertEquals(0, process.exitValue(), () -> {
+                try {
+                    return java.nio.file.Files.readString(log);
+                } catch (java.io.IOException failure) {
+                    return failure.toString();
+                }
+            });
+        } finally {
+            process.destroyForcibly();
+        }
+    }
+
+    public static final class BootstrapIconProbe {
+        public static void main(final String[] args) {
+            if (TurboismWindowFactory.class.getClassLoader() != null) {
+                throw new AssertionError("Factory must use the bootstrap loader, as in the packaged agent");
+            }
+            if (TurboismWindowFactory.windowIcon() == null) {
+                throw new AssertionError("Bundled window icon is missing under Boot-Class-Path");
+            }
+        }
+    }
 
     @Test
     void windowIconLoadsFromSdkClasspath() {

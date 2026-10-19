@@ -159,6 +159,10 @@ final class AcpChatControllerTest {
             final String text = (String) prompt.get("text");
             assertTrue(text.startsWith(AcpChatController.SYSTEM_BOUNDARY));
             assertTrue(text.indexOf("Prefer concise Cubism edits.") > text.indexOf(AcpChatController.SYSTEM_BOUNDARY));
+            assertTrue(text.contains("https://docs.live2d.com/en/cubism-editor-tutorials/top/"));
+            assertTrue(text.contains("https://docs.live2d.com/en/cubism-editor-manual/top/"));
+            assertTrue(text.contains("https://docs.turboism.dev"));
+            assertTrue(text.indexOf("https://docs.turboism.dev") < text.indexOf("Prefer concise Cubism edits."));
             assertTrue(text.endsWith("rename the object"));
         }
     }
@@ -171,7 +175,7 @@ final class AcpChatControllerTest {
                 AcpChatController controller = fixture.controller()) {
             set(controller, "client", client);
             set(controller, "session", configuredSession("sess-1"));
-            final int prefixLength = (AcpChatController.SYSTEM_BOUNDARY + "\n\nUser request:\n").length();
+            final int prefixLength = AcpChatController.promptPrefix("").length();
             final String userPrompt = "x".repeat(AcpChatController.MAX_PROMPT_CHARS - prefixLength);
 
             controller.sendPrompt(userPrompt);
@@ -284,6 +288,7 @@ final class AcpChatControllerTest {
             controller.agentText(source, "restored-session", "restored text");
             controller.agentThought(source, "restored-session", "restored thought");
             controller.toolCall(source, "restored-session", "call-1", "Rename", "edit", "pending");
+            controller.toolInput(source, "restored-session", "call-1", "{\"name\":\"Model\"}");
             controller.toolCallUpdate(source, "restored-session", "call-1", "complete", "done");
 
             assertTrue(completePendingLoad(
@@ -299,6 +304,7 @@ final class AcpChatControllerTest {
                             "agent:restored text",
                             "thought:restored thought",
                             "tool:call-1:Rename:edit:pending",
+                            "input:call-1:{\"name\":\"Model\"}",
                             "update:call-1:complete:done"),
                     fixture.view.timeline);
         }
