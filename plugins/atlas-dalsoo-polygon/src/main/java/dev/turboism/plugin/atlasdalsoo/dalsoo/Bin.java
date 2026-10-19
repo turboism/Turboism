@@ -14,6 +14,7 @@ package dev.turboism.plugin.atlasdalsoo.dalsoo;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -28,7 +29,8 @@ final class Bin {
 
     private final List<PackedPoly> packedPolys = new ArrayList<>();
     private final List<PackedPoly> pendingPolys = new ArrayList<>();
-    private final List<double[][]> perPolyTrigos = new ArrayList<>();
+    // Candidates belong to polygon identity, never its position in the area-sorted list.
+    private final Map<Integer, double[][]> perPolyTrigos = new HashMap<>();
     private final Map<Integer, List<PackedPoly>> grid = new HashMap<>();
     private int queryStamp;
     private Convex cntConvex;
@@ -69,7 +71,7 @@ final class Bin {
         for (int i = 0; i < polys.size(); i++) {
             final SourcePoly sp = polys.get(i);
             pendingPolys.add(new PackedPoly(sp.id, sp.inpts, sp.outpts, segmentMaxLength));
-            perPolyTrigos.add(trigos.get(i));
+            perPolyTrigos.put(sp.id, trigos.get(i));
         }
         this.preferX = hSkew;
         this.binWidth = width;
@@ -132,7 +134,7 @@ final class Bin {
         double minArea = Double.MAX_VALUE;
         final int sid = pendingPolys.size() - 1; // largest first
         final PackedPoly first = pendingPolys.get(sid);
-        final double[][] trigos = perPolyTrigos.get(sid);
+        final double[][] trigos = perPolyTrigos.get(first.id);
         for (int i = 0; i < trigos.length; i++) {
             final double[][] tp = Geom.rotate(first.outpts, trigos[i]);
             final double[] bd = Geom.boundingBox(tp);
@@ -157,7 +159,7 @@ final class Bin {
         final double[] bd = Geom.boundingBox(tp);
         first.fixRotateMove(trigos[rotid], new double[] {-bd[0], -bd[1]});
         pendingPolys.remove(sid);
-        perPolyTrigos.remove(sid);
+        perPolyTrigos.remove(first.id);
         placePackedPoly(first);
         if (cntConvex == null) {
             cntConvex = new Convex(first);
@@ -173,7 +175,7 @@ final class Bin {
     private boolean packPolyAbey(final int sid) {
         final PackedPoly poly = pendingPolys.get(sid);
         final double[][] opl = poly.outpts;
-        if (perPolyTrigos.get(sid).length == 1) {
+        if (perPolyTrigos.get(poly.id).length == 1) {
             // issued-angle lock: continuous search reduces to the dalalah path
             return packPolyDalalah(sid);
         }
@@ -251,7 +253,7 @@ final class Bin {
         }
         poly.fixRotateMove(minCossin, minTrans);
         pendingPolys.set(sid, null);
-        perPolyTrigos.set(sid, new double[0][]);
+        perPolyTrigos.remove(poly.id);
         placePackedPoly(poly);
         cntConvex = minCon;
         return true;
@@ -260,7 +262,8 @@ final class Bin {
     /** Dalalah 2014: discrete rotation candidates. */
     private boolean packPolyDalalah(final int sid) {
         final PackedPoly stp = pendingPolys.get(sid);
-        final double[][] trigos = perPolyTrigos.get(sid);
+        final double[][] trigos = perPolyTrigos.get(stp.id);
+        final double[][] contacts = contactVertices();
         double minArea = Double.MAX_VALUE;
         int minRotid = -1;
         double[] minTrans = null;
@@ -270,26 +273,23 @@ final class Bin {
             final double[][] rotatedInpoly = Geom.rotate(stp.inpts, trigos[i]);
             final double[] rotatedBb = Geom.boundingBox(rotatedOutpoly);
             for (final double[] p : rotatedOutpoly) { // each vertex of new poly
-                for (final PackedPoly fixed : packedPolys) {
-                    for (final double[] v : fixed.outpts) { // each vertex of each fixed poly
-                        final double tx = v[0] - p[0];
-                        final double ty = v[1] - p[1];
-                        if (!insideBin(rotatedBb, tx, ty)) {
-                            continue;
-                        }
-                        final double[] trans = {tx, ty};
-                        final double[][] transRotOutpoly = translate(trans, rotatedOutpoly);
-                        final double[] transBb = {
-                            rotatedBb[0] + tx, rotatedBb[1] + ty, rotatedBb[2] + tx, rotatedBb[3] + ty
-                        };
-                        if (isFeasible(transRotOutpoly, transBb)) {
-                            final PlacementScore sc = score(translate(trans, rotatedInpoly), transRotOutpoly);
-                            if (minArea > sc.area) {
-                                minArea = sc.area;
-                                minRotid = i;
-                                minTrans = trans;
-                                minCon = sc.convex;
-                            }
+                for (final double[] v : contacts) {
+                    final double tx = v[0] - p[0];
+                    final double ty = v[1] - p[1];
+                    if (!insideBin(rotatedBb, tx, ty)) {
+                        continue;
+                    }
+                    final double[] trans = {tx, ty};
+                    final double[][] transRotOutpoly = translate(trans, rotatedOutpoly);
+                    final double[] transBb = {rotatedBb[0] + tx, rotatedBb[1] + ty, rotatedBb[2] + tx, rotatedBb[3] + ty
+                    };
+                    if (isFeasible(transRotOutpoly, transBb)) {
+                        final PlacementScore sc = score(translate(trans, rotatedInpoly), transRotOutpoly);
+                        if (minArea > sc.area) {
+                            minArea = sc.area;
+                            minRotid = i;
+                            minTrans = trans;
+                            minCon = sc.convex;
                         }
                     }
                 }
@@ -328,7 +328,7 @@ final class Bin {
         }
         stp.fixRotateMove(trigos[minRotid], minTrans);
         pendingPolys.set(sid, null);
-        perPolyTrigos.set(sid, new double[0][]);
+        perPolyTrigos.remove(stp.id);
         placePackedPoly(stp);
         cntConvex = minCon;
         return true;
@@ -360,6 +360,20 @@ final class Bin {
     }
 
     private record PlacementScore(double area, Convex convex) {}
+
+    private record Contact(double x, double y) {}
+
+    /** Unique contact vertices, retaining placement order for deterministic ties. */
+    private double[][] contactVertices() {
+        final Map<Contact, double[]> contacts = new LinkedHashMap<>();
+        for (final PackedPoly fixed : packedPolys) {
+            for (final double[] vertex : fixed.outpts) {
+                contacts.putIfAbsent(
+                        new Contact(vertex[0] == 0 ? 0 : vertex[0], vertex[1] == 0 ? 0 : vertex[1]), vertex);
+            }
+        }
+        return contacts.values().toArray(new double[0][]);
+    }
 
     /** Scores a feasible placement: container-hull growth times distance preference. */
     private PlacementScore score(final double[][] transRotInpoly, final double[][] transRotOutpoly) {
