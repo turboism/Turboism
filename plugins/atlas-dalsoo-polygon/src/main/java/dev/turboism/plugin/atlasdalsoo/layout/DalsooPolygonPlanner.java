@@ -332,13 +332,16 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
             final double inset,
             final Map<String, String> diagnostics,
             final TextureAtlasLayoutBackend backend) {
-        final List<Variant> variants = List.of(
-                new Variant(abey, 0.7, "abey-h0.7"),
-                new Variant(false, 0.7, "dalalah-h0.7"),
-                new Variant(abey, 0.3, "abey-h0.3"),
-                new Variant(false, 0.3, "dalalah-h0.3"));
-        final ExecutorService pool =
-                Executors.newFixedThreadPool(Math.min(4, Runtime.getRuntime().availableProcessors()));
+        // NONE/QUARTER both use Dalalah: run each distinct search only once.
+        final List<Variant> variants = abey
+                ? List.of(
+                        new Variant(true, 0.7, "abey-h0.7"),
+                        new Variant(false, 0.7, "dalalah-h0.7"),
+                        new Variant(true, 0.3, "abey-h0.3"),
+                        new Variant(false, 0.3, "dalalah-h0.3"))
+                : List.of(new Variant(false, 0.7, "dalalah-h0.7"), new Variant(false, 0.3, "dalalah-h0.3"));
+        final ExecutorService pool = Executors.newFixedThreadPool(
+                Math.min(variants.size(), Runtime.getRuntime().availableProcessors()));
         try {
             final List<Future<VariantResult>> futures = new ArrayList<>();
             for (final Variant variant : variants) {
