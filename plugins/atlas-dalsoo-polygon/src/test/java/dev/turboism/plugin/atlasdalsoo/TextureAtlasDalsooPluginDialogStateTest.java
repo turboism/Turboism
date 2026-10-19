@@ -5,11 +5,22 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.cubism.CubismFacade;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasItemLayoutPolicy;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutBackend;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutQuality;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutTarget;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutline;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutlineSource;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonConstraints;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonItem;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutPlanner;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutSnapshot;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan;
@@ -70,6 +81,53 @@ class TextureAtlasDalsooPluginDialogStateTest {
             assertEquals("0", System.getProperty(TextureAtlasDalsooPlugin.DIALOG_AUTO_SCALE_MAX_TRY_KEY));
             assertEquals("abey", System.getProperty(TextureAtlasDalsooPlugin.DIALOG_KERNEL_KEY));
             assertEquals("false", System.getProperty(TextureAtlasDalsooPlugin.DIALOG_PARALLEL_KEY));
+        } finally {
+            plugin.shutdown();
+        }
+    }
+
+    @Test
+    void registeredPlannerReadsDialogSettingsAndRealPolygonSnapshot() {
+        final var context = new ShellPluginContext();
+        final var plugin = new TextureAtlasDalsooPlugin();
+        plugin.init(context);
+        plugin.enable();
+        try {
+            System.setProperty(TextureAtlasDalsooPlugin.DIALOG_ROTATION_KEY, "FREE");
+            System.setProperty(TextureAtlasDalsooPlugin.DIALOG_KERNEL_KEY, "dalalah");
+            final var planner = context.algorithms.find("dalsoo").orElseThrow().planner();
+            assertTrue(planner instanceof TextureAtlasPolygonLayoutPlanner);
+            final var snapshot = new TextureAtlasPolygonLayoutSnapshot(
+                    new TextureAtlasLayoutTarget() {},
+                    "doc",
+                    "model",
+                    "atlas",
+                    new TextureAtlasPolygonConstraints(
+                            40,
+                            40,
+                            0,
+                            TextureAtlasRotationMode.FREE,
+                            1,
+                            TextureAtlasLayoutBackend.DALSOO_POLYGON,
+                            TextureAtlasLayoutQuality.FAST),
+                    List.of(new TextureAtlasPolygonItem(
+                            "thin",
+                            42,
+                            10,
+                            TextureAtlasOutline.rect(42, 10),
+                            TextureAtlasItemLayoutPolicy.participating("thin"),
+                            TextureAtlasOutlineSource.DRAW_DATA_SHAPES,
+                            null,
+                            false)),
+                    null);
+            final var plan = ((TextureAtlasPolygonLayoutPlanner) planner).planPolygon(snapshot, false);
+            assertEquals(
+                    TextureAtlasRotationMode.FREE, plugin.confirmedSettings().rotation());
+            assertEquals(1, plan.scale(), 1e-9, "issued fixed scale must win over automatic plugin scale");
+            assertTrue(plan.overflowTextureIds().isEmpty());
+            final double angle =
+                    Math.abs(plan.placementFor("thin").orElseThrow().angleDeg() % 90);
+            assertTrue(angle > 1e-6 && angle < 90 - 1e-6);
         } finally {
             plugin.shutdown();
         }
@@ -185,7 +243,7 @@ class TextureAtlasDalsooPluginDialogStateTest {
         private final DisposableScope scope = new DisposableScope();
 
         ShellPluginContext() {
-            super(FakePluginContext.builder());
+            super(FakePluginContext.builder().localization(passThroughLocalization()));
         }
 
         @Override
@@ -235,14 +293,13 @@ class TextureAtlasDalsooPluginDialogStateTest {
                 public TextureAtlasLayoutService textureAtlasLayouts() {
                     return new TextureAtlasLayoutService() {
                         @Override
-                        public Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot> current() {
+                        public Optional<TextureAtlasLayoutSnapshot> current() {
                             return Optional.empty();
                         }
 
                         @Override
                         public TextureAtlasLayoutApplyResult apply(
-                                final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutTarget target,
-                                final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan plan) {
+                                final TextureAtlasLayoutTarget target, final TextureAtlasLayoutPlan plan) {
                             return TextureAtlasLayoutApplyResult.failed(
                                     TextureAtlasLayoutFailureCode.PLAN_INVALID, "no snapshot");
                         }
@@ -259,8 +316,7 @@ class TextureAtlasDalsooPluginDialogStateTest {
 
                         @Override
                         public TextureAtlasLayoutApplyResult apply(
-                                final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutTarget target,
-                                final TextureAtlasPolygonPlan plan) {
+                                final TextureAtlasLayoutTarget target, final TextureAtlasPolygonPlan plan) {
                             return TextureAtlasLayoutApplyResult.failed(
                                     TextureAtlasLayoutFailureCode.PLAN_INVALID, "no snapshot");
                         }

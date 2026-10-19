@@ -25,6 +25,33 @@ class DalsooPolygonPlannerTest {
     private static final int PAGE = 512;
 
     @Test
+    void areaSortingKeepsEachItemsIssuedAngle() {
+        final List<TextureAtlasPolygonItem> items = new ArrayList<>();
+        for (int i = 4; i >= 1; i--) {
+            final double angle = i * 17;
+            final double r = Math.toRadians(angle);
+            items.add(new TextureAtlasPolygonItem(
+                    "angle-" + i,
+                    i * 15,
+                    i * 10,
+                    rectOutline(i * 15, i * 10),
+                    new TextureAtlasItemLayoutPolicy("angle-" + i, true, true, false, false),
+                    TextureAtlasOutlineSource.DRAW_DATA_SHAPES,
+                    new double[] {Math.cos(r), Math.sin(r), -Math.sin(r), Math.cos(r), 0, 0},
+                    true));
+        }
+        final var result = plan(items, constraints(TextureAtlasRotationMode.NONE, 1));
+        assertTrue(result.overflowTextureIds().isEmpty());
+        for (final var item : items) {
+            assertEquals(
+                    item.currentAngleDeg(),
+                    result.placementFor(item.textureId()).orElseThrow().angleDeg(),
+                    1e-6);
+        }
+        assertNoOverlap(items, result, 0);
+    }
+
+    @Test
     void packsConcaveItemsWithoutOverlap() {
         final List<TextureAtlasPolygonItem> items = new ArrayList<>();
         for (int i = 0; i < 8; i++) {

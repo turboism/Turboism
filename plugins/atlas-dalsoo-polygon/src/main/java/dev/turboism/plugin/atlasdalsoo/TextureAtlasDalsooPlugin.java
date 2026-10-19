@@ -4,9 +4,16 @@ import dev.turboism.plugin.atlasdalsoo.layout.RectPathPolygonPlanner;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutPlanner;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutSnapshot;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.BooleanSupplier;
@@ -15,11 +22,10 @@ import java.util.function.BooleanSupplier;
  * Polygon-aware texture-atlas packing on the ported MIT Dalsoo kernel.
  *
  * <p>Registers the {@code dalsoo} algorithm (polygon packing) in the shared
- * algorithm registry and takes the native automatic-layout callback when
- * available. The polygon path reads real item outlines through
- * {@code textureAtlasPolygonLayouts()}; when another plugin owns the callback the
- * {@code dalsoo} algorithm still works through the rectangle dialog path with
- * bounding-box outlines, which is reported honestly as a degraded mode.</p>
+ * algorithm registry. The runtime dispatches native invocations through its
+ * polygon entry with real outlines and owns validated writeback. Explicit
+ * rectangle-only SDK calls use bounding-box outlines as a degraded mode. The
+ * legacy callback remains available for older runtime integrations.</p>
  */
 public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
 
@@ -58,8 +64,8 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
             throw new IllegalStateException("Atlas Dalsoo configuration could not be loaded.");
         }
         enabled = true;
-        registerAlgorithm();
         composeServices();
+        registerAlgorithm();
         System.getProperties().putIfAbsent(NATIVE_AUTO_LAYOUT_CALLBACK_KEY, nativeAutoLayoutCallback);
         publishDialogState();
         context.logger().info("Atlas Dalsoo polygon packing enabled");
@@ -75,12 +81,39 @@ public final class TextureAtlasDalsooPlugin implements TurboismPlugin {
                             context.localization().text("texture-atlas.algorithm.dalsoo"),
                             true,
                             true,
-                            new RectPathPolygonPlanner(() -> settings.confirmed()))));
+                            registeredPlanner())));
         } catch (ThreadDeath | VirtualMachineError fatal) {
             throw fatal;
         } catch (Throwable failure) {
             context.logger().warn("Atlas Dalsoo algorithm registration failed safely: " + failure);
         }
+    }
+
+    private TextureAtlasPolygonLayoutPlanner registeredPlanner() {
+        final var rectangles = new RectPathPolygonPlanner(() -> settings.confirmed());
+        return new TextureAtlasPolygonLayoutPlanner() {
+            @Override
+            public TextureAtlasPolygonPlan planPolygon(
+                    final TextureAtlasPolygonLayoutSnapshot snapshot, final boolean parallel) {
+                syncDialogState();
+                return polygonService.planAutomaticLayout(snapshot, parallel);
+            }
+
+            @Override
+            public TextureAtlasLayoutPlan plan(
+                    final List<TextureAtlasLayoutItem> items, final TextureAtlasLayoutConstraints constraints) {
+                return plan(items, constraints, false);
+            }
+
+            @Override
+            public TextureAtlasLayoutPlan plan(
+                    final List<TextureAtlasLayoutItem> items,
+                    final TextureAtlasLayoutConstraints constraints,
+                    final boolean parallel) {
+                syncDialogState();
+                return rectangles.plan(items, constraints, parallel);
+            }
+        };
     }
 
     private void composeServices() {
