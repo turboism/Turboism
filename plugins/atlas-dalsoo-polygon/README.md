@@ -127,6 +127,34 @@ Defaults preserve the pre-dialog behavior: rotation `QUARTER`, lock preset
 `NONE`, automatic scale with tolerance `0.005`, quality-derived attempt bound,
 Abey kernel, serial planning.
 
+## Geometry500: native, Dalsoo and BSSF comparison (2026-10-19)
+
+Cubism 5.3.03, DW-Proton / `:0`, the same 500-image Geometry fixture and identical
+framework, plugin and probe artifacts. Each algorithm ran once in a fresh host,
+with serial execution, an 8192×8192 page, margin 3, mesh mode, automatic scale
+and rotation enabled; Dalsoo used `QUARTER` rotation.
+
+| Algorithm | Layout method (s) | OK action → progress-window close (s) |
+| --- | ---: | ---: |
+| Native | 192.94 | 193.16 |
+| Dalsoo | 12.20 | 12.51 |
+| MaxRects-BSSF | **0.20** | **0.45** |
+
+By method time, Dalsoo was **15.8× faster than native**, while BSSF was
+**60.5× faster than Dalsoo** (27.6× by UI time). All three placed all 500 images
+at 100% scale, with no overlap, out-of-bounds placement or overflow, and matching
+LayerRef transforms. Host identity, unchanged fixture, normal exit and safe
+cleanup checks all passed.
+
+These are single instrumented runs, not medians or a general speed guarantee.
+UI times include input-probe costs of 12.28 / 18.30 / 28.25 ms for
+native / Dalsoo / BSSF; model loading and post-close output validation are excluded.
+Dalsoo read 500 host contours without bounds fallback (500 rings, 2000 vertices);
+this fixture does not establish performance on complex concave shapes or
+`FREE` rotation, nor optimal packing density.
+See the [measurement report and job ledger](../../validation/texture-atlas-current-page/HOST-GEOMETRY500-THREE-WAY.md)
+and [raw samples](../../validation/texture-atlas-current-page/host-geometry500-three-way-samples.csv).
+
 ## Capabilities
 
 | Declared capability | User effect |
