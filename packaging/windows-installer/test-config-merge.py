@@ -22,6 +22,7 @@ META-INF/turboism/plugin.json 读取并逐一校验（见 SPEC.md）。
 import json
 import re
 import sys
+import tomllib
 from pathlib import Path
 
 MANIFEST_PATH = Path(__file__).resolve().parent.parent / "release-plugins.txt"
@@ -634,13 +635,17 @@ def check_managed_graal_installer_contract():
           '"/META-INF/turboism/managed-graal.json"' in service
           and "graalvm-community-jdk-25i2-25.0.4_windows-x64_bin.zip" not in service
           and "341_299_924" not in service and "341299924" not in service)
-    # 残余版本副本（接口常量、构建脚本）无法读资源：这里锁死它们必须与清单一致。
+    # 接口常量和构建版本目录必须与清单一致，构建脚本必须读取该目录。
     jvm_settings = (INSTALLER_NSI.parents[2] / "core-contract/src/main/java/dev/turboism/internal/core/CubismJvmSettingsService.java").read_text(encoding="utf-8")
     graal_build = (INSTALLER_NSI.parents[2] / "graal-host/build.gradle.kts").read_text(encoding="utf-8")
+    versions = tomllib.loads(
+        (INSTALLER_NSI.parents[2] / "gradle/libs.versions.toml").read_text(encoding="utf-8")
+    )["versions"]
     check("GI5b 接口常量/构建脚本版本与清单一致",
           ('MANAGED_GRAAL_VERSION = "%s"' % graal_manifest["graalVersion"]) in jvm_settings
           and ('MANAGED_JAVA_VERSION = "%s"' % graal_manifest["javaVersion"]) in jvm_settings
-          and ('graalVersion = "%s"' % graal_manifest["graalVersion"]) in graal_build)
+          and "val graalVersion = libs.versions.graal.get()" in graal_build
+          and versions["graal"] == graal_manifest["graalVersion"])
     check("GI6 installation never discovers or launches Java",
           all(token not in bridge for token in (
               "Test-TurboismJava17", "Find-TurboismInstallerJava", "ProcessStartInfo",
