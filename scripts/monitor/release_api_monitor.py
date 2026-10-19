@@ -124,10 +124,13 @@ def document_error(path, data, now=None):
                 or not re.fullmatch(r'[a-f0-9]{40}', str(release.get('sourceRevision', '')))):
             return 'Invalid release identity'
         assets = release.get('assets')
-        if (not isinstance(assets, list) or len(assets) != 4
+        if (not isinstance(assets, list) or len(assets) != 2
                 or any(not isinstance(a, dict) or type(a.get('size')) is not int
                        or a['size'] <= 0 or not re.fullmatch(r'[a-f0-9]{64}', str(a.get('sha256', '')))
                        for a in assets)):
+            return 'Missing or invalid download assets'
+        expected = {f"TurboismInstaller-{release['version']}.exe", f"turboism-{release['version']}.zip"}
+        if any(not isinstance(a.get('name'), str) for a in assets) or {a['name'] for a in assets} != expected:
             return 'Missing or invalid download assets'
     return sync_error(data.get('updatedAt'), now)
 

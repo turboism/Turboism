@@ -25,7 +25,8 @@ def release(channel='stable', status='ready'):
     return {'schemaVersion': 1, 'channel': channel, 'status': status, 'updatedAt': STAMP,
             'release': None if status == 'not_published' else {
                 'channel': channel, 'version': '1.2.3', 'sourceRevision': 'a' * 40,
-                'assets': [{'name': str(i), 'size': 10, 'sha256': 'b' * 64} for i in range(4)]}}
+                'assets': [{'name': name, 'size': 10, 'sha256': 'b' * 64}
+                           for name in ('TurboismInstaller-1.2.3.exe', 'turboism-1.2.3.zip')]}}
 
 
 def report(ok):
@@ -73,6 +74,21 @@ class DocumentTests(unittest.TestCase):
     def test_channel_mismatch_and_unavailable_are_rejected(self):
         for data in (release('nightly'), release('stable', 'unavailable'), None, []):
             self.assertIsNotNone(monitor.document_error('/v1/releases/stable.json', data, NOW))
+
+    def test_standard_exe_and_zip_are_a_healthy_release(self):
+        self.assertIsNone(monitor.document_error('/v1/releases/stable.json', release(), NOW))
+
+    def test_retired_duplicate_and_incomplete_packages_are_rejected(self):
+        for names in (('TurboismInstaller-1.2.3.exe',),
+                      ('TurboismInstaller-1.2.3.exe',) * 2,
+                      ('TurboismInstaller-1.2.3-full.exe', 'turboism-1.2.3-thin.zip'),
+                      ('TurboismInstaller-1.2.3.exe', 'turboism-1.2.3.zip',
+                       'TurboismInstaller-1.2.3.jar', 'turboism-1.2.3-lite.zip')):
+            data = release()
+            data['release']['assets'] = [{'name': name, 'size': 10, 'sha256': 'b' * 64}
+                                         for name in names]
+            with self.subTest(names=names):
+                self.assertIsNotNone(monitor.document_error('/v1/releases/stable.json', data, NOW))
 
     def test_missing_or_partial_assets_are_not_a_healthy_release(self):
         for change in (lambda r: r['release'].update(assets=[]),
