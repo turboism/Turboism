@@ -487,7 +487,7 @@ def check_config_migration_contract():
     check("CM3 installer selection is explicit and complete",
           "Call SetBundledPluginIds" in section
           and "-ApplyInstallerSelection" in section
-          and '-Variant "thin"' in section
+          and '-Variant "thin"' not in section
           and '-Variant "full"' in section
           and '-BundledPluginIds "$bundledPluginIds"' in section
           and "Function SetBundledPluginIds" in generated)

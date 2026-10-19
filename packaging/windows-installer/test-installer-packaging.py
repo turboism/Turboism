@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -35,13 +36,14 @@ def production_blocks() -> tuple[str, str]:
     return blocks[0], blocks[1]
 
 
-def generate(stage: Path, work: Path) -> tuple[Path, Path]:
+def generate(stage: Path, work: Path, verification: Path | None = None) -> tuple[Path, Path]:
     generated = work / "generated"
     generated.mkdir(parents=True, exist_ok=True)
     sections = work / "plugin-sections.nsh"
     subprocess.run(
         [sys.executable, "-", str(stage), str(sections), str(ROOT / "packaging/release-plugins.txt"), str(generated)],
         input=production_blocks()[0], text=True, check=True, capture_output=True,
+        env={**os.environ, "TURBOISM_VERIFICATION_METADATA": str(verification)} if verification else None,
     )
     return sections, generated
 
@@ -87,41 +89,39 @@ def synthetic_test() -> None:
                 for entry in manifest["artifacts"])
             + "</components></verification-metadata>",
             encoding="utf-8")
-        import os
-        os.environ["TURBOISM_VERIFICATION_METADATA"] = str(verification)
         for name in ("sdk-0.67.0.jar", "graal-host-0.67.0.jar", "polyglot-25.2.4.jar"):
             (stage / "graal/lib" / name).write_bytes(b"synthetic base library")
-        _, generated = generate(stage, work)
+        _, generated = generate(stage, work, verification)
         core = (generated / "payload-core.sha256").read_text()
         extractor = (generated / "payload-extract.nsh").read_text(encoding="utf-8-sig")
         for entry in manifest["artifacts"]:
-            assert entry["name"] not in core and entry["name"] not in extractor, "heavy engine must not be embedded in the ordinary EXE"
+            assert entry["name"] in core and entry["name"] in extractor, "standard EXE must embed the verified offline engine"
         assert "graal/lib/sdk-0.67.0.jar" in core and "graal/lib/graal-host-0.67.0.jar" in core
         assert "install-script-engine.ps1" in core and "script-engine.json" in core
-        # The unmodified production ZIP path remains an offline engine closure.
-        full = work / "full.zip"
-        subprocess.run([sys.executable, "-", str(stage), str(full), "0", "0.67.0"], input=production_blocks()[1], text=True, check=True)
-        with zipfile.ZipFile(full) as archive:
+        standard = work / "standard.zip"
+        subprocess.run([sys.executable, "-", str(stage), str(standard), "0.67.0"], input=production_blocks()[1], text=True, check=True)
+        with zipfile.ZipFile(standard) as archive:
             for entry in manifest["artifacts"]:
                 assert archive.read("graal/lib/" + entry["name"]) == (stage / "graal/lib" / entry["name"]).read_bytes()
             assert any(name.startswith("plugins/") for name in archive.namelist())
-            meta = json.loads(archive.read("installed-build.json"))
-            assert meta.get("variant") == "full"
-        thin = work / "thin.zip"
-        subprocess.run([sys.executable, "-", str(stage), str(thin), "1", "0.67.0"], input=production_blocks()[1], text=True, check=True)
-        with zipfile.ZipFile(thin) as archive:
-            assert not any(name.startswith("plugins/") for name in archive.namelist()), "thin zip must contain zero plugin jars"
-            meta = json.loads(archive.read("installed-build.json"))
-            assert meta.get("variant") == "thin"
+            assert "graal/lib/sdk-0.67.0.jar" in archive.namelist()
+            assert json.loads(archive.read("installed-build.json"))["variant"] == "full"
+        # Exercise the verifier against the real production ZIP path.
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("verify_release", ROOT / "scripts/release/verify-release.py")
+        verifier = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(verifier)
+        shutil.copy2(standard, work / "turboism-0.67.0.zip")
+        verifier.verify_bundled_engine(work, "0.67.0", stage)
         bad = stage / "graal/lib" / manifest["artifacts"][1]["name"]
         bad.write_bytes(b"tampered library")
         failed = False
         try:
-            generate(stage, work)
+            generate(stage, work, verification)
         except subprocess.CalledProcessError:
             failed = True
         assert failed, "packaging must reject a staging file that differs from its download pin"
-        print("INSTALLER_PACKAGING_PASS: thin core, SDK/base retained, offline closure preserved, tampered pin rejected")
+        print("INSTALLER_PACKAGING_PASS: standard plugins, SDK/base and offline engine verified, tampered pin rejected")
 
 
 def repack(source: Path, output: Path, version: str) -> None:
@@ -148,20 +148,19 @@ def repack(source: Path, output: Path, version: str) -> None:
     shutil.copy2(PACKAGE / "installer.nsi", output / "installer.nsi")
     eula = generated / "eula"
     eula.mkdir()
-    for language in ("en", "zh-Hans", "ja"):
+    for language in ("en", "zh-Hans", "ja", "ko"):
         name = "EULA." + language + ".txt"
         (eula / name).write_bytes(b"\xef\xbb\xbf" + (ROOT / "packaging/eula" / name).read_bytes())
     dist = output / "dist"
     dist.mkdir()
-    for variant in ("full", "thin"):
-        subprocess.run([
-            "makensis", "-WX", "-DVER=" + version, "-DVARIANT=" + variant, "-DSTAGING_DIR=" + str(stage),
-            "-DGENERATED_DIR=" + str(generated), "-DOUT_DIR=" + str(dist),
-            "-DLICENSE_FILE=" + str(ROOT / "LICENSE"), "-DEULA_DIR=" + str(eula),
-            "-DICON_FILE=" + str(PACKAGE / "assets/turboism.ico"), str(output / "installer.nsi"),
-        ], check=True)
-        archive = dist / ("turboism-" + version + "-" + variant + ".zip")
-        subprocess.run([sys.executable, "-", str(stage), str(archive), "1" if variant == "thin" else "0", version], input=production_blocks()[1], text=True, check=True)
+    subprocess.run([
+        "makensis", "-WX", "-DVER=" + version, "-DSTAGING_DIR=" + str(stage),
+        "-DGENERATED_DIR=" + str(generated), "-DOUT_DIR=" + str(dist),
+        "-DLICENSE_FILE=" + str(ROOT / "LICENSE"), "-DEULA_DIR=" + str(eula),
+        "-DICON_FILE=" + str(PACKAGE / "assets/turboism.ico"), str(output / "installer.nsi"),
+    ], check=True)
+    archive = dist / ("turboism-" + version + ".zip")
+    subprocess.run([sys.executable, "-", str(stage), str(archive), version], input=production_blocks()[1], text=True, check=True)
     records = []
     for path in sorted(dist.iterdir()):
         checksum = digest(path)

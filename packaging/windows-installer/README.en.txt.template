@@ -1,4 +1,4 @@
-﻿Turboism __VERSION__ Windows Package - User Guide
+Turboism __VERSION__ Windows Package - User Guide
 =================================================
 
 Turboism is a Java agent runtime for the Live2D Cubism editor. It launches
@@ -8,18 +8,9 @@ Cubism shortcuts load Turboism; that option can be unchecked during
 installation. The operation is hash-guarded, idempotent, and restored on
 uninstall.
 
-Optional JavaScript engine
+Bundled JavaScript engine
 --------------------------
-The ordinary EXE does not embed the two large GraalJS engine libraries. Select
-"JavaScript engine" in the wizard to download their pinned versions, or run:
-  powershell -NoProfile -ExecutionPolicy Bypass -File .\install-script-engine.ps1
-The helper downloads and verifies byte counts and SHA-256 without executing Java.
-For offline installation, pass -OfflineSource "<unpacked Full ZIP>\graal\lib".
-The Full and Thin ZIPs keep the full offline engine closure.
-Script execution also needs a compatible GraalVM; downloading the engine is
-separate from provisioning that JVM. Missing or damaged optional libraries
-disable scripting with a diagnostic; basic framework/Java plugins remain usable.
-Unchecking the option does not remove an engine installed earlier.
+Both standard packages include the complete offline GraalJS engine. A compatible GraalVM runtime is installed separately through the configurator.
 
 1. Directory layout
 -------------------
@@ -30,7 +21,7 @@ Unchecking the option does not remove an engine installed earlier.
   launch-cubism-turboism.bat     Managed launcher entry point
   launch-cubism-turboism.ps1     PowerShell launcher implementation
   cubism-launch-common.ps1       Shared inventory/launch helpers
-  plugins/                       Plugin jars (full package only; absent in thin)
+  plugins/                       Bundled first-party plugin jars
   README.txt / README.zh.txt / README.ja.txt / LICENSE.txt
 
 2. Usage
@@ -83,7 +74,7 @@ without changing payload.
 
 4. Uninstall
 ------------
-- If you installed with the NSIS installer (TurboismInstaller-<ver>-full.exe or TurboismInstaller-<ver>-thin.exe),
+- If you installed with the NSIS installer (TurboismInstaller-<ver>.exe),
   run uninstall.exe in the Turboism home directory. It removes only Turboism's
   recorded managed shortcuts/state and owned payload files. The confirmation
   page has a check box "Keep config.json (user configuration)" - checked

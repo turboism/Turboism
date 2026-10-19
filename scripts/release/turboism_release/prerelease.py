@@ -38,6 +38,8 @@ def receipt_from_body(body, expected_channel=None):
 
 def canonical_sets_for(version):
     require(channel_for(version) in ('beta','nightly'), 'Not a prerelease version')
+    from .artifact_layout import PRODUCT_PRIMARY, DEVELOPER_PRIMARY
+    standard = [name.format(version=version) for name in (*PRODUCT_PRIMARY, *DEVELOPER_PRIMARY)]
     modern = [f'TurboismInstaller-{version}-full.exe', f'TurboismInstaller-{version}-thin.exe',
               f'turboism-{version}-full.zip', f'turboism-{version}-thin.zip',
               f'turboism-sdk-{version}.jar', f'turboism-event-processor-{version}.jar']
@@ -46,6 +48,7 @@ def canonical_sets_for(version):
     legacy12 = legacy_core + [f'turboism-sdk-{version}.jar', f'turboism-event-processor-{version}.jar']
     legacy10 = legacy_core + [f'turboism-sdk-{version}.jar']
     return [
+        {name for item in standard for name in (item, item+'.sha256')},
         {name for item in modern for name in (item, item+'.sha256')},
         {name for item in legacy12 for name in (item, item+'.sha256')},
         {name for item in legacy10 for name in (item, item+'.sha256')},
@@ -149,7 +152,7 @@ def publish(github, dist, receipt, manifest, notes):
     require(receipt_from_body(notes,receipt['channel']) == receipt, 'Notes have a different build receipt')
     require(manifest['version'] == version, 'Manifest version mismatch')
     expected = {a['name']:{'size':a['size'],'sha256':a['sha256']} for a in manifest['artifacts']}
-    require(set(expected) == names_for(version) and len(manifest['artifacts']) == 12, 'Prerelease requires twelve verified files')
+    require(set(expected) in canonical_sets_for(version) and len(manifest['artifacts']) == len(expected), 'Prerelease requires a complete verified asset set')
     binding = hashlib.sha256(json.dumps({'receipt':receipt,'assets':expected,'notes':notes},sort_keys=True).encode()).hexdigest()
     bound = tag_binding(github,tag,source,binding)
     raw = find_release(github,tag)

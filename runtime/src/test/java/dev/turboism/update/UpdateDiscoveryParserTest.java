@@ -79,6 +79,27 @@ final class UpdateDiscoveryParserTest {
     }
 
     @Test
+    void unifiedInstallerServesBothInstalledVariants() {
+        final String document = """
+                {"schemaVersion":1,"channel":"stable","status":"ready",
+                 "release":{"version":"0.67.0","assets":[
+                   {"name":"turboism-0.67.0.zip","kind":"full","variant":"full",
+                    "url":"https://api.turboism.dev/files/standard.zip","size":100,"sha256":"%s"},
+                   {"name":"TurboismInstaller-0.67.0.exe","kind":"windows-installer","variant":"full","platform":"windows",
+                    "url":"https://api.turboism.dev/files/standard.exe","size":100,"sha256":"%s"}
+                 ]}}
+                """.formatted("a".repeat(64), "b".repeat(64));
+        final UpdateDiscovery discovery = parser.parse(bytes(document));
+        final UpdateDiscovery.Candidate candidate = discovery.candidate().orElseThrow();
+        for (String variant : new String[] {"full", "thin"}) {
+            assertEquals(
+                    "TurboismInstaller-0.67.0.exe",
+                    candidate.pickInstallerAsset(variant).orElseThrow().name());
+        }
+        assertEquals(discovery, parser.parseNode(discovery.toJson(UpdateFileSupport.JSON)));
+    }
+
+    @Test
     void acceptsAReadyDocumentWithoutARecordedBuildNumberAsLegacyIdentity() {
         final UpdateDiscovery discovery =
                 parser.parse(bytes("{\"schemaVersion\":1,\"channel\":\"stable\",\"status\":\"ready\","

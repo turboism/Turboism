@@ -105,7 +105,7 @@ allocator** when rebuilding; publication-only retries retain the original number
 
 ### Explicitly publish Stable or Beta without rebuilding
 
-Review the successful candidate's twelve files, receipt and source identity.
+Review the successful candidate's eight files, receipt and source identity.
 Use the **original** source SHA and successful run attempt, even if main advanced.
 
 ```bash
@@ -254,9 +254,9 @@ Generic `--yes` confirmation is intentionally unsupported. The run ID must ident
 
 ## Immutable release rules
 
-- A framework version has exactly twelve GitHub Release assets: four product files (`TurboismInstaller-<version>-full.exe`, `TurboismInstaller-<version>-thin.exe`, `turboism-<version>-full.zip`, `turboism-<version>-thin.zip`) and four portable SHA-256 sidecars, plus the `turboism-sdk-<version>.jar` and `turboism-event-processor-<version>.jar` developer artifacts and their sidecars. The standalone SDK JAR is byte-identical to the SDK JAR bundled inside the staged product payload.
-- The SDK and event-processor pairs are GitHub-only developer artifacts: they never enter the Updates `release.json` media contract, the distribution API's four public binaries, or the R2 mirror. The candidate binds them under `framework.developerArtifacts` so the original eight product artifacts keep their existing contract.
-- The reviewed Updates `release.json` is transferred as a digest-bound Actions artifact and is never a thirteenth GitHub Release asset.
+- A framework version has exactly eight GitHub Release assets: the standard Windows installer (`TurboismInstaller-<version>.exe`), portable package (`turboism-<version>.zip`), and their SHA-256 sidecars, plus the SDK and event-processor JARs and their sidecars. Both standard packages contain all bundled plugins and the complete, pinned GraalJS offline engine closure. A compatible GraalVM runtime is installed separately through the configurator. Previously published full/thin layouts remain readable. The standalone SDK JAR is byte-identical to the SDK JAR in the staged payload.
+- The SDK and event-processor pairs are GitHub-only developer artifacts: they never enter the Updates `release.json` media contract, the distribution API's two public downloads, or the R2 mirror. The candidate binds them under `framework.developerArtifacts` separately from the four product files and checksums.
+- The reviewed Updates `release.json` is transferred as a digest-bound Actions artifact and is never a ninth GitHub Release asset.
 - Existing assets and versioned R2 objects are reused only after exact name, size, and SHA-256 equality.
 - Same-version different bytes fail with a version-not-bumped error. Assets are never overwritten.
 - Partial publication is resumable by uploading only absent immutable objects.
@@ -308,7 +308,7 @@ a rebuild attempt is new and failures may leave harmless gaps.
 
 Numbered product JARs and the Java installer carry `Turboism-Version`,
 `Turboism-Channel`, `Turboism-Build-Number`, and `Turboism-Source-Revision`.
-`build-identity.json` stays in the Actions candidate artifact, not a thirteenth
+`build-identity.json` stays in the Actions candidate artifact, not a ninth
 public Release asset. Protected promotion checks it against the ledger, JAR manifests,
 and the embedded runtime resource, and publishes the matching machine-readable
 receipt in Release notes. Historical releases keep `buildNumber: null`.

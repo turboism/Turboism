@@ -47,17 +47,10 @@ Unicode true
   !define ICON_FILE "assets/turboism.ico"
 !endif
 
-!ifndef VARIANT
-  !define VARIANT "full"
-!endif
 
 ; ---------- 基本属性 ----------
 Name "Turboism ${VER}"
-!if "${VARIANT}" == "thin"
-  OutFile "${OUT_DIR}/TurboismInstaller-${VER}-thin.exe"
-!else
-  OutFile "${OUT_DIR}/TurboismInstaller-${VER}-full.exe"
-!endif
+  OutFile "${OUT_DIR}/TurboismInstaller-${VER}.exe"
 Icon "${ICON_FILE}"
 UninstallIcon "${ICON_FILE}"
 InstallDir "$LOCALAPPDATA\Turboism"
@@ -73,11 +66,7 @@ SetFont "MS Shell Dlg" 12
   VIProductVersion "${VER_NUMERIC}"
   VIAddVersionKey "ProductName" "Turboism"
   VIAddVersionKey "ProductVersion" "${VER}"
-  !if "${VARIANT}" == "thin"
-    VIAddVersionKey "FileDescription" "Turboism Windows Installer (Thin)"
-  !else
-    VIAddVersionKey "FileDescription" "Turboism Windows Installer (Full)"
-  !endif
+    VIAddVersionKey "FileDescription" "Turboism Windows Installer"
   VIAddVersionKey "FileVersion" "${VER}"
   VIAddVersionKey "CompanyName" "Turboism Contributors"
   VIAddVersionKey "LegalCopyright" "Copyright (c) Turboism Contributors"
@@ -126,7 +115,6 @@ Page custom EulaAcknowledgementsCreate EulaAcknowledgementsLeave
 !insertmacro MUI_PAGE_DIRECTORY
 Page custom GraalCreate GraalLeave
 Page custom GraalInstallCreate GraalInstallLeave
-Page custom ScriptEngineCreate ScriptEngineLeave
 Page custom CubismDiscoveryCreate CubismDiscoveryLeave
 Page custom LaunchOptionsCreate LaunchOptionsLeave
 !insertmacro MUI_PAGE_INSTFILES
@@ -512,8 +500,6 @@ Var CubismDiscoveryResultSeen
 Var CubismDiscoveryEndSeen
 Var CubismDiscoveryMalformed
 Var CubismDiscoverySnapshotHash
-Var installScriptEngine
-Var ScriptEngineCheckbox
 Var LaunchOptionsDialog
 Var createStartMenu
 Var createDesktopShortcut
@@ -521,9 +507,7 @@ Var integrateCubismBat
 Var StartMenuCheckbox
 Var DesktopShortcutCheckbox
 Var IntegrateBatCheckbox
-!if "${VARIANT}" != "thin"
 Var bundledPluginIds     ; 当前发布包内的全部插件 id，';' 分隔
-!endif
 Var pos
 Var ch
 Var len
@@ -545,25 +529,8 @@ Var unCfgStyle          ; 复选框控件样式
 !endif
 
 ; ---------- 初始化 ----------
-LangString ScriptEngineTitle ${LANG_ENGLISH} "JavaScript engine"
-LangString ScriptEngineTitle ${LANG_SIMPCHINESE} "JavaScript 脚本引擎"
-LangString ScriptEngineTitle ${LANG_JAPANESE} "JavaScript エンジン"
-LangString ScriptEngineTitle ${LANG_KOREAN} "JavaScript 엔진"
-LangString ScriptEngineOption ${LANG_ENGLISH} "Download and install the optional JavaScript engine (about 77 MiB)"
-LangString ScriptEngineOption ${LANG_SIMPCHINESE} "下载并安装可选的 JavaScript 脚本引擎（约 77 MiB）"
-LangString ScriptEngineOption ${LANG_JAPANESE} "オプションの JavaScript エンジンをダウンロードしてインストール（約 77 MiB）"
-LangString ScriptEngineOption ${LANG_KOREAN} "선택적 JavaScript 엔진 다운로드 및 설치 (약 77 MiB)"
-LangString ScriptEngineHelp ${LANG_ENGLISH} "The framework and Java plugins work without this download. Script execution also needs a compatible GraalVM. The portable ZIP includes these engine files for offline use."
-LangString ScriptEngineHelp ${LANG_SIMPCHINESE} "不下载也可使用框架与 Java 插件。运行脚本还需要兼容的 GraalVM。完整便携 ZIP 已包含这些引擎文件，可供离线使用。"
-LangString ScriptEngineHelp ${LANG_JAPANESE} "ダウンロードしなくてもフレームワークと Java プラグインは利用できます。スクリプト実行には対応する GraalVM も必要です。ポータブル ZIP にはオフライン用エンジンが含まれます。"
-LangString ScriptEngineHelp ${LANG_KOREAN} "다운로드 없이 프레임워크와 Java 플러그인을 사용할 수 있습니다. 스크립트 실행에는 호환되는 GraalVM도 필요합니다. 휴대용 ZIP에는 오프라인용 엔진 파일이 포함되어 있습니다."
-LangString ScriptEngineError ${LANG_ENGLISH} "The optional script engine could not be installed. The framework is installed. Retry with install-script-engine.ps1 in the installation folder."
-LangString ScriptEngineError ${LANG_SIMPCHINESE} "可选脚本引擎安装失败，框架已安装。可在安装目录运行 install-script-engine.ps1 重试。"
-LangString ScriptEngineError ${LANG_JAPANESE} "オプションのスクリプトエンジンをインストールできませんでした。フレームワークはインストール済みです。インストール先の install-script-engine.ps1 で再試行できます。"
-LangString ScriptEngineError ${LANG_KOREAN} "선택적 스크립트 엔진을 설치하지 못했습니다. 프레임워크는 설치되었습니다. 설치 폴더의 install-script-engine.ps1로 다시 시도하세요."
 
 Function .onInit
-  StrCpy $installScriptEngine 0
   ; 语言选择：MUI 语言对话框在欢迎页之前显示。$LANGUAGE 在 .onInit 之前已由
   ; NSIS 按系统区域匹配（无匹配时为首个语言 English），因此对话框默认预选系统
   ; 语言，用户可显式切换；MUI_LANGDLL_ALLLANGUAGES 保证 CJK/韩语在任何系统
@@ -964,30 +931,8 @@ Function SplitPipeFirst
   ${Loop}
 FunctionEnd
 
-Function ScriptEngineCreate
-  nsDialogs::Create 1018
-  Pop $0
-  ${If} $0 == error
-    Abort
-  ${EndIf}
-  !insertmacro MUI_HEADER_TEXT "$(ScriptEngineTitle)" ""
-  ${NSD_CreateCheckbox} 0 8u 100% 34u "$(ScriptEngineOption)"
-  Pop $ScriptEngineCheckbox
-  ${NSD_SetState} $ScriptEngineCheckbox $installScriptEngine
-  ${NSD_CreateLabel} 0 54u 100% 80u "$(ScriptEngineHelp)"
-  Pop $0
-  ${NSD_OnBack} ScriptEngineBack
-  nsDialogs::Show
-FunctionEnd
 
-Function ScriptEngineBack
-  Pop $0
-  ${NSD_GetState} $ScriptEngineCheckbox $installScriptEngine
-FunctionEnd
 
-Function ScriptEngineLeave
-  ${NSD_GetState} $ScriptEngineCheckbox $installScriptEngine
-FunctionEnd
 
 Function CubismDiscoveryEnableNext
   StrCpy $CubismDiscoveryComplete 1
@@ -1356,13 +1301,9 @@ Section "-写入配置" SecConfig
   File "/oname=configure_turboism.ps1" "${STAGING_DIR}/configure_turboism.ps1"
   File "/oname=cubism-launch-common.ps1" "${STAGING_DIR}/cubism-launch-common.ps1"
   File "/oname=retired-plugins.txt" "${STAGING_DIR}/retired-plugins.txt"
-!if "${VARIANT}" == "thin"
-  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Turboism-config\configure_turboism.ps1" -Home "$INSTDIR" -ApplyInstallerSelection -Variant "thin"'
-!else
   StrCpy $bundledPluginIds ""
   Call SetBundledPluginIds
   nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Turboism-config\configure_turboism.ps1" -Home "$INSTDIR" -ApplyInstallerSelection -Variant "full" -BundledPluginIds "$bundledPluginIds"'
-!endif
   Pop $0
   RMDir /r "$PLUGINSDIR\Turboism-config"
   ${If} $0 != 0
@@ -1374,7 +1315,6 @@ SectionEnd
 ; 插件 Section 由 plugin-sections.nsh 提供（见文件头注释）
 Section "-核心文件" SecCore
   SetOverwrite on
-!if "${VARIANT}" != "thin"
   ; Managed-upgrade retirement: run the CURRENT staged helper from NSIS's
   ; temporary directory, never an older installed configurator that may not
   ; support -RetirePlugins. The helper deletes only regular JARs whose embedded
@@ -1390,7 +1330,6 @@ Section "-核心文件" SecCore
     Abort
   ${EndIf}
   RMDir /r "$PLUGINSDIR\Turboism-retire"
-!endif
 
   ; 清单和校验 helper 是很小的临时引导载荷。永久核心文件先逐项检查目标 SHA-256，
   ; 仅将缺失或不同的条目解压到私有临时目录，再按同一清单校验源、复制并复核目标。
@@ -1398,9 +1337,7 @@ Section "-核心文件" SecCore
   File "/oname=install-jar-payload.ps1" "${STAGING_DIR}/install-jar-payload.ps1"
   SetOutPath "$PLUGINSDIR\Turboism-payload-manifests"
   File "${GENERATED_DIR}/payload-core.sha256"
-!if "${VARIANT}" != "thin"
   File "${GENERATED_DIR}/payload-plugins.sha256"
-!endif
   nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Turboism-payload-bootstrap\install-jar-payload.ps1" -ManifestPath "$PLUGINSDIR\Turboism-payload-manifests\payload-core.sha256" -DestinationRoot "$INSTDIR" -PlanRoot "$PLUGINSDIR\Turboism-core-plan" -PlanOnly'
   Pop $0
   ${If} $0 != 0
@@ -1420,27 +1357,10 @@ Section "-核心文件" SecCore
   Delete "$PLUGINSDIR\Turboism-payload-manifests\payload-core.sha256"
 
   FileOpen $0 "$INSTDIR\installed-build.json" w
-!if "${VARIANT}" == "thin"
-  FileWrite $0 '{"schemaVersion":1,"variant":"thin","version":"${VER}"}$\r$\n'
-!else
   FileWrite $0 '{"schemaVersion":1,"variant":"full","version":"${VER}"}$\r$\n'
-!endif
   FileClose $0
 SectionEnd
 
-; Optional engine acquisition is independent of plugin selection. Existing
-; engine files are never removed merely because this option is unchecked.
-Section "-可选脚本引擎" SecScriptEngine
-  ${If} $installScriptEngine == 1
-    DetailPrint "$(ScriptEngineTitle)"
-    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-script-engine.ps1" -HomePath "$INSTDIR"'
-    Pop $0
-    ${If} $0 != 0
-      MessageBox MB_ICONEXCLAMATION|MB_OK "$(ScriptEngineError)" /SD IDOK
-      SetErrorLevel 2
-    ${EndIf}
-  ${EndIf}
-SectionEnd
 
 ; 插件 Section + 描述 + 选择状态函数（由 assemble-release.sh 生成，勿手改）
 !include "plugin-sections.nsh"

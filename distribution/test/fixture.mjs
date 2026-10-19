@@ -1,7 +1,9 @@
 export function fixture(version='1.2.3', prerelease=false, developer=true, legacy=null) {
  const isLegacy = legacy === true || (legacy === null && (version === '1.4.0' || version === '0.44.0' || version === '0.67.0-beta.1'));
  const tag='v'+version, root=`https://github.com/turboism/Turboism/releases/download/${tag}/`;
- const names = (isLegacy
+ const names = (legacy === "standard"
+  ? [`TurboismInstaller-${version}.exe`,`turboism-${version}.zip`]
+  : isLegacy
   ? [`TurboismInstaller-${version}.exe`,`TurboismInstaller-${version}.jar`,`turboism-${version}-full.zip`,`turboism-${version}-lite.zip`]
   : [`TurboismInstaller-${version}-full.exe`,`TurboismInstaller-${version}-thin.exe`,`turboism-${version}-full.zip`,`turboism-${version}-thin.zip`]
  ).flatMap(n=>[n,n+'.sha256']);

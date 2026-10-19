@@ -15,16 +15,10 @@ if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 from turboism_release.contracts import ReleaseError, read_document
 
-MEDIA_NAMES = {
-    "turboism-{version}-thin.zip",
-    "turboism-{version}-thin.zip.sha256",
-    "turboism-{version}-full.zip",
-    "turboism-{version}-full.zip.sha256",
-    "TurboismInstaller-{version}-full.exe",
-    "TurboismInstaller-{version}-full.exe.sha256",
-    "TurboismInstaller-{version}-thin.exe",
-    "TurboismInstaller-{version}-thin.exe.sha256",
-}
+from turboism_release.artifact_layout import PRODUCT_PRIMARY, LEGACY_PRODUCT_PRIMARY
+MEDIA_NAMES = {name for item in PRODUCT_PRIMARY for name in (item, item + ".sha256")}
+LEGACY_MEDIA_NAMES = {name for item in LEGACY_PRODUCT_PRIMARY for name in (item, item + ".sha256")}
+
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 SOURCE_SHA = re.compile(r"^[0-9a-f]{40}$")
 VERSION = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
@@ -80,9 +74,14 @@ def framework_manifest(args) -> dict:
     if not isinstance(revision, str) or not SOURCE_SHA.fullmatch(revision):
         raise ReleaseError("candidate source revision is invalid")
     artifacts = framework.get("artifacts")
-    if not isinstance(artifacts, list) or len(artifacts) != 8:
-        raise ReleaseError("candidate must contain exactly eight framework artifacts")
-    expected_names = {name.format(version=version) for name in MEDIA_NAMES}
+    if not isinstance(artifacts, list):
+        raise ReleaseError("candidate framework artifacts must be an array")
+    candidates = [{name.format(version=version) for name in roster}
+                  for roster in (MEDIA_NAMES, LEGACY_MEDIA_NAMES)]
+    names = {item.get("name") for item in artifacts if isinstance(item, dict)}
+    if names not in candidates or len(artifacts) != len(names):
+        raise ReleaseError("candidate must contain a complete canonical framework artifact set")
+    expected_names = names
     assets = []
     for artifact in sorted(artifacts, key=lambda item: item.get("name", "")):
         if not isinstance(artifact, dict):

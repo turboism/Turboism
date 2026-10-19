@@ -338,8 +338,8 @@ class RootReadmeTest(unittest.TestCase):
                     },
                 )
                 for token in ("Windows x64", "macOS", "Linux", "JDK 17", ".sha256",
-                              "turboism-<version>-full.zip", "turboism-<version>-thin.zip",
-                              "TurboismInstaller-<version>-full.exe", "TurboismInstaller-<version>-thin.exe",
+                              "turboism-<version>.zip",
+                              "TurboismInstaller-<version>.exe",
                               "configure_turboism.ps1", "launch-cubism-turboism.bat",
                               "gradlew.bat", "compileOnly", "com.live2d.*"):
                     self.assertIn(token, text)
@@ -408,6 +408,93 @@ class ReleaseVerifierTest(unittest.TestCase):
 
     def verify(self, fixture: tuple[Path, Path, Path], version="0.42.0") -> None:
         release.verify(fixture[0], version, fixture[1], fixture[2])
+
+    def standard_fixture(self):
+        import hashlib
+        import json
+        dist, roster, stage = self.fixture()
+        version = "0.42.0"
+        (dist / f"turboism-{version}-thin.zip").unlink()
+        (dist / f"turboism-{version}-thin.zip.sha256").unlink()
+        (dist / f"TurboismInstaller-{version}-thin.exe").unlink()
+        (dist / f"TurboismInstaller-{version}-thin.exe.sha256").unlink()
+        for old, new in ((f"turboism-{version}-full.zip", f"turboism-{version}.zip"),
+                         (f"TurboismInstaller-{version}-full.exe", f"TurboismInstaller-{version}.exe")):
+            (dist / old).rename(dist / new)
+            (dist / (old + ".sha256")).unlink()
+        entries = []
+        for name in ("js-isolate-windows-amd64-community-25.2.4.jar", "truffle-api-25.2.4.jar"):
+            data = name.encode()
+            entries.append({"name":name,"bytes":len(data),"sha256":hashlib.sha256(data).hexdigest()})
+        pins = json.dumps({"format":"turboism.optional-script-engine","schemaVersion":1,"version":"25.2.4","artifacts":entries}).encode()
+        (stage / "script-engine.json").write_bytes(pins)
+        with zipfile.ZipFile(dist / f"turboism-{version}.zip", "a") as z:
+            z.writestr("script-engine.json", pins)
+            z.writestr(f"graal/lib/sdk-{version}.jar", (stage / f"graal/lib/sdk-{version}.jar").read_bytes())
+            z.writestr(f"graal/lib/graal-host-{version}.jar", b"host")
+            z.writestr("install-script-engine.ps1", b"installer")
+        with zipfile.ZipFile(dist / f"turboism-{version}.zip", "a") as z:
+            for entry in entries:
+                z.writestr("graal/lib/" + entry["name"], entry["name"].encode())
+        for path in dist.iterdir():
+            if not path.name.endswith(".sha256"):
+                sidecar(path)
+        return dist, roster, stage
+
+    def test_accepts_standard_layout_with_bundled_pinned_graaljs(self):
+        fixture = self.standard_fixture()
+        self.verify(fixture)
+        self.assertEqual(len(release.artifact_manifest(fixture[0], "0.42.0", fixture[1], fixture[2])["artifacts"]), 8)
+
+    def test_unified_zip_build_receipt_is_verified_without_full_thin_archives(self):
+        import base64
+        import json
+        import sys
+        sys.path.insert(0, str(ROOT / "scripts/release"))
+        from turboism_release.build_identity import identity, verify_receipt
+        dist, _, stage = self.standard_fixture()
+        source = "a" * 40
+        receipt = dict(identity("0.42.0", source, "123", 1), buildNumber=40)
+        (dist.parent / "build-identity.json").write_text(json.dumps(receipt))
+        data = io.BytesIO()
+        with zipfile.ZipFile(data, "w") as z:
+            z.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\r\nImplementation-Version: 0.42.0\r\nTurboism-Build-Number: 40\r\nTurboism-Source-Revision: " + source + "\r\n\r\n")
+        path = dist / "turboism-0.42.0.zip"
+        with zipfile.ZipFile(path) as z:
+            entries = [(n, z.read(n)) for n in z.namelist()]
+        with zipfile.ZipFile(path, "w") as z:
+            for n, value in entries:
+                z.writestr(n, data.getvalue() if n == "turboism-agent.jar" else value)
+        class Ledger:
+            def api(self, path):
+                return {"encoding":"base64", "content":base64.b64encode(json.dumps(receipt).encode()).decode()}
+        self.assertEqual(verify_receipt(Ledger(), stage, dist.parent, "0.42.0", source, "123", 1), receipt)
+        receipt["buildNumber"] = 41
+        with self.assertRaisesRegex(ValueError, "differs from allocated"):
+            verify_receipt(Ledger(), stage, dist.parent, "0.42.0", source, "123", 1)
+
+    def test_standard_rejects_engine_tampering_even_with_updated_outer_checksum(self):
+        fixture = self.standard_fixture()
+        path = fixture[0] / "turboism-0.42.0.zip"
+        with zipfile.ZipFile(path) as z:
+            entries = [(n, z.read(n)) for n in z.namelist()]
+        with zipfile.ZipFile(path, "w") as z:
+            for n, data in entries:
+                z.writestr(n, b"tampered" if n.endswith("truffle-api-25.2.4.jar") else data)
+        sidecar(path)
+        with self.assertRaisesRegex(ValueError, "differs from pin"):
+            self.verify(fixture)
+
+    def test_standard_rejects_mixed_legacy_and_missing_package(self):
+        fixture = self.standard_fixture()
+        component = fixture[0] / "turboism-0.42.0.zip"
+        component.unlink()
+        with self.assertRaises(ValueError):
+            self.verify(fixture)
+        fixture = self.standard_fixture()
+        (fixture[0] / "turboism-0.42.0-thin.zip").write_bytes(b"old")
+        with self.assertRaises(ValueError):
+            self.verify(fixture)
 
     def test_accepts_exact_release(self):
         self.verify(self.fixture())

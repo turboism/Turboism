@@ -12,18 +12,9 @@ from .contracts import ReleaseError, canonical_bytes
 from .versions import assert_version_binding, changelog_entry, framework_version, git_source
 
 
-EXPECTED_PRIMARY = (
-    "turboism-{version}-thin.zip",
-    "turboism-{version}-full.zip",
-    "TurboismInstaller-{version}-full.exe",
-    "TurboismInstaller-{version}-thin.exe",
-)
-# Standalone developer artifacts ship on the GitHub Release only; the product
-# artifact contract and the Updates media roster remain the four files above.
-DEVELOPER_PRIMARY = (
-    "turboism-sdk-{version}.jar",
-    "turboism-event-processor-{version}.jar",
-)
+from .artifact_layout import PRODUCT_PRIMARY, DEVELOPER_PRIMARY, product_primary, portable_archives
+
+EXPECTED_PRIMARY = PRODUCT_PRIMARY
 MEDIA_TYPES = {
     ".zip": "application/zip",
     ".exe": "application/octet-stream",
@@ -56,7 +47,7 @@ def framework_artifacts(
     except (OSError, ValueError, zipfile.BadZipFile, KeyError) as failure:
         raise ReleaseError(f"release payload verification failed: {failure}") from failure
     names = []
-    for pattern in EXPECTED_PRIMARY:
+    for pattern in product_primary(dist, version):
         name = pattern.format(version=version)
         names.extend((name, name + ".sha256"))
     artifacts = []
@@ -93,7 +84,7 @@ def developer_artifacts(dist: Path, version: str) -> list[dict[str, Any]]:
 
 
 def bundled_plugins(dist: Path, version: str) -> list[dict[str, str]]:
-    full = dist / f"turboism-{version}-full.zip"
+    full = portable_archives(dist, version)[0]
     result = []
     try:
         with zipfile.ZipFile(full) as archive:
