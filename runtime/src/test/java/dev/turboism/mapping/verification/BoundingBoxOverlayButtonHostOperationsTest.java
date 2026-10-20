@@ -63,6 +63,56 @@ class BoundingBoxOverlayButtonHostOperationsTest {
     }
 
     @Test
+    void positionMarkersRequireExplicitHostValidationOptIn() {
+        final String property = "turboism.validation.boundingBoxOverlay.buttonPositions";
+        final String previous = System.getProperty(property);
+        final java.util.logging.Logger logger =
+                java.util.logging.Logger.getLogger(VerifiedBoundingBoxOverlayButtonHostOperations.class.getName());
+        final java.util.logging.Level previousLevel = logger.getLevel();
+        final List<String> markers = new ArrayList<>();
+        final java.util.logging.Handler handler = new java.util.logging.Handler() {
+            @Override
+            public void publish(final java.util.logging.LogRecord record) {
+                if (record.getMessage().startsWith("BBOX_OVERLAY_BUTTON_RECT ")) {
+                    markers.add(record.getMessage());
+                }
+            }
+
+            @Override
+            public void flush() {}
+
+            @Override
+            public void close() {}
+        };
+        logger.addHandler(handler);
+        logger.setLevel(java.util.logging.Level.ALL);
+        try {
+            System.clearProperty(property);
+            install(List.of(descriptor("plugin.overlay", button("first", 10))));
+            final Object overlay = new OverlayHost();
+            final Object scene = new SceneGraph();
+            final Object[] buttons = host.customButtonEntities(overlay, scene);
+            assertEquals(1, buttons.length);
+            assertTrue(markers.isEmpty(), "normal overlay updates must not emit validation markers");
+
+            System.setProperty(property, "true");
+            assertSame(buttons, host.customButtonEntities(overlay, scene));
+            assertEquals(1, markers.size(), "host validation must still receive button coordinates");
+            assertTrue(markers.get(0).contains("plugin=plugin.overlay index=0 rect="));
+            assertSame(buttons, host.customButtonEntities(overlay, scene));
+            assertEquals(1, markers.size(), "validation markers remain throttled");
+        } finally {
+            logger.removeHandler(handler);
+            logger.setLevel(previousLevel);
+            if (previous == null) {
+                System.clearProperty(property);
+            } else {
+                System.setProperty(property, previous);
+            }
+        }
+    }
+
+    @Test
     void rejectsMoreThanEightContributionsWithATypedDiagnostic() {
         final List<BoundingBoxOverlayButtonDescriptor> nine = new ArrayList<>();
         for (int index = 0; index < 9; index++) {

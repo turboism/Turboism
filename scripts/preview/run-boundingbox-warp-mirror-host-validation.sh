@@ -66,6 +66,7 @@ exec bash "$runner" \
   --run-label "$run_label" \
   --bundle-root "$repo_root/build/preview/$worktree_id" \
   --agent "$agent_jar" \
+  --jvm-option '-Dturboism.validation.boundingBoxOverlay.buttonPositions=true' \
   --plugin "$probe_jar:boundingbox-warp-mirror-host-validation-probe.jar" \
   --plugin "$plugin_jar:boundingbox-warp-mirror.jar" \
   --plugin "$consumer_jar:warp-deformer-alt-symmetry.jar" \
