@@ -96,8 +96,10 @@ Dynamic-attach diagnostics such as jcmd/jstack are unavailable for that process.
 Turn the setting off and restart through the managed launcher to omit this
 option and restore the JVM's default attach behavior. Other agents or definition
 sources still cause the optimization to fall back; the launcher does not relax
-runtime admission. Optional persisted BAT integrations snapshot the options when
-generated and must be regenerated to update their option block.
+runtime admission. Optional persisted BAT integrations delegate to the managed
+launcher on each launch, so the original Cubism shortcuts also read current JVM
+and performance settings. Existing integrations from older releases must be
+updated once through the configurator to replace their frozen option block.
 
 For an explicit command-line launch:
 
