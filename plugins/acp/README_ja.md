@@ -96,6 +96,7 @@ OpenCode 1.15.13 はモデル API の認証エラーを `end_turn` とゼロト�
 | `turboism.config.plugin.read` | `application` | 選択エージェント ID、カスタムコマンド、永続セッション ID、初期指示を復元します。 |
 | `turboism.config.plugin.write` | `application` | 上記のプラグイン保有状態を保存します。エージェント認証情報や MCP 認可は保存しません。 |
 | `turboism.file.read` | `application` | PATH と一般的なインストール先でユーザーインストールのエージェント実行ファイルを検出します。 |
+| `turboism.file.write` | `application` | ローカルのセッション索引とネイティブ Pi セッションを保存し、一時的な MCP 設定ファイルと拡張ファイルを作成します。 |
 | `turboism.process.run` | `application` | 選択したエージェント実行ファイルを起動・管理します。 |
 | `turboism.mcp.connection.read` | `application` | 認証情報を持たない stdio 起動記述子を含む現在の MCP 接続スナップショットを読み取り、エンドポイント変更を購読して接続済みセッションを再接続します。 |
 
