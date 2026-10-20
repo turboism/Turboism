@@ -225,6 +225,18 @@ class WindowsHistoryNativeUiHostCloseTest {
     }
 
     @Test
+    void observedLocalizedChineseButtonsSelectOnlyTaskOwnedNoAction() throws Exception {
+        final String fixture = "queue-057f714a34e1420d8b57e40d70048bec.cmo3";
+        final SwingDialogFixture dialog =
+                swingDialog("你想保存" + fixture + "的文件吗?", JOptionPane.YES_NO_CANCEL_OPTION, "是(Y)", "否(N)", "取消(C)");
+        assertEquals(
+                WindowsHistoryNativeUiHostClose.HostCloseDecision.DISCARD,
+                WindowsHistoryNativeUiHostClose.handleCloseDialogForTest(dialog.root(), "确定", fixture));
+        assertEquals(1, dialog.noClicks().get());
+        assertEquals(0, dialog.titlebarClicks().get());
+    }
+
+    @Test
     void aRealOptionPaneSubtreeExcludesTheIndependentTitlebarButton() throws Exception {
         final String fixture = "queue-19112224a5154b1f81b996cc432c1f10.cmo3";
         final SwingDialogFixture dialog = swingDialog(
