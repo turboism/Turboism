@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -15,6 +16,11 @@ import dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContr
 import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
+import dev.turboism.sdk.cubism.mirror.WarpMirrorBlockerCode;
+import dev.turboism.sdk.cubism.mirror.WarpMirrorDirection;
+import dev.turboism.sdk.cubism.mirror.WarpMirrorOutcome;
+import dev.turboism.sdk.cubism.mirror.WarpMirrorRequest;
+import dev.turboism.sdk.cubism.mirror.WarpMirrorResult;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.GlueId;
 import dev.turboism.sdk.cubism.model.Point2;
@@ -26,6 +32,105 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class EditorObjectReadAccessTest {
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void warpMirrorIgnoresGlueOutsideSelectedHierarchy(final boolean preserveDescendants) {
+        final Fixture fixture = new Fixture();
+        fixture.source.artMeshSources.get(0).targetDeformer = null;
+        final var result = mirrorWithGlue(fixture, preserveDescendants);
+        assertEquals(WarpMirrorOutcome.NO_CHANGE, result.outcome());
+        assertTrue(result.blockers().isEmpty());
+        assertEquals(0, fixture.source.updateCount);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"a-direct", "b-direct", "a-nested", "b-nested"})
+    void warpMirrorAllowsGlueTouchingEitherDescendantEndpoint(final String relationship) {
+        final Fixture fixture = new Fixture();
+        final var root = fixture.source.deformerSources.get(0);
+        final var rotation = fixture.source.deformerSources.get(1);
+        root.targetDeformer = null;
+        rotation.targetDeformer = relationship.endsWith("nested") ? root : null;
+        final var mesh = fixture.source.artMeshSources.get(0);
+        final var mask = fixture.source.artMeshSources.get(1);
+        mesh.targetDeformer = null;
+        mask.targetDeformer = null;
+        final var endpoint = relationship.startsWith("a") ? mesh : mask;
+        endpoint.targetDeformer = relationship.endsWith("nested") ? rotation : root;
+        if (relationship.endsWith("nested")) rotation.locked = true;
+        final var result = mirrorWithGlue(fixture, true);
+        if (relationship.endsWith("nested")) {
+            assertEquals(
+                    List.of(WarpMirrorBlockerCode.DESCENDANT_LOCKED),
+                    result.blockers().stream().map(b -> b.code()).toList());
+        } else {
+            assertEquals(WarpMirrorOutcome.NO_CHANGE, result.outcome());
+            assertTrue(result.blockers().isEmpty());
+        }
+        assertEquals(0, fixture.source.updateCount);
+    }
+
+    @Test
+    void unrelatedGlueDoesNotMaskDescendantLockCheck() {
+        final Fixture fixture = new Fixture();
+        fixture.source.artMeshSources.get(0).locked = true;
+        final var mask = fixture.source.artMeshSources.get(1);
+        final var other = new ArtMeshSource("ArtMeshOther", "Other Mesh", false, fixture.failures);
+        fixture.source.artMeshSources.add(other);
+        fixture.source.model.artMeshes.add(new ArtMesh(other));
+        fixture.source.glueSources.clear();
+        fixture.source.glueSources.add(new GlueSource(mask, other, fixture.failures));
+        final var result = mirrorWithGlue(fixture, true);
+        assertEquals(
+                List.of(WarpMirrorBlockerCode.DESCENDANT_LOCKED),
+                result.blockers().stream().map(b -> b.code()).toList());
+    }
+
+    private static WarpMirrorResult mirrorWithGlue(final Fixture fixture, final boolean preserveDescendants) {
+        final var aliases = new java.util.ArrayList<>(selectors());
+        aliases.add(
+                method("cubism.editor-model.warp-source.keyforms", WarpSource.class, "keyforms", "()Ljava/util/List;"));
+        aliases.add(method(
+                "cubism.editor-model.model-source.default-keyform-locked",
+                ModelSource.class,
+                "defaultKeyformLocked",
+                "()Z"));
+        aliases.add(method(
+                "cubism.editor-model.parameter-controllable.calculated-form",
+                ArtMesh.class,
+                "calculatedForm",
+                desc(ArtMeshForm.class)));
+        aliases.add(method(
+                "cubism.editor-model.art-mesh-source.keyforms", ArtMeshSource.class, "keyforms", "()Ljava/util/List;"));
+        final var resolver = TestVerifiedResolvers.create(
+                "5.3.02",
+                EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
+                java.util.Set.of(EditorObjectReadSelectorContract.CAPABILITY_ID),
+                aliases,
+                Host.class.getClassLoader());
+        final var objects = new EditorObjectReadAccess(
+                resolver,
+                (identity, model) -> {},
+                new EditorMorphTargetAccess(resolver, (identity, model) -> {}),
+                null);
+        final var coordinator = new EditorAuthoringTransactionCoordinator(new GridRootHost(fixture));
+        final var mirror = new EditorWarpMirrorAccess(
+                resolver,
+                objects,
+                () -> new EditorWarpMirrorAccess.NativeBinding("session", 1, fixture.source, fixture.source.model),
+                coordinator,
+                () -> {
+                    throw new AssertionError("Preflight must not open a transaction");
+                });
+        final var root = (Warp) fixture.source.model.deformers.get(0);
+        final var source = (WarpSource) root.source;
+        source.row = 1;
+        source.col = 1;
+        ((WarpForm) root.form).positions = new float[] {0, 0, 1, 0, 0, 1, 1, 1};
+        return mirror.apply(new WarpMirrorRequest(
+                new DeformerId("WarpFace"), WarpMirrorDirection.LEFT_TO_RIGHT, preserveDescendants));
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"artmesh", "deformer"})
@@ -2212,6 +2317,12 @@ class EditorObjectReadAccessTest {
     }
 
     public static final class ArtMeshSource extends ObjectSource {
+        final List<Form> forms = new java.util.ArrayList<>();
+
+        public List<Form> keyforms() {
+            return forms;
+        }
+
         final Id guid;
         final boolean culling;
         ClipGuidList clipGuids = new ClipGuidList();
@@ -2410,6 +2521,7 @@ class EditorObjectReadAccessTest {
         ArtMesh(final ArtMeshSource source) {
             this.source = source;
             this.form = new ArtMeshForm(source.failures);
+            source.forms.add(form);
         }
 
         public ArtMeshSource source() {
@@ -2440,6 +2552,12 @@ class EditorObjectReadAccessTest {
     }
 
     public static final class WarpSource extends ObjectSource {
+        final List<Form> forms = new java.util.ArrayList<>();
+
+        public List<Form> keyforms() {
+            return forms;
+        }
+
         int row = 2;
         int col = 3;
         boolean quadTransform;
@@ -2508,6 +2626,7 @@ class EditorObjectReadAccessTest {
     public static final class Warp extends Deformer {
         Warp(final WarpSource source) {
             super(source, new WarpForm(source.failures));
+            source.forms.add(form);
         }
     }
 
@@ -2632,6 +2751,10 @@ class EditorObjectReadAccessTest {
 
         public List<ObjectSource> allDeformers() {
             return deformerSources;
+        }
+
+        public boolean defaultKeyformLocked() {
+            return false;
         }
 
         public List<GlueSource> allGlues() {
