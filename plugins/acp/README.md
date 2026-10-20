@@ -18,10 +18,19 @@ interface: swing
 
 Opens an Agent conversation window and a Settings window. Drives a user-installed, ACP v1 compatible agent through the Agent Client Protocol and attaches the local Turboism MCP server through a credential-free stdio bridge.
 
+### Native CLIs and local sessions
+
+- Following [Paseo's provider design](https://paseo.sh/docs/providers.md), bundled adapters connect directly to original `claude`, `codex`, and `pi` CLIs. No additional ACP package or Node SDK is required. Pi's Turboism MCP extension is bundled. Gemini CLI uses its built-in ACP mode; Antigravity uses `agy-acp`. Existing ACP adapters remain supported.
+- Harness selectors show available connections. Unsupported options, including permission modes, are hidden; enabled controls use the normal foreground color.
+- A local `session-index/` records sessions created here, partitioned by harness, launch command, protocol, and working directory. CLI sessions created elsewhere are not imported.
+- Native sessions resume model context but currently do not replay earlier conversation text. Pi files live under the plugin state directory's `native-sessions/pi/`; Codex and Claude Code use their native stores.
+- Custom commands still use ACP. Select original CLIs through their corresponding built-in harness entries.
+
+
 ## What it does
 
 - Opens two Swing windows: **Agent** (chat conversation) and **Agent Settings**.
-- Launches a user-installed ACP agent over stdin/stdout JSON-RPC: Claude Agent ACP, Codex ACP, Antigravity, Gemini CLI, OpenCode, Pi, Devin CLI, or a custom command.
+- Launches original Claude Code, Codex, and Pi CLIs using bundled native adapters; Gemini CLI, OpenCode, Devin CLI, Antigravity (`agy-acp`), and custom commands use ACP.
 - Drives `initialize`, `authenticate`, `session/new`, `session/load`, `session/resume`, `session/prompt`, `session/cancel`, `session/close`, `session/list`, `session/update`, `session/request_permission`, `session/set_config_option`, and `logout` per the ACP v1 contract.
 - Attaches the Turboism MCP server as an ACP stdio MCP server so the agent can use the Cubism tools. The HTTP endpoint remains a read-only fallback for agents that only advertise HTTP MCP support.
 - Detects the agent executable on PATH and in common install locations, and persists a small amount of plugin-owned state (selected agent, custom command, durable session id, initial instructions).
@@ -63,6 +72,12 @@ Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 - When the MCP server publishes a stdio launch descriptor, the session attaches `{name:"turboism", command, args, env:[]}` and the bridge adds the persisted bearer token itself. The agent can use read and write tools.
 - When only the HTTP endpoint is usable and the agent advertises HTTP MCP support, the session attaches the endpoint in read-only form; mutating calls stay gated by the bearer token that never leaves the MCP state directory.
 - When neither form is usable, the session runs without MCP tools.
+
+### Connected but no reply
+
+“Connected” confirms the ACP handshake. If the agent returns `end_turn` without text, thought, image, or tool events for the current prompt, the plugin reports an empty response instead of “Completed.” Check the selected model, provider credentials, and agent logs before retrying.
+
+OpenCode 1.15.13 can hide a provider authentication failure behind `end_turn` and zero token usage. A local mock-provider comparison confirmed that 1.18.4 returns the authentication error. Update OpenCode and reconnect, then use the reported error to check the model configuration.
 
 ## Capabilities
 

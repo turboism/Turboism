@@ -141,7 +141,11 @@ final class AcpPluginSettings implements AutoCloseable {
         final String previousAgent = agentIdSnapshot;
         final String previousCommand = customCommandSnapshot;
         final String previousPrompt = initialPromptSnapshot;
-        final String nextSessionId = Objects.equals(nextAgentId, previousAgent) ? sessionIdSnapshot : null;
+        final String nextSessionId = Objects.equals(nextAgentId, previousAgent)
+                        && (!AgentCatalog.CUSTOM_AGENT_ID.equals(nextAgentId)
+                                || Objects.equals(nextCommand, previousCommand))
+                ? sessionIdSnapshot
+                : null;
         try {
             write(AGENT_ID, nextAgentId);
             write(CUSTOM_COMMAND, nextCommand);
