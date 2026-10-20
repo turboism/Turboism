@@ -62,6 +62,7 @@ final class WindowsHistoryNativeUiHostClose {
             "notsave",
             "discard",
             "否",
+            "否n",
             "不保存",
             "不要保存",
             "不儲存",
