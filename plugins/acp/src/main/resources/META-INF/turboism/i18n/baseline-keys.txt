@@ -115,7 +115,9 @@ transcript.auth-required
 transcript.mcp-read-only
 transcript.mcp-unavailable
 transcript.mcp-writable
+transcript.tools-commands-only
 transcript.tools-failed
+transcript.tools-other-only
 transcript.tools-running
 transcript.tools-summary
 window.agent-title
