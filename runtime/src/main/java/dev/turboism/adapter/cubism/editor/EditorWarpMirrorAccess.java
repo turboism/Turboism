@@ -146,14 +146,6 @@ final class EditorWarpMirrorAccess implements WarpMirrorRuntimeService.Port {
         ancestors(all, root);
         final ArrayList<EvaluatedState> evaluated = new ArrayList<>();
         final ArrayList<DirectCompensation> direct = new ArrayList<>();
-        if (request.preserveDescendants()) {
-            if (!list(resolver.invoke("cubism.editor-model.model-source.all-glues", binding.source()))
-                    .isEmpty()) {
-                throw blocked(
-                        WarpMirrorBlockerCode.GLUE_PRESENT,
-                        "Descendant preservation is unavailable while Glue objects are present.");
-            }
-        }
         for (EditorObjectReadAccess.NativeObjectRef descendant : descendants) {
             if (request.preserveDescendants() && descendant.locked()) {
                 throw blocked(
