@@ -221,7 +221,6 @@ final class CubismJvmSettingsContribution {
                 ModelUpdateSkipBridge.ENABLE_PROPERTY,
                 settings::modelUpdateSkip,
                 settings::saveModelUpdateSkip,
-                true,
                 80);
     }
 
@@ -235,7 +234,6 @@ final class CubismJvmSettingsContribution {
                 IncrementalUpdateBridge.ENABLE_PROPERTY,
                 settings::incrementalUpdate,
                 settings::saveIncrementalUpdate,
-                false,
                 81);
     }
 
@@ -255,7 +253,6 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                true,
                 82);
     }
 
@@ -278,7 +275,6 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                true,
                 83);
     }
 
@@ -302,7 +298,6 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton(),
                 84);
     }
 
@@ -329,7 +324,6 @@ final class CubismJvmSettingsContribution {
                     }
                     return value;
                 },
-                dev.turboism.runtime.env.ProtonEnvironment.underWineOrProton(),
                 85);
     }
 
@@ -340,7 +334,6 @@ final class CubismJvmSettingsContribution {
             final String enableProperty,
             final java.util.function.BooleanSupplier getter,
             final java.util.function.Function<Boolean, Boolean> setter,
-            final boolean defaultValue,
             final int index) {
         Objects.requireNonNull(i18n, "i18n");
         return new SettingsContribution(
@@ -349,8 +342,8 @@ final class CubismJvmSettingsContribution {
                 OptionalInt.of(index),
                 new SettingsControl.Toggle(id, i18n.text(labelKey), SettingsBinding.of(getter::getAsBoolean, value -> {
                     setter.apply(value);
-                    if (value == defaultValue) System.clearProperty(enableProperty);
-                    else System.setProperty(enableProperty, Boolean.toString(value));
+                    // Clearing the property would restore the preference cached at startup.
+                    System.setProperty(enableProperty, Boolean.toString(value));
                 })));
     }
 
