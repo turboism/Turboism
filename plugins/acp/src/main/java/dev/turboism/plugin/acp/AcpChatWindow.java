@@ -391,6 +391,19 @@ final class AcpChatWindow implements AcpChatController.View {
     public void showDetectedAgents(final Map<String, String> detected) {
         if (!acceptingEvents.get()) return;
         detectedPaths = Map.copyOf(Objects.requireNonNullElse(detected, Map.of()));
+        final String previous = agentId();
+        applyingAgents = true;
+        try {
+            agentSelector.removeAllItems();
+            for (AgentProfile profile : AgentCatalog.profiles()) {
+                if (!detectedPaths.getOrDefault(profile.id(), "").isBlank())
+                    agentSelector.addItem(new AgentItem(profile.id(), null));
+            }
+            agentSelector.addItem(CUSTOM_ITEM);
+            selectAgentItem(previous);
+        } finally {
+            applyingAgents = false;
+        }
         agentSelector.repaint();
         updateAgentDetail();
         managerStatus.setText(localization.text("status.detection-complete"));
@@ -871,6 +884,7 @@ final class AcpChatWindow implements AcpChatController.View {
         final JPopupMenu agentMenu = new JPopupMenu();
         for (int index = 0; index < agentSelector.getItemCount(); index++) {
             final AgentItem item = agentSelector.getItemAt(index);
+            if (detectedPaths.getOrDefault(item.id(), "").isBlank()) continue;
             final javax.swing.JRadioButtonMenuItem choice = new javax.swing.JRadioButtonMenuItem(
                     agentItemLabel(item), item.id().equals(selected));
             choice.setIcon(AcpAgentIcons.icon(item.id()));
@@ -1132,7 +1146,7 @@ final class AcpChatWindow implements AcpChatController.View {
                     && java.util.Set.of("fast", "plan", "true", "on", "enabled")
                             .contains(option.currentValue().toLowerCase(java.util.Locale.ROOT));
             button.putClientProperty("acp.active-mode", active);
-            button.setForeground(AcpChatTheme.muted());
+            button.setForeground(AcpChatTheme.foreground());
             button.setEnabled(connected && !prompting);
             button.setToolTipText(option.name() + ": " + value
                     + (option.description().isBlank() ? "" : " · " + option.description()));
@@ -1155,17 +1169,6 @@ final class AcpChatWindow implements AcpChatController.View {
             button.addActionListener(ignored -> menu.show(button, 0, button.getHeight()));
             composerOptionButtons.put(option.id(), button);
             composerOptions.add(button);
-        }
-        for (int role = 0; role < 3; role++) {
-            final int requiredRole = role;
-            if (ordered.stream().anyMatch(option -> composerOptionOrder(option) == requiredRole)) continue;
-            final String label = localization.text(List.of("composer.model", "composer.effort", "composer.permissions")
-                    .get(role));
-            final JButton unavailable = new AcpComposerPanel.OptionButton(label + " —");
-            configureCompactButton(unavailable);
-            unavailable.setEnabled(false);
-            unavailable.setToolTipText(localization.text("composer.option-unavailable"));
-            composerOptions.add(unavailable, Math.min(role + 2, composerOptions.getComponentCount()));
         }
         composerOptions.revalidate();
         composerOptions.repaint();
@@ -2181,8 +2184,8 @@ final class AcpChatWindow implements AcpChatController.View {
         transcript.setForeground(AcpChatTheme.foreground());
         prompt.setOpaque(false);
         agentStatus.setForeground(AcpChatTheme.muted());
-        composerAgent.setForeground(AcpChatTheme.muted());
-        composerOptionButtons.values().forEach(button -> button.setForeground(AcpChatTheme.muted()));
+        composerAgent.setForeground(AcpChatTheme.foreground());
+        composerOptionButtons.values().forEach(button -> button.setForeground(AcpChatTheme.foreground()));
         connectionDot.setForeground(statusColor(currentStatusTone));
         refreshTaskStatus();
         final java.awt.Rectangle visible = transcript.getVisibleRect();
