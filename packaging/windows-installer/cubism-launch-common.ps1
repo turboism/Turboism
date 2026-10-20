@@ -1611,22 +1611,18 @@ function Invoke-CubismLaunchConfiguration {
 }
 
 function Get-CubismBatIntegrationText {
-    param([string]$OriginalText, [string]$TurboismHome)
+    param([string]$OriginalText, [string]$TurboismHome, [ValidateSet("normal", "d3d")][string]$Variant = "normal")
     if ($TurboismHome -match '[\r\n&|<>^%!`"]') { throw "Turboism home contains unsupported BAT characters" }
     $legacy = '(?ims)^rem\s+TURBOISM(?:\s+(?:MANAGED\s+)?BEGIN)?\s*$.*?^rem\s+TURBOISM(?:\s+(?:MANAGED\s+)?END)?\s*$\r?\n?'
     $clean = [regex]::Replace($OriginalText, $legacy, '')
-    $agent = Join-Path $TurboismHome "turboism-agent.jar"
-    $options = @(
-        (ConvertTo-JdkOptionToken "-Dturboism.home=$TurboismHome"),
-        (ConvertTo-JdkOptionToken "-javaagent:$agent=home=$TurboismHome;timeoutSeconds=120")
-    ) + @(Get-CubismManagedJdkOptionTokens -TurboismHome $TurboismHome)
+    # Delegate on every launch so JVM selection, GC, memory and optimization
+    # preferences reflect config.json rather than the installation-time snapshot.
+    # The managed launcher strips this block from its ephemeral BAT, avoiding recursion.
     $managed = @(
         'rem TURBOISM MANAGED BEGIN',
         ('set "TURBOISM_HOME=' + $TurboismHome + '"'),
-        # The JVM parses JAVA_TOOL_OPTIONS directly. Putting quoted paths into
-        # JDK_JAVA_OPTIONS is unsafe for Cubism's BAT because it expands that
-        # variable through cmd.exe before Java receives it.
-        ('set "JAVA_TOOL_OPTIONS=' + (($options -join ' ') + ' %JAVA_TOOL_OPTIONS%') + '"'),
+        ('powershell.exe -NoProfile -ExecutionPolicy Bypass -File "' + $TurboismHome + '\launch-cubism-turboism.ps1" -HomePath "' + $TurboismHome + '" -CubismRoot "%~dp0." -Variant ' + $Variant + ' %*'),
+        'exit /b %errorlevel%',
         'rem TURBOISM MANAGED END',
         ''
     ) -join "`r`n"
@@ -1674,7 +1670,8 @@ function Invoke-CubismBatIntegration {
                 }
             }
             $originalHash = Get-CubismSha256 $backup
-            $managedText = Get-CubismBatIntegrationText -OriginalText $originalText -TurboismHome $TurboismHome
+            $variant = if ($path -ieq $candidate.D3DBat) { "d3d" } else { "normal" }
+            $managedText = Get-CubismBatIntegrationText -OriginalText $originalText -TurboismHome $TurboismHome -Variant $variant
             $temporary = $bat + ".$PID.$([guid]::NewGuid().ToString('N')).tmp"
             try {
                 [System.IO.File]::WriteAllText($temporary, $managedText, [System.Text.Encoding]::Default)
