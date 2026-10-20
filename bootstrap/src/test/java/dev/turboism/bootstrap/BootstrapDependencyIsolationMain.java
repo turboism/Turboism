@@ -25,6 +25,7 @@ public final class BootstrapDependencyIsolationMain {
         "dev/turboism/agent/shaded/jackson/databind/ObjectMapper.class",
         "dev/turboism/agent/shaded/asm/ClassReader.class",
         "dev/turboism/agent/shaded/slf4j/Logger.class",
+        "dev/turboism/agent/shaded/slf4j/impl/StaticLoggerBinder.class",
         "dev/turboism/agent/shaded/resilience4j/circuitbreaker/CircuitBreaker.class",
         "META-INF/services/dev.turboism.agent.shaded.jackson.core.JsonFactory"
     };
@@ -46,6 +47,7 @@ public final class BootstrapDependencyIsolationMain {
         checkBootstrapBridge();
         checkRelocatedRuntimeJson(home);
         checkRelocatedServiceDiscovery();
+        checkQuietRelocatedLogging();
         System.out.println("dependency isolation probe passed");
     }
 
@@ -151,6 +153,33 @@ public final class BootstrapDependencyIsolationMain {
                 mapperType.getMethod("writeValueAsString", Object.class).invoke(mapper, Map.of("marker", 42)));
         if (!json.contains("\"marker\":42")) {
             throw new IllegalStateException("Relocated ObjectMapper produced unexpected output: " + json);
+        }
+    }
+
+    private static void checkQuietRelocatedLogging() throws Exception {
+        final java.io.PrintStream originalErr = System.err;
+        final java.io.PrintStream originalOut = System.out;
+        final java.io.ByteArrayOutputStream console = new java.io.ByteArrayOutputStream();
+        final Object factory;
+        try (java.io.PrintStream captured =
+                new java.io.PrintStream(console, true, java.nio.charset.StandardCharsets.UTF_8)) {
+            System.setErr(captured);
+            System.setOut(captured);
+            final Class<?> logging = Class.forName("dev.turboism.agent.shaded.slf4j.LoggerFactory");
+            factory = logging.getMethod("getILoggerFactory").invoke(null);
+            final Object logger = logging.getMethod("getLogger", String.class).invoke(null, "isolation-probe");
+            final Class<?> loggerType = Class.forName("dev.turboism.agent.shaded.slf4j.Logger");
+            loggerType.getMethod("warn", String.class).invoke(logger, "private dependency diagnostic");
+        } finally {
+            System.setErr(originalErr);
+            System.setOut(originalOut);
+        }
+        if (console.size() != 0) {
+            throw new IllegalStateException("Private SLF4J leaked into the host console: "
+                    + console.toString(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        if (!factory.getClass().getName().equals("dev.turboism.agent.shaded.slf4j.helpers.NOPLoggerFactory")) {
+            throw new IllegalStateException("Private SLF4J must use its isolated NOP binding: " + factory.getClass());
         }
     }
 
