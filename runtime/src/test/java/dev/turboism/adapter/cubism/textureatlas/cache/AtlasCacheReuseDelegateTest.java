@@ -67,6 +67,25 @@ final class AtlasCacheReuseDelegateTest {
     }
 
     @Test
+    void cacheMissAndReuseDoNotWriteToHostConsole() {
+        final java.io.PrintStream originalErr = System.err;
+        final java.io.PrintStream originalOut = System.out;
+        final java.io.ByteArrayOutputStream console = new java.io.ByteArrayOutputStream();
+        try (java.io.PrintStream captured =
+                new java.io.PrintStream(console, true, java.nio.charset.StandardCharsets.UTF_8)) {
+            System.setErr(captured);
+            System.setOut(captured);
+            assertFalse(AtlasCacheReuseDelegate.tryReuse(CTextureAtlas.class, atlas, true));
+            buildAndRecord();
+            assertTrue(AtlasCacheReuseDelegate.tryReuse(CTextureAtlas.class, atlas, true));
+            assertEquals("", console.toString(java.nio.charset.StandardCharsets.UTF_8));
+        } finally {
+            System.setErr(originalErr);
+            System.setOut(originalOut);
+        }
+    }
+
+    @Test
     void reusesAfterARecordedBuild() {
         buildAndRecord();
         assertTrue(AtlasCacheReuseDelegate.tryReuse(CTextureAtlas.class, atlas, true));

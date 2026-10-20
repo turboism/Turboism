@@ -202,9 +202,8 @@ public final class AtlasCacheReuseDelegate {
     /**
      * One bounded diagnostic per {@code updateTexture} decision. Calls are rare (one per
      * page per rebuild request), so the volume stays at a handful of lines per session.
-     * The verdict always goes to stderr; when {@code turboism.atlasCacheReuse.evidenceFile}
-     * names a path it is also appended there — the host's late-session stderr is swallowed,
-     * so validation runs set the property to keep hit evidence durable.
+     * Verdicts are written only to the opted-in {@code turboism.atlasCacheReuse.evidenceFile}
+     * for validation runs. Production must not leak routine decisions into the native log.
      */
     private static boolean report(final Object atlas, final String verdict) {
         final String line = "[turboism] atlas-cache-reuse " + verdict
@@ -212,7 +211,6 @@ public final class AtlasCacheReuseDelegate {
                 + " loader="
                 + Integer.toHexString(System.identityHashCode(atlas.getClass().getClassLoader()))
                 + " thread=" + Thread.currentThread().getName();
-        System.err.println(line);
         final String evidence = evidenceFile;
         if (evidence != null) {
             try {
