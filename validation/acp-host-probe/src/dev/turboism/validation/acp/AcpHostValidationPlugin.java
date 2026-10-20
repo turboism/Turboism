@@ -86,7 +86,17 @@ public final class AcpHostValidationPlugin implements TurboismPlugin {
     private void runSteps() throws InterruptedException {
         final Ledger ledger = new Ledger();
         final Path agentResult = validationStateRoot().resolve(AGENT_RESULT_RELATIVE);
+        final Path seed = validationStateRoot().getParent().resolve("config/dev.turboism.plugin.acp/settings.properties");
+        final byte[] seedBefore;
+        try { seedBefore = Files.readAllBytes(seed); }
+        catch (IOException failure) {
+            ledger.fail("settingsSeedRead", failure.getClass().getSimpleName());
+            finish(ledger);
+            return;
+        }
         try {
+            // Queue inputs are immutable; only the copied task settings should be writable.
+            if (!seed.toFile().setWritable(true)) throw new IllegalStateException("Task-local ACP settings could not be made writable");
             if (!awaitStdioLaunch()) {
                 ledger.fail("stdioLaunchPublished", "mcp_connection_had_no_stdio_launch_before_timeout");
                 finish(ledger);
@@ -111,9 +121,28 @@ public final class AcpHostValidationPlugin implements TurboismPlugin {
             ledger.pass("agentResultTerminal");
 
             crossRead(ledger, agent);
+            captureAgentUi(ledger);
+            final Map<String, String> settings = readProperties(seed);
+            if ("fake-session-1".equals(settings.get("acpSessionId"))) ledger.pass("sessionBindingPersisted");
+            else ledger.fail("sessionBindingPersisted", "owned_session_binding_not_saved");
+            final Path indexes = validationStateRoot().resolve("dev.turboism.plugin.acp/session-index");
+            try (var paths = Files.list(indexes)) {
+                final var files = paths.filter(Files::isRegularFile).toList();
+                if (files.size() == 1) {
+                    final String index = Files.readString(files.get(0));
+                    if (index.contains("fake-session-1") && !index.contains("foreign-cli-session")) ledger.pass("ownedSessionIndexPersisted");
+                    else ledger.fail("ownedSessionIndexPersisted", "local_index_contains_unowned_sessions");
+                } else ledger.fail("ownedSessionIndexPersisted", "unexpected_index_file_count");
+            } catch (IOException failure) { ledger.fail("ownedSessionIndexPersisted", failure.getClass().getSimpleName()); }
         } catch (RuntimeException failure) {
             logger.error("ACP host validation probe failed", failure);
             ledger.fail("probeUnexpected", failure.getClass().getSimpleName());
+        } finally {
+            // The runner verifies seeded home files after exit; retain persistence evidence
+            // above, then restore the task copy without touching frozen queue inputs.
+            try { Files.write(seed, seedBefore); }
+            catch (IOException failure) { ledger.fail("settingsSeedRestored", failure.getClass().getSimpleName()); }
+            seed.toFile().setWritable(false);
         }
         finish(ledger);
     }
@@ -192,6 +221,62 @@ public final class AcpHostValidationPlugin implements TurboismPlugin {
         ledger.data(
                 "assertion.persistence.reason",
                 "covered_by_existing_mcp_evidence_textureSaveReopen");
+    }
+
+    /** Captures only the task's Agent window and verifies its actual Swing controls. */
+    private void captureAgentUi(final Ledger ledger) throws InterruptedException {
+        final long deadline = System.currentTimeMillis() + 15_000L;
+        while (enabled && System.currentTimeMillis() < deadline) {
+            final java.util.concurrent.atomic.AtomicBoolean captured = new java.util.concurrent.atomic.AtomicBoolean();
+            try {
+                javax.swing.SwingUtilities.invokeAndWait(() -> {
+                    for (java.awt.Window window : java.awt.Window.getWindows()) {
+                        if (!window.isVisible()) continue;
+                        final java.awt.Component component = findComponent(window, "turboism-acp.composer-agent");
+                        if (!(component instanceof javax.swing.JButton button) || !button.isEnabled()) continue;
+                        final java.awt.Component sessionList = findComponent(window, "turboism-acp.sessions");
+                        if (sessionList instanceof javax.swing.JList<?> list && list.getModel().getSize() == 0) continue;
+                        final java.awt.Color foreground = button.getForeground();
+                        ledger.data("ui.harnessForeground", String.format("#%06x", foreground.getRGB() & 0xffffff));
+                        if (Math.max(foreground.getRed(), Math.max(foreground.getGreen(), foreground.getBlue())) < 128) ledger.pass("harnessForeground");
+                        else ledger.fail("harnessForeground", "enabled_harness_has_a_muted_foreground");
+                        final java.awt.Component sessions = findComponent(window, "turboism-acp.sessions");
+                        if (sessions instanceof javax.swing.JList<?> list && list.getModel().getSize() == 1) ledger.pass("onlyOwnedSessionVisible");
+                        else ledger.fail("onlyOwnedSessionVisible", "foreign_cli_session_was_imported_or_owned_session_missing");
+                        if (button.getParent().getComponentCount() == 2) ledger.pass("unsupportedOptionsHidden");
+                        else ledger.fail("unsupportedOptionsHidden", "minimal_agent_still_has_unsupported_option_controls");
+                        final java.awt.image.BufferedImage screenshot = new java.awt.image.BufferedImage(window.getWidth(), window.getHeight(), java.awt.image.BufferedImage.TYPE_INT_RGB);
+                        final java.awt.Graphics2D graphics = screenshot.createGraphics();
+                        try { window.printAll(graphics); }
+                        finally { graphics.dispose(); }
+                        try {
+                            final Path image = validationStateRoot().resolve("acp-agent-window.png");
+                            javax.imageio.ImageIO.write(screenshot, "png", image.toFile());
+                            ledger.pass("agentWindowScreenshot");
+                        } catch (IOException failure) { ledger.fail("agentWindowScreenshot", failure.getClass().getSimpleName()); }
+                        captured.set(true);
+                        return;
+                    }
+                });
+            } catch (java.lang.reflect.InvocationTargetException failure) {
+                ledger.fail("agentUi", failure.getCause().getClass().getSimpleName());
+                return;
+            }
+            if (captured.get()) return;
+            Thread.sleep(200L);
+        }
+        ledger.fail("agentUi", "connected_agent_window_not_visible_before_timeout");
+    }
+
+    private static java.awt.Component findComponent(final java.awt.Component component, final String name) {
+        if (name.equals(component.getName())) return component;
+        if (component instanceof java.awt.Container container) {
+            for (java.awt.Component child : container.getComponents()) {
+                final java.awt.Component found = findComponent(child, name);
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 
     private void copyAgentAssertions(final Ledger ledger, final Map<String, String> agent) {

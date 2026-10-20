@@ -90,7 +90,11 @@ final class AcpClient implements AutoCloseable {
     /** Starts the resolved agent process and completes the ACP initialize handshake. */
     static AcpClient start(final AgentLaunchSpec configuration, final AcpListener listener)
             throws IOException, AcpException {
-        final AcpClient client = new AcpClient(AcpProcessTransport.start(configuration), listener);
+        final AcpClient client = new AcpClient(
+                configuration.protocol() == AgentProtocol.ACP
+                        ? AcpProcessTransport.start(configuration)
+                        : new NativeAgentTransport(configuration),
+                listener);
         try {
             client.initialize(DEFAULT_TIMEOUT);
             return client;

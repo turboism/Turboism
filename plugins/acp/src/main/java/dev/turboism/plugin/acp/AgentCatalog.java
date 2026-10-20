@@ -3,13 +3,7 @@ package dev.turboism.plugin.acp;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Built-in catalog of mainstream ACP v1 agents.
- *
- * <p>Every entry was checked against its upstream package or ACP registry entry: the executable
- * is launched directly with the listed arguments and speaks JSON-RPC 2.0 over stdio. Agents whose
- * upstream needs an additional login subcommand expose it through {@code loginArguments}.</p>
- */
+/** Built-in native CLI providers and compatible ACP agents. */
 final class AgentCatalog {
 
     static final String CUSTOM_AGENT_ID = "custom";
@@ -17,20 +11,20 @@ final class AgentCatalog {
     private static final List<AgentProfile> PROFILES = List.of(
             new AgentProfile(
                     "claude",
-                    "Claude Agent (ACP)",
-                    List.of("claude-agent-acp"),
+                    "Claude Code",
+                    List.of("claude", "claude-agent-acp"),
                     List.of(),
                     List.of(),
-                    "npm install -g @agentclientprotocol/claude-agent-acp",
-                    "https://github.com/agentclientprotocol/claude-agent-acp"),
+                    "https://code.claude.com/docs/en/setup",
+                    "https://code.claude.com"),
             new AgentProfile(
                     "codex",
-                    "Codex (ACP)",
-                    List.of("codex-acp"),
+                    "Codex",
+                    List.of("codex", "codex-acp"),
                     List.of(),
                     List.of("login"),
-                    "npm install -g @agentclientprotocol/codex-acp",
-                    "https://github.com/agentclientprotocol/codex-acp"),
+                    "npm install -g @openai/codex",
+                    "https://developers.openai.com/codex/cli"),
             new AgentProfile(
                     "gemini",
                     "Gemini CLI",
@@ -48,13 +42,7 @@ final class AgentCatalog {
                     "npm install -g opencode-ai",
                     "https://opencode.ai"),
             new AgentProfile(
-                    "pi",
-                    "Pi (ACP)",
-                    List.of("pi-acp"),
-                    List.of(),
-                    List.of(),
-                    "npm install -g @automatalabs/pi-acp",
-                    "https://www.npmjs.com/package/@automatalabs/pi-acp"),
+                    "pi", "Pi", List.of("pi", "pi-acp"), List.of(), List.of(), "https://pi.dev", "https://pi.dev"),
             new AgentProfile(
                     "devin",
                     "Devin CLI",
@@ -87,23 +75,23 @@ final class AgentCatalog {
         return PROFILES.get(0).id();
     }
 
-    /** Finds the first catalog profile whose executable candidate is discovered and runnable. */
+    /** Finds the first catalog profile whose executable candidate is discovered. */
     static Optional<AgentProfile> findFirstAvailable() {
         for (AgentProfile profile : PROFILES) {
-            final Optional<java.nio.file.Path> located = AgentLocator.locate(profile);
-            if (located.isPresent() && AgentLocator.probe(located.get(), java.time.Duration.ofMillis(1500))) {
+            final Optional<java.nio.file.Path> located = AgentAvailability.locate(profile);
+            if (located.isPresent()) {
                 return Optional.of(profile);
             }
         }
         return Optional.empty();
     }
 
-    /** Returns all catalog profiles currently discovered and probeable on this system. */
+    /** Returns all catalog profiles currently discovered on this system. */
     static List<AgentProfile> availableProfiles() {
         final java.util.ArrayList<AgentProfile> available = new java.util.ArrayList<>();
         for (AgentProfile profile : PROFILES) {
-            final Optional<java.nio.file.Path> located = AgentLocator.locate(profile);
-            if (located.isPresent() && AgentLocator.probe(located.get(), java.time.Duration.ofMillis(1500))) {
+            final Optional<java.nio.file.Path> located = AgentAvailability.locate(profile);
+            if (located.isPresent()) {
                 available.add(profile);
             }
         }
