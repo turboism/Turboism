@@ -1386,7 +1386,16 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 ? slice.contract().orElseThrow().sourceVersion()
                 : dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest.versionForArtifact(
                         HostArtifactDigest.from(slice.verifiedArtifact()));
-        return productionAppearanceProviderForVersion(version, new SwingFlatLafHostOperations(slice.hostClassLoader()));
+        // Preserve ordinary theme application for compatibility-bound, unreviewed artifacts;
+        // their native background keeps the early-bootstrap restart fallback.
+        final java.util.function.Consumer<java.awt.Color> refreshBackground =
+                dev.turboism.mapping.verification.ReviewedHostArtifacts.isReviewed(
+                                HostArtifactDigest.from(slice.verifiedArtifact()))
+                        ? new dev.turboism.adapter.ui.OffCanvasBackgroundHostAccess(
+                                slice.verifiedArtifact(), slice.hostClassLoader())
+                        : background -> {};
+        return productionAppearanceProviderForVersion(
+                version, new SwingFlatLafHostOperations(slice.hostClassLoader(), refreshBackground));
     }
 
     static AppearanceHostProvider productionAppearanceProviderForVersion(
