@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: mesh, selection, brush
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.1,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -28,7 +28,7 @@ interface: embedded
 
 ## 要件と互換性
 
-- SDK API 範囲：`[0.67.0,1.0.0)`。ツールサービスは Preview SDK の契約を使用します。
+- SDK API 範囲：`[0.67.1,1.0.0)`。ツールサービスは Preview SDK の契約を使用します。
 - 正確に審査された Cubism Editor 5.2.03、5.3.02、5.3.03 をサポートします。通常モードには、点選択とツールライフサイクルの独立した利用許可も必要です。
 - 埋め込みインターフェースを使用し、他のプラグインへの依存はありません。
 

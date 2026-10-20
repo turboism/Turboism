@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: deformer, warp, editing, symmetry
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.1,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -43,7 +43,7 @@ control points, with a canvas-strip mirror-axis button and a drawing-area hint.
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.67.0,1.0.0)`.
+- **SDK API range:** `[0.67.1,1.0.0)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor
   artifacts `5.0.00` through `5.3.04`; this plugin exposes each host-facing
   feature only when its declared services and capabilities are available.

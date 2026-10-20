@@ -7,7 +7,7 @@ status: development
 delivery: development-only
 category: development
 tags: example, sdk
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.1,1.0.0)"
 requiresCubism: false
 interface: none
 ---
@@ -36,7 +36,7 @@ Demonstrates Turboism action, menu, toolbar, context-menu, configuration, locali
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.67.0,1.0.0)`.
+- **SDK API range:** `[0.67.1,1.0.0)`.
 - **Cubism:** Does not require Cubism or use Cubism services. Its UI registrations demonstrate optional framework integration when the corresponding host registries are available.
 - **Interface mode:** `none`.
 - **Plugin dependencies:** None declared.

@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: deformer, warp, editing, symmetry, boundingbox
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.1,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -38,7 +38,7 @@ interface: none
 
 ## 要件と互換性
 
-- **SDK API 範囲:** `[0.67.0,1.0.0)`。
+- **SDK API 範囲:** `[0.67.1,1.0.0)`。
 - Turboism ランタイム上で動作する Cubism Editor セッションが必要です。
 - 検証済みの Editor モデルスライスが必要です。非対応ホストバージョンではサービスが `UNAVAILABLE` を返します。
 - 方向ラベルは実際のミラー結果を表します（旧実装の左右反転は修正されています）。
