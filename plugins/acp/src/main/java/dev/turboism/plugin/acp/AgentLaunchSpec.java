@@ -10,12 +10,17 @@ import java.util.Objects;
  * <p>The command is an argv list that is never joined into a shell string, so a persisted
  * executable path or argument cannot gain command-string semantics.</p>
  */
-record AgentLaunchSpec(List<String> command, Path workingDirectory, java.util.Map<String, String> environment) {
+record AgentLaunchSpec(
+        List<String> command,
+        Path workingDirectory,
+        java.util.Map<String, String> environment,
+        AgentProtocol protocol) {
 
     static final int MAX_ARGUMENTS = 64;
     static final int MAX_ARGUMENT_CHARS = 4096;
 
     AgentLaunchSpec {
+        protocol = Objects.requireNonNull(protocol, "protocol");
         final java.util.ArrayList<String> checkedCommand = new java.util.ArrayList<>();
         for (String element : Objects.requireNonNull(command, "command")) {
             checkedCommand.add(requireArgument(element));
@@ -41,6 +46,11 @@ record AgentLaunchSpec(List<String> command, Path workingDirectory, java.util.Ma
 
     AgentLaunchSpec(final List<String> command, final Path workingDirectory) {
         this(command, workingDirectory, java.util.Map.of());
+    }
+
+    AgentLaunchSpec(
+            final List<String> command, final Path workingDirectory, final java.util.Map<String, String> environment) {
+        this(command, workingDirectory, environment, AgentProtocol.ACP);
     }
 
     /** Returns the executable path, the first argv element. */

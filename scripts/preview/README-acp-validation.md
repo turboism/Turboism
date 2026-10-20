@@ -65,6 +65,16 @@ launch descriptor was published, the action-catalog open succeeded, the agent
 reached a terminal result, the probe's SDK history position matches the agent's
 `historyPositionBefore`, and no object name still carries the rename prefix.
 
+The probe also captures the actual Agent Swing window as
+`state/acp-agent-window.png`, checks the enabled harness foreground and hidden
+unsupported options, and verifies that only the Turboism-owned session appears
+even when the agent lists an unrelated CLI session. It checks the persisted
+session binding and scoped session index. The probe makes only the task-local
+copy of the ACP settings writable; the frozen queue inputs remain unchanged.
+After checking persistence it restores that copy so the runner's seeded-file
+integrity checks still apply.
+These host checks use the scripted agent; native CLI smoke tests run separately.
+
 ## Artifacts
 
 The bundle keeps the task-scoped evidence directory, the redacted runner log, the
