@@ -10,6 +10,25 @@ import org.junit.jupiter.api.Test;
 
 final class AcpMessageRendererTest {
     @Test
+    void markdownParagraphsUseSpacingWithoutRenderingEmptyRows() throws Exception {
+        final var document = render("你好！\n\n让我检查工具：\n\n1. 第一项\n2. 第二项\n\n");
+        final String text = document.getText(0, document.getLength());
+        assertEquals("你好！\n让我检查工具：\n1. 第一项\n2. 第二项\n", text);
+        final float paragraphGap = StyleConstants.getSpaceAbove(
+                document.getParagraphElement(text.indexOf("让我")).getAttributes());
+        final float listGap = StyleConstants.getSpaceAbove(
+                document.getParagraphElement(text.indexOf("2.")).getAttributes());
+        assertTrue(paragraphGap > listGap);
+        assertTrue(paragraphGap <= 6F);
+    }
+
+    @Test
+    void blankLinesInsideFencedCodeArePreserved() throws Exception {
+        final var document = render("```text\nfirst\n\nsecond\n```\n");
+        assertEquals("first\n\nsecond\n", document.getText(0, document.getLength()));
+    }
+
+    @Test
     void rendersHeadingsEmphasisListsAndCodeWithoutMarkdownMarkers() throws Exception {
         final DefaultStyledDocument document = render("# 结果\n**完成**，*注意* `model_id`\n- 第一项\n2. 第二项");
         final String text = document.getText(0, document.getLength());

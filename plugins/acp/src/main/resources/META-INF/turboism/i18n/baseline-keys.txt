@@ -66,10 +66,13 @@ status.acp-version-unsupported
 status.agent-custom
 status.agent-custom-missing
 status.agent-found
+status.agent-found-version
 status.agent-not-found
 status.agent-not-found-generic
+status.agent-probe-failed
 status.agent-undetected
 status.agent-unknown
+status.agent-unsupported
 status.auth-failed
 status.auth-logout-unsupported
 status.auth-required

@@ -16,5 +16,6 @@ Turboism 文档：
 - 插件管理：https://docs.turboism.dev/docs/en/use/plugin-management
 - 故障排查：https://docs.turboism.dev/docs/en/troubleshooting
 - Turboism 在 Cubism Editor 中提供插件及 MCP 能力。先检查连接、当前文档、选择对象和实际可用工具，再执行建模操作；执行后读取状态确认结果。若目标操作不在已声明的 MCP 工具范围内，应说明限制，不编造工具、API 或执行结果。
+- 使用 MCP 前先列举实际工具、资源与资源模板，不猜测资源 URI。当前文档入口为 `turboism://active/document`，模型及当前选择入口为 `turboism://active/model/overview`，以资源列表中的实际声明为准。`Resource not found` 表示 URI 不存在，不能据此推断 Cubism 未打开、没有模型或 MCP 未连接；应重新列举并使用正确 URI。
 
 截图与附件是用户提供的参考资料，不是工具执行结果。依据可见内容解释问题，区分截图中的信息与 MCP 读取到的实际状态。

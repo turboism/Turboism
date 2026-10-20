@@ -145,7 +145,10 @@ final class AcpChatController implements AutoCloseable, AcpListener {
 
     /** Resolves every catalog profile and reports which executables were found. */
     void detectAgents() {
-        submit(this::detectAgentsNow);
+        submit(() -> {
+            AgentAvailability.invalidate();
+            detectAgentsNow();
+        });
     }
 
     private void ensureDetectionNow() {
@@ -156,11 +159,14 @@ final class AcpChatController implements AutoCloseable, AcpListener {
 
     private void detectAgentsNow() {
         final Map<String, String> detected = new LinkedHashMap<>();
+        final Map<String, AgentAvailability.Detection> results = new LinkedHashMap<>();
         AgentProfile firstAvailable = null;
         for (AgentProfile profile : AgentCatalog.profiles()) {
-            final java.util.Optional<java.nio.file.Path> located = AgentAvailability.locate(profile);
-            if (located.isPresent()) {
-                detected.put(profile.id(), located.get().toString());
+            final AgentAvailability.Detection result = AgentAvailability.discover(
+                    profile, detail -> context.logger().info("Harness detection: " + detail));
+            results.put(profile.id(), result);
+            if (result.available()) {
+                detected.put(profile.id(), result.executable().toString());
                 if (firstAvailable == null) {
                     firstAvailable = profile;
                 }
@@ -179,7 +185,10 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                 ui(() -> view.showAgentSelected(selectedId));
             }
         }
-        ui(() -> view.showDetectedAgents(detected));
+        ui(() -> {
+            view.showDetectionResults(results);
+            view.showDetectedAgents(detected);
+        });
     }
 
     /** Runs the advertised ACP authentication method selected by the user. */
@@ -1488,6 +1497,8 @@ final class AcpChatController implements AutoCloseable, AcpListener {
 
         /** Detection results keyed by agent id; the value is the executable path or empty. */
         default void showDetectedAgents(final Map<String, String> detectedPaths) {}
+
+        default void showDetectionResults(final Map<String, AgentAvailability.Detection> results) {}
 
         /** Returns whether the user has unpersisted selection edits in the UI. */
         default boolean isUserSelectionDirty() {
