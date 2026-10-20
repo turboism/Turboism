@@ -121,7 +121,15 @@ final class McpProtocol {
                     };
             return Outcome.response(200, success(id, result));
         } catch (McpResourceCatalog.ResourceNotFound failure) {
-            return Outcome.response(200, error(id, -32002, "Resource not found", failure.getMessage()));
+            return Outcome.response(
+                    200,
+                    error(
+                            id,
+                            -32002,
+                            "Resource not found",
+                            failure.getMessage()
+                                    + ". Discover valid URIs with resources/list and resources/templates/list before reading. "
+                                    + "An unknown resource URI is not a connection failure and does not mean Cubism is closed."));
         } catch (McpResourceCatalog.ResourceFailure failure) {
             return Outcome.response(200, resourceFailure(id, failure));
         } catch (MethodNotFound failure) {
@@ -217,7 +225,11 @@ final class McpProtocol {
                                         "Typed Turboism Cubism resources, workflows, and authoring operations."))),
                 entry(
                         "instructions",
-                        "Read turboism:// resources before mutations. Use stable Cubism IDs, respect returned "
+                        "Discover resource URIs with resources/list and resources/templates/list; do not guess URIs. "
+                                + "Read turboism://active/document for the current document and "
+                                + "turboism://active/model/overview for the model and current selection when advertised. "
+                                + "Resource not found means the URI is unknown, not that Cubism is closed or disconnected. "
+                                + "Read resources before mutations. Use stable Cubism IDs, respect returned "
                                 + "generation/revision preconditions, and re-read resources after writes."));
     }
 

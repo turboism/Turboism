@@ -141,6 +141,7 @@ final class AcpChatWindow implements AcpChatController.View {
     private final Map<String, List<TranscriptEntry>> tools = new LinkedHashMap<>();
     private final AtomicBoolean acceptingEvents = new AtomicBoolean(true);
     private Map<String, String> detectedPaths = Map.of();
+    private Map<String, AgentAvailability.Detection> detectionResults = Map.of();
     private List<AcpAuthMethod> authMethods = List.of();
     private boolean applyingOptions;
     private boolean applyingSessions;
@@ -388,6 +389,11 @@ final class AcpChatWindow implements AcpChatController.View {
     }
 
     @Override
+    public void showDetectionResults(final Map<String, AgentAvailability.Detection> results) {
+        if (acceptingEvents.get()) detectionResults = Map.copyOf(results);
+    }
+
+    @Override
     public void showDetectedAgents(final Map<String, String> detected) {
         if (!acceptingEvents.get()) return;
         detectedPaths = Map.copyOf(Objects.requireNonNullElse(detected, Map.of()));
@@ -396,7 +402,9 @@ final class AcpChatWindow implements AcpChatController.View {
         try {
             agentSelector.removeAllItems();
             for (AgentProfile profile : AgentCatalog.profiles()) {
-                if (!detectedPaths.getOrDefault(profile.id(), "").isBlank())
+                if (!detectedPaths.getOrDefault(profile.id(), "").isBlank()
+                        || (detectionResults.containsKey(profile.id())
+                                && detectionResults.get(profile.id()).executable() != null))
                     agentSelector.addItem(new AgentItem(profile.id(), null));
             }
             agentSelector.addItem(CUSTOM_ITEM);
@@ -925,10 +933,24 @@ final class AcpChatWindow implements AcpChatController.View {
         if (detected == null) {
             agentDetection.setText(localization.text("status.agent-undetected"));
         } else if (detected.isEmpty()) {
-            agentDetection.setText(localization.format(
-                    "status.agent-not-found", profile.executableCandidates().get(0)));
+            final AgentAvailability.Detection result = detectionResults.get(profile.id());
+            if (result != null && result.executable() != null) {
+                final String key = "native-mode-not-advertised".equals(result.reason())
+                        ? "status.agent-unsupported"
+                        : "status.agent-probe-failed";
+                agentDetection.setText(
+                        localization.format(key, result.executable().toString(), result.version()));
+            } else {
+                agentDetection.setText(localization.format(
+                        "status.agent-not-found", profile.executableCandidates().get(0)));
+            }
         } else {
-            agentDetection.setText(localization.format("status.agent-found", detected));
+            final AgentAvailability.Detection result = detectionResults.get(profile.id());
+            final String version = result == null ? "" : result.version();
+            agentDetection.setText(
+                    version.isBlank()
+                            ? localization.format("status.agent-found", detected)
+                            : localization.format("status.agent-found-version", detected, version));
         }
         agentHint.setText(
                 profile.installHint().isEmpty()

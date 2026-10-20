@@ -66,19 +66,28 @@ final class AgentLocator {
 
     /** Finds a bare executable name on the inherited PATH and in common per-user directories. */
     static Optional<Path> findExecutable(final String baseName) {
+        return findExecutables(baseName).stream().findFirst();
+    }
+
+    static List<Path> findExecutables(final String baseName) {
+        return findExecutables(baseName, searchDirectories(), isWindows());
+    }
+
+    static List<Path> findExecutables(final String baseName, final List<Path> directories, final boolean windows) {
         final String name = Objects.requireNonNull(baseName, "baseName").strip();
         if (name.isEmpty() || name.indexOf('/') >= 0 || name.indexOf('\\') >= 0 || name.indexOf('\0') >= 0) {
             throw new IllegalArgumentException("executable name is invalid");
         }
-        for (Path directory : searchDirectories()) {
-            for (String variant : executableVariants(name)) {
+        final LinkedHashSet<Path> found = new LinkedHashSet<>();
+        for (Path directory : directories) {
+            for (String variant : executableVariants(name, windows)) {
                 final Path candidate = directory.resolve(variant);
-                if (usable(candidate)) {
-                    return Optional.of(candidate.toAbsolutePath().normalize());
+                if (usable(candidate, windows)) {
+                    found.add(candidate.toAbsolutePath().normalize());
                 }
             }
         }
-        return Optional.empty();
+        return List.copyOf(found);
     }
 
     private static Path validate(final Path path) {
@@ -89,9 +98,13 @@ final class AgentLocator {
     }
 
     private static boolean usable(final Path candidate) {
+        return usable(candidate, isWindows());
+    }
+
+    private static boolean usable(final Path candidate, final boolean windows) {
         try {
             if (!Files.isRegularFile(candidate)) return false;
-            if (isWindows()) {
+            if (windows) {
                 final Path fileName = candidate.getFileName();
                 final String lower = fileName != null ? fileName.toString().toLowerCase(Locale.ROOT) : "";
                 if (!lower.endsWith(".exe")
@@ -169,7 +182,11 @@ final class AgentLocator {
 
     /** Windows executables need a PATHEXT-style suffix; everywhere else the bare name is used. */
     private static List<String> executableVariants(final String baseName) {
-        if (!isWindows()) return List.of(baseName);
+        return executableVariants(baseName, isWindows());
+    }
+
+    private static List<String> executableVariants(final String baseName, final boolean windows) {
+        if (!windows) return List.of(baseName);
         final String lower = baseName.toLowerCase(Locale.ROOT);
         if (lower.endsWith(".exe") || lower.endsWith(".cmd") || lower.endsWith(".bat")) {
             return List.of(baseName);
@@ -199,7 +216,22 @@ final class AgentLocator {
     private static void addCommonInstallDirectories(final LinkedHashSet<Path> directories) {
         final String home = System.getProperty("user.home", "");
         final Map<String, String> env = System.getenv();
-        if (isWindows()) {
+        addCommonInstallDirectories(directories, home, env, isWindows());
+    }
+
+    static List<Path> commonInstallDirectories(
+            final String home, final Map<String, String> env, final boolean windows) {
+        final LinkedHashSet<Path> directories = new LinkedHashSet<>();
+        addCommonInstallDirectories(directories, home, env, windows);
+        return List.copyOf(directories);
+    }
+
+    private static void addCommonInstallDirectories(
+            final LinkedHashSet<Path> directories,
+            final String home,
+            final Map<String, String> env,
+            final boolean windows) {
+        if (windows) {
             add(directories, env.get("APPDATA"), "npm");
             add(directories, env.get("LOCALAPPDATA"), "Programs");
             add(directories, env.get("LOCALAPPDATA"), "Microsoft", "WinGet", "Links");
@@ -207,8 +239,18 @@ final class AgentLocator {
             add(directories, env.get("LOCALAPPDATA"), "Yarn", "bin");
             add(directories, home, ".cargo", "bin");
             add(directories, home, ".local", "bin");
+            add(directories, home, ".bun", "bin");
+            add(directories, home, ".volta", "bin");
             add(directories, home, "scoop", "shims");
             add(directories, env.get("ProgramFiles"), "nodejs");
+            add(directories, env.get("NVM_SYMLINK"));
+            add(directories, env.get("PNPM_HOME"));
+            add(directories, env.get("NPM_CONFIG_PREFIX"));
+            add(directories, env.get("PI_NPM_INSTALL_PREFIX"));
+            add(directories, home, ".pi", "agent", "bin");
+            add(directories, env.get("PI_CODING_AGENT_DIR"), "bin");
+            add(directories, env.get("LOCALAPPDATA"), "pi-node", "current");
+            addWindowsPackages(directories, env.get("LOCALAPPDATA"));
             return;
         }
         add(directories, home, ".local", "bin");
@@ -225,6 +267,46 @@ final class AgentLocator {
         // Per-version Node managers install global bins below versioned directories.
         addGlobbed(directories, home, ".nvm", "versions", "node");
         addGlobbed(directories, home, ".local", "share", "mise", "installs", "node");
+    }
+
+    private static void addWindowsPackages(final LinkedHashSet<Path> directories, final String localAppData) {
+        if (localAppData == null || localAppData.isBlank()) return;
+        final Path packages;
+        try {
+            packages = Path.of(localAppData).resolve("Microsoft/WinGet/Packages");
+        } catch (java.nio.file.InvalidPathException ignored) {
+            return;
+        }
+        if (!Files.isDirectory(packages)) return;
+        try (var entries = Files.list(packages)) {
+            entries.filter(Files::isDirectory)
+                    .filter(path -> {
+                        final String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
+                        return name.startsWith("anthropic.claudecode_") || name.startsWith("openjs.nodejs");
+                    })
+                    .sorted()
+                    .limit(32)
+                    .forEach(directories::add);
+        } catch (java.io.IOException | SecurityException ignored) {
+            // Missing or unreadable package directories are skipped.
+        }
+    }
+
+    static void augmentWindowsPath(final Map<String, String> environment) {
+        if (!isWindows()) return;
+        augmentWindowsPath(environment, searchDirectories());
+    }
+
+    static void augmentWindowsPath(final Map<String, String> environment, final List<Path> directories) {
+        final String pathKey = environment.keySet().stream()
+                .filter(key -> "PATH".equalsIgnoreCase(key))
+                .findFirst()
+                .orElse("PATH");
+        final LinkedHashSet<String> paths = new LinkedHashSet<>();
+        final String inherited = environment.getOrDefault(pathKey, "");
+        for (String entry : inherited.split(";")) if (!entry.isBlank()) paths.add(entry);
+        for (Path directory : directories) if (Files.isDirectory(directory)) paths.add(directory.toString());
+        environment.put(pathKey, String.join(";", paths));
     }
 
     private static void add(final LinkedHashSet<Path> directories, final String base, final String... segments) {
