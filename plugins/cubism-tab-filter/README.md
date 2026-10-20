@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: tab-filter, workspace
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.1,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -36,7 +36,7 @@ Adds keyword filter boxes to Cubism's Parameter, Deformer, Scene, and Log palett
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.67.0,1.0.0)`.
+- **SDK API range:** `[0.67.1,1.0.0)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`; this plugin exposes each host-facing feature only when its declared services and capabilities are available.
 - **Interface mode:** `none`.
 - **Plugin dependencies:** None declared.

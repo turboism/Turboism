@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: animation, frame-animation, sprite-sheet, parameter
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.1,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -38,7 +38,7 @@ interface: swing
 
 ## 要求与兼容性
 
-- **SDK API 范围:** `[0.67.0,1.0.0)`.
+- **SDK API 范围:** `[0.67.1,1.0.0)`.
 - **Cubism:** 支持全部经过验证的 Editor 版本 `5.0.00` 到 `5.3.04`。
 - **界面模式:** `swing`。
 - **插件依赖:** 无。

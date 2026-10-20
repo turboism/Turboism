@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: integration
 tags: automation, acp, agent
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.1,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -28,7 +28,7 @@ Opens an Agent conversation window and a Settings window. Drives a user-installe
 
 ## Requirements and compatibility
 
-- Turboism SDK API range `[0.67.0,1.0.0)`.
+- Turboism SDK API range `[0.67.1,1.0.0)`.
 - A user-installed ACP v1 compatible agent executable, reachable from PATH or configured as a custom command in **Manage agents…**.
 - The bundled `dev.turboism.plugin.mcp` plugin provides the Turboism MCP server when MCP tool access is wanted.
 - Requires an installed Cubism Editor host; the plugin does not run inside the standalone preview.

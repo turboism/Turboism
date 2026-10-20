@@ -7,7 +7,7 @@ building the Turboism monorepo**. Run one setup script to fetch and verify the
 SDK and `@SubscribeEvent` annotation processor, customize your plugin identity,
 and build a single plugin JAR ready for any Turboism installation.
 
-The plugin SDK API range is `[0.67.0,1.0.0)`: its lower bound is the minimum framework base version, with beta/nightly/SNAPSHOT suffixes ignored. See [plugin API compatibility](../../compatibility/plugin-api.md) for the runtime version source and release synchronization command.
+The plugin SDK API range is `[0.67.1,1.0.0)`: its lower bound is the minimum framework base version, with beta/nightly/SNAPSHOT suffixes ignored. See [plugin API compatibility](../../compatibility/plugin-api.md) for the runtime version source and release synchronization command.
 
 
 ## Prerequisites

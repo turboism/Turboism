@@ -7,7 +7,7 @@ status: development
 delivery: development-only
 category: workflow
 tags: parameter, lock, palette, safety
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.1,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -42,7 +42,7 @@ Cubism パラメータ値の誤編集を防ぎ、セッション間での永続�
 
 ## 要件と互換性
 
-- **SDK API 範囲:** `[0.67.0,1.0.0)`。
+- **SDK API 範囲:** `[0.67.1,1.0.0)`。
 - **Cubism:** Cubism が必要です。Turboism は現在、審査済みの Editor アーティファクト `5.0.00` から `5.3.04`（`5.3.03` を含む）を厳密に認可しています。
 - **インターフェースモード:** `embedded`。
 - **プラグイン依存関係:** 未宣言。

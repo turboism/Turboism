@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: appearance
 tags: theme, colors, user-interface
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.1,1.0.0)"
 requiresCubism: false
 interface: none
 ---
@@ -36,7 +36,7 @@ interface: none
 
 ## 要求与兼容性
 
-- **SDK API 范围：** `[0.67.0,1.0.0)`。
+- **SDK API 范围：** `[0.67.1,1.0.0)`。
 - **Cubism：**本插件可在没有 Cubism 的情况下初始化。将主题应用到 Cubism 仍需要精确审核过的 Editor 构件（`5.0.00` 至 `5.3.04`）以及语义外观服务。
 - **界面模式：**`none`。
 - **插件依赖：**未声明。

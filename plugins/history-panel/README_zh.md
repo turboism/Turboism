@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: history, navigation, floating-window
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.1,1.0.0)"
 requiresCubism: false
 interface: embedded
 ---
@@ -37,7 +37,7 @@ interface: embedded
 
 ## 要求与兼容性
 
-- **SDK API 范围：**`[0.67.0,1.0.0)`。
+- **SDK API 范围：**`[0.67.1,1.0.0)`。
 - **Cubism：**插件初始化本身不要求 Cubism；显示和操作记录需要受支持精确版本提供原生历史服务和宿主界面集成。
 - **界面模式：**`embedded`。
 - **插件依赖项：**未声明。
