@@ -99,6 +99,7 @@ OpenCode 1.15.13 在模型接口返回鉴权错误时，可能只返回 `end_tur
 | `turboism.config.plugin.read` | `application` | 恢复已选 Agent ID、自定义命令、持久会话 ID 与初始指令。 |
 | `turboism.config.plugin.write` | `application` | 持久化上述插件自有状态；不存储 Agent 凭据与 MCP 授权。 |
 | `turboism.file.read` | `application` | 在 PATH 与常见安装目录检测用户安装的 Agent 可执行文件。 |
+| `turboism.file.write` | `application` | 保存本地会话索引和原生 Pi 会话，创建临时 MCP 配置与扩展文件。 |
 | `turboism.process.run` | `application` | 启动并管理所选 Agent 可执行文件。 |
 | `turboism.mcp.connection.read` | `application` | 读取当前 MCP 连接快照（含免凭据 stdio 启动描述符）并订阅端点变化，使已接入会话重连。 |
 
