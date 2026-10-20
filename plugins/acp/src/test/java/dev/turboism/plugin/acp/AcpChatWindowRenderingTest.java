@@ -351,7 +351,8 @@ final class AcpChatWindowRenderingTest {
                 window.appendAgent("，可以继续。");
                 final String after = transcript.getText();
                 assertFalse(after.contains("检查通过"));
-                assertTrue(after.contains("Commands: 0 · Other tools: 1"));
+                assertTrue(after.contains("Tools: 1"));
+                assertFalse(after.contains("Commands: 0"));
                 assertTrue(after.contains("正常文本，可以继续。"));
                 assertEquals(1, after.split("结果", -1).length - 1);
 
@@ -763,10 +764,10 @@ final class AcpChatWindowRenderingTest {
                 window.appendAgent("最终结论");
                 String text = transcript.getText();
                 assertEquals(2, text.split("Thinking", -1).length - 1);
-                assertEquals(2, text.split("Commands:", -1).length - 1);
+                assertEquals(2, text.split("Tools:", -1).length - 1);
                 assertFalse(text.contains("第二段思考"));
-                assertTrue(text.indexOf("Thinking") < text.indexOf("Commands:"));
-                assertTrue(text.lastIndexOf("Thinking") > text.indexOf("Commands:"));
+                assertTrue(text.indexOf("Thinking") < text.indexOf("Tools:"));
+                assertTrue(text.lastIndexOf("Thinking") > text.indexOf("Tools:"));
                 toggleDisclosureWithKeyboard(transcript, "▸  Thinking");
                 window.updateTool("one", "completed", "读取完成");
                 assertTrue(transcript.getText().contains("第一段思考，继续分析"));
@@ -786,7 +787,7 @@ final class AcpChatWindowRenderingTest {
     }
 
     private static void toggleSummaryWithKeyboard(final JTextPane transcript) {
-        toggleDisclosureWithKeyboard(transcript, "Commands:");
+        toggleDisclosureWithKeyboard(transcript, transcript.getText().contains("Commands:") ? "Commands:" : "Tools:");
     }
 
     private static void toggleDisclosureWithKeyboard(final JTextPane transcript, final String label) {
