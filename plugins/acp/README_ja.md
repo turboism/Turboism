@@ -18,10 +18,24 @@ interface: swing
 
 Agent 会話ウィンドウと Agent 設定ウィンドウを開き、ユーザーがインストールした ACP v1 対応エージェントを Agent Client Protocol 経由で駆動し、認証情報を持たない stdio ブリッジでローカル Turboism MCP サーバーへ接続します。
 
+### 接続済みなのに応答がない場合
+
+「接続済み」は ACP のハンドシェイク成功を示します。Agent が現在のリクエストに対してテキスト、思考、画像、ツールイベントを返さずに `end_turn` を返した場合、「完了」ではなく空の応答エラーを表示します。選択したモデル、プロバイダーの認証情報、Agent のログを確認してください。
+
+OpenCode 1.15.13 はモデル API の認証エラーを `end_turn` とゼロトークンの使用量として返す場合があります。ローカルの模擬 API による比較では、1.18.4 は認証エラーを返しました。OpenCode を更新して再接続し、表示されたエラーに従ってモデル設定を確認してください。
+
+### ネイティブ CLI とローカルセッション
+
+- [Paseo の provider 設計](https://paseo.sh/docs/providers.md)を参考に、通常の `claude`、`codex`、`pi` を組み込みアダプターで直接接続します。追加の ACP パッケージや Node SDK は不要です。Gemini CLI は内蔵 ACP、Antigravity は `agy-acp` を使用します。
+- harness メニューは利用可能な接続のみを表示します。未対応の権限などのコントロールは非表示になり、有効なコントロールには通常の前景色を使用します。
+- `session-index/` のローカル索引を harness、起動コマンド、プロトコル、作業ディレクトリで分離し、このプラグインで作成したセッションのみを表示します。
+- ネイティブセッションはコンテキストを再開できますが、過去の会話テキストの再表示にはまだ対応していません。Pi のファイルはプラグイン状態ディレクトリの `native-sessions/pi/` に保存します。
+
+
 ## 機能概要
 
 - **Agent**（会話）と **Agent 設定** の 2 つの Swing ウィンドウを開きます。
-- stdin/stdout JSON-RPC でユーザーインストールの ACP エージェントを起動します：Claude Agent ACP、Codex ACP、Antigravity、Gemini CLI、OpenCode、Pi、Devin CLI、またはカスタムコマンド。
+- 通常の Claude Code、Codex、Pi を組み込みネイティブアダプターで起動します。Gemini CLI、OpenCode、Devin CLI、Antigravity（`agy-acp`）、カスタムコマンドには ACP を使用します。
 - ACP v1 契約に従い `initialize`、`authenticate`、`session/new`、`session/load`、`session/resume`、`session/prompt`、`session/cancel`、`session/close`、`session/list`、`session/update`、`session/request_permission`、`session/set_config_option`、`logout` を駆動します。
 - Turboism MCP サーバーを ACP stdio MCP サーバーとして接続し、エージェントが Cubism ツールを利用できるようにします。HTTP エンドポイントは HTTP MCP サポートのみを宣言するエージェント向けの読み取り専用フォールバックとして残ります。
 - PATH および一般的なインストール先でエージェント実行ファイルを検出し、少量のプラグイン保有状態（選択エージェント、カスタムコマンド、永続セッション ID、初期指示）を保存します。

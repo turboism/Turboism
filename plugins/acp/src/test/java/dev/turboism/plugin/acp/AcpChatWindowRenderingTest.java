@@ -512,6 +512,7 @@ final class AcpChatWindowRenderingTest {
                 }
                 final JButton model = (JButton) buttons.get("model");
                 assertTrue(model.isEnabled());
+                assertEquals(AcpChatTheme.foreground(), model.getForeground());
                 ((JMenuItem) model.getComponentPopupMenu().getComponent(1)).doClick();
                 assertEquals(List.of("model", "model-b"), requested.get());
                 assertFalse(model.isEnabled());
@@ -521,9 +522,9 @@ final class AcpChatWindowRenderingTest {
                 assertTrue(((JButton) buttons.get("model")).isEnabled());
                 window.showConfigOptions(modelOptions("model-b", "Model B"));
                 final JPanel controls = component(window, "composerOptions", JPanel.class);
-                assertEquals(5, controls.getComponentCount());
+                assertEquals(3, controls.getComponentCount());
                 assertEquals(
-                        2,
+                        0,
                         java.util.Arrays.stream(controls.getComponents())
                                 .filter(child -> !child.isEnabled())
                                 .count());
@@ -568,9 +569,12 @@ final class AcpChatWindowRenderingTest {
                         () -> {});
                 final JButton agent = component(window, "composerAgent", JButton.class);
                 assertEquals(AcpAgentIcons.icon(window.agentId()), agent.getIcon());
+                window.showDetectedAgents(java.util.Map.of("claude", "/bin/claude", "codex", "/bin/codex", "pi", ""));
+                assertEquals(AcpChatTheme.foreground(), agent.getForeground());
+                assertEquals(3, window.agentSelector().getItemCount());
                 final javax.swing.JPopupMenu agentMenu = agent.getComponentPopupMenu();
-                assertEquals(AgentCatalog.profiles().size() + 3, agentMenu.getComponentCount());
-                for (int i = 0; i < AgentCatalog.profiles().size(); i++) {
+                assertEquals(4, agentMenu.getComponentCount());
+                for (int i = 0; i < 2; i++) {
                     assertEquals(
                             AcpAgentIcons.icon(AgentCatalog.profiles().get(i).id()),
                             ((JMenuItem) agentMenu.getComponent(i)).getIcon());

@@ -14,7 +14,7 @@
   ],
   "license": "Project License",
   "website": "https://turboism.dev",
-  "resources": ["icons/", "context/"],
+  "resources": ["icons/", "context/", "native/"],
   "i18n": {
     "baseName": "META-INF/turboism/i18n/messages",
     "locales": ["en", "ja", "ko", "zh-Hans", "zh-Hant"]
@@ -58,6 +58,11 @@
       "id": "turboism.file.read",
       "scope": "application",
       "reason": "Detects agent executables and reads user-selected attachments and local image references for the conversation."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Stores harness-scoped local session indexes and native Pi session files, and creates temporary native MCP configuration and extension files."
     },
     {
       "id": "turboism.process.run",

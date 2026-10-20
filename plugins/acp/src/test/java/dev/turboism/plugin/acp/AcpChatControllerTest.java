@@ -27,6 +27,62 @@ final class AcpChatControllerTest {
     Path temporaryDirectory;
 
     @Test
+    void sidebarFiltersForeignSessionsUsingHarnessScopedOwnership() throws Exception {
+        final Fixture fixture = new Fixture();
+        final CapturingTransport transport = new CapturingTransport();
+        final AgentLaunchSpec spec = new AgentLaunchSpec(List.of("our-harness"), temporaryDirectory);
+        new LocalSessionIndex(temporaryDirectory.resolve("state/dev.turboism.plugin.acp"), "custom", spec)
+                .remember("ours", "Local");
+        try (AcpClient source = new AcpClient(transport, new AcpListener() {});
+                AcpChatController controller = fixture.controller()) {
+            set(controller, "client", source);
+            set(controller, "launchSpec", spec);
+            set(controller, "activeHarnessId", "custom");
+            set(
+                    controller,
+                    "session",
+                    new AcpSession(
+                            "ours",
+                            List.of(),
+                            new AcpClient.AcpCapabilities(true, true, false, false, false, true, false)));
+            controller.refreshSessions();
+            final var request = transport.request();
+            transport.serverStdout.write((dev.turboism.sdk.json.Json.stringify(Map.of(
+                                    "jsonrpc",
+                                    "2.0",
+                                    "id",
+                                    request.get("id"),
+                                    "result",
+                                    Map.of(
+                                            "sessions",
+                                            List.of(
+                                                    Map.of("sessionId", "foreign", "title", "CLI session"),
+                                                    Map.of("sessionId", "ours", "title", "Our session")))))
+                            + "\n")
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            transport.serverStdout.flush();
+            awaitSerial(controller);
+            flushUi();
+            assertEquals(
+                    List.of("ours"),
+                    fixture.view.listedSessions.get().stream()
+                            .map(AcpSessionSummary::sessionId)
+                            .toList());
+            assertEquals("Our session", fixture.view.listedSessions.get().get(0).title());
+        }
+    }
+
+    @Test
+    void changingCustomHarnessClearsPreviousSessionBinding() {
+        final Fixture fixture = new Fixture();
+        final AcpPluginSettings settings = new AcpPluginSettings(fixture.config, fixture.logger);
+        assertTrue(settings.writeUserSettings("custom", "/first/agent", ""));
+        settings.writeSessionId("first-session");
+        assertTrue(settings.writeUserSettings("custom", "/second/agent", ""));
+        assertEquals(null, settings.sessionId());
+    }
+
+    @Test
     void customCommandPersistsBeforeLaunchFails() throws Exception {
         final Fixture fixture = new Fixture();
         try (AcpChatController controller = fixture.controller()) {
@@ -112,6 +168,113 @@ final class AcpChatControllerTest {
             assertTrue(fixture.view.userMessages.isEmpty());
             assertFalse(booleanField(controller, "prompting"));
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"none", "blank", "stale", "previous"})
+    void emptyEndTurnIsReportedInsteadOfSilentlyCompleting(final String output) throws Exception {
+        final Fixture fixture = new Fixture();
+        final CapturingTransport transport = new CapturingTransport();
+        try (AcpChatController controller = fixture.controller();
+                AcpClient source = new AcpClient(transport, controller)) {
+            set(controller, "client", source);
+            set(controller, "session", configuredSession("sess-1"));
+            if (output.equals("previous")) controller.agentText(source, "sess-1", "Earlier reply");
+            controller.sendPrompt("当前你能做什么");
+            fixture.view.awaitPrompting();
+            final Map<String, Object> request = transport.request();
+            if (output.equals("blank") || output.equals("stale")) {
+                writeAgentMessage(
+                        transport,
+                        Map.of(
+                                "jsonrpc",
+                                "2.0",
+                                "method",
+                                "session/update",
+                                "params",
+                                Map.of(
+                                        "sessionId",
+                                        output.equals("stale") ? "other-session" : "sess-1",
+                                        "update",
+                                        Map.of(
+                                                "sessionUpdate",
+                                                "agent_message_chunk",
+                                                "content",
+                                                Map.of(
+                                                        "type",
+                                                        "text",
+                                                        "text",
+                                                        output.equals("blank") ? " \n" : "Wrong session")))));
+            }
+            writeAgentMessage(
+                    transport,
+                    Map.of("jsonrpc", "2.0", "id", request.get("id"), "result", Map.of("stopReason", "end_turn")));
+            fixture.view.awaitFailure("status.prompt-empty-response");
+            assertFalse(fixture.view.timeline.contains("complete:end_turn"));
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "text,end_turn",
+        "thought,end_turn",
+        "tool,end_turn",
+        "none,cancelled",
+        "none,max_tokens",
+        "none,refusal"
+    })
+    void outputAndOtherStopReasonsKeepTheirNormalCompletion(final String output, final String stopReason)
+            throws Exception {
+        final Fixture fixture = new Fixture();
+        final CapturingTransport transport = new CapturingTransport();
+        try (AcpChatController controller = fixture.controller();
+                AcpClient source = new AcpClient(transport, controller)) {
+            set(controller, "client", source);
+            set(controller, "session", configuredSession("sess-1"));
+            controller.sendPrompt("work");
+            fixture.view.awaitPrompting();
+            final Map<String, Object> request = transport.request();
+            if (!output.equals("none")) {
+                final Map<String, Object> update = output.equals("tool")
+                        ? Map.of(
+                                "sessionUpdate",
+                                "tool_call",
+                                "toolCallId",
+                                "call-1",
+                                "title",
+                                "Inspect",
+                                "kind",
+                                "read",
+                                "status",
+                                "completed")
+                        : Map.of(
+                                "sessionUpdate",
+                                output.equals("text") ? "agent_message_chunk" : "agent_thought_chunk",
+                                "content",
+                                Map.of("type", "text", "text", "Real output"));
+                writeAgentMessage(
+                        transport,
+                        Map.of(
+                                "jsonrpc",
+                                "2.0",
+                                "method",
+                                "session/update",
+                                "params",
+                                Map.of("sessionId", "sess-1", "update", update)));
+            }
+            writeAgentMessage(
+                    transport,
+                    Map.of("jsonrpc", "2.0", "id", request.get("id"), "result", Map.of("stopReason", stopReason)));
+            fixture.view.awaitTimeline("complete:" + stopReason);
+            assertTrue(fixture.view.failures.isEmpty());
+        }
+    }
+
+    private static void writeAgentMessage(final CapturingTransport transport, final Map<String, Object> message)
+            throws Exception {
+        transport.serverStdout.write((dev.turboism.sdk.json.Json.stringify(message) + "\n")
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        transport.serverStdout.flush();
     }
 
     @Test
@@ -352,6 +515,7 @@ final class AcpChatControllerTest {
     void savedSessionConnectBuffersReplayAndShowsConnectedFirst() throws Exception {
         final Fixture fixture = new Fixture();
         fixture.config.values.put("agentId", "custom");
+        fixture.config.values.put("customCommand", temporaryExecutable().toString());
         fixture.config.values.put("acpSessionId", "saved-session");
         fixture.mcpConnection = Optional.of(testMcpConnection());
         final ReplayLoadTransport transport = new ReplayLoadTransport("saved-session");
@@ -747,6 +911,7 @@ final class AcpChatControllerTest {
     void closeDuringBlockedInitialRestoreDoesNotFallbackOrPersist() throws Exception {
         final Fixture fixture = new Fixture();
         fixture.config.values.put("agentId", "custom");
+        fixture.config.values.put("customCommand", temporaryExecutable().toString());
         fixture.config.values.put("acpSessionId", "saved-session");
         fixture.mcpConnection = Optional.of(testMcpConnection());
         final BlockingLoadTransport transport = new BlockingLoadTransport();

@@ -90,6 +90,7 @@ status.mcp-unavailable
 status.not-connected
 status.process-terminated
 status.prompt-complete
+status.prompt-empty-response
 status.prompt-failed
 status.prompting
 status.session-list-failed
