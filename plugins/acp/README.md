@@ -97,6 +97,7 @@ OpenCode 1.15.13 can hide a provider authentication failure behind `end_turn` an
 | `turboism.config.plugin.read` | `application` | Restores the selected agent id, custom command, durable session id, and initial instructions. |
 | `turboism.config.plugin.write` | `application` | Persists that plugin-owned state; agent credentials and MCP authorization are never stored. |
 | `turboism.file.read` | `application` | Detects user-installed agent executables on PATH and in common install directories. |
+| `turboism.file.write` | `application` | Stores local session indexes and native Pi sessions, and creates temporary MCP configuration and extension files. |
 | `turboism.process.run` | `application` | Launches and supervises the selected agent executable. |
 | `turboism.mcp.connection.read` | `application` | Reads the current MCP connection snapshot, including the credential-free stdio launch descriptor, and subscribes to endpoint changes so attached sessions reconnect. |
 
