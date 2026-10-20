@@ -30,6 +30,36 @@ import org.junit.jupiter.api.Test;
 /** Run with xvfb-run when no desktop display is available. */
 final class AcpChatWindowRenderingTest {
     @Test
+    void managerShowsInstalledVersionAndDistinguishesFailedProbeFromMissingInstall() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless());
+        SwingUtilities.invokeAndWait(() -> {
+            final AcpChatWindow window = new AcpChatWindow(localization(), "pi", "", "");
+            try {
+                final var path = java.nio.file.Path.of("/installed/pi.cmd");
+                window.showDetectionResults(
+                        java.util.Map.of("pi", new AgentAvailability.Detection(path, true, "1.2.3", "available")));
+                window.showDetectedAgents(java.util.Map.of("pi", path.toString()));
+                final var label = component(window, "agentDetection", javax.swing.JLabel.class);
+                assertTrue(label.getText().contains("1.2.3"));
+                assertTrue(label.getText().contains(path.toString()));
+                window.showDetectionResults(java.util.Map.of(
+                        "pi", new AgentAvailability.Detection(path, false, "1.2.3", "probe-failed-IOException")));
+                window.showDetectedAgents(java.util.Map.of("pi", ""));
+                window.showAgentSelected("pi");
+                assertEquals(
+                        localization().format("status.agent-probe-failed", path.toString(), "1.2.3"), label.getText());
+                window.showDetectionResults(java.util.Map.of(
+                        "pi", new AgentAvailability.Detection(path, false, "0.1.0", "native-mode-not-advertised")));
+                window.showDetectedAgents(java.util.Map.of("pi", ""));
+                assertEquals(
+                        localization().format("status.agent-unsupported", path.toString(), "0.1.0"), label.getText());
+            } finally {
+                window.dispose();
+            }
+        });
+    }
+
+    @Test
     void pastesClipboardImagesAndFilesAndSubmitsThemWithoutText(
             @org.junit.jupiter.api.io.TempDir java.nio.file.Path directory) throws Exception {
         assumeFalse(GraphicsEnvironment.isHeadless());

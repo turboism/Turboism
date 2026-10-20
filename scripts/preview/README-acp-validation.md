@@ -65,6 +65,17 @@ launch descriptor was published, the action-catalog open succeeded, the agent
 reached a terminal result, the probe's SDK history position matches the agent's
 `historyPositionBefore`, and no object name still carries the rename prefix.
 
+The probe opens the MCP connection window through its registered action, verifies
+that it is visible, records `mcpConnectionWindowOpened`, and captures
+`state/mcp-connection-window.png` before hiding it. This exercises table header
+localization during the actual window constructor.
+
+The probe also loads the staged production ACP JAR in a separate classloader and
+checks Claude/Codex/Pi capability detection with controlled `.cmd` fixtures under
+a path containing spaces. These run in the host Windows JRE and emit version and
+help only on stderr. They validate Windows process invocation, not the user's
+installed CLI binaries. Results are recorded as `windowsHarnessProbe.*`.
+
 The probe also captures the actual Agent Swing window as
 `state/acp-agent-window.png`, checks the enabled harness foreground and hidden
 unsupported options, and verifies that only the Turboism-owned session appears

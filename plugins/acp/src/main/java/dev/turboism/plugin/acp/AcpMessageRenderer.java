@@ -40,6 +40,7 @@ final class AcpMessageRenderer {
             return;
         }
         String fence = null;
+        boolean paragraphBreak = false;
         for (String line : text.replace("\r\n", "\n").replace('\r', '\n').split("\n", -1)) {
             final Matcher marker = FENCE.matcher(line);
             if (marker.matches()
@@ -48,6 +49,10 @@ final class AcpMessageRenderer {
                                     && marker.group(1).length() >= fence.length()
                                     && marker.group(2).isBlank()))) {
                 fence = fence == null ? marker.group(1) : null;
+                continue;
+            }
+            if (fence == null && line.isBlank()) {
+                paragraphBreak = true;
                 continue;
             }
             final SimpleAttributeSet style = new SimpleAttributeSet(base);
@@ -84,11 +89,12 @@ final class AcpMessageRenderer {
                 writer.append("\n", style);
             }
             final SimpleAttributeSet paragraph = new SimpleAttributeSet();
-            StyleConstants.setSpaceAbove(paragraph, 2F);
-            StyleConstants.setSpaceBelow(paragraph, 4F);
+            StyleConstants.setSpaceAbove(paragraph, fence == null && paragraphBreak ? 6F : 0F);
+            StyleConstants.setSpaceBelow(paragraph, fence == null ? 2F : 0F);
             StyleConstants.setLeftIndent(paragraph, fence == null ? 4F : 12F);
             StyleConstants.setRightIndent(paragraph, 8F);
             document.setParagraphAttributes(start, writer.offset - start, paragraph, false);
+            paragraphBreak = false;
         }
     }
 
