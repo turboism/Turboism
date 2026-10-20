@@ -53,6 +53,7 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
 
     private static final System.Logger POSITION_LOG =
             System.getLogger(VerifiedBoundingBoxOverlayButtonHostOperations.class.getName());
+    private static final String POSITION_LOG_PROPERTY = "turboism.validation.boundingBoxOverlay.buttonPositions";
     private static final long POSITION_LOG_INTERVAL_NANOS = 2_000_000_000L;
 
     private final VerifiedMemberResolver resolver;
@@ -180,6 +181,8 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
     /**
      * Best-effort diagnostic marker: publishes each contributed button's live bounds so
      * host validation can aim a real {@code Robot} click at the GL-rendered button.
+     * Enabled only with {@code -Dturboism.validation.boundingBoxOverlay.buttonPositions=true};
+     * normal host updates must not publish validation markers to the native log.
      * Deliberately uses plain reflection instead of verified selectors: the path is
      * observation-only, runs on the host update thread, throttles itself, and any
      * reflective failure degrades to an {@code unavailable} marker, never to a write or
@@ -187,6 +190,9 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations implements Bou
      */
     private void logButtonPositionsThrottled(final CachedButtons cached) {
         try {
+            if (!Boolean.getBoolean(POSITION_LOG_PROPERTY)) {
+                return;
+            }
             final long now = System.nanoTime();
             if (now - lastPositionLogNanos < POSITION_LOG_INTERVAL_NANOS) {
                 return;
