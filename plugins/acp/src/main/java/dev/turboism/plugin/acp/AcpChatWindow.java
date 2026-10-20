@@ -1971,6 +1971,12 @@ final class AcpChatWindow implements AcpChatController.View {
         final int start = document.getLength();
         final long commands =
                 group.stream().filter(entry -> "execute".equals(entry.kind)).count();
+        final long otherTools = group.size() - commands;
+        final String counts = commands == 0
+                ? localization.format("transcript.tools-other-only", otherTools)
+                : otherTools == 0
+                        ? localization.format("transcript.tools-commands-only", commands)
+                        : localization.format("transcript.tools-summary", commands, otherTools);
         final long running = group.stream()
                 .filter(entry -> "pending".equals(entry.toolStatus) || "in_progress".equals(entry.toolStatus))
                 .count();
@@ -1978,7 +1984,7 @@ final class AcpChatWindow implements AcpChatController.View {
                 .filter(entry -> "failed".equals(entry.toolStatus))
                 .count();
         final String summary = (first.expanded ? "▾  " : "▸  ")
-                + localization.format("transcript.tools-summary", commands, group.size() - commands)
+                + counts
                 + (running > 0 ? "  ·  " + localization.format("transcript.tools-running", running) : "")
                 + (failed > 0 ? "  ·  " + localization.format("transcript.tools-failed", failed) : "") + "\n";
         final SimpleAttributeSet style = contentAttributes(Sender.TOOL);
