@@ -42,17 +42,40 @@ try {
         $lines = @($text -split '\r?\n')
         $expectedHome = 'set "TURBOISM_HOME=' + $homePath + '"'
         Assert-BatRegression (@($lines | Where-Object { $_ -ceq $expectedHome }).Count -eq 1) "one complete HOME assignment: $name"
-        Assert-BatRegression (@($lines | Where-Object { $_ -match '^set "JAVA_TOOL_OPTIONS=.*-javaagent:.*%JAVA_TOOL_OPTIONS%"$' }).Count -eq 1) "one complete JVM assignment: $name"
-        Assert-BatRegression (([regex]::Matches($text, '-javaagent:')).Count -eq 1) "one agent argument: $name"
-        Assert-BatRegression (([regex]::Matches($text, '-XX:\+DisableAttachMechanism')).Count -eq 1) "default edge ownership startup option is emitted once: $name"
+        Assert-BatRegression ($text.Contains('powershell.exe -NoProfile -ExecutionPolicy Bypass -File "' + $homePath + '\launch-cubism-turboism.ps1"')) "official entry delegates to the managed launcher: $name"
+        Assert-BatRegression ($text.Contains('-CubismRoot "%~dp0." -Variant normal %*')) "official entry preserves host root and file arguments: $name"
+        Assert-BatRegression ($text.Contains('exit /b %errorlevel%')) "official entry stops before the preserved original body: $name"
+        Assert-BatRegression ($text -notmatch 'JAVA_TOOL_OPTIONS|DisableAttachMechanism|UseZGC|optimization\.') "integration contains no frozen JVM preferences: $name"
         Assert-BatRegression ($text.EndsWith($original)) "original BAT body preserved: $name"
         Assert-BatRegression ((Get-CubismBatIntegrationText -OriginalText $text -TurboismHome $homePath) -ceq $text) "managed text idempotent: $name"
+        $d3dText = Get-CubismBatIntegrationText -OriginalText $original -TurboismHome $homePath -Variant d3d
+        Assert-BatRegression ($d3dText.Contains('-Variant d3d %*')) "D3D entry preserves renderer selection: $name"
         [System.IO.File]::WriteAllText((Join-Path $homePath 'config.json'), '{"meshTriangulationEdgeIndex":false}')
         $offText = Get-CubismBatIntegrationText -OriginalText $text -TurboismHome $homePath
-        Assert-BatRegression ($offText -notmatch 'DisableAttachMechanism') "regenerated off integration restores normal attach defaults: $name"
+        Assert-BatRegression ($offText -ceq $text) "settings edits need no regenerated integration: $name"
         Assert-BatRegression ($offText.EndsWith($original)) "off integration preserves the original BAT body: $name"
         $offBat = New-CubismManagedOptionsBat -OfficialBat $syntheticBat -CubismRoot $syntheticRoot -TurboismHome $homePath -Agent $syntheticAgent
         Assert-BatRegression ([System.IO.File]::ReadAllText($offBat) -notmatch 'DisableAttachMechanism') "managed restart reads the saved off preference: $name"
+    }
+
+    # Replay an unchanged integrated entry across config edits. The launcher's
+    # real staging path must remove delegation and consume the latest preferences.
+    [System.IO.File]::WriteAllText($syntheticBat, (Get-CubismBatIntegrationText -OriginalText $syntheticBody -TurboismHome $homePath))
+    foreach ($enabled in @($false, $true, $false)) {
+        $config = @{
+            meshTriangulationEdgeIndex = $enabled
+            launcher = @{ zgc = $enabled; uniformLocationCache = $enabled; modelUpdateSkip = $enabled; uploadElision = $enabled; incrementalUpdate = $enabled; memoryProfile = $(if ($enabled) { 'balanced4g' } else { 'system' }) }
+        } | ConvertTo-Json -Depth 4
+        [System.IO.File]::WriteAllText((Join-Path $homePath 'config.json'), $config)
+        $nextBat = New-CubismManagedOptionsBat -OfficialBat $syntheticBat -CubismRoot $syntheticRoot -TurboismHome $homePath -Agent $syntheticAgent
+        $nextText = [System.IO.File]::ReadAllText($nextBat)
+        Assert-BatRegression ($nextText -notmatch 'launch-cubism-turboism\.ps1|TURBOISM MANAGED BEGIN') "staging removes delegation without recursion: $enabled"
+        foreach ($token in @('-XX:+DisableAttachMechanism', '-XX:+UseZGC', '-Xmx4g', '-Dturboism.optimization.incrementalUpdate=true')) {
+            Assert-BatRegression ($nextText.Contains($token) -eq $enabled) "next launch reads current preference $token : $enabled"
+        }
+        foreach ($name in @('uniformLocationCache', 'modelUpdateSkip', 'uploadElision')) {
+            Assert-BatRegression ($nextText.Contains("-Dturboism.optimization.$name=false") -ne $enabled) "next launch reads current $name : $enabled"
+        }
     }
 
     $homePath = Join-Path $fixture 'upgrade home'

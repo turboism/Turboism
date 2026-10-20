@@ -55,6 +55,20 @@ class UniformLocationSettingsContributionTest {
     }
 
     @Test
+    void enablingOverridesTheDisabledDefaultCapturedAtStartup() {
+        UniformLocationHookBridge.setConfiguredDefault(false);
+        try {
+            var toggle = (SettingsControl.Toggle)
+                    CubismJvmSettingsContribution.createUniformLocationCacheToggle(i18n(), new Settings())
+                            .control();
+            toggle.binding().write(true);
+            assertTrue(UniformLocationHookBridge.enabledByPreference());
+        } finally {
+            UniformLocationHookBridge.setConfiguredDefault(true);
+        }
+    }
+
+    @Test
     void checkboxDefaultsOnAndPersistsBeforeApplyingLiveSwitch() {
         Settings settings = new Settings();
         var contribution = CubismJvmSettingsContribution.createUniformLocationCacheToggle(i18n(), settings);
@@ -67,7 +81,7 @@ class UniformLocationSettingsContributionTest {
         assertEquals("false", System.getProperty(FLAG));
         toggle.binding().write(true);
         assertTrue(settings.stored.get());
-        assertNull(System.getProperty(FLAG), "true uses the runtime's default-on policy");
+        assertEquals("true", System.getProperty(FLAG));
     }
 
     @Test
@@ -133,7 +147,7 @@ class UniformLocationSettingsContributionTest {
             assertEquals("true", System.getProperty(key));
             assertNull(System.getProperty(FLAG));
             toggle.binding().write(false);
-            assertNull(System.getProperty(key));
+            assertEquals("false", System.getProperty(key));
             assertFalse(requested.get());
         } finally {
             if (previousIncremental == null) System.clearProperty(key);

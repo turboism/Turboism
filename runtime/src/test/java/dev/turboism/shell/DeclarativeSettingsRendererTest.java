@@ -45,6 +45,29 @@ import org.junit.jupiter.api.Test;
 class DeclarativeSettingsRendererTest {
 
     @Test
+    void fallbackUisPreserveTheActiveLookAndFeel() throws Exception {
+        final javax.swing.LookAndFeel previous = javax.swing.UIManager.getLookAndFeel();
+        try {
+            javax.swing.UIManager.setLookAndFeel(new javax.swing.plaf.metal.MetalLookAndFeel());
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    final Object expected = javax.swing.UIManager.get("TabbedPaneUI");
+                    final Method ensure = CoreWindows.class.getDeclaredMethod("ensureSwingUis");
+                    ensure.setAccessible(true);
+                    ensure.invoke(null);
+                    assertEquals(expected, javax.swing.UIManager.get("TabbedPaneUI"));
+                } catch (ReflectiveOperationException failure) {
+                    throw new AssertionError(failure);
+                } finally {
+                    javax.swing.UIManager.getDefaults().remove("TabbedPaneUI");
+                }
+            });
+        } finally {
+            javax.swing.UIManager.setLookAndFeel(previous);
+        }
+    }
+
+    @Test
     void existingTabIsReusedAndMissingTabIsCreatedInStableOrder() throws Exception {
         final CoreWindows windows = new CoreWindows(
                 localization(),
