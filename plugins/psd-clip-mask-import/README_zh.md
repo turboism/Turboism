@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: psd, import, clip-mask
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.1,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -37,7 +37,7 @@ interface: embedded
 
 ## 要求与兼容性
 
-- **SDK API 范围：**`[0.67.0,1.0.0)`。
+- **SDK API 范围：**`[0.67.1,1.0.0)`。
 - **Cubism：**需要受支持精确版本提供活动模型 PSD 关系、剪贴蒙版读取、有序替换、事务/Undo、嵌入面板、对话框和状态通知服务。
 - **界面模式：**`embedded`。
 - **插件依赖项：**未声明。

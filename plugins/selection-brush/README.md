@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: mesh, selection, brush
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.1,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -29,7 +29,7 @@ The official Selection Brush contributes tools for ordinary modeling and mesh ed
 
 ## Requirements and compatibility
 
-- SDK API range: `[0.67.0,1.0.0)`; the custom mesh-tool contracts are Preview API.
+- SDK API range: `[0.67.1,1.0.0)`; the custom mesh-tool contracts are Preview API.
 - Requires an exact reviewed Cubism 5.2.03, 5.3.02, or 5.3.03 artifact. Ordinary modeling additionally requires its independently admitted point-selection and tool-lifecycle capability; missing that feature leaves mesh tools available.
 - Interface mode: embedded. No plugin dependencies are declared.
 

@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: export, protected, candidate
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.1,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -25,7 +25,7 @@ interface: none
 
 ## 要求与兼容性
 
-- **SDK API 范围：**`[0.67.0,1.0.0)`。
+- **SDK API 范围：**`[0.67.1,1.0.0)`。
 - **Cubism：**需要 Cubism。按精确评审版本（当前为 `5.1.00` 至 `5.3.04`）记录准入；不支持或未评审的宿主在预检时失败关闭。
 - **模型：**仅允许符合条件的模型。包含不支持家族、非存储关键帧、退化几何或缺失配对的模型会收到阻塞原因，而不是部分导出。
 - **界面模式：**`none` —— 插件通过框架动作驱动导出，并经通知与日志报告结果。

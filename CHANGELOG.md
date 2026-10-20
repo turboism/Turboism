@@ -8,6 +8,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.67.1] - 2026-10-20
+
+### Fixed
+
+- Release API monitoring now validates the standard EXE and portable ZIP pair, preventing false alarms caused by the retired four-download layout while still rejecting missing, duplicate or legacy assets.
+
+### Changed
+
+- Windows workspace validation now retries transient unavailable states within one readiness deadline, retries unchanged layout perturbations, and reselects the custom workspace before updating or resetting its default. This improves validation reliability; no new Windows host matrix run is claimed.
+
 ## [0.67.0] - 2026-10-19
 
 ### Added
