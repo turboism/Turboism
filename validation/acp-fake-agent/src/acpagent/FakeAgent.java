@@ -72,7 +72,8 @@ public final class FakeAgent {
         final Map<String, Object> params = objectValue(message.get("params"));
         final Map<String, Object> result = switch (name) {
             case "initialize" -> initializeResult();
-            case "session/new" -> newSessionResult(params);
+            case "session/new", "session/load" -> newSessionResult(params);
+            case "session/list" -> Map.of("sessions", List.of(Map.of("sessionId", "foreign-cli-session", "title", "Created outside Turboism"), Map.of("sessionId", "fake-session-1", "title", "Turboism-owned session")));
             default -> new LinkedHashMap<>();
         };
         final LinkedHashMap<String, Object> response = new LinkedHashMap<>();
@@ -84,7 +85,8 @@ public final class FakeAgent {
 
     private Map<String, Object> initializeResult() {
         final LinkedHashMap<String, Object> capabilities = new LinkedHashMap<>();
-        capabilities.put("loadSession", false);
+        capabilities.put("loadSession", true);
+        capabilities.put("sessionCapabilities", Map.of("list", Map.of()));
         final LinkedHashMap<String, Object> agentInfo = new LinkedHashMap<>();
         agentInfo.put("name", "acp-fake-agent");
         agentInfo.put("title", "ACP Fake Validation Agent");
