@@ -23,6 +23,7 @@ import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -35,6 +36,36 @@ import org.objectweb.asm.Opcodes;
 class ProjectLifecycleNativeMethodTransformerTest {
 
     private static final String OWNER = "fixture/LifecycleHost";
+
+    @Test
+    void exitFrameLinkageFailureDoesNotBlockTransformedHostExit() throws Exception {
+        final ProjectLifecycleNativeMethodTransformer transformer = new ProjectLifecycleNativeMethodTransformer(
+                List.of(ProjectLifecycleNativeMethodTransformer.Binding.editorExit(OWNER, "exit", "()Z")), null);
+        final Class<?> hostType = new FixtureLoader()
+                .define("fixture.LifecycleHost", transformer.transform(null, null, OWNER, null, null, fixtureClass()));
+        final Object host = hostType.getConstructor().newInstance();
+        hostType.getField("result").setBoolean(host, true);
+        try (ProjectFileLifecycleCoordinator projectFiles = new ProjectFileLifecycleCoordinator();
+                EditorLifecycleCoordinator editor = new EditorLifecycleCoordinator()) {
+            final NativeProjectLifecycleBridge bridge =
+                    new NativeProjectLifecycleBridge(projectFiles, editor, "5.3.02");
+            // Simulate a linkage failure while recording the exit at the native ingress boundary.
+            final var exits = NativeProjectLifecycleBridge.class.getDeclaredField("exits");
+            exits.setAccessible(true);
+            ThreadLocal.class.getMethod("set", Object.class).invoke(exits.get(bridge), new ArrayDeque<Object>() {
+                @Override
+                public void push(final Object frame) {
+                    throw new NoClassDefFoundError("exit frame unavailable");
+                }
+            });
+            NativeProjectLifecycleBridge.install(bridge);
+            try {
+                assertEquals(true, hostType.getMethod("exit").invoke(host));
+            } finally {
+                NativeProjectLifecycleBridge.uninstall(bridge);
+            }
+        }
+    }
 
     @Test
     void transformationDoesNotPrintHostClassMethodOrDescriptorIdentities() {
