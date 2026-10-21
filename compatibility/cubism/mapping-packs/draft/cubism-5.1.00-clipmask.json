@@ -19,9 +19,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       }
     },
     {
@@ -40,9 +38,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 9,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       }
     },
     {
@@ -61,9 +57,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       }
     },
     {
@@ -80,9 +74,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/IDocument",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/IDocument"
       }
     },
     {
@@ -99,9 +91,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument"
       }
     },
     {
@@ -120,9 +110,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument"
       }
     },
     {
@@ -139,9 +127,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -160,9 +146,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -179,9 +163,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource"
       }
     },
     {
@@ -198,9 +180,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource"
       }
     },
     {
@@ -219,9 +199,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource"
       }
     },
     {
@@ -240,9 +218,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource"
       }
     },
     {
@@ -261,9 +237,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource"
       }
     },
     {
@@ -280,9 +254,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/type/CDrawableGuid",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/type/CDrawableGuid"
       }
     },
     {
@@ -299,9 +271,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/type/Guid",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/type/Guid"
       }
     },
     {
@@ -320,9 +290,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/type/Guid",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/type/Guid"
       }
     }
   ],

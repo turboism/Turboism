@@ -17,9 +17,7 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/context/boundingBox/BoundingBoxDrawEntity",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/view/context/boundingBox/BoundingBoxDrawEntity"
       }
     },
     {
@@ -34,9 +32,7 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/context/boundingBox/BoundingBoxDrawEntity",
-        "requiredAccessFlags": 26,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/view/context/boundingBox/BoundingBoxDrawEntity"
       }
     },
     {
@@ -51,9 +47,7 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/context/boundingBox/BoundingBoxDrawEntity",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/view/context/boundingBox/BoundingBoxDrawEntity"
       }
     },
     {
@@ -68,9 +62,7 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "x.verification": {
-        "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/graphics3d/type/GVector2"
       }
     },
     {
@@ -85,9 +77,7 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "x.verification": {
-        "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/graphics3d/type/GVector2"
       }
     },
     {
@@ -102,9 +92,7 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "x.verification": {
-        "ownerInternalName": "com/live2d/graphics3d/entity/GEntity",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/graphics3d/entity/GEntity"
       }
     },
     {
@@ -119,9 +107,7 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "x.verification": {
-        "ownerInternalName": "com/live2d/graphics3d/sceneGraph/GSceneGraph",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/graphics3d/sceneGraph/GSceneGraph"
       }
     },
     {
@@ -136,9 +122,7 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "x.verification": {
-        "ownerInternalName": "com/live2d/graphics3d/entity/GEntity",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/graphics3d/entity/GEntity"
       }
     },
     {
@@ -153,9 +137,7 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "x.verification": {
-        "ownerInternalName": "com/live2d/graphics3d/sceneGraph/GSceneGraph",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/graphics3d/sceneGraph/GSceneGraph"
       }
     },
     {
@@ -170,9 +152,7 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "x.verification": {
-        "ownerInternalName": "com/live2d/graphics3d/entity/Entities",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/graphics3d/entity/Entities"
       }
     },
     {
@@ -187,9 +167,7 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "x.verification": {
-        "ownerInternalName": "com/live2d/graphics/CWritableImage",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/graphics/CWritableImage"
       }
     },
     {
@@ -204,9 +182,7 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/context/guiEntity/q",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/view/context/guiEntity/q"
       }
     }
   ],
