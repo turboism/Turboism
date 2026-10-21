@@ -344,6 +344,26 @@ LangString CubismDiscoveryTitle ${LANG_ENGLISH} "Cubism installations"
 LangString CubismDiscoveryTitle ${LANG_SIMPCHINESE} "Cubism 安装"
 LangString CubismDiscoveryTitle ${LANG_JAPANESE} "Cubism インストール"
 LangString CubismDiscoveryTitle ${LANG_KOREAN} "Cubism 설치"
+LangString CubismImportButton ${LANG_ENGLISH} "Import version"
+LangString CubismImportButton ${LANG_SIMPCHINESE} "导入版本"
+LangString CubismImportButton ${LANG_JAPANESE} "バージョンを追加"
+LangString CubismImportButton ${LANG_KOREAN} "버전 가져오기"
+LangString CubismImportPrompt ${LANG_ENGLISH} "Select the Cubism installation folder containing CubismEditor5.bat and the app folder."
+LangString CubismImportPrompt ${LANG_SIMPCHINESE} "请选择包含 CubismEditor5.bat 和 app 文件夹的 Cubism 安装目录。"
+LangString CubismImportPrompt ${LANG_JAPANESE} "CubismEditor5.bat と app フォルダーを含む Cubism インストール先を選択してください。"
+LangString CubismImportPrompt ${LANG_KOREAN} "CubismEditor5.bat와 app 폴더가 있는 Cubism 설치 폴더를 선택하세요."
+LangString CubismImportChecking ${LANG_ENGLISH} "Checking the selected Cubism installation…"
+LangString CubismImportChecking ${LANG_SIMPCHINESE} "正在检查所选 Cubism 安装……"
+LangString CubismImportChecking ${LANG_JAPANESE} "選択した Cubism インストールを確認しています…"
+LangString CubismImportChecking ${LANG_KOREAN} "선택한 Cubism 설치를 확인하는 중…"
+LangString CubismImportInvalid ${LANG_ENGLISH} "This is not a valid Cubism installation folder. Select the folder containing CubismEditor5.bat, app\jre\bin\java.exe and app\lib\Live2D_Cubism.jar."
+LangString CubismImportInvalid ${LANG_SIMPCHINESE} "这不是一个有效的 Cubism 安装目录。请选择包含 CubismEditor5.bat、app\jre\bin\java.exe 和 app\lib\Live2D_Cubism.jar 的文件夹。"
+LangString CubismImportInvalid ${LANG_JAPANESE} "有効な Cubism インストール先ではありません。CubismEditor5.bat、app\jre\bin\java.exe、app\lib\Live2D_Cubism.jar を含むフォルダーを選択してください。"
+LangString CubismImportInvalid ${LANG_KOREAN} "유효한 Cubism 설치 폴더가 아닙니다. CubismEditor5.bat, app\jre\bin\java.exe, app\lib\Live2D_Cubism.jar가 있는 폴더를 선택하세요."
+LangString CubismImportFailed ${LANG_ENGLISH} "The selected installation could not be imported. Your previous scan results have been kept. Try again or continue and use the configurator after installation."
+LangString CubismImportFailed ${LANG_SIMPCHINESE} "无法导入所选安装，已保留之前的扫描结果。请重试，或继续安装后使用配置器添加。"
+LangString CubismImportFailed ${LANG_JAPANESE} "選択したインストールを追加できませんでした。以前のスキャン結果は保持されています。再試行するか、インストール後に設定ツールで追加してください。"
+LangString CubismImportFailed ${LANG_KOREAN} "선택한 설치를 가져올 수 없습니다. 이전 스캔 결과는 유지됩니다. 다시 시도하거나 설치 후 구성 도구에서 추가하세요."
 LangString CubismDiscoveryScanning ${LANG_ENGLISH} "Scanning for installed Cubism editors…"
 LangString CubismDiscoveryScanning ${LANG_SIMPCHINESE} "正在扫描已安装的 Cubism 编辑器……"
 LangString CubismDiscoveryScanning ${LANG_JAPANESE} "インストール済みの Cubism Editor をスキャンしています…"
@@ -505,6 +525,13 @@ Var CubismDiscoveryResultSeen
 Var CubismDiscoveryEndSeen
 Var CubismDiscoveryMalformed
 Var CubismDiscoverySnapshotHash
+Var CubismImportButton
+Var CubismImportActive
+Var CubismImportPreviousResult
+Var CubismImportPreviousHash
+Var CubismImportRequest
+Var CubismImportRoot
+Var CubismDiscoveryError
 Var LaunchOptionsDialog
 Var createStartMenu
 Var createDesktopShortcut
@@ -554,6 +581,7 @@ Function .onInit
   StrCpy $CubismDiscoveryStarted 0
   StrCpy $CubismDiscoveryPollCount 0
   StrCpy $CubismDiscoveryComplete 0
+  StrCpy $CubismImportActive 0
   StrCpy $createStartMenu 1
   StrCpy $createDesktopShortcut 1
   StrCpy $integrateCubismBat 1
@@ -942,9 +970,32 @@ FunctionEnd
 Function CubismDiscoveryEnableNext
   StrCpy $CubismDiscoveryComplete 1
   EnableWindow $CubismDiscoveryNext 1
+  ${If} $CubismImportButton != ""
+    EnableWindow $CubismImportButton 1
+  ${EndIf}
+FunctionEnd
+
+Function CubismDiscoveryRestoreImport
+  ${NSD_KillTimer} CubismDiscoveryPoll
+  StrCpy $CubismImportActive 0
+  StrCpy $CubismImportRoot "$CubismDiscoveryError"
+  StrCpy $CubismDiscoveryResult "$CubismImportPreviousResult"
+  SendMessage $CubismDiscoveryList ${LB_RESETCONTENT} 0 0
+  Call CubismDiscoveryReadResult
+  Call CubismDiscoveryUpdateStatus
+  Call CubismDiscoveryEnableNext
+  ${If} $CubismImportRoot == "InvalidCubismRoot"
+    MessageBox MB_OK|MB_ICONEXCLAMATION "$(CubismImportInvalid)"
+  ${Else}
+    MessageBox MB_OK|MB_ICONEXCLAMATION "$(CubismImportFailed)"
+  ${EndIf}
 FunctionEnd
 
 Function CubismDiscoveryFail
+  ${If} $CubismImportActive == 1
+    Call CubismDiscoveryRestoreImport
+    Return
+  ${EndIf}
   StrCpy $CubismDiscoverySnapshotHash ""
   ${NSD_KillTimer} CubismDiscoveryPoll
   ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryFailed)"
@@ -956,6 +1007,11 @@ Function CubismDiscoveryPoll
   IfFileExists "$CubismDiscoveryResult" ReadCubismDiscoveryResult
   ${If} $CubismDiscoveryPollCount >= 480
     ${NSD_KillTimer} CubismDiscoveryPoll
+    ${If} $CubismImportActive == 1
+      StrCpy $CubismDiscoveryError "Timeout"
+      Call CubismDiscoveryRestoreImport
+      Return
+    ${EndIf}
     StrCpy $CubismDiscoverySnapshotHash ""
     ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryTimeout)"
     Call CubismDiscoveryEnableNext
@@ -964,22 +1020,31 @@ Function CubismDiscoveryPoll
 
 ReadCubismDiscoveryResult:
   ${NSD_KillTimer} CubismDiscoveryPoll
+  SendMessage $CubismDiscoveryList ${LB_RESETCONTENT} 0 0
   Call CubismDiscoveryReadResult
   ${If} $CubismDiscoveryMalformed != 0
     Call CubismDiscoveryFail
     Return
   ${EndIf}
-  ${If} $CubismDiscoverySupported == 0
+  StrCpy $CubismImportActive 0
+  Call CubismDiscoveryUpdateStatus
+  Call CubismDiscoveryEnableNext
+FunctionEnd
+
+Function CubismDiscoveryUpdateStatus
+  ${If} $CubismDiscoveryMalformed != 0
+    ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryFailed)"
+  ${ElseIf} $CubismDiscoverySupported == 0
     ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryNone)"
   ${Else}
     ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryComplete)"
   ${EndIf}
-  Call CubismDiscoveryEnableNext
 FunctionEnd
 
 ; The parser has no dialog dependency, so silent installs can use the same
 ; pre-install discovery and digest handoff without creating a second scan.
 Function CubismDiscoveryReadResult
+  StrCpy $CubismDiscoveryError ""
   StrCpy $CubismDiscoverySnapshotHash ""
   StrCpy $CubismDiscoveryResultSeen 0
   StrCpy $CubismDiscoveryEndSeen 0
@@ -1041,6 +1106,7 @@ CubismDiscoveryReadLoop:
         StrCpy $CubismDiscoveryMalformed 1
       ${EndIf}
     ${ElseIf} $4 == "ERROR"
+      StrCpy $CubismDiscoveryError "$1"
       StrCpy $CubismDiscoveryMalformed 1
     ${Else}
       StrCpy $CubismDiscoveryMalformed 1
@@ -1134,6 +1200,58 @@ Function CubismDiscoveryBack
   StrCpy $CubismDiscoveryComplete 0
 FunctionEnd
 
+Function CubismDiscoveryImport
+  Pop $0
+  ${If} $CubismDiscoveryComplete != 1
+    Return
+  ${EndIf}
+  nsDialogs::SelectFolderDialog "$(CubismImportPrompt)" ""
+  Pop $CubismImportRoot
+  ${If} $CubismImportRoot == error
+    Return
+  ${EndIf}
+  ${If} $CubismImportRoot == ""
+    Return
+  ${EndIf}
+  IntOp $CubismDiscoveryGeneration $CubismDiscoveryGeneration + 1
+  StrCpy $CubismImportRequest "$CubismDiscoveryWorkDir\import-$CubismDiscoveryGeneration.root"
+  ClearErrors
+  FileOpen $0 "$CubismImportRequest" w
+  ${If} ${Errors}
+    MessageBox MB_OK|MB_ICONEXCLAMATION "$(CubismImportFailed)"
+    Return
+  ${EndIf}
+  ; A UTF-16 request file preserves Unicode paths and avoids command-line escaping.
+  FileWriteUTF16LE $0 "$CubismImportRoot"
+  FileClose $0
+  ${If} ${Errors}
+    MessageBox MB_OK|MB_ICONEXCLAMATION "$(CubismImportFailed)"
+    Return
+  ${EndIf}
+  StrCpy $CubismImportPreviousResult "$CubismDiscoveryResult"
+  StrCpy $CubismImportPreviousHash "$CubismDiscoverySnapshotHash"
+  StrCpy $CubismDiscoveryResult "$CubismDiscoveryWorkDir\cubism-import-$CubismDiscoveryGeneration.result"
+  StrCpy $0 ""
+  ${If} $CubismImportPreviousHash != ""
+    StrCpy $0 '-InstallerDiscoverySnapshot "$CubismImportPreviousResult.json" -InstallerDiscoverySnapshotSha256 "$CubismImportPreviousHash"'
+  ${EndIf}
+  StrCpy $CubismImportActive 1
+  StrCpy $CubismDiscoveryComplete 0
+  StrCpy $CubismDiscoveryPollCount 0
+  EnableWindow $CubismDiscoveryNext 0
+  EnableWindow $CubismImportButton 0
+  ${NSD_SetText} $CubismDiscoveryStatus "$(CubismImportChecking)"
+  ClearErrors
+  ExecShell "" "$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$CubismDiscoveryWorkDir\configure_turboism.ps1" -Home "$CubismDiscoveryWorkDir" -InstallerDiscoveryOutput "$CubismDiscoveryResult" -InstallerImportRequest "$CubismImportRequest" -InstallerLanguage $LANGUAGE $0' SW_HIDE
+  ${If} ${Errors}
+    StrCpy $CubismDiscoveryError "ProcessStartFailed"
+    Call CubismDiscoveryRestoreImport
+  ${Else}
+    StrCpy $CubismDiscoveryStarted 1
+    ${NSD_CreateTimer} CubismDiscoveryPoll 250
+  ${EndIf}
+FunctionEnd
+
 Function CubismDiscoveryCreate
   nsDialogs::Create 1018
   Pop $CubismDiscoveryDialog
@@ -1143,9 +1261,13 @@ Function CubismDiscoveryCreate
   !insertmacro MUI_HEADER_TEXT "$(CubismDiscoveryTitle)" ""
   ${NSD_CreateLabel} 0 0 100% 28u "$(CubismDiscoveryScanning)"
   Pop $CubismDiscoveryStatus
-  ${NSD_CreateListBox} 0 34u 100% 112u ""
+  ${NSD_CreateListBox} 0 22% 100% 62% ""
   Pop $CubismDiscoveryList
   ${NSD_AddStyle} $CubismDiscoveryList ${WS_HSCROLL}
+  ${NSD_CreateButton} 0 86% 110u 12% "$(CubismImportButton)"
+  Pop $CubismImportButton
+  ${NSD_OnClick} $CubismImportButton CubismDiscoveryImport
+  EnableWindow $CubismImportButton 0
   ${NSD_OnBack} CubismDiscoveryBack
 
   GetDlgItem $CubismDiscoveryNext $HWNDPARENT 1
@@ -1162,7 +1284,7 @@ Function CubismDiscoveryCreate
     ClearErrors
     ; ShellExecute keeps discovery asynchronous; SW_HIDE prevents its console
     ; process from taking focus away from the installer wizard.
-    ExecShell "" "$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$CubismDiscoveryWorkDir\configure_turboism.ps1" -Home "$CubismDiscoveryWorkDir" -InstallerDiscoveryOutput "$CubismDiscoveryResult"' SW_HIDE
+    ExecShell "" "$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$CubismDiscoveryWorkDir\configure_turboism.ps1" -Home "$CubismDiscoveryWorkDir" -InstallerDiscoveryOutput "$CubismDiscoveryResult" -InstallerLanguage $LANGUAGE' SW_HIDE
     ${If} ${Errors}
       Call CubismDiscoveryFail
     ${Else}
@@ -1287,7 +1409,7 @@ FunctionEnd
 Section "-静默发现 Cubism" SecSilentDiscovery
   IfSilent 0 SilentDiscoveryDone
   Call CubismDiscoveryPrepareFiles
-  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$CubismDiscoveryWorkDir\configure_turboism.ps1" -Home "$CubismDiscoveryWorkDir" -InstallerDiscoveryOutput "$CubismDiscoveryResult"'
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$CubismDiscoveryWorkDir\configure_turboism.ps1" -Home "$CubismDiscoveryWorkDir" -InstallerDiscoveryOutput "$CubismDiscoveryResult" -InstallerLanguage $LANGUAGE'
   Pop $0
   ${If} $0 != 0
     SetErrorLevel 2
