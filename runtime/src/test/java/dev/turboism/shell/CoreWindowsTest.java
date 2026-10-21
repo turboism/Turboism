@@ -31,9 +31,8 @@ class CoreWindowsTest {
         public String text(final String key) {
             return switch (key) {
                 case "about.eula" -> "EULA";
-                case "about.github" -> "GitHub";
-                case "about.homepage" -> "Homepage";
-                case "about.tagline" -> "Internationalized, free and open-source software";
+                case "about.license" -> "License";
+                case "about.tagline" -> "For you, a bouquet";
                 case "common.turboism" -> "Turboism";
                 default -> key;
             };
@@ -369,26 +368,31 @@ class CoreWindowsTest {
     void aboutHtmlShowsIdentityVersionTaglineAndProjectLinks() {
         final String html = CoreWindows.aboutHtml(I18N, "0.43.3");
         assertTrue(html.contains("0.43.3"));
-        assertTrue(html.contains(">Turboism</div>"));
-        assertTrue(html.contains("Internationalized, free and open-source software"));
-        assertTrue(html.contains("href=\"https://www.turboism.dev\">Homepage</a>"));
-        assertTrue(html.contains("href=\"https://github.com/turboism/Turboism\">GitHub</a>"));
+        assertTrue(html.contains("href=\"https://www.turboism.dev\">Turboism</a>"));
+        assertTrue(html.contains("For you, a bouquet"));
+        assertTrue(html.contains("href=\"https://turboism.dev/download\">0.43.3</a>"));
+        assertTrue(html.contains("href=\"https://github.com/turboism/Turboism/blob/main/LICENSE\">License</a>"));
         assertTrue(html.contains("href=\"https://github.com/turboism/Turboism/blob/main/EULA.md\">EULA</a>"));
+        assertTrue(html.indexOf(">License</a>") < html.indexOf(">EULA</a>"));
+        assertFalse(html.contains(">Website</a>"));
+        assertTrue(html.contains("</a> / <a href="));
         assertTrue(html.contains("text-align:center"));
         assertTrue(html.contains("<table width=\"360\""));
         assertFalse(html.contains("height=\"100%\""));
         assertFalse(html.contains("turboism-window-icon.png"));
         assertFalse(html.contains("<img"));
         assertFalse(html.contains("ifdian.net"));
-        assertFalse(html.contains("thanks.turboism.dev"));
-        assertFalse(html.contains("For you, a bouquet"));
+        assertTrue(html.contains("href=\"https://thanks.turboism.dev\">For you, a bouquet</a>"));
+        assertTrue(html.contains(".tagline a{color:#6495ED;}"));
         assertFalse(html.contains("Live2D Cubism Extension Framework"));
     }
 
     @Test
     void aboutLinksOnlyAdmitHttpAndHttpsUris() {
         assertTrue(CoreWindows.httpLinkAllowed(CoreWindows.ABOUT_HOMEPAGE));
-        assertTrue(CoreWindows.httpLinkAllowed(CoreWindows.ABOUT_GITHUB));
+        assertTrue(CoreWindows.httpLinkAllowed(CoreWindows.UPDATE_DOWNLOAD_PAGE));
+        assertTrue(CoreWindows.httpLinkAllowed(CoreWindows.ABOUT_LICENSE));
+        assertTrue(CoreWindows.httpLinkAllowed(CoreWindows.ABOUT_THANKS));
         assertTrue(CoreWindows.httpLinkAllowed(CoreWindows.ABOUT_EULA));
         assertFalse(CoreWindows.httpLinkAllowed("file:///tmp/turboism"));
         assertFalse(CoreWindows.httpLinkAllowed("javascript:alert(1)"));
