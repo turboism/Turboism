@@ -9,7 +9,7 @@ from .constants import (
     TASK_GROUP_ALIASES,
 )
 from .extract import task_base
-from .model import compact_ranges, localized
+from .model import compact_ranges, exact_ranges, localized
 from .strings import DEV_STRINGS, STRINGS
 
 def _display_fallback(key: str) -> str:
@@ -194,7 +194,7 @@ def render_plugins_doc(matrix: dict, locale: str) -> str:
     for plugin in matrix["plugins"]:
         versions = plugin["supportedVersions"]
         if versions == reviewed:
-            version_text = s["all_versions"]
+            version_text = s["reviewed_versions"].format(range=exact_ranges(versions), count=len(versions))
         elif versions:
             version_text = compact_ranges(versions, reviewed) + _gap_suffix(
                 {

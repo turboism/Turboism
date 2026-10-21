@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: integration
 tags: automation, acp, agent
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -42,13 +42,14 @@ OpenCode 1.15.13 はモデル API の認証エラーを `end_turn` とゼロト�
 
 ## 要件と互換性
 
-- Turboism SDK API 範囲 `[0.67.1,1.0.0)`。
+- Turboism SDK API 範囲 `[0.67.0,1.0.0)`。
 - ユーザーがインストールした ACP v1 対応エージェント実行ファイル。PATH 上にあるか、**Agent を管理…** でカスタムコマンドとして設定します。
 - MCP ツールを使う場合は、同梱の `dev.turboism.plugin.mcp` プラグインが Turboism MCP サーバーを提供します。
 - インストール済みの Cubism Editor ホストが必要です。スタンドアロンプレビュー内では動作しません。
 
 <!-- compatibility:begin -->
-**Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
+**Cubism Editor バージョン対応（自動生成）：** 全審査済みバージョン（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04、20 個の正確なバージョン）.
+全機能（審査済みバージョン）：5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04。
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
 <!-- compatibility:end -->
 
@@ -96,6 +97,7 @@ OpenCode 1.15.13 はモデル API の認証エラーを `end_turn` とゼロト�
 | `turboism.config.plugin.read` | `application` | 選択エージェント ID、カスタムコマンド、永続セッション ID、初期指示を復元します。 |
 | `turboism.config.plugin.write` | `application` | 上記のプラグイン保有状態を保存します。エージェント認証情報や MCP 認可は保存しません。 |
 | `turboism.file.read` | `application` | PATH と一般的なインストール先でユーザーインストールのエージェント実行ファイルを検出します。 |
+| `turboism.file.write` | `application` | ローカルのセッション索引とネイティブ Pi セッションを保存し、一時的な MCP 設定ファイルと拡張ファイルを作成します。 |
 | `turboism.process.run` | `application` | 選択したエージェント実行ファイルを起動・管理します。 |
 | `turboism.mcp.connection.read` | `application` | 認証情報を持たない stdio 起動記述子を含む現在の MCP 接続スナップショットを読み取り、エンドポイント変更を購読して接続済みセッションを再接続します。 |
 

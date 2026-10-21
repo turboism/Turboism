@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: deformer, warp, editing, symmetry, boundingbox
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -38,13 +38,14 @@ interface: none
 
 ## 要求与兼容性
 
-- **SDK API 范围：**`[0.67.1,1.0.0)`。
+- **SDK API 范围：**`[0.67.0,1.0.0)`。
 - 需要由 Turboism 运行时驱动的 Cubism Editor 会话。
 - 需要经精确验证的 Editor 模型适配切片；在不受支持的宿主版本上服务返回 `UNAVAILABLE`。
 - 方向标签描述实际镜像方向，已修正旧版对话框左右方向反转的问题。
 
 <!-- compatibility:begin -->
-**Cubism Editor 版本支持（自动生成）：** 全部审核版本.
+**Cubism Editor 版本支持（自动生成）：** 全部审核版本（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04，共 20 个精确版本）.
+完整功能（审核版本）：5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04。
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->
 

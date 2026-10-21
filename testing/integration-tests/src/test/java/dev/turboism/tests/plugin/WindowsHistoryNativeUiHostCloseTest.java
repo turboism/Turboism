@@ -481,7 +481,7 @@ class WindowsHistoryNativeUiHostCloseTest {
             final JButton button = new JButton(text);
             button.addActionListener(event -> {
                 paneClicks.incrementAndGet();
-                if ("No(N)".equals(text)) noClicks.incrementAndGet();
+                if ("No(N)".equals(text) || "否(N)".equals(text)) noClicks.incrementAndGet();
             });
             buttonPanel.add(button);
         }

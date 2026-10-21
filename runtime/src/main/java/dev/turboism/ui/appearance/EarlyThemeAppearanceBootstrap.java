@@ -20,8 +20,8 @@ import javax.swing.plaf.ColorUIResource;
  * Injects the persisted theme before the Cubism GL scene initializes.
  *
  * <p>Cubism caches the off-canvas background color in a singleton Lazy
- * ({@code SGFramework.h$d}) on first GL scene access, so runtime theme applies
- * can never refresh it. The legacy hook agent applied themes at startup before
+ * ({@code SGFramework.h$d}) on first GL scene access. Runtime theme changes update
+ * that cache and existing scene materials separately. The legacy hook agent applied themes at startup before
  * the scene existed; this bootstrap does the same: it waits for Cubism to
  * install its FlatLaf look and feel, then puts the persisted theme colors into
  * UIManager and registers them as a FlatLaf custom defaults source so the GL

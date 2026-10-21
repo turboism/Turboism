@@ -958,9 +958,18 @@ val checkDuplicateJavaImports by tasks.registering {
     VerificationStamps.apply(this)
 }
 
-val checkPluginApiRanges by tasks.registering(Exec::class) {
+val checkPluginApiRangesSelfTest by tasks.registering(Exec::class) {
     group = "verification"
-    description = "Check official/template SDK API floors against the declared framework version."
+    description = "Tests plugin-owned SDK API ranges and README synchronization."
+    inputs.files("scripts/sync_plugin_api.py", "scripts/turboism_dev/versions.py", "scripts/test/test_sync_plugin_api.py")
+    commandLine("python3", "-m", "unittest", "scripts.test.test_sync_plugin_api")
+    VerificationStamps.apply(this)
+}
+
+val checkPluginApiRanges by tasks.registering(Exec::class) {
+    dependsOn(checkPluginApiRangesSelfTest)
+    group = "verification"
+    description = "Validate plugin SDK API ranges and synchronize README declarations."
     inputs.files("scripts/sync_plugin_api.py", "scripts/turboism_dev/versions.py", "gradle/common-java.gradle.kts")
     inputs.files(fileTree("plugins") { include("*/src/main/resources/META-INF/turboism/plugin.json", "*/README*.md") })
     inputs.dir("templates/plugin-template/src/main/resources")

@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: export, protected, candidate
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -25,13 +25,14 @@ interface: none
 
 ## 要求与兼容性
 
-- **SDK API 范围：**`[0.67.1,1.0.0)`。
+- **SDK API 范围：**`[0.67.0,1.0.0)`。
 - **Cubism：**需要 Cubism。按精确评审版本（当前为 `5.1.00` 至 `5.3.04`）记录准入；不支持或未评审的宿主在预检时失败关闭。
 - **模型：**仅允许符合条件的模型。包含不支持家族、非存储关键帧、退化几何或缺失配对的模型会收到阻塞原因，而不是部分导出。
 - **界面模式：**`none` —— 插件通过框架动作驱动导出，并经通知与日志报告结果。
 
 <!-- compatibility:begin -->
-**Cubism Editor 版本支持（自动生成）：** 5.1.00–5.3.04（更早版本 Cubism 本身无此功能）.
+**Cubism Editor 版本支持（自动生成）：** 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04（更早版本 Cubism 本身无此功能）.
+完整功能（审核版本）：5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04。
 - 受保护导出编排 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能）
 - 导出设置贡献 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能）
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
