@@ -7,9 +7,9 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: texture-atlas, packing, auto-layout
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.1,1.0.0)"
 requiresCubism: true
-interface: swing
+interface: none
 ---
 
 # MaxRects-BSSF レイアウトアルゴリズム
@@ -36,15 +36,14 @@ Cubism のテクスチャアトラスワークフローに MaxRects-BSSF 自動�
 
 ## 要件と互換性
 
-- **SDK API 範囲:** `[0.67.0,1.0.0)`。
+- **SDK API 範囲:** `[0.67.1,1.0.0)`。
 - **Cubism:** Cubism が必要です。Turboism は現在、レビュー済みの厳密な Editor 成果物 `5.0.00` から `5.3.04` を受け入れます。このプラグインは、宣言されたサービスと機能が利用可能な場合にのみ、各ホスト向け機能を公開します。
 - **インターフェースモード:** `none`。
 - **プラグインの依存関係:** 宣言されていません。
 
 <!-- compatibility:begin -->
 **Cubism Editor バージョン対応（自動生成）：** 全審査済みバージョン（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04、20 個の正確なバージョン）.
-全機能（審査済みバージョン）：5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04。
-- トップメニュー統合 対象外 5.0.00–5.0.06（それ以前の Cubism バージョンには機能自体がない）
+全機能（審査済みバージョン）：5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04。
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
 <!-- compatibility:end -->
 

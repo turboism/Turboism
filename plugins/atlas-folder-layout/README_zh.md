@@ -1,3 +1,17 @@
+---
+turboismReadmeSchema: 1
+pluginId: dev.turboism.plugin.texture-atlas-folders
+version: 0.1.0
+kind: feature
+status: preview
+delivery: store-candidate
+category: modeling
+tags: texture-atlas, packing, auto-layout
+turboismApi: "[0.67.1,1.0.0)"
+requiresCubism: true
+interface: swing
+---
+
 # 纹理集一键排版
 
 独立的纹理集排版插件。只依赖 Turboism SDK，不依赖或内置任何具体排版算法。
@@ -19,3 +33,10 @@ Cubism 原生仅支持当前页，
 
 安装并启用本插件后，菜单入口独立存在。另行启用至少一个支持完整纹理集的算法插件，
 例如 MaxRects-BSSF 或 Dalsoo。算法可单独更换、启用或卸载。仅支持当前页的算法会显示为不可用。
+
+<!-- compatibility:begin -->
+**Cubism Editor 版本支持（自动生成）：** 全部审核版本（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04，共 20 个精确版本）.
+完整功能（审核版本）：5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04。
+- 顶部菜单集成 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能）
+完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
+<!-- compatibility:end -->
