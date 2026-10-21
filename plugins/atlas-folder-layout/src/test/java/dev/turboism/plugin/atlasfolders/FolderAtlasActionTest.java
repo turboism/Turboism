@@ -1,4 +1,4 @@
-package dev.turboism.plugin.atlasmaxrectsbssf;
+package dev.turboism.plugin.atlasfolders;
 
 import static org.junit.jupiter.api.Assertions.*;
 

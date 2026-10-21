@@ -11,8 +11,9 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 id="$(bash "$root/scripts/dev/worktree-id.sh")"
 shopt -s nullglob
 maxrects=("$root/build/worktree/$id/atlas-maxrects-bssf/libs/"*.jar)
+folders=("$root/build/worktree/$id/atlas-folder-layout/libs/"*.jar)
 dalsoo=("$root/build/worktree/$id/atlas-dalsoo-polygon/libs/"*.jar)
-[[ ${#maxrects[@]} == 1 && ${#dalsoo[@]} == 1 ]] || exit 2
+[[ ${#maxrects[@]} == 1 && ${#dalsoo[@]} == 1 && ${#folders[@]} == 1 ]] || exit 2
 fixture="${TURBOISM_ATLAS_FOLDERS_FIXTURE:-$root/test-assets/texture-atlas-layout/cmo3/geometry/atlas_mapping_geometry_100.cmo3}"
 fixture_hash=369c906ad47610a958e770930649f0821f616e8eb66564c39a478c41b49024ff
 extra=()
@@ -26,6 +27,7 @@ exec bash "$root/scripts/preview/run-cubism-host-validation.sh" \
   --name atlas-folders --version "$version" --run-label "$label-$algorithm" \
   --bundle-root "$root/build/preview/$id" --agent "$root/build/preview/$id/turboism-agent.jar" \
   --plugin "${maxrects[0]}:atlas-maxrects-bssf.jar" \
+  --plugin "${folders[0]}:atlas-folder-layout.jar" \
   --plugin "${dalsoo[0]}:atlas-dalsoo-polygon.jar" \
   --plugin "$root/build/folder-atlas-host-probe.jar:folder-atlas-host-probe.jar" \
   --aux-agent "$root/build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar" \

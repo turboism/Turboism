@@ -1,7 +1,7 @@
-package dev.turboism.plugin.atlasmaxrectsbssf;
+package dev.turboism.plugin.atlasfolders;
 
-import dev.turboism.plugin.atlasmaxrectsbssf.layout.FolderTextureAtlasPlanner;
-import dev.turboism.plugin.atlasmaxrectsbssf.layout.FolderTextureAtlasPlanner.Folder;
+import dev.turboism.plugin.atlasfolders.layout.FolderTextureAtlasPlanner;
+import dev.turboism.plugin.atlasfolders.layout.FolderTextureAtlasPlanner.Folder;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.model.*;
 import dev.turboism.sdk.cubism.textureatlas.*;
@@ -62,7 +62,7 @@ final class FolderAtlasAction {
             TextureAtlasLayoutPlanner algorithm = context.cubism()
                     .textureAtlasAlgorithms()
                     .find(selected.algorithm())
-                    .filter(a -> !a.isNative())
+                    .filter(a -> !a.isNative() && a.planner().supportsCompleteAtlas())
                     .map(TextureAtlasLayoutAlgorithm::planner)
                     .orElseThrow(() -> new IllegalStateException(text("folders.notEnabled")));
             var plan = new FolderTextureAtlasPlanner(algorithm, selected.automaticSize())

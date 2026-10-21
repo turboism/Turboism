@@ -94,6 +94,33 @@ try {
     $again = @(Invoke-CubismBatIntegration -TurboismHome $homePath -Candidates @($candidate) -ExistingRecords $records)
     Assert-BatRegression ((Get-CubismSha256 $bat) -eq $managedHash -and $again[0].ManagedSha256 -eq $managedHash) 'reinstall does not rewrite the current BAT'
 
+    # State can be absent after a reinstall even though BAT + backup survived.
+    $recovered = @(Invoke-CubismBatIntegration -TurboismHome $homePath -Candidates @($candidate))
+    Assert-BatRegression ($recovered.Count -eq 1 -and $recovered[0].OriginalSha256 -eq $originalHash -and $recovered[0].ManagedSha256 -eq $managedHash) 'lost state is recovered only from an exact known managed BAT and its backup'
+    Assert-BatRegression ((Get-CubismSha256 $bat) -eq $managedHash -and (Get-CubismSha256 $records[0].BackupPath) -eq $originalHash) 'state recovery preserves both existing files'
+    [System.IO.File]::AppendAllText($bat, "rem unknown edit after state loss`r`n", $encoding)
+    $untrackedEditHash = Get-CubismSha256 $bat
+    Assert-BatThrows { Invoke-CubismBatIntegration -TurboismHome $homePath -Candidates @($candidate) } 'lost state never permits overwriting unknown BAT edits'
+    Assert-BatRegression ((Get-CubismSha256 $bat) -eq $untrackedEditHash -and (Get-CubismSha256 $records[0].BackupPath) -eq $originalHash) 'rejected state recovery preserves BAT and backup'
+    [System.IO.File]::WriteAllText($bat, (Get-CubismBatIntegrationText -OriginalText $original -TurboismHome $homePath), $encoding)
+
+    # Previous releases froze these options in the official BAT. State may
+    # contain only installations/managedShortcuts, as in the reported upgrade.
+    $legacyOptions = (ConvertTo-JdkOptionToken "-Dturboism.home=$homePath") + ' ' + (ConvertTo-JdkOptionToken "-javaagent:$(Join-Path $homePath 'turboism-agent.jar')=home=$homePath;timeoutSeconds=120") + ' -Djava.locale.providers=CLDR,SPI -XX:+UseZGC'
+    $legacyManaged = "rem TURBOISM MANAGED BEGIN`r`nset `"TURBOISM_HOME=$homePath`"`r`nset `"JAVA_TOOL_OPTIONS=$legacyOptions %JAVA_TOOL_OPTIONS%`"`r`nrem TURBOISM MANAGED END`r`n" + $original
+    [System.IO.File]::WriteAllText($bat, $legacyManaged, $encoding)
+    $legacyRecovered = @(Invoke-CubismBatIntegration -TurboismHome $homePath -Candidates @($candidate))
+    Assert-BatRegression ($legacyRecovered.Count -eq 1 -and $legacyRecovered[0].OriginalSha256 -eq $originalHash) 'old JAVA_TOOL_OPTIONS integration with missing state reuses original backup'
+    Assert-BatRegression ([IO.File]::ReadAllText($bat, $encoding) -ceq (Get-CubismBatIntegrationText -OriginalText $original -TurboismHome $homePath)) 'legacy integration upgrades to current launcher delegation'
+    [IO.File]::WriteAllText($bat, $legacyManaged.Replace('-XX:+UseZGC', '-XX:+UseZGC & echo unexpected'), $encoding)
+    Assert-BatThrows { Invoke-CubismBatIntegration -TurboismHome $homePath -Candidates @($candidate) } 'unknown commands inside old managed markers are rejected'
+    [IO.File]::WriteAllText($bat, $legacyManaged + 'rem unknown change', $encoding)
+    Assert-BatThrows { Invoke-CubismBatIntegration -TurboismHome $homePath -Candidates @($candidate) } 'legacy body must match the surviving original backup'
+    [IO.File]::WriteAllText($bat, $legacyManaged, $encoding)
+    [IO.File]::Delete($records[0].BackupPath)
+    $legacyRecovered = @(Invoke-CubismBatIntegration -TurboismHome $homePath -Candidates @($candidate))
+    Assert-BatRegression ((Get-CubismSha256 $legacyRecovered[0].BackupPath) -eq $originalHash) 'recognized legacy integration without a backup preserves the original body before migration'
+
     # Reproduce the old generator output with a valid ownership record and backup.
     $broken = "rem TURBOISM MANAGED BEGIN`r`nset `"TURBOISM_HOME=`r`n$homePath`r`n`"`r`nset `"JAVA_TOOL_OPTIONS=`r`n-javaagent:broken`r`n`"`r`nrem TURBOISM MANAGED END`r`n" + $original
     [System.IO.File]::WriteAllText($bat, $broken, $encoding)
