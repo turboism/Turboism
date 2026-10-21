@@ -63,7 +63,7 @@ is selected in the workflow input, not by rewriting the stable base for every tr
 Do **not** push a public version tag to trigger a build.
 Reviewed Simplified Chinese, Japanese and Korean notes for that base live in
 `release-notes/<version>.json`, bound to the SHA-256 of the trimmed English section.
-A stale `englishSha256` fails promotion instead of reusing old text, and a base
+`englishSha256` is a staleness check, not a security control: a stale value fails promotion instead of reusing old text, and a base
 without that file is published with its English notes only. Nightly notes are
 generated from a frozen published baseline; they take no reviewed file.
 
@@ -258,6 +258,7 @@ Generic `--yes` confirmation is intentionally unsupported. The run ID must ident
 - The SDK and event-processor pairs are GitHub-only developer artifacts: they never enter the Updates `release.json` media contract, the distribution API's two public downloads, or the R2 mirror. The candidate binds them under `framework.developerArtifacts` separately from the four product files and checksums.
 - The reviewed Updates `release.json` is transferred as a digest-bound Actions artifact and is never a ninth GitHub Release asset.
 - Existing assets and versioned R2 objects are reused only after exact name, size, and SHA-256 equality.
+- Trust model: GitHub Release `.sha256` sidecars, the plugin-template `setup.sh` sidecar check and a plugin's `packageHash` are same-origin integrity checks (they catch corruption, not tampering). Independent anchors are the Ed25519-signed plugin catalog, pinned Gradle verification metadata / wrapper `distributionSha256Sum` / the ManagedGraal archive pin, and R2 write verification.
 - Same-version different bytes fail with a version-not-bumped error. Assets are never overwritten.
 - Partial publication is resumable by uploading only absent immutable objects.
 - Plugin versions are descriptor-owned and independent of the framework version.
@@ -270,7 +271,7 @@ Generic `--yes` confirmation is intentionally unsupported. The run ID must ident
 The orchestrator writes three contracts outside source history:
 
 - `turboism.release-candidate`: verified local identities;
-- `turboism.release-plan`: immutable decision and ordered steps; its canonical hash is `planId`;
+- `turboism.release-plan`: immutable decision and ordered steps; its canonical hash is `planId`, a consistency check that detects a resumed state drifting from the plan, not a tamper defense;
 - `turboism.release-state`: mutable attempts and verified remote step results.
 
 Resume refuses a state whose `planId` or step set differs from the plan. When a protected publisher run already uploaded `turboism-release-plan-<planId>`, a manual resume recovers and validates that exact Actions artifact instead of deriving a different plan from partially published remote state.

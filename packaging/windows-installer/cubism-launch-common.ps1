@@ -1045,6 +1045,10 @@ function Invoke-CubismAtomicFileReplace {
     }
 }
 
+# The SHA-256 helpers below bind identity: they pin a discovered file or snapshot
+# so a later launch can detect that it changed between check and use (TOCTOU) and
+# derive stable names. They are not a tamper defense; the hashes are stored beside
+# the files they describe.
 function Get-CubismSha256 {
     param([string]$Path)
     if (-not (Test-CubismNormalFile $Path)) { throw "file is not a normal file: $Path" }

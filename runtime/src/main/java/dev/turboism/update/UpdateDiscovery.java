@@ -90,7 +90,6 @@ public record UpdateDiscovery(int schemaVersion, String channel, Status status, 
                     asset.platform().ifPresent(p -> item.put("platform", p));
                     item.put("url", asset.url());
                     item.put("size", asset.size());
-                    item.put("sha256", asset.sha256());
                 }
             }
         });
@@ -101,27 +100,22 @@ public record UpdateDiscovery(int schemaVersion, String channel, Status status, 
         return status.name().toLowerCase(Locale.ROOT);
     }
 
-    /** Validated release asset metadata. */
+    /**
+     * Validated release asset metadata. The client only opens {@code url} in a first-party page and never downloads
+     * the bytes, so any {@code sha256} field in the document is intentionally ignored.
+     */
     public record Asset(
-            String name,
-            String kind,
-            Optional<String> variant,
-            Optional<String> platform,
-            String url,
-            long size,
-            String sha256) {
+            String name, String kind, Optional<String> variant, Optional<String> platform, String url, long size) {
         public Asset {
             name = Objects.requireNonNull(name, "name");
             kind = Objects.requireNonNull(kind, "kind");
             variant = Objects.requireNonNull(variant, "variant");
             platform = Objects.requireNonNull(platform, "platform");
             url = Objects.requireNonNull(url, "url");
-            sha256 = Objects.requireNonNull(sha256, "sha256");
             if (name.isBlank()) throw new IllegalArgumentException("name must not be blank");
             if (kind.isBlank()) throw new IllegalArgumentException("kind must not be blank");
             if (url.isBlank()) throw new IllegalArgumentException("url must not be blank");
             if (size <= 0) throw new IllegalArgumentException("size must be positive");
-            if (sha256.length() != 64) throw new IllegalArgumentException("sha256 is invalid");
         }
     }
 
