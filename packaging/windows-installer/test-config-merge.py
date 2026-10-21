@@ -1118,10 +1118,11 @@ def check_launcher_and_shortcut_contract():
           and "Cubism BAT backup verification failed" in common
           and "[int64]$backupFile.Length -ne $originalLength" in common
           and "(Get-CubismSha256 $backup) -ine $originalHash" in common)
-    check("L7 finish page launches Turboism by default and can open the installation directory",
+    check("L7 finish page offers opt-in launch and installation directory actions",
           "MUI_FINISHPAGE_RUN_FUNCTION LaunchTurboism" in text
           and "MUI_FINISHPAGE_RUN_TEXT \"$(FinishLaunchTurboismText)\"" in text
-          and "MUI_FINISHPAGE_RUN_NOTCHECKED" not in text
+          and "MUI_FINISHPAGE_RUN_NOTCHECKED" in text
+          and "MUI_FINISHPAGE_SHOWREADME_NOTCHECKED" in text
           and "MUI_FINISHPAGE_SHOWREADME_FUNCTION OpenInstallDirectory" in text
           and all(('LangString FinishLaunchTurboismText ${LANG_%s}' % lang) in text
                   for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE", "KOREAN"))
