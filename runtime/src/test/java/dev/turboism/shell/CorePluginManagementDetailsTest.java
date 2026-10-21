@@ -80,6 +80,27 @@ class CorePluginManagementDetailsTest {
                 () -> details.capabilities().add("mutated"));
     }
 
+    @Test
+    void cubismVersionDeclarationsAreImmutableAndFullVersionsMustBeSupported() {
+        final ArrayList<String> supported = new ArrayList<>(List.of("5.0.00", "5.2.00"));
+        final ArrayList<String> full = new ArrayList<>(List.of("5.2.00"));
+        final CorePluginManagement.CubismCompatibility value =
+                new CorePluginManagement.CubismCompatibility(supported, Optional.of(full));
+        supported.clear();
+        full.clear();
+        assertEquals(List.of("5.0.00", "5.2.00"), value.supportedVersions());
+        assertEquals(List.of("5.2.00"), value.fullFeatureVersions().orElseThrow());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> value.supportedVersions().clear());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> value.fullFeatureVersions().orElseThrow().clear());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new CorePluginManagement.CubismCompatibility(List.of("5.0.00"), Optional.of(List.of("5.2.00"))));
+    }
+
     private static CorePluginManagement.PluginInfo plugin() {
         return new CorePluginManagement.PluginInfo(
                 "example.plugin",

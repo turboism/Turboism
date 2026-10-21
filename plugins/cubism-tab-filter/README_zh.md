@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: tab-filter, workspace
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -36,19 +36,20 @@ interface: none
 
 ## 要求与兼容性
 
-- **SDK API 范围：**`[0.67.1,1.0.0)`。
+- **SDK API 范围：**`[0.67.0,1.0.0)`。
 - **Cubism：**需要 Cubism。Turboism 当前仅接受经审查的精确编辑器构件 `5.0.00` 至 `5.3.04`；本插件仅在其声明的服务和能力可用时公开相应的面向主机功能。
 - **界面模式：**`none`。
 - **插件依赖项：**未声明。
 
 <!-- compatibility:begin -->
-**Cubism Editor 版本支持（自动生成）：** 全部审核版本.
+**Cubism Editor 版本支持（自动生成）：** 全部审核版本（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04，共 20 个精确版本）.
+完整功能（审核版本）：5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04。
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->
 
 ## 安装与启用
 
-此官方插件是一个**商店候选项**，尚未作为已发布的商店条目提供。在市场发布前，请通过 Turboism 的官方发布包安装它，然后在**插件管理**中启用它。当不需要该工作流程时，可在同一窗口中将其禁用或卸载。
+此官方插件随 Turboism 捆绑发布，也可通过**插件市场**获取。在**插件管理**中启用、禁用或卸载已安装的插件。
 
 ## 使用方法
 
