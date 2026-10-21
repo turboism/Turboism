@@ -42,7 +42,7 @@ macOS와 Linux에서는 포터블 ZIP 압축 파일(`turboism-<version>.zip`)을
 
 모든 Turboism 설치 프로그램은 **영어, 중국어 간체, 일본어, 한국어**를 지원합니다. 언어 선택은 설치 프로그램 자체의 인터페이스만 바꾸며, 실행 시 Turboism의 언어는 계속 `config.json`의 `locale`로 결정됩니다.
 
-현재 설치 프로그램에는 코드 서명이 없습니다. 실행하기 전에 다운로드한 파일의 SHA-256을 함께 제공되는 체크섬과 비교하세요. 다음은 PowerShell 예시입니다. `<version>`을 다운로드한 버전으로 바꿔 주세요.
+현재 설치 프로그램에는 코드 서명이 없습니다. `.sha256` 파일은 다운로드와 같은 곳에서 배포되므로 손상은 감지하지만 릴리스가 교체되지 않았음을 증명하지는 못합니다. 독립적인 신뢰 기점은 Ed25519 서명 플러그인 카탈로그뿐입니다. 실행하기 전에 다운로드한 파일의 SHA-256을 함께 제공되는 체크섬과 비교하세요. 다음은 PowerShell 예시입니다. `<version>`을 다운로드한 버전으로 바꿔 주세요.
 
 ```powershell
 Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256
