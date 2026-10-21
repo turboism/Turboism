@@ -162,7 +162,8 @@ Page-level parallelism ceiling ≈ 115.3/92.5 ≈ **1.25×** — one page holds 
 1. **Tile-size scratch**: scratch9/10 + merge loop + composite only need the
    tile bounds (+3px bleed). O(page)→O(tile) per draw — potentially >10× on the
    dominant page, serial, no concurrency hazards.
-   **Offline equivalence PROVEN** in `../atlas-image-tile-scratch/`:
+   **Historical offline equivalence** (preliminary harness retired after the
+   delegate and its live-JVM checks in `../atlas-image-tile-patch/` superseded it):
    5000 randomized cases (transforms incl. rotation/shear/off-page, 3 src
    types, 2 page types) — **0 pixel diffs**, merge work = 4.4% of original
    (~23×). Preferred impl: replace private method body with a delegate call to
