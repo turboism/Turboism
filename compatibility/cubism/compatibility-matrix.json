@@ -11323,9 +11323,9 @@
    }
   },
   {
-   "id": "dev.turboism.plugin.texture-atlas",
-   "name": "MaxRects-BSSF Layout Algorithm",
-   "directory": "atlas-maxrects-bssf",
+   "id": "dev.turboism.plugin.texture-atlas-folders",
+   "name": "Folder Atlas Layout",
+   "directory": "atlas-folder-layout",
    "requiresCubism": true,
    "supportedVersions": [
     "5.0.00",
@@ -11411,6 +11411,60 @@
      }
     }
    ],
+   "unmappedCapabilities": [],
+   "hostValidation": {}
+  },
+  {
+   "id": "dev.turboism.plugin.texture-atlas",
+   "name": "MaxRects-BSSF Layout Algorithm",
+   "directory": "atlas-maxrects-bssf",
+   "requiresCubism": true,
+   "supportedVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "supportedGaps": {},
+   "fullFeatureVersions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "partialFeatures": [],
    "unmappedCapabilities": [],
    "hostValidation": {
     "atlas": {
