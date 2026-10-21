@@ -1649,6 +1649,34 @@
   },
   {
    "kind": "file",
+   "path": "runtime/src/main/java/dev/turboism/adapter/ui/OffCanvasBackgroundHostAccess.java",
+   "versions": [
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.2.03",
+    "5.3.00",
+    "5.3.01",
+    "5.3.02",
+    "5.3.03",
+    "5.3.04"
+   ],
+   "basis": "evidence",
+   "reason": "Exact-jar CEViewContext.getAppearanceSetting return types determine the obfuscated appearance owner for each reviewed version. OffCanvasBackgroundHostAccessTest verifies the binding, existing background materials, new-view colors, and restoration against all 20 reviewed artifacts."
+  },
+  {
+   "kind": "file",
    "path": "runtime/src/main/java/dev/turboism/exportsettings/ExportSettingsHostProfile.java",
    "versions": [
     "5.1.00",
@@ -2226,6 +2254,15 @@
    ],
    "basis": "task-scoped",
    "reason": "CUBISM_5_3_03_VERSION is a dispatch constant for the 5.3.03 record's onion-skin shape, not an admission set."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/preview/run-atlas-nesting-host-validation.sh",
+   "versions": [
+    "5.3.03"
+   ],
+   "basis": "evidence",
+   "reason": "UI lifecycle timing is pinned to the observed 5.3.03 progress window (see validation/atlas-nesting-host-probe/REPORT.md). Other versions run functional validation without UI timing; admission versions remain derived from the plugin compatibility matrix."
   }
  ]
 }

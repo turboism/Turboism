@@ -84,6 +84,7 @@ final class TextureAtlasPolygonPlanValidator {
         final java.util.Set<String> placedIds = new java.util.HashSet<>();
         final List<Area> placedAreas = new ArrayList<>();
         final List<String> placedNames = new ArrayList<>();
+        final List<java.awt.geom.Rectangle2D> placedBounds = new ArrayList<>();
         for (final TextureAtlasPolygonPlacement placement : plan.placements()) {
             final TextureAtlasPolygonItem item = byId.get(placement.textureId());
             if (item == null) {
@@ -127,7 +128,8 @@ final class TextureAtlasPolygonPlanValidator {
                             "rotation NONE but " + placement.textureId() + " rotated to " + normalized));
                 }
             } else if (effectiveMode == TextureAtlasRotationMode.QUARTER) {
-                if (Math.abs(normalized % 90) > TOLERANCE && Math.abs(normalized % 90 - 90) > TOLERANCE) {
+                final double delta = normalizeAngle(normalized - issuedAngle);
+                if (Math.abs(Math.IEEEremainder(delta, 90)) > TOLERANCE) {
                     violations.add(new Violation(
                             "rotation-mode",
                             "rotation QUARTER but " + placement.textureId() + " rotated to " + normalized));
@@ -159,6 +161,7 @@ final class TextureAtlasPolygonPlanValidator {
                 continue;
             }
             for (int i = 0; i < placedAreas.size(); i++) {
+                if (!bounds.intersects(placedBounds.get(i))) continue;
                 final Area other = placedAreas.get(i);
                 final Area test = new Area(area);
                 test.intersect(other);
@@ -170,6 +173,7 @@ final class TextureAtlasPolygonPlanValidator {
                 }
             }
             placedAreas.add(area);
+            placedBounds.add(bounds);
             placedNames.add(placement.textureId());
         }
         final java.util.Set<String> overflowIds = new java.util.HashSet<>();

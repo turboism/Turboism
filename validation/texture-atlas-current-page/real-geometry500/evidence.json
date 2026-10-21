@@ -1,0 +1,153 @@
+{
+  "attemptId": "281482e6-5b14-48bb-9bb9-3834d0f4bd42",
+  "cleanup": "safe",
+  "containment": {
+    "attemptId": "281482e6-5b14-48bb-9bb9-3834d0f4bd42",
+    "bootId": "872fe56a-7175-4e45-b69a-1955379c83e0",
+    "cgroupDevice": 44,
+    "cgroupInode": 12003897,
+    "cgroupPath": "/user.slice/user-1000.slice/user@1000.service/app.slice/turboism-queue-a5d75da25e517d801bac0c6fce98bbfb.scope",
+    "cleanup": "safe",
+    "entryIdentity": {
+      "bootId": "872fe56a-7175-4e45-b69a-1955379c83e0",
+      "gid": 1000,
+      "pid": 1748778,
+      "startTicks": "48699483",
+      "uid": 1000
+    },
+    "finishedAt": "2026-10-20T17:14:55.227642+00:00",
+    "jobId": "ebe50be7-bed3-49f2-87b4-372cad22ec26",
+    "kernelProof": {
+      "bootId": "872fe56a-7175-4e45-b69a-1955379c83e0",
+      "cgroupDevice": 44,
+      "cgroupInode": 12003897,
+      "cgroupKillWritten": false,
+      "cgroupPath": "/user.slice/user-1000.slice/user@1000.service/app.slice/turboism-queue-a5d75da25e517d801bac0c6fce98bbfb.scope",
+      "cleanupMethod": "cgroup-destroyed",
+      "errors": [],
+      "finalReading": {
+        "error": "[Errno 19] No such device",
+        "kind": "destroyed",
+        "populated": null
+      },
+      "initialReadings": {
+        "events": "populated 1\nfrozen 0\n",
+        "populated": 1
+      },
+      "observations": [
+        {
+          "error": "[Errno 19] No such device",
+          "kind": "destroyed",
+          "populated": null
+        },
+        {
+          "error": "[Errno 19] No such device",
+          "kind": "destroyed",
+          "populated": null
+        }
+      ],
+      "originalCgroupBound": true,
+      "processReturncode": 0,
+      "processTimedOut": false
+    },
+    "preparedDigest": "39d953d47094f838697e2fa599fbc545e94440985e2308ff645fc167c04bd93b",
+    "runId": "queue-f3bcfc7ccb8f461aac2b2e2281df364c",
+    "schemaVersion": 1,
+    "scopeUnit": "turboism-queue-a5d75da25e517d801bac0c6fce98bbfb.scope",
+    "startedAt": "2026-10-20T17:14:55.227439+00:00"
+  },
+  "details": {
+    "cleanupOwner": "supervisor",
+    "clonedBatBeforeSha256": "4da7e34e346280cdce02527fc7746cfd563d449033e018b7f3af1205e7b2ca5b",
+    "evidenceDir": "<USER_HOME>/TurboismValidation/atlas/5303-dense-layout-real-visible-20261021-ui-geometry-500-polygon-parallel-false/queue-f3bcfc7ccb8f461aac2b2e2281df364c/evidence",
+    "exitCode": 0,
+    "fixtureAfterSha256": "99038495f8c7fb9ee94cf6b9ce3d60370fc0203c411ed39b0084d84ce72a683b",
+    "fixtureBeforeSha256": "99038495f8c7fb9ee94cf6b9ce3d60370fc0203c411ed39b0084d84ce72a683b",
+    "goldenBatBeforeSha256": "4da7e34e346280cdce02527fc7746cfd563d449033e018b7f3af1205e7b2ca5b",
+    "goldenUnchanged": true,
+    "identityActualJarSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+    "identityExpectedJarSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+    "identityStatus": "PASS",
+    "postContainmentChecks": {
+      "clonedBatSha256": "4da7e34e346280cdce02527fc7746cfd563d449033e018b7f3af1205e7b2ca5b",
+      "clonedJarSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+      "fixtureCopySha256": "99038495f8c7fb9ee94cf6b9ce3d60370fc0203c411ed39b0084d84ce72a683b",
+      "fixtureSourceSha256": "99038495f8c7fb9ee94cf6b9ce3d60370fc0203c411ed39b0084d84ce72a683b",
+      "goldenBatSha256": "4da7e34e346280cdce02527fc7746cfd563d449033e018b7f3af1205e7b2ca5b",
+      "goldenJarSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+      "hostDependencies": [
+        {
+          "observedSha256": "b9c5e70e0a79f0eaf58a1f7ca7d32645c004a480b30407227a8d7ffbe21eed11",
+          "option": "--proton-wrapper",
+          "path": "/usr/bin/shorin-proton-wrapper",
+          "sha256": "b9c5e70e0a79f0eaf58a1f7ca7d32645c004a480b30407227a8d7ffbe21eed11"
+        },
+        {
+          "observedSha256": "58c5e9dc0f01879177a4627e6a6aeeb9e153f693690f7a00d159f39824f5b408",
+          "option": "--proton-runner",
+          "path": "<USER_HOME>/.local/share/proton/runners/DW-Proton Latest",
+          "sha256": "58c5e9dc0f01879177a4627e6a6aeeb9e153f693690f7a00d159f39824f5b408"
+        }
+      ],
+      "stagedArtifacts": [
+        {
+          "source": "<USER_HOME>/.local/state/turboism/host-validation/prepared/39d953d47094f838697e2fa599fbc545e94440985e2308ff645fc167c04bd93b/inputs/1/turboism-agent.jar",
+          "sourceSha256": "228bca70c8fc9a5a686ac9bf0f2076b36da4550c6f3225fa1b88c50c887ebf33",
+          "staged": "<USER_HOME>/TurboismValidation/atlas/5303-dense-layout-real-visible-20261021-ui-geometry-500-polygon-parallel-false/queue-f3bcfc7ccb8f461aac2b2e2281df364c/turboism-agent.jar",
+          "stagedSha256": "228bca70c8fc9a5a686ac9bf0f2076b36da4550c6f3225fa1b88c50c887ebf33"
+        },
+        {
+          "source": "<USER_HOME>/.local/state/turboism/host-validation/prepared/39d953d47094f838697e2fa599fbc545e94440985e2308ff645fc167c04bd93b/inputs/2/atlas-maxrects-bssf-0.67.1-SNAPSHOT-perf-dense-layout-performance.jar",
+          "sourceSha256": "12509e3b65149d876bbf7bce786bbf2f0ad06e2bff2f03dc88fe033beae38a46",
+          "staged": "<USER_HOME>/TurboismValidation/atlas/5303-dense-layout-real-visible-20261021-ui-geometry-500-polygon-parallel-false/queue-f3bcfc7ccb8f461aac2b2e2281df364c/turboism-home/plugins/atlas-maxrects-bssf.jar",
+          "stagedSha256": "12509e3b65149d876bbf7bce786bbf2f0ad06e2bff2f03dc88fe033beae38a46"
+        },
+        {
+          "source": "<USER_HOME>/.local/state/turboism/host-validation/prepared/39d953d47094f838697e2fa599fbc545e94440985e2308ff645fc167c04bd93b/inputs/3/atlas-dalsoo-polygon-0.67.1-SNAPSHOT-perf-dense-layout-performance.jar",
+          "sourceSha256": "a2774dc1176c9819f7f9144f86841b92ea76fb9c521bca78eb1696a19945bc61",
+          "staged": "<USER_HOME>/TurboismValidation/atlas/5303-dense-layout-real-visible-20261021-ui-geometry-500-polygon-parallel-false/queue-f3bcfc7ccb8f461aac2b2e2281df364c/turboism-home/plugins/atlas-dalsoo-polygon.jar",
+          "stagedSha256": "a2774dc1176c9819f7f9144f86841b92ea76fb9c521bca78eb1696a19945bc61"
+        },
+        {
+          "source": "<USER_HOME>/.local/state/turboism/host-validation/prepared/39d953d47094f838697e2fa599fbc545e94440985e2308ff645fc167c04bd93b/inputs/4/atlas-queue-probe.jar",
+          "sourceSha256": "4b0022d6b2bd4fe4ee41cd027ac01e37bb8bd6ebc0341aa910e5590310614b7e",
+          "staged": "<USER_HOME>/TurboismValidation/atlas/5303-dense-layout-real-visible-20261021-ui-geometry-500-polygon-parallel-false/queue-f3bcfc7ccb8f461aac2b2e2281df364c/agents/atlas-queue-probe.jar",
+          "stagedSha256": "4b0022d6b2bd4fe4ee41cd027ac01e37bb8bd6ebc0341aa910e5590310614b7e"
+        },
+        {
+          "source": "<USER_HOME>/.local/state/turboism/host-validation/prepared/39d953d47094f838697e2fa599fbc545e94440985e2308ff645fc167c04bd93b/inputs/5/native-startup-assistance-agent.jar",
+          "sourceSha256": "743fc360c0ef38bb2c51686a3a2c9f2e305a75a233185c0001293119ecf90996",
+          "staged": "<USER_HOME>/TurboismValidation/atlas/5303-dense-layout-real-visible-20261021-ui-geometry-500-polygon-parallel-false/queue-f3bcfc7ccb8f461aac2b2e2281df364c/agents/native-startup-assistance-agent.jar",
+          "stagedSha256": "743fc360c0ef38bb2c51686a3a2c9f2e305a75a233185c0001293119ecf90996"
+        }
+      ],
+      "terminalResult": {
+        "failSeen": false,
+        "failureMarkers": [],
+        "mode": "file",
+        "passSeen": true,
+        "passed": true,
+        "path": "<USER_HOME>/TurboismValidation/atlas/5303-dense-layout-real-visible-20261021-ui-geometry-500-polygon-parallel-false/queue-f3bcfc7ccb8f461aac2b2e2281df364c/turboism-home/state/atlas-validation/result.txt",
+        "sha256": "c283041e4f168b513367ec88f2b0461f63e3e1c2f4da947f166474fcbc7a325a"
+      }
+    },
+    "prefixRetained": false,
+    "sourceFixtureAfterSha256": "99038495f8c7fb9ee94cf6b9ce3d60370fc0203c411ed39b0084d84ce72a683b",
+    "sourceFixtureBeforeSha256": "99038495f8c7fb9ee94cf6b9ce3d60370fc0203c411ed39b0084d84ce72a683b",
+    "taskDir": "<USER_HOME>/TurboismValidation/atlas/5303-dense-layout-real-visible-20261021-ui-geometry-500-polygon-parallel-false/queue-f3bcfc7ccb8f461aac2b2e2281df364c",
+    "taskOwnedCleanup": true,
+    "validationComplete": true,
+    "wrapperExit": null
+  },
+  "finalizedBy": "contained-supervisor",
+  "fixtureUnchanged": true,
+  "identityVerified": true,
+  "jobId": "ebe50be7-bed3-49f2-87b4-372cad22ec26",
+  "normalExit": true,
+  "preparedDigest": "39d953d47094f838697e2fa599fbc545e94440985e2308ff645fc167c04bd93b",
+  "runId": "queue-f3bcfc7ccb8f461aac2b2e2281df364c",
+  "runnerExitCode": 0,
+  "schemaVersion": 1,
+  "terminalState": "succeeded",
+  "validationStatus": "PASS"
+}

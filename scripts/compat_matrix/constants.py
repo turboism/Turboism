@@ -204,6 +204,7 @@ TASK_PLUGIN_ALIASES = {
     "fps": "perf-stats",
     "psd-clip-mask": "psd-clip-mask-import",
     "atlas": "atlas-maxrects-bssf",
+    "atlas-nesting": "atlas-bitmask-nesting",
     "atlas-polygon": "atlas-dalsoo-polygon",
     "external-psd-edit-pipeline": "external-psd-edit",
     "external-psd-fixture-preparation": "external-psd-edit",
@@ -243,6 +244,7 @@ TASK_GROUP_ALIASES = {
     "backup-webdav": "autobackup",
     "selection-brush": "modeling-tool",
     "atlas": "texture-atlas",
+    "atlas-nesting": "texture-atlas",
 }
 
 # Ordered capabilityId prefix rules -> capability group key.

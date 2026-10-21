@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: history, navigation, floating-window
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: false
 interface: embedded
 ---
@@ -38,13 +38,14 @@ Projects the active document's native Undo history into a floating semantic time
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.67.1,1.0.0)`.
+- **SDK API range:** `[0.67.0,1.0.0)`.
 - **Cubism:** Does not require Cubism for initialization. The pane needs an available native history service and host UI integration to display history entries.
 - **Interface mode:** `embedded`.
 - **Plugin dependencies:** None declared.
 
 <!-- compatibility:begin -->
-**Cubism Editor version support (generated):** all reviewed versions.
+**Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions).
+Full feature set (reviewed versions): 5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04.
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 
