@@ -4,6 +4,7 @@
   "status": "DRAFT",
   "source": "exact-public-classfile-observation",
   "cubismVersion": "5.2.03",
+  "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
   "entries": [
     {
       "semanticName": "cubism.mapping.v5.2.editor_model.constructor.vector_create",
@@ -28,7 +29,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.vector.create",
         "recordMappingId": "cubism.mapping.v5.2.editor_model.constructor.vector_create",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -55,7 +55,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.camera.document-to-component",
         "recordMappingId": "cubism.mapping.v5.2.editor_model.method.camera_document_to_component",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -82,7 +81,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.complete-pack.main-view",
         "recordMappingId": "cubism.mapping.v5.2.editor_model.method.complete_pack_main_view",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -109,7 +107,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.modeling-view.camera",
         "recordMappingId": "cubism.mapping.v5.2.editor_model.method.modeling_view_camera",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -136,7 +133,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.vector.x",
         "recordMappingId": "cubism.mapping.v5.2.editor_model.method.vector_x",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -163,7 +159,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.vector.y",
         "recordMappingId": "cubism.mapping.v5.2.editor_model.method.vector_y",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -190,7 +185,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.view.complete-pack",
         "recordMappingId": "cubism.mapping.v5.2.editor_model.method.view_complete_pack",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -217,7 +211,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.widget.jcomponent",
         "recordMappingId": "cubism.mapping.v5.2.editor_model.method.widget_jcomponent",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -244,7 +237,6 @@
       "x.review": {
         "recordAlias": "cubism.texture-atlas.texture-manager-handler.drawable-uses",
         "recordMappingId": "cubism.mapping.v5.3.03.editor_model.method.texture-manager-handler_drawable-uses",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -489,7 +481,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-history.manager.revert",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_history.method.revert",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 046 edit-session record-parity backfill"
       }
     },
@@ -1971,7 +1962,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.editable-mesh.class",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.editable_mesh_class",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -2132,7 +2122,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.gui-button.class",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.gui_button_class",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Read-only exact classfile and StaticVerificationCli verification of native component-space button hit regions."
       }
     },
@@ -2158,7 +2147,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.gui-icon-button.class",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.gui_icon_button",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Read-only exact classfile and StaticVerificationCli verification of native component-space icon button hit regions."
       }
     },
@@ -2431,7 +2419,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.mesh-edit-data.class",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.mesh_edit_data",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -2456,7 +2443,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.mesh-editor.class",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.mesh_editor",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -2481,7 +2467,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.mesh-selection.class",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.mesh_selection",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -3158,7 +3143,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.part-form.class",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.part_form",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       },
       "intermediary": ""
@@ -3298,7 +3282,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.point-ref.class",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.point_ref",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -3323,7 +3306,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.point-selector.class",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.point_selector",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -3824,7 +3806,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.warp-bezier-extension.class",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.warp_bezier_extension",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
       }
     },
@@ -4347,7 +4328,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.mesh-coordinate-converter.create",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.constructor.mesh_coordinate_converter_create",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Read-only exact classfile and StaticVerificationCli verification of native lasso coordinate conversion."
       },
       "descriptor": "([F[F[II)V"
@@ -4711,7 +4691,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.scene-handler.create",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.constructor.scene_handler_create",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification"
       }
     },
@@ -5703,7 +5682,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.modeling-view.mode-current-form",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.field.modeling_view_mode_current_form",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Read-only exact classfile and StaticVerificationCli verification of native lasso coordinate conversion."
       },
       "descriptor": "Lcom/live2d/cubism/view/context/CEViewContext_ModelingView$c$b;"
@@ -5730,7 +5708,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.modeling-view.mode-image",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.field.modeling_view_mode_image",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Read-only exact classfile and StaticVerificationCli verification of native lasso coordinate conversion."
       },
       "descriptor": "Lcom/live2d/cubism/view/context/CEViewContext_ModelingView$c$a;"
@@ -5757,7 +5734,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.modeling-view.mode-source",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.field.modeling_view_mode_source",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Read-only exact classfile and StaticVerificationCli verification of native lasso coordinate conversion."
       },
       "descriptor": "Lcom/live2d/cubism/view/context/CEViewContext_ModelingView$c$c;"
@@ -5974,7 +5950,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.undo.local-simple-factory-instance",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.field.undo_local_simple_factory_instance",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -6001,7 +5976,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.inherits.ACUndoable.implements.ICTreeAccessible",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.inherits.ACUndoable_implements_ICTreeAccessible",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
     },
@@ -6028,7 +6002,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.inherits.CArtMesh.extends.ACDrawable",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.inherits.CArtMesh_extends_ACDrawable",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
     },
@@ -6055,7 +6028,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.inherits.CArtMesh.implements.ICTreeAccessible",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.inherits.CArtMesh_implements_ICTreeAccessible",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
     },
@@ -6082,7 +6054,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.inherits.CUndoManager.implements.ICTreeAccessible",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.inherits.CUndoManager_implements_ICTreeAccessible",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
     },
@@ -6109,7 +6080,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.inherits.GroupUndo.extends.ACUndoable",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.inherits.GroupUndo_extends_ACUndoable",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
     },
@@ -6136,7 +6106,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.inherits.GroupUndo.implements.ICTreeAccessible",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.inherits.GroupUndo_implements_ICTreeAccessible",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
     },
@@ -6163,7 +6132,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.inherits.ListUndo.extends.ACUndoable",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.inherits.ListUndo_extends_ACUndoable",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
     },
@@ -6190,7 +6158,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.inherits.PropertyUndo.extends.ACUndoable",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.inherits.PropertyUndo_extends_ACUndoable",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
     },
@@ -6217,7 +6184,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.inherits.SimpleUndo.extends.ACUndoable",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.inherits.SimpleUndo_extends_ACUndoable",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
     },
@@ -6307,7 +6273,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.model-source.all-parameters",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.all_parameters",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
       }
     },
@@ -6833,7 +6798,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.art-mesh-source.color-composition",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.art_mesh_source_color_composition",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
       }
     },
@@ -8356,7 +8320,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.deformer.transform-canvas-to-local",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.deformer_transform_canvas_to_local",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Warp Grid Symmetry exact classfile declaration review"
       }
     },
@@ -8383,7 +8346,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.deformer.transform-local-to-canvas",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.deformer_transform_local_to_canvas",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Warp Grid Symmetry exact classfile declaration review"
       }
     },
@@ -8596,7 +8558,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.edit-mode.current-undo",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.edit_mode_current_undo",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 046 edit-session record-parity backfill"
       }
     },
@@ -8623,7 +8584,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.editable-mesh.coord-type",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_coord_type",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -8734,7 +8694,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.editable-mesh.gl-positions",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_gl_positions",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -8782,7 +8741,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.editable-mesh.point-count",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_point_count",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -8809,7 +8767,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.editable-mesh.point-ref",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_point_ref",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -8836,7 +8793,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.editable-mesh.selection",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_selection",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -8925,7 +8881,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.entity.enabled-in-hierarchy",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.entity_enabled_in_hierarchy",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Read-only exact classfile and StaticVerificationCli verification of native component-space button hit regions."
       },
       "descriptor": "()Z"
@@ -8952,7 +8907,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.entity.traverse-all",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.entity_traverse_all",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Read-only exact classfile and StaticVerificationCli verification of native component-space button hit regions."
       },
       "descriptor": "()Ljava/lang/Iterable;"
@@ -9127,7 +9081,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.float-color.hex-rgb",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.float_color_hex_rgb",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
       }
     },
@@ -9445,7 +9398,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.gui-bounds.contains",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.gui_bounds_contains",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Read-only exact classfile and StaticVerificationCli verification of native component-space button hit regions."
       },
       "descriptor": "(Lcom/live2d/graphics3d/type/GBounds;Lcom/live2d/graphics3d/type/GVector2;FILjava/lang/Object;)Z"
@@ -9472,7 +9424,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.gui-button.component-bounds",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.gui_button_component_bounds",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Read-only exact classfile and StaticVerificationCli verification of native component-space button hit regions."
       },
       "descriptor": "()Lcom/live2d/graphics3d/type/GBounds;"
@@ -9499,7 +9450,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.gui-button.on-component",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.gui_button_on_component",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Read-only exact classfile and StaticVerificationCli verification of native component-space button hit regions."
       },
       "descriptor": "()Z"
@@ -10864,7 +10814,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.keyform-grid.keyforms-on-grid",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.keyform_grid_keyforms_on_grid",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -11013,7 +10962,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.keyform-grid-source.set-initial-keyform",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.keyform_grid_set_initial_keyform",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 046 edit-session record-parity backfill"
       }
     },
@@ -11040,7 +10988,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.keyform-on-grid.form-guid",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.keyform_on_grid_form_guid",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -11172,7 +11119,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.modeling-document.last-active-view",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.last_view",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -11598,7 +11544,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.main-frame.jframe",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.main_frame_jframe",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; T7 session UI-lock binding"
       }
     },
@@ -11625,7 +11570,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.main-frame.main-window",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.main_window",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; T7 session UI-lock binding"
       }
     },
@@ -11672,7 +11616,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.mesh-coordinate-converter.transform",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_coordinate_converter_transform",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Read-only exact classfile and StaticVerificationCli verification of native lasso coordinate conversion."
       },
       "descriptor": "([F[F)[F"
@@ -11700,7 +11643,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.mesh-edit-data.art-mesh-source",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_edit_data_art_mesh_source",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -11727,7 +11669,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.mesh-edit-data.editable-mesh",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_edit_data_editable_mesh",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -11754,7 +11695,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.mesh-editor.document",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_document",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -11781,7 +11721,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.mesh-editor.edit-data-for",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_edit_data_for",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -11808,7 +11747,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.mesh-editor.end-mode",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_end_mode",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -11835,7 +11773,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.mesh-editor.start-mode",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_start_mode",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -11862,7 +11799,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.mesh-selection.point-selector",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_selection_point_selector",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -13139,7 +13075,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.modeling-document.set-edit-mode",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.modeling_document_set_edit_mode",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact classfile verification of native document mode-switch lifecycle for selection-brush confirmation cleanup"
       }
     },
@@ -13186,7 +13121,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.modeling-view.current-view-mode",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.modeling_view_current_view_mode",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Read-only exact classfile and StaticVerificationCli verification of native lasso coordinate conversion."
       },
       "descriptor": "()Lcom/live2d/cubism/view/context/CEViewContext_ModelingView$c;"
@@ -13214,7 +13148,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.morph-target-set.create-undo",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.morph-target-set_create-undo",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -13262,7 +13195,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.morph-target-set.remove",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.morph-target-set_remove",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -13373,7 +13305,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.morph-target.set-parameter",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.morph-target_set-parameter",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -13400,7 +13331,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.morph-target.set-parameter-and-key-value",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.morph-target_set-parameter-and-key-value",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -14036,7 +13966,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-group.guid",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter-group_guid",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -14210,7 +14139,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-controllable.calculated-form",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_controllable_calculated_form",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Warp Grid Symmetry exact classfile declaration review"
       }
     },
@@ -14257,7 +14185,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-controllable.interpolated-form",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_controllable_interpolated_form",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
       }
     },
@@ -14347,7 +14274,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-controllable-source.default-key-form",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_controllable_source_default_key_form",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Warp Grid Symmetry exact classfile declaration review"
       }
     },
@@ -14516,7 +14442,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-controllable-source.name-or-id-string",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_controllable_source_name_or_id_string",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
       }
     },
@@ -14604,7 +14529,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-controllable-source.target-deformer-id",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_controllable_source_target_deformer_id",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
       }
     },
@@ -15426,7 +15350,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-source.set-default",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_source_set_default",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 046 edit-session record-parity backfill"
       }
     },
@@ -15474,7 +15397,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-source.set-id",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_source_set_id",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 046 edit-session record-parity backfill"
       }
     },
@@ -15501,7 +15423,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-source.set-maximum",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_source_set_maximum",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 046 edit-session record-parity backfill"
       }
     },
@@ -15528,7 +15449,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-source.set-minimum",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_source_set_minimum",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 046 edit-session record-parity backfill"
       }
     },
@@ -15555,7 +15475,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-source.set-name",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_source_set_name",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 046 edit-session record-parity backfill"
       }
     },
@@ -15834,7 +15753,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.part.current-keyform",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.part_current_keyform",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -15861,7 +15779,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.part-form.draw-order",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.part_form_draw_order",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
       }
     },
@@ -15908,7 +15825,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.part.id",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.part_id",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -16076,7 +15992,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.part-source.enable-draw-order-group",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.part_source_enable_draw_order_group",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
       }
     },
@@ -16204,7 +16119,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.part-source.remove-child",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.part_source_remove_child",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -16604,7 +16518,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.point-ref.index",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.point_ref_index",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -16631,7 +16544,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.point-ref.mesh",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.point_ref_mesh",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -16658,7 +16570,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.point-selector.add",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.point_selector_add",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -16685,7 +16596,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.point-selector.clear",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.point_selector_clear",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -16712,7 +16622,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.point-selector.selected-points",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.point_selector_selected_points",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
@@ -17417,7 +17326,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.scene-graph.component-objects",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.scene_graph_component_objects",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Read-only exact classfile and StaticVerificationCli verification of native component-space button hit regions."
       },
       "descriptor": "()Lcom/live2d/graphics3d/entity/GEntity;"
@@ -17445,7 +17353,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.scene-handler.basic-undo",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.scene_handler_basic_undo",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification"
       }
     },
@@ -17661,7 +17568,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.update-manager.selection-guid-list",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.selection_guid_list",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
       }
     },
@@ -17877,7 +17783,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.parameter-controllable-source.internal-set-parent",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.source_internal_set_parent",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -18890,7 +18795,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.undo.group-undo",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.undo_group_undo",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 046 edit-session record-parity backfill"
       }
     },
@@ -18917,7 +18821,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.undo.local-simple-factory-create",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.undo_local_simple_factory_create",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -19089,7 +18992,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.modeling-view.model",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.view_model",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Read-only exact classfile and StaticVerificationCli verification of native lasso coordinate conversion."
       },
       "descriptor": "()Lcom/live2d/cubism/doc/model/CModel;"
@@ -19116,7 +19018,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.view.scene-graph",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.view_scene_graph",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "Read-only exact classfile and StaticVerificationCli verification of native component-space button hit regions."
       },
       "descriptor": "()Lcom/live2d/cubism/view/context/CESceneGraphEx;"
@@ -19144,7 +19045,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.warp-bezier-extension.bezier-col",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.warp_bezier_extension_bezier_col",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
       }
     },
@@ -19171,7 +19071,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.warp-bezier-extension.bezier-row",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.warp_bezier_extension_bezier_row",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
       }
     },
@@ -19198,7 +19097,6 @@
       "x.review": {
         "recordAlias": "cubism.editor-model.warp-bezier-extension.edit-level",
         "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.warp_bezier_extension_edit_level",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
       }
     },
@@ -19551,7 +19449,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.external-app-settings.dialog.class",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_edit_toggle.class.y_class",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
       }
     },
@@ -19578,7 +19475,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.external-app-settings.config.instance",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_edit_toggle.field.UUConfig_a",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
       }
     },
@@ -19605,7 +19501,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.external-app-settings.dialog.remote-checkbox",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_edit_toggle.field.y_p",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
       }
     },
@@ -19632,7 +19527,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.external-app-settings.checkbox.jcheckbox",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_edit_toggle.method.CCheckBox_getJCheckBox",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
       }
     },
@@ -19659,7 +19553,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.external-app-settings.config.read",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_edit_toggle.method.UUConfig_a",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
       }
     },
@@ -19686,7 +19579,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.external-app-settings.config.write",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_edit_toggle.method.UUConfig_b",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
       }
     },
@@ -19713,7 +19605,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.external-app-settings.dialog.show",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_edit_toggle.method.y_a",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
       }
     },
@@ -19740,7 +19631,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.external-app-settings.dialog.build",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_edit_toggle.method.y_b",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
       }
     },
@@ -19765,7 +19655,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.websocket.server.class",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.class.U_class",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
@@ -19790,7 +19679,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.websocket.session.class",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.class.ab_class",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
@@ -19815,7 +19703,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.websocket.responder.class",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.class.k_class",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
@@ -19840,7 +19727,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.websocket.dispatch.class",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.class.l_class",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
@@ -19865,7 +19751,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.websocket.dispatch.holder",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.class.x_class",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
@@ -19892,7 +19777,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.websocket.dispatch.registry",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.field.l_d",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
@@ -19919,7 +19803,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.websocket.dispatch.holder-instance",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.field.x_a",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
@@ -19946,7 +19829,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.websocket.session.socket",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.method.ab_c",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
@@ -19973,7 +19855,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.websocket.session.approved",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.method.ab_g",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
@@ -20000,7 +19881,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.websocket.session.registered",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.method.ab_h",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
@@ -20027,7 +19907,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.websocket.session.key",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.method.ab_i",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
@@ -20054,7 +19933,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.websocket.responder.send-error",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.method.k_a",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
@@ -20081,7 +19959,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.websocket.dispatch.on-message",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.method.l_a",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
@@ -20108,7 +19985,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.websocket.dispatch.session-lookup",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.method.l_b",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
@@ -20135,7 +20011,6 @@
       "x.review": {
         "recordAlias": "cubism.integration.websocket.dispatch.instance",
         "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.method.x_a",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
@@ -21420,7 +21295,6 @@
       "x.review": {
         "recordAlias": "cubism.texture-atlas.texture-manager.change-input-to-atlas",
         "recordMappingId": "cubism.mapping.v5_2_03.texture_atlas.manager_change_input_to_atlas",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -21727,7 +21601,6 @@
       "x.review": {
         "recordAlias": "cubism.texture-atlas.native.edit-layer.draw-data-shapes",
         "recordMappingId": "cubism.mapping.v5_2_03.texture_atlas.native_edit_layer_draw_data_shapes",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile verification; model-image contour source for polygon packing (material-local java.awt.Shape list, same source as 5.4 auto-layout)"
       }
     },
@@ -22253,7 +22126,6 @@
       "x.review": {
         "recordAlias": "cubism.texture-atlas.statistics.data-model.current-page",
         "recordMappingId": "cubism.mapping.v5_2_03.texture_atlas.statistics_data_model_current_page",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -22280,7 +22152,6 @@
       "x.review": {
         "recordAlias": "cubism.texture-atlas.statistics.page-state.atlas",
         "recordMappingId": "cubism.mapping.v5_2_03.texture_atlas.statistics_page_state_atlas",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -22307,7 +22178,6 @@
       "x.review": {
         "recordAlias": "cubism.texture-atlas.statistics.view-data-model",
         "recordMappingId": "cubism.mapping.v5_2_03.texture_atlas.statistics_view_data_model",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -22334,7 +22204,6 @@
       "x.review": {
         "recordAlias": "cubism.texture-atlas.statistics.view-init",
         "recordMappingId": "cubism.mapping.v5_2_03.texture_atlas.statistics_view_init",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -22361,7 +22230,6 @@
       "x.review": {
         "recordAlias": "cubism.texture-atlas.texture-input-relink.helper-instance",
         "recordMappingId": "cubism.mapping.v5_2_03.texture_atlas.texture_input_relink_helper_instance",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
@@ -22388,7 +22256,6 @@
       "x.review": {
         "recordAlias": "cubism.texture-atlas.texture-input-relink.rebuild",
         "recordMappingId": "cubism.mapping.v5_2_03.texture_atlas.texture_input_relink_rebuild",
-        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },

@@ -12,7 +12,7 @@ import java.util.Set;
 /** Pipeline-only validator for the strict DRAFT mapping pack subset accepted by M15. */
 public final class DraftMappingPackValidator extends AbstractJsonValidator {
     private static final Set<String> TOP =
-            Set.of("status", "source", "cubismVersion", "entries", "metadata", "x.legacy");
+            Set.of("status", "source", "cubismVersion", "exactArtifactSha256", "entries", "metadata", "x.legacy");
     private static final Set<String> ENTRY = Set.of(
             "semanticName",
             "kind",
