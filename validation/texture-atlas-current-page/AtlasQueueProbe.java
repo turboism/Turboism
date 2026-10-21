@@ -26,10 +26,11 @@ public final class AtlasQueueProbe {
         Path home = Path.of(System.getProperty("turboism.home"));
         String fixtureName = required("fixtureName");
         String dataset = System.getProperty("turboism.validation.atlas.dataset", "geometry");
-        if (!List.of("circle", "geometry").contains(dataset)
+        if (!List.of("circle", "geometry", "heavy").contains(dataset)
                 || (!HostUiProbe.UI_TIMING && !dataset.equals("geometry")))
             throw new IllegalArgumentException("Only fixed Circle/Geometry UI cases are admitted");
         String suffix = "atlas_mapping_" + (dataset.equals("geometry") ? "geometry_" : "") + count + ".cmo3";
+        if (dataset.equals("heavy")) suffix = "heavy.cmo3";
         if (!fixtureName.endsWith(suffix)) throw new IllegalArgumentException("Unexpected task fixture name");
         evidence = home.resolve("state/atlas-validation");
         try { Files.createDirectories(evidence); }
@@ -60,6 +61,7 @@ public final class AtlasQueueProbe {
     }
 
     static void validateCase(int count, String implementation) {
+        if (count == 0 && implementation.equals("polygon") && System.getProperty("turboism.validation.atlas.dataset", "").equals("heavy")) return;
         if (count != 100 && count != 500 && count != 1000 && count != 2500)
             throw new IllegalArgumentException("Only fixed Geometry 100/500/1000/2500 cases are admitted");
         if (!List.of("native", "new", "polygon").contains(implementation))
@@ -80,7 +82,7 @@ public final class AtlasQueueProbe {
     }
 
     private static void run(int count, String implementation, String fixtureName) throws Exception {
-        long readyDeadline = System.nanoTime() + Duration.ofSeconds(240).toNanos();
+        long readyDeadline = System.nanoTime() + Duration.ofSeconds(count == 0 ? 600 : 240).toNanos();
         boolean ready = false;
         while (System.nanoTime() < readyDeadline) {
             checkErrors();
@@ -134,6 +136,12 @@ public final class AtlasQueueProbe {
             require(checks.size() == 1, "Expected one enabled parallel checkbox");
             request("check\t" + checks.get(0)[0] + "\t" + requestedParallel());
         }
+        if (count == 0) {
+            var rotations = tree().stream().filter(row -> row[1].contains("JComboBox") && row[2].equals("true/true")
+                && row[3].contains("18 档角度")).toList();
+            require(rotations.size() == 1, "Expected the 18-angle rotation selector");
+            request("select\t" + rotations.get(0)[0] + "\t自由旋转（18 档角度）");
+        }
         Files.writeString(evidence.resolve("layout-dialog.txt"), render(tree()));
         MemorySampler sampler = new MemorySampler();
         sampler.start();
@@ -155,13 +163,26 @@ public final class AtlasQueueProbe {
         }
         require(result != null, "Layout timing timeout");
         sampler.stop();
-        validateResult(result, count, implementation);
+        if (count != 0) validateResult(result, count, implementation);
+        else {
+            require(result.path("returned").asBoolean() && result.path("branch").asText().equals("handled"), "Heavy layout did not return through plugin");
+            require(result.path("output").path("count").asInt() == 101, "Wrong heavy item count");
+            require(result.path("output").path("overflow").isEmpty(), "Heavy overflow");
+            require(result.path("output").path("finite").asBoolean() && result.path("output").path("layerMatch").asBoolean(), "Invalid heavy writeback");
+            HostTimingProbe.validateHeavy(result);
+        }
         if (HostUiProbe.UI_TIMING) validateUiTiming(result);
         require(!Files.exists(evidence.resolve("timing-002.json")), "Unexpected second layout invocation");
         atomic("memory-001.json", sampler.toJson());
         Files.writeString(evidence.resolve("ui-windows.txt"),
             String.join("\n", new java.util.TreeSet<>(HostUiProbe.observedWindows)) + "\n");
         atomic("validation.json", JSON.writerWithDefaultPrettyPrinter().writeValueAsString(result));
+        if (count == 0) {
+            Files.writeString(evidence.resolve("heavy-screenshot-ready"), "ready");
+            long captureDeadline = System.nanoTime() + Duration.ofSeconds(45).toNanos();
+            while (!Files.exists(evidence.resolve("heavy-screenshot-captured")) && System.nanoTime() < captureDeadline)
+                Thread.sleep(200);
+        }
         // Cancel atlas editing rather than saving the source/project. Native application lifecycle only.
         click("Cancel", true, false); // Observed native atlas label, even in the Chinese locale.
         // Write before native exit: the JVM may terminate inside the Exit action.
@@ -248,7 +269,7 @@ public final class AtlasQueueProbe {
         Path file = evidence.resolve("ui-tree.txt");
         Files.deleteIfExists(file);
         request("dump");
-        long deadline = System.nanoTime() + Duration.ofSeconds(15).toNanos();
+        long deadline = System.nanoTime() + Duration.ofSeconds(System.getProperty("turboism.validation.atlas.dataset", "").equals("heavy") ? 300 : 15).toNanos();
         while (System.nanoTime() < deadline) {
             checkErrors();
             if (Files.isRegularFile(file)) {

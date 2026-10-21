@@ -21,6 +21,8 @@ public final class HostTimingProbe {
     private static final String PLANNER = "dev/turboism/plugin/atlasmaxrectsbssf/layout/CurrentPageTextureAtlasPlanner";
     private static final String PARALLEL_OBSERVER = "dev.turboism.validation.texture.plan-parallel";
     private static final String PACK_OBSERVER = "dev.turboism.validation.texture.pack-worker";
+    private static final String DALSOO = "dev/turboism/plugin/atlasdalsoo/layout/DalsooPolygonPlanner";
+    private static final String HEAVY_CAPTURE = "dev.turboism.validation.heavy-capture";
     private static volatile State current;
     private static final String KEY = "dev.turboism.texture-atlas.auto-layout.runtime-ingress";
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -39,6 +41,10 @@ public final class HostTimingProbe {
     }
     public static void premain(String argument, Instrumentation instrumentation) {
         directory = Path.of(argument);
+        if (System.getProperty("turboism.validation.atlas.dataset", "").equals("heavy")) {
+            java.util.function.BiConsumer<Object,Object> capture = HostTimingProbe::captureHeavy;
+            System.getProperties().put(HEAVY_CAPTURE, capture);
+        }
         Thread worker = new Thread(() -> {
             try {
                 for (int i=0; i<900 && !(System.getProperties().get(KEY) instanceof Predicate); i++) Thread.sleep(200);
@@ -59,6 +65,7 @@ public final class HostTimingProbe {
                 instrumentation.addTransformer(new ClassFileTransformer() {
                     @Override public byte[] transform(Module module, ClassLoader loader, String name,
                             Class<?> redefined, ProtectionDomain domain, byte[] bytes) {
+                        if (DALSOO.equals(name) && System.getProperties().containsKey(HEAVY_CAPTURE)) return instrumentDalsoo(bytes);
                         if (PLANNER.equals(name)) return instrumentPlanner(bytes);
                         if (!OWNER.equals(name)) return null;
                         ClassReader reader = new ClassReader(bytes);
@@ -93,7 +100,7 @@ public final class HostTimingProbe {
                     }
                 },true);
                 for (Class<?> type : instrumentation.getAllLoadedClasses())
-                    if (type.getName().equals(OWNER.replace('/','.')) || type.getName().equals(PLANNER.replace('/','.')))
+                    if (type.getName().equals(OWNER.replace('/','.')) || type.getName().equals(PLANNER.replace('/','.')) || type.getName().equals(DALSOO.replace('/','.')))
                         instrumentation.retransformClasses(type);
                 Files.writeString(directory.resolve("timer-ready.txt"),"READY exact=5.3.03 owner="+OWNER+" descriptor="+DESC);
             } catch (Throwable failure) {
@@ -170,6 +177,57 @@ public final class HostTimingProbe {
             JSON.writerWithDefaultPrettyPrinter().writeValue(path.toFile(),result);
         } catch (Exception failure) { throw new IllegalStateException("Output snapshot failed",failure); }
     }
+    private static void captureHeavy(Object prepared, Object constraints) {
+        try {
+            Path target = directory.resolve("heavy-prepared.json");
+            Files.writeString(target, JSON.writeValueAsString(Map.of("prepared", prepared, "constraints", constraints)),
+                java.nio.file.StandardOpenOption.CREATE_NEW);
+            Thread sampler = new Thread(() -> {
+                for (int i = 0; i < 120; i++) {
+                    try {
+                        var stacks = new ArrayList<Object>();
+                        Thread.getAllStackTraces().forEach((thread, frames) -> {
+                            boolean packing = java.util.Arrays.stream(frames).anyMatch(frame -> frame.getClassName().contains("plugin.atlasdalsoo"));
+                            if (packing) stacks.add(Map.of("thread", thread.getName(), "state", thread.getState().name(),
+                                "stack", java.util.Arrays.stream(frames).map(Object::toString).toList()));
+                        });
+                        Files.writeString(directory.resolve("heavy-stacks.jsonl"), JSON.writeValueAsString(Map.of("second", i, "stacks", stacks)) + "\n",
+                            java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+                        Thread.sleep(1000);
+                    } catch (Exception failure) { return; }
+                }
+            }, "heavy-readonly-sampler");
+            sampler.setDaemon(true); sampler.start();
+        } catch (Exception failure) {
+            throw new IllegalStateException("Heavy prepared capture failed", failure);
+        }
+    }
+
+    private static byte[] instrumentDalsoo(byte[] bytes) {
+        ClassReader reader = new ClassReader(bytes);
+        ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS);
+        reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
+            @Override public MethodVisitor visitMethod(int access, String name, String descriptor,
+                    String signature, String[] exceptions) {
+                MethodVisitor base = super.visitMethod(access, name, descriptor, signature, exceptions);
+                if (!name.equals("runOnce")) return base;
+                return new MethodVisitor(Opcodes.ASM9, base) {
+                    @Override public void visitCode() {
+                        super.visitCode();
+                        super.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
+                        super.visitLdcInsn(HEAVY_CAPTURE);
+                        super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+                        super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/BiConsumer");
+                        super.visitVarInsn(Opcodes.ALOAD, 1);
+                        super.visitVarInsn(Opcodes.ALOAD, 2);
+                        super.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/function/BiConsumer", "accept", "(Ljava/lang/Object;Ljava/lang/Object;)V", true);
+                    }
+                };
+            }
+        }, 0);
+        return writer.toByteArray();
+    }
+
     private static byte[] instrumentPlanner(byte[] bytes) {
         ClassReader reader = new ClassReader(bytes);
         ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS);
@@ -199,6 +257,57 @@ public final class HostTimingProbe {
             }
         },0);
         return writer.toByteArray();
+    }
+    static void validateHeavy(dev.turboism.agent.shaded.jackson.databind.JsonNode result) throws Exception {
+        var input = JSON.readTree(directory.resolve("heavy-prepared.json").toFile());
+        var prepared = input.path("prepared");
+        var output = result.path("output");
+        List<Area> padded = new ArrayList<>();
+        double margin = input.path("constraints").path("margin").asDouble();
+        double width = output.path("width").asDouble(), height = output.path("height").asDouble();
+        for (var item : output.path("items")) {
+            int id = item.path("id").asInt();
+            var source = prepared.get(id);
+            if (source.path("id").asInt(-1) != id) throw new AssertionError("Heavy id mismatch");
+            double[] matrix = JSON.treeToValue(item.path("matrix"), double[].class);
+            var transform = new AffineTransform(matrix);
+            Path2D.Double path = new Path2D.Double();
+            int vertex = 0;
+            for (var point : source.path("inpts")) {
+                if (vertex++ == 0) path.moveTo(point.get(0).asDouble(), point.get(1).asDouble());
+                else path.lineTo(point.get(0).asDouble(), point.get(1).asDouble());
+            }
+            path.closePath();
+            var raw = new Area(transform.createTransformedShape(path));
+            var bounds = raw.getBounds2D();
+            if (bounds.getMinX() < -1e-4 || bounds.getMinY() < -1e-4 || bounds.getMaxX() > width + 1e-4 || bounds.getMaxY() > height + 1e-4)
+                throw new AssertionError("Heavy outline outside page: " + id);
+            var expanded = new Area(raw);
+            expanded.add(new Area(new java.awt.BasicStroke((float) margin, java.awt.BasicStroke.CAP_ROUND,
+                    java.awt.BasicStroke.JOIN_ROUND).createStrokedShape(raw)));
+            for (var previous : padded) {
+                var intersection = new Area(expanded);
+                intersection.intersect(previous);
+                if (intersectionArea(intersection) > 1e-5) throw new AssertionError("Heavy spacing violation: " + id);
+            }
+            padded.add(expanded);
+        }
+        Files.writeString(directory.resolve("heavy-geometry.json"), JSON.writeValueAsString(Map.of(
+                "items", padded.size(), "margin", margin, "overlaps", 0, "inside", true,
+                "layerMatch", output.path("layerMatch").asBoolean(), "actualBranch", result.path("branch").asText())));
+    }
+    private static double intersectionArea(Area area) {
+        var iterator = area.getPathIterator(null, .001);
+        double[] point = new double[6];
+        double total = 0, x = 0, y = 0, startX = 0, startY = 0;
+        while (!iterator.isDone()) {
+            int kind = iterator.currentSegment(point);
+            if (kind == PathIterator.SEG_MOVETO) { startX = x = point[0]; startY = y = point[1]; }
+            else if (kind == PathIterator.SEG_LINETO) { total += x * point[1] - point[0] * y; x = point[0]; y = point[1]; }
+            else if (kind == PathIterator.SEG_CLOSE) total += x * startY - startX * y;
+            iterator.next();
+        }
+        return Math.abs(total) * .5;
     }
     private static String hash(Object value) throws Exception {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(JSON.writeValueAsBytes(value)));

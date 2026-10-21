@@ -309,7 +309,8 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
                 constraints.rotationMode(),
                 abey,
                 H_SKEW,
-                null);
+                null,
+                candidateVertexLimit(constraints));
         if (constraints.automaticScale()) {
             final AutoScalePack.Outcome outcome =
                     pack.autoScalePack(prepared, autoScaleTolerance, autoScaleMaxTry(constraints), cancelled, null);
@@ -372,6 +373,14 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
         }
     }
 
+    private static int candidateVertexLimit(final TextureAtlasPolygonConstraints constraints) {
+        return switch (constraints.quality()) {
+            case FAST -> 8;
+            case BALANCED -> 24;
+            case DENSE -> 0;
+        };
+    }
+
     private record VariantResult(PolygonPack.Result result, double scale, double coverage, String name) {}
 
     private VariantResult runVariant(
@@ -385,7 +394,8 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
                 constraints.rotationMode(),
                 variant.abey(),
                 variant.hSkew(),
-                null);
+                null,
+                candidateVertexLimit(constraints));
         if (constraints.automaticScale()) {
             final AutoScalePack.Outcome outcome =
                     pack.autoScalePack(prepared, autoScaleTolerance, autoScaleMaxTry(constraints), cancelled, null);
@@ -460,6 +470,7 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
             }
         }
         diagnostics.put("kernel", "dalsoo");
+        diagnostics.put("candidateVertexLimit", String.valueOf(candidateVertexLimit(constraints)));
         diagnostics.put("rotationMode", constraints.rotationMode().name());
         diagnostics.put("autoScaleAttempts", constraints.automaticScale() ? "bisect" : "fixed");
         if (constraints.automaticScale()) {

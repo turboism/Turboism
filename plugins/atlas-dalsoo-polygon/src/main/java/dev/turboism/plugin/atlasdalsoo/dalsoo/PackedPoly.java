@@ -25,6 +25,7 @@ final class PackedPoly implements Comparable<PackedPoly> {
     double[] outBb; // bounding box of placed outpts
     double[] centroid;
     double[] outCentroid;
+    final StrictRingIndex outIndex = new StrictRingIndex();
     int lastQuery; // grid-query dedupe stamp, managed by Bin
 
     PackedPoly(final int id, final double[][] source, final double[][] buffered, final Double segmentMaxLength) {
@@ -92,6 +93,7 @@ final class PackedPoly implements Comparable<PackedPoly> {
         outBb = Geom.boundingBox(outpts);
         centroid = Geom.centroid(inpts);
         outCentroid = Geom.centroid(outpts);
+        outIndex.prepare(outpts);
     }
 
     @Override

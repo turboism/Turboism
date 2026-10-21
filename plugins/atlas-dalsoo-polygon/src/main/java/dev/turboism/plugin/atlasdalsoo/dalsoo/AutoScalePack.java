@@ -39,6 +39,7 @@ public final class AutoScalePack {
     private final boolean abey;
     private final double hSkew;
     private final Double segmentMaxLength;
+    private final int candidateVertexLimit;
 
     public AutoScalePack(
             final double pageWidth,
@@ -47,6 +48,22 @@ public final class AutoScalePack {
             final boolean abey,
             final double hSkew,
             final Double segmentMaxLength) {
+        this(pageWidth, pageHeight, rotationMode, abey, hSkew, segmentMaxLength, 0);
+    }
+
+    /** Limits candidate anchors per ring; zero retains exhaustive search. Collision rings stay intact. */
+    public AutoScalePack(
+            final double pageWidth,
+            final double pageHeight,
+            final TextureAtlasRotationMode rotationMode,
+            final boolean abey,
+            final double hSkew,
+            final Double segmentMaxLength,
+            final int candidateVertexLimit) {
+        if (candidateVertexLimit < 0) {
+            throw new IllegalArgumentException("candidateVertexLimit must be nonnegative");
+        }
+        this.candidateVertexLimit = candidateVertexLimit;
         this.pageWidth = pageWidth;
         this.pageHeight = pageHeight;
         this.rotationMode = rotationMode;
@@ -74,7 +91,7 @@ public final class AutoScalePack {
             final double scale,
             final BooleanSupplier cancelled,
             final IntConsumer progress) {
-        return new PolygonPack(pageWidth, pageHeight, rotationMode, abey, hSkew, segmentMaxLength)
+        return new PolygonPack(pageWidth, pageHeight, rotationMode, abey, hSkew, segmentMaxLength, candidateVertexLimit)
                 .pack(sources(items, scale), cancelled, progress);
     }
 
@@ -105,9 +122,16 @@ public final class AutoScalePack {
         int attempts = 0;
         for (int i = 0; i < tries; i++) {
             final double scale = i == 0 ? hi : Math.max(hi * Math.pow(k, i), floor);
+            final int attemptIndex = i;
             final PolygonPack.Result attempt = new PolygonPack(
-                            pageWidth, pageHeight, rotationMode, abey, hSkew, segmentMaxLength)
-                    .pack(sources(items, scale), cancelled, null);
+                            pageWidth, pageHeight, rotationMode, abey, hSkew, segmentMaxLength, candidateVertexLimit)
+                    .pack(
+                            sources(items, scale),
+                            cancelled,
+                            progress == null
+                                    ? null
+                                    : placed -> progress.accept(
+                                            (attemptIndex + (double) placed / Math.max(1, items.size())) / tries));
             attempts++;
             if (progress != null) {
                 progress.accept((double) attempts / tries);

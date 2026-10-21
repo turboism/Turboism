@@ -26,6 +26,7 @@ public final class PolygonPack {
     private final boolean abey;
     private final TextureAtlasRotationMode rotationMode;
     private final Double segmentMaxLength;
+    private final int candidateVertexLimit;
 
     public PolygonPack(
             final double pageWidth,
@@ -34,6 +35,22 @@ public final class PolygonPack {
             final boolean abey,
             final double hSkew,
             final Double segmentMaxLength) {
+        this(pageWidth, pageHeight, rotationMode, abey, hSkew, segmentMaxLength, 0);
+    }
+
+    /** Limits candidate anchors per ring; zero retains exhaustive search. Collision rings stay intact. */
+    public PolygonPack(
+            final double pageWidth,
+            final double pageHeight,
+            final TextureAtlasRotationMode rotationMode,
+            final boolean abey,
+            final double hSkew,
+            final Double segmentMaxLength,
+            final int candidateVertexLimit) {
+        if (candidateVertexLimit < 0) {
+            throw new IllegalArgumentException("candidateVertexLimit must be nonnegative");
+        }
+        this.candidateVertexLimit = candidateVertexLimit;
         this.pageWidth = pageWidth;
         this.pageHeight = pageHeight;
         this.rotationMode = rotationMode;
@@ -87,7 +104,16 @@ public final class PolygonPack {
             }
         }
         final Bin bin = new Bin(
-                pending, obstacles, trigos, pageWidth, pageHeight, hSkew, segmentMaxLength, cancelled, progress);
+                pending,
+                obstacles,
+                trigos,
+                pageWidth,
+                pageHeight,
+                hSkew,
+                segmentMaxLength,
+                cancelled,
+                progress,
+                candidateVertexLimit);
         bin.pack(abey);
         final List<PackOutcome> outcomes = new ArrayList<>(fixedOutcomes);
         for (final PackedPoly p : bin.packedPolys()) {
