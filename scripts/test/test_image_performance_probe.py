@@ -3,6 +3,9 @@ import copy
 import importlib.util
 import json
 from pathlib import Path
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -113,6 +116,37 @@ class ImagePerformanceProbeTest(unittest.TestCase):
             path.write_text(json.dumps(missing), encoding="utf-8")
             with self.assertRaises(VERIFIER.AdmissionError):
                 VERIFIER.validate_rollback_manifest(path, "images-01", "on", "images", "a" * 64, "b" * 64)
+
+
+class ProbeTaskDirectoryDigestTest(unittest.TestCase):
+    """The runner executes the verifier from a flat task directory, outside the repository tree."""
+
+    PREVIEW = Path(__file__).resolve().parents[1] / "preview"
+    JAVA = (Path(__file__).resolve().parents[2]
+            / "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java")
+
+    def stage(self, directory, java=True):
+        shutil.copy(self.PREVIEW / "verify-cubism-performance-probe.py", directory)
+        shutil.copy(self.PREVIEW / "reviewed_host_artifacts.py", directory)
+        if java:
+            shutil.copy(self.JAVA, directory)
+
+    def run_self_test(self, directory):
+        return subprocess.run([sys.executable, str(Path(directory) / "verify-cubism-performance-probe.py"),
+                               "--self-test"], capture_output=True, text=True)
+
+    def test_verifier_resolves_digest_from_flat_task_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.stage(directory)
+            result = self.run_self_test(directory)
+            self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_verifier_fails_closed_without_the_staged_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.stage(directory, java=False)
+            result = self.run_self_test(directory)
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("reviewed host artifact source unreadable", result.stderr)
 
 
 if __name__ == "__main__":

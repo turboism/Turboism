@@ -42,7 +42,7 @@ Choose **one** installation format below. Close Cubism and back up your projects
 
 Every Turboism installer ships in **English, Simplified Chinese, Japanese and Korean**. Choosing a language only changes the installer's own interface; the language Turboism uses at runtime still comes from `config.json` (`locale`).
 
-Installers are currently unsigned. Verify the downloaded file against its checksum before running it. For example, in PowerShell (replace `<version>` with the downloaded version):
+Installers are currently unsigned. The `.sha256` file is published next to the download, so it detects corruption but cannot prove the release was not replaced; only the Ed25519-signed plugin catalog is independently anchored. Compare the downloaded file against its checksum before running it. For example, in PowerShell (replace `<version>` with the downloaded version):
 
 ```powershell
 Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256

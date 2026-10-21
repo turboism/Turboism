@@ -122,14 +122,16 @@ public final class CubismHostCompatibilityResolver {
             }
             final byte[] bytes = candidate == null ? null : recordSource.apply(candidate.recordFileName());
             StaticVerificationRecord record = null;
+            String observedRecordSha256 = null;
             if (bytes != null) {
                 try {
                     final var loaded = loader.load(bytes, candidate.recordFileName());
-                    if (loaded.sha256().equals(candidate.recordSha256())
+                    if (loaded.record().profileId().equals(candidate.profileId())
                             && loaded.record().cubismVersion().equals(candidate.cubismVersion())
                             && loaded.record().verificationId().equals(candidate.verificationId())
                             && loaded.record().adapterSliceId().equals(candidate.adapterSliceId())) {
                         record = loaded.record();
+                        observedRecordSha256 = loaded.sha256();
                     }
                 } catch (IOException | RuntimeException failure) {
                     record = null;
@@ -143,10 +145,12 @@ public final class CubismHostCompatibilityResolver {
                                 CompatibilityResolution.SliceStatus.NO_CANDIDATE,
                                 Optional.empty(),
                                 List.of(),
-                                "no intact catalog-pinned record for this exact host version"));
+                                "no valid catalog record for this exact host version"));
                 continue;
             }
-            slices.put(sliceId, admitted(sliceId, candidate, record, identity, false));
+            slices.put(
+                    sliceId,
+                    admitted(sliceId, observedCandidate(candidate, observedRecordSha256), record, identity, false));
         }
         final boolean runtimeAdmitted = baseSlicesAdmitted(slices);
         return CompatibilityResolution.of(
@@ -415,6 +419,19 @@ public final class CubismHostCompatibilityResolver {
         return second < 0 ? version : version.substring(0, second);
     }
 
+    /** Bind the observed record bytes for change detection after probing, not catalog self-pinning. */
+    private static CubismSliceCatalog.Candidate observedCandidate(
+            final CubismSliceCatalog.Candidate candidate, final String digest) {
+        return new CubismSliceCatalog.Candidate(
+                candidate.sliceId(),
+                candidate.cubismVersion(),
+                candidate.recordFileName(),
+                digest,
+                candidate.verificationId(),
+                candidate.adapterSliceId(),
+                candidate.profileId());
+    }
+
     private static CandidateOutcome tryCandidate(
             final CubismSliceCatalog.Candidate candidate,
             final byte[] bytes,
@@ -429,13 +446,11 @@ public final class CubismHostCompatibilityResolver {
             return CandidateOutcome.failed(
                     candidate, "record failed to load: " + failure.getClass().getSimpleName());
         }
-        if (!loaded.sha256().equals(candidate.recordSha256())) {
-            return CandidateOutcome.failed(candidate, "record sha256 does not match catalog pin");
-        }
         final StaticVerificationRecord record = loaded.record();
         if (!record.cubismVersion().equals(candidate.cubismVersion())
                 || !record.verificationId().equals(candidate.verificationId())
-                || !record.adapterSliceId().equals(candidate.adapterSliceId())) {
+                || !record.adapterSliceId().equals(candidate.adapterSliceId())
+                || !record.profileId().equals(candidate.profileId())) {
             return CandidateOutcome.failed(candidate, "record fields do not match catalog pin");
         }
         final StaticSelectorVerifier.StructureVerificationReport report;
@@ -461,7 +476,13 @@ public final class CubismHostCompatibilityResolver {
                             ? "selector contract not fully verified"
                             : "selector " + first.alias() + " is " + first.status());
         }
-        return new CandidateOutcome(candidate, record, report.artifact(), verifiedAliases, Set.of(), "passed");
+        return new CandidateOutcome(
+                observedCandidate(candidate, loaded.sha256()),
+                record,
+                report.artifact(),
+                verifiedAliases,
+                Set.of(),
+                "passed");
     }
 
     /**

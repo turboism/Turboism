@@ -2254,6 +2254,15 @@
    ],
    "basis": "task-scoped",
    "reason": "CUBISM_5_3_03_VERSION is a dispatch constant for the 5.3.03 record's onion-skin shape, not an admission set."
+  },
+  {
+   "kind": "file",
+   "path": "scripts/preview/run-atlas-nesting-host-validation.sh",
+   "versions": [
+    "5.3.03"
+   ],
+   "basis": "evidence",
+   "reason": "UI lifecycle timing is pinned to the observed 5.3.03 progress window (see validation/atlas-nesting-host-probe/REPORT.md). Other versions run functional validation without UI timing; admission versions remain derived from the plugin compatibility matrix."
   }
  ]
 }

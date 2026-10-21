@@ -9,6 +9,38 @@ import org.junit.jupiter.api.Test;
 class TextureAtlasLayoutContractTest {
 
     @Test
+    void explicitPageSizesValidatePlacementAgainstItsOwnPage() {
+        var sizes = List.of(new TextureAtlasPageSize(8, 8), new TextureAtlasPageSize(32, 16));
+        var plan = new TextureAtlasLayoutPlan(
+                32,
+                16,
+                2,
+                List.of("small", "large"),
+                List.of(
+                        new TextureAtlasPlacement("a", 0, 0, 0, 8, 8, false),
+                        new TextureAtlasPlacement("b", 1, 0, 0, 32, 16, false)),
+                1D,
+                sizes);
+        assertEquals(sizes.get(0), plan.pageSize(0));
+        assertEquals(sizes.get(1), plan.pageSize(1));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new TextureAtlasLayoutPlan(
+                        32,
+                        16,
+                        2,
+                        List.of("small", "large"),
+                        List.of(new TextureAtlasPlacement("a", 0, 0, 0, 9, 8, false)),
+                        1D,
+                        sizes));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new TextureAtlasLayoutPlan(
+                        32, 16, 2, List.of("small", "large"), List.of(), 1D, List.of(sizes.get(0))));
+        assertThrows(IllegalArgumentException.class, () -> new TextureAtlasPageSize(32768, 16));
+    }
+
+    @Test
     void currentPagePolicyIsExplicitAndRetainsCompleteAtlasConstructorCompatibility() {
         final var complete = new TextureAtlasLayoutConstraints(32, 32, 1, 2, 4, false, false);
         assertEquals(null, complete.singlePageOptions());

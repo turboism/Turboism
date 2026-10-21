@@ -1,0 +1,77 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.plugin.texture-atlas-folders",
+  "name": "Folder Atlas Layout",
+  "version": "0.1.0",
+  "description": "Arrange texture pages by Part folder hierarchy using registered packing algorithms.",
+  "entrypoints": [
+    "dev.turboism.plugin.atlasfolders.FolderAtlasPlugin"
+  ],
+  "turboismApi": "[0.67.1,1.0.0)",
+  "authors": [
+    {
+      "name": "Turboism Contributors"
+    }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": [
+      "en",
+      "ja",
+      "ko",
+      "zh-Hans",
+      "zh-Hant"
+    ]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Register one-click folder atlas layout."
+    },
+    {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Expose folder atlas layout in the Turboism menu."
+    },
+    {
+      "id": "turboism.ui.status.notify",
+      "scope": "application",
+      "reason": "Report folder layout outcomes."
+    },
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read the complete active texture-atlas authoring snapshot."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Apply a validated complete texture-atlas layout plan through Editor authoring state."
+    }
+  ],
+  "capabilities": [
+    "cubism.texture-atlas.layout",
+    "cubism.model.read",
+    "ui.menu.contribute",
+    "ui.status.notify"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  },
+  "lifecycle": {
+    "hotReload": true
+  },
+  "tags": [
+    "texture-atlas",
+    "packing",
+    "auto-layout"
+  ],
+  "category": "modeling"
+}

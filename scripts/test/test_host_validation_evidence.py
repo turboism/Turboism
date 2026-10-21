@@ -10,7 +10,14 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "preview"))
 import host_validation_evidence as evidence
+import reviewed_host_artifacts
 from host_validation_queue import QueueError, file_digest
+
+
+class ReviewedHostsCoverageTest(unittest.TestCase):
+    def test_every_reviewed_version_has_an_install_directory(self):
+        reviewed = {reviewed_host_artifacts.compact(version) for version in reviewed_host_artifacts.load()}
+        self.assertEqual(reviewed, set(evidence.HOSTS))
 
 
 class EvidenceTest(unittest.TestCase):

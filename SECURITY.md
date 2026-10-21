@@ -14,6 +14,24 @@ development line, shipping with the next tagged release.
 - **Older release lines** (0.44.x and earlier) — no backports; please
   upgrade.
 
+## Integrity and trust anchors
+
+Release `.sha256` sidecars, the plugin-template `setup.sh` check and a plugin
+`packageHash` are published next to the files they describe, so they detect
+corruption but do not defend against tampering. Independent trust anchors are
+the Ed25519-signed plugin catalog, pinned Gradle verification metadata and
+wrapper/JDK archive hashes, and R2 write verification. Installers are currently
+unsigned.
+
+Static verification record digests are provenance metadata, not independent
+trust anchors. Runtime admission checks record schema and identity, host bytes
+and selector structure. Compatibility probing binds the observed record digest
+so a record changed before resolver construction is rejected. The repository's
+record-pin manifest and its regeneration task have been retired.
+
+Validation agent/fixture digests bind reports to the actual run inputs; package
+sidecars record transfer integrity. Neither establishes publisher authenticity.
+
 ## Reporting a vulnerability
 
 Please do **not** open a public issue for a security concern. Report the

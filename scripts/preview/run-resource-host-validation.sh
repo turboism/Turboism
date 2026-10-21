@@ -33,6 +33,8 @@ exec bash "$repo_root/scripts/preview/run-cubism-host-validation.sh" \
   --home-file "$repo_root/scripts/test/measure-task-memory.py:validation/measure-task-memory.py" \
   --home-file "$repo_root/scripts/test/host_resource_counters.py:validation/host_resource_counters.py" \
   --home-file "$repo_root/scripts/test/host_memory_identity.py:validation/host_memory_identity.py" \
+  --home-file "$repo_root/scripts/preview/reviewed_host_artifacts.py:validation/reviewed_host_artifacts.py" \
+  --home-file "$repo_root/runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java:validation/ReviewedHostArtifacts.java" \
   --remote-pre-launch "$repo_root/scripts/test/start-task-memory-observer.sh" \
   --remote-pre-launch-background --remote-pre-launch-arg "$observer_python" \
   --jvm-option '-Dturboism.optimization.warpPositionProjection=false' \

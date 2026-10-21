@@ -23,8 +23,11 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import reviewed_host_artifacts  # noqa: E402
+
 CUBISM_VERSION = "5.3.02"
-ARTIFACT_SHA256 = "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
+ARTIFACT_SHA256 = reviewed_host_artifacts.sha256(CUBISM_VERSION)
 REPORT_FORMAT = "turboism.cubism.performance-probe"
 ROLLBACK_FORMAT = "turboism.cubism.performance-probe-rollback"
 SCHEMA_VERSION = 1

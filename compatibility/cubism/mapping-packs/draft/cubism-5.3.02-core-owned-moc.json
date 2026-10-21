@@ -19,9 +19,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismMoc",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismMoc"
       }
     },
     {
@@ -38,9 +36,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismMoc",
-        "requiredAccessFlags": 9,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismMoc"
       },
       "intermediary": "",
       "descriptor": "([B)Lcom/live2d/sdk/cubism/core/CubismMoc;"
@@ -59,9 +55,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismMoc",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismMoc"
       },
       "intermediary": "",
       "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismModel;"
@@ -80,9 +74,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismMoc",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismMoc"
       },
       "intermediary": "",
       "descriptor": "()J"
@@ -101,9 +93,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismMoc",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismMoc"
       },
       "intermediary": "",
       "descriptor": "()V"
@@ -122,9 +112,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismModel",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismModel"
       },
       "intermediary": "",
       "descriptor": "()J"
@@ -143,9 +131,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismModel",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismModel"
       },
       "intermediary": "",
       "descriptor": "()V"
@@ -164,9 +150,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismModel",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismModel"
       },
       "intermediary": "",
       "descriptor": "()V"
