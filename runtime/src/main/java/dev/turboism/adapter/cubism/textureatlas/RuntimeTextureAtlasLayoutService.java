@@ -211,8 +211,10 @@ public final class RuntimeTextureAtlasLayoutService
                 return Optional.of("The plan does not respect the requested native scale.");
             }
         }
-        if (plan.pageWidth() != constraints.pageWidth()
-                || plan.pageHeight() != constraints.pageHeight()
+        if ((!completeAtlas && !plan.pageSizes().isEmpty())
+                || (plan.pageSizes().isEmpty()
+                        && (plan.pageWidth() != constraints.pageWidth()
+                                || plan.pageHeight() != constraints.pageHeight()))
                 || plan.pageCount() > constraints.maxPages()) {
             return Optional.of("The plan does not match the issued atlas page constraints.");
         }
@@ -244,8 +246,10 @@ public final class RuntimeTextureAtlasLayoutService
             }
             if (placement.x() < constraints.edgeMargin()
                     || placement.y() < constraints.edgeMargin()
-                    || (long) placement.x() + placement.width() + constraints.edgeMargin() > plan.pageWidth()
-                    || (long) placement.y() + placement.height() + constraints.edgeMargin() > plan.pageHeight()) {
+                    || (long) placement.x() + placement.width() + constraints.edgeMargin()
+                            > plan.pageSize(placement.pageIndex()).width()
+                    || (long) placement.y() + placement.height() + constraints.edgeMargin()
+                            > plan.pageSize(placement.pageIndex()).height()) {
                 return Optional.of("The plan violates the atlas edge margin.");
             }
         }

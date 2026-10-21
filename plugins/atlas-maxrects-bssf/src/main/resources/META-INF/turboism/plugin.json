@@ -21,6 +21,9 @@
   },
   "dependencies": [],
   "permissions": [
+    {"id": "turboism.action.register", "scope": "application", "reason": "Register one-click folder atlas layout."},
+    {"id": "turboism.ui.menu.contribute", "scope": "application", "reason": "Expose folder atlas layout in the Turboism menu."},
+    {"id": "turboism.ui.status.notify", "scope": "application", "reason": "Report folder layout outcomes."},
     {
       "id": "turboism.cubism.model.read",
       "scope": "application",
@@ -42,10 +45,10 @@
       "reason": "Persist the selected automatic texture-atlas layout mode."
     }
   ],
-  "capabilities": ["cubism.texture-atlas.layout"],
+  "capabilities": ["cubism.texture-atlas.layout", "cubism.model.read", "ui.menu.contribute", "ui.status.notify"],
   "environment": {
     "requiresCubism": true,
-    "ui": "none"
+    "ui": "swing"
   },
   "lifecycle": {
     "hotReload": true

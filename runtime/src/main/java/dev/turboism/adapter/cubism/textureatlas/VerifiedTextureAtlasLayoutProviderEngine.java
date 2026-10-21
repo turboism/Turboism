@@ -166,8 +166,15 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
                 .map(name -> Objects.requireNonNull(name, "Verified texture atlas name is unavailable."))
                 .toList();
         final String atlasId = String.join("\u001f", atlasNames);
-        final int atlasWidth = integer(resolver.invoke("cubism.texture-atlas.atlas.width", atlases.get(0)));
-        final int atlasHeight = integer(resolver.invoke("cubism.texture-atlas.atlas.height", atlases.get(0)));
+        final var pageSizes = atlases.stream()
+                .map(atlas -> new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPageSize(
+                        integer(resolver.invoke("cubism.texture-atlas.atlas.width", atlas)),
+                        integer(resolver.invoke("cubism.texture-atlas.atlas.height", atlas))))
+                .toList();
+        final int atlasWidth =
+                pageSizes.stream().mapToInt(size -> size.width()).max().orElseThrow();
+        final int atlasHeight =
+                pageSizes.stream().mapToInt(size -> size.height()).max().orElseThrow();
         final Map<Object, Integer> atlasIndexes = new IdentityHashMap<>();
         for (int index = 0; index < atlases.size(); index++) atlasIndexes.put(atlases.get(index), index);
 
@@ -195,14 +202,17 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
                     throw new IllegalStateException("Verified texture atlas transform is unavailable.");
                 }
                 final AffineTransform affine = (AffineTransform) transform;
+                final java.awt.geom.Rectangle2D bounds = affine.createTransformedShape(
+                                new java.awt.geom.Rectangle2D.Double(0, 0, item.width(), item.height()))
+                        .getBounds2D();
                 placements.add(new TextureAtlasPlacement(
                         id,
                         atlasIndex,
-                        rounded(affine.getTranslateX()),
-                        rounded(affine.getTranslateY()),
-                        item.width(),
-                        item.height(),
-                        false));
+                        rounded(bounds.getMinX()),
+                        rounded(bounds.getMinY()),
+                        Math.max(1, rounded(bounds.getWidth())),
+                        Math.max(1, rounded(bounds.getHeight())),
+                        Math.abs(affine.getScaleX()) < 1e-9 && Math.abs(affine.getScaleY()) < 1e-9));
             }
         }
         placements.sort(java.util.Comparator.comparing(TextureAtlasPlacement::textureId));
@@ -217,7 +227,14 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
                 List.copyOf(items.values()).stream()
                         .sorted(java.util.Comparator.comparing(TextureAtlasLayoutItem::textureId))
                         .toList(),
-                new TextureAtlasLayoutPlan(atlasWidth, atlasHeight, atlases.size(), atlasNames, placements));
+                new TextureAtlasLayoutPlan(
+                        atlasWidth,
+                        atlasHeight,
+                        atlases.size(),
+                        atlasNames,
+                        placements,
+                        1D,
+                        pageSizes.stream().distinct().count() == 1 ? List.of() : pageSizes));
     }
 
     private List<Object> stage(
@@ -228,8 +245,8 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
                     "cubism.texture-atlas.atlas.create",
                     modelSource,
                     pageName(plan, index),
-                    plan.pageWidth(),
-                    plan.pageHeight()));
+                    plan.pageSize(index).width(),
+                    plan.pageSize(index).height()));
         }
         for (TextureAtlasPlacement placement : plan.placements()) {
             final Object image = images.get(placement.textureId());
