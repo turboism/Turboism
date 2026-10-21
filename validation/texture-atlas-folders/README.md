@@ -1,5 +1,7 @@
 # 按部件文件夹分治排版
 
+独立插件：atlas-folder-layout（纹理集一键排版），仅依赖 SDK。算法由独立插件注册。
+
 入口：Turboism → 按部件文件夹一键排版。需要活动模型已有纹理集。
 
 模态设置提供最大正方形边长 1024 / 2048 / 4096 / 8192（默认 4096）、
@@ -18,7 +20,7 @@ Dalsoo 使用矩形规划入口；原生及其他没有规划器的委托算法�
 ## 离线验证
 
 ```sh
-./gradlew :plugins:atlas-maxrects-bssf:test :plugins:atlas-dalsoo-polygon:test :sdk:test :runtime:test --tests 'dev.turboism.adapter.cubism.textureatlas.*' --offline
+./gradlew :plugins:atlas-folder-layout:test :plugins:atlas-maxrects-bssf:test :plugins:atlas-dalsoo-polygon:test :sdk:test :runtime:test --tests 'dev.turboism.adapter.cubism.textureatlas.*' --offline
 ```
 
 结果：BUILD SUCCESSFUL。MaxRects 插件 50 项、Dalsoo 插件 36 项、SDK 457 项（1 跳过）、
@@ -61,3 +63,10 @@ MaxRects-BSSF 和 Dalsoo 均将 100 张原尺寸图片按三级部件树分成 3
 
 保存模型保留在队列各任务的 state/atlas-folders/saved.cmo3 中，不纳入源码。
 本轮只验证 5.3.03；不将静态准入版本等同于逐版本实机通过。
+
+## 独立插件拆分
+
+界面、菜单、部件归属及分治逻辑已迁移至 plugins/atlas-folder-layout。MaxRects 不再注册该菜单。
+分治仅使用 SDK 的 TextureAtlasLayoutPlanner 和共享打包失败协议，无算法插件编译或运行依赖。
+新增离线检查覆盖无算法时菜单注册与卸载清理、仅第三方算法可用的发现顺序、当前页算法禁用。
+前述实机记录对应拆分前版本；拆分后验证结果另行记录，不能沿用为新二进制的宿主验收。
