@@ -1,0 +1,1 @@
+{"shape":"lshape","count":2500,"vertices":15000,"rotation":"NONE","abey":false,"targetFill":0.75,"budgetSeconds":60,"status":"BUDGET_CANCELLED","elapsedMs":60004.087,"placed":762,"coverage":0.000000,"allocatedMiB":1377.259,"sampledPeakHeapMiB":22.246,"initialHeapMiB":2.572,"postGcHeapMiB":1.334,"gcMs":344,"hash":"cancelled"}
