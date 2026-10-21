@@ -57,3 +57,10 @@ implementation handoff rather than hidden by disabling repository gates.
 
 The three delegated branches and the previously uncommitted phase-one follow-up
 are preserved in the integration branch `ci/simplify-sha256-gates`.
+
+Workspace cleanup remains unconfirmed: Paseo MCP archive timed out after 300s,
+and CLI archive attempts timed out after 45s. The dedicated workspaces are
+`wks_a3261bfdd8a0565c` (digest-single-source), `wks_02a18a39a7105ca4`
+(hash-trust-clarify), and `wks_c386e683950f430a` (draft-pack-hash-hoist).
+Their changes are preserved above; retry workspace archival when the daemon
+responds. Do not archive just their agents or manually discard the worktrees.
