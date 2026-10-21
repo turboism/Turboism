@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas-nesting
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: modeling
 tags: texture-atlas, packing, polygon, auto-layout
 turboismApi: "[0.67.0,1.0.0)"
