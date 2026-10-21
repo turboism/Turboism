@@ -13,12 +13,18 @@ public final class AtlasQueueProbeTest {
             AtlasQueueProbe.validateCase(count, "native");
             AtlasQueueProbe.validateCase(count, "new");
             AtlasQueueProbe.validateCase(count, "polygon");
-            assertions += 3;
+            AtlasQueueProbe.validateCase(count, "nesting");
+            assertions += 4;
         }
         rejects(() -> AtlasQueueProbe.validateCase(1001, "native"));
         rejects(() -> AtlasQueueProbe.validateCase(2499, "new"));
         rejects(() -> AtlasQueueProbe.validateCase(100, "both"));
         rejects(() -> AtlasQueueProbe.validateCase(99, "new"));
+        AtlasQueueProbe.validateCase(0, "new");
+        AtlasQueueProbe.validateCase(0, "nesting");
+        assertions += 2;
+        rejects(() -> AtlasQueueProbe.validateCase(0, "native"));
+        rejects(() -> AtlasQueueProbe.validateCase(0, "polygon"));
         var directory = java.nio.file.Files.createTempDirectory("atlas-one-shot-test-");
         try {
             AtlasQueueProbe.markLayoutStarted(directory, "native");

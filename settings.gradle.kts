@@ -25,6 +25,7 @@ include(
     "plugins:external-psd-edit",
     "plugins:atlas-maxrects-bssf",
     "plugins:atlas-dalsoo-polygon",
+    "plugins:atlas-bitmask-nesting",
     "plugins:protected-export",
     "plugins:texture-atlas-stats",
     "plugins:physics-editor",
