@@ -472,56 +472,37 @@ run_label="$(safe_label "$run_label")"
 [ -n "$name" ] || fail "validation name becomes empty after sanitization"
 [ -n "$run_label" ] || fail "run label becomes empty after sanitization"
 
+# Reviewed jar identities are declared once, in ReviewedHostArtifacts.java; an unreviewed
+# version fails closed here before any path or seam decision is made.
+reviewed_artifacts_tool="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/reviewed_host_artifacts.py"
+[[ "$version" =~ ^5[0-9]{3}$ ]] || fail "--version must be a compact reviewed Cubism build code such as 5303"
+reviewed_jar_sha256="$(python3 "$reviewed_artifacts_tool" sha256 "$version")" \
+  || fail "--version must be a reviewed Cubism build: $(python3 "$reviewed_artifacts_tool" versions)"
+
 case "$version" in
   5303)
     cubism_win='C:\Program Files\Live2D Cubism 5.3.03'
     cubism_rel='pfx/drive_c/Program Files/Live2D Cubism 5.3.03'
-    reviewed_jar_sha256='bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166'
     uniform_seam_reviewed=1
     ;;
   5302)
     cubism_win='C:\Program Files\Live2D Cubism 5.3'
     cubism_rel='pfx/drive_c/Program Files/Live2D Cubism 5.3'
-    reviewed_jar_sha256='988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21'
     uniform_seam_reviewed=1
     ;;
   5203)
     cubism_win='C:\Program Files\Live2D Cubism 5.2'
     cubism_rel='pfx/drive_c/Program Files/Live2D Cubism 5.2'
-    reviewed_jar_sha256='bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd'
     uniform_seam_reviewed=1
     ;;
-  5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5300|5301|5304)
+  *)
     semver="${version:0:1}.${version:1:1}.${version:2:2}"
     cubism_win="C:\\Program Files\\Live2D Cubism $semver"
     cubism_rel="pfx/drive_c/Program Files/Live2D Cubism $semver"
-    case "$version" in
-      5000) reviewed_jar_sha256='42ee222a05478f48739bb1fbf7e7bc7350b21004e506e1b555d1d55c584d99cd' ;;
-      5001) reviewed_jar_sha256='1aa93b1d9d8da88e8c28de06b680c41a73fc70243307d856d4a2967e6e487a0b' ;;
-      5002) reviewed_jar_sha256='39e73c8238acba5270422a6e0f228c66a733177d009c710721381285ab0af072' ;;
-      5003) reviewed_jar_sha256='05bc9b872527fed3dc2641ff833b03d86e6fdafbe6faa294eb3d0afcc0f88a66' ;;
-      5004) reviewed_jar_sha256='7298c5731525a2bd5ac4e6d5246f1f08603651b0ec37cf5dc3e8ad1802ad8758' ;;
-      5005) reviewed_jar_sha256='1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4' ;;
-      5006) reviewed_jar_sha256='cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2' ;;
-      5100) reviewed_jar_sha256='cdda37ed4105cf5e4ecb5811f7065df35b9b9a3319bcb74f8e9189d91e8d3f05' ;;
-      5101) reviewed_jar_sha256='ddb1f5569bc8da49f3c9f6b6eaec3fe57e4f7abec67c9c44079233ea51056c02' ;;
-      5102) reviewed_jar_sha256='0567130093015c969d32b91c6a48d4603c28c8224c6a14fa969491f8974f63ca' ;;
-      5103) reviewed_jar_sha256='a3d916077bd7a176345233da95f1eb0a8bbdf8967fd08162776d5bf6d746009b' ;;
-      5200) reviewed_jar_sha256='25c41c81ddb3af884b7f0d61a02eba9b09f0412bdc025997c419de7ab7158cf1' ;;
-      5201) reviewed_jar_sha256='c1b70ca8c571c4f4df4ebce63b3381f6bed1b132ab0ed539046fd0609e2b00ac' ;;
-      5202) reviewed_jar_sha256='ba1f31a1846490c3f111a4ae99887c36bcc0c1bc1a3cf970eb5a7aeed7902aff' ;;
-      5300) reviewed_jar_sha256='c89dcaf17b6bfad7227db30bffc2f29cdf49b8e4b0cec1f12af2d85b1c13e767' ;;
-      5301) reviewed_jar_sha256='694bb49c66ddcf15695dbd8f66e1cbaeb0097f651e2e77c327567244f801d2f4' ;;
-      5304) reviewed_jar_sha256='c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d' ;;
-    esac
     # The deferred GL error-check seam requires the uniform-location lifecycle
-    # bytecode profile; reviewed for the full 5.2 and 5.3 lines (5.2.00-5.2.03, 5.3.00-5.3.04).
-    case "$version" in
-      5200|5201|5202|5300|5301|5304) uniform_seam_reviewed=1 ;;
-      *) uniform_seam_reviewed=0 ;;
-    esac
+    # bytecode profile; reviewed for the full 5.2 and 5.3 lines (5.2.00 and later).
+    if (( 10#$version >= 5200 )); then uniform_seam_reviewed=1; else uniform_seam_reviewed=0; fi
     ;;
-  *) fail "--version must be a reviewed Cubism build: 5000-5006, 5100-5103, 5200-5203, 5300-5304" ;;
 esac
 
 for numeric in "$agent_timeout" "$ready_timeout" "$result_timeout" "$exit_timeout" "$poll_seconds"; do

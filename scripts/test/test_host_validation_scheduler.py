@@ -17,13 +17,13 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 PREVIEW = ROOT / "scripts" / "preview"
-REVIEWED_VERSIONS = (
-    "5000", "5001", "5002", "5003", "5004", "5005", "5006",
-    "5100", "5101", "5102", "5103", "5200", "5201", "5202", "5203",
-    "5300", "5301", "5302", "5303", "5304",
-)
 sys.path.insert(0, str(PREVIEW))
 sys.path.insert(0, str(ROOT / "scripts"))
+import reviewed_host_artifacts  # noqa: E402
+
+REVIEWED_VERSIONS = tuple(
+    reviewed_host_artifacts.compact(version) for version in reviewed_host_artifacts.load()
+)
 
 import check_host_validation_versions as version_derivation  # noqa: E402
 import host_validation as scheduler  # noqa: E402
