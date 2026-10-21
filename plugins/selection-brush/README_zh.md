@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: mesh, selection, brush
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -28,12 +28,13 @@ Turboism 官方插件，在普通建模模式和网格编辑模式提供选区�
 
 ## 要求与兼容性
 
-- SDK API 范围：`[0.67.1,1.0.0)`，工具服务使用 Preview SDK 合同。
+- SDK API 范围：`[0.67.0,1.0.0)`，工具服务使用 Preview SDK 合同。
 - 支持精确审核的 Cubism Editor 5.2.03、5.3.02 和 5.3.03。普通模式另需独立准入的点选区及工具生命周期能力。
 - 界面模式为嵌入式；未声明其他插件依赖。
 
 <!-- compatibility:begin -->
-**Cubism Editor 版本支持（自动生成）：** 全部审核版本.
+**Cubism Editor 版本支持（自动生成）：** 全部审核版本（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04，共 20 个精确版本）.
+完整功能（审核版本）：5.2.00–5.2.03, 5.3.00–5.3.04。
 - 建模选区笔刷 仅 5.2.00–5.3.04（[Cubism 5.3.00 新增变形笔刷扩张/收缩及圆/方/线笔刷形状](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->

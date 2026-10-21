@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: history, navigation, floating-window
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: false
 interface: embedded
 ---
@@ -37,13 +37,14 @@ interface: embedded
 
 ## 要件と互換性
 
-- **SDK API 範囲:** `[0.67.1,1.0.0)`。
+- **SDK API 範囲:** `[0.67.0,1.0.0)`。
 - **Cubism:** 初期化自体には Cubism を必要としません。履歴の表示と操作には、対応する厳密なバージョンのネイティブ履歴サービスとホスト UI 統合が必要です。
 - **インターフェースモード:** `embedded`。
 - **プラグインの依存関係:** 宣言されていません。
 
 <!-- compatibility:begin -->
-**Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
+**Cubism Editor バージョン対応（自動生成）：** 全審査済みバージョン（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04、20 個の正確なバージョン）.
+全機能（審査済みバージョン）：5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04。
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
 <!-- compatibility:end -->
 

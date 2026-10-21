@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: psd, texture, external-edit
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -43,14 +43,15 @@ Right-click ArtMeshes to edit their complete raw PSD in the operating system's d
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.67.1,1.0.0)`.
+- **SDK API range:** `[0.67.0,1.0.0)`.
 - **Cubism:** Required. Export and replacement use Cubism native layered-image and raw-image replacement behavior; only the reviewed Cubism 5.3.02 record admits this feature today. Other Cubism versions require their own reviewed verification record before the entry resolves.
 - **Interface mode:** `embedded`.
 - **Plugin dependencies:** None declared.
 - The temporary PSD is a rebuilt document, not a byte copy of the source asset.
 
 <!-- compatibility:begin -->
-**Cubism Editor version support (generated):** all reviewed versions.
+**Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions).
+Full feature set (reviewed versions): 5.2.00–5.2.03, 5.3.00–5.3.04.
 - Export PSD raw image only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）
 - Replace PSD raw image only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)

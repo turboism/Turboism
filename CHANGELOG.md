@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- Plugin management now labels SDK API compatibility ranges and displays declared exact Cubism versions separately for available, full and partial functionality. Missing or invalid declarations remain undeclared.
+- Official plugin minimum API requirements remain at `0.67.0`; README synchronization no longer raises every plugin's API floor on a framework patch release.
+- Derived full-functionality declarations now include SDK and endpoint version restrictions. Plugin READMEs name the reviewed range and full-functionality range, and remove stale pre-publication installation instructions.
+
 ## [0.67.1] - 2026-10-20
 
 ### Fixed

@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: 3d, glb, gltf, obj, import
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -70,7 +70,7 @@ occlusion for arbitrary intersecting surfaces or all shape-control combinations.
 
 ## Requirements and compatibility
 
-The public primitive corpus is exercised on Cubism Editor 5.3.04 with SDK API range `[0.67.1,1.0.0)`. Open a model with a 1024×1024 canvas before importing. The menu chooses one source-derived camera and pivot to fit the model inside a 400px radius. The camera stays fixed throughout rotation. The face-color inspection mode uses ±30°; source-material mode uses XYZ full-circle ranges. Explicit probe requests retain their declared camera.
+The public primitive corpus is exercised on Cubism Editor 5.3.04 with SDK API range `[0.67.0,1.0.0)`. Open a model with a 1024×1024 canvas before importing. The menu chooses one source-derived camera and pivot to fit the model inside a 400px radius. The camera stays fixed throughout rotation. The face-color inspection mode uses ±30°; source-material mode uses XYZ full-circle ranges. Explicit probe requests retain their declared camera.
 
 The bounded surface path limits GLB files to 16 MiB. The source-aware native path accepts GLB files up to 128 MiB. The bounded importer supports opaque closed convex surfaces or a single convex quadrilateral plane. A restricted branch for two disjoint, double-sided parallel X-plane rectangles is implemented but has not completed native validation. A separate regular quadrilateral surface branch preserves the original triangle geometry and UVs in chart meshes under one native Warp deformer. The XYZ apple has real menu/save/reopen and source-geometry evidence; strict occlusion and official export of this full-circle apple remain unverified. Sparse chart depth ordering can produce occlusion errors. Arbitrary concave topology and intersecting sheets are not generally supported. OBJ is now a direct menu input for self-contained geometry. Select referenced buffers, MTL and PNG/JPEG resources when prompted, or package them together with exactly one GLB, glTF or OBJ in a ZIP. FBX, DAE and RAR are not direct menu inputs. Earlier apple evidence used an OBJ converted to GLB; it does not verify the newer OBJ menu path.
 
@@ -80,7 +80,8 @@ entrypoint. The current primitive real-host results are for 5.3.04; the same vis
 corpus has not been rerun on every admitted version.
 
 <!-- compatibility:begin -->
-**Cubism Editor version support (generated):** all reviewed versions.
+**Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions).
+Full feature set (reviewed versions): 5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04.
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 

@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: animation, frame-animation, sprite-sheet, parameter
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -38,13 +38,14 @@ interface: swing
 
 ## 要件と互換性
 
-- **SDK API 範囲:** `[0.67.1,1.0.0)`.
+- **SDK API 範囲:** `[0.67.0,1.0.0)`.
 - **Cubism:** 検証済みの全 Editor バージョン `5.0.00` ～ `5.3.04` をサポート。
 - **UI モード:** `swing`.
 - **依存関係:** なし。
 
 <!-- compatibility:begin -->
-**Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
+**Cubism Editor バージョン対応（自動生成）：** 全審査済みバージョン（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04、20 個の正確なバージョン）.
+全機能（審査済みバージョン）：5.3.00–5.3.04。
 - パーツ不透明度書き込み のみ 5.3.00–5.3.04（[Cubism 5.3.00 でPart offscreen drawing (part opacity and clipping masks)を追加](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
 - トップメニュー統合 対象外 5.0.00–5.0.06（それ以前の Cubism バージョンには機能自体がない）
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)

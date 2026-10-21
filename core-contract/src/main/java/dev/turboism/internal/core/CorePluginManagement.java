@@ -159,7 +159,8 @@ public interface CorePluginManagement extends AutoCloseable {
             List<EventExport> eventExports,
             List<EventImport> eventImports,
             Optional<String> readme,
-            boolean hotReload) {
+            boolean hotReload,
+            Optional<CubismCompatibility> cubismCompatibility) {
         public PluginDetails {
             if (plugin == null) throw new IllegalArgumentException("plugin must not be null");
             turboismApi = textOr(turboismApi, "");
@@ -177,6 +178,48 @@ public interface CorePluginManagement extends AutoCloseable {
             eventExports = eventExports == null ? List.of() : List.copyOf(eventExports);
             eventImports = eventImports == null ? List.of() : List.copyOf(eventImports);
             readme = readme == null ? Optional.empty() : readme;
+            cubismCompatibility = cubismCompatibility == null ? Optional.empty() : cubismCompatibility;
+        }
+
+        public PluginDetails(
+                final PluginInfo plugin,
+                final String turboismApi,
+                final List<Author> authors,
+                final String license,
+                final Optional<String> website,
+                final List<Dependency> dependencies,
+                final List<Permission> permissions,
+                final List<String> capabilities,
+                final boolean requiresCubism,
+                final String ui,
+                final List<String> entrypoints,
+                final List<String> resources,
+                final String i18nBaseName,
+                final List<String> locales,
+                final List<EventExport> eventExports,
+                final List<EventImport> eventImports,
+                final Optional<String> readme,
+                final boolean hotReload) {
+            this(
+                    plugin,
+                    turboismApi,
+                    authors,
+                    license,
+                    website,
+                    dependencies,
+                    permissions,
+                    capabilities,
+                    requiresCubism,
+                    ui,
+                    entrypoints,
+                    resources,
+                    i18nBaseName,
+                    locales,
+                    eventExports,
+                    eventImports,
+                    readme,
+                    hotReload,
+                    Optional.empty());
         }
 
         public PluginDetails(
@@ -247,6 +290,22 @@ public interface CorePluginManagement extends AutoCloseable {
 
         private static String textOr(final String value, final String fallback) {
             return value == null ? fallback : value;
+        }
+    }
+
+    /**
+     * Exact declared Cubism versions; absent full-feature metadata makes no completeness claim.
+     *
+     * @param supportedVersions exact versions with available plugin functionality
+     * @param fullFeatureVersions exact versions with all features, or absent when not declared
+     */
+    record CubismCompatibility(List<String> supportedVersions, Optional<List<String>> fullFeatureVersions) {
+        public CubismCompatibility {
+            supportedVersions = List.copyOf(supportedVersions);
+            fullFeatureVersions = fullFeatureVersions.map(List::copyOf);
+            if (fullFeatureVersions.isPresent() && !supportedVersions.containsAll(fullFeatureVersions.orElseThrow())) {
+                throw new IllegalArgumentException("Full-feature versions must be a subset of supported versions");
+            }
         }
     }
 
