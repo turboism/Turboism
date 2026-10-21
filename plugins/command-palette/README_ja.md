@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: launcher, commands, shortcut
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -40,13 +40,14 @@ interface: swing
 
 ## 要件と互換性
 
-- **SDK API 範囲:** `[0.67.1,1.0.0)`。
+- **SDK API 範囲:** `[0.67.0,1.0.0)`。
 - **Cubism:** Cubism が必要です。レビュー済みの Editor（`5.2.03`、`5.3.02`、`5.3.03` など）をサポートし、宣言されたサービスと機能が利用可能な場合にのみ各機能を提供します。
 - **インターフェースモード:** `swing`。
 - **プラグイン依存関係:** なし。
 
 <!-- compatibility:begin -->
-**Cubism Editor バージョン対応（自動生成）：** 5.1.00–5.3.04（それ以前の Cubism バージョンには機能自体がない）.
+**Cubism Editor バージョン対応（自動生成）：** 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04（それ以前の Cubism バージョンには機能自体がない）.
+全機能（審査済みバージョン）：5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04。
 - トップメニュー統合 対象外 5.0.00–5.0.06（それ以前の Cubism バージョンには機能自体がない）
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
 <!-- compatibility:end -->

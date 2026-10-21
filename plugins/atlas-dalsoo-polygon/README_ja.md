@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: texture-atlas, packing, polygon, auto-layout
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -52,7 +52,7 @@ MIT ライセンスの `whitegreen/Dalsoo-Bin-Packing`（コミット `bde2a3e`�
 
 ## 要件と互換性
 
-- **SDK API 範囲:** `[0.67.1,1.0.0)`。
+- **SDK API 範囲:** `[0.67.0,1.0.0)`。
 - **Cubism:** 正確にレビュー済みの Editor アーティファクト `5.2.00`〜`5.3.04` のみ。Cubism 5.4 は未許可です。SDK 契約には将来の
   公式 5.4 ホストネイティブ provider 用に `HOST_NATIVE` バックエンド
   スロットが予約されています。
@@ -60,7 +60,8 @@ MIT ライセンスの `whitegreen/Dalsoo-Bin-Packing`（コミット `bde2a3e`�
 - **プラグイン依存:** なし。
 
 <!-- compatibility:begin -->
-**Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
+**Cubism Editor バージョン対応（自動生成）：** 全審査済みバージョン（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04、20 個の正確なバージョン）.
+全機能（審査済みバージョン）：5.2.00–5.2.03, 5.3.00–5.3.04。
 - ポリゴン対応アトラスレイアウト のみ 5.2.00–5.3.04（それ以前の Cubism バージョンには機能自体がない）
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
 <!-- compatibility:end -->

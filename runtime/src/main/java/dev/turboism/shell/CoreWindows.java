@@ -797,7 +797,7 @@ final class CoreWindows implements AutoCloseable {
         }
     }
 
-    private JDialog createPluginDetailsDialog(final CorePluginManagement.PluginDetails details) {
+    JDialog createPluginDetailsDialog(final CorePluginManagement.PluginDetails details) {
         ensureSwingUis();
         final CorePluginManagement.PluginInfo plugin = details.plugin();
         final JDialog dialog = CoreDialogs.create(i18n.format("window.plugin-details.title", plugin.name()), 760, 620);
@@ -838,6 +838,35 @@ final class CoreWindows implements AutoCloseable {
                 row,
                 "plugins.details.requires-cubism",
                 details.requiresCubism() ? text("common.yes") : text("common.no"));
+        if (details.requiresCubism()) {
+            final Optional<CorePluginManagement.CubismCompatibility> compatibility = details.cubismCompatibility();
+            row = detail(
+                    metadata,
+                    row,
+                    "plugins.details.cubism-supported",
+                    compatibility
+                            .map(value -> formatVersions(value.supportedVersions()))
+                            .orElse(text("plugins.details.undeclared")));
+            row = detail(
+                    metadata,
+                    row,
+                    "plugins.details.cubism-full",
+                    compatibility
+                            .flatMap(CorePluginManagement.CubismCompatibility::fullFeatureVersions)
+                            .map(this::formatVersions)
+                            .orElse(text("plugins.details.undeclared")));
+            row = detail(
+                    metadata,
+                    row,
+                    "plugins.details.cubism-partial",
+                    compatibility
+                            .flatMap(value -> value.fullFeatureVersions()
+                                    .map(full -> value.supportedVersions().stream()
+                                            .filter(version -> !full.contains(version))
+                                            .toList()))
+                            .map(this::formatVersions)
+                            .orElse(text("plugins.details.undeclared")));
+        }
         row = detail(metadata, row, "plugins.details.ui", details.ui());
         row = detail(
                 metadata, row, "plugins.details.entrypoints", valueOrNone(String.join("\n", details.entrypoints())));
@@ -887,6 +916,15 @@ final class CoreWindows implements AutoCloseable {
         final JLabel content = new JLabel("<html>" + escapeHtml(value).replace("\n", "<br>") + "</html>");
         add(panel, row, new JLabel(text(labelKey)), content);
         return row + 1;
+    }
+
+    private String formatVersions(final List<String> versions) {
+        if (versions.isEmpty()) return text("common.none");
+        final List<String> lines = new ArrayList<>();
+        for (int start = 0; start < versions.size(); start += 5) {
+            lines.add(String.join(", ", versions.subList(start, Math.min(start + 5, versions.size()))));
+        }
+        return String.join("\n", lines);
     }
 
     private String valueOrNone(final String value) {

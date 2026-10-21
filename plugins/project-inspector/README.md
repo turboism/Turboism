@@ -7,7 +7,7 @@ status: development
 delivery: development-only
 category: analysis
 tags: project, inspection, diagnostics
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -37,13 +37,14 @@ A Developer Preview Swing window that reads and displays the active Cubism proje
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.67.1,1.0.0)`.
+- **SDK API range:** `[0.67.0,1.0.0)`.
 - **Cubism:** Requires an available Cubism project/workspace snapshot service. This is a developer-preview diagnostic module, not a released compatibility commitment.
 - **Interface mode:** `swing`; a headless JVM cannot open the inspector.
 - **Plugin dependencies:** None declared.
 
 <!-- compatibility:begin -->
-**Cubism Editor version support (generated):** all reviewed versions.
+**Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions).
+Full feature set (reviewed versions): 5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04.
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 

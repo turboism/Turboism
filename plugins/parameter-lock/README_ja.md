@@ -7,7 +7,7 @@ status: development
 delivery: development-only
 category: workflow
 tags: parameter, lock, palette, safety
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -42,7 +42,7 @@ Cubism パラメータ値の誤編集を防ぎ、セッション間での永続�
 
 ## 要件と互換性
 
-- **SDK API 範囲:** `[0.67.1,1.0.0)`。
+- **SDK API 範囲:** `[0.67.0,1.0.0)`。
 - **Cubism:** Cubism が必要です。Turboism は現在、審査済みの Editor アーティファクト `5.0.00` から `5.3.04`（`5.3.03` を含む）を厳密に認可しています。
 - **インターフェースモード:** `embedded`。
 - **プラグイン依存関係:** 未宣言。
@@ -53,7 +53,8 @@ Cubism パラメータ値の誤編集を防ぎ、セッション間での永続�
 - ロックしたパラメータのドラッグ・数値編集領域はグレー表示で操作不可となり、錠前は解除に使えます。2軸結合行では片軸のロックで共有ドラッグを無効化しますが、未ロック軸の数値入力は維持します。
 
 <!-- compatibility:begin -->
-**Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
+**Cubism Editor バージョン対応（自動生成）：** 全審査済みバージョン（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04、20 個の正確なバージョン）.
+全機能（審査済みバージョン）：5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04。
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
 <!-- compatibility:end -->
 
