@@ -59,7 +59,7 @@ final class OfficialPluginCatalogCompleteness {
     private static final Pattern JSON_STRING = Pattern.compile("\\\"([^\\\"]+)\\\"");
     private static final Set<String> REVIEWED_TECHNICAL_EQUAL_KEYS = Set.of(
             "about.eula",
-            "about.github",
+            "about.license",
             "common.turboism",
             "main-toolbar.menu-root.label",
             "menu.shared-root",
