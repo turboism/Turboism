@@ -312,7 +312,7 @@ class MappingPackDraftImportTest {
                 "compatibility/cubism/verification/cubism-5.3.03-editor-model.json",
                 metadata.path("inventoryRef").asText());
         assertEquals(
-                "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+                ReviewedHostArtifacts.CUBISM_5_3_03.sha256(),
                 metadata.path("artifactSha256").asText());
 
         final Path evidencePath = Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")))
