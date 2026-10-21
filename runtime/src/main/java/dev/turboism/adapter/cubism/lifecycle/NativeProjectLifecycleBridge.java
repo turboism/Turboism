@@ -172,14 +172,20 @@ public final class NativeProjectLifecycleBridge {
     public static void beforeEditorExit() {
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
-        EditorLifecycleCoordinator.ExitInvocation invocation = null;
         try {
-            invocation = bridge.editor.beginExit(bridge.hostVersion);
+            EditorLifecycleCoordinator.ExitInvocation invocation = null;
+            try {
+                invocation = bridge.editor.beginExit(bridge.hostVersion);
+            } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
+                // Preserve a frame so a nested failed begin cannot complete the outer exit.
+            }
+            bridge.exits.get().push(new ExitFrame(invocation));
         } catch (Throwable ignored) {
             FatalErrors.rethrowIfFatal(ignored);
-            // Native ingress must fail open when lifecycle state is unavailable.
+            // Frame allocation and delayed class resolution are part of native ingress too.
+            reportSwallowed("beforeEditorExit", ignored);
         }
-        bridge.exits.get().push(new ExitFrame(invocation));
     }
 
     /**

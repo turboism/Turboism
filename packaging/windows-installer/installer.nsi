@@ -16,6 +16,9 @@
 
 Unicode true
 
+; LangString expansion requires custom variables to be declared before use.
+Var InstallerConfigurationOperation
+
 !include "MUI2.nsh"
 !include "nsDialogs.nsh"
 !include "LogicLib.nsh"
@@ -382,10 +385,10 @@ LangString NoLaunchWarning ${LANG_ENGLISH} "All normal launch paths are disabled
 LangString NoLaunchWarning ${LANG_SIMPCHINESE} "所有常规启动路径均已关闭。Turboism 不会通过开始菜单、桌面或现有 Cubism 快捷方式激活。选择“否”返回修改，或选择“是”明确继续。"
 LangString NoLaunchWarning ${LANG_JAPANESE} "通常の起動経路がすべて無効です。Turboism はスタートメニュー、デスクトップ、または既存の Cubism ショートカットから有効になりません。「いいえ」で戻るか、「はい」で意図的に続行してください。"
 LangString NoLaunchWarning ${LANG_KOREAN} "모든 일반 시작 경로가 해제되었습니다. Turboism은 시작 메뉴, 바탕 화면 또는 기존 Cubism 바로 가기를 통해 활성화되지 않습니다. [아니요]를 선택하여 돌아가거나 [예]를 선택하여 의도적으로 계속하세요."
-LangString InitialConfigurationError ${LANG_ENGLISH} "Cubism launch configuration could not be applied. Turboism is installed; run configure_turboism.ps1 in the installation folder to check the selected installations."
-LangString InitialConfigurationError ${LANG_SIMPCHINESE} "无法应用 Cubism 启动配置。Turboism 已安装；请运行安装目录中的 configure_turboism.ps1 检查所选安装。"
-LangString InitialConfigurationError ${LANG_JAPANESE} "Cubism の起動設定を適用できませんでした。Turboism はインストール済みです。インストール先の configure_turboism.ps1 で選択したインストールを確認してください。"
-LangString InitialConfigurationError ${LANG_KOREAN} "Cubism 시작 구성을 적용하지 못했습니다. Turboism은 설치되었습니다. 설치 폴더의 configure_turboism.ps1에서 선택한 설치를 확인하세요."
+LangString InitialConfigurationError ${LANG_ENGLISH} "Cubism launch configuration could not be applied. Turboism is installed; run configure_turboism.ps1 in the installation folder to check the selected installations.$\r$\n$\r$\n$InstallerConfigurationOperation ($0)$\r$\nLog: $INSTDIR\logs\installer\configure-turboism.log"
+LangString InitialConfigurationError ${LANG_SIMPCHINESE} "无法应用 Cubism 启动配置。Turboism 已安装；请运行安装目录中的 configure_turboism.ps1 检查所选安装。$\r$\n$\r$\n失败操作：$InstallerConfigurationOperation（$0）$\r$\n日志：$INSTDIR\logs\installer\configure-turboism.log"
+LangString InitialConfigurationError ${LANG_JAPANESE} "Cubism の起動設定を適用できませんでした。Turboism はインストール済みです。インストール先の configure_turboism.ps1 で選択したインストールを確認してください。$\r$\n$\r$\n失敗した操作：$InstallerConfigurationOperation ($0)$\r$\nログ：$INSTDIR\logs\installer\configure-turboism.log"
+LangString InitialConfigurationError ${LANG_KOREAN} "Cubism 시작 구성을 적용하지 못했습니다. Turboism은 설치되었습니다. 설치 폴더의 configure_turboism.ps1에서 선택한 설치를 확인하세요.$\r$\n$\r$\n실패한 작업: $InstallerConfigurationOperation ($0)$\r$\n로그: $INSTDIR\logs\installer\configure-turboism.log"
 LangString BatIntegrationError ${LANG_ENGLISH} "Cubism BAT integration did not complete or elevation was canceled. Review the installer log and run Turboism_Configurator to inspect or retry; hash-protected files are never overwritten after an unknown edit.$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
 LangString BatIntegrationError ${LANG_SIMPCHINESE} "Cubism BAT 集成未完成，或管理员授权已取消。请查看安装日志，并运行 Turboism_Configurator 检查或重试；检测到未知改动后绝不会覆盖受哈希保护的文件。$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
 LangString BatIntegrationError ${LANG_JAPANESE} "Cubism BAT の統合が完了しなかったか、管理者承認がキャンセルされました。インストーラーログを確認し、Turboism_Configurator で状態確認または再試行してください。不明な編集を検出したファイルは上書きしません。$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
@@ -1225,6 +1228,7 @@ Function .onInstSuccess
     DetailPrint "$(CubismDiscoveryFailed)"
     Goto InstallerConfigurationDone
   ${EndIf}
+  StrCpy $InstallerConfigurationOperation "InitializeSelection"
   nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -InitializeSelection ${CUBISM_DISCOVERY_HANDOFF}'
   Pop $0
   ${If} $0 != 0
@@ -1233,9 +1237,11 @@ Function .onInstSuccess
     Goto InstallerConfigurationDone
   ${EndIf}
   ${If} $createStartMenu == 1
+    StrCpy $InstallerConfigurationOperation "EnableShortcuts"
     nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -EnableShortcuts ${CUBISM_DISCOVERY_HANDOFF}'
     Pop $0
   ${Else}
+    StrCpy $InstallerConfigurationOperation "DisableShortcuts"
     nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableShortcuts ${CUBISM_DISCOVERY_HANDOFF}'
     Pop $0
   ${EndIf}
