@@ -10,7 +10,17 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "preview"))
 import host_validation_evidence as evidence
+import reviewed_host_artifacts
 from host_validation_queue import QueueError, file_digest
+
+
+class ReviewedHostsAgreementTest(unittest.TestCase):
+    def test_evidence_host_table_agrees_with_reviewed_host_artifacts(self):
+        reviewed = {
+            reviewed_host_artifacts.compact(version): artifact.sha256
+            for version, artifact in reviewed_host_artifacts.load().items()
+        }
+        self.assertEqual(reviewed, {code: digest for code, (_, digest) in evidence.HOSTS.items()})
 
 
 class EvidenceTest(unittest.TestCase):
