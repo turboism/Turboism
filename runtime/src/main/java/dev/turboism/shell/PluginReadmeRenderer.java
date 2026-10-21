@@ -7,7 +7,8 @@ import java.util.regex.Pattern;
 
 /** Safe Markdown-subset renderer for plugin README content shown in Swing HTML. */
 final class PluginReadmeRenderer {
-    private static final Pattern LINK = Pattern.compile("\\[([^]\\r\\n]+)]\\((https?://[^)\\s]+)\\)");
+    private static final Pattern LINK = Pattern.compile(
+            "\\[([^]\\r\\n]+)]\\((https?://[^)\\s]+|\\.\\./\\.\\./compatibility/cubism/plugins(?:_zh|_ja|_ko)?\\.md)\\)");
     private static final Pattern CODE = Pattern.compile("`([^`\\r\\n]+)`");
     private static final Pattern STRONG = Pattern.compile("\\*\\*([^*\\r\\n]+)\\*\\*");
     private static final Pattern EMPHASIS = Pattern.compile("(?<!\\*)\\*([^*\\r\\n]+)\\*(?!\\*)");
@@ -32,8 +33,15 @@ final class PluginReadmeRenderer {
         boolean unordered = false;
         boolean ordered = false;
         boolean fenced = false;
+        final HtmlComments comments = new HtmlComments();
         final StringBuilder code = new StringBuilder();
         for (String line : source.split("\n", -1)) {
+            if (!fenced) {
+                final boolean hidden = comments.hidden;
+                final String visible = comments.strip(line);
+                if (visible.isBlank() && (hidden || !line.isBlank())) continue;
+                line = visible;
+            }
             if (line.trim().startsWith("```")) {
                 flushParagraph(html, paragraph);
                 flushTable(html, table);
@@ -219,7 +227,7 @@ final class PluginReadmeRenderer {
         while (links.find()) {
             result.append(formatInlineText(value.substring(offset, links.start())));
             result.append("<a href=\"")
-                    .append(escapeAttribute(links.group(2)))
+                    .append(escapeAttribute(linkDestination(links.group(2))))
                     .append("\">")
                     .append(formatInlineText(links.group(1)))
                     .append("</a>");
@@ -227,6 +235,43 @@ final class PluginReadmeRenderer {
         }
         result.append(formatInlineText(value.substring(offset)));
         return result.toString();
+    }
+
+    private static String linkDestination(final String destination) {
+        // Generated first-party READMEs refer to the shared repository matrix.
+        // Resolve only this known documentation path; arbitrary local links stay inert.
+        return destination.startsWith("../../compatibility/")
+                ? "https://github.com/turboism/Turboism/blob/main/" + destination.substring(6)
+                : destination;
+    }
+
+    private static final class HtmlComments {
+        private static final Pattern TOKEN = Pattern.compile("`+|<!--|-->");
+        private boolean hidden;
+
+        String strip(final String line) {
+            final StringBuilder visible = new StringBuilder();
+            final Matcher tokens = TOKEN.matcher(line);
+            int offset = 0;
+            int codeDelimiter = 0;
+            while (tokens.find()) {
+                final String token = tokens.group();
+                if (hidden) {
+                    if (token.equals("-->")) {
+                        hidden = false;
+                        offset = tokens.end();
+                    }
+                } else if (token.startsWith("`")) {
+                    if (codeDelimiter == 0) codeDelimiter = token.length();
+                    else if (codeDelimiter == token.length()) codeDelimiter = 0;
+                } else if (codeDelimiter == 0 && token.equals("<!--")) {
+                    visible.append(line, offset, tokens.start());
+                    hidden = true;
+                }
+            }
+            if (!hidden) visible.append(line, offset, line.length());
+            return visible.toString();
+        }
     }
 
     private static String formatInlineText(final String value) {
