@@ -55,6 +55,8 @@ final class AcpChatControllerTestFixtures {
         volatile java.util.concurrent.CountDownLatch releasePermission;
         volatile AcpListener.PermissionDecision permissionDecision = AcpListener.PermissionDecision.CANCELLED;
         volatile AcpClient.McpAttachment lastMcpAttachment;
+        final java.util.concurrent.atomic.AtomicReference<List<AcpSessionSummary>> listedSessions =
+                new java.util.concurrent.atomic.AtomicReference<>(List.of());
 
         void record(final String event) {
             timeline.add(event);
@@ -98,7 +100,9 @@ final class AcpChatControllerTestFixtures {
         public void showSessions(
                 final List<AcpSessionSummary> sessions,
                 final String activeSessionId,
-                final boolean durableSessionsAvailable) {}
+                final boolean durableSessionsAvailable) {
+            listedSessions.set(List.copyOf(sessions));
+        }
 
         @Override
         public void clearTranscript() {
@@ -111,7 +115,9 @@ final class AcpChatControllerTestFixtures {
         }
 
         @Override
-        public void showPromptComplete(final String stopReason) {}
+        public void showPromptComplete(final String stopReason) {
+            record("complete:" + stopReason);
+        }
 
         @Override
         public void showFailure(final String localizationKey) {

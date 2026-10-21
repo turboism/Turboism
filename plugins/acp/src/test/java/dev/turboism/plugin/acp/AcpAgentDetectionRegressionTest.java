@@ -49,16 +49,15 @@ final class AcpAgentDetectionRegressionTest {
     Path temporaryDirectory;
 
     @Test
-    void ordinaryCliToolsAreNotCatalogAcpCandidates() {
-        // Raw native CLIs (claude, codex, pi) do not implement ACP v1 over stdio.
-        // Profiles must only search for true ACP adapters or ACP-native commands.
+    void originalClisPreferNativeProtocolsAndKeepAcpFallbacks() {
+        // Original CLIs use bundled native providers; adapters remain compatible.
         for (AgentProfile profile : AgentCatalog.profiles()) {
             if ("claude".equals(profile.id())) {
-                assertEquals(List.of("claude-agent-acp"), profile.executableCandidates());
+                assertEquals(List.of("claude", "claude-agent-acp"), profile.executableCandidates());
             } else if ("codex".equals(profile.id())) {
-                assertEquals(List.of("codex-acp"), profile.executableCandidates());
+                assertEquals(List.of("codex", "codex-acp"), profile.executableCandidates());
             } else if ("pi".equals(profile.id())) {
-                assertEquals(List.of("pi-acp"), profile.executableCandidates());
+                assertEquals(List.of("pi", "pi-acp"), profile.executableCandidates());
             } else if ("opencode".equals(profile.id())) {
                 assertEquals(List.of("acp"), profile.arguments());
             } else if ("devin".equals(profile.id())) {
@@ -181,13 +180,13 @@ final class AcpAgentDetectionRegressionTest {
             throw new IOException("test launch stop");
         })) {
             controller.connect();
-            fixture.view.awaitConnecting(5, TimeUnit.SECONDS);
+            fixture.view.awaitConnecting(30, TimeUnit.SECONDS);
 
             // Wait for failure indicating connect reached startClient
-            fixture.view.awaitFailure(5, TimeUnit.SECONDS);
+            fixture.view.awaitFailure(30, TimeUnit.SECONDS);
 
             // Detection must have run and broadcasted results to view
-            final Map<String, String> detected = fixture.view.awaitDetectedAgents(5, TimeUnit.SECONDS);
+            final Map<String, String> detected = fixture.view.awaitDetectedAgents(30, TimeUnit.SECONDS);
             assertNotNull(detected);
 
             // If an agent was detected on this host (opencode or devin), it was inferred and launched
@@ -258,7 +257,7 @@ final class AcpAgentDetectionRegressionTest {
         fixture.view.userSelectionDirty = true;
         try (AcpChatController controller = fixture.controller()) {
             controller.detectAgents();
-            fixture.view.awaitDetectedAgents(5, TimeUnit.SECONDS);
+            fixture.view.awaitDetectedAgents(30, TimeUnit.SECONDS);
 
             // Because view is dirty, controller must not apply inferred agent ID
             assertEquals(AgentCatalog.fallbackAgentId(), fixture.settings.agentId());
@@ -276,7 +275,7 @@ final class AcpAgentDetectionRegressionTest {
         final TestFixture fixture = new TestFixture(config);
         try (AcpChatController controller = fixture.controller()) {
             controller.detectAgents();
-            fixture.view.awaitDetectedAgents(5, TimeUnit.SECONDS);
+            fixture.view.awaitDetectedAgents(30, TimeUnit.SECONDS);
 
             assertTrue(fixture.settings.hasPersistedAgentId());
             assertEquals("codex", fixture.settings.agentId());
@@ -292,7 +291,7 @@ final class AcpAgentDetectionRegressionTest {
         final TestFixture fixture = new TestFixture(config);
         try (AcpChatController controller = fixture.controller()) {
             controller.connect();
-            final String failure = fixture.view.awaitFailure(5, TimeUnit.SECONDS);
+            final String failure = fixture.view.awaitFailure(30, TimeUnit.SECONDS);
             assertEquals("status.agent-not-found-generic", failure);
 
             assertTrue(

@@ -47,6 +47,7 @@ final class AcpProcessTransport implements AcpTransport {
         builder.redirectErrorStream(false);
         builder.environment().put("NO_COLOR", "1");
         builder.environment().putAll(launch.environment());
+        AgentLocator.augmentWindowsPath(builder.environment());
         if (validationJavaBridge(launch)) {
             stripJavaOptionVariables(builder.environment());
         }
@@ -270,6 +271,13 @@ final class AcpProcessTransport implements AcpTransport {
         } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException ignored) {
             // Every survivor has already received a forcible termination request.
         }
+    }
+
+    int awaitExit(final long timeoutNanos) throws InterruptedException, java.util.concurrent.TimeoutException {
+        if (!process.waitFor(Math.max(1L, timeoutNanos), TimeUnit.NANOSECONDS)) {
+            throw new java.util.concurrent.TimeoutException("Harness probe timed out");
+        }
+        return process.exitValue();
     }
 
     @Override

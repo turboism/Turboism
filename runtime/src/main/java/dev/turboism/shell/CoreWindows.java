@@ -1033,13 +1033,18 @@ final class CoreWindows implements AutoCloseable {
      * About dialog still renders when the host L&F is unhealthy.
      */
     private static void ensureSwingUis() {
+        // MultiUIDefaults.putIfAbsent ignores the look-and-feel fallback table.
+        // Resolve through get() before adding an application-wide override.
         final javax.swing.UIDefaults defaults = javax.swing.UIManager.getDefaults();
-        defaults.putIfAbsent("EditorPaneUI", "javax.swing.plaf.basic.BasicEditorPaneUI");
-        defaults.putIfAbsent("PanelUI", "javax.swing.plaf.basic.BasicPanelUI");
-        defaults.putIfAbsent("ButtonUI", "javax.swing.plaf.basic.BasicButtonUI");
-        defaults.putIfAbsent("LabelUI", "javax.swing.plaf.basic.BasicLabelUI");
-        defaults.putIfAbsent("TabbedPaneUI", "javax.swing.plaf.basic.BasicTabbedPaneUI");
-        defaults.putIfAbsent("ScrollPaneUI", "javax.swing.plaf.basic.BasicScrollPaneUI");
+        if (defaults.get("EditorPaneUI") == null)
+            defaults.put("EditorPaneUI", "javax.swing.plaf.basic.BasicEditorPaneUI");
+        if (defaults.get("PanelUI") == null) defaults.put("PanelUI", "javax.swing.plaf.basic.BasicPanelUI");
+        if (defaults.get("ButtonUI") == null) defaults.put("ButtonUI", "javax.swing.plaf.basic.BasicButtonUI");
+        if (defaults.get("LabelUI") == null) defaults.put("LabelUI", "javax.swing.plaf.basic.BasicLabelUI");
+        if (defaults.get("TabbedPaneUI") == null)
+            defaults.put("TabbedPaneUI", "javax.swing.plaf.basic.BasicTabbedPaneUI");
+        if (defaults.get("ScrollPaneUI") == null)
+            defaults.put("ScrollPaneUI", "javax.swing.plaf.basic.BasicScrollPaneUI");
     }
 
     /**

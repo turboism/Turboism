@@ -114,9 +114,8 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
             final byte[] classfileBuffer) {
         final AtlasCacheReuseTarget target = targets.get(className);
         if (target == null) return null;
-        // Unconditional sighting line: the host defines this class under more than one
-        // loader and a silently-skipped definition is indistinguishable from "the patch
-        // never ran" in captured console evidence. One bounded line per transform call.
+        // Validation-only sighting: production stays silent. The host can define this
+        // class under several loaders, so opted-in evidence records every sighting.
         report(
                 "SEEN",
                 target,
@@ -180,21 +179,14 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
     }
 
     /**
-     * One bounded line per terminal outcome, to stderr and — when
-     * {@code turboism.atlasCacheReuse.evidenceFile} names a path — to that file. The
-     * host's wrapped stderr stream is asynchronous and can drop or reorder lines under
-     * startup load, so validation evidence must not depend on it alone.
+     * Appends validation diagnostics only when {@code turboism.atlasCacheReuse.evidenceFile}
+     * names a path. Never writes to the host console: Cubism labels stderr as errors,
+     * including successful patch outcomes.
      */
     private static void report(final String outcome, final AtlasCacheReuseTarget target, final String detail) {
         final String line = "[turboism] atlas-cache-reuse " + outcome
                 + " " + target.internalName()
                 + (detail == null || detail.isEmpty() ? "" : " " + detail);
-        try {
-            System.err.println(line);
-        } catch (Throwable ignored) {
-            FatalErrors.rethrowIfFatal(ignored);
-            // The console is evidence, never a failure source.
-        }
         final String evidence = evidenceFile();
         if (evidence != null && !evidence.isEmpty()) {
             try {

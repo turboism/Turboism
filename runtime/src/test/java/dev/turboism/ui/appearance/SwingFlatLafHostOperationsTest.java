@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.awt.Color;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import javax.swing.UIManager;
 import javax.swing.plaf.ColorUIResource;
@@ -13,6 +15,77 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 class SwingFlatLafHostOperationsTest {
+
+    @Test
+    void refreshesCanvasOnTheEdtForThemeSwitchesAndBothRestorePaths() {
+        final Color nativeBackground = new Color(222, 223, 224);
+        UIManager.put("CubismCommon.gl.viewArea.background", nativeBackground);
+        final List<Color> rendered = new ArrayList<>();
+        final SwingFlatLafHostOperations host = new SwingFlatLafHostOperations(flatLafLoader(), color -> {
+            assertTrue(javax.swing.SwingUtilities.isEventDispatchThread());
+            assertEquals(UIManager.getColor("CubismCommon.gl.viewArea.background"), color);
+            rendered.add(color);
+        });
+        final Map<String, String> baseline = host.capture();
+
+        host.replace(Map.of("CubismCommon.gl.viewArea.background", "#242933"));
+        host.refresh();
+        host.replace(Map.of("CubismCommon.gl.viewArea.background", "#E0EFF5"));
+        host.refresh();
+        host.restore(baseline);
+        host.replace(Map.of("CubismCommon.gl.viewArea.background", "#242933"));
+        host.refresh();
+        host.restoreNative();
+
+        assertEquals(
+                List.of(
+                        new Color(36, 41, 51),
+                        new Color(224, 239, 245),
+                        nativeBackground,
+                        new Color(36, 41, 51),
+                        nativeBackground),
+                rendered);
+    }
+
+    private ClassLoader flatLafLoader() {
+        // Keep the stub confined to this loader: other tests verify missing-host failures.
+        return new ClassLoader(getClass().getClassLoader()) {
+            @Override
+            protected Class<?> loadClass(final String name, final boolean resolve) throws ClassNotFoundException {
+                if (!name.equals("com.formdev.flatlaf.FlatLaf")) {
+                    return super.loadClass(name, resolve);
+                }
+                Class<?> type = findLoadedClass(name);
+                if (type == null) {
+                    type = findClass(name);
+                }
+                if (resolve) {
+                    resolveClass(type);
+                }
+                return type;
+            }
+
+            @Override
+            protected Class<?> findClass(final String name) throws ClassNotFoundException {
+                if (!name.equals("com.formdev.flatlaf.FlatLaf")) {
+                    return super.findClass(name);
+                }
+                final var writer = new org.objectweb.asm.ClassWriter(0);
+                writer.visit(61, 1, "com/formdev/flatlaf/FlatLaf", null, "java/lang/Object", null);
+                for (String method : List.of("registerCustomDefaultsSource", "updateUI")) {
+                    final var visitor = writer.visitMethod(
+                            9, method, method.equals("updateUI") ? "()V" : "(Ljava/io/File;)V", null, null);
+                    visitor.visitCode();
+                    visitor.visitInsn(org.objectweb.asm.Opcodes.RETURN);
+                    visitor.visitMaxs(0, method.equals("updateUI") ? 0 : 1);
+                    visitor.visitEnd();
+                }
+                writer.visitEnd();
+                final byte[] bytes = writer.toByteArray();
+                return defineClass(name, bytes, 0, bytes.length);
+            }
+        };
+    }
 
     @AfterEach
     void clear() {
