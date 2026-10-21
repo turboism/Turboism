@@ -1,0 +1,3 @@
+algorithm,items,pageWidth,pageHeight,requestedScale,medianMs,minMs,maxMs,scale,placed
+bssf,101,4096,4096,0.000000,11.988,8.077,28.798,1.000000,101
+nesting,101,4096,4096,0.000000,138.455,91.372,243.503,1.000000,101

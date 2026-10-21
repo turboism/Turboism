@@ -7,7 +7,7 @@ status: development
 delivery: development-only
 category: modeling
 tags: texture-atlas, packing, polygon, auto-layout
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -20,7 +20,14 @@ interface: none
 
 ## 要件と互換性
 
-Java 17+、Turboism API [0.67.1,1.0.0)、バージョン一覧の Cubism 5.2–5.3 が必要です。既存の AUTO バックエンド値と bitmask-nesting 診断を使用し、SDK 列挙型の追加は不要です。
+Java 17+、Turboism API [0.67.0,1.0.0)、自動生成一覧にある Cubism 5.0–5.3 が必要です。5.2–5.3 は輪郭配置に対応し、5.0–5.1 では輪郭サービスが利用できない場合に矩形配置を使用します。既存の AUTO バックエンド値と bitmask-nesting 診断を使用し、SDK 列挙型の追加は不要です。
+
+<!-- compatibility:begin -->
+**Cubism Editor バージョン対応（自動生成）：** 全審査済みバージョン（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04、20 個の正確なバージョン）.
+全機能（審査済みバージョン）：5.2.00–5.2.03, 5.3.00–5.3.04。
+- ポリゴン対応アトラスレイアウト のみ 5.2.00–5.3.04（それ以前の Cubism バージョンには機能自体がない）
+完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
+<!-- compatibility:end -->
 
 ## インストールと有効化
 
