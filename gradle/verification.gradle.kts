@@ -530,6 +530,21 @@ val checkCompatibilityMatrixSelfTest by tasks.registering(Exec::class) {
     )
 }
 
+/*
+ * generate_compatibility_matrix.py reads Java sources only through token-gated
+ * regexes (scripts/compat_matrix/extract.py): a file that lacks every listed
+ * token provably cannot change the output. Selecting by content keeps edits to
+ * unrelated Java files from re-running the check, while a file that gains or
+ * loses a token enters or leaves the set and so still invalidates the task.
+ */
+fun javaSourcesContaining(dir: String, vararg tokens: String): FileCollection =
+    files(provider {
+        fileTree(dir) { include("**/*.java") }.files.filter { source ->
+            val text = source.readText()
+            tokens.any { text.contains(it) }
+        }
+    })
+
 val checkCompatibilityMatrix by tasks.registering(Exec::class) {
     group = "verification"
     description = "Fails when generated compatibility artifacts drift from the reviewed data."
@@ -538,18 +553,27 @@ val checkCompatibilityMatrix by tasks.registering(Exec::class) {
     inputs.files(
         "scripts/generate_compatibility_matrix.py",
         fileTree("scripts/compat_matrix") { include("*.py") },
+        fileTree("scripts/turboism_dev") { include("*.py") },
+        "scripts/version-monotonicity-exceptions.json",
         "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
         "runtime/src/main/java/dev/turboism/core/plugin/context/CubismEditorApiAvailabilityInterceptor.java",
         "validation/cubism-version-matrix/campaign-jobs.json",
         "validation/cubism-version-matrix/inventory.json",
         "compatibility/cubism/compatibility-matrix.json",
+        "compatibility/cubism/version-boundaries.json",
+        "compatibility/cubism/official-feature-timeline.json",
         "packaging/release-plugins.txt",
         "packaging/market-plugins.json",
         fileTree("compatibility/cubism/verification") { include("*.json") },
         fileTree("scripts/verification-sources/families") { include("*.json") },
-        fileTree("scripts/verification-sources/templates") { include("**/*.java") },
-        fileTree("sdk/src/main/java") { include("**/*.java") },
-        fileTree("runtime/src/main/java") { include("**/*.java") },
+        // SUPPORTED_*_VERSIONS sets (contract and feature-level gates).
+        javaSourcesContaining("scripts/verification-sources/templates", "SUPPORTED"),
+        javaSourcesContaining("runtime/src/main/java", "SUPPORTED", "ClassPinTable.load("),
+        // @CubismEditor annotations; the three command enums are parsed by path.
+        javaSourcesContaining("sdk/src/main/java", "CubismEditor"),
+        "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorCommand.java",
+        "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorParameterizedCommand.java",
+        "sdk/src/main/java/dev/turboism/sdk/cubism/command/EditorFileCommand.java",
         fileTree("runtime/src/main/resources/dev/turboism/adapter/cubism/class-pins") {
             include("*.json")
         },
@@ -558,6 +582,7 @@ val checkCompatibilityMatrix by tasks.registering(Exec::class) {
             include("*/src/main/resources/META-INF/turboism/plugin.json")
             include("*/src/main/resources/META-INF/turboism/*-coverage.json")
             include("*/src/main/resources/META-INF/turboism/cubism-versions.json")
+            // Plugin sources stay whole: SDK accessor use is detected by method-name regex.
             include("*/src/main/java/**/*.java")
             include("README*.md")
         }

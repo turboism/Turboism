@@ -174,6 +174,12 @@ the reviewed artifact digest; keep `metadata.selectorCount`, `capabilityCount`,
 bytes) exactly in sync — this metadata has drifted before (see the provenance
 report) and only part of it is currently enforced.
 
+Reviewed packs may set one top-level `exactArtifactSha256` (the reviewed
+artifact digest, equal to the record's `artifact.sha256`). Entries carry no
+per-entry review block: the record alias and mapping id are the entry's own
+`name` and `semanticName`, and the access flags live only in the verification
+record (`x.verification` keeps `ownerInternalName`).
+
 Then author `profiles/draft/cubism-X.Y.Z.json` (`format: turboism.profile`,
 `status: DRAFT`, `verifiedBy: "none"`, `verifiedAt: null`) listing the pack IDs.
 
