@@ -14,6 +14,10 @@ case "$variant" in
     parallel=true; variant="${variant%-parallel}" ;;
 esac
 dataset=geometry; ui_timing=false
+heavy=false
+if [[ "$variant" == ui-heavy-0-polygon ]]; then
+  heavy=true; dataset=heavy; ui_timing=true
+fi
 case "$variant" in
   ui-circle-*-native|ui-circle-*-new|ui-circle-*-polygon) dataset=circle; ui_timing=true ;;
   ui-geometry-*-native|ui-geometry-*-new|ui-geometry-*-polygon) ui_timing=true ;;
@@ -27,6 +31,9 @@ geometry_500=99038495f8c7fb9ee94cf6b9ce3d60370fc0203c411ed39b0084d84ce72a683b
 geometry_1000=2f64a7f5fd4f2abc4cdd0036d1943f8382f30581228ea5f87143b5b367abd3e2
 geometry_2500=4bb38d8073cf339b32047bf186514dc7d3709cbfb90dbe665b0a5b0a76daf24b
 count=""
+if [[ "$heavy" == true ]]; then
+  count=0; hash=029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c
+fi
 case "$variant" in
   *-100-native|*-100-new|*-100-polygon) count=100; hash=$circle_100 ;;
   *-500-native|*-500-new|*-500-polygon) count=500; hash=$circle_500 ;;
@@ -50,6 +57,7 @@ result_timeout=7500
 # measured host method time alone was ~1635 s; allow 45 minutes for that case.
 [[ "$ui_timing" != true ]] || result_timeout=1800
 layout_deadline=1800
+[[ "$heavy" != true ]] || { layout_deadline=120; result_timeout=600; }
 if [[ "$ui_timing" == true && "$variant" == ui-geometry-1000-native ]]; then
   result_timeout=2700; layout_deadline=2700
 fi
@@ -78,6 +86,10 @@ dalsoo=("$root/build/worktree/$id/atlas-dalsoo-polygon/libs/"*.jar)
 fixture_name="atlas_mapping_geometry_$count.cmo3"
 [[ "$dataset" != circle ]] || fixture_name="atlas_mapping_$count.cmo3"
 fixture="$root/test-assets/texture-atlas-layout/cmo3/$dataset/$fixture_name"
+if [[ "$heavy" == true ]]; then
+  fixture_name=heavy.cmo3
+  fixture="$root/test-assets/texture-atlas-layout/heavy.cmo3"
+fi
 exec bash "$root/scripts/preview/run-cubism-host-validation.sh" \
   --name atlas --version "$version" --run-label "$label-$variant-parallel-$parallel" \
   --bundle-root "$bundle" --agent "$agent" \

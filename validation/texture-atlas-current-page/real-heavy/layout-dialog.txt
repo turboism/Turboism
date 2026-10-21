@@ -1,0 +1,21 @@
+2917	     javax.swing.JLabel	true/true	排版算法
+2918	     javax.swing.JComboBox	true/true	selected=Dalsoo 多边形; options=[原生 (Cubism), Dalsoo 多边形, MaxRects-BSSF]
+2921	     javax.swing.JLabel	true/true	旋转档位
+2922	     javax.swing.JComboBox	true/true	selected=自由旋转（18 档角度）; options=[不旋转, 直角旋转（90° 步进）, 自由旋转（18 档角度）]
+2925	     javax.swing.JLabel	true/true	锁定预设
+2926	     javax.swing.JComboBox	true/true	selected=不锁定; options=[不锁定, 全部锁定, 角度, 缩放, 角度 + 缩放, 位置 + 角度]
+2929	     javax.swing.JLabel	true/true	缩放模式
+2930	     javax.swing.JComboBox	true/true	selected=自动; options=[自动, 固定]
+2933	     javax.swing.JLabel	true/true	固定缩放（%）
+2934	     javax.swing.JTextField	true/false	
+2935	     javax.swing.JLabel	true/true	缩放容差
+2936	     javax.swing.JTextField	true/true	
+2937	     javax.swing.JLabel	true/true	缩放最大尝试
+2938	     javax.swing.JTextField	true/true	
+2939	     javax.swing.JLabel	true/true	打包内核
+2940	     javax.swing.JComboBox	true/true	selected=Abey; options=[Abey, Dalalah]
+2943	     javax.swing.JLabel	true/true	并行化
+2944	     javax.swing.JCheckBox	true/true	启用并行搜索（纹理 ≥16 时生效）
+2945	     javax.swing.JLabel	true/true	Search scope
+2946	     javax.swing.JComboBox	true/true	selected=Limited candidates (default, up to 24 anchors); options=[Fast (up to 8 anchors per outline), Limited candidates (default, up to 24 anchors), Full search (slower)]
+2954	     javax.swing.JLabel	true/true	

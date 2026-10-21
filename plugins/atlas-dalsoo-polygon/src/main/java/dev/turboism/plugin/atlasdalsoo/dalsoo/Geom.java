@@ -188,6 +188,14 @@ final class Geom {
      * endpoints and collinear contact do not count.
      */
     static boolean segmentsCrossStrict(final double[] a, final double[] b, final double[] c, final double[] d) {
+        // Nearly collinear disjoint segments can acquire opposite tiny signed
+        // areas through cancellation. Their boxes prove they cannot cross.
+        if (Math.min(a[0], b[0]) > Math.max(c[0], d[0]) + PRECISION
+                || Math.max(a[0], b[0]) < Math.min(c[0], d[0]) - PRECISION
+                || Math.min(a[1], b[1]) > Math.max(c[1], d[1]) + PRECISION
+                || Math.max(a[1], b[1]) < Math.min(c[1], d[1]) - PRECISION) {
+            return false;
+        }
         return triangleArea(a, b, d) * triangleArea(a, b, c) < 0 && triangleArea(c, d, a) * triangleArea(c, d, b) < 0;
     }
 
@@ -237,6 +245,45 @@ final class Geom {
             }
         }
         return false;
+    }
+
+    /** Same strict predicates as the exhaustive path, with cached edge buckets. */
+    static boolean overlapStrict(
+            final double[][] candidate,
+            final double[] candidateBb,
+            final double[] candidateCentroid,
+            final StrictRingIndex candidateIndex,
+            final double[][] placed,
+            final double[] placedBb,
+            final double[] placedCentroid,
+            final StrictRingIndex placedIndex) {
+        if (candidateBb[0] > placedBb[2]
+                || placedBb[0] > candidateBb[2]
+                || candidateBb[1] > placedBb[3]
+                || placedBb[1] > candidateBb[3]) {
+            return false;
+        }
+        if (withinBounds(candidateCentroid, placedBb) && placedIndex.inside(candidateCentroid)
+                || withinBounds(placedCentroid, candidateBb) && candidateIndex.inside(placedCentroid)) {
+            return true;
+        }
+        for (final double[] point : candidate) {
+            if (withinBounds(point, placedBb) && placedIndex.inside(point)) return true;
+        }
+        for (final double[] point : placed) {
+            if (withinBounds(point, candidateBb) && candidateIndex.inside(point)) return true;
+        }
+        for (int i = 0; i < candidate.length; i++) {
+            if (placedIndex.crosses(candidate[i], candidate[(i + 1) % candidate.length])) return true;
+        }
+        return false;
+    }
+
+    private static boolean withinBounds(final double[] point, final double[] bb) {
+        return point[0] >= bb[0] - PRECISION
+                && point[0] <= bb[2] + PRECISION
+                && point[1] >= bb[1] - PRECISION
+                && point[1] <= bb[3] + PRECISION;
     }
 
     /**

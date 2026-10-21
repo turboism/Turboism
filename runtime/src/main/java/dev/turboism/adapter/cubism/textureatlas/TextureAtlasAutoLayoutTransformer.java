@@ -146,6 +146,28 @@ public final class TextureAtlasAutoLayoutTransformer implements ClassFileTransfo
                                 visitLabel(callbackFailure);
                                 visitInsn(Opcodes.POP);
                                 visitLabel(nativePath);
+                                // An explicit Dalsoo choice must never silently run native packing,
+                                // including missing/failed ingress. The coordinator has restored any
+                                // failed plugin session; report failure without claiming it was applied.
+                                final Label nativeAllowed = new Label();
+                                visitLdcInsn("dalsoo");
+                                visitLdcInsn(TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY);
+                                visitMethodInsn(
+                                        Opcodes.INVOKESTATIC,
+                                        "java/lang/System",
+                                        "getProperty",
+                                        "(Ljava/lang/String;)Ljava/lang/String;",
+                                        false);
+                                visitMethodInsn(
+                                        Opcodes.INVOKEVIRTUAL,
+                                        "java/lang/String",
+                                        "equals",
+                                        "(Ljava/lang/Object;)Z",
+                                        false);
+                                visitJumpInsn(Opcodes.IFEQ, nativeAllowed);
+                                visitInsn(Opcodes.ICONST_0);
+                                super.visitInsn(Opcodes.IRETURN);
+                                visitLabel(nativeAllowed);
                                 if (!nativeBodyEntryKey.isEmpty()) {
                                     emitObserver(nativeBodyEntryKey);
                                 }

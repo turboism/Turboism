@@ -142,6 +142,42 @@ class TextureAtlasAutoLayoutTransformerTest {
         }
     }
 
+    @Test
+    void explicitDalsooNeverFallsBackWhenIngressIsMissingDeclinesOrThrows() throws Exception {
+        final String key = "test.texture-atlas.no-native-fallback";
+        final String selectionKey = TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY;
+        final String previous = System.getProperty(selectionKey);
+        final var transformer =
+                new TextureAtlasAutoLayoutTransformer("fixture/AutoLayout", "a", "(Ljava/lang/Object;)Z", null, key);
+        final var loader = new FixtureLoader(null);
+        final var type = loader.define(
+                "fixture.AutoLayout",
+                transformer.transform(null, null, "fixture/AutoLayout", null, null, fixtureClass()));
+        final var instance = type.getConstructor().newInstance();
+        try {
+            System.setProperty(selectionKey, "dalsoo");
+            assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
+            System.getProperties().put(key, (Predicate<Object>) receiver -> false);
+            assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
+            System.getProperties().put(key, (Predicate<Object>) receiver -> {
+                throw new IllegalStateException("failed");
+            });
+            assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
+            assertEquals(0, type.getField("nativeCalls").getInt(null));
+            System.getProperties().put(key, (Predicate<Object>) receiver -> true);
+            assertTrue((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
+            assertEquals(0, type.getField("nativeCalls").getInt(null));
+            System.setProperty(selectionKey, "native");
+            System.getProperties().remove(key);
+            assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
+            assertEquals(1, type.getField("nativeCalls").getInt(null));
+        } finally {
+            System.getProperties().remove(key);
+            if (previous == null) System.clearProperty(selectionKey);
+            else System.setProperty(selectionKey, previous);
+        }
+    }
+
     private static byte[] fixtureClass() {
         final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "fixture/AutoLayout", null, "java/lang/Object", null);

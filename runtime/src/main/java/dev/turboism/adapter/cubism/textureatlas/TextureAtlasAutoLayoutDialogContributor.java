@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.textureatlas;
 
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutQuality;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode;
 import java.awt.Component;
 import java.awt.Container;
@@ -48,6 +49,7 @@ public final class TextureAtlasAutoLayoutDialogContributor {
     public static final String ALGORITHM_KEY = "dev.turboism.texture-atlas.dialog.algorithm";
 
     public static final String PARALLEL_KEY = "dev.turboism.texture-atlas.dialog.parallel";
+    public static final String QUALITY_KEY = "dev.turboism.texture-atlas.dialog.quality";
     public static final String ROTATION_KEY = "dev.turboism.texture-atlas.dialog.rotation";
     public static final String LOCK_PRESET_KEY = "dev.turboism.texture-atlas.dialog.lock-preset";
     public static final String AUTO_SCALE_KEY = "dev.turboism.texture-atlas.dialog.auto-scale";
@@ -183,6 +185,17 @@ public final class TextureAtlasAutoLayoutDialogContributor {
                 indexOf(rotations, System.getProperty(ROTATION_KEY, TextureAtlasRotationMode.QUARTER.name())));
         rotationCombo.setToolTipText(bundle.getString("dialog.rotation.tooltip"));
 
+        final TextureAtlasLayoutQuality[] qualities = TextureAtlasLayoutQuality.values();
+        final String[] qualityLabels = new String[qualities.length];
+        for (int i = 0; i < qualities.length; i++) {
+            qualityLabels[i] = bundle.getString(
+                    "dialog.quality.option." + qualities[i].name().toLowerCase(Locale.ROOT));
+        }
+        final JComboBox<String> qualityCombo = new JComboBox<>(qualityLabels);
+        qualityCombo.setSelectedIndex(
+                indexOfQuality(System.getProperty(QUALITY_KEY, TextureAtlasLayoutQuality.BALANCED.name())));
+        qualityCombo.setToolTipText(bundle.getString("dialog.quality.tooltip"));
+
         final String[] lockLabels = new String[LOCK_PRESETS.length];
         for (int i = 0; i < LOCK_PRESETS.length; i++) {
             lockLabels[i] = bundle.getString("dialog.lock.option." + LOCK_PRESETS[i].toLowerCase(Locale.ROOT));
@@ -249,6 +262,7 @@ public final class TextureAtlasAutoLayoutDialogContributor {
             final boolean polygon = selected != null && selected.supportsPolygonOptions();
             final boolean autoScale = !"false".equals(System.getProperty(AUTO_SCALE_KEY, "true"));
             rotationCombo.setEnabled(polygon);
+            qualityCombo.setEnabled(polygon);
             lockCombo.setEnabled(polygon);
             scaleModeCombo.setEnabled(polygon);
             fixedScaleField.setEnabled(polygon && !autoScale);
@@ -265,6 +279,8 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         parallelCheck.addActionListener(event -> publishSelection.run());
         rotationCombo.addActionListener(
                 event -> System.getProperties().put(ROTATION_KEY, rotations[rotationCombo.getSelectedIndex()].name()));
+        qualityCombo.addActionListener(
+                event -> System.getProperties().put(QUALITY_KEY, qualities[qualityCombo.getSelectedIndex()].name()));
         lockCombo.addActionListener(
                 event -> System.getProperties().put(LOCK_PRESET_KEY, LOCK_PRESETS[lockCombo.getSelectedIndex()]));
         scaleModeCombo.addActionListener(event -> {
@@ -298,8 +314,11 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         addOptionRow(center, 13, "dialog.kernel.label", kernelCombo, insetY);
         final JLabel parallelLabel = addOptionRow(center, 14, "dialog.parallel.label", parallelCheck, insetY);
 
+        addOptionRow(center, 15, "dialog.quality.label", qualityCombo, insetY);
+
         final Map<String, JComponent> optionControls = new LinkedHashMap<>();
         optionControls.put("rotation", rotationCombo);
+        optionControls.put("quality", qualityCombo);
         optionControls.put("lockPreset", lockCombo);
         optionControls.put("scaleMode", scaleModeCombo);
         optionControls.put("fixedScale", fixedScaleField);
@@ -334,6 +353,14 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         controlConstraints.insets = new Insets(insetY, 0, insetY, 0);
         center.add(control, controlConstraints);
         return label;
+    }
+
+    private static int indexOfQuality(final String name) {
+        try {
+            return TextureAtlasLayoutQuality.valueOf(name).ordinal();
+        } catch (final IllegalArgumentException ignored) {
+            return TextureAtlasLayoutQuality.BALANCED.ordinal();
+        }
     }
 
     private static int indexOf(final TextureAtlasRotationMode[] values, final String name) {
