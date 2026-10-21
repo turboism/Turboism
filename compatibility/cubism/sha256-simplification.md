@@ -38,3 +38,22 @@ reviewed host/class bytes and signed plugin metadata retain their checks.
 
 Validation results and any environment/baseline failures are recorded in the
 implementation handoff rather than hidden by disabling repository gates.
+
+## Acceptance evidence (2026-10-21)
+
+- `JAVA_TOOL_OPTIONS=-Djava.awt.headless=true ./gradlew devCheck spotlessCheck`:
+  BUILD SUCCESSFUL. Runtime admission: 3,895 tests, 56 skipped; integration
+  admission: 23 tests, one skipped; no failures. Headless mode avoids this
+  desktop's blocking `Robot.createScreenCapture` / Screencast portal call.
+- Focused resolver/repository tests: 48 tests, no failures. Probe/evidence Python
+  suites: 9 + 26 tests; queue: 121 tests; memory identity/process cleanup: 12 + 11
+  tests; all passed. Queue multiprocessing requires normal host permissions.
+- `checkCompletedCommit` was attempted. It fails in the inherited atlas folder
+  plugin's `OfficialPluginCatalogCompletenessTest`: unsorted baseline keys and
+  copied English values in Korean resources. The aggregate has not passed and
+  this branch has not been promoted to `main`.
+- Real-host smoke was not run: this workspace has no `.env`, and host root,
+  golden prefix, Proton runner and 5302 fixture settings are unset.
+
+The three delegated branches and the previously uncommitted phase-one follow-up
+are preserved in the integration branch `ci/simplify-sha256-gates`.
