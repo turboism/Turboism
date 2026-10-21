@@ -44,6 +44,7 @@ class HostValidationSchedulerTest(unittest.TestCase):
             "acp",
             "animation-timeline",
             "atlas",
+            "atlas-folders",
             "atlas-image",
             "atlas-polygon",
             "backup",

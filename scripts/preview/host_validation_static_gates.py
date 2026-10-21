@@ -203,7 +203,7 @@ def _semver_tuple(version: str) -> tuple[int, ...]:
 # for every standalone variant, and the owned-moc wrapper pins its startFree
 # option unconditionally. They need no -assisted variant and emit no "no
 # assisted variant" warning when a newer fixture would route other tasks.
-SELF_RESPONDING_STARTUP_TASKS = frozenset({"mcp", "core-owned-moc"})
+SELF_RESPONDING_STARTUP_TASKS = frozenset({"mcp", "core-owned-moc", "atlas-folders"})
 
 
 def assisted_variant(task: Any, current: str | None) -> str | None:

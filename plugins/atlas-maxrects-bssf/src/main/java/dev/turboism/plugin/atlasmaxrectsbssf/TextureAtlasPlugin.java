@@ -54,6 +54,7 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         enabled = true;
         registerAlgorithms();
         applyLegacySelection();
+        new FolderAtlasAction(context).register();
         // context.logger().info("Texture Atlas automatic layout uses current-page scope; layout-mode="
         //     + settings.confirmed().layoutMode() + " applies only to explicit complete-atlas SDK requests.");
     }

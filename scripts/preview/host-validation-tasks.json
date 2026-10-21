@@ -5174,6 +5174,54 @@
         "display-input": 1,
         "performance-host": 1
       }
+    },
+    "atlas-folders": {
+      "description": "Folder atlas production modal, hierarchy split, page dimensions, undo/redo, save and reopen on an isolated fixture.",
+      "command": "scripts/preview/run-atlas-folders-host-validation.sh",
+      "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "defaultVariant": "maxrects",
+      "variants": {
+        "maxrects": [
+          "{version}",
+          "{runLabel}",
+          "maxrects"
+        ],
+        "dalsoo": [
+          "{version}",
+          "{runLabel}",
+          "dalsoo"
+        ],
+        "reopen": [
+          "{version}",
+          "{runLabel}",
+          "reopen"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
     }
   }
 }
