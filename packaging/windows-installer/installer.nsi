@@ -89,9 +89,11 @@ SetFont "MS Shell Dlg" 12
 !define MUI_FINISHPAGE_TITLE "$(FinishTitleText)"
 !define MUI_FINISHPAGE_TEXT "$(FinishBodyText)"
 !define MUI_FINISHPAGE_RUN
+!define MUI_FINISHPAGE_RUN_NOTCHECKED
 !define MUI_FINISHPAGE_RUN_FUNCTION LaunchTurboism
 !define MUI_FINISHPAGE_RUN_TEXT "$(FinishLaunchTurboismText)"
 !define MUI_FINISHPAGE_SHOWREADME
+!define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
 !define MUI_FINISHPAGE_SHOWREADME_FUNCTION OpenInstallDirectory
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "$(FinishOpenFolderText)"
 
@@ -384,10 +386,10 @@ LangString InitialConfigurationError ${LANG_ENGLISH} "Cubism launch configuratio
 LangString InitialConfigurationError ${LANG_SIMPCHINESE} "无法应用 Cubism 启动配置。Turboism 已安装；请运行安装目录中的 configure_turboism.ps1 检查所选安装。"
 LangString InitialConfigurationError ${LANG_JAPANESE} "Cubism の起動設定を適用できませんでした。Turboism はインストール済みです。インストール先の configure_turboism.ps1 で選択したインストールを確認してください。"
 LangString InitialConfigurationError ${LANG_KOREAN} "Cubism 시작 구성을 적용하지 못했습니다. Turboism은 설치되었습니다. 설치 폴더의 configure_turboism.ps1에서 선택한 설치를 확인하세요."
-LangString BatIntegrationError ${LANG_ENGLISH} "Cubism BAT integration did not complete or elevation was canceled. Review the installer log and run Turboism_Configurator to inspect or retry; hash-protected files are never overwritten after an unknown edit."
-LangString BatIntegrationError ${LANG_SIMPCHINESE} "Cubism BAT 集成未完成，或管理员授权已取消。请查看安装日志，并运行 Turboism_Configurator 检查或重试；检测到未知改动后绝不会覆盖受哈希保护的文件。"
-LangString BatIntegrationError ${LANG_JAPANESE} "Cubism BAT の統合が完了しなかったか、管理者承認がキャンセルされました。インストーラーログを確認し、Turboism_Configurator で状態確認または再試行してください。不明な編集を検出したファイルは上書きしません。"
-LangString BatIntegrationError ${LANG_KOREAN} "Cubism BAT 통합이 완료되지 않았거나 관리자 승인이 취소되었습니다. 설치 로그를 확인하고 Turboism_Configurator를 실행하여 점검하거나 다시 시도하세요. 알 수 없는 변경이 감지된 해시 보호 파일은 절대 덮어쓰지 않습니다."
+LangString BatIntegrationError ${LANG_ENGLISH} "Cubism BAT integration did not complete or elevation was canceled. Review the installer log and run Turboism_Configurator to inspect or retry; hash-protected files are never overwritten after an unknown edit.$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
+LangString BatIntegrationError ${LANG_SIMPCHINESE} "Cubism BAT 集成未完成，或管理员授权已取消。请查看安装日志，并运行 Turboism_Configurator 检查或重试；检测到未知改动后绝不会覆盖受哈希保护的文件。$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
+LangString BatIntegrationError ${LANG_JAPANESE} "Cubism BAT の統合が完了しなかったか、管理者承認がキャンセルされました。インストーラーログを確認し、Turboism_Configurator で状態確認または再試行してください。不明な編集を検出したファイルは上書きしません。$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
+LangString BatIntegrationError ${LANG_KOREAN} "Cubism BAT 통합이 완료되지 않았거나 관리자 승인이 취소되었습니다. 설치 로그를 확인하고 Turboism_Configurator를 실행하여 점검하거나 다시 시도하세요. 알 수 없는 변경이 감지된 해시 보호 파일은 절대 덮어쓰지 않습니다.$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
 LangString StartMenuResultCreated ${LANG_ENGLISH} "Turboism Start-menu shortcuts are enabled."
 LangString StartMenuResultCreated ${LANG_SIMPCHINESE} "已启用 Turboism 开始菜单快捷方式。"
 LangString StartMenuResultCreated ${LANG_JAPANESE} "Turboism のスタートメニューショートカットを有効にしました。"
