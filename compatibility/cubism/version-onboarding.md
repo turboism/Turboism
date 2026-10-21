@@ -173,6 +173,10 @@ the reviewed artifact digest; keep `metadata.selectorCount`, `capabilityCount`,
 bytes) exactly in sync — this metadata has drifted before (see the provenance
 report) and only part of it is currently enforced.
 
+Packs whose entries carry `x.review` also set one top-level
+`exactArtifactSha256` (the reviewed artifact digest, equal to the record's
+`artifact.sha256`); do not repeat it inside each `x.review` block.
+
 Then author `profiles/draft/cubism-X.Y.Z.json` (`format: turboism.profile`,
 `status: DRAFT`, `verifiedBy: "none"`, `verifiedAt: null`) listing the pack IDs.
 

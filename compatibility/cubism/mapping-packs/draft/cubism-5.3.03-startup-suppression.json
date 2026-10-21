@@ -4,6 +4,7 @@
   "status": "DRAFT",
   "source": "jar-metadata-probe",
   "cubismVersion": "5.3.03",
+  "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
   "metadata": {
     "validationNotes": "Exact metadata inventory for adapter.cubism.startup-suppression, taken verbatim from the premain transformer contract: the startup entry, the splash factory, and the update-check / information call targets the suppression rewrites. Every selector verified VERIFIED_STATIC against the exact artifact. Pack remains DRAFT; only its hash-anchored record is VERIFIED_STATIC.",
     "inventoryRef": "compatibility/cubism/verification/cubism-5.3.03-startup-suppression.json",
@@ -42,7 +43,6 @@
       "x.review": {
         "recordAlias": "cubism.startup-suppression.app.class",
         "recordMappingId": "cubism.mapping.v5_3_03.startup_suppression.class.app",
-        "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
         "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
       }
     },
@@ -69,7 +69,6 @@
       "x.review": {
         "recordAlias": "cubism.startup-suppression.app.startup",
         "recordMappingId": "cubism.mapping.v5_3_03.startup_suppression.method.startup",
-        "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
         "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
       }
     },
@@ -96,7 +95,6 @@
       "x.review": {
         "recordAlias": "cubism.startup-suppression.app.splash-factory",
         "recordMappingId": "cubism.mapping.v5_3_03.startup_suppression.method.splash_factory",
-        "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
         "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
       }
     },
@@ -122,7 +120,6 @@
       "x.review": {
         "recordAlias": "cubism.startup-suppression.app-controller.class",
         "recordMappingId": "cubism.mapping.v5_3_03.startup_suppression.class.app_ctrl",
-        "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
         "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
       }
     },
@@ -149,7 +146,6 @@
       "x.review": {
         "recordAlias": "cubism.startup-suppression.app-controller.update-check",
         "recordMappingId": "cubism.mapping.v5_3_03.startup_suppression.method.update_check",
-        "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
         "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
       }
     },
@@ -176,7 +172,6 @@
       "x.review": {
         "recordAlias": "cubism.startup-suppression.app-controller.show-information",
         "recordMappingId": "cubism.mapping.v5_3_03.startup_suppression.method.show_information",
-        "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
         "provenance": "exact classfile verification on the reviewed artifact via cubism_version_matrix"
       }
     }
