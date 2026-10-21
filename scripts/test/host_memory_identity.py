@@ -1,6 +1,7 @@
 """Read-only task artifact and bound-cgroup observation identity. No process control."""
 from dataclasses import dataclass
 import hashlib
+import importlib.util
 import os
 from pathlib import Path
 import re
@@ -12,6 +13,19 @@ class Process:
     started: int
     uid: int
     command: tuple[str, ...]
+
+
+def reviewed_host_artifacts():
+    """Load the single reviewed-digest reader staged next to this file, else the repository's."""
+    here = Path(__file__).resolve()
+    for candidate in (here.with_name('reviewed_host_artifacts.py'),
+                      here.parents[1] / 'preview' / 'reviewed_host_artifacts.py'):
+        if candidate.is_file():
+            spec = importlib.util.spec_from_file_location('reviewed_host_artifacts', candidate)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return module
+    raise RuntimeError('reviewed_host_artifacts.py is unavailable; reviewed host digests unresolvable')
 
 
 def properties(path: Path) -> dict[str, str]:
@@ -34,7 +48,7 @@ def verify_task(task: Path) -> None:
     identity = properties(task / 'evidence/identity-before.properties')
     if identity.get('taskId') != task.name:
         raise RuntimeError('task ID differs from original identity record')
-    expected = '988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21'
+    expected = reviewed_host_artifacts().sha256('5.3.02')
     if identity.get('hostJarSha256') != expected:
         raise RuntimeError('memory observer requires reviewed 5302 host artifact')
     cubism = task / 'prefix/pfx/drive_c/Program Files/Live2D Cubism 5.3'

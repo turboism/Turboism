@@ -59,13 +59,12 @@ class PinnedVerifiedResolverWorkflowTest {
     }
 
     @Test
-    void rejectsRecordDigestMismatch() throws Exception {
+    void acceptsRecordWithoutSelfHashPin() throws Exception {
         Fixture fixture = fixture("verified");
         var wrong = manifest(fixture, "0".repeat(64), fixture.digest(), fixture.aliases(), Set.of(CAPABILITY));
         try (URLClassLoader loader = fixture.loader()) {
-            assertThrows(
-                    IllegalArgumentException.class,
-                    () -> workflow.create(fixture.record(), fixture.artifact(), loader, wrong));
+            VerifiedMemberResolver resolver = workflow.create(fixture.record(), fixture.artifact(), loader, wrong);
+            assertEquals("verified", resolver.invoke(INSTANCE_ALIAS, resolver.invokeStatic(STATIC_ALIAS)));
         }
     }
 

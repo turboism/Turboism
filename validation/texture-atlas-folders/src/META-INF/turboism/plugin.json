@@ -1,0 +1,52 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.validation.atlas-folders",
+  "name": "Folder Atlas Host Probe",
+  "version": "0.0.0",
+  "description": "Task-local folder layout modal, recursive split, undo/redo and persistence verification.",
+  "entrypoints": [
+    "dev.turboism.validation.atlasfolders.FolderAtlasHostProbe"
+  ],
+  "turboismApi": "[0.67.0,1.0.0)",
+  "authors": [
+    {
+      "name": "Turboism Validation"
+    }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads the texture-atlas authoring snapshot and model identity on the exact host for validation evidence."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Create task-only test Parts and reparent copied fixture meshes."
+    }
+  ],
+  "capabilities": [
+    "cubism.texture-atlas.layout",
+    "cubism.model.read",
+    "cubism.model.write"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  },
+  "category": "analysis",
+  "tags": [
+    "validation",
+    "texture-atlas",
+    "polygon"
+  ]
+}

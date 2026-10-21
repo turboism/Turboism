@@ -12,7 +12,8 @@ import java.util.Set;
  * The target's issued constraints, not this factory or constructor, determine which contract
  * applies. A plan cannot turn a complete-atlas target into a current-page target.
  *
- * @param pageWidth final page width in pixels
+ * @param pageSizes optional independent complete-atlas sizes; empty retains the issued uniform size
+ * @param pageWidth bounding page width in pixels
  * @param pageHeight final page height in pixels
  * @param pageCount number of pages; one for a current-page result
  * @param pageNames optional complete-atlas page names; empty when no names are requested
@@ -27,7 +28,25 @@ public record TextureAtlasLayoutPlan(
         int pageCount,
         List<String> pageNames,
         List<TextureAtlasPlacement> placements,
-        double scale) {
+        double scale,
+        List<TextureAtlasPageSize> pageSizes) {
+
+    /** Retains the uniform-page constructor. */
+    public TextureAtlasLayoutPlan(
+            int pageWidth,
+            int pageHeight,
+            int pageCount,
+            List<String> pageNames,
+            List<TextureAtlasPlacement> placements,
+            double scale) {
+        this(pageWidth, pageHeight, pageCount, pageNames, placements, scale, List.of());
+    }
+
+    /** Returns the dimensions of a particular page. */
+    public TextureAtlasPageSize pageSize(int index) {
+        if (index < 0 || index >= pageCount) throw new IndexOutOfBoundsException(index);
+        return pageSizes.isEmpty() ? new TextureAtlasPageSize(pageWidth, pageHeight) : pageSizes.get(index);
+    }
 
     /** Retains the original complete-atlas constructor and its unit scale. */
     public TextureAtlasLayoutPlan(
@@ -63,6 +82,15 @@ public record TextureAtlasLayoutPlan(
         if (pageCount < 1) {
             throw new IllegalArgumentException("Atlas page count must be positive.");
         }
+        pageSizes = List.copyOf(Objects.requireNonNull(pageSizes, "pageSizes"));
+        if (!pageSizes.isEmpty() && (pageSizes.size() != pageCount || scale != 1D)) {
+            throw new IllegalArgumentException("Explicit page sizes require unit scale and one size per page.");
+        }
+        for (TextureAtlasPageSize size : pageSizes) {
+            if (size.width() > pageWidth || size.height() > pageHeight) {
+                throw new IllegalArgumentException("Page size exceeds plan bounds.");
+            }
+        }
         pageNames = List.copyOf(Objects.requireNonNull(pageNames, "pageNames"));
         if (!pageNames.isEmpty() && pageNames.size() != pageCount) {
             throw new IllegalArgumentException("Atlas page names must be empty or match the page count.");
@@ -92,8 +120,14 @@ public record TextureAtlasLayoutPlan(
                 throw new IllegalArgumentException(
                         "Placement page index is outside the atlas plan: " + placement.textureId());
             }
-            if ((long) placement.x() + placement.width() > pageWidth
-                    || (long) placement.y() + placement.height() > pageHeight) {
+            if ((long) placement.x() + placement.width()
+                            > (pageSizes.isEmpty()
+                                    ? pageWidth
+                                    : pageSizes.get(placement.pageIndex()).width())
+                    || (long) placement.y() + placement.height()
+                            > (pageSizes.isEmpty()
+                                    ? pageHeight
+                                    : pageSizes.get(placement.pageIndex()).height())) {
                 throw new IllegalArgumentException("Placement is outside the atlas page: " + placement.textureId());
             }
             for (int previous = 0; previous < index; previous++) {

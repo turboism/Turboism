@@ -69,10 +69,12 @@ public final class RectPathPolygonPlanner implements TextureAtlasLayoutPlanner {
                 constraints.pageWidth(),
                 constraints.pageHeight(),
                 constraints.edgeMargin() + constraints.itemPadding(),
-                policy.rotation() == dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode.FREE
-                        ? dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode.QUARTER
-                        : policy.rotation(),
-                policy.automaticScale() ? 0 : policy.fixedScale(),
+                constraints.singlePageOptions() == null
+                        ? dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode.NONE
+                        : policy.rotation() == dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode.FREE
+                                ? dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode.QUARTER
+                                : policy.rotation(),
+                constraints.singlePageOptions() == null ? 1D : policy.automaticScale() ? 0 : policy.fixedScale(),
                 dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutBackend.DALSOO_POLYGON,
                 policy.quality());
         final TextureAtlasPolygonPlan polygonPlan = new DalsooPolygonPlanner(

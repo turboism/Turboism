@@ -581,9 +581,12 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
 
     private static int roundedUp(final Object value) {
         final double number = number(value).doubleValue();
-        if (!Double.isFinite(number) || number <= 0 || number > Integer.MAX_VALUE) {
+        if (!Double.isFinite(number) || number < 0 || number > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("Native texture atlas dimension is invalid.");
         }
+        // A mesh can have finite, zero-area bounds (e.g. an empty Path2D).
+        // Reserve one pixel on each collapsed axis instead of declining the entire
+        // page to native packing. SourceRect retains the raw bounds for transforms.
         return Math.max(1, (int) Math.ceil(number));
     }
 

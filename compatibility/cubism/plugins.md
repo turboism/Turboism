@@ -11,7 +11,9 @@ When Cubism runs under a FREE licence, saving is subject to the FREE parameter-c
 | Plugin | Supported versions | Feature deltas | Real-host validation |
 |---|---|---|---|
 | `acp` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | host-verified 5.2.03, 5.3.02–5.3.03 |
+| `atlas-bitmask-nesting` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | full feature set requires 5.2.00+<br>Polygon-aware atlas layout only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely） | — |
 | `atlas-dalsoo-polygon` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | full feature set requires 5.2.00+<br>Polygon-aware atlas layout only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely） | host-verified 5.2.03, 5.3.02–5.3.03 |
+| `atlas-folder-layout` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | full feature set requires 5.1.00+<br>Top menu integration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely） | — |
 | `atlas-maxrects-bssf` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | host-verified 5.2.03 |
 | `boundingbox-warp-mirror` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | host-verified 5.2.03, 5.3.02–5.3.03 |
 | `clipmask-viewer` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | full feature set requires 5.1.00+<br>Top menu integration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely） | host-verified 5.0.00, 5.0.06–5.1.00, 5.1.03–5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
