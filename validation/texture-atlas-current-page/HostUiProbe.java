@@ -97,6 +97,12 @@ public final class HostUiProbe {
                                             if (parts[2].equals(String.valueOf(combo.getItemAt(i)))) found = i;
                                         if (found < 0) throw new IllegalArgumentException("Unknown combo option");
                                         combo.setSelectedIndex(found);
+                                    } else if (parts[0].equals("tab") && component instanceof JTabbedPane tabs
+                                            && tabs.isShowing() && tabs.isEnabled()) {
+                                        int index = Integer.parseInt(parts[2]);
+                                        if (index < 0 || index >= tabs.getTabCount()) throw new IllegalArgumentException("Unknown tab");
+                                        tabs.setSelectedIndex(index);
+                                        if (tabs.getSelectedIndex() != index) throw new IllegalStateException("Tab did not update");
                                     } else if (parts[0].equals("check") && component instanceof JCheckBox checkbox
                                             && parts.length == 3 && checkbox.isShowing() && checkbox.isEnabled()
                                             && (parts[2].equals("true") || parts[2].equals("false"))) {
@@ -136,6 +142,11 @@ public final class HostUiProbe {
             java.util.List<String> options = new ArrayList<>();
             for (int i=0;i<combo.getItemCount();i++) options.add(String.valueOf(combo.getItemAt(i)));
             text = "selected=" + combo.getSelectedItem() + "; options=" + options;
+        }
+        if (component instanceof JTabbedPane tabs) {
+            java.util.List<String> titles = new ArrayList<>();
+            for (int i = 0; i < tabs.getTabCount(); i++) titles.add(tabs.getTitleAt(i));
+            text = "selected=" + tabs.getSelectedIndex() + "; tabs=" + tabs.getTabCount() + "; titles=" + titles;
         }
         output.append(id).append('\t').append(" ".repeat(depth)).append(component.getClass().getName())
                 .append('\t').append(component.isShowing()).append('/').append(component.isEnabled())

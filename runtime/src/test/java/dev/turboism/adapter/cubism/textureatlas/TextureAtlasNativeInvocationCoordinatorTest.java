@@ -23,6 +23,67 @@ import org.junit.jupiter.api.Test;
 class TextureAtlasNativeInvocationCoordinatorTest {
 
     @Test
+    void degenerateMeshBoundsDoNotForceTheWholePageBackToNativePacking() {
+        for (Rect rect : List.of(new Rect(5, 7, 0, 3), new Rect(5, 7, 4, 0), new Rect(5, 7, 0, 0))) {
+            final Fixture fixture = new Fixture();
+            fixture.first.rect = rect;
+            final var coordinator = new TextureAtlasNativeInvocationCoordinator();
+            coordinator.connect(resolver());
+            final var service = service(new TextureAtlasLayoutCoordinator(), coordinator);
+            final var callbacks = new AtomicInteger();
+            assertTrue(coordinator
+                    .ingress(() -> {
+                        callbacks.incrementAndGet();
+                        final var snapshot = service.currentPolygon().orElseThrow();
+                        assertEquals(2, snapshot.items().size());
+                        assertEquals(
+                                Math.max(1, (int) rect.width),
+                                snapshot.items().get(0).width());
+                        assertEquals(
+                                Math.max(1, (int) rect.height),
+                                snapshot.items().get(0).height());
+                        final var plan = new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan(
+                                32,
+                                16,
+                                1,
+                                List.of(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlacement(
+                                        "native-item-0", 2, 2, 0, 1)),
+                                List.of("native-item-1"),
+                                dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutBackend.AUTO,
+                                java.util.Map.of());
+                        return service.apply(snapshot.target(), plan).status().isPresent();
+                    })
+                    .test(fixture.receiver));
+            assertEquals(1, callbacks.get());
+            assertEquals(List.of(fixture.second), fixture.receiver.i);
+            assertEquals(fixture.first.f, fixture.firstRef.transform);
+        }
+    }
+
+    @Test
+    void negativeAndNonFiniteMeshDimensionsStillDeclineBeforeCallback() {
+        for (float dimension : new float[] {-1, Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY}) {
+            for (Rect rect : List.of(new Rect(0, 0, dimension, 3), new Rect(0, 0, 4, dimension))) {
+                final Fixture fixture = new Fixture();
+                fixture.first.rect = rect;
+                final var before = new AffineTransform(fixture.first.f);
+                final var coordinator = new TextureAtlasNativeInvocationCoordinator();
+                coordinator.connect(resolver());
+                final var callbacks = new AtomicInteger();
+                assertFalse(coordinator
+                        .ingress(() -> {
+                            callbacks.incrementAndGet();
+                            return true;
+                        })
+                        .test(fixture.receiver));
+                assertEquals(0, callbacks.get());
+                assertEquals(before, fixture.first.f);
+                assertEquals(before, fixture.firstRef.transform);
+            }
+        }
+    }
+
+    @Test
     void unsupportedPerItemScaleDeclinesBeforeCallbackAndLeavesNativeStateUntouched() {
         // Exact comparison is deliberate: near-one q is still outside the reviewed contract.
         for (double q : new double[] {
