@@ -1,21 +1,69 @@
-# 纹理集一键排版
+---
+turboismReadmeSchema: 1
+pluginId: dev.turboism.plugin.texture-atlas-folders
+version: 0.1.0
+kind: feature
+status: preview
+delivery: store-candidate
+category: modeling
+tags: texture-atlas, packing, auto-layout
+turboismApi: "[0.67.1,1.0.0)"
+requiresCubism: true
+interface: swing
+---
 
-独立的纹理集排版插件。只依赖 Turboism SDK，不依赖或内置任何具体排版算法。
+# 按部件文件夹排版纹理集
 
-## 按部件文件夹一键排版
+## 功能概述
 
-在已有纹理集的模型中，点击 **Turboism → 按部件文件夹一键排版**。
-先在模态窗口选择最大尺寸（1024、2048、4096、8192，默认 4096）和排序算法。
-每次打开窗口时自动发现已注册的算法，显示插件提供的名称；优先 MaxRects-BSSF、Dalsoo，
-其余算法按注册顺序排列。默认 MaxRects-BSSF；开始排版时重新解析所选算法，已卸载时报告不可用。
-Cubism 原生仅支持当前页，
-在此窗口标为不可用，可通过原生自动排版入口使用。
-按部件 Tab 顶层文件夹分组；一张最大尺寸的纹理放不下时，递归按子文件夹分治，
-叶子文件夹再拆成多页。每页独立选择能容纳内容的 2 的幂宽高，保留原图尺寸，
-默认预留 3 像素边距和 6 像素图间距，可在窗口中调整。关闭自动尺寸后所有页使用所选上限的正方形。页面按部件树顺序编号和命名，页内自动排列。
-共用图片归到使用者的最近共同上级；无归属图片保留在独立分组。全部规划成功后才应用，支持原生撤销。
-单图超过上限或总页数超过宿主预算时报告失败。此入口重新生成整个纹理集，原有手动布局会被替换。
+按顶层部件文件夹生成纹理页，空间不足时递归拆分子文件夹。排版算法从运行中的注册表发现，不依赖特定算法插件。
 
+## 要求与兼容性
 
-安装并启用本插件后，菜单入口独立存在。另行启用至少一个支持完整纹理集的算法插件，
-例如 MaxRects-BSSF 或 Dalsoo。算法可单独更换、启用或卸载。仅支持当前页的算法会显示为不可用。
+需要 Java 17+、Turboism API [0.67.1,1.0.0)、活动的 Cubism 模型及纹理集。至少启用一个支持完整纹理集排版的算法。
+
+<!-- compatibility:begin -->
+**Cubism Editor 版本支持（自动生成）：** 全部审核版本（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04，共 20 个精确版本）.
+完整功能（审核版本）：5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04。
+- 顶部菜单集成 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能）
+完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
+<!-- compatibility:end -->
+
+## 安装与启用
+
+通过 Turboism 插件管理安装插件 JAR，启用文件夹排版插件，以及 MaxRects-BSSF 或 Dalsoo 等支持完整纹理集的算法插件。
+
+## 使用方法
+
+打开 **Turboism → 按部件文件夹一键排版**，选择最大边长（1024、2048、4096 或 8192）、算法、边距、间距与自动尺寸。排版作为一次可撤销编辑替换整个纹理集，页面顺序遵循部件树。
+
+## 功能能力
+
+- `cubism.texture-atlas.layout`
+- `cubism.model.read`
+- `ui.menu.contribute`
+- `ui.status.notify`
+
+## 权限
+
+- `turboism.action.register`
+- `turboism.ui.menu.contribute`
+- `turboism.ui.status.notify`
+- `turboism.cubism.model.read`
+- `turboism.cubism.model.write`
+
+## 隐私与数据
+
+读取当前模型并在编辑器内写入纹理集布局，不上传模型数据，也不发起网络请求。
+
+## 状态与限制
+
+预览功能。仅支持当前页的算法会显示但不可用于整个纹理集排版。菜单不依赖 MaxRects，但仍需启用至少一个支持完整纹理集的算法。
+
+## 故障排除
+
+没有可用算法时，先启用兼容的算法插件；没有纹理集时，先为当前模型创建或打开纹理集。使用撤销恢复上一次布局。
+
+## 支持与许可证
+
+请在 https://github.com/turboism/Turboism/issues 提交可复现问题，并注明编辑器版本和所选算法。适用仓库的 Project License。

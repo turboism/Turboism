@@ -830,6 +830,12 @@ class PreparedStoreTest(unittest.TestCase):
                 "--remote-pre-launch-background", "--remote-pre-launch-arg", str(Path(sys.executable).resolve())]
         for name in names:
             argv.extend(["--home-file", str(directory / name) + ":validation/" + name])
+        reviewed = (self.source / "scripts/preview/reviewed_host_artifacts.py",
+                    self.source / "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java")
+        for path in reviewed:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("# isolated inventory fixture, never executed\n")
+            argv.extend(["--home-file", f"{path}:validation/{path.name}"])
         return {"schemaVersion": 1, "argv": argv, "environment": {}}
 
     def test_memory_closure_frozen_and_interpreter_recorded(self):
@@ -839,7 +845,7 @@ class PreparedStoreTest(unittest.TestCase):
         self.assertEqual(str(Path(sys.executable).resolve()), dependency["path"])
         command = self.prepared.command(descriptor["digest"], self.base / "evidence")
         frozen = [Path(command[i + 1].split(":", 1)[0]) for i, value in enumerate(command) if value == "--home-file"]
-        self.assertEqual(3, len(frozen))
+        self.assertEqual(5, len(frozen))
         for path in (self.source / "scripts/test").iterdir():
             path.unlink()
         self.assertTrue(all(path.read_text().startswith("# isolated inventory") for path in frozen))
@@ -1064,9 +1070,12 @@ class PreparedStoreTest(unittest.TestCase):
         for name in ("run-cubism-host-validation.sh", "host-validation-env.sh", "host-validation-transport.sh",
                      "archive-cubism-host-evidence.sh", "fps-resize-driver.sh",
                      "host_validation.py", "host_validation_queue.py", "host_validation_retention.py",
-                     "host_validation_static_gates.py",
+                     "host_validation_static_gates.py", "reviewed_host_artifacts.py",
                      "host_validation_containment.py", "host_validation_evidence.py"):
             queue.copy_verified(tools / name, self.preview / name)
+        reviewed_relative = ("runtime/src/main/java/dev/turboism/mapping/verification/"
+                             "ReviewedHostArtifacts.java")
+        queue.copy_verified(tools.parents[1] / reviewed_relative, self.source / reviewed_relative)
         hvq_preview = self.preview / "hvq"
         hvq_preview.mkdir(parents=True, exist_ok=True)
         for py_file in sorted((tools / "hvq").glob("*.py")):

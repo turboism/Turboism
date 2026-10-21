@@ -148,6 +148,16 @@ FIXTURE_DOC_VERSION: dict[str, str] = {
 }
 
 
+# Reviewed 025 external-PSD edit control documents, by role. The wrapper
+# (run-external-psd-edit-host-validation.sh) queries these through the
+# `fixture-sha256` CLI below instead of restating them. Distinct from
+# FIXTURE_DOC_VERSION: these pin exact assets, not document-version routing.
+EXTERNAL_PSD_FIXTURE_SHA256: dict[str, str] = {
+    "first-document": "59d5aa5775e86a2917b05a7322f05f0cdcfead994000fede91ab023cab19f308",
+    "second-document": "7ed2d0296791cca5f3ad8a7ccd955999a35dc755d32a62268cdfd0007d95b41c",
+}
+
+
 def fixture_path_for(task_name: str, version: str, environment: dict[str, str]) -> str | None:
     """Mirror turboism_select_fixture (scripts/preview/host-validation-env.sh)
     plus the task-specific overrides used by runners."""
@@ -894,15 +904,25 @@ def evaluate(request: Any, request_type: Any, manifest: Any,
 
 
 # ---------------------------------------------------------------------------
-# Read-only bundle audit CLI:
+# Read-only CLI:
 #   host_validation_static_gates.py bundle-check <bundle-dir> [more dirs...]
 # Links every bundle jar against its turboism-agent.jar and prints one verdict
 # per directory; exit 1 when any bundle cannot link.
+#   host_validation_static_gates.py fixture-sha256 <role>
+# Prints the reviewed external-PSD control document digest for that role.
 
 
 def _audit_main(argv: list[str]) -> int:
+    if len(argv) == 2 and argv[0] == "fixture-sha256":
+        digest = EXTERNAL_PSD_FIXTURE_SHA256.get(argv[1])
+        if digest is None:
+            print(f"unknown external PSD fixture role: {argv[1]}", file=sys.stderr)
+            return 2
+        print(digest)
+        return 0
     if len(argv) < 2 or argv[0] != "bundle-check":
-        print("usage: host_validation_static_gates.py bundle-check <bundle-dir> [...]",
+        print("usage: host_validation_static_gates.py bundle-check <bundle-dir> [...]\n"
+              "       host_validation_static_gates.py fixture-sha256 first-document|second-document",
               file=sys.stderr)
         return 2
     failures = 0

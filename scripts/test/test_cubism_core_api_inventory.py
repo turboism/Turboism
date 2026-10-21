@@ -681,6 +681,20 @@ def test_core_model_read_mapping_packs(
             f"{version}: duplicate or extra Core selector",
         )
 
+        # Access flags live in the verification record, not in the DRAFT pack.
+        record_path = (
+            ROOT / f"compatibility/cubism/verification/cubism-{version}-core-model-read.json"
+        )
+        record = decode_json(
+            record_path.read_text(encoding="utf-8"),
+            str(record_path.relative_to(ROOT)),
+        )
+        record_selectors = {sel["alias"]: sel for sel in record["selectors"]}
+        require(
+            set(record_selectors) == set(expected_for_version),
+            f"{version}: Core record selector alias set drift",
+        )
+
         inventory_classes = classes(document)
         for alias, facts in expected_for_version.items():
             entry = entries[alias]
@@ -694,9 +708,10 @@ def test_core_model_read_mapping_packs(
                 verification["ownerInternalName"] == facts["owner"],
                 f"{version}: {alias} owner drift",
             )
+            record_selector = record_selectors[alias]
             require(
-                verification["requiredAccessFlags"] == facts["required"]
-                and verification["forbiddenAccessFlags"] == facts["forbidden"],
+                record_selector["requiredAccessFlags"] == facts["required"]
+                and record_selector["forbiddenAccessFlags"] == facts["forbidden"],
                 f"{version}: {alias} access flags drift",
             )
             require(

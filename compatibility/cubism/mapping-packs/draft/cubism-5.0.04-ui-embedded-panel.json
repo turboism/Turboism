@@ -19,9 +19,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       }
     },
     {
@@ -40,9 +38,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 9,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       }
     },
     {
@@ -61,9 +57,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       }
     },
     {
@@ -82,9 +76,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       }
     },
     {
@@ -101,9 +93,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl"
       }
     },
     {
@@ -122,9 +112,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl"
       }
     },
     {
@@ -141,9 +129,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper"
       }
     },
     {
@@ -162,9 +148,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper"
       }
     },
     {
@@ -183,9 +167,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper"
       }
     },
     {
@@ -204,9 +186,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper"
       }
     },
     {
@@ -223,9 +203,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager"
       }
     },
     {
@@ -244,9 +222,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager"
       }
     },
     {
@@ -265,9 +241,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager"
       }
     },
     {
@@ -286,9 +260,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager"
       }
     },
     {
@@ -307,9 +279,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager"
       }
     },
     {
@@ -326,9 +296,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace"
       }
     },
     {
@@ -347,9 +315,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace"
       }
     },
     {
@@ -366,9 +332,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPaletteId",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/ui/dock/CPaletteId"
       }
     },
     {
@@ -387,9 +351,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPaletteId",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/CPaletteId"
       }
     },
     {
@@ -406,9 +368,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMPalette",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/ui/dock/CPMPalette"
       }
     },
     {
@@ -427,9 +387,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMPalette",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/CPMPalette"
       }
     },
     {
@@ -448,9 +406,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMPalette",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/CPMPalette"
       }
     },
     {
@@ -467,9 +423,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/container/CSwingContainer",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/ui/container/CSwingContainer"
       }
     },
     {
@@ -488,9 +442,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/container/CSwingContainer",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/container/CSwingContainer"
       }
     },
     {
@@ -509,9 +461,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl"
       }
     },
     {
@@ -530,9 +480,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/window/CFrame",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/window/CFrame"
       }
     },
     {
@@ -551,9 +499,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/menu/CMenuBar",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/menu/CMenuBar"
       }
     },
     {
@@ -572,9 +518,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/CWidget",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/CWidget"
       }
     },
     {
@@ -593,9 +537,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/CWidget",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/CWidget"
       }
     },
     {
@@ -614,9 +556,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/CWidget",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/CWidget"
       }
     },
     {
@@ -635,9 +575,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/CWidget",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/CWidget"
       }
     },
     {
@@ -656,9 +594,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/menu/CMenu",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/menu/CMenu"
       }
     },
     {
@@ -677,9 +613,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/menu/CMenu",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/menu/CMenu"
       }
     },
     {
@@ -698,9 +632,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/menu/CMenu",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/menu/CMenu"
       }
     },
     {
@@ -719,9 +651,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/menu/CMenuItem",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/menu/CMenuItem"
       }
     },
     {
@@ -740,9 +670,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/menu/CMenuItem",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/menu/CMenuItem"
       }
     },
     {
@@ -759,9 +687,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace"
       },
       "intermediary": "",
       "descriptor": "(Lcom/live2d/ui/dock/CPMPalette;)Lcom/live2d/ui/dock/layout/CPMPaletteBox;"
@@ -780,9 +706,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox",
-        "requiredAccessFlags": 0,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox"
       }
     },
     {
@@ -799,9 +723,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox"
       },
       "intermediary": "",
       "descriptor": "(Lcom/live2d/ui/dock/CPMPalette;)V"
@@ -820,9 +742,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager"
       },
       "intermediary": "",
       "descriptor": "(Lcom/live2d/ui/dock/CPMLayoutWorkspace;Lcom/live2d/ui/dock/layout/CPMPaletteBox;[Lcom/live2d/ui/dock/CPMPalette;)V"
@@ -841,9 +761,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager"
       },
       "intermediary": "",
       "descriptor": "()Lcom/live2d/ui/window/X;"
@@ -862,9 +780,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager"
       },
       "intermediary": "",
       "descriptor": "()V"
@@ -883,9 +799,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/CPMPaletteManager"
       },
       "intermediary": "",
       "descriptor": "(Lcom/live2d/ui/dock/CPMPalette;)V"
@@ -904,9 +818,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace"
       },
       "intermediary": "",
       "descriptor": "(Lcom/live2d/ui/dock/ui/CPMPaletteFrame;)V"
@@ -925,9 +837,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace"
       },
       "intermediary": "",
       "descriptor": "(Lcom/live2d/ui/dock/ui/CPMPaletteFrame;)V"
@@ -946,9 +856,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace"
       },
       "intermediary": "",
       "descriptor": "()Lcom/live2d/ui/dock/layout/CPMPaletteBox;"
@@ -967,9 +875,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox"
       },
       "intermediary": "",
       "descriptor": "(Lcom/live2d/ui/dock/CPMPaletteManager;[Lcom/live2d/ui/dock/CPMPalette;)V"
@@ -988,9 +894,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox"
       },
       "intermediary": "",
       "descriptor": "(Lcom/live2d/ui/dock/CPMPalette;)V"
@@ -1009,9 +913,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox"
       },
       "intermediary": "",
       "descriptor": "(Lcom/live2d/ui/dock/CPaletteId;)V"
@@ -1030,9 +932,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox"
       },
       "intermediary": "",
       "descriptor": "()Ljava/util/ArrayList;"
@@ -1051,9 +951,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMPaletteBox"
       },
       "intermediary": "",
       "descriptor": "()Lcom/live2d/ui/dock/tab/a;"
@@ -1072,9 +970,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/tab/a",
-        "requiredAccessFlags": 9,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/ui/dock/tab/a"
       },
       "intermediary": "",
       "descriptor": "(Lcom/live2d/ui/dock/tab/a;)Ljava/util/ArrayList;"
@@ -1093,9 +989,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/tab/a$a",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/tab/a$a"
       },
       "intermediary": "",
       "descriptor": "()Lcom/live2d/ui/dock/CPMPalette;"
@@ -1114,9 +1008,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/tab/a$a",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/tab/a$a"
       },
       "intermediary": "",
       "descriptor": "()Lcom/live2d/ui/dock/tab/CTabButton;"
@@ -1135,9 +1027,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/CWidget",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/CWidget"
       },
       "intermediary": "",
       "descriptor": "()Ljavax/swing/JComponent;"
@@ -1156,9 +1046,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/ui/CPMPaletteFrame",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/ui/CPMPaletteFrame"
       },
       "intermediary": "",
       "descriptor": "()Lcom/live2d/ui/dock/layout/CPMRootContainer;"
@@ -1177,9 +1065,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/ui/CPMPaletteFrame",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/ui/CPMPaletteFrame"
       },
       "intermediary": "",
       "descriptor": "()V"
@@ -1198,9 +1084,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/ui/CPMPaletteFrame",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/ui/CPMPaletteFrame"
       },
       "intermediary": "",
       "descriptor": "()V"
@@ -1219,9 +1103,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/layout/CPMRootContainer",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMRootContainer"
       },
       "intermediary": "",
       "descriptor": "(Lcom/live2d/ui/dock/layout/ICPMComponent;)V"
@@ -1240,9 +1122,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/ui/CPMPaletteFrame",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/ui/CPMPaletteFrame"
       },
       "intermediary": "",
       "descriptor": "(Lcom/live2d/ui/dock/CPMPaletteManager;Lcom/live2d/ui/window/X;)V"
@@ -1261,9 +1141,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/ui/CPMPaletteFrame",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/ui/CPMPaletteFrame"
       },
       "intermediary": "",
       "descriptor": "()Lcom/live2d/ui/window/X;"
@@ -1282,9 +1160,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/window/X",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/window/X"
       },
       "intermediary": "",
       "descriptor": "(Z)V"
@@ -1305,9 +1181,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMPalette",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/CPMPalette"
       }
     },
     {
@@ -1326,9 +1200,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/tab/c",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/tab/c"
       }
     },
     {
@@ -1347,9 +1219,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/tab/c",
-        "requiredAccessFlags": 16,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/tab/c"
       }
     },
     {
@@ -1368,9 +1238,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/menu/k",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/menu/k"
       }
     },
     {
@@ -1389,9 +1257,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/tab/d",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/tab/d"
       }
     },
     {
@@ -1410,9 +1276,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/tab/d",
-        "requiredAccessFlags": 16,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/tab/d"
       }
     },
     {
@@ -1431,9 +1295,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace"
       }
     },
     {
@@ -1452,9 +1314,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/layout/CPMRootContainer",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMRootContainer"
       }
     },
     {
@@ -1471,9 +1331,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/layout/CPMSplitContainer",
-        "requiredAccessFlags": 0,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMSplitContainer"
       }
     },
     {
@@ -1492,9 +1350,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/layout/CPMSplitContainer",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMSplitContainer"
       }
     },
     {
@@ -1513,9 +1369,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/layout/CPMSplitContainer",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/layout/CPMSplitContainer"
       }
     },
     {
@@ -1534,9 +1388,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/dock/layout/ICPMComponent",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/dock/layout/ICPMComponent"
       }
     },
     {
@@ -1555,9 +1407,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/menu/CCheckMenuItem",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/menu/CCheckMenuItem"
       }
     },
     {
@@ -1576,9 +1426,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper"
       }
     },
     {
@@ -1597,9 +1445,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl"
       }
     },
     {
@@ -1618,9 +1464,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton"
       }
     }
   ]

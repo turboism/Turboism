@@ -156,8 +156,7 @@ public final class AtlasTileBboxTransformer implements ClassFileTransformer {
         try {
             RuntimeDiagnostics.debug(
                     "atlas-tile-bbox",
-                    outcome + " " + target.internalName()
-                            + (detail == null || detail.isEmpty() ? "" : " " + detail));
+                    outcome + " " + target.internalName() + (detail == null || detail.isEmpty() ? "" : " " + detail));
         } catch (Throwable ignored) {
             FatalErrors.rethrowIfFatal(ignored);
             // Diagnostics must never affect the transform outcome.

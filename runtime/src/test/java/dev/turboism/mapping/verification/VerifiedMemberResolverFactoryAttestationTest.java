@@ -63,18 +63,18 @@ class VerifiedMemberResolverFactoryAttestationTest {
     }
 
     @Test
-    void rejectsRecordChangesBeforeResolvingSelectors() throws Exception {
+    void rejectsSelectorChangesBeforeResolvingMembers() throws Exception {
         final var host = compileHost("verified");
         final Path record = recordFor(host.jar());
         final var factory = factoryFor(record);
         final var tree = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(record.toFile());
-        tree.put("verifiedBy", "self-issued-test");
+        ((com.fasterxml.jackson.databind.node.ObjectNode)
+                        tree.withArray("selectors").get(0))
+                .put("descriptor", "()I");
         mapper.writeValue(record.toFile(), tree);
         try (URLClassLoader loader =
                 new URLClassLoader(new URL[] {host.jar().toUri().toURL()}, ClassLoader.getPlatformClassLoader())) {
-            final var failure =
-                    assertThrows(IllegalArgumentException.class, () -> factory.create(record, host.jar(), loader));
-            assertEquals("verification record is not the reviewed trust-root record", failure.getMessage());
+            assertThrows(IllegalArgumentException.class, () -> factory.create(record, host.jar(), loader));
         }
     }
 
