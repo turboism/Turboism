@@ -391,8 +391,8 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 
 ### N02-a 离线控制流原型（2026-09-08续推）
 
-- **实现/边界**：源码保存于 `experiments/native-image-lease/NativeImageLeaseCleanupPrototype.java`，README列冻结范围和复现命令；这是JDK-only假池实验，不接触Cubism类、图像或原生安装。不计为新生产优化，不接入Gradle默认构建。控制组保留“4次获取在finally之前”的拓扑；候选以4个局部变量记录成功返回资源，异常路径逐一尝试归还。已存在primary时保持同一异常对象，否则尝试全部清理后抛首个cleanup异常。不创建lease集合或suppressed数组；生产中的次级错误诊断仍待设计。
-- **如何验证**：共享队列确认idle且无activeJobs后，使用JDK17.0.20，`javac -d <task-classes> NativeImageLeaseCleanupPrototype.java`，`java -ea -Xmx64m -cp <task-classes> NativeImageLeaseCleanupPrototype`。源SHA256 `1a18c6222cf943f0a630a68b641986b67f1b3f098f685265f90d76622655cc64`；输出SHA256 `2aaff0c25ecfc2163e45038eafc07fd98c9ad3afa73d45a20127ea6495fc82ea`。本机原始source/result.log/toolchain.log在 `/tmp/turboism-native-lease-prototype-20260908/`；仓库源码与已执行源码逐字节相同。
+- **实现/边界**：一次性原型及其 README 已删除；复现需从提交 `24c6dc21a` 检出该实验源码和冻结范围。这是JDK-only假池实验，不接触Cubism类、图像或原生安装。不计为新生产优化，不接入Gradle默认构建。控制组保留“4次获取在finally之前”的拓扑；候选以4个局部变量记录成功返回资源，异常路径逐一尝试归还。已存在primary时保持同一异常对象，否则尝试全部清理后抛首个cleanup异常。不创建lease集合或suppressed数组；生产中的次级错误诊断仍待设计。
+- **历史验证（先从上述提交恢复源码）**：共享队列确认idle且无activeJobs后，使用JDK17.0.20，`javac -d <task-classes> NativeImageLeaseCleanupPrototype.java`，`java -ea -Xmx64m -cp <task-classes> NativeImageLeaseCleanupPrototype`。源SHA256 `1a18c6222cf943f0a630a68b641986b67f1b3f098f685265f90d76622655cc64`；输出SHA256 `2aaff0c25ecfc2163e45038eafc07fd98c9ad3afa73d45a20127ea6495fc82ea`。本机原始source/result.log/toolchain.log在 `/tmp/turboism-native-lease-prototype-20260908/`；当时仓库源码与已执行源码逐字节相同。
 - **结果**：PASS，500次断言检查（非500个独立用例）。第1/2/3/4次获取前失败，控制组遗留此前成功资源0/1/2/3个，候选为0；覆盖RuntimeException与人工Error、绘制体失败、每个清理位置失败、正常/外部借用/嵌套调用。确认不跳过后续清理、不误还其他调用、原异常identity保留。
 - **明确未解决/失败方向**：登记后返回前失败，候选仍遗留1个，反例测试专门断言它不会被调用方修复；归还在移除登记之前失败，候选同样仍遗留1个，不能把“attempted”当“returned”。不做不知提交状态的盲重试。原控制组首个清理异常会替换body异常并跳过后3项清理，这也在原型中复现。并发、VM致命错误、原生字节码变换/验证器、诊断兼容、图像/Undo/保存重开均NOT_TESTED。后续需分别实现和验证N02-b事务边界，不用全局clear兜底。
 - **有效程度**：只确认候选控制流在假池模型下处理已返回资源的能力；RAM/CPU/GPU均NOT_MEASURED，未证明实际高占用主因，正常路径的省内存可能为0。只有原生变换测试、获授权队列实机对照和对象保留/进程指标完成后，才讨论产品收益。
