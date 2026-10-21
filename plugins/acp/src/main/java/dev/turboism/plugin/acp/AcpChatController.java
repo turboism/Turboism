@@ -17,6 +17,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -51,6 +52,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     private final Object uiLock = new Object();
     private final ArrayDeque<UiUpdate> pendingUi = new ArrayDeque<>();
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final AtomicLong receivedOutput = new AtomicLong();
     private final AtomicReference<AcpClient> client = new AtomicReference<>();
     private final AtomicReference<PendingSettings> pendingSettings = new AtomicReference<>();
     private boolean uiDrainScheduled;
@@ -61,6 +63,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     private volatile AcpSession session;
     private volatile McpHttpConnection mcpConnection;
     private volatile AgentLaunchSpec launchSpec;
+    private volatile String activeHarnessId;
     private volatile boolean prompting;
     private final AtomicReference<dev.turboism.sdk.plugin.Registration> mcpSubscription = new AtomicReference<>();
     private final AtomicReference<java.util.Optional<McpHttpConnection>> lastMcpSnapshot =
@@ -142,7 +145,10 @@ final class AcpChatController implements AutoCloseable, AcpListener {
 
     /** Resolves every catalog profile and reports which executables were found. */
     void detectAgents() {
-        submit(this::detectAgentsNow);
+        submit(() -> {
+            AgentAvailability.invalidate();
+            detectAgentsNow();
+        });
     }
 
     private void ensureDetectionNow() {
@@ -153,11 +159,14 @@ final class AcpChatController implements AutoCloseable, AcpListener {
 
     private void detectAgentsNow() {
         final Map<String, String> detected = new LinkedHashMap<>();
+        final Map<String, AgentAvailability.Detection> results = new LinkedHashMap<>();
         AgentProfile firstAvailable = null;
         for (AgentProfile profile : AgentCatalog.profiles()) {
-            final java.util.Optional<java.nio.file.Path> located = AgentLocator.locate(profile);
-            if (located.isPresent() && AgentLocator.probe(located.get(), Duration.ofMillis(1500))) {
-                detected.put(profile.id(), located.get().toString());
+            final AgentAvailability.Detection result = AgentAvailability.discover(
+                    profile, detail -> context.logger().info("Harness detection: " + detail));
+            results.put(profile.id(), result);
+            if (result.available()) {
+                detected.put(profile.id(), result.executable().toString());
                 if (firstAvailable == null) {
                     firstAvailable = profile;
                 }
@@ -176,7 +185,10 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                 ui(() -> view.showAgentSelected(selectedId));
             }
         }
-        ui(() -> view.showDetectedAgents(detected));
+        ui(() -> {
+            view.showDetectionResults(results);
+            view.showDetectedAgents(detected);
+        });
     }
 
     /** Runs the advertised ACP authentication method selected by the user. */
@@ -278,10 +290,12 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         } else {
             final AgentProfile profile =
                     AgentCatalog.profile(agentId).orElseThrow(() -> new IllegalStateException("status.agent-unknown"));
-            argv.add(AgentLocator.locate(profile)
-                    .map(java.nio.file.Path::toString)
-                    .orElseThrow(() -> new IllegalStateException("status.agent-not-found-generic")));
-            argv.addAll(profile.arguments());
+            final java.nio.file.Path executable = AgentAvailability.locate(profile)
+                    .orElseThrow(() -> new IllegalStateException("status.agent-not-found-generic"));
+            final AgentProtocol protocol = AgentProtocol.forExecutable(profile, executable);
+            argv.add(executable.toString());
+            if (protocol == AgentProtocol.ACP) argv.addAll(profile.arguments());
+            return new AgentLaunchSpec(List.copyOf(argv), context.paths().stateDir(), Map.of(), protocol);
         }
         return new AgentLaunchSpec(List.copyOf(argv), context.paths().stateDir());
     }
@@ -311,6 +325,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                 return;
             }
             launchSpec = spec;
+            activeHarnessId = settings.agentId();
             context.logger().info("ACP connection: starting agent process");
             final AcpClient connected;
             try {
@@ -596,6 +611,19 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                 || current.sessionId().equals(sessionId)) {
             return;
         }
+        if (launchSpec != null) {
+            try {
+                if (sessionIndex().sessions().stream()
+                        .noneMatch(owned -> owned.sessionId().equals(sessionId))) {
+                    ui(() -> view.showSessionFailure("status.session-load-failed"));
+                    return;
+                }
+            } catch (IOException failure) {
+                context.logger().error("Could not read local session ownership", failure);
+                ui(() -> view.showSessionFailure("status.session-load-failed"));
+                return;
+            }
+        }
         if (current.capabilities().loadSession()) {
             final LoadTransaction load = beginLoadTransaction(active, sessionId);
             try {
@@ -635,21 +663,48 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         final AcpClient active = client.get();
         final AcpSession current = session;
         if (active == null || current == null || prompting) return;
-        if (!current.capabilities().listSessions()) {
-            ui(() -> view.showSessions(
-                    List.of(new AcpSessionSummary(current.sessionId(), "active")), current.sessionId(), false));
-            return;
-        }
         try {
-            final List<AcpSessionSummary> sessions = active.listSessions(REQUEST_TIMEOUT);
-            ui(() -> view.showSessions(sessions, current.sessionId(), true));
-        } catch (AcpException failure) {
-            context.logger().error("ACP session list failed", failure);
+            final List<AcpSessionSummary> owned = current.durableSessionsAvailable()
+                    ? sessionIndex().sessions()
+                    : List.of(new AcpSessionSummary(current.sessionId(), ""));
+            final Map<String, AcpSessionSummary> remote = new LinkedHashMap<>();
+            if (current.capabilities().listSessions()) {
+                for (var summary : active.listSessions(REQUEST_TIMEOUT)) remote.put(summary.sessionId(), summary);
+            }
+            final List<AcpSessionSummary> visible = owned.stream()
+                    .map(summary -> remote.getOrDefault(summary.sessionId(), summary))
+                    .toList();
+            ui(() -> view.showSessions(visible, current.sessionId(), current.durableSessionsAvailable()));
+        } catch (AcpException | IOException failure) {
+            context.logger().error("ACP local session list failed", failure);
             ui(() -> view.showSessionFailure("status.session-list-failed"));
         }
     }
 
+    private LocalSessionIndex sessionIndex() {
+        final AgentLaunchSpec spec = launchSpec;
+        if (spec == null) throw new IllegalStateException("No harness connection");
+        return new LocalSessionIndex(
+                context.paths().stateDir(), activeHarnessId != null ? activeHarnessId : settings.agentId(), spec);
+    }
+
+    private void rememberSession(final String id, final String title) {
+        if (launchSpec == null) return;
+        try {
+            final var index = sessionIndex();
+            final String storedTitle = index.sessions().stream()
+                    .filter(entry -> entry.sessionId().equals(id))
+                    .map(AcpSessionSummary::title)
+                    .findFirst()
+                    .orElse("");
+            index.remember(id, storedTitle.isBlank() ? title : "");
+        } catch (IOException | RuntimeException failure) {
+            context.logger().error("Could not save local session index", failure);
+        }
+    }
+
     private void activateSession(final AcpSession created) {
+        if (created.durableSessionsAvailable()) rememberSession(created.sessionId(), "");
         synchronized (stateLock) {
             session = created;
             sessionGeneration = generationCounter;
@@ -703,6 +758,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             }
             return false;
         }
+        if (restored.durableSessionsAvailable()) rememberSession(restored.sessionId(), "");
         saveSessionIdSafely(restored.durableSessionsAvailable() ? restored.sessionId() : null);
         return true;
     }
@@ -765,6 +821,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             ui(() -> view.showSessionFailure("status.prompt-failed"));
             return;
         }
+        final long outputBefore = receivedOutput.get();
         final CompletableFuture<String> prompt;
         try {
             prompt = active.prompt(current.sessionId(), prefix + text, attachments);
@@ -773,6 +830,14 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             ui(() -> view.showSessionFailure("status.prompt-failed", AcpClient.failureDetails(failure)));
             return;
         }
+        rememberSession(
+                current.sessionId(),
+                text.strip()
+                        .replaceAll("\\s+", " ")
+                        .substring(
+                                0,
+                                Math.min(
+                                        80, text.strip().replaceAll("\\s+", " ").length())));
         prompting = true;
         ui(() -> {
             view.appendUser(text);
@@ -785,6 +850,9 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             if (failure != null) {
                 context.logger().error("ACP prompt failed", unwrap(failure));
                 ui(() -> view.showSessionFailure("status.prompt-failed", AcpClient.failureDetails(unwrap(failure))));
+            } else if ("end_turn".equals(stopReason) && receivedOutput.get() == outputBefore) {
+                context.logger().warn("ACP agent returned end_turn without text, thought, image, or tool output");
+                ui(() -> view.showSessionFailure("status.prompt-empty-response"));
             } else {
                 ui(() -> view.showPromptComplete(stopReason));
                 refreshSessionsNow();
@@ -938,9 +1006,16 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                 return;
             }
             if (!activeSession(source, sessionId)) return;
+            if (hasOutput(event)) receivedOutput.incrementAndGet();
             generation = sessionGeneration;
             uiStream(guardedDelivery(source, sessionId, generation, event));
         }
+    }
+
+    private static boolean hasOutput(final ReplayEvent event) {
+        if (event instanceof AgentTextEvent text) return !text.text().isBlank();
+        if (event instanceof AgentThoughtEvent thought) return !thought.text().isBlank();
+        return true;
     }
 
     private Runnable guardedDelivery(
@@ -1422,6 +1497,8 @@ final class AcpChatController implements AutoCloseable, AcpListener {
 
         /** Detection results keyed by agent id; the value is the executable path or empty. */
         default void showDetectedAgents(final Map<String, String> detectedPaths) {}
+
+        default void showDetectionResults(final Map<String, AgentAvailability.Detection> results) {}
 
         /** Returns whether the user has unpersisted selection edits in the UI. */
         default boolean isUserSelectionDirty() {

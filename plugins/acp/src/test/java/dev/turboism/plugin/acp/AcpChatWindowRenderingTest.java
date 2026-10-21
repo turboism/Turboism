@@ -30,6 +30,36 @@ import org.junit.jupiter.api.Test;
 /** Run with xvfb-run when no desktop display is available. */
 final class AcpChatWindowRenderingTest {
     @Test
+    void managerShowsInstalledVersionAndDistinguishesFailedProbeFromMissingInstall() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless());
+        SwingUtilities.invokeAndWait(() -> {
+            final AcpChatWindow window = new AcpChatWindow(localization(), "pi", "", "");
+            try {
+                final var path = java.nio.file.Path.of("/installed/pi.cmd");
+                window.showDetectionResults(
+                        java.util.Map.of("pi", new AgentAvailability.Detection(path, true, "1.2.3", "available")));
+                window.showDetectedAgents(java.util.Map.of("pi", path.toString()));
+                final var label = component(window, "agentDetection", javax.swing.JLabel.class);
+                assertTrue(label.getText().contains("1.2.3"));
+                assertTrue(label.getText().contains(path.toString()));
+                window.showDetectionResults(java.util.Map.of(
+                        "pi", new AgentAvailability.Detection(path, false, "1.2.3", "probe-failed-IOException")));
+                window.showDetectedAgents(java.util.Map.of("pi", ""));
+                window.showAgentSelected("pi");
+                assertEquals(
+                        localization().format("status.agent-probe-failed", path.toString(), "1.2.3"), label.getText());
+                window.showDetectionResults(java.util.Map.of(
+                        "pi", new AgentAvailability.Detection(path, false, "0.1.0", "native-mode-not-advertised")));
+                window.showDetectedAgents(java.util.Map.of("pi", ""));
+                assertEquals(
+                        localization().format("status.agent-unsupported", path.toString(), "0.1.0"), label.getText());
+            } finally {
+                window.dispose();
+            }
+        });
+    }
+
+    @Test
     void pastesClipboardImagesAndFilesAndSubmitsThemWithoutText(
             @org.junit.jupiter.api.io.TempDir java.nio.file.Path directory) throws Exception {
         assumeFalse(GraphicsEnvironment.isHeadless());
@@ -321,7 +351,8 @@ final class AcpChatWindowRenderingTest {
                 window.appendAgent("，可以继续。");
                 final String after = transcript.getText();
                 assertFalse(after.contains("检查通过"));
-                assertTrue(after.contains("Commands: 0 · Other tools: 1"));
+                assertTrue(after.contains("Tools: 1"));
+                assertFalse(after.contains("Commands: 0"));
                 assertTrue(after.contains("正常文本，可以继续。"));
                 assertEquals(1, after.split("结果", -1).length - 1);
 
@@ -512,6 +543,7 @@ final class AcpChatWindowRenderingTest {
                 }
                 final JButton model = (JButton) buttons.get("model");
                 assertTrue(model.isEnabled());
+                assertEquals(AcpChatTheme.foreground(), model.getForeground());
                 ((JMenuItem) model.getComponentPopupMenu().getComponent(1)).doClick();
                 assertEquals(List.of("model", "model-b"), requested.get());
                 assertFalse(model.isEnabled());
@@ -521,9 +553,9 @@ final class AcpChatWindowRenderingTest {
                 assertTrue(((JButton) buttons.get("model")).isEnabled());
                 window.showConfigOptions(modelOptions("model-b", "Model B"));
                 final JPanel controls = component(window, "composerOptions", JPanel.class);
-                assertEquals(5, controls.getComponentCount());
+                assertEquals(3, controls.getComponentCount());
                 assertEquals(
-                        2,
+                        0,
                         java.util.Arrays.stream(controls.getComponents())
                                 .filter(child -> !child.isEnabled())
                                 .count());
@@ -568,9 +600,12 @@ final class AcpChatWindowRenderingTest {
                         () -> {});
                 final JButton agent = component(window, "composerAgent", JButton.class);
                 assertEquals(AcpAgentIcons.icon(window.agentId()), agent.getIcon());
+                window.showDetectedAgents(java.util.Map.of("claude", "/bin/claude", "codex", "/bin/codex", "pi", ""));
+                assertEquals(AcpChatTheme.foreground(), agent.getForeground());
+                assertEquals(3, window.agentSelector().getItemCount());
                 final javax.swing.JPopupMenu agentMenu = agent.getComponentPopupMenu();
-                assertEquals(AgentCatalog.profiles().size() + 3, agentMenu.getComponentCount());
-                for (int i = 0; i < AgentCatalog.profiles().size(); i++) {
+                assertEquals(4, agentMenu.getComponentCount());
+                for (int i = 0; i < 2; i++) {
                     assertEquals(
                             AcpAgentIcons.icon(AgentCatalog.profiles().get(i).id()),
                             ((JMenuItem) agentMenu.getComponent(i)).getIcon());
@@ -729,10 +764,10 @@ final class AcpChatWindowRenderingTest {
                 window.appendAgent("最终结论");
                 String text = transcript.getText();
                 assertEquals(2, text.split("Thinking", -1).length - 1);
-                assertEquals(2, text.split("Commands:", -1).length - 1);
+                assertEquals(2, text.split("Tools:", -1).length - 1);
                 assertFalse(text.contains("第二段思考"));
-                assertTrue(text.indexOf("Thinking") < text.indexOf("Commands:"));
-                assertTrue(text.lastIndexOf("Thinking") > text.indexOf("Commands:"));
+                assertTrue(text.indexOf("Thinking") < text.indexOf("Tools:"));
+                assertTrue(text.lastIndexOf("Thinking") > text.indexOf("Tools:"));
                 toggleDisclosureWithKeyboard(transcript, "▸  Thinking");
                 window.updateTool("one", "completed", "读取完成");
                 assertTrue(transcript.getText().contains("第一段思考，继续分析"));
@@ -752,7 +787,7 @@ final class AcpChatWindowRenderingTest {
     }
 
     private static void toggleSummaryWithKeyboard(final JTextPane transcript) {
-        toggleDisclosureWithKeyboard(transcript, "Commands:");
+        toggleDisclosureWithKeyboard(transcript, transcript.getText().contains("Commands:") ? "Commands:" : "Tools:");
     }
 
     private static void toggleDisclosureWithKeyboard(final JTextPane transcript, final String label) {

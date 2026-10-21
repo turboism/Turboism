@@ -15,10 +15,29 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
     private static final String NATIVE_OFF_CANVAS_BACKGROUND = "Turboism.native.CubismCommon.gl.viewArea.background";
 
     private final ClassLoader hostClassLoader;
+    private final java.util.function.Consumer<Color> refreshOffCanvasBackground;
     private final java.util.Set<String> ownedKeys;
 
+    /**
+     * Creates Swing-only operations for callers without a native canvas binding.
+     *
+     * @param hostClassLoader the host FlatLaf loader
+     */
     public SwingFlatLafHostOperations(final ClassLoader hostClassLoader) {
+        this(hostClassLoader, color -> {});
+    }
+
+    /**
+     * Creates appearance operations with a native background refresh after each FlatLaf update.
+     *
+     * @param hostClassLoader the host FlatLaf loader
+     * @param refreshOffCanvasBackground the host-owned canvas refresh, called synchronously on the EDT
+     */
+    public SwingFlatLafHostOperations(
+            final ClassLoader hostClassLoader, final java.util.function.Consumer<Color> refreshOffCanvasBackground) {
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+        this.refreshOffCanvasBackground =
+                Objects.requireNonNull(refreshOffCanvasBackground, "refreshOffCanvasBackground");
         this.ownedKeys = FlatLafAppearanceHostProvider.ownedKeys();
     }
 
@@ -194,6 +213,10 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
                 flatLaf.getMethod("registerCustomDefaultsSource", java.io.File.class)
                         .invoke(null, ThemeRuntimeProperties.path().toFile());
                 flatLaf.getMethod("updateUI").invoke(null);
+                final Color background = UIManager.getColor(OFF_CANVAS_BACKGROUND);
+                if (background != null) {
+                    refreshOffCanvasBackground.accept(background);
+                }
                 return null;
             } catch (ReflectiveOperationException exception) {
                 throw new IllegalStateException("FlatLaf updateUI is unavailable", exception);

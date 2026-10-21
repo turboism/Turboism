@@ -15,6 +15,41 @@ final class McpConnectionWindowTest {
     private static final String STDIO_CONFIG = "{\"command\":\"java\",\"args\":[\"/bridge.java\"]}";
 
     @Test
+    void createsAndShowsLocalizedHistoryTableOnEdt() throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeFalse(java.awt.GraphicsEnvironment.isHeadless());
+        javax.swing.SwingUtilities.invokeAndWait(() -> {
+            final var window =
+                    new McpConnectionWindow(localization("unused"), new McpHttpServerTestFixtures.CapturingLogger());
+            try {
+                window.bind(() -> new McpConnectionWindow.McpConnectionSnapshot(
+                        URI.create("http://127.0.0.1:43123/mcp"), STDIO_CONFIG, List.of()));
+                window.showAndFront();
+                final var frame = java.util.Arrays.stream(java.awt.Frame.getFrames())
+                        .filter(value -> value.isVisible() && value.getTitle().equals("window.connection-title"))
+                        .findFirst()
+                        .orElseThrow();
+                final var table = findTable(frame);
+                assertEquals(4, table.getColumnCount());
+                assertEquals("history.time", table.getColumnName(0));
+                assertEquals("history.detail", table.getColumnName(3));
+            } finally {
+                window.dispose();
+            }
+        });
+    }
+
+    private static javax.swing.JTable findTable(final java.awt.Container parent) {
+        for (var child : parent.getComponents()) {
+            if (child instanceof javax.swing.JTable table) return table;
+            if (child instanceof java.awt.Container container) {
+                final var found = findTable(container);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    @Test
     void codingAgentPromptCarriesEndpointAndStdioConfig() {
         final var snapshot = new McpConnectionWindow.McpConnectionSnapshot(
                 URI.create("http://127.0.0.1:43123/mcp"), STDIO_CONFIG, List.of());

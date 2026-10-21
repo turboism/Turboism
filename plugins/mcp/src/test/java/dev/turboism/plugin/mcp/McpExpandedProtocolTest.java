@@ -36,6 +36,10 @@ final class McpExpandedProtocolTest {
         assertTrue(capabilities.containsKey("tools"));
         assertTrue(capabilities.containsKey("resources"));
         assertTrue(capabilities.containsKey("prompts"));
+        final String instructions = (String) result.get("instructions");
+        assertTrue(instructions.contains("resources/list"));
+        assertTrue(instructions.contains("turboism://active/document"));
+        assertTrue(instructions.contains("turboism://active/model/overview"));
     }
 
     @Test
@@ -323,6 +327,9 @@ final class McpExpandedProtocolTest {
                 object(protocol.handle(request(5, "resources/read", Map.of("uri", "turboism://missing")))
                         .body());
         assertEquals(-32002L, ((Number) object(missingEnvelope.get("error")).get("code")).longValue());
+        final String hint = (String) object(missingEnvelope.get("error")).get("data");
+        assertTrue(hint.contains("resources/list"));
+        assertTrue(hint.contains("not a connection failure"));
     }
 
     @Test

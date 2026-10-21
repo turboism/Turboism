@@ -4,7 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Behaviour tests for the cache-reuse transformer.
@@ -78,6 +84,45 @@ final class AtlasCacheReuseTransformerTest {
             assertNull(transformer.transform(null, getLoader(), TARGET.internalName(), null, null, fixture));
             assertEquals(AtlasCacheReuseTransformer.Outcome.HASH_MISMATCH, transformer.outcome());
         } finally {
+            if (saved == null) System.clearProperty(property);
+            else System.setProperty(property, saved);
+        }
+    }
+
+    @Test
+    void keepsDiagnosticsOffHostConsoleButPreservesOptInEvidence(@TempDir final Path temp) throws Exception {
+        final byte[] fixture = fixtureBytes(TARGET.internalName() + ".class");
+        final AtlasCacheReuseTransformer transformer =
+                new AtlasCacheReuseTransformer(TARGET, java.util.Set.of(AtlasCacheReuseTransformer.sha256(fixture)));
+        final String property = "turboism.atlasCacheReuse.evidenceFile";
+        final String saved = System.getProperty(property);
+        final PrintStream originalErr = System.err;
+        final PrintStream originalOut = System.out;
+        final ByteArrayOutputStream console = new ByteArrayOutputStream();
+        final Path evidence = temp.resolve("atlas.log");
+        try (PrintStream captured = new PrintStream(console, true, StandardCharsets.UTF_8)) {
+            System.setErr(captured);
+            System.setOut(captured);
+            System.clearProperty(property);
+            assertNotNull(transformer.transform(null, getLoader(), TARGET.internalName(), null, null, fixture));
+            assertEquals("", console.toString(StandardCharsets.UTF_8));
+
+            System.setProperty(property, evidence.toString());
+            assertNotNull(transformer.transform(null, getLoader(), TARGET.internalName(), null, null, fixture));
+            org.junit.jupiter.api.Assertions.assertTrue(
+                    Files.readString(evidence).contains("SEEN"));
+            org.junit.jupiter.api.Assertions.assertTrue(
+                    Files.readString(evidence).contains("PATCHED"));
+            assertEquals("", console.toString(StandardCharsets.UTF_8));
+
+            // Rejected hosts must still fall back safely without writing to the native log.
+            new AtlasCacheReuseTransformer().transform(null, getLoader(), TARGET.internalName(), null, null, fixture);
+            org.junit.jupiter.api.Assertions.assertTrue(
+                    Files.readString(evidence).contains("HASH_MISMATCH"));
+            assertEquals("", console.toString(StandardCharsets.UTF_8));
+        } finally {
+            System.setErr(originalErr);
+            System.setOut(originalOut);
             if (saved == null) System.clearProperty(property);
             else System.setProperty(property, saved);
         }

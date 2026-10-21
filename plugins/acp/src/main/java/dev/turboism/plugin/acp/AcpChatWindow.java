@@ -141,6 +141,7 @@ final class AcpChatWindow implements AcpChatController.View {
     private final Map<String, List<TranscriptEntry>> tools = new LinkedHashMap<>();
     private final AtomicBoolean acceptingEvents = new AtomicBoolean(true);
     private Map<String, String> detectedPaths = Map.of();
+    private Map<String, AgentAvailability.Detection> detectionResults = Map.of();
     private List<AcpAuthMethod> authMethods = List.of();
     private boolean applyingOptions;
     private boolean applyingSessions;
@@ -388,9 +389,29 @@ final class AcpChatWindow implements AcpChatController.View {
     }
 
     @Override
+    public void showDetectionResults(final Map<String, AgentAvailability.Detection> results) {
+        if (acceptingEvents.get()) detectionResults = Map.copyOf(results);
+    }
+
+    @Override
     public void showDetectedAgents(final Map<String, String> detected) {
         if (!acceptingEvents.get()) return;
         detectedPaths = Map.copyOf(Objects.requireNonNullElse(detected, Map.of()));
+        final String previous = agentId();
+        applyingAgents = true;
+        try {
+            agentSelector.removeAllItems();
+            for (AgentProfile profile : AgentCatalog.profiles()) {
+                if (!detectedPaths.getOrDefault(profile.id(), "").isBlank()
+                        || (detectionResults.containsKey(profile.id())
+                                && detectionResults.get(profile.id()).executable() != null))
+                    agentSelector.addItem(new AgentItem(profile.id(), null));
+            }
+            agentSelector.addItem(CUSTOM_ITEM);
+            selectAgentItem(previous);
+        } finally {
+            applyingAgents = false;
+        }
         agentSelector.repaint();
         updateAgentDetail();
         managerStatus.setText(localization.text("status.detection-complete"));
@@ -871,6 +892,7 @@ final class AcpChatWindow implements AcpChatController.View {
         final JPopupMenu agentMenu = new JPopupMenu();
         for (int index = 0; index < agentSelector.getItemCount(); index++) {
             final AgentItem item = agentSelector.getItemAt(index);
+            if (detectedPaths.getOrDefault(item.id(), "").isBlank()) continue;
             final javax.swing.JRadioButtonMenuItem choice = new javax.swing.JRadioButtonMenuItem(
                     agentItemLabel(item), item.id().equals(selected));
             choice.setIcon(AcpAgentIcons.icon(item.id()));
@@ -911,10 +933,24 @@ final class AcpChatWindow implements AcpChatController.View {
         if (detected == null) {
             agentDetection.setText(localization.text("status.agent-undetected"));
         } else if (detected.isEmpty()) {
-            agentDetection.setText(localization.format(
-                    "status.agent-not-found", profile.executableCandidates().get(0)));
+            final AgentAvailability.Detection result = detectionResults.get(profile.id());
+            if (result != null && result.executable() != null) {
+                final String key = "native-mode-not-advertised".equals(result.reason())
+                        ? "status.agent-unsupported"
+                        : "status.agent-probe-failed";
+                agentDetection.setText(
+                        localization.format(key, result.executable().toString(), result.version()));
+            } else {
+                agentDetection.setText(localization.format(
+                        "status.agent-not-found", profile.executableCandidates().get(0)));
+            }
         } else {
-            agentDetection.setText(localization.format("status.agent-found", detected));
+            final AgentAvailability.Detection result = detectionResults.get(profile.id());
+            final String version = result == null ? "" : result.version();
+            agentDetection.setText(
+                    version.isBlank()
+                            ? localization.format("status.agent-found", detected)
+                            : localization.format("status.agent-found-version", detected, version));
         }
         agentHint.setText(
                 profile.installHint().isEmpty()
@@ -1132,7 +1168,7 @@ final class AcpChatWindow implements AcpChatController.View {
                     && java.util.Set.of("fast", "plan", "true", "on", "enabled")
                             .contains(option.currentValue().toLowerCase(java.util.Locale.ROOT));
             button.putClientProperty("acp.active-mode", active);
-            button.setForeground(AcpChatTheme.muted());
+            button.setForeground(AcpChatTheme.foreground());
             button.setEnabled(connected && !prompting);
             button.setToolTipText(option.name() + ": " + value
                     + (option.description().isBlank() ? "" : " · " + option.description()));
@@ -1155,17 +1191,6 @@ final class AcpChatWindow implements AcpChatController.View {
             button.addActionListener(ignored -> menu.show(button, 0, button.getHeight()));
             composerOptionButtons.put(option.id(), button);
             composerOptions.add(button);
-        }
-        for (int role = 0; role < 3; role++) {
-            final int requiredRole = role;
-            if (ordered.stream().anyMatch(option -> composerOptionOrder(option) == requiredRole)) continue;
-            final String label = localization.text(List.of("composer.model", "composer.effort", "composer.permissions")
-                    .get(role));
-            final JButton unavailable = new AcpComposerPanel.OptionButton(label + " —");
-            configureCompactButton(unavailable);
-            unavailable.setEnabled(false);
-            unavailable.setToolTipText(localization.text("composer.option-unavailable"));
-            composerOptions.add(unavailable, Math.min(role + 2, composerOptions.getComponentCount()));
         }
         composerOptions.revalidate();
         composerOptions.repaint();
@@ -1946,6 +1971,12 @@ final class AcpChatWindow implements AcpChatController.View {
         final int start = document.getLength();
         final long commands =
                 group.stream().filter(entry -> "execute".equals(entry.kind)).count();
+        final long otherTools = group.size() - commands;
+        final String counts = commands == 0
+                ? localization.format("transcript.tools-other-only", otherTools)
+                : otherTools == 0
+                        ? localization.format("transcript.tools-commands-only", commands)
+                        : localization.format("transcript.tools-summary", commands, otherTools);
         final long running = group.stream()
                 .filter(entry -> "pending".equals(entry.toolStatus) || "in_progress".equals(entry.toolStatus))
                 .count();
@@ -1953,7 +1984,7 @@ final class AcpChatWindow implements AcpChatController.View {
                 .filter(entry -> "failed".equals(entry.toolStatus))
                 .count();
         final String summary = (first.expanded ? "▾  " : "▸  ")
-                + localization.format("transcript.tools-summary", commands, group.size() - commands)
+                + counts
                 + (running > 0 ? "  ·  " + localization.format("transcript.tools-running", running) : "")
                 + (failed > 0 ? "  ·  " + localization.format("transcript.tools-failed", failed) : "") + "\n";
         final SimpleAttributeSet style = contentAttributes(Sender.TOOL);
@@ -2181,8 +2212,8 @@ final class AcpChatWindow implements AcpChatController.View {
         transcript.setForeground(AcpChatTheme.foreground());
         prompt.setOpaque(false);
         agentStatus.setForeground(AcpChatTheme.muted());
-        composerAgent.setForeground(AcpChatTheme.muted());
-        composerOptionButtons.values().forEach(button -> button.setForeground(AcpChatTheme.muted()));
+        composerAgent.setForeground(AcpChatTheme.foreground());
+        composerOptionButtons.values().forEach(button -> button.setForeground(AcpChatTheme.foreground()));
         connectionDot.setForeground(statusColor(currentStatusTone));
         refreshTaskStatus();
         final java.awt.Rectangle visible = transcript.getVisibleRect();
