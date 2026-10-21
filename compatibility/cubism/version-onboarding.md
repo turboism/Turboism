@@ -4,8 +4,8 @@ Maintainer checklist for admitting one exact Cubism Editor release (say `X.Y.Z`,
 compact form `XYZZ`) to the runtime. The model in `index.md` applies throughout:
 `DRAFT` artifacts under `mapping-packs/draft/` and `profiles/draft/` never
 authorize runtime binding; runtime admission requires a matching `VERIFIED_STATIC`
-record under `verification/`, a reviewed host-artifact identity, a pinned record
-digest, the exact version string, the declared capability set, and selector
+record under `verification/`, a reviewed host-artifact identity, the exact
+version string, the declared capability set, and verified selector
 aliases. Unknown or mismatched inputs fail closed.
 
 Adding a version is therefore a *reviewed* change spread across contracts,
@@ -53,11 +53,12 @@ stat -c %s Live2D_Cubism.jar  # byte size
   `cubismVersionOf`, `all()`, and `admitsFullRuntime`. Keep `admitsFullRuntime`
   closed until the runtime/UI/SDK surfaces are genuinely enabled — artifact
   review and full-runtime admission are separate decisions.
-- `runtime/src/test/.../ReviewedHostArtifactsTest.java`: the one test allowed
-  to restate the digest literals.
-- `scripts/test/check_code_quality.py`: add the digest to `REVIEWED_DIGESTS`
-  (the `digests` rule then rejects any further copies outside the declaration
-  sites listed in `DIGEST_DECLARATION_SITES`).
+- `runtime/src/test/.../ReviewedHostArtifactsTest.java`: asserts structural
+  invariants of the declarations (unique, well-formed digests; version
+  agreement); it does not restate the literals.
+- Shell and Python tools never restate the digest: they read it from
+  `ReviewedHostArtifacts.java` through `scripts/preview/reviewed_host_artifacts.py`,
+  and validation snapshots carry that Java file alongside the scripts.
 - `runtime/.../mapping/verification/CubismEditorReleaseDetector.java`: pin the
   host-declared build integer in `pinnedBuild` for `X.Y.Z` (measured from the
   `com/live2d/cubism/h` declaration class; builds are *not* formula-derived —
@@ -173,6 +174,12 @@ the reviewed artifact digest; keep `metadata.selectorCount`, `capabilityCount`,
 bytes) exactly in sync — this metadata has drifted before (see the provenance
 report) and only part of it is currently enforced.
 
+Reviewed packs may set one top-level `exactArtifactSha256` (the reviewed
+artifact digest, equal to the record's `artifact.sha256`). Entries carry no
+per-entry review block: the record alias and mapping id are the entry's own
+`name` and `semanticName`, and the access flags live only in the verification
+record (`x.verification` keeps `ownerInternalName`).
+
 Then author `profiles/draft/cubism-X.Y.Z.json` (`format: turboism.profile`,
 `status: DRAFT`, `verifiedBy: "none"`, `verifiedAt: null`) listing the pack IDs.
 
@@ -218,8 +225,9 @@ For each capability family admitted on `X.Y.Z`:
 - `runtime/.../mapping/verification/*VerificationManifest.java`: add
   `RECORD_X_Y_Z` (`ReviewedSliceRecord` = artifact + `verificationId` +
   `recordSha256` of the record file bytes + `cubismVersion` + `profileId`) and
-  the version's capability/alias sets, mirroring existing records. Record-byte
-  pins must move with any later reviewed selector addition.
+  the version's capability/alias sets, mirroring existing records. Generated record
+  digests describe provenance; admission checks schema, identity, selector structure
+  and host bytes rather than treating a record self-hash as a trust anchor.
 - `runtime/.../mapping/verification/selector/*.java`: add or extend the
   `REQUIRED_ALIASES` contracts the manifest references.
 - `CorePublicApiTrustRoots.java`: add the Core `verificationId` arm only if a
@@ -258,7 +266,7 @@ For each capability family admitted on `X.Y.Z`:
 
 - `testing/.../mapping/StaticVerificationRecordRepositoryTest.java`: add a
   `SliceExpectation` per record — verificationId, slice, version, profile,
-  capabilities, artifact size+SHA-256, **record SHA-256**, selector count,
+  capabilities, artifact size+SHA-256, selector count,
   required/used alias sets, pack path, profile path, slice kind.
 - `MappingPackDraftImportTest`/`ProfileDraftImportTest`: adjust per-version
   pins (entry counts, `capabilityCount`, metadata provenance).
@@ -280,8 +288,12 @@ For each capability family admitted on `X.Y.Z`:
 - `scripts/preview/host_validation.py`: extend the admitted version set
   (`{"5203","5302","5303"}` today).
 - `scripts/preview/run-cubism-host-validation.sh` (and family wrappers
-  `run-*-host-validation.sh`): add the `XYZZ` `case` arm — install path under
-  the golden prefix (`cubism_win`/`cubism_rel`) and `reviewed_jar_sha256`.
+  `run-*-host-validation.sh`): the reviewed jar digest is resolved from
+  `ReviewedHostArtifacts.java`; add a `case` arm only if the version installs
+  to a non-default path under the golden prefix (`cubism_win`/`cubism_rel`).
+- `scripts/preview/host_validation_evidence.py`: add the `XYZZ` entry to `HOSTS`
+  (install folder + jar digest; `test_host_validation_evidence.py` fails if the
+  digest disagrees with `ReviewedHostArtifacts.java`).
 - `gradle/verification.gradle.kts`: register `validate*HostXYZZ` tasks for the
   families that need exact-host evidence (existing registrations for
   5203/5302/5303 are the template), plus `package*HostValidation` if a new
@@ -355,7 +367,7 @@ Release-side verification (CI is the authority; these are the local handles):
 
 | # | Touch point | Type |
 | --- | --- | --- |
-| 1 | `ReviewedHostArtifacts.java` (+ test, `check_code_quality.py` digests) | artifact identity |
+| 1 | `ReviewedHostArtifacts.java` (single source for shell/Python tools too) | artifact identity |
 | 2 | `CubismEditorReleaseDetector.pinnedBuild` (+ detector/routing tests) | declared release identity |
 | 3 | `core-api/observed/cubism-core-X.Y.Z.json` + `runtime/build.gradle.kts` inputs + `test_cubism_core_api_inventory.py` facts | tool-produced inventory |
 | 4 | `core-api/policy/*.json` rosters + `test_cubism_core_{member,selector}_policy.py` | mixed policy |
@@ -387,4 +399,4 @@ Release-side verification (CI is the authority; these are the local handles):
 - `python3 scripts/release/product.py inspect|info|candidate|promote`
 - `python3 scripts/release/turboism-release.py build|plan|verify|publish|resume|release`
 - `python3 scripts/test/check_editor_model_aliases.py <repo-root> [--report]`
-- `python3 scripts/test/check_code_quality.py <repo-root> [--rules javadoc,digests,naming,assets]`
+- `python3 scripts/test/check_code_quality.py <repo-root> [--rules javadoc,naming,assets]`

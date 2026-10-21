@@ -8,7 +8,6 @@ import tempfile
 from pathlib import Path
 
 CHECKER = Path(__file__).resolve().parent / "check_code_quality.py"
-DIGEST = "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
 
 DOCUMENTED_TYPE = """package dev.turboism.sample;
 
@@ -333,7 +332,7 @@ def write(root: Path, relative: str, text: str) -> None:
 
 def case_clean_baseline(root: Path) -> None:
     write(root, "sdk/src/main/java/dev/turboism/sample/Sample.java", DOCUMENTED_TYPE)
-    result = run(root, "javadoc,digests,naming,assets,edt-dispatch,controlchars")
+    result = run(root, "javadoc,naming,assets,edt-dispatch,controlchars")
     assert result.returncode == 0, f"clean tree must pass, got:\n{result.stdout}"
     assert "@Override" not in result.stdout
 
@@ -490,18 +489,6 @@ def case_report_lists_real_findings(root: Path) -> None:
     result = run(root, "javadoc", extra=["--report"])
     assert result.returncode == 0, f"report mode with findings must exit 0, got:\n{result.stderr}"
     assert "javadoc: 3 finding(s)" in result.stdout
-
-
-def case_duplicated_digest(root: Path) -> None:
-    write(
-        root,
-        "runtime/src/main/java/dev/turboism/sample/Copy.java",
-        f'package dev.turboism.sample;\n\n/** Doc. */\npublic final class Copy {{\n'
-        f'    static final String X = "{DIGEST}";\n}}\n',
-    )
-    result = run(root, "digests")
-    assert result.returncode == 1, "restated reviewed digest must fail"
-    assert "reviewed host digest restated" in result.stdout
 
 
 def case_version_suffixed_type(root: Path) -> None:
@@ -723,13 +710,12 @@ def case_ratchet_still_enforces_other_rules(root: Path) -> None:
     """Ratchet mode relaxes javadoc only; the other rules stay absolute."""
     write(
         root,
-        "runtime/src/main/java/dev/turboism/sample/Copy.java",
-        f'package dev.turboism.sample;\n\n/** Doc. */\npublic final class Copy {{\n'
-        f'    static final String X = "{DIGEST}";\n}}\n',
+        "runtime/src/main/java/dev/turboism/sample/ThingManifest52.java",
+        "package dev.turboism.sample;\n\n/** Doc. */\npublic final class ThingManifest52 { }\n",
     )
     result = run_ratchet(root)
-    assert result.returncode == 1, "a digest violation must fail even in ratchet mode"
-    assert "reviewed host digest restated" in result.stdout
+    assert result.returncode == 1, "a naming violation must fail even in ratchet mode"
+    assert "encodes a Cubism version" in result.stdout
 
 
 def case_startup_dialog_forked_responder(root: Path) -> None:
@@ -822,7 +808,6 @@ CASES = (
     case_missing_jdk_fails_closed,
     case_missing_jdk_fails_closed_in_report,
     case_report_lists_real_findings,
-    case_duplicated_digest,
     case_version_suffixed_type,
     case_version_token_inside_type,
     case_non_version_digits_pass,

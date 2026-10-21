@@ -7,9 +7,9 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: texture-atlas, packing, auto-layout
-turboismApi: "[0.67.0,1.0.0)"
+turboismApi: "[0.67.1,1.0.0)"
 requiresCubism: true
-interface: swing
+interface: none
 ---
 
 # MaxRects-BSSF 布局算法
@@ -36,7 +36,7 @@ interface: swing
 
 ## 要求与兼容性
 
-- **SDK API 范围：**`[0.67.0,1.0.0)`。
+- **SDK API 范围：**`[0.67.1,1.0.0)`。
 - **Cubism：**需要 Cubism。Turboism 当前仅接受经审查的精确编辑器构件 `5.0.00` 至 `5.3.04`；本插件仅在其声明的服务和能力可用时公开相应的面向主机功能。
 - **界面模式：**`none`。
 - **插件依赖项：**未声明。

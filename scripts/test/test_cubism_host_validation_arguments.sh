@@ -87,7 +87,8 @@ auth=(bash "$runner" --name arg-contract --version 5303 --bundle-root "$bundle"
   --result-file state/result.txt "${host_args[@]}" --dry-run)
 "${auth[@]}" > "$tmp/good-5303.out"
 grep -Fq 'version=5303' "$tmp/good-5303.out" || fail 'exact 5.3.03 version was not accepted'
-grep -Fq 'expectedJarSha256=bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166' \
+reviewed_5303="$(python3 "$repo_root/scripts/preview/reviewed_host_artifacts.py" sha256 5303)"
+grep -Fq "expectedJarSha256=$reviewed_5303" \
   "$tmp/good-5303.out" || fail 'exact 5.3.03 reviewed artifact was not pinned'
 grep -Fq 'Program Files/Live2D Cubism 5.3.03' "$tmp/good-5303.out" \
   || fail 'exact 5.3.03 installation path was not selected'

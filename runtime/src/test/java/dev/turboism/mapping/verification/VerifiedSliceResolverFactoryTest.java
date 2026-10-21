@@ -35,7 +35,7 @@ class VerifiedSliceResolverFactoryTest {
         return SliceRegistry.all().stream();
     }
 
-    @ParameterizedTest(name = "{index}: reviewed manifest, record pin and fail-closed factory")
+    @ParameterizedTest(name = "{index}: reviewed manifest, structural record and fail-closed factory")
     @MethodSource("allDescriptors")
     void preservesReviewedSliceContract(final SliceDescriptor descriptor) throws Exception {
         final Path root = EditorSelectorContractTestPaths.projectRoot();
@@ -46,7 +46,6 @@ class VerifiedSliceResolverFactoryTest {
         final var manifest = descriptor.manifestFor(new HostArtifactDigest(expected.size(), expected.sha256()));
         final var workflow = new PinnedVerifiedResolverWorkflow();
         assertEquals(loaded.record().adapterSliceId(), manifest.adapterSliceId());
-        assertEquals(loaded.sha256(), manifest.recordSha256());
         assertEquals(loaded.record(), workflow.requireReviewedRecord(record, manifest));
         assertEquals(descriptor, SliceRegistry.find(descriptor.sliceId()).orElseThrow());
 
@@ -57,7 +56,9 @@ class VerifiedSliceResolverFactoryTest {
         final var tree = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(record.toFile());
         tree.put("verifiedBy", "self-issued-test");
         mapper.writeValue(tampered.toFile(), tree);
-        assertThrows(IllegalArgumentException.class, () -> workflow.requireReviewedRecord(tampered, manifest));
+        assertEquals(
+                "self-issued-test",
+                workflow.requireReviewedRecord(tampered, manifest).verifiedBy());
         final Path otherRecord = root.resolve("compatibility/cubism/verification/cubism-5.2.03-"
                 + (descriptor == SliceRegistry.CLIP_MASK ? "project-workspace" : "clipmask") + ".json");
         assertThrows(IllegalArgumentException.class, () -> workflow.requireReviewedRecord(otherRecord, manifest));
