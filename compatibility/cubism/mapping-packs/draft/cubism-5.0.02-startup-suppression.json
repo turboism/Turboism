@@ -39,11 +39,6 @@
         "ownerInternalName": "com/live2d/cubism/CECubismEditorApp",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.startup-suppression.app.class",
-        "recordMappingId": "cubism.mapping.v5_0_02.startup_suppression.class.app",
-        "provenance": "exact classfile verification on the reviewed 5.0.02 artifact via cubism_version_matrix"
       }
     },
     {
@@ -65,11 +60,6 @@
         "ownerInternalName": "com/live2d/cubism/CECubismEditorApp",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.startup-suppression.app.startup",
-        "recordMappingId": "cubism.mapping.v5_0_02.startup_suppression.method.startup",
-        "provenance": "exact classfile verification on the reviewed 5.0.02 artifact via cubism_version_matrix"
       }
     },
     {
@@ -91,11 +81,6 @@
         "ownerInternalName": "com/live2d/cubism/CECubismEditorApp",
         "requiredAccessFlags": 2,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.startup-suppression.app.splash-factory",
-        "recordMappingId": "cubism.mapping.v5_0_02.startup_suppression.method.splash_factory",
-        "provenance": "exact classfile verification on the reviewed 5.0.02 artifact via cubism_version_matrix"
       }
     },
     {
@@ -116,11 +101,6 @@
         "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.startup-suppression.app-controller.class",
-        "recordMappingId": "cubism.mapping.v5_0_02.startup_suppression.class.app_ctrl",
-        "provenance": "exact classfile verification on the reviewed 5.0.02 artifact via cubism_version_matrix"
       }
     },
     {
@@ -142,11 +122,6 @@
         "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.startup-suppression.app-controller.update-check",
-        "recordMappingId": "cubism.mapping.v5_0_02.startup_suppression.method.update_check",
-        "provenance": "exact classfile verification on the reviewed 5.0.02 artifact via cubism_version_matrix"
       }
     }
   ]

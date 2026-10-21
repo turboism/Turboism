@@ -29,8 +29,7 @@ public final class DraftMappingPackValidator extends AbstractJsonValidator {
             "verifiedAt",
             "confidence",
             "x.legacy",
-            "x.verification",
-            "x.review");
+            "x.verification");
     private static final Set<String> REQUIRED = Set.of(
             "semanticName",
             "kind",

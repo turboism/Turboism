@@ -491,12 +491,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.mesh-tool-mode.instance",
-        "recordMappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.field.mesh_tool_mode_instance",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_0_06.ui_main_toolbar.method.mesh_tool_mode_tool_panel",
@@ -514,12 +509,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.mesh-tool-mode.tool-panel",
-        "recordMappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.method.mesh_tool_mode_tool_panel",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_0_06.ui_main_toolbar.method.mesh_tool_panel_arrow_button",
@@ -537,12 +527,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.mesh-tool-panel.arrow-button",
-        "recordMappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.method.mesh_tool_panel_arrow_button",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.method.mesh_tool_panel_panel",
@@ -560,12 +545,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.mesh-tool-panel.panel",
-        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.method.mesh_tool_panel_panel",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_0_06.ui_main_toolbar.class.abstract_button",
@@ -582,12 +562,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.abstract-button.class",
-        "recordMappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.class.abstract_button",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "descriptor": "()Ljavax/swing/AbstractButton;",
@@ -605,12 +580,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.abstract-button.get-jabstract-button",
-        "recordMappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.method.abstract_button_get_j_abstract_button",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5_0_06.ui_main_toolbar.method.abstract_button_set_selected",
@@ -628,12 +598,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.abstract-button.set-selected",
-        "recordMappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.method.abstract_button_set_selected",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "descriptor": "(Lcom/live2d/type/CIcon;)V",
@@ -651,12 +616,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.abstract-button.set-icon",
-        "recordMappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.method.abstract_button_set_icon",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "descriptor": "(Lcom/live2d/type/CIcon;)V",
@@ -674,12 +634,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.abstract-button.set-pressed-icon",
-        "recordMappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.method.abstract_button_set_pressed_icon",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "descriptor": "(Lcom/live2d/type/CIcon;)V",
@@ -697,12 +652,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.abstract-button.set-selected-icon",
-        "recordMappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.method.abstract_button_set_selected_icon",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "descriptor": "(Lcom/live2d/type/CIcon;)V",
@@ -720,12 +670,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.abstract-button.set-disabled-icon",
-        "recordMappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.method.abstract_button_set_disabled_icon",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "descriptor": "(Lcom/live2d/type/CIcon;)V",
@@ -743,12 +688,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.abstract-button.set-disabled-selected-icon",
-        "recordMappingId": "cubism.mapping.v5_0_06.ui_main_toolbar.method.abstract_button_set_disabled_selected_icon",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.class.slider",
@@ -765,12 +705,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.slider.class",
-        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.class.slider",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.constructor.slider",
@@ -788,12 +723,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.slider.create",
-        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.constructor.slider",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_value",
@@ -811,12 +741,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.slider.value",
-        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_value",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_set_value",
@@ -834,12 +759,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.slider.set-value",
-        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_set_value",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_min",
@@ -857,12 +777,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.slider.min",
-        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_min",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_set_min",
@@ -880,12 +795,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.slider.set-min",
-        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_set_min",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_max",
@@ -903,12 +813,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.slider.max",
-        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_max",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_set_max",
@@ -926,12 +831,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.slider.set-max",
-        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_set_max",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     },
     {
       "semanticName": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_set_on_changed",
@@ -949,12 +849,7 @@
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
       "verifiedAt": null,
-      "confidence": "high",
-      "x.review": {
-        "recordAlias": "cubism.ui-main-toolbar.slider.set-on-changed",
-        "recordMappingId": "cubism.mapping.v5.3.02.ui_main_toolbar.method.slider_set_on_changed",
-        "provenance": "exact classfile verification on the reviewed 5.0.06 artifact via cubism_version_matrix"
-      }
+      "confidence": "high"
     }
   ]
 }

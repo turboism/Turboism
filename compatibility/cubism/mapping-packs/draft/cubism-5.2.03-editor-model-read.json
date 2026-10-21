@@ -25,12 +25,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(FF)V",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.vector.create",
-        "recordMappingId": "cubism.mapping.v5.2.editor_model.constructor.vector_create",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "(FF)V"
     },
     {
       "semanticName": "cubism.mapping.v5.2.editor_model.method.camera_document_to_component",
@@ -51,12 +46,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(Lcom/live2d/graphics3d/type/GVector2;)Lcom/live2d/graphics3d/type/GVector2;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.camera.document-to-component",
-        "recordMappingId": "cubism.mapping.v5.2.editor_model.method.camera_document_to_component",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "(Lcom/live2d/graphics3d/type/GVector2;)Lcom/live2d/graphics3d/type/GVector2;"
     },
     {
       "semanticName": "cubism.mapping.v5.2.editor_model.method.complete_pack_main_view",
@@ -77,12 +67,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Lcom/live2d/graphics3d/view/glWrapper/GLJPanelWrapper;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.complete-pack.main-view",
-        "recordMappingId": "cubism.mapping.v5.2.editor_model.method.complete_pack_main_view",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()Lcom/live2d/graphics3d/view/glWrapper/GLJPanelWrapper;"
     },
     {
       "semanticName": "cubism.mapping.v5.2.editor_model.method.modeling_view_camera",
@@ -103,12 +88,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Lcom/live2d/cubism/view/context/CECameraManager;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.modeling-view.camera",
-        "recordMappingId": "cubism.mapping.v5.2.editor_model.method.modeling_view_camera",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()Lcom/live2d/cubism/view/context/CECameraManager;"
     },
     {
       "semanticName": "cubism.mapping.v5.2.editor_model.method.vector_x",
@@ -129,12 +109,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()F",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.vector.x",
-        "recordMappingId": "cubism.mapping.v5.2.editor_model.method.vector_x",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()F"
     },
     {
       "semanticName": "cubism.mapping.v5.2.editor_model.method.vector_y",
@@ -155,12 +130,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()F",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.vector.y",
-        "recordMappingId": "cubism.mapping.v5.2.editor_model.method.vector_y",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()F"
     },
     {
       "semanticName": "cubism.mapping.v5.2.editor_model.method.view_complete_pack",
@@ -181,12 +151,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Lcom/live2d/cubism/pack/CECompletePack;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.view.complete-pack",
-        "recordMappingId": "cubism.mapping.v5.2.editor_model.method.view_complete_pack",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()Lcom/live2d/cubism/pack/CECompletePack;"
     },
     {
       "semanticName": "cubism.mapping.v5.2.editor_model.method.widget_jcomponent",
@@ -207,12 +172,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Ljavax/swing/JComponent;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.widget.jcomponent",
-        "recordMappingId": "cubism.mapping.v5.2.editor_model.method.widget_jcomponent",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()Ljavax/swing/JComponent;"
     },
     {
       "semanticName": "cubism.mapping.v5.3.03.editor_model.method.texture-manager-handler_drawable-uses",
@@ -233,12 +193,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Ljava/util/HashMap;",
-      "x.review": {
-        "recordAlias": "cubism.texture-atlas.texture-manager-handler.drawable-uses",
-        "recordMappingId": "cubism.mapping.v5.3.03.editor_model.method.texture-manager-handler_drawable-uses",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
-      }
+      "descriptor": "()Ljava/util/HashMap;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_history.class.entry",
@@ -477,12 +432,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()V",
-      "x.review": {
-        "recordAlias": "cubism.editor-history.manager.revert",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_history.method.revert",
-        "provenance": "exact 5.2.03 classfile verification; spec 046 edit-session record-parity backfill"
-      }
+      "descriptor": "()V"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_history.method.significant",
@@ -1958,11 +1908,6 @@
         "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.editable-mesh.class",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.editable_mesh_class",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
     {
@@ -2118,12 +2063,7 @@
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 0
       },
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.gui-button.class",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.gui_button_class",
-        "provenance": "Read-only exact classfile and StaticVerificationCli verification of native component-space button hit regions."
-      }
+      "intermediary": ""
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.class.gui_icon_button",
@@ -2143,12 +2083,7 @@
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 0
       },
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.gui-icon-button.class",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.gui_icon_button",
-        "provenance": "Read-only exact classfile and StaticVerificationCli verification of native component-space icon button hit regions."
-      }
+      "intermediary": ""
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.class.guid",
@@ -2415,11 +2350,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor$b",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.mesh-edit-data.class",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.mesh_edit_data",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
     {
@@ -2439,11 +2369,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.mesh-editor.class",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.mesh_editor",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
     {
@@ -2463,11 +2388,6 @@
         "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMeshSelection",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.mesh-selection.class",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.mesh_selection",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
     {
@@ -3140,11 +3060,6 @@
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 0
       },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.part-form.class",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.part_form",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
-      },
       "intermediary": ""
     },
     {
@@ -3278,11 +3193,6 @@
         "ownerInternalName": "com/live2d/graphics3d/editableMesh/a",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.point-ref.class",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.point_ref",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
     {
@@ -3302,11 +3212,6 @@
         "ownerInternalName": "com/live2d/doc/selection/PointSelector",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.point-selector.class",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.point_selector",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
       }
     },
     {
@@ -3802,11 +3707,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/model/extension/warpBezier/CWarpDeformerBezierExtension",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.warp-bezier-extension.class",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.warp_bezier_extension",
-        "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
       }
     },
     {
@@ -4325,11 +4225,6 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.mesh-coordinate-converter.create",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.constructor.mesh_coordinate_converter_create",
-        "provenance": "Read-only exact classfile and StaticVerificationCli verification of native lasso coordinate conversion."
-      },
       "descriptor": "([F[F[II)V"
     },
     {
@@ -4687,11 +4582,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/animation/SceneHandler",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.scene-handler.create",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.constructor.scene_handler_create",
-        "provenance": "exact 5.2.03 classfile verification"
       }
     },
     {
@@ -5679,11 +5569,6 @@
         "forbiddenAccessFlags": 0
       },
       "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.modeling-view.mode-current-form",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.field.modeling_view_mode_current_form",
-        "provenance": "Read-only exact classfile and StaticVerificationCli verification of native lasso coordinate conversion."
-      },
       "descriptor": "Lcom/live2d/cubism/view/context/CEViewContext_ModelingView$c$b;"
     },
     {
@@ -5705,11 +5590,6 @@
         "forbiddenAccessFlags": 0
       },
       "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.modeling-view.mode-image",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.field.modeling_view_mode_image",
-        "provenance": "Read-only exact classfile and StaticVerificationCli verification of native lasso coordinate conversion."
-      },
       "descriptor": "Lcom/live2d/cubism/view/context/CEViewContext_ModelingView$c$a;"
     },
     {
@@ -5731,11 +5611,6 @@
         "forbiddenAccessFlags": 0
       },
       "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.modeling-view.mode-source",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.field.modeling_view_mode_source",
-        "provenance": "Read-only exact classfile and StaticVerificationCli verification of native lasso coordinate conversion."
-      },
       "descriptor": "Lcom/live2d/cubism/view/context/CEViewContext_ModelingView$c$c;"
     },
     {
@@ -5946,11 +5821,6 @@
         "ownerInternalName": "com/live2d/undo/UUUndo",
         "requiredAccessFlags": 25,
         "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.undo.local-simple-factory-instance",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.field.undo_local_simple_factory_instance",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
     {
@@ -5972,11 +5842,6 @@
         "ownerInternalName": "com/live2d/undo/ACUndoable",
         "requiredAccessFlags": 0,
         "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.inherits.ACUndoable.implements.ICTreeAccessible",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.inherits.ACUndoable_implements_ICTreeAccessible",
-        "provenance": "exact 5.2.03 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
     },
     {
@@ -5998,11 +5863,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
         "requiredAccessFlags": 0,
         "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.inherits.CArtMesh.extends.ACDrawable",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.inherits.CArtMesh_extends_ACDrawable",
-        "provenance": "exact 5.2.03 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
     },
     {
@@ -6024,11 +5884,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
         "requiredAccessFlags": 0,
         "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.inherits.CArtMesh.implements.ICTreeAccessible",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.inherits.CArtMesh_implements_ICTreeAccessible",
-        "provenance": "exact 5.2.03 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
     },
     {
@@ -6050,11 +5905,6 @@
         "ownerInternalName": "com/live2d/undo/CUndoManager",
         "requiredAccessFlags": 0,
         "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.inherits.CUndoManager.implements.ICTreeAccessible",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.inherits.CUndoManager_implements_ICTreeAccessible",
-        "provenance": "exact 5.2.03 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
     },
     {
@@ -6076,11 +5926,6 @@
         "ownerInternalName": "com/live2d/undo/GroupUndo",
         "requiredAccessFlags": 0,
         "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.inherits.GroupUndo.extends.ACUndoable",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.inherits.GroupUndo_extends_ACUndoable",
-        "provenance": "exact 5.2.03 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
     },
     {
@@ -6102,11 +5947,6 @@
         "ownerInternalName": "com/live2d/undo/GroupUndo",
         "requiredAccessFlags": 0,
         "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.inherits.GroupUndo.implements.ICTreeAccessible",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.inherits.GroupUndo_implements_ICTreeAccessible",
-        "provenance": "exact 5.2.03 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
     },
     {
@@ -6128,11 +5968,6 @@
         "ownerInternalName": "com/live2d/undo/ListUndo",
         "requiredAccessFlags": 0,
         "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.inherits.ListUndo.extends.ACUndoable",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.inherits.ListUndo_extends_ACUndoable",
-        "provenance": "exact 5.2.03 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
     },
     {
@@ -6154,11 +5989,6 @@
         "ownerInternalName": "com/live2d/undo/PropertyUndo",
         "requiredAccessFlags": 0,
         "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.inherits.PropertyUndo.extends.ACUndoable",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.inherits.PropertyUndo_extends_ACUndoable",
-        "provenance": "exact 5.2.03 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
     },
     {
@@ -6180,11 +6010,6 @@
         "ownerInternalName": "com/live2d/undo/SimpleUndo",
         "requiredAccessFlags": 0,
         "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.inherits.SimpleUndo.extends.ACUndoable",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.inherits.SimpleUndo_extends_ACUndoable",
-        "provenance": "exact 5.2.03 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
     },
     {
@@ -6269,12 +6094,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Ljava/util/List;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.model-source.all-parameters",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.all_parameters",
-        "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
-      }
+      "descriptor": "()Ljava/util/List;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.animation-file-content_animation",
@@ -6794,12 +6614,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/ColorComposition;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.art-mesh-source.color-composition",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.art_mesh_source_color_composition",
-        "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
-      }
+      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/ColorComposition;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.art_mesh_source_culling",
@@ -8316,12 +8131,7 @@
         "forbiddenAccessFlags": 8
       },
       "descriptor": "([F[FIII)V",
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.deformer.transform-canvas-to-local",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.deformer_transform_canvas_to_local",
-        "provenance": "Warp Grid Symmetry exact classfile declaration review"
-      }
+      "intermediary": ""
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.deformer_transform_local_to_canvas",
@@ -8342,12 +8152,7 @@
         "forbiddenAccessFlags": 8
       },
       "descriptor": "([F[FIII)V",
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.deformer.transform-local-to-canvas",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.deformer_transform_local_to_canvas",
-        "provenance": "Warp Grid Symmetry exact classfile declaration review"
-      }
+      "intermediary": ""
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.drawable_form_coord_type",
@@ -8554,12 +8359,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Lcom/live2d/undo/GroupUndo;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.edit-mode.current-undo",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.edit_mode_current_undo",
-        "provenance": "exact 5.2.03 classfile verification; spec 046 edit-session record-parity backfill"
-      }
+      "descriptor": "()Lcom/live2d/undo/GroupUndo;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_coord_type",
@@ -8580,12 +8380,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Lcom/live2d/doc/CoordType;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.editable-mesh.coord-type",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_coord_type",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()Lcom/live2d/doc/CoordType;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_extension_locked",
@@ -8690,12 +8485,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()[F",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.editable-mesh.gl-positions",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_gl_positions",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()[F"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_init_by_indices",
@@ -8737,12 +8527,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()I",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.editable-mesh.point-count",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_point_count",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()I"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_point_ref",
@@ -8763,12 +8548,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(I)Lcom/live2d/graphics3d/editableMesh/a;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.editable-mesh.point-ref",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_point_ref",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "(I)Lcom/live2d/graphics3d/editableMesh/a;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_selection",
@@ -8789,12 +8569,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Lcom/live2d/graphics3d/editableMesh/GEditableMeshSelection;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.editable-mesh.selection",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_selection",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()Lcom/live2d/graphics3d/editableMesh/GEditableMeshSelection;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.effect-manager_effects",
@@ -8878,11 +8653,6 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.entity.enabled-in-hierarchy",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.entity_enabled_in_hierarchy",
-        "provenance": "Read-only exact classfile and StaticVerificationCli verification of native component-space button hit regions."
-      },
       "descriptor": "()Z"
     },
     {
@@ -8904,11 +8674,6 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.entity.traverse-all",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.entity_traverse_all",
-        "provenance": "Read-only exact classfile and StaticVerificationCli verification of native component-space button hit regions."
-      },
       "descriptor": "()Ljava/lang/Iterable;"
     },
     {
@@ -9077,12 +8842,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Ljava/lang/String;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.float-color.hex-rgb",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.float_color_hex_rgb",
-        "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
-      }
+      "descriptor": "()Ljava/lang/String;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.form-guid_value",
@@ -9395,11 +9155,6 @@
         "forbiddenAccessFlags": 0
       },
       "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.gui-bounds.contains",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.gui_bounds_contains",
-        "provenance": "Read-only exact classfile and StaticVerificationCli verification of native component-space button hit regions."
-      },
       "descriptor": "(Lcom/live2d/graphics3d/type/GBounds;Lcom/live2d/graphics3d/type/GVector2;FILjava/lang/Object;)Z"
     },
     {
@@ -9421,11 +9176,6 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.gui-button.component-bounds",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.gui_button_component_bounds",
-        "provenance": "Read-only exact classfile and StaticVerificationCli verification of native component-space button hit regions."
-      },
       "descriptor": "()Lcom/live2d/graphics3d/type/GBounds;"
     },
     {
@@ -9447,11 +9197,6 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.gui-button.on-component",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.gui_button_on_component",
-        "provenance": "Read-only exact classfile and StaticVerificationCli verification of native component-space button hit regions."
-      },
       "descriptor": "()Z"
     },
     {
@@ -10810,12 +10555,7 @@
         "forbiddenAccessFlags": 8
       },
       "descriptor": "()Ljava/util/List;",
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.keyform-grid.keyforms-on-grid",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.keyform_grid_keyforms_on_grid",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
-      }
+      "intermediary": ""
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.keyform_grid_rearrange_keys",
@@ -10958,12 +10698,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(Lcom/live2d/type/CFormGuid;)V",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.keyform-grid-source.set-initial-keyform",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.keyform_grid_set_initial_keyform",
-        "provenance": "exact 5.2.03 classfile verification; spec 046 edit-session record-parity backfill"
-      }
+      "descriptor": "(Lcom/live2d/type/CFormGuid;)V"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.keyform_on_grid_form_guid",
@@ -10984,12 +10719,7 @@
         "forbiddenAccessFlags": 8
       },
       "descriptor": "()Lcom/live2d/type/CFormGuid;",
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.keyform-on-grid.form-guid",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.keyform_on_grid_form_guid",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
-      }
+      "intermediary": ""
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.label_color_color",
@@ -11115,12 +10845,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Lcom/live2d/cubism/view/context/CEViewContext;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.modeling-document.last-active-view",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.last_view",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()Lcom/live2d/cubism/view/context/CEViewContext;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.layer-selector-map_get",
@@ -11540,12 +11265,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Ljavax/swing/JFrame;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.main-frame.jframe",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.main_frame_jframe",
-        "provenance": "exact 5.2.03 classfile verification; T7 session UI-lock binding"
-      }
+      "descriptor": "()Ljavax/swing/JFrame;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.main_window",
@@ -11566,12 +11286,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Lcom/live2d/ui/window/CFrame;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.main-frame.main-window",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.main_window",
-        "provenance": "exact 5.2.03 classfile verification; T7 session UI-lock binding"
-      }
+      "descriptor": "()Lcom/live2d/ui/window/CFrame;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.mark_dirty",
@@ -11613,11 +11328,6 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.mesh-coordinate-converter.transform",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_coordinate_converter_transform",
-        "provenance": "Read-only exact classfile and StaticVerificationCli verification of native lasso coordinate conversion."
-      },
       "descriptor": "([F[F)[F"
     },
     {
@@ -11639,12 +11349,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.mesh-edit-data.art-mesh-source",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_edit_data_art_mesh_source",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.mesh_edit_data_editable_mesh",
@@ -11665,12 +11370,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.mesh-edit-data.editable-mesh",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_edit_data_editable_mesh",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_document",
@@ -11691,12 +11391,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Lcom/live2d/cubism/doc/modeling/CModelingDocument;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.mesh-editor.document",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_document",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()Lcom/live2d/cubism/doc/modeling/CModelingDocument;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_edit_data_for",
@@ -11717,12 +11412,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;)Lcom/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor$b;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.mesh-editor.edit-data-for",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_edit_data_for",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "(Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;)Lcom/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor$b;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_end_mode",
@@ -11743,12 +11433,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()V",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.mesh-editor.end-mode",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_end_mode",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()V"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_start_mode",
@@ -11769,12 +11454,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(Ljava/util/List;)V",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.mesh-editor.start-mode",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_start_mode",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "(Ljava/util/List;)V"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.mesh_selection_point_selector",
@@ -11795,12 +11475,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Lcom/live2d/doc/selection/PointSelector;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.mesh-selection.point-selector",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_selection_point_selector",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()Lcom/live2d/doc/selection/PointSelector;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.model-handler_create-free-id-default",
@@ -13071,12 +12746,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(Lcom/live2d/cubism/doc/modeling/CModelingEditMode_Base;)V",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.modeling-document.set-edit-mode",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.modeling_document_set_edit_mode",
-        "provenance": "exact classfile verification of native document mode-switch lifecycle for selection-brush confirmation cleanup"
-      }
+      "descriptor": "(Lcom/live2d/cubism/doc/modeling/CModelingEditMode_Base;)V"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.modeling_edit_mode",
@@ -13118,11 +12788,6 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.modeling-view.current-view-mode",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.modeling_view_current_view_mode",
-        "provenance": "Read-only exact classfile and StaticVerificationCli verification of native lasso coordinate conversion."
-      },
       "descriptor": "()Lcom/live2d/cubism/view/context/CEViewContext_ModelingView$c;"
     },
     {
@@ -13144,11 +12809,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.morph-target-set.create-undo",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.morph-target-set_create-undo",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
     {
@@ -13191,11 +12851,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.morph-target-set.remove",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.morph-target-set_remove",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
     {
@@ -13301,11 +12956,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.morph-target.set-parameter",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.morph-target_set-parameter",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
     {
@@ -13327,11 +12977,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.morph-target.set-parameter-and-key-value",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.morph-target_set-parameter-and-key-value",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
     {
@@ -13962,11 +13607,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/model/param/group/CParameterGroup",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-group.guid",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter-group_guid",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
     {
@@ -14135,12 +13775,7 @@
         "forbiddenAccessFlags": 8
       },
       "descriptor": "()Lcom/live2d/cubism/doc/model/ACForm;",
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-controllable.calculated-form",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_controllable_calculated_form",
-        "provenance": "Warp Grid Symmetry exact classfile declaration review"
-      }
+      "intermediary": ""
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.parameter_controllable_handler_undo",
@@ -14181,12 +13816,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Lcom/live2d/cubism/doc/model/ACForm;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-controllable.interpolated-form",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_controllable_interpolated_form",
-        "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
-      }
+      "descriptor": "()Lcom/live2d/cubism/doc/model/ACForm;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.parameter_controllable_keyform_grid",
@@ -14270,12 +13900,7 @@
         "forbiddenAccessFlags": 8
       },
       "descriptor": "()Lcom/live2d/cubism/doc/model/ACForm;",
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-controllable-source.default-key-form",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_controllable_source_default_key_form",
-        "provenance": "Warp Grid Symmetry exact classfile declaration review"
-      }
+      "intermediary": ""
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.parameter_controllable_source_extended_morph_set",
@@ -14438,12 +14063,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Ljava/lang/String;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-controllable-source.name-or-id-string",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_controllable_source_name_or_id_string",
-        "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
-      }
+      "descriptor": "()Ljava/lang/String;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.parameter_controllable_source_selection",
@@ -14525,12 +14145,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Lcom/live2d/cubism/doc/model/id/CDeformerId;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-controllable-source.target-deformer-id",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_controllable_source_target_deformer_id",
-        "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
-      }
+      "descriptor": "()Lcom/live2d/cubism/doc/model/id/CDeformerId;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.parameter_controllable_source_target_deformer_source",
@@ -15346,12 +14961,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(F)V",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-source.set-default",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_source_set_default",
-        "provenance": "exact 5.2.03 classfile verification; spec 046 edit-session record-parity backfill"
-      }
+      "descriptor": "(F)V"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.parameter_source_set_get_by_id",
@@ -15393,12 +15003,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(Lcom/live2d/cubism/doc/model/id/CParameterId;)V",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-source.set-id",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_source_set_id",
-        "provenance": "exact 5.2.03 classfile verification; spec 046 edit-session record-parity backfill"
-      }
+      "descriptor": "(Lcom/live2d/cubism/doc/model/id/CParameterId;)V"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.parameter_source_set_maximum",
@@ -15419,12 +15024,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(F)V",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-source.set-maximum",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_source_set_maximum",
-        "provenance": "exact 5.2.03 classfile verification; spec 046 edit-session record-parity backfill"
-      }
+      "descriptor": "(F)V"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.parameter_source_set_minimum",
@@ -15445,12 +15045,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(F)V",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-source.set-minimum",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_source_set_minimum",
-        "provenance": "exact 5.2.03 classfile verification; spec 046 edit-session record-parity backfill"
-      }
+      "descriptor": "(F)V"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.parameter_source_set_name",
@@ -15471,12 +15066,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(Ljava/lang/String;)V",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-source.set-name",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.parameter_source_set_name",
-        "provenance": "exact 5.2.03 classfile verification; spec 046 edit-session record-parity backfill"
-      }
+      "descriptor": "(Ljava/lang/String;)V"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.parameter_source_set_repeat",
@@ -15749,12 +15339,7 @@
         "forbiddenAccessFlags": 8
       },
       "descriptor": "()Lcom/live2d/cubism/doc/model/parts/CPartForm;",
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.part.current-keyform",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.part_current_keyform",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
-      }
+      "intermediary": ""
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.part_form_draw_order",
@@ -15775,12 +15360,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()I",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.part-form.draw-order",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.part_form_draw_order",
-        "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
-      }
+      "descriptor": "()I"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.part_handler_undo_all",
@@ -15821,11 +15401,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPart",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.part.id",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.part_id",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
     {
@@ -15988,12 +15563,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Z",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.part-source.enable-draw-order-group",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.part_source_enable_draw_order_group",
-        "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
-      }
+      "descriptor": "()Z"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.part_source_handler",
@@ -16115,11 +15685,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.part-source.remove-child",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.part_source_remove_child",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
     {
@@ -16514,12 +16079,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()I",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.point-ref.index",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.point_ref_index",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()I"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.point_ref_mesh",
@@ -16540,12 +16100,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.point-ref.mesh",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.point_ref_mesh",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.point_selector_add",
@@ -16566,12 +16121,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(Lcom/live2d/doc/selection/IPointRef;)Z",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.point-selector.add",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.point_selector_add",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "(Lcom/live2d/doc/selection/IPointRef;)Z"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.point_selector_clear",
@@ -16592,12 +16142,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()V",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.point-selector.clear",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.point_selector_clear",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()V"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.point_selector_selected_points",
@@ -16618,12 +16163,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Ljava/util/List;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.point-selector.selected-points",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.point_selector_selected_points",
-        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
-      }
+      "descriptor": "()Ljava/util/List;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.point_x",
@@ -17323,11 +16863,6 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.scene-graph.component-objects",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.scene_graph_component_objects",
-        "provenance": "Read-only exact classfile and StaticVerificationCli verification of native component-space button hit regions."
-      },
       "descriptor": "()Lcom/live2d/graphics3d/entity/GEntity;"
     },
     {
@@ -17349,11 +16884,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/animation/SceneHandler",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.scene-handler.basic-undo",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.scene_handler_basic_undo",
-        "provenance": "exact 5.2.03 classfile verification"
       }
     },
     {
@@ -17564,12 +17094,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Ljava/util/List;",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.update-manager.selection-guid-list",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.selection_guid_list",
-        "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
-      }
+      "descriptor": "()Ljava/util/List;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.selector_replace_selected",
@@ -17779,11 +17304,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.parameter-controllable-source.internal-set-parent",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.source_internal_set_parent",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
     {
@@ -18791,12 +18311,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()V",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.undo.group-undo",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.undo_group_undo",
-        "provenance": "exact 5.2.03 classfile verification; spec 046 edit-session record-parity backfill"
-      }
+      "descriptor": "()V"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.undo_local_simple_factory_create",
@@ -18817,11 +18332,6 @@
         "ownerInternalName": "com/live2d/undo/UUUndo",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.editor-model.undo.local-simple-factory-create",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.undo_local_simple_factory_create",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
       }
     },
     {
@@ -18989,11 +18499,6 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.modeling-view.model",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.view_model",
-        "provenance": "Read-only exact classfile and StaticVerificationCli verification of native lasso coordinate conversion."
-      },
       "descriptor": "()Lcom/live2d/cubism/doc/model/CModel;"
     },
     {
@@ -19015,11 +18520,6 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.view.scene-graph",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.view_scene_graph",
-        "provenance": "Read-only exact classfile and StaticVerificationCli verification of native component-space button hit regions."
-      },
       "descriptor": "()Lcom/live2d/cubism/view/context/CESceneGraphEx;"
     },
     {
@@ -19041,12 +18541,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()I",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.warp-bezier-extension.bezier-col",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.warp_bezier_extension_bezier_col",
-        "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
-      }
+      "descriptor": "()I"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.warp_bezier_extension_bezier_row",
@@ -19067,12 +18562,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()I",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.warp-bezier-extension.bezier-row",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.warp_bezier_extension_bezier_row",
-        "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
-      }
+      "descriptor": "()I"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.warp_bezier_extension_edit_level",
@@ -19093,12 +18583,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()I",
-      "x.review": {
-        "recordAlias": "cubism.editor-model.warp-bezier-extension.edit-level",
-        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.warp_bezier_extension_edit_level",
-        "provenance": "exact 5.2.03 classfile verification; record-parity backfill"
-      }
+      "descriptor": "()I"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.method.warp_form_positions",
@@ -19445,11 +18930,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/webSocket/y",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.integration.external-app-settings.dialog.class",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_edit_toggle.class.y_class",
-        "provenance": "exact 5.2.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
       }
     },
     {
@@ -19471,12 +18951,7 @@
         "forbiddenAccessFlags": 0
       },
       "intermediary": "",
-      "descriptor": "Lcom/live2d/util/UUConfig;",
-      "x.review": {
-        "recordAlias": "cubism.integration.external-app-settings.config.instance",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_edit_toggle.field.UUConfig_a",
-        "provenance": "exact 5.2.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
-      }
+      "descriptor": "Lcom/live2d/util/UUConfig;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.integration_edit_toggle.field.y_p",
@@ -19497,12 +18972,7 @@
         "forbiddenAccessFlags": 0
       },
       "intermediary": "",
-      "descriptor": "Lcom/live2d/ui/control/CCheckBox;",
-      "x.review": {
-        "recordAlias": "cubism.integration.external-app-settings.dialog.remote-checkbox",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_edit_toggle.field.y_p",
-        "provenance": "exact 5.2.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
-      }
+      "descriptor": "Lcom/live2d/ui/control/CCheckBox;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.integration_edit_toggle.method.CCheckBox_getJCheckBox",
@@ -19523,12 +18993,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Lcom/live2d/ui/control/CCheckBox$a;",
-      "x.review": {
-        "recordAlias": "cubism.integration.external-app-settings.checkbox.jcheckbox",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_edit_toggle.method.CCheckBox_getJCheckBox",
-        "provenance": "exact 5.2.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
-      }
+      "descriptor": "()Lcom/live2d/ui/control/CCheckBox$a;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.integration_edit_toggle.method.UUConfig_a",
@@ -19549,12 +19014,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
-      "x.review": {
-        "recordAlias": "cubism.integration.external-app-settings.config.read",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_edit_toggle.method.UUConfig_a",
-        "provenance": "exact 5.2.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
-      }
+      "descriptor": "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.integration_edit_toggle.method.UUConfig_b",
@@ -19575,12 +19035,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
-      "x.review": {
-        "recordAlias": "cubism.integration.external-app-settings.config.write",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_edit_toggle.method.UUConfig_b",
-        "provenance": "exact 5.2.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
-      }
+      "descriptor": "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.integration_edit_toggle.method.y_a",
@@ -19601,12 +19056,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(Lcom/live2d/ui/window/X;)V",
-      "x.review": {
-        "recordAlias": "cubism.integration.external-app-settings.dialog.show",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_edit_toggle.method.y_a",
-        "provenance": "exact 5.2.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
-      }
+      "descriptor": "(Lcom/live2d/ui/window/X;)V"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.integration_edit_toggle.method.y_b",
@@ -19627,12 +19077,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(Lcom/live2d/ui/window/X;)V",
-      "x.review": {
-        "recordAlias": "cubism.integration.external-app-settings.dialog.build",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_edit_toggle.method.y_b",
-        "provenance": "exact 5.2.03 classfile verification; spec 051 native-edit-toggle record-parity backfill"
-      }
+      "descriptor": "(Lcom/live2d/ui/window/X;)V"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.integration_websocket.class.U_class",
@@ -19651,11 +19096,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/webSocket/U",
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.integration.websocket.server.class",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.class.U_class",
-        "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
     {
@@ -19675,11 +19115,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/webSocket/ab",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.integration.websocket.session.class",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.class.ab_class",
-        "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
     {
@@ -19699,11 +19134,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/webSocket/k",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.integration.websocket.responder.class",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.class.k_class",
-        "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
     {
@@ -19723,11 +19153,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/webSocket/l",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.integration.websocket.dispatch.class",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.class.l_class",
-        "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
     {
@@ -19747,11 +19172,6 @@
         "ownerInternalName": "com/live2d/cubism/doc/webSocket/x",
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.integration.websocket.dispatch.holder",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.class.x_class",
-        "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
       }
     },
     {
@@ -19773,12 +19193,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "Ljava/util/ArrayList;",
-      "x.review": {
-        "recordAlias": "cubism.integration.websocket.dispatch.registry",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.field.l_d",
-        "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
-      }
+      "descriptor": "Ljava/util/ArrayList;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.integration_websocket.field.x_a",
@@ -19799,12 +19214,7 @@
         "forbiddenAccessFlags": 0
       },
       "intermediary": "",
-      "descriptor": "Lcom/live2d/cubism/doc/webSocket/x;",
-      "x.review": {
-        "recordAlias": "cubism.integration.websocket.dispatch.holder-instance",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.field.x_a",
-        "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
-      }
+      "descriptor": "Lcom/live2d/cubism/doc/webSocket/x;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.integration_websocket.method.ab_c",
@@ -19825,12 +19235,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Lorg/java_websocket/WebSocket;",
-      "x.review": {
-        "recordAlias": "cubism.integration.websocket.session.socket",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.method.ab_c",
-        "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
-      }
+      "descriptor": "()Lorg/java_websocket/WebSocket;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.integration_websocket.method.ab_g",
@@ -19851,12 +19256,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Z",
-      "x.review": {
-        "recordAlias": "cubism.integration.websocket.session.approved",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.method.ab_g",
-        "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
-      }
+      "descriptor": "()Z"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.integration_websocket.method.ab_h",
@@ -19877,12 +19277,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Z",
-      "x.review": {
-        "recordAlias": "cubism.integration.websocket.session.registered",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.method.ab_h",
-        "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
-      }
+      "descriptor": "()Z"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.integration_websocket.method.ab_i",
@@ -19903,12 +19298,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Ljava/lang/String;",
-      "x.review": {
-        "recordAlias": "cubism.integration.websocket.session.key",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.method.ab_i",
-        "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
-      }
+      "descriptor": "()Ljava/lang/String;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.integration_websocket.method.k_a",
@@ -19929,12 +19319,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(Lcom/live2d/cubism/doc/webSocket/a;Lcom/live2d/cubism/doc/webSocket/j$e;)V",
-      "x.review": {
-        "recordAlias": "cubism.integration.websocket.responder.send-error",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.method.k_a",
-        "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
-      }
+      "descriptor": "(Lcom/live2d/cubism/doc/webSocket/a;Lcom/live2d/cubism/doc/webSocket/j$e;)V"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.integration_websocket.method.l_a",
@@ -19955,12 +19340,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(Ljava/lang/String;Lorg/java_websocket/WebSocket;)V",
-      "x.review": {
-        "recordAlias": "cubism.integration.websocket.dispatch.on-message",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.method.l_a",
-        "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
-      }
+      "descriptor": "(Ljava/lang/String;Lorg/java_websocket/WebSocket;)V"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.integration_websocket.method.l_b",
@@ -19981,12 +19361,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "(Lorg/java_websocket/WebSocket;)Lcom/live2d/cubism/doc/webSocket/ab;",
-      "x.review": {
-        "recordAlias": "cubism.integration.websocket.dispatch.session-lookup",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.method.l_b",
-        "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
-      }
+      "descriptor": "(Lorg/java_websocket/WebSocket;)Lcom/live2d/cubism/doc/webSocket/ab;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.integration_websocket.method.x_a",
@@ -20007,12 +19382,7 @@
         "forbiddenAccessFlags": 8
       },
       "intermediary": "",
-      "descriptor": "()Lcom/live2d/cubism/doc/webSocket/l;",
-      "x.review": {
-        "recordAlias": "cubism.integration.websocket.dispatch.instance",
-        "recordMappingId": "cubism.mapping.v5_2_03.integration_websocket.method.x_a",
-        "provenance": "exact 5.2.03 classfile verification; spec 050 edit-api-bridge record-parity backfill"
-      }
+      "descriptor": "()Lcom/live2d/cubism/doc/webSocket/l;"
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.object_context_menu.class.art_mesh",
@@ -21291,12 +20661,7 @@
         "forbiddenAccessFlags": 8
       },
       "descriptor": "()V",
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.texture-atlas.texture-manager.change-input-to-atlas",
-        "recordMappingId": "cubism.mapping.v5_2_03.texture_atlas.manager_change_input_to_atlas",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
-      }
+      "intermediary": ""
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.texture_atlas.manager_images",
@@ -21597,12 +20962,7 @@
         "forbiddenAccessFlags": 8
       },
       "descriptor": "()Ljava/util/ArrayList;",
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.texture-atlas.native.edit-layer.draw-data-shapes",
-        "recordMappingId": "cubism.mapping.v5_2_03.texture_atlas.native_edit_layer_draw_data_shapes",
-        "provenance": "exact 5.2.03 classfile verification; model-image contour source for polygon packing (material-local java.awt.Shape list, same source as 5.4 auto-layout)"
-      }
+      "intermediary": ""
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.texture_atlas.native_editor_affine_create",
@@ -22122,12 +21482,7 @@
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
       },
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.texture-atlas.statistics.data-model.current-page",
-        "recordMappingId": "cubism.mapping.v5_2_03.texture_atlas.statistics_data_model_current_page",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
-      }
+      "intermediary": ""
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.texture_atlas.statistics_page_state_atlas",
@@ -22148,12 +21503,7 @@
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
       },
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.texture-atlas.statistics.page-state.atlas",
-        "recordMappingId": "cubism.mapping.v5_2_03.texture_atlas.statistics_page_state_atlas",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
-      }
+      "intermediary": ""
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.texture_atlas.statistics_view_data_model",
@@ -22174,12 +21524,7 @@
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
       },
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.texture-atlas.statistics.view-data-model",
-        "recordMappingId": "cubism.mapping.v5_2_03.texture_atlas.statistics_view_data_model",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
-      }
+      "intermediary": ""
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.texture_atlas.statistics_view_init",
@@ -22200,12 +21545,7 @@
         "requiredAccessFlags": 1,
         "forbiddenAccessFlags": 8
       },
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.texture-atlas.statistics.view-init",
-        "recordMappingId": "cubism.mapping.v5_2_03.texture_atlas.statistics_view_init",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
-      }
+      "intermediary": ""
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.texture_atlas.texture_input_relink_helper_instance",
@@ -22226,12 +21566,7 @@
         "forbiddenAccessFlags": 0
       },
       "descriptor": "Lcom/live2d/cubism/doc/model/texture/r;",
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.texture-atlas.texture-input-relink.helper-instance",
-        "recordMappingId": "cubism.mapping.v5_2_03.texture_atlas.texture_input_relink_helper_instance",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
-      }
+      "intermediary": ""
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.texture_atlas.texture_input_relink_rebuild",
@@ -22252,12 +21587,7 @@
         "forbiddenAccessFlags": 8
       },
       "descriptor": "(Lcom/live2d/cubism/doc/model/CModelSource;)V",
-      "intermediary": "",
-      "x.review": {
-        "recordAlias": "cubism.texture-atlas.texture-input-relink.rebuild",
-        "recordMappingId": "cubism.mapping.v5_2_03.texture_atlas.texture_input_relink_rebuild",
-        "provenance": "5.2.03 740-selector record + exact 5.2.03 classfile verification of the extended authoring surface (member name, descriptor, access flags)"
-      }
+      "intermediary": ""
     },
     {
       "semanticName": "cubism.mapping.v5_2_03.texture_atlas.undo_create",
