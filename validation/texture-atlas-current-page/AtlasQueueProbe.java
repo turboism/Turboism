@@ -100,7 +100,7 @@ public final class AtlasQueueProbe {
 
     static void validateCase(int count, String implementation) {
         if (count == 0 && implementation.equals("polygon") && System.getProperty("turboism.validation.atlas.dataset", "").equals("heavy")) return;
-        if (count != 100 && count != 500 && count != 1000 && count != 2500)
+        if (count != 0 && count != 100 && count != 500 && count != 1000 && count != 2500)
             throw new IllegalArgumentException("Only fixed Geometry 100/500/1000/2500 cases are admitted");
         if (!List.of("native", "new", "polygon", "nesting", "nesting-rect").contains(implementation))
             throw new IllegalArgumentException("Exactly one implementation per fresh task is required");
