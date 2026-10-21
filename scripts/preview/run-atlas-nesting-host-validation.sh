@@ -29,6 +29,10 @@ case "$dataset" in
     turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_HEAVY 'heavy model fixture path' || exit 2
     count=0; fixture="$TURBOISM_HOST_VALIDATION_FIXTURE_HEAVY"
     hash=029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c ;;
+  pprcut)
+    turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_PPRCUT 'Pprcut model fixture path' || exit 2
+    count=0; fixture="$TURBOISM_HOST_VALIDATION_FIXTURE_PPRCUT"
+    hash=2a758ba764693a956c327961820a55a03dc35cc1a8ff6567346c17bc2192587a ;;
   *) echo 'Unadmitted nesting fixture' >&2; exit 2 ;;
 esac
 extra=()

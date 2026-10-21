@@ -43,6 +43,17 @@ public final class AtlasQueueProbeTest {
         AtlasQueueProbe.validateResult(good, 100, "new");
         assertions++;
         try {
+            System.setProperty("turboism.validation.atlas.unit", "model-image");
+            rejects(() -> AtlasQueueProbe.validateResult(good, 100, "new"));
+            ObjectNode modelImage = result();
+            ((ObjectNode) modelImage.get("input")).put("modelImage", true);
+            AtlasQueueProbe.validateResult(modelImage, 100, "new"); assertions++;
+            System.setProperty("turboism.validation.atlas.unit", "invalid");
+            rejects(() -> AtlasQueueProbe.validateResult(modelImage, 100, "new"));
+        } finally {
+            System.clearProperty("turboism.validation.atlas.unit");
+        }
+        try {
             System.setProperty("turboism.validation.atlas.parallel", "true");
             rejects(() -> AtlasQueueProbe.validateResult(good, 100, "new"));
             ObjectNode parallel = result().put("plannerParallel", true);
