@@ -41,6 +41,12 @@ implementation handoff rather than hidden by disabling repository gates.
 
 ## Acceptance evidence (2026-10-21)
 
+- Final full gate, after integration and baseline fixes:
+  `env -u JAVA_TOOL_OPTIONS -u DISPLAY -u WAYLAND_DISPLAY ./gradlew --no-daemon checkCompletedCommit --continue`:
+  BUILD SUCCESSFUL in 10m 10s; 391 tasks (53 executed, 338 up-to-date).
+  Display variables were unset instead of injecting `JAVA_TOOL_OPTIONS`, which
+  adds output to subprocess protocols. The final run passed all repository gates.
+
 - `JAVA_TOOL_OPTIONS=-Djava.awt.headless=true ./gradlew devCheck spotlessCheck`:
   BUILD SUCCESSFUL. Runtime admission: 3,895 tests, 56 skipped; integration
   admission: 23 tests, one skipped; no failures. Headless mode avoids this
@@ -48,19 +54,26 @@ implementation handoff rather than hidden by disabling repository gates.
 - Focused resolver/repository tests: 48 tests, no failures. Probe/evidence Python
   suites: 9 + 26 tests; queue: 121 tests; memory identity/process cleanup: 12 + 11
   tests; all passed. Queue multiprocessing requires normal host permissions.
-- `checkCompletedCommit` was attempted. It fails in the inherited atlas folder
-  plugin's `OfficialPluginCatalogCompletenessTest`: unsorted baseline keys and
-  copied English values in Korean resources. The aggregate has not passed and
-  this branch has not been promoted to `main`.
-- Real-host smoke was not run: this workspace has no `.env`, and host root,
-  golden prefix, Proton runner and 5302 fixture settings are unset.
+- Final integration includes the current `main` runtime diagnostic changes.
+  Inherited atlas folder metadata, localized resources and README contracts were
+  reconciled with the compatibility generator and official plugin requirements.
+- Real-host smoke `status-bar:5302`, label `sha256-smoke-fixed`, passed through
+  the supported host-validation queue using the main checkout's environment.
+  Job: `a0465c91-5217-4f5a-bfc5-0350910c8823`;
+  run: `queue-8ca4cca3177b486e8a9897f0b7f726a7`.
+  Result: `PASS`, zero failures, verified host identity, unchanged fixture and
+  model identity, normal exit, safe cleanup, no retained prefix.
+  Evidence: `$VALIDATION_ROOT/status-bar/5302-sha256-smoke-fixed/queue-8ca4cca3177b486e8a9897f0b7f726a7`.
+  The initial smoke exposed a probe-only shutdown lookup using the isolated
+  plugin loader; the probe now explicitly uses the system loader for bootstrap.
+  The corrected probe passed on the rerun. The task's idle worker was stopped.
 
 The three delegated branches and the previously uncommitted phase-one follow-up
 are preserved in the integration branch `ci/simplify-sha256-gates`.
 
-Workspace cleanup remains unconfirmed: Paseo MCP archive timed out after 300s,
-and CLI archive attempts timed out after 45s. The dedicated workspaces are
-`wks_a3261bfdd8a0565c` (digest-single-source), `wks_02a18a39a7105ca4`
-(hash-trust-clarify), and `wks_c386e683950f430a` (draft-pack-hash-hoist).
-Their changes are preserved above; retry workspace archival when the daemon
-responds. Do not archive just their agents or manually discard the worktrees.
+The three dedicated workspaces were successfully archived on 2026-10-21:
+`wks_a3261bfdd8a0565c` (digest-single-source),
+`wks_02a18a39a7105ca4` (hash-trust-clarify), and
+`wks_c386e683950f430a` (draft-pack-hash-hoist).
+Paseo managed their worktree cleanup; their changes remain in the integration
+branch history.
