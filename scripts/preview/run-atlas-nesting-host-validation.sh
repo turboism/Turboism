@@ -34,7 +34,10 @@ esac
 extra=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --prepare-dir) extra+=("$1" "$2"); shift 2 ;;
+    --functional) ui_timing=false; shift ;;
+    --prepare-dir|--aux-agent|--jvm-option|--linux-env|--windows-env)
+      [[ $# -ge 2 ]] || { echo 'Missing nesting wrapper option value' >&2; exit 2; }
+      extra+=("$1" "$2"); shift 2 ;;
     --dry-run) extra+=("$1"); shift ;;
     *) echo 'Unsupported nesting wrapper option' >&2; exit 2 ;;
   esac

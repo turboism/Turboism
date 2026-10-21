@@ -18886,6 +18886,7 @@
   "fps": "perf-stats",
   "psd-clip-mask": "psd-clip-mask-import",
   "atlas": "atlas-maxrects-bssf",
+  "atlas-nesting": "atlas-bitmask-nesting",
   "atlas-polygon": "atlas-dalsoo-polygon",
   "external-psd-edit-pipeline": "external-psd-edit",
   "external-psd-fixture-preparation": "external-psd-edit",
@@ -18921,7 +18922,8 @@
   "backup": "autobackup",
   "backup-webdav": "autobackup",
   "selection-brush": "modeling-tool",
-  "atlas": "texture-atlas"
+  "atlas": "texture-atlas",
+  "atlas-nesting": "texture-atlas"
  },
  "versionBoundaries": [
   {
