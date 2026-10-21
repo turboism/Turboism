@@ -61,6 +61,11 @@ public final class TextureAtlasNestingPlugin implements TurboismPlugin {
     /** Uses the runtime rectangle dispatch on hosts without the polygon service. */
     final class RectanglePlanner implements TextureAtlasLayoutPlanner {
         @Override
+        public boolean supportsCompleteAtlas() {
+            return false;
+        }
+
+        @Override
         public TextureAtlasLayoutPlan plan(
                 final List<TextureAtlasLayoutItem> items, final TextureAtlasLayoutConstraints constraints) {
             return new Planner().plan(items, constraints);
@@ -68,6 +73,11 @@ public final class TextureAtlasNestingPlugin implements TurboismPlugin {
     }
 
     final class Planner implements TextureAtlasPolygonLayoutPlanner {
+        @Override
+        public boolean supportsCompleteAtlas() {
+            return false;
+        }
+
         @Override
         public TextureAtlasPolygonPlan planPolygon(
                 final TextureAtlasPolygonLayoutSnapshot snapshot, final boolean parallel) {

@@ -40,6 +40,7 @@ class TextureAtlasNestingPluginTest {
         final var algorithm = registry.find("bitmask-nesting").orElseThrow();
         assertFalse(algorithm.supportsParallel());
         assertFalse(algorithm.supportsPolygonOptions());
+        assertFalse(algorithm.planner().supportsCompleteAtlas());
         assertTrue(registry.selection().isNative());
         assertInstanceOf(TextureAtlasPolygonLayoutPlanner.class, algorithm.planner());
         // The production facade scopes registrations; verify its cleanup callback works.

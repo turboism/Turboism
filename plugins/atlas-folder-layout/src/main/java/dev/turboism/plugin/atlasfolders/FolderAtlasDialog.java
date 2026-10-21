@@ -1,4 +1,4 @@
-package dev.turboism.plugin.atlasmaxrectsbssf;
+package dev.turboism.plugin.atlasfolders;
 
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -24,7 +24,7 @@ final class FolderAtlasDialog {
     static List<Algorithm> algorithmOptions(PluginLocalization texts, List<TextureAtlasLayoutAlgorithm> registered) {
         List<Algorithm> options = new ArrayList<>();
         registered.stream()
-                .sorted(Comparator.comparingInt(a -> a.isNative()
+                .sorted(Comparator.comparingInt(a -> !available(a)
                         ? 3
                         : switch (a.id()) {
                             case "maxrects" -> 0;
@@ -33,8 +33,8 @@ final class FolderAtlasDialog {
                         }))
                 .forEach(a -> options.add(new Algorithm(
                         a.id(),
-                        a.displayName() + (a.isNative() ? " — " + texts.text("folders.currentPageOnly") : ""),
-                        !a.isNative())));
+                        a.displayName() + (!available(a) ? " — " + texts.text("folders.currentPageOnly") : ""),
+                        available(a))));
         options.add(new Algorithm(
                 "native",
                 texts.text("texture-atlas.algorithm.native") + " — " + texts.text("folders.currentPageOnly"),
@@ -42,8 +42,20 @@ final class FolderAtlasDialog {
         return List.copyOf(options);
     }
 
+    private static boolean available(TextureAtlasLayoutAlgorithm algorithm) {
+        return !algorithm.isNative() && algorithm.planner().supportsCompleteAtlas();
+    }
+
     static Optional<Options> show(PluginLocalization texts, List<TextureAtlasLayoutAlgorithm> registered) {
         if (GraphicsEnvironment.isHeadless()) return Optional.empty();
+        if (registered.stream().noneMatch(FolderAtlasDialog::available)) {
+            JOptionPane.showMessageDialog(
+                    null,
+                    texts.text("folders.noAlgorithms"),
+                    texts.text("folders.action"),
+                    JOptionPane.INFORMATION_MESSAGE);
+            return Optional.empty();
+        }
         JComboBox<Integer> size = new JComboBox<>(new Integer[] {1024, 2048, 4096, 8192});
         size.setSelectedItem(4096);
         JComboBox<Algorithm> algorithm =
