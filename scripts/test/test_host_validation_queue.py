@@ -830,6 +830,12 @@ class PreparedStoreTest(unittest.TestCase):
                 "--remote-pre-launch-background", "--remote-pre-launch-arg", str(Path(sys.executable).resolve())]
         for name in names:
             argv.extend(["--home-file", str(directory / name) + ":validation/" + name])
+        reviewed = (self.source / "scripts/preview/reviewed_host_artifacts.py",
+                    self.source / "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java")
+        for path in reviewed:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("# isolated inventory fixture, never executed\n")
+            argv.extend(["--home-file", f"{path}:validation/{path.name}"])
         return {"schemaVersion": 1, "argv": argv, "environment": {}}
 
     def test_memory_closure_frozen_and_interpreter_recorded(self):
@@ -839,7 +845,7 @@ class PreparedStoreTest(unittest.TestCase):
         self.assertEqual(str(Path(sys.executable).resolve()), dependency["path"])
         command = self.prepared.command(descriptor["digest"], self.base / "evidence")
         frozen = [Path(command[i + 1].split(":", 1)[0]) for i, value in enumerate(command) if value == "--home-file"]
-        self.assertEqual(3, len(frozen))
+        self.assertEqual(5, len(frozen))
         for path in (self.source / "scripts/test").iterdir():
             path.unlink()
         self.assertTrue(all(path.read_text().startswith("# isolated inventory") for path in frozen))
