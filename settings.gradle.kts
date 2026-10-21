@@ -24,6 +24,7 @@ include(
     "plugins:psd-clip-mask-import",
     "plugins:external-psd-edit",
     "plugins:atlas-maxrects-bssf",
+    "plugins:atlas-folder-layout",
     "plugins:atlas-dalsoo-polygon",
     "plugins:atlas-bitmask-nesting",
     "plugins:protected-export",

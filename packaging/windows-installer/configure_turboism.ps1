@@ -111,6 +111,16 @@ function Write-InstallerLog {
     catch { }
 }
 
+function Write-ConfiguratorFailure {
+    param([System.Management.Automation.ErrorRecord]$Failure)
+    $mode = if ($IntegrateBat) { "IntegrateBat" } elseif ($DisableBat) { "DisableBat" } elseif ($Cleanup) { "Cleanup" } elseif ($RetirePlugins) { "RetirePlugins" } elseif ($InitializeSelection) { "InitializeSelection" } elseif ($EnableShortcuts) { "EnableShortcuts" } else { "DisableShortcuts" }
+    Write-InstallerLog "CONFIGURATOR_FAILED" ("mode={0} elevated={1} pid={2} type={3} error={4} file={5} line={6} stack={7}" -f
+        $mode, [bool]$Elevated, $PID, $Failure.Exception.GetType().FullName,
+        $Failure.Exception.Message, $Failure.InvocationInfo.ScriptName,
+        $Failure.InvocationInfo.ScriptLineNumber, $Failure.ScriptStackTrace)
+    Write-Error ("{0} (Log: {1})" -f $Failure.Exception.Message, $installerLogPath) -ErrorAction Continue
+}
+
 function Test-RuntimeConfigIntegerToken {
     param([object]$Value)
 
@@ -881,8 +891,24 @@ function Invoke-ElevatedConfiguratorMode {
         }
         $arguments += ' -InstallerDiscoverySnapshot "{0}" -InstallerDiscoverySnapshotSha256 {1}' -f $InstallerDiscoverySnapshot, $InstallerDiscoverySnapshotSha256
     }
-    $process = Start-Process -FilePath $powershell -ArgumentList $arguments -Verb RunAs -Wait -PassThru
-    return [int]$process.ExitCode
+    Write-InstallerLog "ELEVATION_REQUEST" ("mode={0} pid={1} snapshot={2}" -f $Mode, $PID, $InstallerDiscoverySnapshot)
+    try {
+        $process = Start-Process -FilePath $powershell -ArgumentList $arguments -Verb RunAs -Wait -PassThru
+        try {
+            $exitCode = $process.ExitCode
+            if ($null -eq $exitCode) { throw "Elevated configurator returned no exit code" }
+            Write-InstallerLog "ELEVATION_EXIT" ("mode={0} childPid={1} exitCode={2}" -f $Mode, $process.Id, $exitCode)
+            if ($exitCode -ne 0) {
+                Write-Error ("Elevated configurator {0} failed with exit code {1}. Log: {2}" -f $Mode, $exitCode, $installerLogPath) -ErrorAction Continue
+            }
+            return [int]$exitCode
+        }
+        finally { $process.Dispose() }
+    }
+    catch {
+        Write-InstallerLog "ELEVATION_FAILED" ("mode={0} type={1} error={2}" -f $Mode, $_.Exception.GetType().FullName, $_.Exception.Message)
+        throw
+    }
 }
 
 function Get-ConfiguratorCandidates {
@@ -944,7 +970,7 @@ if ($ApplyInstallerSelection) {
 }
 
 try { New-Item -ItemType Directory -Path $installerLogDir -Force | Out-Null } catch { }
-Write-InstallerLog "CONFIGURATOR_START"
+Write-InstallerLog "CONFIGURATOR_START" ("pid={0} elevated={1} integrateBat={2} disableBat={3} cleanup={4}" -f $PID, [bool]$Elevated, [bool]$IntegrateBat, [bool]$DisableBat, [bool]$Cleanup)
 
 if ($Cleanup) {
     try {
@@ -962,7 +988,7 @@ if ($Cleanup) {
         exit 0
     }
     catch {
-        Write-Error $_.Exception.Message
+        Write-ConfiguratorFailure $_
         exit 1
     }
 }
@@ -972,7 +998,7 @@ if ($RetirePlugins) {
         exit 0
     }
     catch {
-        Write-Error $_.Exception.Message
+        Write-ConfiguratorFailure $_
         exit 1
     }
 }
@@ -986,7 +1012,7 @@ if ($InitializeSelection) {
         exit 0
     }
     catch {
-        Write-Error $_.Exception.Message
+        Write-ConfiguratorFailure $_
         exit 1
     }
 }
@@ -997,11 +1023,11 @@ if ($DisableBat -and -not $Elevated) {
         if ($disableBatState.BatIntegrations.Count -eq 0) { exit 0 }
         exit (Invoke-ElevatedConfiguratorMode -Mode "DisableBat")
     }
-    catch { Write-Error $_.Exception.Message; exit 1 }
+    catch { Write-ConfiguratorFailure $_; exit 1 }
 }
 if ($IntegrateBat -and -not $Elevated) {
     try { exit (Invoke-ElevatedConfiguratorMode -Mode "IntegrateBat") }
-    catch { Write-Error $_.Exception.Message; exit 1 }
+    catch { Write-ConfiguratorFailure $_; exit 1 }
 }
 if ($IntegrateBat -or $DisableBat -or $EnableShortcuts -or $DisableShortcuts) {
     try {
@@ -1020,11 +1046,13 @@ if ($IntegrateBat -or $DisableBat -or $EnableShortcuts -or $DisableShortcuts) {
             if ($removedRecords.Count -gt 0) { Restore-CubismBatIntegrations -Records $removedRecords }
             $records = Invoke-CubismBatIntegration -TurboismHome $turboismHome -Candidates $candidates -ExistingRecords $retainedRecords
             Write-CubismInstallationState -StatePath $statePath -Candidates $candidates -ManagedShortcuts $state.ManagedShortcuts -ManagedShortcutHashes $state.ManagedShortcutHashes -ShortcutTakeovers $state.ShortcutTakeovers -BatIntegrations $records -LaunchMode $state.LaunchMode
+            Write-InstallerLog "BAT_INTEGRATION_OK" ("applied={0} restored={1}" -f $records.Count, $removedRecords.Count)
             Write-Host "TURBOISM_BAT_INTEGRATION applied=$($records.Count) restored=$($removedRecords.Count)"
         }
         elseif ($DisableBat) {
             if ($state.BatIntegrations.Count -gt 0) { Restore-CubismBatIntegrations -Records $state.BatIntegrations }
             Write-CubismInstallationState -StatePath $statePath -Candidates $candidates -ManagedShortcuts $state.ManagedShortcuts -ManagedShortcutHashes $state.ManagedShortcutHashes -ShortcutTakeovers $state.ShortcutTakeovers -LaunchMode $state.LaunchMode
+            Write-InstallerLog "BAT_INTEGRATION_RESTORED" ("restored={0}" -f $state.BatIntegrations.Count)
             Write-Host "TURBOISM_BAT_INTEGRATION restored=$($state.BatIntegrations.Count)"
         }
         elseif ($EnableShortcuts) {
@@ -1038,7 +1066,7 @@ if ($IntegrateBat -or $DisableBat -or $EnableShortcuts -or $DisableShortcuts) {
         exit 0
     }
     catch {
-        Write-Error $_.Exception.Message
+        Write-ConfiguratorFailure $_
         exit 1
     }
 }
