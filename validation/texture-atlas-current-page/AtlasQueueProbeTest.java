@@ -26,6 +26,13 @@ public final class AtlasQueueProbeTest {
         assertions += 2;
         rejects(() -> AtlasQueueProbe.validateCase(0, "native"));
         rejects(() -> AtlasQueueProbe.validateCase(0, "polygon"));
+        try {
+            System.setProperty("turboism.validation.atlas.dataset", "heavy");
+            AtlasQueueProbe.validateCase(0, "polygon"); assertions++;
+            rejects(() -> AtlasQueueProbe.validateCase(0, "native"));
+        } finally {
+            System.clearProperty("turboism.validation.atlas.dataset");
+        }
         rejects(() -> AtlasQueueProbe.validateCase(0, "nesting-rect"));
         var directory = java.nio.file.Files.createTempDirectory("atlas-one-shot-test-");
         try {
