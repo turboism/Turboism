@@ -311,8 +311,6 @@ def synthesize_entry(
         entry["descriptor"] = selector.get("descriptor")
     entry["x.verification"] = {
         "ownerInternalName": selector["ownerInternalName"],
-        "requiredAccessFlags": selector["requiredAccessFlags"],
-        "forbiddenAccessFlags": selector["forbiddenAccessFlags"],
     }
     return entry
 
@@ -369,8 +367,6 @@ def derive_pack(
                 entry.pop("descriptor")
             entry["x.verification"] = {
                 "ownerInternalName": selector["ownerInternalName"],
-                "requiredAccessFlags": selector["requiredAccessFlags"],
-                "forbiddenAccessFlags": selector["forbiddenAccessFlags"],
             }
         entries.append(entry)
     pack = {}

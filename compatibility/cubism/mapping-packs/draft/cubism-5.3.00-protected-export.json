@@ -19,9 +19,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/alias/CAliasSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/alias/CAliasSource"
       }
     },
     {
@@ -39,9 +37,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/AlphaComposition;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/alias/CAliasSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/alias/CAliasSource"
       }
     },
     {
@@ -59,9 +55,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/alias/CAliasSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/alias/CAliasSource"
       }
     },
     {
@@ -79,9 +73,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/type/CArrayList;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/alias/CAliasSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/alias/CAliasSource"
       }
     },
     {
@@ -99,9 +91,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/ColorComposition;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/alias/CAliasSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/alias/CAliasSource"
       }
     },
     {
@@ -119,9 +109,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/alias/CAliasSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/alias/CAliasSource"
       }
     },
     {
@@ -139,9 +127,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/type/CParameterControllableGuid;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/alias/CAliasSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/alias/CAliasSource"
       }
     },
     {
@@ -159,9 +145,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/alias/CAliasSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/alias/CAliasSource"
       }
     },
     {
@@ -178,9 +162,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       }
     },
     {
@@ -198,9 +180,7 @@
       "confidence": "high",
       "descriptor": "(Lcom/live2d/cubism/doc/IFileContent;)V",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       }
     },
     {
@@ -218,9 +198,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/IDocument;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       }
     },
     {
@@ -238,9 +216,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/CEProject;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       }
     },
     {
@@ -258,9 +234,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/CEAppCtrl;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 9,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       }
     },
     {
@@ -278,9 +252,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/view/CEMainFrameCtrl;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       }
     },
     {
@@ -298,9 +270,7 @@
       "confidence": "high",
       "descriptor": "(Ljava/io/File;Z)V",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       }
     },
     {
@@ -317,9 +287,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm"
       }
     },
     {
@@ -337,9 +305,7 @@
       "confidence": "high",
       "descriptor": "()[F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm"
       }
     },
     {
@@ -357,9 +323,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh"
       }
     },
     {
@@ -376,9 +340,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh"
       }
     },
     {
@@ -396,9 +358,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh"
       }
     },
     {
@@ -415,9 +375,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource"
       }
     },
     {
@@ -434,9 +392,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artPath/CArtPathSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artPath/CArtPathSource"
       }
     },
     {
@@ -454,9 +410,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/type/CArtPathBrushGuid;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artPath/CArtPathSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artPath/CArtPathSource"
       }
     },
     {
@@ -473,9 +427,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource"
       }
     },
     {
@@ -493,9 +445,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/List;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/ACDeformerSource"
       }
     },
     {
@@ -512,9 +462,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/ACDeformerSource"
       }
     },
     {
@@ -532,9 +480,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/type/CDeformerGuid;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/ACDeformerSource"
       }
     },
     {
@@ -552,9 +498,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/type/CDeformerGuid;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/ACDeformerSource"
       }
     },
     {
@@ -571,9 +515,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument"
       }
     },
     {
@@ -591,9 +533,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/modeling/CModelingEditMode_Base;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument"
       }
     },
     {
@@ -611,9 +551,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/modeling/CModelingEditMode_Main;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument"
       }
     },
     {
@@ -631,9 +569,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/io/File;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument"
       }
     },
     {
@@ -651,9 +587,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/IFileContent;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument"
       }
     },
     {
@@ -671,9 +605,7 @@
       "confidence": "high",
       "descriptor": "(J)V",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument"
       }
     },
     {
@@ -691,9 +623,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/CModelSource;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument"
       }
     },
     {
@@ -711,9 +641,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/doc/selection/ISelector;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument"
       }
     },
     {
@@ -731,9 +659,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/undo/CUndoManager;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument"
       }
     },
     {
@@ -750,9 +676,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/id/CDrawableId",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/id/CDrawableId"
       }
     },
     {
@@ -770,9 +694,7 @@
       "confidence": "high",
       "descriptor": "(Ljava/lang/String;)V",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/id/CDrawableId",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/id/CDrawableId"
       }
     },
     {
@@ -789,9 +711,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource"
       }
     },
     {
@@ -809,9 +729,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/type/CArrayList;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource"
       }
     },
     {
@@ -829,9 +747,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/id/CDrawableId;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource"
       }
     },
     {
@@ -849,9 +765,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource"
       }
     },
     {
@@ -869,9 +783,7 @@
       "confidence": "high",
       "descriptor": "(Lcom/live2d/cubism/doc/model/id/CDrawableId;)V",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource"
       }
     },
     {
@@ -888,9 +800,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_Base",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_Base"
       }
     },
     {
@@ -908,9 +818,7 @@
       "confidence": "high",
       "descriptor": "()V",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_Main",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_Main"
       }
     },
     {
@@ -927,9 +835,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_Main",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_Main"
       }
     },
     {
@@ -946,9 +852,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/exporter/e",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/exporter/e"
       }
     },
     {
@@ -966,9 +870,7 @@
       "confidence": "high",
       "descriptor": "Lcom/live2d/cubism/doc/model/CModelSource;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/exporter/e",
-        "requiredAccessFlags": 18,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/exporter/e"
       }
     },
     {
@@ -985,9 +887,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/appCtrlImpl/al",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/appCtrlImpl/al"
       }
     },
     {
@@ -1005,9 +905,7 @@
       "confidence": "high",
       "descriptor": "(Lcom/live2d/cubism/doc/model/CModelSource;Lcom/live2d/ui/window/CFrame;Lkotlin/jvm/functions/Function2;)V",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/appCtrlImpl/al",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/appCtrlImpl/al"
       }
     },
     {
@@ -1025,9 +923,7 @@
       "confidence": "high",
       "descriptor": "Lcom/live2d/cubism/appCtrlImpl/al;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/appCtrlImpl/al",
-        "requiredAccessFlags": 25,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/appCtrlImpl/al"
       }
     },
     {
@@ -1044,9 +940,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType"
       }
     },
     {
@@ -1063,9 +957,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/a/e",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/a/e"
       }
     },
     {
@@ -1083,9 +975,7 @@
       "confidence": "high",
       "descriptor": "(Ljava/io/File;)Lcom/live2d/cubism/doc/a/b/a;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/a/e",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/a/e"
       }
     },
     {
@@ -1103,9 +993,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/ArrayList;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/a/e",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/a/e"
       }
     },
     {
@@ -1123,9 +1011,7 @@
       "confidence": "high",
       "descriptor": "Lcom/live2d/cubism/doc/a/e;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/a/e",
-        "requiredAccessFlags": 25,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/a/e"
       }
     },
     {
@@ -1143,9 +1029,7 @@
       "confidence": "high",
       "descriptor": "(Lcom/live2d/cubism/doc/a/b/a;)V",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/a/e",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/a/e"
       }
     },
     {
@@ -1162,9 +1046,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/IFileContent",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/IFileContent"
       }
     },
     {
@@ -1182,9 +1064,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/io/File;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/IFileContent",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/IFileContent"
       }
     },
     {
@@ -1202,9 +1082,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/IFileContent",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/IFileContent"
       }
     },
     {
@@ -1221,9 +1099,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/a/b/a",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/a/b/a"
       }
     },
     {
@@ -1241,9 +1117,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/io/File;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/a/b/a",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/a/b/a"
       }
     },
     {
@@ -1261,9 +1135,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/List;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/a/b/a",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/a/b/a"
       }
     },
     {
@@ -1281,9 +1153,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/a/f;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/a/b/a",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/a/b/a"
       }
     },
     {
@@ -1301,9 +1171,7 @@
       "confidence": "high",
       "descriptor": "(Z)Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/a/b/a",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/a/b/a"
       }
     },
     {
@@ -1321,9 +1189,7 @@
       "confidence": "high",
       "descriptor": "()V",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/a/b/a",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/a/b/a"
       }
     },
     {
@@ -1340,9 +1206,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/affecter/glue/CGlueSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/affecter/glue/CGlueSource"
       }
     },
     {
@@ -1360,9 +1224,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/affecter/glue/CGlueSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/affecter/glue/CGlueSource"
       }
     },
     {
@@ -1380,9 +1242,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/affecter/glue/CGlueSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/affecter/glue/CGlueSource"
       }
     },
     {
@@ -1399,9 +1259,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/type/Guid",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/type/Guid"
       }
     },
     {
@@ -1419,9 +1277,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/lang/String;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/type/Guid",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/type/Guid"
       }
     },
     {
@@ -1438,9 +1294,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/core/id/Id",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/core/id/Id"
       }
     },
     {
@@ -1458,9 +1312,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/lang/String;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/core/id/Id",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/core/id/Id"
       }
     },
     {
@@ -1477,9 +1329,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource"
       }
     },
     {
@@ -1497,9 +1347,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/interpolator/extendedInterpolation/ExtendedInterpolationType;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource"
       }
     },
     {
@@ -1517,9 +1365,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource"
       }
     },
     {
@@ -1537,9 +1383,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/List;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource"
       }
     },
     {
@@ -1557,9 +1401,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/id/CParameterId;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource"
       }
     },
     {
@@ -1577,9 +1419,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/List;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
       }
     },
     {
@@ -1596,9 +1436,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
       }
     },
     {
@@ -1615,9 +1453,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl"
       }
     },
     {
@@ -1635,9 +1471,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/ui/window/CFrame;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl"
       }
     },
     {
@@ -1655,9 +1489,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/List;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -1675,9 +1507,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/List;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -1695,9 +1525,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/List;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -1715,9 +1543,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/List;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -1735,9 +1561,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/List;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -1755,9 +1579,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/List;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -1775,9 +1597,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/List;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -1794,9 +1614,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -1814,9 +1632,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -1834,9 +1650,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -1854,9 +1668,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -1874,9 +1686,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -1894,9 +1704,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -1914,9 +1722,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -1934,9 +1740,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -1954,9 +1758,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -1974,9 +1776,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -1994,9 +1794,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -2014,9 +1812,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -2034,9 +1830,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -2054,9 +1848,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/CModel;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -2074,9 +1866,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/modeling/CModelingDocument;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -2094,9 +1884,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/type/CModelGuid;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -2114,9 +1902,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSourceSet;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -2134,9 +1920,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/parts/CPartSource;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -2154,9 +1938,7 @@
       "confidence": "high",
       "descriptor": "(Ljava/io/File;Z)Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource"
       }
     },
     {
@@ -2174,9 +1956,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/List;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModel",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModel"
       }
     },
     {
@@ -2193,9 +1973,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModel",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModel"
       }
     },
     {
@@ -2213,9 +1991,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/param/CParameterSet;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModel",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModel"
       }
     },
     {
@@ -2233,9 +2009,7 @@
       "confidence": "high",
       "descriptor": "()V",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/CModel",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModel"
       }
     },
     {
@@ -2252,9 +2026,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet"
       }
     },
     {
@@ -2272,9 +2044,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/List;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet"
       }
     },
     {
@@ -2292,9 +2062,7 @@
       "confidence": "high",
       "descriptor": "()I",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/MotionSyncMappingSetting",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/MotionSyncMappingSetting"
       }
     },
     {
@@ -2312,9 +2080,7 @@
       "confidence": "high",
       "descriptor": "()I",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/MotionSyncPostProcSetting",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/MotionSyncPostProcSetting"
       }
     },
     {
@@ -2331,9 +2097,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/id/CMotionSyncSettingId",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/id/CMotionSyncSettingId"
       }
     },
     {
@@ -2351,9 +2115,7 @@
       "confidence": "high",
       "descriptor": "(Ljava/lang/String;)V",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/id/CMotionSyncSettingId",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/id/CMotionSyncSettingId"
       }
     },
     {
@@ -2370,9 +2132,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource"
       }
     },
     {
@@ -2390,9 +2150,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/type/CMotionSyncSettingGuid;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource"
       }
     },
     {
@@ -2410,9 +2168,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/id/CMotionSyncSettingId;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource"
       }
     },
     {
@@ -2430,9 +2186,7 @@
       "confidence": "high",
       "descriptor": "Lcom/live2d/cubism/doc/model/id/CMotionSyncSettingId;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource",
-        "requiredAccessFlags": 2,
-        "forbiddenAccessFlags": 24
+        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource"
       }
     },
     {
@@ -2450,9 +2204,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/motionSync/MotionSyncMappingSetting;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource"
       }
     },
     {
@@ -2470,9 +2222,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/lang/String;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource"
       }
     },
     {
@@ -2490,9 +2240,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/motionSync/MotionSyncPostProcSetting;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource"
       }
     },
     {
@@ -2510,9 +2258,7 @@
       "confidence": "high",
       "descriptor": "(Ljava/lang/String;)V",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource"
       }
     },
     {
@@ -2530,9 +2276,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource$CEMotionSyncVersion;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/motionSync/CMotionSyncSettingSource"
       }
     },
     {
@@ -2549,9 +2293,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/id/CParameterId",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/id/CParameterId"
       }
     },
     {
@@ -2568,9 +2310,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameter",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameter"
       }
     },
     {
@@ -2588,9 +2328,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/id/CParameterId;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameter",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameter"
       }
     },
     {
@@ -2608,9 +2346,7 @@
       "confidence": "high",
       "descriptor": "(F)V",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameter",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameter"
       }
     },
     {
@@ -2628,9 +2364,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameter",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameter"
       }
     },
     {
@@ -2647,9 +2381,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSet",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSet"
       }
     },
     {
@@ -2667,9 +2399,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/List;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSet",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSet"
       }
     },
     {
@@ -2687,9 +2417,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource"
       }
     },
     {
@@ -2707,9 +2435,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/type/CParameterGuid;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource"
       }
     },
     {
@@ -2727,9 +2453,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/id/CParameterId;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource"
       }
     },
     {
@@ -2747,9 +2471,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource"
       }
     },
     {
@@ -2767,9 +2489,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource"
       }
     },
     {
@@ -2787,9 +2507,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/lang/String;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource"
       }
     },
     {
@@ -2807,9 +2525,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource"
       }
     },
     {
@@ -2826,9 +2542,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/param/CParameterSource"
       }
     },
     {
@@ -2846,9 +2560,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/AlphaComposition;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource"
       }
     },
     {
@@ -2866,9 +2578,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/List;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource"
       }
     },
     {
@@ -2885,9 +2595,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource"
       }
     },
     {
@@ -2905,9 +2613,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/type/CArrayList;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource"
       }
     },
     {
@@ -2925,9 +2631,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/ColorComposition;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource"
       }
     },
     {
@@ -2945,9 +2649,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource"
       }
     },
     {
@@ -2965,9 +2667,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/parts/CPartSource"
       }
     },
     {
@@ -2985,9 +2685,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsInput",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsInput"
       }
     },
     {
@@ -3005,9 +2703,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsInput",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsInput"
       }
     },
     {
@@ -3025,9 +2721,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/type/CParameterGuid;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsInput",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsInput"
       }
     },
     {
@@ -3045,9 +2739,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/graphics3d/type/GVector2;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsInput",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsInput"
       }
     },
     {
@@ -3065,9 +2757,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/gameData/physics/CPhysicsController$CPhysicsSourceType;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsInput",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsInput"
       }
     },
     {
@@ -3085,9 +2775,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsInput",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsInput"
       }
     },
     {
@@ -3105,9 +2793,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput"
       }
     },
     {
@@ -3125,9 +2811,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/type/CParameterGuid;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput"
       }
     },
     {
@@ -3145,9 +2829,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput"
       }
     },
     {
@@ -3165,9 +2847,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/graphics3d/type/GVector2;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput"
       }
     },
     {
@@ -3185,9 +2865,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/gameData/physics/CPhysicsController$CPhysicsSourceType;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput"
       }
     },
     {
@@ -3205,9 +2883,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput"
       }
     },
     {
@@ -3225,9 +2901,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput"
       }
     },
     {
@@ -3245,9 +2919,7 @@
       "confidence": "high",
       "descriptor": "()I",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput"
       }
     },
     {
@@ -3265,9 +2937,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsOutput"
       }
     },
     {
@@ -3284,9 +2954,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/id/CPhysicsSettingId",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/id/CPhysicsSettingId"
       }
     },
     {
@@ -3304,9 +2972,7 @@
       "confidence": "high",
       "descriptor": "(Ljava/lang/String;)V",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/id/CPhysicsSettingId",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/id/CPhysicsSettingId"
       }
     },
     {
@@ -3324,9 +2990,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/lang/Integer;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSourceSet",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSourceSet"
       }
     },
     {
@@ -3344,9 +3008,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/graphics3d/type/GVector2;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSourceSet",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSourceSet"
       }
     },
     {
@@ -3364,9 +3026,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/type/CPhysicsSettingsGuid;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSourceSet",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSourceSet"
       }
     },
     {
@@ -3384,9 +3044,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/graphics3d/type/GVector2;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSourceSet",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSourceSet"
       }
     },
     {
@@ -3403,9 +3061,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource"
       }
     },
     {
@@ -3423,9 +3079,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource"
       }
     },
     {
@@ -3443,9 +3097,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/type/CPhysicsSettingsGuid;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource"
       }
     },
     {
@@ -3463,9 +3115,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/id/CPhysicsSettingId;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource"
       }
     },
     {
@@ -3483,9 +3133,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/type/CArrayList;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource"
       }
     },
     {
@@ -3503,9 +3151,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/lang/String;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource"
       }
     },
     {
@@ -3523,9 +3169,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource"
       }
     },
     {
@@ -3543,9 +3187,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource"
       }
     },
     {
@@ -3563,9 +3205,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource"
       }
     },
     {
@@ -3583,9 +3223,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource"
       }
     },
     {
@@ -3603,9 +3241,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource"
       }
     },
     {
@@ -3623,9 +3259,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource"
       }
     },
     {
@@ -3643,9 +3277,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/type/CArrayList;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource"
       }
     },
     {
@@ -3663,9 +3295,7 @@
       "confidence": "high",
       "descriptor": "(Lcom/live2d/cubism/doc/model/id/CPhysicsSettingId;)V",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource"
       }
     },
     {
@@ -3683,9 +3313,7 @@
       "confidence": "high",
       "descriptor": "(Ljava/lang/String;)V",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource"
       }
     },
     {
@@ -3703,9 +3331,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource"
       }
     },
     {
@@ -3723,9 +3349,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/type/CArrayList;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsSettingsSource"
       }
     },
     {
@@ -3743,9 +3367,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsVertex",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsVertex"
       }
     },
     {
@@ -3763,9 +3385,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsVertex",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsVertex"
       }
     },
     {
@@ -3783,9 +3403,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsVertex",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsVertex"
       }
     },
     {
@@ -3803,9 +3421,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/graphics3d/type/GVector2;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsVertex",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsVertex"
       }
     },
     {
@@ -3823,9 +3439,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsVertex",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/gameData/physics/CPhysicsVertex"
       }
     },
     {
@@ -3843,9 +3457,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/List;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/CEProject",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/CEProject"
       }
     },
     {
@@ -3862,9 +3474,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/CEProject",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/CEProject"
       }
     },
     {
@@ -3881,9 +3491,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerSource"
       }
     },
     {
@@ -3900,9 +3508,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/doc/selection/ISelector",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/doc/selection/ISelector"
       }
     },
     {
@@ -3920,9 +3526,7 @@
       "confidence": "high",
       "descriptor": "(Lcom/live2d/cubism/doc/model/ACParameterControllableSource;I)Lcom/live2d/cubism/doc/selection/ACParameterControllableSelection;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingSelector_Main",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingSelector_Main"
       }
     },
     {
@@ -3939,9 +3543,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingSelector_Main",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingSelector_Main"
       }
     },
     {
@@ -3959,9 +3561,7 @@
       "confidence": "high",
       "descriptor": "()V",
       "x.verification": {
-        "ownerInternalName": "com/live2d/doc/selection/ISelector",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/doc/selection/ISelector"
       }
     },
     {
@@ -3979,9 +3579,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/List;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/doc/selection/ISelector",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/doc/selection/ISelector"
       }
     },
     {
@@ -3999,9 +3597,7 @@
       "confidence": "high",
       "descriptor": "()I",
       "x.verification": {
-        "ownerInternalName": "com/live2d/doc/selection/ISelector",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/doc/selection/ISelector"
       }
     },
     {
@@ -4019,9 +3615,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/List;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingSelector_Main",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingSelector_Main"
       }
     },
     {
@@ -4039,9 +3633,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/interpolator/KeyformGridSource;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource"
       }
     },
     {
@@ -4059,9 +3651,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/morphTarget/extendedInterpolation/ExtendedKeyFormMorphTargetSet;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource"
       }
     },
     {
@@ -4079,9 +3669,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/util/List;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource"
       }
     },
     {
@@ -4099,9 +3687,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/type/CParameterControllableGuid;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource"
       }
     },
     {
@@ -4119,9 +3705,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/id/CParameterControllableId;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource"
       }
     },
     {
@@ -4139,9 +3723,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/interpolator/KeyformGridSource;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource"
       }
     },
     {
@@ -4159,9 +3741,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource"
       }
     },
     {
@@ -4179,9 +3759,7 @@
       "confidence": "high",
       "descriptor": "()Ljava/lang/String;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource"
       }
     },
     {
@@ -4199,9 +3777,7 @@
       "confidence": "high",
       "descriptor": "(Ljava/lang/String;)V",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource"
       }
     },
     {
@@ -4219,9 +3795,7 @@
       "confidence": "high",
       "descriptor": "()Lcom/live2d/type/CDeformerGuid;",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/doc/model/ACParameterControllableSource"
       }
     },
     {
@@ -4239,9 +3813,7 @@
       "confidence": "high",
       "descriptor": "()Z",
       "x.verification": {
-        "ownerInternalName": "com/live2d/undo/CUndoManager",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/undo/CUndoManager"
       }
     },
     {
@@ -4258,9 +3830,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/undo/CUndoManager",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/undo/CUndoManager"
       }
     },
     {
@@ -4278,9 +3848,7 @@
       "confidence": "high",
       "descriptor": "()I",
       "x.verification": {
-        "ownerInternalName": "com/live2d/undo/CUndoManager",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/undo/CUndoManager"
       }
     },
     {
@@ -4298,9 +3866,7 @@
       "confidence": "high",
       "descriptor": "()I",
       "x.verification": {
-        "ownerInternalName": "com/live2d/undo/CUndoManager",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/undo/CUndoManager"
       }
     },
     {
@@ -4318,9 +3884,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/graphics3d/type/GVector2"
       }
     },
     {
@@ -4338,9 +3902,7 @@
       "confidence": "high",
       "descriptor": "()F",
       "x.verification": {
-        "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/graphics3d/type/GVector2"
       }
     },
     {
@@ -4357,9 +3919,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource"
       }
     }
   ]

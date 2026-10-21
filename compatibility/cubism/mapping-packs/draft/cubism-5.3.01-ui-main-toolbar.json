@@ -14,9 +14,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -31,9 +29,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 9,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -48,9 +44,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -64,9 +58,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -81,9 +73,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -97,9 +87,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -114,9 +102,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -130,9 +116,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/CWidget",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/ui/CWidget"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -147,9 +131,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/CWidget",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/CWidget"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -164,9 +146,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/CWidget",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/CWidget"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -181,9 +161,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/CWidget",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/CWidget"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -198,9 +176,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/CWidget",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/CWidget"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -215,9 +191,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/CWidget",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/CWidget"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -232,9 +206,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/CWidget",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/CWidget"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -249,9 +221,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/CWidget",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/CWidget"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -266,9 +236,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/CWidget",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/CWidget"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -282,9 +250,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/container/CContainer",
-        "requiredAccessFlags": 1025,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/ui/container/CContainer"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -299,9 +265,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/container/CContainer",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/container/CContainer"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -316,9 +280,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/container/CContainer",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/container/CContainer"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -333,9 +295,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/container/CContainer",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/container/CContainer"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -349,9 +309,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CIconButton",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/ui/control/CIconButton"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -366,9 +324,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CIconButton",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/control/CIconButton"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -383,9 +339,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -399,9 +353,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/type/CIcon",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/type/CIcon"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -416,9 +368,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/type/CIcon",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/type/CIcon"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -433,9 +383,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -450,9 +398,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/container/CVBox",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/container/CVBox"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -467,9 +413,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/CWidget",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/CWidget"
       },
       "verifiedBy": "none",
       "verifiedAt": null,
@@ -484,9 +428,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolMode_MeshEdit_Manual",
-        "requiredAccessFlags": 25,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolMode_MeshEdit_Manual"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -502,9 +444,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolMode_MeshEdit_Manual",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolMode_MeshEdit_Manual"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -520,9 +460,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -538,9 +476,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -555,9 +491,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
-        "requiredAccessFlags": 1025,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -573,9 +507,7 @@
       "semanticName": "cubism.mapping.v5_3_04.ui_main_toolbar.method.abstract_button_get_j_abstract_button",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -591,9 +523,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -609,9 +539,7 @@
       "semanticName": "cubism.mapping.v5_3_04.ui_main_toolbar.method.abstract_button_set_icon",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -627,9 +555,7 @@
       "semanticName": "cubism.mapping.v5_3_04.ui_main_toolbar.method.abstract_button_set_pressed_icon",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -645,9 +571,7 @@
       "semanticName": "cubism.mapping.v5_3_04.ui_main_toolbar.method.abstract_button_set_selected_icon",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -663,9 +587,7 @@
       "semanticName": "cubism.mapping.v5_3_04.ui_main_toolbar.method.abstract_button_set_disabled_icon",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -681,9 +603,7 @@
       "semanticName": "cubism.mapping.v5_3_04.ui_main_toolbar.method.abstract_button_set_disabled_selected_icon",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -698,9 +618,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CSlider",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
+        "ownerInternalName": "com/live2d/ui/control/CSlider"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -716,9 +634,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CSlider",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/control/CSlider"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -734,9 +650,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CSlider",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/control/CSlider"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -752,9 +666,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CSlider",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/control/CSlider"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -770,9 +682,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CSlider",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/control/CSlider"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -788,9 +698,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CSlider",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/control/CSlider"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -806,9 +714,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CSlider",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/control/CSlider"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -824,9 +730,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CSlider",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/control/CSlider"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
@@ -842,9 +746,7 @@
       "profile": "cubism-5.3.01",
       "status": "DRAFT",
       "x.verification": {
-        "ownerInternalName": "com/live2d/ui/control/CSlider",
-        "requiredAccessFlags": 17,
-        "forbiddenAccessFlags": 8
+        "ownerInternalName": "com/live2d/ui/control/CSlider"
       },
       "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
       "verifiedBy": "none",
