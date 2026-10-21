@@ -67,7 +67,8 @@ Unknown custom hook dependencies are rejected, not executed speculatively.
 Admitted inventories are the FPS resize driver, the host locale environment hook, the
 external PSD task-local file association, and the exact `native-resource:5302`
 readonly memory observer closure documented in [native resource workload](README-native-resource-workload.md).
-The memory observer requires three fixed helper destinations, a pinned Python interpreter and
+The memory observer requires three fixed observer helpers plus the shared reviewed-artifact
+reader and its Java source, a pinned Python interpreter and
 managed background execution; it is not general hook admission. The standard-library-only
 `validation/external-psd-edit-host-probe/rss.py` is admitted only as a synchronous
 post-launch observer for the 5.3.02 F1 ten-cycle performance pipeline, with no GUI

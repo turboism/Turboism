@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import importlib.util
 import os
 from pathlib import Path
 import signal
@@ -130,17 +131,35 @@ def digest(path: Path) -> str:
     return value.hexdigest()
 
 
+def reviewed_host_artifacts():
+    """Load the single reviewed-digest reader staged next to this file, else the repository's."""
+    here = Path(__file__).resolve()
+    for candidate in (here.with_name('reviewed_host_artifacts.py'),
+                      here.parents[1] / 'preview' / 'reviewed_host_artifacts.py'):
+        if candidate.is_file():
+            spec = importlib.util.spec_from_file_location('reviewed_host_artifacts', candidate)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return module
+    raise RuntimeError('reviewed_host_artifacts.py is unavailable; reviewed host digests unresolvable')
+
+
+# Install directory per reviewed version this cleanup may verify; digests come from the single source.
+TASK_INSTALL_DIRECTORIES = {
+    '5.2.03': 'Live2D Cubism 5.2',
+    '5.3.02': 'Live2D Cubism 5.3',
+    '5.3.03': 'Live2D Cubism 5.3.03',
+}
+
+
 def verify_task(task: Path) -> None:
     if not task.is_absolute() or task.is_symlink() or (task / 'prefix').is_symlink() or (task / 'prefix/pfx').is_symlink():
         raise RuntimeError('task/prefix identity is not a normal task-owned directory')
     identity = properties(task / 'evidence/identity-before.properties')
     if identity.get('taskId') != task.name:
         raise RuntimeError('task ID differs from original identity record')
-    roots = {
-        'bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd': 'Live2D Cubism 5.2',
-        '988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21': 'Live2D Cubism 5.3',
-        'bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166': 'Live2D Cubism 5.3.03',
-    }
+    reviewed = reviewed_host_artifacts()
+    roots = {reviewed.sha256(version): directory for version, directory in TASK_INSTALL_DIRECTORIES.items()}
     expected = identity.get('hostJarSha256', '')
     if expected not in roots:
         raise RuntimeError('unreviewed task host artifact')

@@ -14,13 +14,10 @@ import reviewed_host_artifacts
 from host_validation_queue import QueueError, file_digest
 
 
-class ReviewedHostsAgreementTest(unittest.TestCase):
-    def test_evidence_host_table_agrees_with_reviewed_host_artifacts(self):
-        reviewed = {
-            reviewed_host_artifacts.compact(version): artifact.sha256
-            for version, artifact in reviewed_host_artifacts.load().items()
-        }
-        self.assertEqual(reviewed, {code: digest for code, (_, digest) in evidence.HOSTS.items()})
+class ReviewedHostsCoverageTest(unittest.TestCase):
+    def test_every_reviewed_version_has_an_install_directory(self):
+        reviewed = {reviewed_host_artifacts.compact(version) for version in reviewed_host_artifacts.load()}
+        self.assertEqual(reviewed, set(evidence.HOSTS))
 
 
 class EvidenceTest(unittest.TestCase):

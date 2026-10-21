@@ -6,7 +6,9 @@ declared. Shell runners and Python tools resolve the same identities here instea
 SHA-256 literals, so adding a Cubism version is one reviewed edit to that Java type.
 
 The source is located relative to this file (``<root>/scripts/preview/`` -> ``<root>/runtime/...``),
-which holds both in the repository and inside a prepared validation snapshot. Parsing fails
+which holds both in the repository and inside a prepared validation snapshot. Flat staging
+directories (a probe task directory, a task home ``validation/`` directory) carry no such tree, so
+a ``ReviewedHostArtifacts.java`` copy sitting next to this file is used instead. Parsing fails
 closed: a missing source, a malformed declaration, or an unknown version raises instead of
 returning a guess.
 
@@ -23,7 +25,22 @@ from typing import NamedTuple
 SOURCE_RELATIVE = (
     "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java"
 )
-DEFAULT_SOURCE = Path(__file__).resolve().parents[2] / SOURCE_RELATIVE
+SOURCE_NAME = Path(SOURCE_RELATIVE).name
+
+
+def default_source() -> Path:
+    """Tree-relative source when present, else the flat sibling copy, else the tree path."""
+    here = Path(__file__).resolve()
+    tree = here.parents[2] / SOURCE_RELATIVE if len(here.parents) > 2 else None
+    flat = here.with_name(SOURCE_NAME)
+    if tree is not None and tree.is_file():
+        return tree
+    if flat.is_file():
+        return flat
+    return tree if tree is not None else flat
+
+
+DEFAULT_SOURCE = default_source()
 
 # ``CUBISM_5_3_03 = new HostArtifactDigest(42_010_633L, "<sha256>")``; the bundled JOGL
 # dependency (``CUBISM_5_3_03_JOGL``) is not an Editor artifact and deliberately does not match.
