@@ -1,0 +1,14 @@
+{
+  "windowStartEpochMs": 1792516474856,
+  "windowEndEpochMs": 1792516488418,
+  "samples": 271,
+  "intervalMs": 50,
+  "heapUsedFirstBytes": 860707840,
+  "heapUsedPeakBytes": 1372412928,
+  "heapCommittedPeakBytes": 1677721600,
+  "nonHeapUsedPeakBytes": 153102752,
+  "committedVirtualPeakBytes": 2165030912,
+  "gcCountDelta": 1,
+  "gcTimeDeltaMs": 14,
+  "maxHeapBytes": 16592666624
+}
