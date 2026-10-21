@@ -4,6 +4,7 @@
   "status": "DRAFT",
   "source": "jar-metadata-probe",
   "cubismVersion": "5.1.03",
+  "exactArtifactSha256": "a3d916077bd7a176345233da95f1eb0a8bbdf8967fd08162776d5bf6d746009b",
   "metadata": {
     "validationNotes": "Exact metadata inventory for adapter.cubism.startup-suppression, taken verbatim from the premain transformer contract: the startup entry, the splash factory, and the update-check / information call targets the suppression rewrites. Every selector verified VERIFIED_STATIC against the exact artifact. Pack remains DRAFT; only its hash-anchored record is VERIFIED_STATIC.",
     "inventoryRef": "compatibility/cubism/verification/cubism-5.1.03-startup-suppression.json",
@@ -35,15 +36,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CECubismEditorApp",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.startup-suppression.app.class",
-        "recordMappingId": "cubism.mapping.v5_2_03.startup_suppression.class.app",
-        "exactArtifactSha256": "a3d916077bd7a176345233da95f1eb0a8bbdf8967fd08162776d5bf6d746009b",
-        "provenance": "exact classfile verification on the reviewed 5.1.03 artifact via cubism_version_matrix"
+        "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
       }
     },
     {
@@ -62,15 +55,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CECubismEditorApp",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.startup-suppression.app.startup",
-        "recordMappingId": "cubism.mapping.v5_2_03.startup_suppression.method.startup",
-        "exactArtifactSha256": "a3d916077bd7a176345233da95f1eb0a8bbdf8967fd08162776d5bf6d746009b",
-        "provenance": "exact classfile verification on the reviewed 5.1.03 artifact via cubism_version_matrix"
+        "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
       }
     },
     {
@@ -89,15 +74,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CECubismEditorApp",
-        "requiredAccessFlags": 2,
-        "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.startup-suppression.app.splash-factory",
-        "recordMappingId": "cubism.mapping.v5_2_03.startup_suppression.method.splash_factory",
-        "exactArtifactSha256": "a3d916077bd7a176345233da95f1eb0a8bbdf8967fd08162776d5bf6d746009b",
-        "provenance": "exact classfile verification on the reviewed 5.1.03 artifact via cubism_version_matrix"
+        "ownerInternalName": "com/live2d/cubism/CECubismEditorApp"
       }
     },
     {
@@ -115,15 +92,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 0
-      },
-      "x.review": {
-        "recordAlias": "cubism.startup-suppression.app-controller.class",
-        "recordMappingId": "cubism.mapping.v5_2_03.startup_suppression.class.app_ctrl",
-        "exactArtifactSha256": "a3d916077bd7a176345233da95f1eb0a8bbdf8967fd08162776d5bf6d746009b",
-        "provenance": "exact classfile verification on the reviewed 5.1.03 artifact via cubism_version_matrix"
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       }
     },
     {
@@ -142,15 +111,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.startup-suppression.app-controller.update-check",
-        "recordMappingId": "cubism.mapping.v5_2_03.startup_suppression.method.update_check",
-        "exactArtifactSha256": "a3d916077bd7a176345233da95f1eb0a8bbdf8967fd08162776d5bf6d746009b",
-        "provenance": "exact classfile verification on the reviewed 5.1.03 artifact via cubism_version_matrix"
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       }
     },
     {
@@ -169,15 +130,7 @@
       "verifiedAt": null,
       "confidence": "high",
       "x.verification": {
-        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 1,
-        "forbiddenAccessFlags": 8
-      },
-      "x.review": {
-        "recordAlias": "cubism.startup-suppression.app-controller.show-information",
-        "recordMappingId": "cubism.mapping.v5_2_03.startup_suppression.method.show_information",
-        "exactArtifactSha256": "a3d916077bd7a176345233da95f1eb0a8bbdf8967fd08162776d5bf6d746009b",
-        "provenance": "exact classfile verification on the reviewed 5.1.03 artifact via cubism_version_matrix"
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl"
       }
     }
   ]

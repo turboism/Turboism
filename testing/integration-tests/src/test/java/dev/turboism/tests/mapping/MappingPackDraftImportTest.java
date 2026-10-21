@@ -78,9 +78,9 @@ class MappingPackDraftImportTest {
                 assertEquals(selector.path("memberName"), entry.path("runtime"));
                 assertEquals(selector.path("descriptor"), entry.path("descriptor"));
             }
-            for (final String field : List.of("ownerInternalName", "requiredAccessFlags", "forbiddenAccessFlags")) {
-                assertEquals(selector.path(field), entry.path("x.verification").path(field));
-            }
+            assertEquals(
+                    selector.path("ownerInternalName"),
+                    entry.path("x.verification").path("ownerInternalName"));
             assertEquals("DRAFT", entry.path("status").asText());
             assertTrue(entry.path("verifiedAt").isNull());
         }
@@ -347,6 +347,13 @@ class MappingPackDraftImportTest {
         assertEquals(selectors.size(), selectorsById.size(), "record selector mappingIds must be unique");
         assertEquals(selectors.size(), root.path("entries").size());
 
+        if (root.has("exactArtifactSha256")) {
+            assertEquals(
+                    evidence.path("artifact").path("sha256"),
+                    root.path("exactArtifactSha256"),
+                    "pack-level exactArtifactSha256 must match the record artifact digest");
+        }
+
         for (JsonNode entry : root.path("entries")) {
             final String mappingId = entry.path("semanticName").asText();
             final JsonNode selector = selectorsById.get(mappingId);
@@ -363,16 +370,12 @@ class MappingPackDraftImportTest {
                 assertEquals(selector.path("memberName"), entry.path("runtime"));
                 assertEquals(selector.path("descriptor"), entry.path("descriptor"));
             }
-            for (String field : List.of("ownerInternalName", "requiredAccessFlags", "forbiddenAccessFlags")) {
-                assertEquals(selector.path(field), entry.path("x.verification").path(field));
-            }
-            if (entry.has("x.review")) {
-                assertEquals(selector.path("mappingId"), entry.path("x.review").path("recordMappingId"));
-                assertEquals(selector.path("alias"), entry.path("x.review").path("recordAlias"));
-                assertEquals(
-                        evidence.path("artifact").path("sha256"),
-                        entry.path("x.review").path("exactArtifactSha256"));
-            }
+            assertEquals(
+                    selector.path("ownerInternalName"),
+                    entry.path("x.verification").path("ownerInternalName"));
+            assertFalse(entry.has("x.review"), "x.review is derivable from name/semanticName and no longer stored");
+            assertFalse(entry.path("x.verification").has("requiredAccessFlags"), "access flags live in the record");
+            assertFalse(entry.path("x.verification").has("forbiddenAccessFlags"), "access flags live in the record");
         }
     }
 
@@ -583,9 +586,9 @@ class MappingPackDraftImportTest {
             assertEquals(selector.path("kind"), entry.path("kind"));
             assertEquals(selector.path("memberName"), entry.path("runtime"));
             assertEquals(selector.path("descriptor"), entry.path("descriptor"));
-            for (String field : List.of("ownerInternalName", "requiredAccessFlags", "forbiddenAccessFlags")) {
-                assertEquals(selector.path(field), entry.path("x.verification").path(field));
-            }
+            assertEquals(
+                    selector.path("ownerInternalName"),
+                    entry.path("x.verification").path("ownerInternalName"));
             assertEquals("DRAFT", entry.path("status").asText());
             assertEquals("medium", entry.path("confidence").asText());
             assertEquals("none", entry.path("verifiedBy").asText());
