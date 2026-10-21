@@ -74,7 +74,8 @@ final class CoreWindows implements AutoCloseable {
 
     private static volatile Consumer<String> testUpdateUrlObserver;
     static final String ABOUT_HOMEPAGE = "https://www.turboism.dev";
-    static final String ABOUT_GITHUB = "https://github.com/turboism/Turboism";
+    static final String ABOUT_THANKS = "https://thanks.turboism.dev";
+    static final String ABOUT_LICENSE = "https://github.com/turboism/Turboism/blob/main/LICENSE";
     static final String ABOUT_EULA = "https://github.com/turboism/Turboism/blob/main/EULA.md";
     private static final int ABOUT_BODY_WIDTH = 360;
     private PluginTableModel pluginTableModel;
@@ -1049,8 +1050,9 @@ final class CoreWindows implements AutoCloseable {
 
     /**
      * The About body is intentionally minimal and centered in the window: the
-     * product name, the framework version, the distribution tagline, and the
-     * homepage, GitHub and EULA links.
+     * product name, the framework version, the tagline, and the
+     * License and EULA links. The product name links to the website and the
+     * version links to the download page.
      */
     static String aboutHtml(final PluginLocalization i18n, final String version) {
         return "<html><head><meta charset=\"UTF-8\"><style>"
@@ -1059,19 +1061,24 @@ final class CoreWindows implements AutoCloseable {
                 + "background:#ffffff;color:#1f2937;}"
                 + ".name{font-size:22px;font-weight:bold;text-align:center;}"
                 + ".version{margin-top:4px;font-size:13px;color:#6b7280;text-align:center;}"
-                + ".tagline{margin-top:10px;font-size:11px;color:#9ca3af;text-align:center;}"
+                + ".tagline{margin-top:10px;font-size:11px;color:#6495ED;text-align:center;}"
                 + ".links{margin-top:14px;font-size:12px;text-align:center;}"
-                + ".links a{color:#155dfc;text-decoration:none;}"
+                + "a{text-decoration:none;}"
+                + ".name a{color:#1f2937;}"
+                + ".version a{color:#6b7280;}"
+                + ".tagline a{color:#6495ED;}"
+                + ".links a{color:#155dfc;}"
                 + "</style></head><body>"
                 + "<table width=\"" + ABOUT_BODY_WIDTH + "\" cellpadding=\"0\" cellspacing=\"0\">"
                 + "<tr><td align=\"center\">"
-                + "<div class=\"name\">" + escapeHtml(i18n.text("common.turboism")) + "</div>"
-                + "<div class=\"version\">" + escapeHtml(version) + "</div>"
-                + "<div class=\"tagline\">" + escapeHtml(i18n.text("about.tagline")) + "</div>"
-                + "<div class=\"links\"><a href=\"" + ABOUT_HOMEPAGE + "\">"
-                + escapeHtml(i18n.text("about.homepage")) + "</a> &nbsp;·&nbsp; "
-                + "<a href=\"" + ABOUT_GITHUB + "\">"
-                + escapeHtml(i18n.text("about.github")) + "</a> &nbsp;·&nbsp; "
+                + "<div class=\"name\"><a href=\"" + ABOUT_HOMEPAGE + "\">"
+                + escapeHtml(i18n.text("common.turboism")) + "</a></div>"
+                + "<div class=\"version\"><a href=\"" + UPDATE_DOWNLOAD_PAGE + "\">"
+                + escapeHtml(version) + "</a></div>"
+                + "<div class=\"tagline\"><a href=\"" + ABOUT_THANKS + "\">"
+                + escapeHtml(i18n.text("about.tagline")) + "</a></div>"
+                + "<div class=\"links\"><a href=\"" + ABOUT_LICENSE + "\">"
+                + escapeHtml(i18n.text("about.license")) + "</a> / "
                 + "<a href=\"" + ABOUT_EULA + "\">"
                 + escapeHtml(i18n.text("about.eula")) + "</a></div>"
                 + "</td></tr></table>"
@@ -1079,7 +1086,11 @@ final class CoreWindows implements AutoCloseable {
     }
 
     private void openAboutLink(final String value) {
-        if (!ABOUT_HOMEPAGE.equals(value) && !ABOUT_GITHUB.equals(value) && !ABOUT_EULA.equals(value)) {
+        if (!ABOUT_HOMEPAGE.equals(value)
+                && !ABOUT_THANKS.equals(value)
+                && !UPDATE_DOWNLOAD_PAGE.equals(value)
+                && !ABOUT_LICENSE.equals(value)
+                && !ABOUT_EULA.equals(value)) {
             return;
         }
         if (!openHttpLink(value)) {
