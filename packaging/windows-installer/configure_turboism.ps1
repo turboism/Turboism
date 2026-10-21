@@ -17,6 +17,8 @@ param(
     [string]$Variant = "full",
     [switch]$Elevated,
     [string]$InstallerDiscoveryOutput = "",
+    [string]$InstallerImportRequest = "",
+    [int]$InstallerLanguage = 0,
     [switch]$InstallerDiscoveryWorker,
     [string]$InstallerDiscoverySnapshot = "",
     [string]$InstallerDiscoverySnapshotSha256 = ""
@@ -34,12 +36,24 @@ if (-not [string]::IsNullOrWhiteSpace($HomePath)) { $turboismHome = $HomePath.Tr
 elseif (-not [string]::IsNullOrWhiteSpace($env:TURBOISM_HOME)) { $turboismHome = $env:TURBOISM_HOME.TrimEnd('\', '/') }
 else { $turboismHome = $scriptDir }
 if (-not (Test-CubismNormalDirectory $turboismHome)) { throw "Turboism home does not exist: $turboismHome" }
+if ($InstallerLanguage -gt 0) {
+    [Threading.Thread]::CurrentThread.CurrentUICulture = [Globalization.CultureInfo]::GetCultureInfo($InstallerLanguage)
+}
 if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoveryOutput)) {
     if ($InstallerDiscoveryWorker) {
         try {
-            Write-CubismInstallerDiscoveryReport `
-                -TurboismHome $turboismHome `
-                -OutputPath $InstallerDiscoveryOutput | Out-Null
+            if (-not [string]::IsNullOrWhiteSpace($InstallerImportRequest)) {
+                if (-not (Test-CubismNormalFile $InstallerImportRequest) -or (Get-Item -LiteralPath $InstallerImportRequest).Length -gt 8192) {
+                    throw "invalid installer import request"
+                }
+                $importRoot = [IO.File]::ReadAllText($InstallerImportRequest, [Text.Encoding]::Unicode)
+                Write-CubismInstallerImportReport -TurboismHome $turboismHome -OutputPath $InstallerDiscoveryOutput -Root $importRoot -PreviousSnapshot $InstallerDiscoverySnapshot -PreviousSnapshotSha256 $InstallerDiscoverySnapshotSha256 | Out-Null
+            }
+            else {
+                Write-CubismInstallerDiscoveryReport `
+                    -TurboismHome $turboismHome `
+                    -OutputPath $InstallerDiscoveryOutput | Out-Null
+            }
             exit 0
         }
         catch {
@@ -55,6 +69,13 @@ if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoveryOutput)) {
         $info = [System.Diagnostics.ProcessStartInfo]::new()
         $info.FileName = $powershell
         $info.Arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}" -Home "{1}" -InstallerDiscoveryOutput "{2}" -InstallerDiscoveryWorker' -f $scriptPath, $turboismHome, $InstallerDiscoveryOutput
+        $info.Arguments += ' -InstallerLanguage {0}' -f $InstallerLanguage
+        if (-not [string]::IsNullOrWhiteSpace($InstallerImportRequest)) {
+            $info.Arguments += ' -InstallerImportRequest "{0}"' -f $InstallerImportRequest
+            if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshot)) {
+                $info.Arguments += ' -InstallerDiscoverySnapshot "{0}" -InstallerDiscoverySnapshotSha256 "{1}"' -f $InstallerDiscoverySnapshot, $InstallerDiscoverySnapshotSha256
+            }
+        }
         $info.UseShellExecute = $false
         $info.CreateNoWindow = $true
         $discoveryProcess = [System.Diagnostics.Process]::new()
