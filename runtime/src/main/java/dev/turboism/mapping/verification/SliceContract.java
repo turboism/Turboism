@@ -13,7 +13,7 @@ import java.util.Set;
  * @param sourceVersion the reviewed Cubism version the bound record was authored against
  * @param recordFileName embedded verification record resource name under
  *     {@code META-INF/turboism/verification/}
- * @param recordSha256 pinned SHA-256 of the bound record bytes
+ * @param recordSha256 observed SHA-256 of the bound record bytes, used to detect changes after probing
  * @param verificationId the bound record's stable verification identity
  * @param adapterSliceId the bound record's adapter-slice identity
  * @param declaredVersion the version the host itself declared at probe time
