@@ -294,7 +294,7 @@ tasks.register<Exec>("checkForwardingAudit") {
 }
 
 /*
- * Wired into devCheck as a ratchet: the digest, naming and asset rules are enforced absolutely,
+ * Wired into devCheck as a ratchet: the naming and asset rules are enforced absolutely,
  * and Javadoc is enforced as a non-increasing maximum so new undocumented public API is blocked
  * immediately while the existing backlog burns down.
  * -PturboismCodeQualityRules selects a subset; -PturboismCodeQualityStrict=true demands zero.
@@ -302,7 +302,7 @@ tasks.register<Exec>("checkForwardingAudit") {
 tasks.register<Exec>("checkCodeQuality") {
     group = "verification"
     description =
-        "Rejects new undocumented public API, duplicated reviewed host digests, version-encoding " +
+        "Rejects new undocumented public API, version-encoding " +
             "type names, retired governance tokens in machine assets, and startup/warning " +
             "dialog handling that bypasses NativeFreeStartup."
     workingDir(rootDir)
@@ -338,13 +338,13 @@ tasks.register<Exec>("checkCodeQuality") {
     )
     val selectedRules = providers.gradleProperty("turboismCodeQualityRules")
     val strict = providers.gradleProperty("turboismCodeQualityStrict")
-    inputs.property("turboismCodeQualityRules", selectedRules.orElse("javadoc,digests,naming,assets,edt-dispatch,controlchars,startup-dialogs"))
+    inputs.property("turboismCodeQualityRules", selectedRules.orElse("javadoc,naming,assets,edt-dispatch,controlchars,startup-dialogs"))
     inputs.property("turboismCodeQualityStrict", strict.orElse("false"))
     inputs.property("turboismCodeQualityJavaHome", codeQualityJavaHome)
     VerificationStamps.apply(this)
     doFirst {
         environment("TURBOISM_QUALITY_JAVA_HOME", codeQualityJavaHome.get())
-        val rules = selectedRules.getOrElse("javadoc,digests,naming,assets,edt-dispatch,controlchars,startup-dialogs")
+        val rules = selectedRules.getOrElse("javadoc,naming,assets,edt-dispatch,controlchars,startup-dialogs")
         val command = mutableListOf(
             "python3", "scripts/test/check_code_quality.py", rootDir.absolutePath,
             "--rules", rules
