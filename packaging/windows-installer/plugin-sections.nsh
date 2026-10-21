@@ -98,17 +98,25 @@ Section "-插件载荷" SecPluginPayload
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0022.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
+    File "/oname=atlas-folder-layout.jar" "${STAGING_DIR}/plugins/atlas-folder-layout.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0023.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
+    File "/oname=atlas-bitmask-nesting.jar" "${STAGING_DIR}/plugins/atlas-bitmask-nesting.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0024.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-    File "/oname=warp-deformer-alt-symmetry.jar" "${STAGING_DIR}/plugins/warp-deformer-alt-symmetry.jar"
+    File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0025.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0026.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=warp-deformer-alt-symmetry.jar" "${STAGING_DIR}/plugins/warp-deformer-alt-symmetry.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0027.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
     File "/oname=webdav-backup.jar" "${STAGING_DIR}/plugins/webdav-backup.jar"
   ${EndIf}
@@ -300,6 +308,22 @@ LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_dalsoo ${LANG_JAPANESE}
 LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_dalsoo ${LANG_JAPANESE} "不規則ポリゴンのテクスチャアトラス充填（凹み輪郭・自由回転・アイテム単位のロック対応）。"
 LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_dalsoo ${LANG_KOREAN} "Dalsoo 폴리곤 패킹 알고리즘 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_dalsoo ${LANG_KOREAN} "불규칙 폴리곤 텍스처 아틀라스 패킹(오목 윤곽, 자유 회전, 항목별 잠금 지원)."
+LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_folders ${LANG_ENGLISH} "Folder Atlas Layout 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_folders ${LANG_ENGLISH} "Arrange texture pages by Part folders using registered packing algorithms."
+LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_folders ${LANG_SIMPCHINESE} "纹理集一键排版 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_folders ${LANG_SIMPCHINESE} "按部件文件夹分治生成多张纹理，自动发现已注册的排版算法。"
+LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_folders ${LANG_JAPANESE} "フォルダー別アトラス配置 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_folders ${LANG_JAPANESE} "登録済み配置アルゴリズムを使い、パーツフォルダー別にアトラスを作成します。"
+LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_folders ${LANG_KOREAN} "폴더별 아틀라스 배치 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_folders ${LANG_KOREAN} "등록된 배치 알고리즘으로 파츠 폴더별 텍스처 페이지를 생성합니다."
+LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_nesting ${LANG_ENGLISH} "Bitmask Nesting 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_nesting ${LANG_ENGLISH} "Dense texture-atlas packing with concave outlines and multiple rotation angles."
+LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_nesting ${LANG_SIMPCHINESE} "Bitmask Nesting 密集轮廓排版 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_nesting ${LANG_SIMPCHINESE} "利用凹轮廓和多个旋转角度进行密集纹理排版。"
+LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_nesting ${LANG_JAPANESE} "Bitmask Nesting 輪郭配置 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_nesting ${LANG_JAPANESE} "凹形状の輪郭と複数の回転角度を使って、テクスチャを高密度に配置します。"
+LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_nesting ${LANG_KOREAN} "Bitmask Nesting 윤곽 배치 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_nesting ${LANG_KOREAN} "오목한 윤곽과 여러 회전 각도를 사용해 텍스처를 조밀하게 배치합니다."
 LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_stats ${LANG_ENGLISH} "Texture Atlas Statistics 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_stats ${LANG_ENGLISH} "Shows the total and current-texture model-image counts in the native texture-atlas editor window."
 LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_stats ${LANG_SIMPCHINESE} "纹理图集统计 0.1.0"
@@ -335,13 +359,15 @@ LangString PLUGIN_DESC_dev_turboism_plugin_webdav ${LANG_KOREAN} "Turboism WebDA
 
 ; 导出完整捆绑插件 id 清单，供前置配置提交保留无关禁用项。
 Function SetBundledPluginIds
-  StrCpy $bundledPluginIds "dev.turboism.plugin.acp;dev.turboism.plugin.boundingbox-warp-mirror;dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.command-palette;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.external-psd-edit;dev.turboism.plugin.frame-animation-import;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.model-import-3d;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.protected-export;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.selection-brush;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-dalsoo;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.uitheme;dev.turboism.plugin.warp-deformer-alt-symmetry;dev.turboism.plugin.webdav"
+  StrCpy $bundledPluginIds "dev.turboism.plugin.acp;dev.turboism.plugin.boundingbox-warp-mirror;dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.command-palette;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.external-psd-edit;dev.turboism.plugin.frame-animation-import;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.model-import-3d;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.protected-export;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.selection-brush;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-dalsoo;dev.turboism.plugin.texture-atlas-folders;dev.turboism.plugin.texture-atlas-nesting;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.uitheme;dev.turboism.plugin.warp-deformer-alt-symmetry;dev.turboism.plugin.webdav"
 FunctionEnd
 
 ; 卸载白名单：仅删除安装器部署的插件 JAR；未知文件与第三方 JAR 保留。
 Function un.DeleteInstallerPluginJars
   Delete "$INSTDIR\plugins\acp.jar"
+  Delete "$INSTDIR\plugins\atlas-bitmask-nesting.jar"
   Delete "$INSTDIR\plugins\atlas-dalsoo-polygon.jar"
+  Delete "$INSTDIR\plugins\atlas-folder-layout.jar"
   Delete "$INSTDIR\plugins\atlas-maxrects-bssf.jar"
   Delete "$INSTDIR\plugins\boundingbox-warp-mirror.jar"
   Delete "$INSTDIR\plugins\clipmask-viewer.jar"
