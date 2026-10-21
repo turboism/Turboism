@@ -53,11 +53,12 @@ stat -c %s Live2D_Cubism.jar  # byte size
   `cubismVersionOf`, `all()`, and `admitsFullRuntime`. Keep `admitsFullRuntime`
   closed until the runtime/UI/SDK surfaces are genuinely enabled — artifact
   review and full-runtime admission are separate decisions.
-- `runtime/src/test/.../ReviewedHostArtifactsTest.java`: the one test allowed
-  to restate the digest literals.
-- `scripts/test/check_code_quality.py`: add the digest to `REVIEWED_DIGESTS`
-  (the `digests` rule then rejects any further copies outside the declaration
-  sites listed in `DIGEST_DECLARATION_SITES`).
+- `runtime/src/test/.../ReviewedHostArtifactsTest.java`: asserts structural
+  invariants of the declarations (unique, well-formed digests; version
+  agreement); it does not restate the literals.
+- Shell and Python tools never restate the digest: they read it from
+  `ReviewedHostArtifacts.java` through `scripts/preview/reviewed_host_artifacts.py`,
+  and validation snapshots carry that Java file alongside the scripts.
 - `runtime/.../mapping/verification/CubismEditorReleaseDetector.java`: pin the
   host-declared build integer in `pinnedBuild` for `X.Y.Z` (measured from the
   `com/live2d/cubism/h` declaration class; builds are *not* formula-derived —
@@ -280,8 +281,12 @@ For each capability family admitted on `X.Y.Z`:
 - `scripts/preview/host_validation.py`: extend the admitted version set
   (`{"5203","5302","5303"}` today).
 - `scripts/preview/run-cubism-host-validation.sh` (and family wrappers
-  `run-*-host-validation.sh`): add the `XYZZ` `case` arm — install path under
-  the golden prefix (`cubism_win`/`cubism_rel`) and `reviewed_jar_sha256`.
+  `run-*-host-validation.sh`): the reviewed jar digest is resolved from
+  `ReviewedHostArtifacts.java`; add a `case` arm only if the version installs
+  to a non-default path under the golden prefix (`cubism_win`/`cubism_rel`).
+- `scripts/preview/host_validation_evidence.py`: add the `XYZZ` entry to `HOSTS`
+  (install folder + jar digest; `test_host_validation_evidence.py` fails if the
+  digest disagrees with `ReviewedHostArtifacts.java`).
 - `gradle/verification.gradle.kts`: register `validate*HostXYZZ` tasks for the
   families that need exact-host evidence (existing registrations for
   5203/5302/5303 are the template), plus `package*HostValidation` if a new
@@ -355,7 +360,7 @@ Release-side verification (CI is the authority; these are the local handles):
 
 | # | Touch point | Type |
 | --- | --- | --- |
-| 1 | `ReviewedHostArtifacts.java` (+ test, `check_code_quality.py` digests) | artifact identity |
+| 1 | `ReviewedHostArtifacts.java` (single source for shell/Python tools too) | artifact identity |
 | 2 | `CubismEditorReleaseDetector.pinnedBuild` (+ detector/routing tests) | declared release identity |
 | 3 | `core-api/observed/cubism-core-X.Y.Z.json` + `runtime/build.gradle.kts` inputs + `test_cubism_core_api_inventory.py` facts | tool-produced inventory |
 | 4 | `core-api/policy/*.json` rosters + `test_cubism_core_{member,selector}_policy.py` | mixed policy |
@@ -387,4 +392,4 @@ Release-side verification (CI is the authority; these are the local handles):
 - `python3 scripts/release/product.py inspect|info|candidate|promote`
 - `python3 scripts/release/turboism-release.py build|plan|verify|publish|resume|release`
 - `python3 scripts/test/check_editor_model_aliases.py <repo-root> [--report]`
-- `python3 scripts/test/check_code_quality.py <repo-root> [--rules javadoc,digests,naming,assets]`
+- `python3 scripts/test/check_code_quality.py <repo-root> [--rules javadoc,naming,assets]`

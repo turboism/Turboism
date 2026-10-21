@@ -9,10 +9,10 @@ import java.util.Set;
  * The single production declaration of the exact Cubism Editor artifacts Turboism admits.
  *
  * <p>Every trust root, host profile and hook installer resolves its reviewed artifact identity
- * from this type. Repeating a size or SHA-256 literal anywhere else is rejected by
- * {@code scripts/test/check_code_quality.py}, because a second copy can drift from the reviewed
- * record and silently widen admission. The literals themselves are pinned by
- * {@code ReviewedHostArtifactsTest}, which is the one place allowed to restate them.</p>
+ * from this type, and so do the shell and Python validation tools
+ * ({@code scripts/preview/reviewed_host_artifacts.py} reads the declarations below). Keeping one
+ * copy means a drifted record cannot silently widen admission. {@code ReviewedHostArtifactsTest}
+ * cross-checks the constants against the per-version verification records.</p>
  *
  * <p>Admission stays exact and fails closed: an artifact is reviewed only when both its byte size
  * and its SHA-256 match one of the constants below. Nothing here widens, normalises or infers a
