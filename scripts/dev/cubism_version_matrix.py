@@ -321,7 +321,6 @@ def main() -> int:
                 version,
                 family,
                 family_packs=candidates,
-                rewrite_provenance=True,
             )
             name = f"cubism-{version}-{pack_name_for(family)}"
             (PACK_DIR / f"{name}.json").write_text(json.dumps(pack, indent=2) + "\n")

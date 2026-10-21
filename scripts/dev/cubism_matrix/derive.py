@@ -282,7 +282,6 @@ def synthesize_entry(
     profile: str,
     uses_intermediary: bool,
     uses_owner: str | None,
-    uses_review: bool,
 ) -> dict:
     """Build a pack entry faithful to the strict record↔entry join contract."""
     entry = {
@@ -315,15 +314,6 @@ def synthesize_entry(
         "requiredAccessFlags": selector["requiredAccessFlags"],
         "forbiddenAccessFlags": selector["forbiddenAccessFlags"],
     }
-    if uses_review:
-        entry["x.review"] = {
-            "recordAlias": selector["alias"],
-            "recordMappingId": selector["mappingId"],
-            "provenance": (
-                "exact classfile verification on the reviewed artifact via "
-                "cubism_version_matrix"
-            ),
-        }
     return entry
 
 
@@ -333,7 +323,6 @@ def derive_pack(
     version: str,
     family: str,
     family_packs: dict[str, dict] | None = None,
-    rewrite_provenance: bool = False,
 ) -> dict:
     """Clone a source pack as a strict 1:1 projection of the emitted record."""
     profile = f"cubism-{version}"
@@ -352,7 +341,6 @@ def derive_pack(
     uses_intermediary = any("intermediary" in e for e in source_pack["entries"])
     owners = {e["owner"] for e in source_pack["entries"] if "owner" in e}
     uses_owner = sorted(owners)[0] if owners else None
-    uses_review = any("x.review" in e for e in source_pack["entries"])
     entries = []
     for selector in record["selectors"]:
         template = by_id.get(selector["mappingId"]) or by_alias.get(selector["alias"])
@@ -363,7 +351,6 @@ def derive_pack(
                 profile,
                 uses_intermediary,
                 uses_owner,
-                uses_review,
             )
         else:
             entry = dict(template)
@@ -385,17 +372,6 @@ def derive_pack(
                 "requiredAccessFlags": selector["requiredAccessFlags"],
                 "forbiddenAccessFlags": selector["forbiddenAccessFlags"],
             }
-            if "x.review" in entry:
-                entry["x.review"] = dict(
-                    entry["x.review"],
-                    recordAlias=selector["alias"],
-                    recordMappingId=selector["mappingId"],
-                )
-                if rewrite_provenance:
-                    entry["x.review"]["provenance"] = (
-                        "exact classfile verification on the reviewed "
-                        f"{version} artifact via cubism_version_matrix"
-                    )
         entries.append(entry)
     pack = {}
     for key, value in source_pack.items():
@@ -404,8 +380,7 @@ def derive_pack(
         pack[key] = value
         if key == "cubismVersion":
             pack[key] = version
-            if uses_review:
-                # Hoisted: every x.review entry reviews this one exact artifact.
+            if "exactArtifactSha256" in source_pack:
                 pack["exactArtifactSha256"] = sha
     pack["entries"] = entries
     if "metadata" in source_pack:
