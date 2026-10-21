@@ -1,4 +1,4 @@
-package dev.turboism.plugin.atlasmaxrectsbssf.layout;
+package dev.turboism.plugin.atlasfolders.layout;
 
 import dev.turboism.sdk.cubism.textureatlas.*;
 import java.util.*;
@@ -16,10 +16,6 @@ public final class FolderTextureAtlasPlanner {
 
     private final TextureAtlasLayoutPlanner packer;
     private final boolean automaticSize;
-
-    public FolderTextureAtlasPlanner() {
-        this(new MaxRectsBssfTextureAtlasPlanner()::plan);
-    }
 
     public FolderTextureAtlasPlanner(TextureAtlasLayoutPlanner packer) {
         this(packer, true);

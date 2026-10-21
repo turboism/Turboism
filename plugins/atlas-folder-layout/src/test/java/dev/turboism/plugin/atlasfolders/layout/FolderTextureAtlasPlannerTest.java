@@ -1,18 +1,19 @@
-package dev.turboism.plugin.atlasmaxrectsbssf.layout;
+package dev.turboism.plugin.atlasfolders.layout;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import dev.turboism.plugin.atlasmaxrectsbssf.layout.FolderTextureAtlasPlanner.Folder;
+import dev.turboism.plugin.atlasfolders.layout.FolderTextureAtlasPlanner.Folder;
 import dev.turboism.sdk.cubism.textureatlas.*;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 
 class FolderTextureAtlasPlannerTest {
-    private final FolderTextureAtlasPlanner planner = new FolderTextureAtlasPlanner();
+    private final FolderTextureAtlasPlanner planner =
+            new FolderTextureAtlasPlanner(FolderTextureAtlasPlannerTest::pack);
 
     @Test
     void fixedSizeUsesTheSelectedSquareLimit() {
-        var fixed = new FolderTextureAtlasPlanner(new MaxRectsBssfTextureAtlasPlanner()::plan, false);
+        var fixed = new FolderTextureAtlasPlanner(FolderTextureAtlasPlannerTest::pack, false);
         var result = fixed.plan(root(folder("small", item("a", 10))), 128, 8, 0, 0);
         assertEquals(new TextureAtlasPageSize(128, 128), result.pageSize(0));
     }
@@ -134,6 +135,28 @@ class FolderTextureAtlasPlannerTest {
                 1,
                 plan(root(new Folder("empty", List.of(), List.of()), folder("a", item("x", 10))))
                         .pageCount());
+    }
+
+    /** Algorithm fixture: stable shelf packing through the public SDK, without any algorithm plugin. */
+    private static TextureAtlasLayoutPlan pack(List<TextureAtlasLayoutItem> items, TextureAtlasLayoutConstraints c) {
+        List<TextureAtlasPlacement> placements = new ArrayList<>();
+        int x = c.edgeMargin(), y = c.edgeMargin(), rowHeight = 0;
+        for (var item : items.stream()
+                .sorted(Comparator.comparing(TextureAtlasLayoutItem::textureId))
+                .toList()) {
+            if (x + item.width() + c.edgeMargin() > c.pageWidth()) {
+                x = c.edgeMargin();
+                y += rowHeight + c.itemPadding();
+                rowHeight = 0;
+            }
+            if (y + item.height() + c.edgeMargin() > c.pageHeight())
+                throw new TextureAtlasPackingException(
+                        item.textureId(), TextureAtlasPackingException.Reason.PAGE_BUDGET_EXHAUSTED);
+            placements.add(new TextureAtlasPlacement(item.textureId(), 0, x, y, item.width(), item.height(), false));
+            x += item.width() + c.itemPadding();
+            rowHeight = Math.max(rowHeight, item.height());
+        }
+        return new TextureAtlasLayoutPlan(c.pageWidth(), c.pageHeight(), 1, placements);
     }
 
     private TextureAtlasLayoutPlan plan(Folder root) {
