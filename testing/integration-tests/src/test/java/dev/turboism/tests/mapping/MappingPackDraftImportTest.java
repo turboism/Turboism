@@ -347,11 +347,11 @@ class MappingPackDraftImportTest {
         assertEquals(selectors.size(), selectorsById.size(), "record selector mappingIds must be unique");
         assertEquals(selectors.size(), root.path("entries").size());
 
-        if (root.path("entries").findValues("x.review").size() > 0) {
+        if (root.has("exactArtifactSha256")) {
             assertEquals(
                     evidence.path("artifact").path("sha256"),
                     root.path("exactArtifactSha256"),
-                    "packs with x.review entries must carry the hoisted exactArtifactSha256");
+                    "pack-level exactArtifactSha256 must match the record artifact digest");
         }
 
         for (JsonNode entry : root.path("entries")) {
@@ -373,11 +373,7 @@ class MappingPackDraftImportTest {
             for (String field : List.of("ownerInternalName", "requiredAccessFlags", "forbiddenAccessFlags")) {
                 assertEquals(selector.path(field), entry.path("x.verification").path(field));
             }
-            if (entry.has("x.review")) {
-                assertEquals(selector.path("mappingId"), entry.path("x.review").path("recordMappingId"));
-                assertEquals(selector.path("alias"), entry.path("x.review").path("recordAlias"));
-                assertFalse(entry.path("x.review").has("exactArtifactSha256"), "hash is hoisted to the pack top level");
-            }
+            assertFalse(entry.has("x.review"), "x.review is derivable from name/semanticName and no longer stored");
         }
     }
 
