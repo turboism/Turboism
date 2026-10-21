@@ -99,7 +99,7 @@ public final class AtlasQueueProbe {
     static void validateCase(int count, String implementation) {
         if (count != 0 && count != 100 && count != 500 && count != 1000 && count != 2500)
             throw new IllegalArgumentException("Only fixed Geometry 100/500/1000/2500 cases are admitted");
-        if (!List.of("native", "new", "polygon", "nesting").contains(implementation))
+        if (!List.of("native", "new", "polygon", "nesting", "nesting-rect").contains(implementation))
             throw new IllegalArgumentException("Exactly one implementation per fresh task is required");
         if (count == 0 && !List.of("new", "nesting").contains(implementation))
             throw new IllegalArgumentException("Heavy is admitted only for BSSF and nesting");
@@ -140,7 +140,8 @@ public final class AtlasQueueProbe {
         // selector for this run's implementation appears. The dialog is rebuilt on
         // every open, so a fresh construction picks up the completed registry.
         String pluginLabel = implementation.equals("new") ? "MaxRects-BSSF"
-            : implementation.equals("polygon") ? "Dalsoo" : implementation.equals("nesting") ? "Nesting Validation" : "";
+            : implementation.equals("polygon") ? "Dalsoo" : implementation.equals("nesting") ? "Nesting Validation"
+            : implementation.equals("nesting-rect") ? "Bitmask Nesting" : "";
         List<String[]> combos = List.of();
         long selectorDeadline = System.nanoTime() + Duration.ofSeconds(90).toNanos();
         while (System.nanoTime() < selectorDeadline) {
@@ -168,6 +169,9 @@ public final class AtlasQueueProbe {
             selection = optionsList(options).stream().filter(option -> option.contains("Dalsoo"))
                 .findFirst().orElseThrow(() -> new IllegalStateException("Dalsoo algorithm option missing"));
         else if (implementation.equals("nesting")) selection = "Nesting Validation";
+        else if (implementation.equals("nesting-rect"))
+            selection = optionsList(options).stream().filter(option -> option.contains("Bitmask Nesting"))
+                .findFirst().orElseThrow(() -> new IllegalStateException("Nesting algorithm option missing"));
         request("select\t" + combo[0] + "\t" + selection);
         if (implementation.equals("new")) {
             List<String[]> checks = tree().stream().filter(row -> row[1].contains("JCheckBox")

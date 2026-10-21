@@ -24,7 +24,7 @@ final class BitMask {
 
     BitMask(final int width, final int height) {
         if (width <= 0 || height <= 0 || (long) ((width + 63L) / 64) * height > 16_777_216) {
-            throw new IllegalArgumentException("Mask dimensions exceed the packing memory limit");
+            throw new NestingFailure("mask-limit");
         }
         this.width = width;
         this.height = height;

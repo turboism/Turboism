@@ -71,7 +71,7 @@ v5 实机任务：`97784dfe-ca88-4d56-a253-68932935ff2e`，`queue-68d5c93a523046
 
 heavy 最终 nesting 范围 91.372–243.503ms，BSSF 8.077–28.798ms。该输入上 nesting 仍约 11.5 倍热内核耗时；其收益是允许外接框相交、保持真实轮廓和间距安全，并形成更集中的排布。合成凹形固定倍率用例多放入约 95% 部件；自动倍率用例线性尺寸大约提高 28%。这些是指定样本的启发式结果，不代表所有输入。
 
-CSV：[完整合成矩阵](results/synthetic.csv)、[heavy 真实轮廓](results/heavy.csv)、[Geometry500 真实输入](results/geometry-500.csv)。新插件完成后本任务的队列无活动项，已温和停止自己创建的 worker。
+CSV：[完整合成矩阵](synthetic-benchmark.csv)、[heavy 真实轮廓](heavy-benchmark.csv)、[Geometry500 真实输入](geometry-500-benchmark.csv)。新插件完成后本任务的队列无活动项，已温和停止自己创建的 worker。
 
 复现（在仓库根目录，输入保留在 build/nesting-replay/inputs）：
 

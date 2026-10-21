@@ -3,11 +3,18 @@
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$root/scripts/preview/host-validation-env.sh"
-[[ $# -ge 3 ]] || { echo 'usage: atlas-nesting 5303 run-label {geometry-100,geometry-500,circle-500,heavy}-{nesting,bssf}' >&2; exit 2; }
+[[ $# -ge 3 ]] || { echo 'usage: atlas-nesting version run-label {geometry-100,geometry-500,circle-500,heavy}-{nesting,bssf}' >&2; exit 2; }
 version="$1"; label="$2"; variant="$3"; shift 3
 turboism_require_task_version atlas-nesting "$version" || exit 2
 dataset="${variant%-*}"; implementation="${variant##*-}"
 case "$implementation" in nesting) ;; bssf) implementation=new ;; *) exit 2 ;; esac
+ui_timing=false
+[[ "$version" != 5303 ]] || ui_timing=true
+# Legacy acceptance selects the production algorithm directly and checks the
+# rectangle contract; current hosts additionally capture original polygon data.
+if [[ "$version" == 50* || "$version" == 51* ]]; then
+  [[ "$implementation" != nesting ]] || implementation=nesting-rect
+fi
 case "$dataset" in
   geometry-100)
     count=100; dataset=geometry; fixture="$root/test-assets/texture-atlas-layout/cmo3/geometry/atlas_mapping_geometry_100.cmo3"
@@ -55,7 +62,8 @@ exec bash "$root/scripts/preview/run-cubism-host-validation.sh" \
   --jvm-option "-Dturboism.validation.atlas.implementation=$implementation" \
   --jvm-option "-Dturboism.validation.atlas.dataset=$dataset" \
   --jvm-option '-Xmx4g' \
-  --jvm-option '-Dturboism.validation.atlas.uiTiming=true' \
+  --jvm-option "-Dturboism.validation.atlas.uiTiming=$ui_timing" \
+  --jvm-option "-Dturboism.validation.atlas.version=$version" \
   --jvm-option '-Dturboism.validation.atlas.parallel=false' \
   --jvm-option '-Dturboism.validation.atlas.layoutDeadlineSeconds=120' \
   --jvm-option '-Dturboism.validation.atlas.fixtureName={FIXTURE_NAME}' \
