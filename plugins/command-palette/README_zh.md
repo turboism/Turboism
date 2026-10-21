@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: launcher, commands, shortcut
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -40,13 +40,14 @@ interface: swing
 
 ## 要求与兼容性
 
-- **SDK API 范围：** `[0.67.1,1.0.0)`。
+- **SDK API 范围：** `[0.67.0,1.0.0)`。
 - **Cubism：** 需要 Cubism。支持经精确审核的 Editor 版本（如 `5.2.03`、`5.3.02` 与 `5.3.03`）；仅当声明的服务与能力可用时暴露对应宿主功能。
 - **界面模式：** `swing`。
 - **插件依赖：** 无。
 
 <!-- compatibility:begin -->
-**Cubism Editor 版本支持（自动生成）：** 5.1.00–5.3.04（更早版本 Cubism 本身无此功能）.
+**Cubism Editor 版本支持（自动生成）：** 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04（更早版本 Cubism 本身无此功能）.
+完整功能（审核版本）：5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04。
 - 顶部菜单集成 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能）
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->

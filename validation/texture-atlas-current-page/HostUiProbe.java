@@ -109,7 +109,11 @@ public final class HostUiProbe {
                                 }
                                 Files.writeString(directory.resolve("ui-result.txt"), "OK " + command);
                             } catch (Exception error) {
-                                try { Files.writeString(directory.resolve("ui-result.txt"), "ERROR " + error); }
+                                try {
+                                    java.io.StringWriter stack = new java.io.StringWriter();
+                                    error.printStackTrace(new java.io.PrintWriter(stack));
+                                    Files.writeString(directory.resolve("ui-result.txt"), "ERROR " + stack);
+                                }
                                 catch (Exception nested) { nested.printStackTrace(); }
                             }
                         });

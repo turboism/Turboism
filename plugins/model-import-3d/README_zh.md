@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: 3d, glb, gltf, obj, import
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -24,12 +24,13 @@ interface: embedded
 
 ## 要求与兼容性
 
-- **SDK API 范围：** `[0.67.1,1.0.0)`。
+- **SDK API 范围：** `[0.67.0,1.0.0)`。
 - **画布要求：** 导入前请先打开一个画布尺寸为 1024×1024 的目标模型。菜单导入会根据源几何自动拟合固定 400px 包围球半径的相机与枢轴。
 - **输入格式：** 支持单个 GLB、glTF、OBJ 或包含完整资源的模型 ZIP（上限 16 MiB，最多 64 个关联资源）；若单独选择的模型引用了外部 MTL、buffer 或 PNG/JPEG 贴图，会按引用提示依次选择。
 
 <!-- compatibility:begin -->
-**Cubism Editor 版本支持（自动生成）：** 全部审核版本.
+**Cubism Editor 版本支持（自动生成）：** 全部审核版本（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04，共 20 个精确版本）.
+完整功能（审核版本）：5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04。
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->
 

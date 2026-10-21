@@ -1,0 +1,111 @@
+{
+  "format": "turboism.nesting.compatibility-evidence/v1",
+  "runs": [
+    {
+      "jobId": "3e765e2e-f5cc-46c6-ad37-350fa28f824d",
+      "runId": "queue-838c01dab16f4351b04021c64eec2a80",
+      "preparedDigest": "7baf468bec6591ece1d6435ff1945ae38ff059d1c93dd0e624efab10e7fe542d",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "cleanup": "safe",
+      "normalExit": true,
+      "fixtureUnchanged": true,
+      "identityVerified": true,
+      "version": "5203",
+      "geometry": {
+        "items": 100,
+        "realContours": 100,
+        "vertices": 400,
+        "itemGapPixels": 6,
+        "exactPairChecks": 0,
+        "boundingBoxOverlaps": 0,
+        "contourOverlaps": 0,
+        "hostMatricesMatchPlan": true
+      },
+      "scale": 1.0,
+      "inputHash": "54103bb8af49409d3ae153fdacc82285e19abca0cecb72f9128e621f98d1e21b",
+      "outputHash": "eba69b9759da6bbbf26ffc1d82a840d54d5207363bcfb0978d67db3812a02453",
+      "pluginSha256": "130a23633bd798bf8a1b731c9eb80ca0a03e9d9b0ea43a979b48b9dfcfac72ba"
+    },
+    {
+      "jobId": "8f6d76ee-6b79-472d-a277-5ae49863e1f9",
+      "runId": "queue-59bb0107c1ab48d2811b55d6f307ca00",
+      "preparedDigest": "d144be68264c3e621332fd79936fc7f13493ea3aa77dabb7124330b592d735a2",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "cleanup": "safe",
+      "normalExit": true,
+      "fixtureUnchanged": true,
+      "identityVerified": true,
+      "version": "5302",
+      "geometry": {
+        "items": 100,
+        "realContours": 100,
+        "vertices": 400,
+        "itemGapPixels": 6,
+        "exactPairChecks": 0,
+        "boundingBoxOverlaps": 0,
+        "contourOverlaps": 0,
+        "hostMatricesMatchPlan": true
+      },
+      "scale": 1.0,
+      "inputHash": "54103bb8af49409d3ae153fdacc82285e19abca0cecb72f9128e621f98d1e21b",
+      "outputHash": "eba69b9759da6bbbf26ffc1d82a840d54d5207363bcfb0978d67db3812a02453",
+      "pluginSha256": "130a23633bd798bf8a1b731c9eb80ca0a03e9d9b0ea43a979b48b9dfcfac72ba"
+    },
+    {
+      "jobId": "19c35885-475f-4540-a954-30a8a8baed18",
+      "runId": "queue-b32ecd97a2dc4902bc432294cbe981dc",
+      "preparedDigest": "a6a8a231a8391730c7e1cc425aca0e63605c51ae5cda83ad637896b8a72d77a7",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "cleanup": "safe",
+      "normalExit": true,
+      "fixtureUnchanged": true,
+      "identityVerified": true,
+      "version": "5303",
+      "geometry": {
+        "items": 100,
+        "realContours": 100,
+        "vertices": 400,
+        "itemGapPixels": 6,
+        "exactPairChecks": 0,
+        "boundingBoxOverlaps": 0,
+        "contourOverlaps": 0,
+        "hostMatricesMatchPlan": true
+      },
+      "scale": 1.0,
+      "inputHash": "54103bb8af49409d3ae153fdacc82285e19abca0cecb72f9128e621f98d1e21b",
+      "outputHash": "eba69b9759da6bbbf26ffc1d82a840d54d5207363bcfb0978d67db3812a02453",
+      "pluginSha256": "130a23633bd798bf8a1b731c9eb80ca0a03e9d9b0ea43a979b48b9dfcfac72ba"
+    }
+  ],
+  "unsuccessfulAttempts": [
+    {
+      "jobId": "dcc8509d-b2d5-4327-a696-6a02befd73fa",
+      "runId": "queue-8f43e65b76b04f7e9edf81f493ce2524",
+      "preparedDigest": "6d4c62cca2f9a26c10cc109a51b4f54ae19015686227ad4a888bf4061b612420",
+      "terminalState": "failed",
+      "validationStatus": "FAIL",
+      "cleanup": "safe",
+      "normalExit": false,
+      "fixtureUnchanged": false,
+      "identityVerified": false,
+      "version": "5200",
+      "reason": "Exact 5.2.00 host installation missing before launch"
+    },
+    {
+      "jobId": "d2f9e921-d4d1-4bc3-aeb6-a2596b76d1d1",
+      "runId": "queue-7f4e34f227a343a1982c81c33e0c8977",
+      "preparedDigest": "f4ab76fbf365103aa2e0c42f92b2c8ff3abc00b74ddf80f5d40460d684c74d2d",
+      "terminalState": "failed",
+      "validationStatus": "FAIL",
+      "cleanup": "safe",
+      "normalExit": false,
+      "fixtureUnchanged": false,
+      "identityVerified": false,
+      "version": "5303",
+      "reason": "UI timing lifecycle assertion failed; superseded by functional validation"
+    }
+  ]
+}

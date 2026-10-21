@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: appearance
 tags: scene, palette, enhancement
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -36,14 +36,15 @@ Cubism の Scene パレットに自然順ソートと、永続化される手動
 
 ## 要件と互換性
 
-- **SDK API 範囲:** `[0.67.1,1.0.0)`。
+- **SDK API 範囲:** `[0.67.0,1.0.0)`。
 - **Cubism:** Cubism が必要です。Scene パレットブリッジは、正確にレビュー済みの Editor アーティファクト `5.0.00` から `5.3.04` までをすべて受け入れます。その他のアーティファクトはフェイルクローズします。Scene 専用の 23 個のプライベート UI セレクターは、すべての正確なレビュー済みアーティファクトで構造検証済み（各 jar でメンバー名・descriptor・access flag が一致）であり、バインド時にロード済みホストへ再検証も行います。
 
 - **インターフェースモード:** `none`。
 - **プラグイン依存関係:** 宣言されていません。
 
 <!-- compatibility:begin -->
-**Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
+**Cubism Editor バージョン対応（自動生成）：** 全審査済みバージョン（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04、20 個の正確なバージョン）.
+全機能（審査済みバージョン）：5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04。
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
 <!-- compatibility:end -->
 

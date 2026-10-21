@@ -377,7 +377,7 @@ class MatrixTest(unittest.TestCase):
     def test_plugin_supported_and_deltas(self) -> None:
         plugin = self.plugin()
         self.assertEqual(list(VERSIONS), plugin["supportedVersions"])
-        self.assertEqual(["5.0.00", "5.2.00"], plugin["fullFeatureVersions"])
+        self.assertEqual(["5.2.00"], plugin["fullFeatureVersions"])
         notes = {n["key"]: n["versions"] for n in plugin["partialFeatures"]}
         # The declared capability resolves to the single capabilityId it
         # aliases; the note keys on that id.
@@ -387,6 +387,24 @@ class MatrixTest(unittest.TestCase):
             ["5.1.00", "5.2.00"],
             notes["dev.turboism.sdk.cubism.Svc"],
         )
+
+    def test_full_features_never_include_a_missing_feature(self) -> None:
+        for plugin in self.matrix["plugins"]:
+            for note in plugin["partialFeatures"]:
+                self.assertFalse(set(plugin["fullFeatureVersions"]) & set(note["missingOn"]))
+
+    def test_readme_names_exact_reviewed_and_full_feature_versions(self) -> None:
+        block = GEN.readme_block(self.plugin(), "zh", list(VERSIONS))
+        self.assertIn("5.0.00, 5.1.00, 5.2.00", block)
+        self.assertIn("完整功能", block)
+        self.assertIn("5.2.00", block)
+
+    def test_readme_does_not_bridge_unreviewed_patch_gaps(self) -> None:
+        plugin = dict(self.plugin(), supportedVersions=["5.0.00", "5.0.02"],
+                      fullFeatureVersions=["5.0.00", "5.0.02"], partialFeatures=[])
+        block = GEN.readme_block(plugin, "en", ["5.0.00", "5.0.02"])
+        self.assertIn("5.0.00, 5.0.02", block)
+        self.assertNotIn("5.0.00–5.0.02", block)
 
     def test_campaign_normalizes_codes_and_statuses(self) -> None:
         tasks = self.matrix["hostValidation"]["toy"]
@@ -491,7 +509,7 @@ class MatrixTest(unittest.TestCase):
         )
         self.assertEqual("dev.turboism.plugin.toy", document["plugin"])
         self.assertEqual(list(VERSIONS), document["supportedVersions"])
-        self.assertEqual(["5.0.00", "5.2.00"], document["fullFeatureVersions"])
+        self.assertEqual(["5.2.00"], document["fullFeatureVersions"])
 
     def test_readme_block_idempotent(self) -> None:
         plugin = self.plugin()

@@ -1,0 +1,60 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.plugin.texture-atlas-nesting",
+  "name": "Bitmask Nesting",
+  "version": "0.1.0",
+  "description": "Fast concave texture-atlas nesting with conservative bit masks and free-angle candidates.",
+  "entrypoints": [
+    "dev.turboism.plugin.atlasnesting.TextureAtlasNestingPlugin"
+  ],
+  "turboismApi": "[0.67.0,1.0.0)",
+  "authors": [
+    {
+      "name": "Turboism Contributors"
+    }
+  ],
+  "license": "MIT",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": [
+      "en",
+      "ja",
+      "ko",
+      "zh-Hans",
+      "zh-Hant"
+    ]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read current-page contours and issued transforms."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Apply independently validated current-page nesting plans."
+    }
+  ],
+  "capabilities": [
+    "cubism.texture-atlas.layout"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "none"
+  },
+  "lifecycle": {
+    "hotReload": true
+  },
+  "tags": [
+    "texture-atlas",
+    "packing",
+    "polygon",
+    "auto-layout"
+  ],
+  "category": "modeling"
+}

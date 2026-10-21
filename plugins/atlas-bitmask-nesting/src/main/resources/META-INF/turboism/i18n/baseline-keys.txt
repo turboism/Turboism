@@ -1,0 +1,11 @@
+plugin.description
+plugin.name
+texture-atlas.algorithm.bitmask-nesting
+texture-atlas.nesting.bounds-mode
+texture-atlas.nesting.error.current-page-only
+texture-atlas.nesting.error.degenerate-outline
+texture-atlas.nesting.error.duplicate-id
+texture-atlas.nesting.error.fixed-gap
+texture-atlas.nesting.error.fixed-margin
+texture-atlas.nesting.error.mask-limit
+texture-atlas.nesting.error.missing-transform
