@@ -4,12 +4,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.awt.Graphics2D;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -26,10 +33,42 @@ final class AtlasTileBboxTransformerTest {
     private static final AtlasTileBboxTarget F_G = AtlasTileBboxTarget.reviewed("com/live2d/util/f/g");
     private static final AtlasTileBboxTarget E_G = AtlasTileBboxTarget.reviewed("com/live2d/util/e/g");
 
+    @AfterEach
+    void clearDiagnostics() {
+        RuntimeDiagnostics.clear();
+    }
+
     @Test
     void patchesTheReviewedShape() throws Exception {
         assertPatchesReviewedShape(F_G);
         assertPatchesReviewedShape(E_G);
+    }
+
+    @Test
+    void keepsTransformDiagnosticsOffHostConsoleAndReplaysPremainRecords() throws Exception {
+        final PrintStream originalErr = System.err;
+        final PrintStream originalOut = System.out;
+        final ByteArrayOutputStream console = new ByteArrayOutputStream();
+        final List<String> diagnostics = new ArrayList<>();
+        RuntimeDiagnostics.clear();
+        try (PrintStream captured = new PrintStream(console, true, StandardCharsets.UTF_8)) {
+            System.setErr(captured);
+            System.setOut(captured);
+            for (final AtlasTileBboxTarget target : new AtlasTileBboxTarget[] {F_G, E_G}) {
+                assertPatchesReviewedShape(target);
+            }
+            RuntimeDiagnostics.install((level, component, message, failure) -> {
+                assertEquals(RuntimeDiagnostics.Level.DEBUG, level);
+                assertEquals("atlas-tile-bbox", component);
+                diagnostics.add(message);
+            });
+            assertEquals(List.of("PATCHED " + F_G.internalName(), "PATCHED " + E_G.internalName()), diagnostics);
+            assertEquals("", console.toString(StandardCharsets.UTF_8));
+        } finally {
+            System.setErr(originalErr);
+            System.setOut(originalOut);
+            RuntimeDiagnostics.clear();
+        }
     }
 
     private static void assertPatchesReviewedShape(final AtlasTileBboxTarget target) throws Exception {
