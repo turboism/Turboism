@@ -181,6 +181,46 @@ class TextureAtlasPolygonPlanValidatorTest {
     }
 
     @Test
+    void quarterTurnsAreRelativeToIssuedAngleIncludingNegativeTurns() {
+        final double a = Math.toRadians(30);
+        final var issued =
+                item("a", 20, 20, new double[] {Math.cos(a), Math.sin(a), -Math.sin(a), Math.cos(a), 80, 80}, true);
+        for (double angle : new double[] {30, 120, -60, 210}) {
+            final var violations = TextureAtlasPolygonPlanValidator.validate(
+                    List.of(issued),
+                    constraints(200, 200, 0, TextureAtlasRotationMode.QUARTER),
+                    plan(200, 200, List.of(new TextureAtlasPolygonPlacement("a", 80, 80, angle, 1)), List.of()));
+            assertTrue(violations.isEmpty(), "violations: " + violations);
+        }
+        final var rejected = TextureAtlasPolygonPlanValidator.validate(
+                List.of(issued),
+                constraints(200, 200, 0, TextureAtlasRotationMode.QUARTER),
+                plan(200, 200, List.of(new TextureAtlasPolygonPlacement("a", 80, 80, 90, 1)), List.of()));
+        assertTrue(rejected.stream().anyMatch(v -> v.code().equals("rotation-mode")));
+    }
+
+    @Test
+    void overlappingBoxesWithDisjointConcaveInteriorsPassExactValidation() {
+        final var concave = new TextureAtlasPolygonItem(
+                "u",
+                100,
+                100,
+                TextureAtlasOutline.of(
+                        new double[][] {{0, 0}, {100, 0}, {100, 100}, {80, 100}, {80, 20}, {20, 20}, {20, 100}, {0, 100}
+                        }),
+                null,
+                TextureAtlasOutlineSource.DRAW_DATA_SHAPES,
+                null,
+                false);
+        final var small = item("small", 40, 40, null, false);
+        final var violations = TextureAtlasPolygonPlanValidator.validate(
+                List.of(concave, small),
+                constraints(200, 200, 0, TextureAtlasRotationMode.NONE),
+                plan(200, 200, List.of(at("u", 0, 0), at("small", 30, 30)), List.of()));
+        assertTrue(violations.isEmpty(), "violations: " + violations);
+    }
+
+    @Test
     void rotationModeEnforced() {
         final var items = List.of(item("a", 50, 50, null, false));
         var p = new TextureAtlasPolygonPlacement("a", 100, 100, 45, 1.0);

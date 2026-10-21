@@ -5174,6 +5174,60 @@
         "display-input": 1,
         "performance-host": 1
       }
+    },
+    "atlas-nesting": {
+      "description": "Independent bitmask nesting/BSSF validation with captured original contours, exact host matrices and per-side margins; fixed Geometry/Circle/heavy fixtures.",
+      "command": "scripts/preview/run-atlas-nesting-host-validation.sh",
+      "versions": [
+        "5303"
+      ],
+      "defaultVariant": "geometry-100-nesting",
+      "variants": {
+        "geometry-100-nesting": [
+          "{version}",
+          "{runLabel}",
+          "geometry-100-nesting"
+        ],
+        "geometry-100-bssf": [
+          "{version}",
+          "{runLabel}",
+          "geometry-100-bssf"
+        ],
+        "geometry-500-nesting": [
+          "{version}",
+          "{runLabel}",
+          "geometry-500-nesting"
+        ],
+        "geometry-500-bssf": [
+          "{version}",
+          "{runLabel}",
+          "geometry-500-bssf"
+        ],
+        "circle-500-nesting": [
+          "{version}",
+          "{runLabel}",
+          "circle-500-nesting"
+        ],
+        "circle-500-bssf": [
+          "{version}",
+          "{runLabel}",
+          "circle-500-bssf"
+        ],
+        "heavy-nesting": [
+          "{version}",
+          "{runLabel}",
+          "heavy-nesting"
+        ],
+        "heavy-bssf": [
+          "{version}",
+          "{runLabel}",
+          "heavy-bssf"
+        ]
+      },
+      "resources": {
+        "host-slot": 1,
+        "display-input": 1
+      }
     }
   }
 }
