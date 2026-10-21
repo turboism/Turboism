@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: deformer, warp, editing, symmetry, boundingbox
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: none
 ---
@@ -47,7 +47,7 @@ mirror), which is untouched by this plugin.
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.67.1,1.0.0)`.
+- **SDK API range:** `[0.67.0,1.0.0)`.
 - Requires a running Cubism Editor session backed by the Turboism runtime.
 - Requires the exact verified Editor model slice; on unsupported host versions the
   service reports `UNAVAILABLE` and the overlay button still renders.
@@ -55,7 +55,8 @@ mirror), which is untouched by this plugin.
   wiring is intentionally corrected.
 
 <!-- compatibility:begin -->
-**Cubism Editor version support (generated):** all reviewed versions.
+**Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions).
+Full feature set (reviewed versions): 5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04.
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 

@@ -14,15 +14,18 @@ lower the runtime API version. Old `[0.1.0,0.2.0)` plugins fail discovery with
 `TURBOISM_API_INCOMPATIBLE`; the diagnostic includes the actual runtime API.
 Market installation and automatic update selection use the same runtime API.
 
-After changing the declared framework version, refresh official plugin and template
-ranges and their localized README declarations with:
+The runtime API follows the framework version; a plugin's lower bound records the
+minimum API it actually needs. A framework patch release alone does not raise it.
+Official plugins currently retain `[0.67.0,1.0.0)` because the 0.67.1 changes
+introduce no newer SDK requirement. When a plugin starts using a newer SDK API,
+update that plugin's `plugin.json` range deliberately, then synchronize its README:
 
 ```sh
 python3 scripts/sync_plugin_api.py --write
 ./gradlew checkPluginApiRanges checkOfficialPluginReadmes
 ```
 
-`checkPluginApiRanges` is included in `devCheck` and the release checks. It detects
-outdated checked-in API floors without changing plugin metadata during packaging;
-README files therefore remain byte-identical to their packaged copies.
-External plugin authors should declare the minimum framework API they actually use.
+`checkPluginApiRanges` validates that every official/template range includes the
+current framework API and that README declarations match the plugin descriptor.
+`--write` updates READMEs only; it never changes a plugin's declared range or
+its dependency versions. It is included in `devCheck` and release checks.

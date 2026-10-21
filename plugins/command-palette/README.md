@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: workflow
 tags: launcher, commands, shortcut
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -40,13 +40,14 @@ Opens a Ctrl+K launcher over the Editor's supported menu commands and other plug
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.67.1,1.0.0)`.
+- **SDK API range:** `[0.67.0,1.0.0)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.2.03`, `5.3.02`, and `5.3.03`; this plugin exposes each host-facing feature only when its declared services and capabilities are available.
 - **Interface mode:** `swing`.
 - **Plugin dependencies:** None declared.
 
 <!-- compatibility:begin -->
-**Cubism Editor version support (generated):** 5.1.00–5.3.04（earlier Cubism versions lack the feature entirely）.
+**Cubism Editor version support (generated):** 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04（earlier Cubism versions lack the feature entirely）.
+Full feature set (reviewed versions): 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04.
 - Top menu integration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->

@@ -10,7 +10,7 @@ from .constants import (
     README_HEADINGS,
     README_LOCALE,
 )
-from .model import compact_ranges
+from .model import exact_ranges
 from .render_markdown import _feature_text, _gap_suffix
 from .strings import STRINGS
 
@@ -18,9 +18,9 @@ def readme_block(plugin: dict, locale: str, reviewed: list[str]) -> str:
     s = STRINGS[locale]
     versions = plugin["supportedVersions"]
     version_text = (
-        s["all_versions"]
+        s["reviewed_versions"].format(range=exact_ranges(versions), count=len(versions))
         if versions == reviewed
-        else compact_ranges(versions, reviewed)
+        else exact_ranges(versions)
     )
     gap_suffix = _gap_suffix(
         {
@@ -35,9 +35,10 @@ def readme_block(plugin: dict, locale: str, reviewed: list[str]) -> str:
         BLOCK_BEGIN,
         f"{s['readme_intro']} {version_text}{gap_suffix}.",
     ]
+    parts.append(s["readme_full"].format(versions=exact_ranges(plugin["fullFeatureVersions"])))
     parts.extend(
         f"- {text}"
-        for note in plugin["partialFeatures"][:3]
+        for note in plugin["partialFeatures"]
         if (text := _feature_text(note, locale, reviewed, user=True))
     )
     parts.append(

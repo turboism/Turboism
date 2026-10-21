@@ -3,6 +3,8 @@ from __future__ import annotations
 
 STRINGS = {
     "en": {
+        "reviewed_versions": "all reviewed versions ({range}; {count} exact versions)",
+        "readme_full": "Full feature set (reviewed versions): {versions}.",
         "plugins_title": "Cubism Editor compatibility — first-party plugins",
         "plugins_intro": (
             "Every row is generated from the reviewed compatibility data in this "
@@ -53,6 +55,8 @@ STRINGS = {
         "readme_more": "Full matrix",
     },
     "zh": {
+        "reviewed_versions": "全部审核版本（{range}，共 {count} 个精确版本）",
+        "readme_full": "完整功能（审核版本）：{versions}。",
         "plugins_title": "Cubism Editor 兼容性 —— 第一方插件",
         "plugins_intro": (
             "下表全部由仓库内已审核的兼容性数据生成。**支持版本**列出插件声明能力"
@@ -98,6 +102,8 @@ STRINGS = {
         "readme_more": "完整矩阵",
     },
     "ja": {
+        "reviewed_versions": "全審査済みバージョン（{range}、{count} 個の正確なバージョン）",
+        "readme_full": "全機能（審査済みバージョン）：{versions}。",
         "plugins_title": "Cubism Editor 互換性 — ファーストパーティプラグイン",
         "plugins_intro": (
             "すべての行はリポジトリ内のレビュー済み互換性データから生成されています。"
@@ -146,6 +152,8 @@ STRINGS = {
         "readme_more": "完全なマトリクス",
     },
     "ko": {
+        "reviewed_versions": "검토된 모든 버전({range}, 정확한 버전 {count}개)",
+        "readme_full": "전체 기능(검토된 버전): {versions}.",
         "plugins_title": "Cubism Editor 호환성 — 퍼스트파티 플러그인",
         "plugins_intro": (
             "모든 행은 이 리포지토리의 검토된 호환성 데이터에서 생성됩니다. "

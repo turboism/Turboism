@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: analysis
 tags: texture-atlas, metrics, inspection
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -36,13 +36,14 @@ interface: swing
 
 ## 要求与兼容性
 
-- **SDK API 范围：** `[0.67.1,1.0.0)`。
+- **SDK API 范围：** `[0.67.0,1.0.0)`。
 - **Cubism：**需要 Cubism。Turboism 当前允许精确审核过的 Editor 构件 `5.0.00` 至 `5.3.04`；本插件仅在其声明的服务和功能能力可用时公开各项面向主机的功能。
 - **界面模式：**`swing`。
 - **插件依赖：**未声明。
 
 <!-- compatibility:begin -->
-**Cubism Editor 版本支持（自动生成）：** 全部审核版本.
+**Cubism Editor 版本支持（自动生成）：** 全部审核版本（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04，共 20 个精确版本）.
+完整功能（审核版本）：5.2.00–5.2.03, 5.3.00–5.3.04。
 - 图集编辑器面板 仅 5.2.00–5.3.04（更早版本 Cubism 本身无此功能）
 - 原生纹理图集编辑器会话访问 仅 5.2.00–5.3.04（更早版本 Cubism 本身无此功能）
 - 原生纹理图集编辑器 UI 贡献 仅 5.2.00–5.3.04（更早版本 Cubism 本身无此功能）

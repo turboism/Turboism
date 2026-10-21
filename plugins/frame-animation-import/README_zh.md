@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: animation, frame-animation, sprite-sheet, parameter
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: swing
 ---
@@ -38,13 +38,14 @@ interface: swing
 
 ## 要求与兼容性
 
-- **SDK API 范围:** `[0.67.1,1.0.0)`.
+- **SDK API 范围:** `[0.67.0,1.0.0)`.
 - **Cubism:** 支持全部经过验证的 Editor 版本 `5.0.00` 到 `5.3.04`。
 - **界面模式:** `swing`。
 - **插件依赖:** 无。
 
 <!-- compatibility:begin -->
-**Cubism Editor 版本支持（自动生成）：** 全部审核版本.
+**Cubism Editor 版本支持（自动生成）：** 全部审核版本（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04，共 20 个精确版本）.
+完整功能（审核版本）：5.3.00–5.3.04。
 - 部件不透明度写入 仅 5.3.00–5.3.04（[Cubism 5.3.00 新增部件离屏绘制（可设部件不透明度与剪贴蒙版）](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
 - 顶部菜单集成 不适用于 5.0.00–5.0.06（更早版本 Cubism 本身无此功能）
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)

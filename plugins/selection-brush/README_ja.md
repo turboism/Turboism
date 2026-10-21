@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: mesh, selection, brush
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -28,12 +28,13 @@ interface: embedded
 
 ## 要件と互換性
 
-- SDK API 範囲：`[0.67.1,1.0.0)`。ツールサービスは Preview SDK の契約を使用します。
+- SDK API 範囲：`[0.67.0,1.0.0)`。ツールサービスは Preview SDK の契約を使用します。
 - 正確に審査された Cubism Editor 5.2.03、5.3.02、5.3.03 をサポートします。通常モードには、点選択とツールライフサイクルの独立した利用許可も必要です。
 - 埋め込みインターフェースを使用し、他のプラグインへの依存はありません。
 
 <!-- compatibility:begin -->
-**Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
+**Cubism Editor バージョン対応（自動生成）：** 全審査済みバージョン（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04、20 個の正確なバージョン）.
+全機能（審査済みバージョン）：5.2.00–5.2.03, 5.3.00–5.3.04。
 - モデリング選択ブラシ のみ 5.2.00–5.3.04（[Cubism 5.3.00 でDeformation brush expand/shrink and circle/square/line brush shapesを追加](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
 <!-- compatibility:end -->
