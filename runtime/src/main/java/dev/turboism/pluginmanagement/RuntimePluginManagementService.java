@@ -667,7 +667,8 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
                 metadata.eventExports(),
                 metadata.eventImports(),
                 metadata.readme(),
-                metadata.hotReload());
+                metadata.hotReload(),
+                metadata.cubismCompatibility());
     }
 
     private PluginDetails coreDetails(final PluginInfo plugin) {

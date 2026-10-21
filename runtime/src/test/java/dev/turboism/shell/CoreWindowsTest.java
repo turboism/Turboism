@@ -451,6 +451,82 @@ class CoreWindowsTest {
         }
     }
 
+    @Test
+    void detailsShowExactSupportedFullAndPartialVersionsWithoutInventingMissingDeclarations() throws Exception {
+        Assumptions.assumeFalse(GraphicsEnvironment.isHeadless());
+        javax.swing.SwingUtilities.invokeAndWait(() -> {
+            final CoreWindows windows = new CoreWindows(
+                    I18N,
+                    RuntimeSettingsService.unavailable(),
+                    java.util.List::of,
+                    plugins(),
+                    RuntimeLogReader.unavailable(),
+                    dev.turboism.internal.core.KeybindingService.unavailable());
+            final CorePluginManagement.PluginInfo plugin = new CorePluginManagement.PluginInfo(
+                    "toy",
+                    "Toy",
+                    "1.0.0",
+                    "Toy",
+                    "ENABLED",
+                    "ENABLED",
+                    false,
+                    Optional.empty(),
+                    "development",
+                    java.util.List.of());
+            final CorePluginManagement.CubismCompatibility compatibility = new CorePluginManagement.CubismCompatibility(
+                    java.util.List.of("5.0.00", "5.2.00"), Optional.of(java.util.List.of("5.2.00")));
+            try {
+                for (boolean declared : new boolean[] {true, false}) {
+                    final CorePluginManagement.PluginDetails details = new CorePluginManagement.PluginDetails(
+                            plugin,
+                            "[0.67.0,1.0.0)",
+                            java.util.List.of(),
+                            "",
+                            Optional.empty(),
+                            java.util.List.of(),
+                            java.util.List.of(),
+                            java.util.List.of(),
+                            true,
+                            "swing",
+                            java.util.List.of(),
+                            java.util.List.of(),
+                            "",
+                            java.util.List.of(),
+                            java.util.List.of(),
+                            java.util.List.of(),
+                            Optional.of("# README"),
+                            false,
+                            declared ? Optional.of(compatibility) : Optional.empty());
+                    final javax.swing.JDialog dialog = windows.createPluginDetailsDialog(details);
+                    try {
+                        final java.util.List<String> labels = new java.util.ArrayList<>();
+                        collectLabels(dialog, labels);
+                        assertEquals(
+                                declared ? "<html>5.0.00, 5.2.00</html>" : "<html>plugins.details.undeclared</html>",
+                                labels.get(labels.indexOf("plugins.details.cubism-supported") + 1));
+                        assertEquals(
+                                declared ? "<html>5.2.00</html>" : "<html>plugins.details.undeclared</html>",
+                                labels.get(labels.indexOf("plugins.details.cubism-full") + 1));
+                        assertEquals(
+                                declared ? "<html>5.0.00</html>" : "<html>plugins.details.undeclared</html>",
+                                labels.get(labels.indexOf("plugins.details.cubism-partial") + 1));
+                    } finally {
+                        dialog.dispose();
+                    }
+                }
+            } finally {
+                windows.close();
+            }
+        });
+    }
+
+    private static void collectLabels(final java.awt.Component component, final java.util.List<String> labels) {
+        if (component instanceof javax.swing.JLabel label) labels.add(label.getText());
+        if (component instanceof java.awt.Container container) {
+            for (java.awt.Component child : container.getComponents()) collectLabels(child, labels);
+        }
+    }
+
     private static final class CorePluginManagementWithAutoUpdate
             implements CorePluginManagement, dev.turboism.pluginmanagement.PluginAutoUpdateControl {
         private final boolean[] saved;

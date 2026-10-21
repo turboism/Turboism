@@ -10,35 +10,35 @@ When Cubism runs under a FREE licence, saving is subject to the FREE parameter-c
 
 | Plugin | Supported versions | Feature deltas | Real-host validation |
 |---|---|---|---|
-| `acp` | all reviewed versions | — | host-verified 5.2.03, 5.3.02–5.3.03 |
-| `atlas-dalsoo-polygon` | all reviewed versions | Polygon-aware atlas layout only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely） | host-verified 5.2.03, 5.3.02–5.3.03 |
-| `atlas-maxrects-bssf` | all reviewed versions | — | host-verified 5.2.03 |
-| `boundingbox-warp-mirror` | all reviewed versions | — | host-verified 5.2.03, 5.3.02–5.3.03 |
-| `clipmask-viewer` | all reviewed versions | Top menu integration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely） | host-verified 5.0.00, 5.0.06–5.1.00, 5.1.03–5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
+| `acp` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | host-verified 5.2.03, 5.3.02–5.3.03 |
+| `atlas-dalsoo-polygon` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | full feature set requires 5.2.00+<br>Polygon-aware atlas layout only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely） | host-verified 5.2.03, 5.3.02–5.3.03 |
+| `atlas-maxrects-bssf` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | host-verified 5.2.03 |
+| `boundingbox-warp-mirror` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | host-verified 5.2.03, 5.3.02–5.3.03 |
+| `clipmask-viewer` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | full feature set requires 5.1.00+<br>Top menu integration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely） | host-verified 5.0.00, 5.0.06–5.1.00, 5.1.03–5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
 | `command-palette` | 5.1.00–5.3.04（earlier Cubism versions lack the feature entirely） | Top menu integration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely） | — |
-| `cubism-tab-filter` | all reviewed versions | — | — |
-| `demo` | all reviewed versions | — | — |
-| `external-psd-edit` | all reviewed versions | Export PSD raw image only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）<br>Replace PSD raw image only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely） | host-verified 5.3.02 |
-| `frame-animation-import` | all reviewed versions | Part opacity writes only on 5.3.00–5.3.04（[Cubism 5.3.00 added Part offscreen drawing (part opacity and clipping masks)](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）<br>Top menu integration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely） | — |
-| `history-panel` | all reviewed versions | — | — |
-| `mcp` | all reviewed versions | full feature set requires 5.1.00+<br>Top menu integration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）<br>MCP editor command execution not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）<br>MCP editor-command listing not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely） | host-verified 5.2.00–5.3.01, 5.3.03–5.3.04<br>confirmed boundary 5.0.00, 5.0.02, 5.0.06–5.1.00, 5.1.03 |
-| `mesh-edit-mirror-axis-enhance` | all reviewed versions | full feature set requires 5.2.00+<br>Mesh geometry read only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely） | — |
-| `model-import-3d` | all reviewed versions | — | — |
-| `palette-label-style` | all reviewed versions | — | — |
-| `parameter` | all reviewed versions | — | host-verified 5.2.00–5.2.03, 5.3.02–5.3.04<br>confirmed boundary 5.3.00–5.3.01 |
-| `parameter-batch-transfer` | all reviewed versions | — | host-verified 5.0.00–5.0.01, 5.1.00, 5.2.00–5.3.04<br>confirmed boundary 5.0.02–5.0.06, 5.1.01–5.1.03 |
-| `parameter-lock` | all reviewed versions | — | — |
-| `perf-stats` | all reviewed versions | — | host-verified 5.0.00–5.0.06, 5.1.01–5.1.03, 5.2.03, 5.3.02–5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
-| `physics-editor` | all reviewed versions | — | — |
-| `project-inspector` | all reviewed versions | — | — |
+| `cubism-tab-filter` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | — |
+| `demo` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | — |
+| `external-psd-edit` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | full feature set requires 5.2.00+<br>Export PSD raw image only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）<br>Replace PSD raw image only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely） | host-verified 5.3.02 |
+| `frame-animation-import` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | full feature set requires 5.3.00+<br>Part opacity writes only on 5.3.00–5.3.04（[Cubism 5.3.00 added Part offscreen drawing (part opacity and clipping masks)](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）<br>Top menu integration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely） | — |
+| `history-panel` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | — |
+| `mcp` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | full feature set requires 5.1.00+<br>Top menu integration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）<br>MCP editor command execution not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）<br>MCP editor-command listing not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely） | host-verified 5.2.00–5.3.01, 5.3.03–5.3.04<br>confirmed boundary 5.0.00, 5.0.02, 5.0.06–5.1.00, 5.1.03 |
+| `mesh-edit-mirror-axis-enhance` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | full feature set requires 5.2.00+<br>Mesh geometry read only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely） | — |
+| `model-import-3d` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | — |
+| `palette-label-style` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | — |
+| `parameter` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | host-verified 5.2.00–5.2.03, 5.3.02–5.3.04<br>confirmed boundary 5.3.00–5.3.01 |
+| `parameter-batch-transfer` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | host-verified 5.0.00–5.0.01, 5.1.00, 5.2.00–5.3.04<br>confirmed boundary 5.0.02–5.0.06, 5.1.01–5.1.03 |
+| `parameter-lock` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | — |
+| `perf-stats` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | host-verified 5.0.00–5.0.06, 5.1.01–5.1.03, 5.2.03, 5.3.02–5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
+| `physics-editor` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | — |
+| `project-inspector` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | — |
 | `protected-export` | 5.1.00–5.3.04（earlier Cubism versions lack the feature entirely） | Protected-export orchestration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）<br>Export settings contribution not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely） | host-verified 5.1.00, 5.1.03–5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04 |
-| `psd-clip-mask-import` | all reviewed versions | — | host-verified 5.0.00–5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
-| `recent-preview` | all reviewed versions | — | host-verified 5.2.03, 5.3.02 |
-| `scene-palette-enhancer` | all reviewed versions | — | — |
-| `selection-brush` | all reviewed versions | full feature set requires 5.2.00+<br>Modeling selection brush only on 5.2.00–5.3.04（[Cubism 5.3.00 added Deformation brush expand/shrink and circle/square/line brush shapes](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)） | host-verified 5.2.03, 5.3.02–5.3.03 |
-| `texture-atlas-stats` | all reviewed versions | Atlas editor panel only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）<br>Native atlas editor session access only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）<br>Native atlas editor UI contribution only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely） | — |
-| `ui-theme` | all reviewed versions | — | host-verified 5.0.00–5.2.03, 5.3.02–5.3.03<br>confirmed boundary 5.3.00–5.3.01, 5.3.04 |
-| `warp-deformer-alt-symmetry` | all reviewed versions | — | host-verified 5.2.03, 5.3.02–5.3.03 |
-| `webdav-backup` | all reviewed versions | Editor auto-backup not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）<br>Auto-backup artifacts not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）<br>Save-triggered auto-backup not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely） | host-verified 5.1.02, 5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04<br>confirmed boundary 5.1.00–5.1.01, 5.1.03, 5.2.01–5.2.02, 5.3.01 |
+| `psd-clip-mask-import` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | host-verified 5.0.00–5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04<br>confirmed boundary 5.2.01–5.2.02, 5.3.01 |
+| `recent-preview` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | host-verified 5.2.03, 5.3.02 |
+| `scene-palette-enhancer` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | — |
+| `selection-brush` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | full feature set requires 5.2.00+<br>Modeling selection brush only on 5.2.00–5.3.04（[Cubism 5.3.00 added Deformation brush expand/shrink and circle/square/line brush shapes](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)） | host-verified 5.2.03, 5.3.02–5.3.03 |
+| `texture-atlas-stats` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | full feature set requires 5.2.00+<br>Atlas editor panel only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）<br>Native atlas editor session access only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）<br>Native atlas editor UI contribution only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely） | — |
+| `ui-theme` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | host-verified 5.0.00–5.2.03, 5.3.02–5.3.03<br>confirmed boundary 5.3.00–5.3.01, 5.3.04 |
+| `warp-deformer-alt-symmetry` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | — | host-verified 5.2.03, 5.3.02–5.3.03 |
+| `webdav-backup` | all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions) | full feature set requires 5.1.00+<br>Editor auto-backup not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）<br>Auto-backup artifacts not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）<br>Save-triggered auto-backup not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely） | host-verified 5.1.02, 5.2.00, 5.2.03–5.3.00, 5.3.02–5.3.04<br>confirmed boundary 5.1.00–5.1.01, 5.1.03, 5.2.01–5.2.02, 5.3.01 |
 
 Real-host column: latest FINAL campaign result per task and version from `validation/cubism-version-matrix/campaign-jobs.json`, classified by triage. Infrastructure retries, probe drift, and inconclusive runs are never listed; unprobed versions stay blank — static review is the baseline everywhere.

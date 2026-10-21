@@ -67,6 +67,22 @@ def compact_ranges(versions, reviewed: list[str]) -> str:
     return ", ".join(r[0] if len(r) == 1 else f"{r[0]}–{r[-1]}" for r in runs)
 
 
+def exact_ranges(versions) -> str:
+    """Compress only consecutive patches within one major/minor line."""
+    ordered = sorted(set(versions), key=version_key)
+    if not ordered:
+        return "—"
+    runs: list[list[str]] = [[ordered[0]]]
+    for value in ordered[1:]:
+        previous = version_key(runs[-1][-1])
+        current = version_key(value)
+        if current[:2] == previous[:2] and current[2] == previous[2] + 1:
+            runs[-1].append(value)
+        else:
+            runs.append([value])
+    return ", ".join(run[0] if len(run) == 1 else f"{run[0]}–{run[-1]}" for run in runs)
+
+
 def localized(key: str, locale: str, fallback: str) -> str:
     labels = (
         FEATURE_LABELS.get(key)
@@ -474,6 +490,10 @@ def build_matrix(root: Path) -> dict:
                         set(existing.get(scope_key, []))
                         | set(note.get(scope_key, []))
                     )
+        # Availability of any feature permits partial use. Full functionality must
+        # also satisfy SDK/accessor and endpoint restrictions, not only capabilities.
+        for note in merged.values():
+            full_feature &= set(note["versions"])
         for note in merged.values():
             note["missingNature"] = classify_gap(
                 set(note["missingOn"]),

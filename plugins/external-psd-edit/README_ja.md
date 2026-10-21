@@ -7,7 +7,7 @@ status: preview
 delivery: store-candidate
 category: modeling
 tags: psd, texture, external-edit
-turboismApi: "[0.67.1,1.0.0)"
+turboismApi: "[0.67.0,1.0.0)"
 requiresCubism: true
 interface: embedded
 ---
@@ -40,14 +40,15 @@ ArtMesh を右クリックして完全な原画 PSD を OS 既定の PSD アプ�
 
 ## 要件と互換性
 
-- **SDK API 範囲:** `[0.67.1,1.0.0)`。
+- **SDK API 範囲:** `[0.67.0,1.0.0)`。
 - **Cubism:** 必須。書き出しと置換には Cubism ネイティブのレイヤー画像書き出しおよび原画置換機能（Cubism 5.2.00 以降）を使用します。
 - **インターフェースモード:** `embedded`。
 - **プラグイン依存関係:** なし。
 - 一時 PSD は再構築されたドキュメントであり、元アセットのバイトコピーではありません。
 
 <!-- compatibility:begin -->
-**Cubism Editor バージョン対応（自動生成）：** 全レビュー済みバージョン.
+**Cubism Editor バージョン対応（自動生成）：** 全審査済みバージョン（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04、20 個の正確なバージョン）.
+全機能（審査済みバージョン）：5.2.00–5.2.03, 5.3.00–5.3.04。
 - PSD 原画像のエクスポート のみ 5.2.00–5.3.04（それ以前の Cubism バージョンには機能自体がない）
 - PSD 原画像の置き換え のみ 5.2.00–5.3.04（それ以前の Cubism バージョンには機能自体がない）
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
