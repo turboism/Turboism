@@ -13,7 +13,7 @@ import java.util.Set;
 public final class MappingPackValidator extends AbstractJsonValidator {
 
     private static final Set<String> ALLOWED_FIELDS =
-            Set.of("status", "source", "cubismVersion", "entries", "metadata", "x.legacy");
+            Set.of("status", "source", "cubismVersion", "exactArtifactSha256", "entries", "metadata", "x.legacy");
     private static final Set<String> ALLOWED_STATUSES = Set.of("DRAFT", "QUARANTINE");
     private static final Set<String> ALLOWED_KINDS = Set.of("class", "constructor", "method", "field", "inherits");
     private static final Set<String> ALLOWED_CONFIDENCES = Set.of("high", "medium", "low", "inferred", "probe");

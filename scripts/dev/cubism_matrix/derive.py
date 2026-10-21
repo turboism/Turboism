@@ -280,7 +280,6 @@ def synthesize_entry(
     selector: dict,
     family: str,
     profile: str,
-    artifact_sha: str,
     uses_intermediary: bool,
     uses_owner: str | None,
     uses_review: bool,
@@ -320,7 +319,6 @@ def synthesize_entry(
         entry["x.review"] = {
             "recordAlias": selector["alias"],
             "recordMappingId": selector["mappingId"],
-            "exactArtifactSha256": artifact_sha,
             "provenance": (
                 "exact classfile verification on the reviewed artifact via "
                 "cubism_version_matrix"
@@ -363,7 +361,6 @@ def derive_pack(
                 selector,
                 family,
                 profile,
-                sha,
                 uses_intermediary,
                 uses_owner,
                 uses_review,
@@ -393,7 +390,6 @@ def derive_pack(
                     entry["x.review"],
                     recordAlias=selector["alias"],
                     recordMappingId=selector["mappingId"],
-                    exactArtifactSha256=sha,
                 )
                 if rewrite_provenance:
                     entry["x.review"]["provenance"] = (
@@ -401,8 +397,16 @@ def derive_pack(
                         f"{version} artifact via cubism_version_matrix"
                     )
         entries.append(entry)
-    pack = dict(source_pack)
-    pack["cubismVersion"] = version
+    pack = {}
+    for key, value in source_pack.items():
+        if key == "exactArtifactSha256":
+            continue
+        pack[key] = value
+        if key == "cubismVersion":
+            pack[key] = version
+            if uses_review:
+                # Hoisted: every x.review entry reviews this one exact artifact.
+                pack["exactArtifactSha256"] = sha
     pack["entries"] = entries
     if "metadata" in source_pack:
         record_bytes = json.dumps(record, indent=2).encode() + b"\n"
@@ -669,8 +673,10 @@ def repair_committed_packs() -> list[str]:
         record = json.loads(record_path.read_text())
         pack = json.loads(path.read_text())
         fixed = derive_pack(pack, record, version, family)
-        if fixed["entries"] != pack["entries"] or fixed.get("metadata") != pack.get(
-            "metadata"
+        if (
+            fixed["entries"] != pack["entries"]
+            or fixed.get("metadata") != pack.get("metadata")
+            or fixed.get("exactArtifactSha256") != pack.get("exactArtifactSha256")
         ):
             path.write_text(json.dumps(fixed, indent=2) + "\n")
             repaired.append(path.name)
