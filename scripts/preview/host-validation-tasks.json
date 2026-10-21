@@ -5179,7 +5179,26 @@
       "description": "Independent bitmask nesting/BSSF validation with captured original contours, exact host matrices and per-side margins; fixed Geometry/Circle/heavy fixtures.",
       "command": "scripts/preview/run-atlas-nesting-host-validation.sh",
       "versions": [
-        "5303"
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
       ],
       "defaultVariant": "geometry-100-nesting",
       "variants": {

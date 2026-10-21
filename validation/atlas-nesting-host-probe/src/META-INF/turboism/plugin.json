@@ -6,7 +6,7 @@
   "version": "0.1.0",
   "description": "Task-local issued contour and production plan capture for nesting validation.",
   "entrypoints": ["dev.turboism.validation.nesting.NestingCapturePlugin"],
-  "turboismApi": "[0.67.1,1.0.0)",
+  "turboismApi": "[0.67.0,1.0.0)",
   "authors": [{"name": "Turboism validation"}],
   "license": "MIT",
   "website": "https://turboism.dev",

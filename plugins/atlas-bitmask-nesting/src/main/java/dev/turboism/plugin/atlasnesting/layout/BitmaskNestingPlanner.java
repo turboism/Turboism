@@ -60,11 +60,10 @@ public final class BitmaskNestingPlanner implements TextureAtlasPolygonPlanner {
         final List<Source> sources = new ArrayList<>();
         final HashSet<String> ids = new HashSet<>();
         for (final TextureAtlasPolygonItem item : items) {
-            if (!ids.add(item.textureId())) throw new IllegalArgumentException("Duplicate texture ID");
+            if (!ids.add(item.textureId())) throw new NestingFailure("duplicate-id", item.textureId());
             if (!item.policy().participate() && !item.currentlyPlaced()) continue;
             final Shape shape = OutlineRasterizer.shape(item.outline(), new AffineTransform());
-            if (shape.getBounds2D().isEmpty())
-                throw new IllegalArgumentException("Degenerate outline: " + item.textureId());
+            if (shape.getBounds2D().isEmpty()) throw new NestingFailure("degenerate-outline", item.textureId());
             sources.add(new Source(
                     item,
                     shape,
@@ -176,7 +175,7 @@ public final class BitmaskNestingPlanner implements TextureAtlasPolygonPlanner {
             final TextureAtlasPolygonItem item = source.item();
             if (!fixed(item)) continue;
             final double[] matrix = item.currentMatrix();
-            if (matrix == null) throw new IllegalArgumentException("Fixed item has no issued transform");
+            if (matrix == null) throw new NestingFailure("missing-transform", item.textureId());
             final Shape raw = new AffineTransform(matrix).createTransformedShape(source.shape());
             final var raster = OutlineRasterizer.raster(
                     raw, gap, cell, new Rectangle2D.Double(0, 0, c.pageWidth(), c.pageHeight()));
@@ -186,7 +185,7 @@ public final class BitmaskNestingPlanner implements TextureAtlasPolygonPlanner {
                     || y < 0
                     || x + raster.mask().width > board.width
                     || y + raster.mask().height > board.height) {
-                throw new IllegalArgumentException("Fixed obstacles overlap or violate margin: " + item.textureId());
+                throw new NestingFailure("fixed-margin", item.textureId());
             }
             // Fixed transforms have no grid phase freedom. A shared conservative
             // cell is not proof of an actual overlap or spacing violation.
@@ -198,8 +197,7 @@ public final class BitmaskNestingPlanner implements TextureAtlasPolygonPlanner {
                 if (!expanded.getBounds2D().intersects(previous.getBounds2D())) continue;
                 final Area overlap = new Area(expanded);
                 overlap.intersect(previous);
-                if (!overlap.isEmpty())
-                    throw new IllegalArgumentException("Fixed obstacles overlap or violate gap: " + item.textureId());
+                if (!overlap.isEmpty()) throw new NestingFailure("fixed-gap", item.textureId());
             }
             fixedAreas.add(expanded);
             board.add(raster.mask(), x, y);
